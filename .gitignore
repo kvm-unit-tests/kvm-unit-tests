@@ -1,0 +1,9 @@
+.gdbinit
+*.a
+*.d
+*.o
+*.flat
+.pc
+patches
+.stgit-*
+cscope.*
