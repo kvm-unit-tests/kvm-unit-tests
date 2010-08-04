@@ -947,6 +947,25 @@ void test_iret()
 		print_serial("iret Test 4: PASS\n");
 }
 
+void test_int()
+{
+	struct regs inregs = { 0 }, outregs;
+
+	*(u32 *)(0x11 * 4) = 0x1000; /* Store a pointer to address 0x1000 in IDT entry 0x11 */
+	*(u8 *)(0x1000) = 0xcf; /* 0x1000 contains an IRET instruction */
+
+	MK_INSN(int11, "int $0x11\n\t");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_int11,
+			      insn_int11_end - insn_int11);
+
+	if (!regs_equal(&inregs, &outregs, 0))
+		print_serial("int Test 1: FAIL\n");
+	else
+		print_serial("int Test 1: PASS\n");
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -969,6 +988,7 @@ void realmode_start(void)
 	test_long_jmp();
 	test_xchg();
 	test_iret();
+	test_int();
 
 	exit(0);
 }
