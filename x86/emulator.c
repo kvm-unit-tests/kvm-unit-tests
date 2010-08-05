@@ -360,6 +360,21 @@ void test_xchg(void *mem)
 	       rax == 0x123456789abcdef && *memq == 0xfedcba9876543210);
 }
 
+void test_btc(void *mem)
+{
+	unsigned int *a = mem;
+
+	memset(mem, 0, 3 * sizeof(unsigned int));
+
+	asm ("btcl $32, %0" :: "m"(a[0]) : "memory");
+	asm ("btcl $1, %0" :: "m"(a[1]) : "memory");
+	asm ("btcl %1, %0" :: "m"(a[0]), "r"(66) : "memory");
+	report("btcl imm8, r/m", a[0] == 1 && a[1] == 2 && a[2] == 4);
+
+	asm ("btcl %1, %0" :: "m"(a[3]), "r"(-1) : "memory");
+	report("btcl reg, r/m", a[0] == 1 && a[1] == 2 && a[2] == 0x80000004);
+}
+
 int main()
 {
 	void *mem;
@@ -391,6 +406,7 @@ int main()
 	test_ljmp(mem);
 	test_stringio();
 	test_incdecnotneg(mem);
+	test_btc(mem);
 
 	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);
 	return fails ? 1 : 0;
