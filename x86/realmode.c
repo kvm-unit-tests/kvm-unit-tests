@@ -462,6 +462,7 @@ void test_eflags_insn(void)
 {
 	struct regs inregs = { 0 }, outregs;
 	MK_INSN(clc, "clc");
+	MK_INSN(stc, "stc");
 	MK_INSN(cli, "cli");
 	MK_INSN(sti, "sti");
 	MK_INSN(cld, "cld");
@@ -474,6 +475,14 @@ void test_eflags_insn(void)
 		print_serial("clc test: FAIL\n");
 	else
 		print_serial("clc test: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_stc,
+			      insn_stc_end - insn_stc);
+	if (!(outregs.eflags & 1))
+		print_serial("stc test: FAIL\n");
+	else
+		print_serial("stc test: PASS\n");
 
 	exec_in_big_real_mode(&inregs, &outregs,
 			      insn_cli,
