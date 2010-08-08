@@ -1104,6 +1104,96 @@ void test_mul()
 		print_serial("mul Test 3: PASS\n");
 }
 
+void test_div()
+{
+	struct regs inregs = { 0 }, outregs;
+
+	MK_INSN(div8, "mov $257, %ax\n\t"
+			"mov $2, %cl\n\t"
+			"div %cl\n\t");
+
+	MK_INSN(div16, "mov $512, %ax\n\t"
+			"mov $5, %cx\n\t"
+			"div %cx\n\t");
+
+	MK_INSN(div32, "mov $512, %eax\n\t"
+			"mov $5, %ecx\n\t"
+			"div %ecx\n\t");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			     insn_div8,
+			     insn_div8_end - insn_div8);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 384)
+		print_serial("div Test 1: FAIL\n");
+	else
+		print_serial("div Test 1: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_div16,
+			      insn_div16_end - insn_div16);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 102 ||
+	    outregs.edx != 2)
+		print_serial("div Test 2: FAIL\n");
+	else
+		print_serial("div Test 2: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_div32,
+			      insn_div32_end - insn_div32);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 102 ||
+	    outregs.edx != 2)
+		print_serial("div Test 3: FAIL\n");
+	else
+		print_serial("div Test 3: PASS\n");
+}
+
+void test_idiv()
+{
+	struct regs inregs = { 0 }, outregs;
+
+	MK_INSN(idiv8, "mov $256, %ax\n\t"
+			"mov $-2, %cl\n\t"
+			"idiv %cl\n\t");
+
+	MK_INSN(idiv16, "mov $512, %ax\n\t"
+			"mov $-2, %cx\n\t"
+			"idiv %cx\n\t");
+
+	MK_INSN(idiv32, "mov $512, %eax\n\t"
+			"mov $-2, %ecx\n\t"
+			"idiv %ecx\n\t");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			     insn_idiv8,
+			     insn_idiv8_end - insn_idiv8);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != (u8)-128)
+		print_serial("idiv Test 1: FAIL\n");
+	else
+		print_serial("idiv Test 1: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_idiv16,
+			      insn_idiv16_end - insn_idiv16);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != (u16)-256)
+		print_serial("idiv Test 2: FAIL\n");
+	else
+		print_serial("idiv Test 2: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_idiv32,
+			      insn_idiv32_end - insn_idiv32);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != (u32)-256)
+		print_serial("idiv Test 3: FAIL\n");
+	else
+		print_serial("idiv Test 3: PASS\n");
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1129,6 +1219,8 @@ void realmode_start(void)
 	test_int();
 	test_imul();
 	test_mul();
+	test_div();
+	test_idiv();
 
 	exit(0);
 }
