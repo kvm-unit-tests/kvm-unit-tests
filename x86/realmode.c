@@ -733,6 +733,7 @@ void test_long_jmp()
 	else
 		print_serial("Long JMP Test: PASS\n");
 }
+
 void test_push_pop()
 {
 	struct regs inregs = { 0 }, outregs;
@@ -975,6 +976,90 @@ void test_int()
 		print_serial("int Test 1: PASS\n");
 }
 
+void test_imul()
+{
+	struct regs inregs = { 0 }, outregs;
+
+	MK_INSN(imul8_1, "mov $2, %al\n\t"
+			"mov $-4, %cx\n\t"
+			"imul %cl\n\t");
+
+	MK_INSN(imul16_1, "mov $2, %ax\n\t"
+		      "mov $-4, %cx\n\t"
+		      "imul %cx\n\t");
+
+	MK_INSN(imul32_1, "mov $2, %eax\n\t"
+		       "mov $-4, %ecx\n\t"
+		       "imul %ecx\n\t");
+
+	MK_INSN(imul8_2, "mov $0x12340002, %eax\n\t"
+			"mov $4, %cx\n\t"
+			"imul %cl\n\t");
+
+	MK_INSN(imul16_2, "mov $2, %ax\n\t"
+			"mov $4, %cx\n\t"
+			"imul %cx\n\t");
+
+	MK_INSN(imul32_2, "mov $2, %eax\n\t"
+			"mov $4, %ecx\n\t"
+			"imul %ecx\n\t");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_imul8_1,
+			      insn_imul8_1_end - insn_imul8_1);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || (outregs.eax & 0xff) != (u8)-8)
+		print_serial("imul Test 1: FAIL\n");
+	else
+		print_serial("imul Test 1: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_imul16_1,
+			      insn_imul16_1_end - insn_imul16_1);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != (u16)-8)
+		print_serial("imul Test 2: FAIL\n");
+	else
+		print_serial("imul Test 2: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_imul32_1,
+			      insn_imul32_1_end - insn_imul32_1);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != (u32)-8)
+		print_serial("imul Test 3: FAIL\n");
+	else
+		print_serial("imul Test 3: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_imul8_2,
+			      insn_imul8_2_end - insn_imul8_2);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || (outregs.eax & 0xffff) != 8 ||
+	     (outregs.eax & 0xffff0000) != 0x12340000)
+		print_serial("imul Test 4: FAIL\n");
+	else
+		print_serial("imul Test 4: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_imul16_2,
+			      insn_imul16_2_end - insn_imul16_2);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 8)
+		print_serial("imul Test 5: FAIL\n");
+	else
+		print_serial("imul Test 5: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_imul32_2,
+			      insn_imul32_2_end - insn_imul32_2);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 8)
+		print_serial("imul Test 6: FAIL\n");
+	else
+		print_serial("imul Test 6: PASS\n");
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -998,6 +1083,7 @@ void realmode_start(void)
 	test_xchg();
 	test_iret();
 	test_int();
+	test_imul();
 
 	exit(0);
 }
