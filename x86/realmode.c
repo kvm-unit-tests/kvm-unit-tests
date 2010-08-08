@@ -1060,6 +1060,50 @@ void test_imul()
 		print_serial("imul Test 6: PASS\n");
 }
 
+void test_mul()
+{
+	struct regs inregs = { 0 }, outregs;
+
+	MK_INSN(mul8, "mov $2, %al\n\t"
+			"mov $4, %cx\n\t"
+			"imul %cl\n\t");
+
+	MK_INSN(mul16, "mov $2, %ax\n\t"
+			"mov $4, %cx\n\t"
+			"imul %cx\n\t");
+
+	MK_INSN(mul32, "mov $2, %eax\n\t"
+			"mov $4, %ecx\n\t"
+			"imul %ecx\n\t");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_mul8,
+			      insn_mul8_end - insn_mul8);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || (outregs.eax & 0xff) != 8)
+		print_serial("mul Test 1: FAIL\n");
+	else
+		print_serial("mul Test 1: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_mul16,
+			      insn_mul16_end - insn_mul16);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 8)
+		print_serial("mul Test 2: FAIL\n");
+	else
+		print_serial("mul Test 2: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_mul32,
+			      insn_mul32_end - insn_mul32);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 8)
+		print_serial("mul Test 3: FAIL\n");
+	else
+		print_serial("mul Test 3: PASS\n");
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1084,6 +1128,7 @@ void realmode_start(void)
 	test_iret();
 	test_int();
 	test_imul();
+	test_mul();
 
 	exit(0);
 }
