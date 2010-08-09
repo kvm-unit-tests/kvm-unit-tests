@@ -375,6 +375,69 @@ void test_btc(void *mem)
 	report("btcl reg, r/m", a[0] == 1 && a[1] == 2 && a[2] == 0x80000004);
 }
 
+void test_bsfbsr(void *mem)
+{
+	unsigned long *memq = mem, rax;
+
+	asm volatile("movw $0xC000, (%[memq])\n\t"
+		     "bsfw (%[memq]), %%ax\n\t"
+		     ::[memq]"r"(memq));
+	asm ("mov %%rax, %[rax]": [rax]"=m"(rax));
+	report("bsfw r/m, reg", rax == 14);
+
+	asm volatile("movl $0xC0000000, (%[memq])\n\t"
+		     "bsfl (%[memq]), %%eax\n\t"
+		     ::[memq]"r"(memq));
+	asm ("mov %%rax, %[rax]": [rax]"=m"(rax));
+	report("bsfl r/m, reg", rax == 30);
+
+	asm volatile("movq $0xC00000000000, %%rax\n\t"
+		     "movq %%rax, (%[memq])\n\t"
+		     "bsfq (%[memq]), %%rax\n\t"
+		     ::[memq]"r"(memq));
+	asm ("mov %%rax, %[rax]": [rax]"=m"(rax));
+	report("bsfq r/m, reg", rax == 46);
+
+	asm volatile("movq $0, %%rax\n\t"
+		     "movq %%rax, (%[memq])\n\t"
+		     "bsfq (%[memq]), %%rax\n\t"
+		     "jnz 1f\n\t"
+		     "movl $1, %[rax]\n\t"
+		     "1:\n\t"
+		     :[rax]"=m"(rax)
+		     :[memq]"r"(memq));
+	report("bsfq r/m, reg", rax == 1);
+
+	asm volatile("movw $0xC000, (%[memq])\n\t"
+		     "bsrw (%[memq]), %%ax\n\t"
+		     ::[memq]"r"(memq));
+	asm ("mov %%rax, %[rax]": [rax]"=m"(rax));
+	report("bsrw r/m, reg", rax == 15);
+
+	asm volatile("movl $0xC0000000, (%[memq])\n\t"
+		     "bsrl (%[memq]), %%eax\n\t"
+		     ::[memq]"r"(memq));
+	asm ("mov %%rax, %[rax]": [rax]"=m"(rax));
+	report("bsrl r/m, reg", rax == 31);
+
+	asm volatile("movq $0xC00000000000, %%rax\n\t"
+		     "movq %%rax, (%[memq])\n\t"
+		     "bsrq (%[memq]), %%rax\n\t"
+		     ::[memq]"r"(memq));
+	asm ("mov %%rax, %[rax]": [rax]"=m"(rax));
+	report("bsrq r/m, reg", rax == 47);
+
+	asm volatile("movq $0, %%rax\n\t"
+		     "movq %%rax, (%[memq])\n\t"
+		     "bsrq (%[memq]), %%rax\n\t"
+		     "jnz 1f\n\t"
+		     "movl $1, %[rax]\n\t"
+		     "1:\n\t"
+		     :[rax]"=m"(rax)
+		     :[memq]"r"(memq));
+	report("bsrq r/m, reg", rax == 1);
+}
+
 int main()
 {
 	void *mem;
@@ -407,6 +470,7 @@ int main()
 	test_stringio();
 	test_incdecnotneg(mem);
 	test_btc(mem);
+	test_bsfbsr(mem);
 
 	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);
 	return fails ? 1 : 0;
