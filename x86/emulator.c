@@ -121,6 +121,46 @@ void test_cmps(void *mem)
 	test_cmps_one(m1, m2);
 }
 
+void test_scas(void *mem)
+{
+    bool z;
+    void *di;
+
+    *(ulong *)mem = 0x77665544332211;
+
+    di = mem;
+    asm ("scasb; setz %0" : "=rm"(z), "+D"(di) : "a"(0xff11));
+    report("scasb match", di == mem + 1 && z);
+
+    di = mem;
+    asm ("scasb; setz %0" : "=rm"(z), "+D"(di) : "a"(0xff54));
+    report("scasb mismatch", di == mem + 1 && !z);
+
+    di = mem;
+    asm ("scasw; setz %0" : "=rm"(z), "+D"(di) : "a"(0xff2211));
+    report("scasw match", di == mem + 2 && z);
+
+    di = mem;
+    asm ("scasw; setz %0" : "=rm"(z), "+D"(di) : "a"(0xffdd11));
+    report("scasw mismatch", di == mem + 2 && !z);
+
+    di = mem;
+    asm ("scasl; setz %0" : "=rm"(z), "+D"(di) : "a"(0xff44332211ul));
+    report("scasd match", di == mem + 4 && z);
+
+    di = mem;
+    asm ("scasl; setz %0" : "=rm"(z), "+D"(di) : "a"(0x45332211));
+    report("scasd mismatch", di == mem + 4 && !z);
+
+    di = mem;
+    asm ("scasq; setz %0" : "=rm"(z), "+D"(di) : "a"(0x77665544332211ul));
+    report("scasq match", di == mem + 8 && z);
+
+    di = mem;
+    asm ("scasq; setz %0" : "=rm"(z), "+D"(di) : "a"(3));
+    report("scasq mismatch", di == mem + 8 && !z);
+}
+
 void test_cr8(void)
 {
 	unsigned long src, dst;
@@ -506,6 +546,7 @@ int main()
 	report("mov reg, r/m (1)", t2 == 0x123456789abcdef);
 
 	test_cmps(mem);
+	test_scas(mem);
 
 	test_push(mem);
 	test_pop(mem);
