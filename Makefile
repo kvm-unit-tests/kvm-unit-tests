@@ -15,6 +15,7 @@ cflatobjs := \
 	lib/panic.o \
 	lib/printf.o \
 	lib/string.o
+cflatobjs += lib/argv.o
 
 #include architecure specific make rules
 include config-$(ARCH).mak

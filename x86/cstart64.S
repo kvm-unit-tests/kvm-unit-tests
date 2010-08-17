@@ -75,6 +75,8 @@ i = i + 1
 	.endr
 tss_end:
 
+mb_boot_info:	.quad 0
+
 .section .init
 
 .code32
@@ -84,6 +86,7 @@ mb_flags = 0x0
 
 	# multiboot header
 	.long mb_magic, mb_flags, 0 - (mb_magic + mb_flags)
+mb_cmdline = 16
 
 MSR_GS_BASE = 0xc0000101
 
@@ -96,6 +99,7 @@ MSR_GS_BASE = 0xc0000101
 
 .globl start
 start:
+	mov %ebx, mb_boot_info
 	mov $stacktop, %esp
 	setup_percpu_area
 	call prepare_64
@@ -179,6 +183,12 @@ start64:
 	call enable_apic
 	call smp_init
 	call enable_x2apic
+	mov mb_boot_info(%rip), %rax
+	mov mb_cmdline(%rax), %rax
+	mov %rax, __args(%rip)
+	call __setup_args
+	mov __argc(%rip), %edi
+	lea __argv(%rip), %rsi
 	call main
 	mov %eax, %edi
 	call exit
