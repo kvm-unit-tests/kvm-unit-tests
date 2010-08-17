@@ -53,6 +53,13 @@ void test_cmps_one(unsigned char *m1, unsigned char *m3)
 		     : : "cc");
 	report("repe/cmpsb (1)", rcx == 0 && rsi == m1 + 30 && rdi == m3 + 30);
 
+	rsi = m1; rdi = m3; rcx = 30;
+	asm volatile("or $1, %[tmp]\n\t" // clear ZF
+		     "repe/cmpsb"
+		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
+		     : : "cc");
+	report("repe/cmpsb (1.zf)", rcx == 0 && rsi == m1 + 30 && rdi == m3 + 30);
+
 	rsi = m1; rdi = m3; rcx = 15;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
 		     "repe/cmpsw"
