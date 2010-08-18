@@ -1220,6 +1220,48 @@ void test_cbw(void)
 		print_serial("cwde test 1: PASS\n");
 }
 
+void test_loopcc(void)
+{
+	struct regs inregs = { 0 }, outregs;
+
+	MK_INSN(loop, "mov $10, %ecx\n\t"
+		      "1: inc %eax\n\t"
+		      "loop 1b\n\t");
+
+	MK_INSN(loope, "mov $10, %ecx\n\t"
+		       "mov $1, %eax\n\t"
+		       "1: dec %eax\n\t"
+		       "loope 1b\n\t");
+
+	MK_INSN(loopne, "mov $10, %ecx\n\t"
+		        "mov $5, %eax\n\t"
+		        "1: dec %eax\n\t"
+			"loopne 1b\n\t");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			insn_loop, insn_loop_end - insn_loop);
+	if(!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 10)
+		print_serial("LOOPcc short Test 1: FAIL\n");
+	else
+		print_serial("LOOPcc short Test 1: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			insn_loope, insn_loope_end - insn_loope);
+	if(!regs_equal(&inregs, &outregs, R_AX | R_CX) ||
+	   outregs.eax != -1 || outregs.ecx != 8)
+		print_serial("LOOPcc short Test 2: FAIL\n");
+	else
+		print_serial("LOOPcc short Test 2: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			insn_loopne, insn_loopne_end - insn_loopne);
+	if(!regs_equal(&inregs, &outregs, R_AX | R_CX) ||
+	   outregs.eax != 0 || outregs.ecx != 5)
+		print_serial("LOOPcc short Test 3: FAIL\n");
+	else
+		print_serial("LOOPcc short Test 3: PASS\n");
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1247,6 +1289,7 @@ void realmode_start(void)
 	test_mul();
 	test_div();
 	test_idiv();
+	test_loopcc();
 	test_cbw();
 
 	exit(0);
