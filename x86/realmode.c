@@ -1194,6 +1194,32 @@ void test_idiv()
 		print_serial("idiv Test 3: PASS\n");
 }
 
+void test_cbw(void)
+{
+	struct regs inregs = { 0 }, outregs;
+
+	MK_INSN(cbw, "mov $0xFE, %eax \n\t"
+		     "cbw\n\t");
+	MK_INSN(cwde, "mov $0xFFFE, %eax \n\t"
+		      "cwde\n\t");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_cbw,
+			      insn_cbw_end - insn_cbw);
+	if (outregs.eax != 0xFFFE)
+		print_serial("cbw test1: FAIL\n");
+	else
+		print_serial("cbw test 1: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_cwde,
+			      insn_cwde_end - insn_cwde);
+	if (outregs.eax != 0xFFFFFFFE)
+		print_serial("cwde test1: FAIL\n");
+	else
+		print_serial("cwde test 1: PASS\n");
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1221,6 +1247,7 @@ void realmode_start(void)
 	test_mul();
 	test_div();
 	test_idiv();
+	test_cbw();
 
 	exit(0);
 }
