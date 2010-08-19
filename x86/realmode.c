@@ -78,6 +78,7 @@ static void exec_in_big_real_mode(const struct regs *inregs,
 		"and $-2, %[tmp] \n\t"
 		"mov %[tmp], %%cr0 \n\t"
 
+                "pushw %[save]+36; popfw \n\t"
 		"xchg %%eax, %[save]+0 \n\t"
 		"xchg %%ebx, %[save]+4 \n\t"
 		"xchg %%ecx, %[save]+8 \n\t"
