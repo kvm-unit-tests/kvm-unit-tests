@@ -535,6 +535,47 @@ void test_bsfbsr(void *mem)
 	report("bsrq r/m, reg", rax == 1);
 }
 
+static void test_imul(ulong *mem)
+{
+    ulong a;
+
+    *mem = 51; a = 0x1234567812345678UL;
+    asm ("imulw %1, %%ax" : "+a"(a) : "m"(*mem));
+    report("imul ax, mem", a == 0x12345678123439e8);
+
+    *mem = 51; a = 0x1234567812345678UL;
+    asm ("imull %1, %%eax" : "+a"(a) : "m"(*mem));
+    report("imul eax, mem", a == 0xa06d39e8);
+
+    *mem = 51; a = 0x1234567812345678UL;
+    asm ("imulq %1, %%rax" : "+a"(a) : "m"(*mem));
+    report("imul rax, mem", a == 0xA06D39EBA06D39E8UL);
+
+    *mem  = 0x1234567812345678UL; a = 0x8765432187654321L;
+    asm ("imulw $51, %1, %%ax" : "+a"(a) : "m"(*mem));
+    report("imul ax, mem, imm8", a == 0x87654321876539e8);
+
+    *mem = 0x1234567812345678UL;
+    asm ("imull $51, %1, %%eax" : "+a"(a) : "m"(*mem));
+    report("imul eax, mem, imm8", a == 0xa06d39e8);
+
+    *mem = 0x1234567812345678UL;
+    asm ("imulq $51, %1, %%rax" : "+a"(a) : "m"(*mem));
+    report("imul rax, mem, imm8", a == 0xA06D39EBA06D39E8UL);
+
+    *mem  = 0x1234567812345678UL; a = 0x8765432187654321L;
+    asm ("imulw $311, %1, %%ax" : "+a"(a) : "m"(*mem));
+    report("imul ax, mem, imm", a == 0x8765432187650bc8);
+
+    *mem = 0x1234567812345678UL;
+    asm ("imull $311, %1, %%eax" : "+a"(a) : "m"(*mem));
+    report("imul eax, mem, imm", a == 0x1d950bc8);
+
+    *mem = 0x1234567812345678UL;
+    asm ("imulq $311, %1, %%rax" : "+a"(a) : "m"(*mem));
+    report("imul rax, mem, imm", a == 0x1D950BDE1D950BC8L);
+}
+
 int main()
 {
 	void *mem;
@@ -570,6 +611,7 @@ int main()
 	test_incdecnotneg(mem);
 	test_btc(mem);
 	test_bsfbsr(mem);
+	test_imul(mem);
 
 	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);
 	return fails ? 1 : 0;
