@@ -1546,6 +1546,63 @@ static void test_das(void)
     print_serial("DAS Test: PASS\n");
 }
 
+void test_cwd_cdq()
+{
+	struct regs inregs = { 0 }, outregs;
+
+	/* Sign-bit set */
+	MK_INSN(cwd_1, "mov $0x8000, %ax\n\t"
+		       "cwd\n\t");
+
+	/* Sign-bit not set */
+	MK_INSN(cwd_2, "mov $0x1000, %ax\n\t"
+		       "cwd\n\t");
+
+	/* Sign-bit set */
+	MK_INSN(cdq_1, "mov $0x80000000, %eax\n\t"
+		       "cdq\n\t");
+
+	/* Sign-bit not set */
+	MK_INSN(cdq_2, "mov $0x10000000, %eax\n\t"
+		       "cdq\n\t");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_cwd_1,
+			      insn_cwd_1_end - insn_cwd_1);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_DX) || outregs.eax != 0x8000 || outregs.edx != 0xffff)
+		print_serial("cwd Test 1: FAIL\n");
+	else
+		print_serial("cwd Test 1: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_cwd_2,
+			      insn_cwd_2_end - insn_cwd_2);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_DX) || outregs.eax != 0x1000 || outregs.edx != 0)
+		print_serial("cwd Test 2: FAIL\n");
+	else
+		print_serial("cwd Test 2: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_cdq_1,
+			      insn_cdq_1_end - insn_cdq_1);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_DX) || outregs.eax != 0x80000000 || outregs.edx != 0xffffffff)
+		print_serial("cdq Test 1: FAIL\n");
+	else
+		print_serial("cdq Test 1: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs,
+			      insn_cdq_2,
+			      insn_cdq_2_end - insn_cdq_2);
+
+	if (!regs_equal(&inregs, &outregs, R_AX | R_DX) || outregs.eax != 0x10000000 || outregs.edx != 0)
+		print_serial("cdq Test 2: FAIL\n");
+	else
+		print_serial("cdq Test 2: PASS\n");
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1575,6 +1632,7 @@ void realmode_start(void)
 	test_idiv();
 	test_loopcc();
 	test_cbw();
+	test_cwd_cdq();
 	test_das();
 
 	exit(0);
