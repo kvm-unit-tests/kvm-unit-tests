@@ -138,8 +138,11 @@ int regs_equal(int ignore)
 	return 1;
 }
 
-static void report(const char *name, _Bool ok)
+static void report(const char *name, u16 regs_ignore, _Bool ok)
 {
+    if (!regs_equal(regs_ignore)) {
+	ok = 0;
+    }
     print_serial(ok ? "PASS: " : "FAIL: ");
     print_serial(name);
     print_serial("\n");
@@ -173,38 +176,35 @@ void test_xchg(void)
 	inregs = (struct regs){ .eax = 0, .ebx = 1, .ecx = 2, .edx = 3, .esi = 4, .edi = 5, .ebp = 6, .esp = 7};
 
 	exec_in_big_real_mode(&insn_xchg_test1);
-	report("xchg 1", regs_equal(0));
+	report("xchg 1", 0, 1);
 
 	exec_in_big_real_mode(&insn_xchg_test2);
-	report("xchg 2",
-	       regs_equal(R_AX | R_BX)
-	       && outregs.eax == inregs.ebx && outregs.ebx == inregs.eax);
+	report("xchg 2", R_AX | R_BX,
+	       outregs.eax == inregs.ebx && outregs.ebx == inregs.eax);
 
 	exec_in_big_real_mode(&insn_xchg_test3);
-	report("xchg 3",
-	       regs_equal(R_AX | R_CX)
-	       && outregs.eax == inregs.ecx && outregs.ecx == inregs.eax);
+	report("xchg 3", R_AX | R_CX,
+	       outregs.eax == inregs.ecx && outregs.ecx == inregs.eax);
 
 	exec_in_big_real_mode(&insn_xchg_test4);
-	report("xchg 4",
-	       regs_equal(R_AX | R_DX)
-	       && outregs.eax == inregs.edx && outregs.edx == inregs.eax);
+	report("xchg 4", R_AX | R_DX,
+	       outregs.eax == inregs.edx && outregs.edx == inregs.eax);
 
 	exec_in_big_real_mode(&insn_xchg_test5);
-	report("xchg 5", regs_equal(R_AX | R_SI)
-	       && outregs.eax == inregs.esi && outregs.esi == inregs.eax);
+	report("xchg 5", R_AX | R_SI,
+	       outregs.eax == inregs.esi && outregs.esi == inregs.eax);
 
 	exec_in_big_real_mode(&insn_xchg_test6);
-	report("xchg 6", regs_equal(R_AX | R_DI)
-	       && outregs.eax == inregs.edi && outregs.edi == inregs.eax);
+	report("xchg 6", R_AX | R_DI,
+	       outregs.eax == inregs.edi && outregs.edi == inregs.eax);
 
 	exec_in_big_real_mode(&insn_xchg_test7);
-	report("xchg 7", regs_equal(R_AX | R_BP)
-	       && outregs.eax == inregs.ebp && outregs.ebp == inregs.eax);
+	report("xchg 7", R_AX | R_BP,
+	       outregs.eax == inregs.ebp && outregs.ebp == inregs.eax);
 
 	exec_in_big_real_mode(&insn_xchg_test8);
-	report("xchg 8", regs_equal(R_AX | R_SP)
-	       && outregs.eax == inregs.esp && outregs.esp == inregs.eax);
+	report("xchg 8", R_AX | R_SP,
+	       outregs.eax == inregs.esp && outregs.esp == inregs.eax);
 }
 
 void test_shld(void)
@@ -213,7 +213,7 @@ void test_shld(void)
 
 	inregs = (struct regs){ .eax = 0xbe, .edx = 0xef000000 };
 	exec_in_big_real_mode(&insn_shld_test);
-	report("shld", outregs.eax == 0xbeef);
+	report("shld", ~0, outregs.eax == 0xbeef);
 }
 
 void test_mov_imm(void)
@@ -227,27 +227,21 @@ void test_mov_imm(void)
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_mov_r16_imm_1);
-	report("mov 1",
-	       regs_equal(R_AX) && outregs.eax == 1234);
+	report("mov 1", R_AX, outregs.eax == 1234);
 
 	/* test mov $imm, %eax */
 	exec_in_big_real_mode(&insn_mov_r32_imm_1);
-	report("mov 2",
-	       regs_equal(R_AX)
-	       && outregs.eax == 1234567890);
+	report("mov 2", R_AX, outregs.eax == 1234567890);
 
 	/* test mov $imm, %al/%ah */
 	exec_in_big_real_mode(&insn_mov_r8_imm_1);
-	report("mov 3",
-	       regs_equal(R_AX) && outregs.eax == 0x1200);
+	report("mov 3", R_AX, outregs.eax == 0x1200);
 
 	exec_in_big_real_mode(&insn_mov_r8_imm_2);
-	report("mov 4",
-	       regs_equal(R_AX) && outregs.eax == 0x34);
+	report("mov 4", R_AX, outregs.eax == 0x34);
 
 	exec_in_big_real_mode(&insn_mov_r8_imm_3);
-	report("mov 5",
-	       regs_equal(R_AX) && outregs.eax == 0x1234);
+	report("mov 5", R_AX, outregs.eax == 0x1234);
 }
 
 void test_sub_imm(void)
@@ -260,23 +254,18 @@ void test_sub_imm(void)
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_sub_r16_imm_1);
-	report("sub 1",
-	       regs_equal(R_AX) && outregs.eax == 1224);
+	report("sub 1", R_AX, outregs.eax == 1224);
 
 	/* test mov $imm, %eax */
 	exec_in_big_real_mode(&insn_sub_r32_imm_1);
-	report("sub 2",
-	       regs_equal(R_AX)
-	       && outregs.eax == 1234567880);
+	report("sub 2", R_AX, outregs.eax == 1234567880);
 
 	/* test mov $imm, %al/%ah */
 	exec_in_big_real_mode(&insn_sub_r8_imm_1);
-	report("sub 3",
-	       regs_equal(R_AX) && outregs.eax == 0x0200);
+	report("sub 3", R_AX, outregs.eax == 0x0200);
 
 	exec_in_big_real_mode(&insn_sub_r8_imm_2);
-	report("sub 4",
-	       regs_equal(R_AX) && outregs.eax == 0x24);
+	report("sub 4", R_AX, outregs.eax == 0x24);
 }
 
 void test_xor_imm(void)
@@ -289,22 +278,18 @@ void test_xor_imm(void)
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_xor_r16_imm_1);
-	report("xor 1",
-	       regs_equal(R_AX) && outregs.eax == 0);
+	report("xor 1", R_AX, outregs.eax == 0);
 
 	/* test mov $imm, %eax */
 	exec_in_big_real_mode(&insn_xor_r32_imm_1);
-	report("xor 2",
-	       regs_equal(R_AX) && outregs.eax == 0);
+	report("xor 2", R_AX, outregs.eax == 0);
 
 	/* test mov $imm, %al/%ah */
 	exec_in_big_real_mode(&insn_xor_r8_imm_1);
-	report("xor 3",
-	       regs_equal(R_AX) && outregs.eax == 0);
+	report("xor 3", R_AX, outregs.eax == 0);
 
 	exec_in_big_real_mode(&insn_xor_r8_imm_2);
-	report("xor 4",
-	       regs_equal(R_AX) && outregs.eax == 0);
+	report("xor 4", R_AX, outregs.eax == 0);
 }
 
 void test_cmp_imm(void)
@@ -323,13 +308,13 @@ void test_cmp_imm(void)
 	 * in a 0 writeback, or 0 register
 	 */
 	exec_in_big_real_mode(&insn_cmp_test1);
-	report("cmp 1", (outregs.eflags & (1<<6)) == (1<<6));
+	report("cmp 1", ~0, (outregs.eflags & (1<<6)) == (1<<6));
 
 	exec_in_big_real_mode(&insn_cmp_test2);
-	report("cmp 2", (outregs.eflags & (1<<6)) == 0);
+	report("cmp 2", ~0, (outregs.eflags & (1<<6)) == 0);
 
 	exec_in_big_real_mode(&insn_cmp_test3);
-	report("cmp 3", (outregs.eflags & (1<<6)) == 0);
+	report("cmp 3", ~0, (outregs.eflags & (1<<6)) == 0);
 }
 
 void test_add_imm(void)
@@ -342,10 +327,10 @@ void test_add_imm(void)
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_add_test1);
-	report("add 1", outregs.eax == 0x55555555);
+	report("add 1", ~0, outregs.eax == 0x55555555);
 
 	exec_in_big_real_mode(&insn_add_test2);
-	report("add 2", outregs.eax == 0x33);
+	report("add 2", ~0, outregs.eax == 0x33);
 }
 
 void test_eflags_insn(void)
@@ -360,22 +345,22 @@ void test_eflags_insn(void)
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_clc);
-	report("clc", (outregs.eflags & 1) == 0);
+	report("clc", ~0, (outregs.eflags & 1) == 0);
 
 	exec_in_big_real_mode(&insn_stc);
-	report("stc", (outregs.eflags & 1) == 1);
+	report("stc", ~0, (outregs.eflags & 1) == 1);
 
 	exec_in_big_real_mode(&insn_cli);
-	report("cli", !(outregs.eflags & (1 << 9)));
+	report("cli", ~0, !(outregs.eflags & (1 << 9)));
 
 	exec_in_big_real_mode(&insn_sti);
-	report("sti", outregs.eflags & (1 << 9));
+	report("sti", ~0, outregs.eflags & (1 << 9));
 
 	exec_in_big_real_mode(&insn_cld);
-	report("cld", !(outregs.eflags & (1 << 10)));
+	report("cld", ~0, !(outregs.eflags & (1 << 10)));
 
 	exec_in_big_real_mode(&insn_std);
-	report("std", (outregs.eflags & (1 << 10)));
+	report("std", ~0, (outregs.eflags & (1 << 10)));
 }
 
 void test_io(void)
@@ -411,31 +396,22 @@ void test_io(void)
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_io_test1);
-	report("pio 1",
-	       regs_equal(R_AX) && outregs.eax == 0xff);
+	report("pio 1", R_AX, outregs.eax == 0xff);
 
 	exec_in_big_real_mode(&insn_io_test2);
-	report("pio 2",
-	       regs_equal(R_AX) && outregs.eax == 0xffff);
+	report("pio 2", R_AX, outregs.eax == 0xffff);
 
 	exec_in_big_real_mode(&insn_io_test3);
-	report("pio 3",
-	       regs_equal(R_AX)
-	       && outregs.eax == 0xffffffff);
+	report("pio 3", R_AX, outregs.eax == 0xffffffff);
 
 	exec_in_big_real_mode(&insn_io_test4);
-	report("pio 4",
-	       regs_equal(R_AX|R_DX) && outregs.eax == 0xff);
+	report("pio 4", R_AX|R_DX, outregs.eax == 0xff);
 
 	exec_in_big_real_mode(&insn_io_test5);
-	report("pio 5",
-	       regs_equal(R_AX|R_DX)
-	       && outregs.eax == 0xffff);
+	report("pio 5", R_AX|R_DX, outregs.eax == 0xffff);
 
 	exec_in_big_real_mode(&insn_io_test6);
-	report("pio 6",
-	       regs_equal(R_AX|R_DX)
-	       && outregs.eax == 0xffffffff);
+	report("pio 6", R_AX|R_DX, outregs.eax == 0xffffffff);
 }
 
 asm ("retf: lretw");
@@ -464,24 +440,21 @@ void test_call(void)
 	MK_INSN(ret_imm,    "sub $10, %sp; jmp 2f; 1: retw $10; 2: callw 1b");
 
 	exec_in_big_real_mode(&insn_call1);
-	report("call 1",
-	       regs_equal(R_AX) && outregs.eax == 0x1234);
+	report("call 1", R_AX, outregs.eax == 0x1234);
 
 	exec_in_big_real_mode(&insn_call_near1);
-	report("call near 1",
-	       regs_equal(R_AX) && outregs.eax == 0x1234);
+	report("call near 1", R_AX, outregs.eax == 0x1234);
 
 	exec_in_big_real_mode(&insn_call_near2);
-	report("call near 2",
-	       regs_equal(R_AX) && outregs.eax == 0x1234);
+	report("call near 2", R_AX, outregs.eax == 0x1234);
 
 	addr = (((unsigned)retf >> 4) << 16) | ((unsigned)retf & 0x0f);
 	inregs.ebx = (unsigned)&addr;
 	exec_in_big_real_mode(&insn_call_far1);
-	report("call far 1", regs_equal(0));
+	report("call far 1", 0, 1);
 
 	exec_in_big_real_mode(&insn_ret_imm);
-	report("ret imm 1", regs_equal(0));
+	report("ret imm 1", 0, 1);
 }
 
 void test_jcc_short(void)
@@ -500,15 +473,13 @@ void test_jcc_short(void)
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_jnz_short1);
-	report("jnz short 1", regs_equal(0));
+	report("jnz short 1", ~0, 1);
 
 	exec_in_big_real_mode(&insn_jnz_short2);
-	report("jnz short 2",
-	       regs_equal(R_AX)
-	       && (outregs.eflags & (1 << 6)));
+	report("jnz short 2", R_AX, (outregs.eflags & (1 << 6)));
 
 	exec_in_big_real_mode(&insn_jmp_short1);
-	report("jmp short 1", regs_equal(0));
+	report("jmp short 1", ~0, 1);
 }
 
 void test_jcc_near(void)
@@ -525,15 +496,13 @@ void test_jcc_near(void)
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_jnz_near1);
-	report("jnz near 1", regs_equal(0));
+	report("jnz near 1", 0, 1);
 
 	exec_in_big_real_mode(&insn_jnz_near2);
-	report("jnz near 2",
-	       regs_equal(R_AX)
-	       && (outregs.eflags & (1 << 6)));
+	report("jnz near 2", R_AX, outregs.eflags & (1 << 6));
 
 	exec_in_big_real_mode(&insn_jmp_near1);
-	report("jmp near 1", regs_equal(0));
+	report("jmp near 1", 0, 1);
 }
 
 void test_long_jmp()
@@ -547,8 +516,7 @@ void test_long_jmp()
 			  "1: jmp $0, $test_function\n\t"
 		          "2:\n\t");
 	exec_in_big_real_mode(&insn_long_jmp);
-	report("jmp far 1",
-	       regs_equal(R_AX) && outregs.eax == 0x1234);
+	report("jmp far 1", R_AX, outregs.eax == 0x1234);
 }
 
 void test_push_pop()
@@ -586,34 +554,25 @@ void test_push_pop()
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_push32);
-	report("push/pop 1",
-	       regs_equal(R_AX|R_BX)
-	       && outregs.eax == outregs.ebx && outregs.eax == 0x12345678);
+	report("push/pop 1", R_AX|R_BX,
+	       outregs.eax == outregs.ebx && outregs.eax == 0x12345678);
 
 	exec_in_big_real_mode(&insn_push16);
-	report("push/pop 2",
-	       regs_equal(R_AX|R_BX)
-	       && outregs.eax == outregs.ebx && outregs.eax == 0x1234);
+	report("push/pop 2", R_AX|R_BX,
+	       outregs.eax == outregs.ebx && outregs.eax == 0x1234);
 
 	exec_in_big_real_mode(&insn_push_es);
-	report("push/pop 3",
-	       regs_equal(R_AX|R_BX)
-	       && outregs.ebx == outregs.eax && outregs.eax == 0x123);
+	report("push/pop 3", R_AX|R_BX,
+	       outregs.ebx == outregs.eax && outregs.eax == 0x123);
 
 	exec_in_big_real_mode(&insn_pop_es);
-	report("push/pop 4",
-	       regs_equal(R_AX|R_BX)
-	       &&  outregs.ebx == outregs.eax);
+	report("push/pop 4", R_AX|R_BX, outregs.ebx == outregs.eax);
 
 	exec_in_big_real_mode(&insn_push_pop_ss);
-	report("push/pop 5",
-	       regs_equal(R_AX|R_BX)
-	       && outregs.ebx == outregs.eax);
+	report("push/pop 5", R_AX|R_BX, outregs.ebx == outregs.eax);
 
 	exec_in_big_real_mode(&insn_push_pop_fs);
-	report("push/pop 6",
-	       regs_equal(R_AX|R_BX)
-	       && outregs.ebx == outregs.eax);
+	report("push/pop 6", R_AX|R_BX, outregs.ebx == outregs.eax);
 }
 
 void test_null(void)
@@ -623,7 +582,7 @@ void test_null(void)
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_null);
-	report("null", regs_equal(0));
+	report("null", 0, 1);
 }
 
 struct {
@@ -658,10 +617,10 @@ void test_pusha_popa()
 	inregs = (struct regs){ .eax = 0, .ebx = 1, .ecx = 2, .edx = 3, .esi = 4, .edi = 5, .ebp = 6, .esp = (unsigned long)&tmp_stack.top };
 
 	exec_in_big_real_mode(&insn_pusha);
-	report("pusha/popa 1", regs_equal(0));
+	report("pusha/popa 1", 0, 1);
 
 	exec_in_big_real_mode(&insn_popa);
-	report("pusha/popa 1", regs_equal(0));
+	report("pusha/popa 1", 0, 1);
 }
 
 void test_iret()
@@ -706,16 +665,16 @@ void test_iret()
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_iret32);
-	report("iret 1", regs_equal(0));
+	report("iret 1", 0, 1);
 
 	exec_in_big_real_mode(&insn_iret16);
-	report("iret 2", regs_equal(0));
+	report("iret 2", 0, 1);
 
 	exec_in_big_real_mode(&insn_iret_flags32);
-	report("iret 3", regs_equal(R_AX));
+	report("iret 3", R_AX, 1);
 
 	exec_in_big_real_mode(&insn_iret_flags16);
-	report("iret 4", regs_equal(R_AX));
+	report("iret 4", R_AX, 1);
 }
 
 void test_int()
@@ -728,7 +687,7 @@ void test_int()
 	MK_INSN(int11, "int $0x11\n\t");
 
 	exec_in_big_real_mode(&insn_int11);
-	report("int 1", regs_equal(0));
+	report("int 1", 0, 1);
 }
 
 void test_imul()
@@ -760,35 +719,24 @@ void test_imul()
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_imul8_1);
-	report("imul 1",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && (outregs.eax & 0xff) == (u8)-8);
+	report("imul 1", R_AX | R_CX | R_DX, (outregs.eax & 0xff) == (u8)-8);
 
 	exec_in_big_real_mode(&insn_imul16_1);
-	report("imul 2",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && outregs.eax == (u16)-8);
+	report("imul 2", R_AX | R_CX | R_DX, outregs.eax == (u16)-8);
 
 	exec_in_big_real_mode(&insn_imul32_1);
-	report("imul 3",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && outregs.eax == (u32)-8);
+	report("imul 3", R_AX | R_CX | R_DX, outregs.eax == (u32)-8);
 
 	exec_in_big_real_mode(&insn_imul8_2);
-	report("imul 4",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && (outregs.eax & 0xffff) == 8
+	report("imul 4", R_AX | R_CX | R_DX,
+	       (outregs.eax & 0xffff) == 8
 	       && (outregs.eax & 0xffff0000) == 0x12340000);
 
 	exec_in_big_real_mode(&insn_imul16_2);
-	report("imul 5",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && outregs.eax == 8);
+	report("imul 5", R_AX | R_CX | R_DX, outregs.eax == 8);
 
 	exec_in_big_real_mode(&insn_imul32_2);
-	report("imul 6",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && outregs.eax == 8);
+	report("imul 6", R_AX | R_CX | R_DX, outregs.eax == 8);
 }
 
 void test_mul()
@@ -808,19 +756,13 @@ void test_mul()
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_mul8);
-	report("mul 1",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && (outregs.eax & 0xff) == 8);
+	report("mul 1", R_AX | R_CX | R_DX, (outregs.eax & 0xff) == 8);
 
 	exec_in_big_real_mode(&insn_mul16);
-	report("mul 2",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && outregs.eax == 8);
+	report("mul 2", R_AX | R_CX | R_DX, outregs.eax == 8);
 
 	exec_in_big_real_mode(&insn_mul32);
-	report("mul 3",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && outregs.eax == 8);
+	report("mul 3", R_AX | R_CX | R_DX, outregs.eax == 8);
 }
 
 void test_div()
@@ -840,19 +782,15 @@ void test_div()
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_div8);
-	report("div 1",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && outregs.eax == 384);
+	report("div 1", R_AX | R_CX | R_DX, outregs.eax == 384);
 
 	exec_in_big_real_mode(&insn_div16);
-	report("div 2",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && outregs.eax == 102 && outregs.edx == 2);
+	report("div 2", R_AX | R_CX | R_DX,
+	       outregs.eax == 102 && outregs.edx == 2);
 
 	exec_in_big_real_mode(&insn_div32);
-	report("div 3",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && outregs.eax == 102 && outregs.edx == 2);
+	report("div 3", R_AX | R_CX | R_DX,
+	       outregs.eax == 102 && outregs.edx == 2);
 }
 
 void test_idiv()
@@ -872,19 +810,13 @@ void test_idiv()
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_idiv8);
-	report("idiv 1",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && outregs.eax == (u8)-128);
+	report("idiv 1", R_AX | R_CX | R_DX, outregs.eax == (u8)-128);
 
 	exec_in_big_real_mode(&insn_idiv16);
-	report("idiv 2",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && outregs.eax == (u16)-256);
+	report("idiv 2", R_AX | R_CX | R_DX, outregs.eax == (u16)-256);
 
 	exec_in_big_real_mode(&insn_idiv32);
-	report("idiv 3",
-	       regs_equal(R_AX | R_CX | R_DX)
-	       && outregs.eax == (u32)-256);
+	report("idiv 3", R_AX | R_CX | R_DX, outregs.eax == (u32)-256);
 }
 
 void test_cbw(void)
@@ -897,10 +829,10 @@ void test_cbw(void)
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_cbw);
-	report("cbq 1", outregs.eax == 0xFFFE);
+	report("cbq 1", ~0, outregs.eax == 0xFFFE);
 
 	exec_in_big_real_mode(&insn_cwde);
-	report("cwde 1", outregs.eax == 0xFFFFFFFE);
+	report("cwde 1", ~0, outregs.eax == 0xFFFFFFFE);
 }
 
 void test_loopcc(void)
@@ -922,18 +854,15 @@ void test_loopcc(void)
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_loop);
-	report("LOOPcc short 1",
-	       regs_equal(R_AX) && outregs.eax == 10);
+	report("LOOPcc short 1", R_AX, outregs.eax == 10);
 
 	exec_in_big_real_mode(&insn_loope);
-	report("LOOPcc short 2",
-	       regs_equal(R_AX | R_CX)
-	       && outregs.eax == -1 && outregs.ecx == 8);
+	report("LOOPcc short 2", R_AX | R_CX,
+	       outregs.eax == -1 && outregs.ecx == 8);
 
 	exec_in_big_real_mode(&insn_loopne);
-	report("LOOPcc short 3",
-	       regs_equal(R_AX | R_CX)
-	       && outregs.eax == 0 && outregs.ecx == 5);
+	report("LOOPcc short 3", R_AX | R_CX,
+	       outregs.eax == 0 && outregs.ecx == 5);
 }
 
 static void test_das(void)
@@ -1215,7 +1144,7 @@ static void test_das(void)
 	    break;
         }
     }
-    report("DAS", nr_fail == 0);
+    report("DAS", ~0, nr_fail == 0);
 }
 
 void test_cwd_cdq()
@@ -1239,24 +1168,20 @@ void test_cwd_cdq()
 	inregs = (struct regs){ 0 };
 
 	exec_in_big_real_mode(&insn_cwd_1);
-	report("cwd 1",
-	       regs_equal(R_AX | R_DX)
-	       && outregs.eax == 0x8000 && outregs.edx == 0xffff);
+	report("cwd 1", R_AX | R_DX,
+	       outregs.eax == 0x8000 && outregs.edx == 0xffff);
 
 	exec_in_big_real_mode(&insn_cwd_2);
-	report("cwd 2",
-	       regs_equal(R_AX | R_DX)
-	       && outregs.eax == 0x1000 && outregs.edx == 0);
+	report("cwd 2", R_AX | R_DX,
+	       outregs.eax == 0x1000 && outregs.edx == 0);
 
 	exec_in_big_real_mode(&insn_cdq_1);
-	report("cdq 1",
-	       regs_equal(R_AX | R_DX)
-	       && outregs.eax == 0x80000000 && outregs.edx == 0xffffffff);
+	report("cdq 1", R_AX | R_DX,
+	       outregs.eax == 0x80000000 && outregs.edx == 0xffffffff);
 
 	exec_in_big_real_mode(&insn_cdq_2);
-	report("cdq 2",
-	       regs_equal(R_AX | R_DX)
-	       && outregs.eax == 0x10000000 && outregs.edx == 0);
+	report("cdq 2", R_AX | R_DX,
+	       outregs.eax == 0x10000000 && outregs.edx == 0);
 }
 
 void realmode_start(void)
