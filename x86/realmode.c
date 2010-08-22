@@ -604,10 +604,14 @@ void test_io(void)
 		print_serial("I/O test 6: PASS\n");
 }
 
+asm ("retf: lretw");
+extern void retf();
+
 void test_call(void)
 {
 	struct regs inregs = { 0 }, outregs;
 	u32 esp[16];
+	u32 addr;
 
 	inregs.esp = (u32)esp;
 
@@ -622,6 +626,7 @@ void test_call(void)
 			    "1: mov $0x1234, %eax\n\t"
 			    "ret\n\t"
 			    "2:\t");
+	MK_INSN(call_far1,  "lcallw *(%ebx)\n\t");
 
 	exec_in_big_real_mode(&inregs, &outregs,
 			      insn_call1,
@@ -644,6 +649,15 @@ void test_call(void)
 		print_serial("Call near Test 2: FAIL\n");
 	else
 		print_serial("Call near Test 2: PASS\n");
+
+	addr = (((unsigned)retf >> 4) << 16) | ((unsigned)retf & 0x0f);
+	inregs.ebx = (unsigned)&addr;
+	exec_in_big_real_mode(&inregs, &outregs, insn_call_far1,
+			      insn_call_far1_end - insn_call_far1);
+	if (!regs_equal(&inregs, &outregs, 0))
+		print_serial("Call far Test 1: FAIL\n");
+	else
+		print_serial("Call far Test 1: PASS\n");
 }
 
 void test_jcc_short(void)
