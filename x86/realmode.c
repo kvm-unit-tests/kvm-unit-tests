@@ -627,6 +627,7 @@ void test_call(void)
 			    "ret\n\t"
 			    "2:\t");
 	MK_INSN(call_far1,  "lcallw *(%ebx)\n\t");
+	MK_INSN(ret_imm,    "sub $10, %sp; jmp 2f; 1: retw $10; 2: callw 1b");
 
 	exec_in_big_real_mode(&inregs, &outregs,
 			      insn_call1,
@@ -658,6 +659,13 @@ void test_call(void)
 		print_serial("Call far Test 1: FAIL\n");
 	else
 		print_serial("Call far Test 1: PASS\n");
+
+	exec_in_big_real_mode(&inregs, &outregs, insn_ret_imm,
+			      insn_ret_imm_end - insn_ret_imm);
+	if (!regs_equal(&inregs, &outregs, 0))
+		print_serial("ret imm Test 1: FAIL\n");
+	else
+		print_serial("ret imm Test 1: PASS\n");
 }
 
 void test_jcc_short(void)
