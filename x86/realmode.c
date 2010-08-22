@@ -54,17 +54,22 @@ static struct {
 	gdt,
 };
 
+struct insn_desc {
+    u16 ptr;
+    u16 len;
+};
+
 static void exec_in_big_real_mode(const struct regs *inregs,
 				  struct regs *outregs,
-				  const u8 *insn, int insn_len)
+				  struct insn_desc *insn)
 {
 	unsigned long tmp;
 	static struct regs save;
 	int i;
 	extern u8 test_insn[], test_insn_end[];
 
-	for (i = 0; i < insn_len; ++i)
-		test_insn[i] = insn[i];
+	for (i = 0; i < insn->len; ++i)
+	    test_insn[i] = ((u8 *)(unsigned long)insn->ptr)[i];
 	for (; i < test_insn_end - test_insn; ++i)
 		test_insn[i] = 0x90; // nop
 
@@ -133,14 +138,19 @@ int regs_equal(const struct regs *r1, const struct regs *r2, int ignore)
 	return 1;
 }
 
-#define MK_INSN(name, str)                         \
-	asm (				           \
-		".text 1\n\t"                      \
-		"insn_" #name ": " str " \n\t"	   \
-		"insn_" #name "_end: \n\t"	   \
-		".text\n\t"                        \
-		);				   \
-	extern u8 insn_##name[], insn_##name##_end[]
+#define MK_INSN(name, str)				\
+    asm (						\
+	 ".pushsection .data.insn  \n\t"		\
+	 "insn_" #name ": \n\t"				\
+	 ".word 1001f, 1002f - 1001f \n\t"		\
+	 ".popsection \n\t"				\
+	 ".pushsection .text.insn, \"ax\" \n\t"		\
+	 "1001: \n\t"					\
+	 "insn_code_" #name ": " str " \n\t"		\
+	 "1002: \n\t"					\
+	 ".popsection"					\
+    );							\
+    extern struct insn_desc insn_##name;
 
 void test_xchg(void)
 {
@@ -155,18 +165,14 @@ void test_xchg(void)
 	MK_INSN(xchg_test7, "xchg %eax,%ebp\n\t");
 	MK_INSN(xchg_test8, "xchg %eax,%esp\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_xchg_test1,
-                              insn_xchg_test1_end - insn_xchg_test1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_xchg_test1);
 
 	if (!regs_equal(&inregs, &outregs, 0))
 		print_serial("xchg test 1: FAIL\n");
 	else
 		print_serial("xchg test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_xchg_test2,
-                              insn_xchg_test2_end - insn_xchg_test2);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_xchg_test2);
 
 	if (!regs_equal(&inregs, &outregs, R_AX | R_BX) ||
             outregs.eax != inregs.ebx ||
@@ -175,9 +181,7 @@ void test_xchg(void)
 	else
 		print_serial("xchg test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_xchg_test3,
-                              insn_xchg_test3_end - insn_xchg_test3);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_xchg_test3);
 
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX) ||
             outregs.eax != inregs.ecx ||
@@ -186,9 +190,7 @@ void test_xchg(void)
 	else
 		print_serial("xchg test 3: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_xchg_test4,
-                              insn_xchg_test4_end - insn_xchg_test4);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_xchg_test4);
 
 	if (!regs_equal(&inregs, &outregs, R_AX | R_DX) ||
             outregs.eax != inregs.edx ||
@@ -197,9 +199,7 @@ void test_xchg(void)
 	else
 		print_serial("xchg test 4: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_xchg_test5,
-                              insn_xchg_test5_end - insn_xchg_test5);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_xchg_test5);
 
 	if (!regs_equal(&inregs, &outregs, R_AX | R_SI) ||
             outregs.eax != inregs.esi ||
@@ -208,9 +208,7 @@ void test_xchg(void)
 	else
 		print_serial("xchg test 5: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_xchg_test6,
-                              insn_xchg_test6_end - insn_xchg_test6);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_xchg_test6);
 
 	if (!regs_equal(&inregs, &outregs, R_AX | R_DI) ||
             outregs.eax != inregs.edi ||
@@ -219,9 +217,7 @@ void test_xchg(void)
 	else
 		print_serial("xchg test 6: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_xchg_test7,
-                              insn_xchg_test7_end - insn_xchg_test7);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_xchg_test7);
 
 	if (!regs_equal(&inregs, &outregs, R_AX | R_BP) ||
             outregs.eax != inregs.ebp ||
@@ -230,9 +226,7 @@ void test_xchg(void)
 	else
 		print_serial("xchg test 7: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_xchg_test8,
-                              insn_xchg_test8_end - insn_xchg_test8);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_xchg_test8);
 
 	if (!regs_equal(&inregs, &outregs, R_AX | R_SP) ||
             outregs.eax != inregs.esp ||
@@ -247,9 +241,7 @@ void test_shld(void)
 	struct regs inregs = { .eax = 0xbe, .edx = 0xef000000 }, outregs;
 	MK_INSN(shld_test, "shld $8,%edx,%eax\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_shld_test,
-			      insn_shld_test_end - insn_shld_test);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_shld_test);
 	if (outregs.eax != 0xbeef)
 		print_serial("shld: FAIL\n");
 	else
@@ -265,43 +257,33 @@ void test_mov_imm(void)
 	MK_INSN(mov_r8_imm_2, "mov $0x34, %al");
 	MK_INSN(mov_r8_imm_3, "mov $0x12, %ah\n\t" "mov $0x34, %al\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_mov_r16_imm_1,
-			      insn_mov_r16_imm_1_end - insn_mov_r16_imm_1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_mov_r16_imm_1);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 1234)
 		print_serial("mov test 1: FAIL\n");
 	else
 		print_serial("mov test 1: PASS\n");
 
 	/* test mov $imm, %eax */
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_mov_r32_imm_1,
-			      insn_mov_r32_imm_1_end - insn_mov_r32_imm_1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_mov_r32_imm_1);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 1234567890)
 		print_serial("mov test 2: FAIL\n");
 	else
 		print_serial("mov test 2: PASS\n");
 
 	/* test mov $imm, %al/%ah */
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_mov_r8_imm_1,
-			      insn_mov_r8_imm_1_end - insn_mov_r8_imm_1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_mov_r8_imm_1);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0x1200)
 		print_serial("mov test 3: FAIL\n");
 	else
 		print_serial("mov test 3: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_mov_r8_imm_2,
-			      insn_mov_r8_imm_2_end - insn_mov_r8_imm_2);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_mov_r8_imm_2);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0x34)
 		print_serial("mov test 4: FAIL\n");
 	else
 		print_serial("mov test 4: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_mov_r8_imm_3,
-			      insn_mov_r8_imm_3_end - insn_mov_r8_imm_3);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_mov_r8_imm_3);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0x1234)
 		print_serial("mov test 5: FAIL\n");
 	else
@@ -316,35 +298,27 @@ void test_sub_imm(void)
 	MK_INSN(sub_r8_imm_1, "mov $0x12, %ah\n\t" "sub $0x10, %ah\n\t");
 	MK_INSN(sub_r8_imm_2, "mov $0x34, %al\n\t" "sub $0x10, %al\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_sub_r16_imm_1,
-			      insn_sub_r16_imm_1_end - insn_sub_r16_imm_1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_sub_r16_imm_1);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 1224)
 		print_serial("sub test 1: FAIL\n");
 	else
 		print_serial("sub test 1: PASS\n");
 
 	/* test mov $imm, %eax */
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_sub_r32_imm_1,
-			      insn_sub_r32_imm_1_end - insn_sub_r32_imm_1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_sub_r32_imm_1);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 1234567880)
 		print_serial("sub test 2: FAIL\n");
 	else
 		print_serial("sub test 2: PASS\n");
 
 	/* test mov $imm, %al/%ah */
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_sub_r8_imm_1,
-			      insn_sub_r8_imm_1_end - insn_sub_r8_imm_1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_sub_r8_imm_1);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0x0200)
 		print_serial("sub test 3: FAIL\n");
 	else
 		print_serial("sub test 3: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_sub_r8_imm_2,
-			      insn_sub_r8_imm_2_end - insn_sub_r8_imm_2);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_sub_r8_imm_2);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0x24)
 		print_serial("sub test 4: FAIL\n");
 	else
@@ -360,35 +334,27 @@ void test_xor_imm(void)
 	MK_INSN(xor_r8_imm_1, "mov $0x12, %ah\n\t" "xor $0x12, %ah\n\t");
 	MK_INSN(xor_r8_imm_2, "mov $0x34, %al\n\t" "xor $0x34, %al\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_xor_r16_imm_1,
-			      insn_xor_r16_imm_1_end - insn_xor_r16_imm_1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_xor_r16_imm_1);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0)
 		print_serial("xor test 1: FAIL\n");
 	else
 		print_serial("xor test 1: PASS\n");
 
 	/* test mov $imm, %eax */
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_xor_r32_imm_1,
-			      insn_xor_r32_imm_1_end - insn_xor_r32_imm_1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_xor_r32_imm_1);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0)
 		print_serial("xor test 2: FAIL\n");
 	else
 		print_serial("xor test 2: PASS\n");
 
 	/* test mov $imm, %al/%ah */
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_xor_r8_imm_1,
-			      insn_xor_r8_imm_1_end - insn_xor_r8_imm_1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_xor_r8_imm_1);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0)
 		print_serial("xor test 3: FAIL\n");
 	else
 		print_serial("xor test 3: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_xor_r8_imm_2,
-			      insn_xor_r8_imm_2_end - insn_xor_r8_imm_2);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_xor_r8_imm_2);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0)
 		print_serial("xor test 4: FAIL\n");
 	else
@@ -409,25 +375,19 @@ void test_cmp_imm(void)
 	/* ZF: (bit 6) Zero Flag becomes 1 if an operation results
 	 * in a 0 writeback, or 0 register
 	 */
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_cmp_test1,
-			      insn_cmp_test1_end - insn_cmp_test1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_cmp_test1);
 	if ((outregs.eflags & (1<<6)) != (1<<6))
 		print_serial("cmp test 1: FAIL\n");
 	else
 		print_serial("cmp test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_cmp_test2,
-			      insn_cmp_test2_end - insn_cmp_test2);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_cmp_test2);
 	if ((outregs.eflags & (1<<6)) != 0)
 		print_serial("cmp test 2: FAIL\n");
 	else
 		print_serial("cmp test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_cmp_test3,
-			      insn_cmp_test3_end - insn_cmp_test3);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_cmp_test3);
 	if ((outregs.eflags & (1<<6)) != 0)
 		print_serial("cmp test 3: FAIL\n");
 	else
@@ -442,17 +402,13 @@ void test_add_imm(void)
 	MK_INSN(add_test2, "mov $0x12, %eax \n\t"
 			   "add $0x21, %al\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_add_test1,
-			      insn_add_test1_end - insn_add_test1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_add_test1);
 	if (outregs.eax != 0x55555555)
 		print_serial("add test 1: FAIL\n");
 	else
 		print_serial("add test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_add_test2,
-			      insn_add_test2_end - insn_add_test2);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_add_test2);
 	if (outregs.eax != 0x33)
 		print_serial("add test 2: FAIL\n");
 	else
@@ -469,49 +425,37 @@ void test_eflags_insn(void)
 	MK_INSN(cld, "cld");
 	MK_INSN(std, "std");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_clc,
-			      insn_clc_end - insn_clc);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_clc);
 	if (outregs.eflags & 1)
 		print_serial("clc test: FAIL\n");
 	else
 		print_serial("clc test: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_stc,
-			      insn_stc_end - insn_stc);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_stc);
 	if (!(outregs.eflags & 1))
 		print_serial("stc test: FAIL\n");
 	else
 		print_serial("stc test: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_cli,
-			      insn_cli_end - insn_cli);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_cli);
 	if (outregs.eflags & (1 << 9))
 		print_serial("cli test: FAIL\n");
 	else
 		print_serial("cli test: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_sti,
-			      insn_sti_end - insn_sti);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_sti);
 	if (!(outregs.eflags & (1 << 9)))
 		print_serial("sti test: FAIL\n");
 	else
 		print_serial("sti test: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_cld,
-			      insn_cld_end - insn_cld);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_cld);
 	if (outregs.eflags & (1 << 10))
 		print_serial("cld test: FAIL\n");
 	else
 		print_serial("cld test: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_std,
-			      insn_std_end - insn_std);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_std);
 	if (!(outregs.eflags & (1 << 10)))
 		print_serial("std test: FAIL\n");
 	else
@@ -549,55 +493,37 @@ void test_io(void)
 			  "mov $0x00000000, %eax \n\t"
 			  "in %dx, %eax \n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_io_test1,
-			      insn_io_test1_end - insn_io_test1);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_io_test1);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0xff)
 		print_serial("I/O test 1: FAIL\n");
 	else
 		print_serial("I/O test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_io_test2,
-			      insn_io_test2_end - insn_io_test2);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_io_test2);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0xffff)
 		print_serial("I/O test 2: FAIL\n");
 	else
 		print_serial("I/O test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_io_test3,
-			      insn_io_test3_end - insn_io_test3);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_io_test3);
 	if (!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0xffffffff)
 		print_serial("I/O test 3: FAIL\n");
 	else
 		print_serial("I/O test 3: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_io_test4,
-			      insn_io_test4_end - insn_io_test4);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_io_test4);
 	if (!regs_equal(&inregs, &outregs, R_AX|R_DX) || outregs.eax != 0xff)
 		print_serial("I/O test 4: FAIL\n");
 	else
 		print_serial("I/O test 4: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_io_test5,
-			      insn_io_test5_end - insn_io_test5);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_io_test5);
 	if (!regs_equal(&inregs, &outregs, R_AX|R_DX) || outregs.eax != 0xffff)
 		print_serial("I/O test 5: FAIL\n");
 	else
 		print_serial("I/O test 5: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_io_test6,
-			      insn_io_test6_end - insn_io_test6);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_io_test6);
 	if (!regs_equal(&inregs, &outregs, R_AX|R_DX) || outregs.eax != 0xffffffff)
 		print_serial("I/O test 6: FAIL\n");
 	else
@@ -629,23 +555,19 @@ void test_call(void)
 	MK_INSN(call_far1,  "lcallw *(%ebx)\n\t");
 	MK_INSN(ret_imm,    "sub $10, %sp; jmp 2f; 1: retw $10; 2: callw 1b");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_call1,
-			      insn_call1_end - insn_call1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_call1);
 	if(!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0x1234)
 		print_serial("Call Test 1: FAIL\n");
 	else
 		print_serial("Call Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			insn_call_near1, insn_call_near1_end - insn_call_near1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_call_near1);
 	if(!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0x1234)
 		print_serial("Call near Test 1: FAIL\n");
 	else
 		print_serial("Call near Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			insn_call_near2, insn_call_near2_end - insn_call_near2);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_call_near2);
 	if(!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0x1234)
 		print_serial("Call near Test 2: FAIL\n");
 	else
@@ -653,15 +575,13 @@ void test_call(void)
 
 	addr = (((unsigned)retf >> 4) << 16) | ((unsigned)retf & 0x0f);
 	inregs.ebx = (unsigned)&addr;
-	exec_in_big_real_mode(&inregs, &outregs, insn_call_far1,
-			      insn_call_far1_end - insn_call_far1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_call_far1);
 	if (!regs_equal(&inregs, &outregs, 0))
 		print_serial("Call far Test 1: FAIL\n");
 	else
 		print_serial("Call far Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs, insn_ret_imm,
-			      insn_ret_imm_end - insn_ret_imm);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_ret_imm);
 	if (!regs_equal(&inregs, &outregs, 0))
 		print_serial("ret imm Test 1: FAIL\n");
 	else
@@ -682,22 +602,19 @@ void test_jcc_short(void)
 		      "mov $0x1234, %eax\n\t"
 		      "1:\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			insn_jnz_short1, insn_jnz_short1_end - insn_jnz_short1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_jnz_short1);
 	if(!regs_equal(&inregs, &outregs, 0))
 		print_serial("JNZ short Test 1: FAIL\n");
 	else
 		print_serial("JNZ short Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			insn_jnz_short2, insn_jnz_short2_end - insn_jnz_short2);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_jnz_short2);
 	if(!regs_equal(&inregs, &outregs, R_AX) || !(outregs.eflags & (1 << 6)))
 		print_serial("JNZ short Test 2: FAIL\n");
 	else
 		print_serial("JNZ short Test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			insn_jmp_short1, insn_jmp_short1_end - insn_jmp_short1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_jmp_short1);
 	if(!regs_equal(&inregs, &outregs, 0))
 		print_serial("JMP short Test 1: FAIL\n");
 	else
@@ -716,22 +633,19 @@ void test_jcc_near(void)
 	MK_INSN(jmp_near1, ".byte 0xE9, 0x06, 0x00\n\t"
 		           "mov $0x1234, %eax\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			insn_jnz_near1, insn_jnz_near1_end - insn_jnz_near1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_jnz_near1);
 	if(!regs_equal(&inregs, &outregs, 0))
 		print_serial("JNZ near Test 1: FAIL\n");
 	else
 		print_serial("JNZ near Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			insn_jnz_near2, insn_jnz_near2_end - insn_jnz_near2);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_jnz_near2);
 	if(!regs_equal(&inregs, &outregs, R_AX) || !(outregs.eflags & (1 << 6)))
 		print_serial("JNZ near Test 2: FAIL\n");
 	else
 		print_serial("JNZ near Test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			insn_jmp_near1, insn_jmp_near1_end - insn_jmp_near1);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_jmp_near1);
 	if(!regs_equal(&inregs, &outregs, 0))
 		print_serial("JMP near Test 1: FAIL\n");
 	else
@@ -748,9 +662,7 @@ void test_long_jmp()
 			  "jmp 2f\n\t"
 			  "1: jmp $0, $test_function\n\t"
 		          "2:\n\t");
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_long_jmp,
-			      insn_long_jmp_end - insn_long_jmp);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_long_jmp);
 	if(!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 0x1234)
 		print_serial("Long JMP Test: FAIL\n");
 	else
@@ -790,53 +702,37 @@ void test_push_pop()
 			     "pop %fs\n\t"
 			);
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_push32,
-			      insn_push32_end - insn_push32);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_push32);
 	if (!regs_equal(&inregs, &outregs, R_AX|R_BX) || outregs.eax != outregs.ebx || outregs.eax != 0x12345678)
 		print_serial("Push/Pop Test 1: FAIL\n");
 	else
 		print_serial("Push/Pop Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_push16,
-			      insn_push16_end - insn_push16);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_push16);
 	if (!regs_equal(&inregs, &outregs, R_AX|R_BX) || outregs.eax != outregs.ebx || outregs.eax != 0x1234)
 		print_serial("Push/Pop Test 2: FAIL\n");
 	else
 		print_serial("Push/Pop Test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_push_es,
-			      insn_push_es_end - insn_push_es);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_push_es);
 	if (!regs_equal(&inregs, &outregs, R_AX|R_BX) ||  outregs.ebx != outregs.eax || outregs.eax != 0x123)
 		print_serial("Push/Pop Test 3: FAIL\n");
 	else
 		print_serial("Push/Pop Test 3: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_pop_es,
-			      insn_pop_es_end - insn_pop_es);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_pop_es);
 	if (!regs_equal(&inregs, &outregs, R_AX|R_BX) || outregs.ebx != outregs.eax)
 		print_serial("Push/Pop Test 4: FAIL\n");
 	else
 		print_serial("Push/Pop Test 4: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_push_pop_ss,
-			      insn_push_pop_ss_end - insn_push_pop_ss);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_push_pop_ss);
 	if (!regs_equal(&inregs, &outregs, R_AX|R_BX) || outregs.ebx != outregs.eax)
 		print_serial("Push/Pop Test 5: FAIL\n");
 	else
 		print_serial("Push/Pop Test 5: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_push_pop_fs,
-			      insn_push_pop_fs_end - insn_push_pop_fs);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_push_pop_fs);
 	if (!regs_equal(&inregs, &outregs, R_AX|R_BX) || outregs.ebx != outregs.eax)
 		print_serial("Push/Pop Test 6: FAIL\n");
 	else
@@ -846,7 +742,9 @@ void test_push_pop()
 void test_null(void)
 {
 	struct regs inregs = { 0 }, outregs;
-	exec_in_big_real_mode(&inregs, &outregs, 0, 0);
+	MK_INSN(null, "");
+
+	exec_in_big_real_mode(&inregs, &outregs, &insn_null);
 	if (!regs_equal(&inregs, &outregs, 0))
 		print_serial("null test: FAIL\n");
 	else
@@ -884,18 +782,13 @@ void test_pusha_popa()
 		      "popa\n\t"
 		      );
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_pusha,
-			      insn_pusha_end - insn_pusha);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_pusha);
 	if (!regs_equal(&inregs, &outregs, 0))
 		print_serial("Pusha/Popa Test1: FAIL\n");
 	else
 		print_serial("Pusha/Popa Test1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_popa,
-			      insn_popa_end - insn_popa);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_popa);
 	if (!regs_equal(&inregs, &outregs, 0))
 		print_serial("Pusha/Popa Test2: FAIL\n");
 	else
@@ -943,37 +836,25 @@ void test_iret()
 			      "1: iretw\n\t"
 			      "2:\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_iret32,
-			      insn_iret32_end - insn_iret32);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_iret32);
 	if (!regs_equal(&inregs, &outregs, 0))
 		print_serial("iret Test 1: FAIL\n");
 	else
 		print_serial("iret Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_iret16,
-			      insn_iret16_end - insn_iret16);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_iret16);
 	if (!regs_equal(&inregs, &outregs, 0))
 		print_serial("iret Test 2: FAIL\n");
 	else
 		print_serial("iret Test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_iret_flags32,
-			      insn_iret_flags32_end - insn_iret_flags32);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_iret_flags32);
 	if (!regs_equal(&inregs, &outregs, R_AX))
 		print_serial("iret Test 3: FAIL\n");
 	else
 		print_serial("iret Test 3: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_iret_flags16,
-			      insn_iret_flags16_end - insn_iret_flags16);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_iret_flags16);
 	if (!regs_equal(&inregs, &outregs, R_AX))
 		print_serial("iret Test 4: FAIL\n");
 	else
@@ -989,10 +870,7 @@ void test_int()
 
 	MK_INSN(int11, "int $0x11\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_int11,
-			      insn_int11_end - insn_int11);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_int11);
 	if (!regs_equal(&inregs, &outregs, 0))
 		print_serial("int Test 1: FAIL\n");
 	else
@@ -1027,56 +905,38 @@ void test_imul()
 			"mov $4, %ecx\n\t"
 			"imul %ecx\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_imul8_1,
-			      insn_imul8_1_end - insn_imul8_1);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_imul8_1);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || (outregs.eax & 0xff) != (u8)-8)
 		print_serial("imul Test 1: FAIL\n");
 	else
 		print_serial("imul Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_imul16_1,
-			      insn_imul16_1_end - insn_imul16_1);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_imul16_1);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != (u16)-8)
 		print_serial("imul Test 2: FAIL\n");
 	else
 		print_serial("imul Test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_imul32_1,
-			      insn_imul32_1_end - insn_imul32_1);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_imul32_1);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != (u32)-8)
 		print_serial("imul Test 3: FAIL\n");
 	else
 		print_serial("imul Test 3: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_imul8_2,
-			      insn_imul8_2_end - insn_imul8_2);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_imul8_2);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || (outregs.eax & 0xffff) != 8 ||
 	     (outregs.eax & 0xffff0000) != 0x12340000)
 		print_serial("imul Test 4: FAIL\n");
 	else
 		print_serial("imul Test 4: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_imul16_2,
-			      insn_imul16_2_end - insn_imul16_2);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_imul16_2);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 8)
 		print_serial("imul Test 5: FAIL\n");
 	else
 		print_serial("imul Test 5: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_imul32_2,
-			      insn_imul32_2_end - insn_imul32_2);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_imul32_2);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 8)
 		print_serial("imul Test 6: FAIL\n");
 	else
@@ -1099,28 +959,19 @@ void test_mul()
 			"mov $4, %ecx\n\t"
 			"imul %ecx\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_mul8,
-			      insn_mul8_end - insn_mul8);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_mul8);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || (outregs.eax & 0xff) != 8)
 		print_serial("mul Test 1: FAIL\n");
 	else
 		print_serial("mul Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_mul16,
-			      insn_mul16_end - insn_mul16);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_mul16);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 8)
 		print_serial("mul Test 2: FAIL\n");
 	else
 		print_serial("mul Test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_mul32,
-			      insn_mul32_end - insn_mul32);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_mul32);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 8)
 		print_serial("mul Test 3: FAIL\n");
 	else
@@ -1143,29 +994,20 @@ void test_div()
 			"mov $5, %ecx\n\t"
 			"div %ecx\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			     insn_div8,
-			     insn_div8_end - insn_div8);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_div8);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 384)
 		print_serial("div Test 1: FAIL\n");
 	else
 		print_serial("div Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_div16,
-			      insn_div16_end - insn_div16);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_div16);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 102 ||
 	    outregs.edx != 2)
 		print_serial("div Test 2: FAIL\n");
 	else
 		print_serial("div Test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_div32,
-			      insn_div32_end - insn_div32);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_div32);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != 102 ||
 	    outregs.edx != 2)
 		print_serial("div Test 3: FAIL\n");
@@ -1189,28 +1031,19 @@ void test_idiv()
 			"mov $-2, %ecx\n\t"
 			"idiv %ecx\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			     insn_idiv8,
-			     insn_idiv8_end - insn_idiv8);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_idiv8);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != (u8)-128)
 		print_serial("idiv Test 1: FAIL\n");
 	else
 		print_serial("idiv Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_idiv16,
-			      insn_idiv16_end - insn_idiv16);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_idiv16);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != (u16)-256)
 		print_serial("idiv Test 2: FAIL\n");
 	else
 		print_serial("idiv Test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_idiv32,
-			      insn_idiv32_end - insn_idiv32);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_idiv32);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_CX | R_DX) || outregs.eax != (u32)-256)
 		print_serial("idiv Test 3: FAIL\n");
 	else
@@ -1226,17 +1059,13 @@ void test_cbw(void)
 	MK_INSN(cwde, "mov $0xFFFE, %eax \n\t"
 		      "cwde\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_cbw,
-			      insn_cbw_end - insn_cbw);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_cbw);
 	if (outregs.eax != 0xFFFE)
 		print_serial("cbw test1: FAIL\n");
 	else
 		print_serial("cbw test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_cwde,
-			      insn_cwde_end - insn_cwde);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_cwde);
 	if (outregs.eax != 0xFFFFFFFE)
 		print_serial("cwde test1: FAIL\n");
 	else
@@ -1261,23 +1090,20 @@ void test_loopcc(void)
 		        "1: dec %eax\n\t"
 			"loopne 1b\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			insn_loop, insn_loop_end - insn_loop);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_loop);
 	if(!regs_equal(&inregs, &outregs, R_AX) || outregs.eax != 10)
 		print_serial("LOOPcc short Test 1: FAIL\n");
 	else
 		print_serial("LOOPcc short Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			insn_loope, insn_loope_end - insn_loope);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_loope);
 	if(!regs_equal(&inregs, &outregs, R_AX | R_CX) ||
 	   outregs.eax != -1 || outregs.ecx != 8)
 		print_serial("LOOPcc short Test 2: FAIL\n");
 	else
 		print_serial("LOOPcc short Test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			insn_loopne, insn_loopne_end - insn_loopne);
+	exec_in_big_real_mode(&inregs, &outregs, &insn_loopne);
 	if(!regs_equal(&inregs, &outregs, R_AX | R_CX) ||
 	   outregs.eax != 0 || outregs.ecx != 5)
 		print_serial("LOOPcc short Test 3: FAIL\n");
@@ -1554,10 +1380,7 @@ static void test_das(void)
         unsigned tmp = test_cases[i];
         inregs.eax = tmp & 0xff;
         inregs.eflags = (tmp >> 16) & 0xff;
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_das,
-			      insn_das_end - insn_das);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_das);
 	if (!regs_equal(&inregs, &outregs, R_AX)
             || outregs.eax != ((tmp >> 8) & 0xff)
             || (outregs.eflags & 0xff) != (tmp >> 24)) {
@@ -1588,37 +1411,25 @@ void test_cwd_cdq()
 	MK_INSN(cdq_2, "mov $0x10000000, %eax\n\t"
 		       "cdq\n\t");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_cwd_1,
-			      insn_cwd_1_end - insn_cwd_1);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_cwd_1);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_DX) || outregs.eax != 0x8000 || outregs.edx != 0xffff)
 		print_serial("cwd Test 1: FAIL\n");
 	else
 		print_serial("cwd Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_cwd_2,
-			      insn_cwd_2_end - insn_cwd_2);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_cwd_2);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_DX) || outregs.eax != 0x1000 || outregs.edx != 0)
 		print_serial("cwd Test 2: FAIL\n");
 	else
 		print_serial("cwd Test 2: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_cdq_1,
-			      insn_cdq_1_end - insn_cdq_1);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_cdq_1);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_DX) || outregs.eax != 0x80000000 || outregs.edx != 0xffffffff)
 		print_serial("cdq Test 1: FAIL\n");
 	else
 		print_serial("cdq Test 1: PASS\n");
 
-	exec_in_big_real_mode(&inregs, &outregs,
-			      insn_cdq_2,
-			      insn_cdq_2_end - insn_cdq_2);
-
+	exec_in_big_real_mode(&inregs, &outregs, &insn_cdq_2);
 	if (!regs_equal(&inregs, &outregs, R_AX | R_DX) || outregs.eax != 0x10000000 || outregs.edx != 0)
 		print_serial("cdq Test 2: FAIL\n");
 	else
