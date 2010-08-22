@@ -541,7 +541,7 @@ void test_long_jmp()
 	u32 esp[16];
 
 	inregs = (struct regs){ 0 };
-	inregs.esp = (u32)esp;
+	inregs.esp = (u32)(esp+16);
 	MK_INSN(long_jmp, "call 1f\n\t"
 			  "jmp 2f\n\t"
 			  "1: jmp $0, $test_function\n\t"
