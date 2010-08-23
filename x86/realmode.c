@@ -1184,6 +1184,64 @@ void test_cwd_cdq()
 	       outregs.eax == 0x10000000 && outregs.edx == 0);
 }
 
+static struct {
+        void *address;
+        unsigned short sel;
+} __attribute__((packed)) desc = {
+	(void *)0x1234,
+	0x10,
+};
+
+void test_lds_lss()
+{
+	inregs = (struct regs){ .ebx = (unsigned long)&desc };
+
+	MK_INSN(lds, "push %ds\n\t"
+		     "lds (%ebx), %eax\n\t"
+		     "mov %ds, %ebx\n\t"
+		     "pop %ds\n\t");
+	exec_in_big_real_mode(&insn_lds);
+	report("lds", R_AX | R_BX,
+		outregs.eax == (unsigned long)desc.address &&
+		outregs.ebx == desc.sel);
+
+	MK_INSN(les, "push %es\n\t"
+		     "les (%ebx), %eax\n\t"
+		     "mov %es, %ebx\n\t"
+		     "pop %es\n\t");
+	exec_in_big_real_mode(&insn_les);
+	report("les", R_AX | R_BX,
+		outregs.eax == (unsigned long)desc.address &&
+		outregs.ebx == desc.sel);
+
+	MK_INSN(lfs, "push %fs\n\t"
+		     "lfs (%ebx), %eax\n\t"
+		     "mov %fs, %ebx\n\t"
+		     "pop %fs\n\t");
+	exec_in_big_real_mode(&insn_lfs);
+	report("lfs", R_AX | R_BX,
+		outregs.eax == (unsigned long)desc.address &&
+		outregs.ebx == desc.sel);
+
+	MK_INSN(lgs, "push %gs\n\t"
+		     "lgs (%ebx), %eax\n\t"
+		     "mov %gs, %ebx\n\t"
+		     "pop %gs\n\t");
+	exec_in_big_real_mode(&insn_lgs);
+	report("lgs", R_AX | R_BX,
+		outregs.eax == (unsigned long)desc.address &&
+		outregs.ebx == desc.sel);
+
+	MK_INSN(lss, "push %ss\n\t"
+		     "lss (%ebx), %eax\n\t"
+		     "mov %ss, %ebx\n\t"
+		     "pop %ss\n\t");
+	exec_in_big_real_mode(&insn_lss);
+	report("lss", R_AX | R_BX,
+		outregs.eax == (unsigned long)desc.address &&
+		outregs.ebx == desc.sel);
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1215,6 +1273,7 @@ void realmode_start(void)
 	test_cbw();
 	test_cwd_cdq();
 	test_das();
+	test_lds_lss();
 
 	exit(0);
 }
