@@ -100,6 +100,11 @@ asm (".pushsection .text \n\t"
      "pushq $13 \n\t"
      "jmp handle_exception \n\t"
 
+     "de_fault: \n\t"
+     "pushq $0 \n\t"
+     "pushq $0 \n\t"
+     "jmp handle_exception \n\t"
+
      "handle_exception: \n\t"
      "push %r15; push %r14; push %r13; push %r12 \n\t"
      "push %r11; push %r10; push %r9; push %r8 \n\t"
@@ -118,9 +123,10 @@ asm (".pushsection .text \n\t"
 
 void setup_idt(void)
 {
-    extern char ud_fault, gp_fault;
+    extern char ud_fault, gp_fault, de_fault;
 
     lidt(idt, 256);
+    set_idt_entry(&idt[0], &de_fault, 0);
     set_idt_entry(&idt[6], &ud_fault, 0);
     set_idt_entry(&idt[13], &gp_fault, 0);
 }
