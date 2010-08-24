@@ -577,6 +577,23 @@ static void test_imul(ulong *mem)
     report("imul rax, mem, imm", a == 0x1D950BDE1D950BC8L);
 }
 
+static void test_div(long *mem)
+{
+    long a, d;
+    u8 ex = 1;
+
+    *mem = 0; a = 1; d = 2;
+    asm (ASM_TRY("1f") "divq %3; movb $0, %2; 1:"
+	 : "+a"(a), "+d"(d), "+q"(ex) : "m"(*mem));
+    report("divq (fault)", a == 1 && d == 2 && ex);
+
+    *mem = 987654321098765UL; a = 123456789012345UL; d = 123456789012345UL;
+    asm (ASM_TRY("1f") "divq %3; movb $0, %2; 1:"
+	 : "+a"(a), "+d"(d), "+q"(ex) : "m"(*mem));
+    report("divq (1)",
+	   a == 0x1ffffffb1b963b33ul && d == 0x273ba4384ede2ul && !ex);
+}
+
 int main()
 {
 	void *mem;
@@ -614,6 +631,7 @@ int main()
 	test_btc(mem);
 	test_bsfbsr(mem);
 	test_imul(mem);
+	test_div(mem);
 
 	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);
 	return fails ? 1 : 0;
