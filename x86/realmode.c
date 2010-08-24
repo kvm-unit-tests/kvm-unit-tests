@@ -1242,6 +1242,47 @@ void test_lds_lss()
 		outregs.ebx == desc.sel);
 }
 
+void test_jcxz(void)
+{
+	MK_INSN(jcxz1, "jcxz 1f\n\t"
+		       "mov $0x1234, %eax\n\t"
+		       "1:\n\t");
+	MK_INSN(jcxz2, "mov $0x100, %ecx\n\t"
+		       "jcxz 1f\n\t"
+		       "mov $0x1234, %eax\n\t"
+		       "mov $0, %ecx\n\t"
+		       "1:\n\t");
+	MK_INSN(jcxz3, "mov $0x10000, %ecx\n\t"
+		       "jcxz 1f\n\t"
+		       "mov $0x1234, %eax\n\t"
+		       "1:\n\t");
+	MK_INSN(jecxz1, "jecxz 1f\n\t"
+			"mov $0x1234, %eax\n\t"
+			"1:\n\t");
+	MK_INSN(jecxz2, "mov $0x10000, %ecx\n\t"
+			"jecxz 1f\n\t"
+			"mov $0x1234, %eax\n\t"
+			"mov $0, %ecx\n\t"
+			"1:\n\t");
+
+	inregs = (struct regs){ 0 };
+
+	exec_in_big_real_mode(&insn_jcxz1);
+	report("jcxz short 1", 0, 1);
+
+	exec_in_big_real_mode(&insn_jcxz2);
+	report("jcxz short 2", R_AX, outregs.eax == 0x1234);
+
+	exec_in_big_real_mode(&insn_jcxz3);
+	report("jcxz short 3", R_CX, outregs.ecx == 0x10000);
+
+	exec_in_big_real_mode(&insn_jecxz1);
+	report("jecxz short 1", 0, 1);
+
+	exec_in_big_real_mode(&insn_jecxz2);
+	report("jecxz short 2", R_AX, outregs.eax == 0x1234);
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1274,6 +1315,7 @@ void realmode_start(void)
 	test_cwd_cdq();
 	test_das();
 	test_lds_lss();
+	test_jcxz();
 
 	exit(0);
 }
