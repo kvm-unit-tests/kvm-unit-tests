@@ -45,7 +45,8 @@ $(TEST_DIR)/vmexit.flat: $(cstart.o) $(TEST_DIR)/vmexit.o
 $(TEST_DIR)/smptest.flat: $(cstart.o) $(TEST_DIR)/smptest.o
  
 $(TEST_DIR)/emulator.flat: $(cstart.o) $(TEST_DIR)/emulator.o \
-			   $(TEST_DIR)/vm.o $(TEST_DIR)/print.o
+			   $(TEST_DIR)/vm.o $(TEST_DIR)/print.o \
+			   $(TEST_DIR)/idt.o
 
 $(TEST_DIR)/port80.flat: $(cstart.o) $(TEST_DIR)/port80.o
 

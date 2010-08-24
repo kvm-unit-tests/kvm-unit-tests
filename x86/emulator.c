@@ -1,6 +1,7 @@
 #include "ioram.h"
 #include "vm.h"
 #include "libcflat.h"
+#include "idt.h"
 
 #define memset __builtin_memset
 #define TESTDEV_IO_PORT 0xe0
@@ -582,6 +583,7 @@ int main()
 	unsigned long t1, t2;
 
 	setup_vm();
+	setup_idt();
 	mem = vmap(IORAM_BASE_PHYS, IORAM_LEN);
 
 	// test mov reg, r/m and mov r/m, reg
