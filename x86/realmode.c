@@ -437,6 +437,7 @@ void test_call(void)
 			    "ret\n\t"
 			    "2:\t");
 	MK_INSN(call_far1,  "lcallw *(%ebx)\n\t");
+	MK_INSN(call_far2,  "lcallw $0, $retf\n\t");
 	MK_INSN(ret_imm,    "sub $10, %sp; jmp 2f; 1: retw $10; 2: callw 1b");
 
 	exec_in_big_real_mode(&insn_call1);
@@ -452,6 +453,9 @@ void test_call(void)
 	inregs.ebx = (unsigned)&addr;
 	exec_in_big_real_mode(&insn_call_far1);
 	report("call far 1", 0, 1);
+
+	exec_in_big_real_mode(&insn_call_far2);
+	report("call far 2", 0, 1);
 
 	exec_in_big_real_mode(&insn_ret_imm);
 	report("ret imm 1", 0, 1);
