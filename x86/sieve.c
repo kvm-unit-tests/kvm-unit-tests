@@ -46,6 +46,6 @@ int main()
 	test_sieve("virtual", v, VSIZE);
 	vfree(v);
     }
-    
+
     return 0;
 }

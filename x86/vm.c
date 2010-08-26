@@ -30,7 +30,7 @@ void *alloc_page()
 
     if (!free)
 	return 0;
-    
+
     p = free;
     free = *(void **)free;
 
@@ -184,7 +184,7 @@ void *vmalloc(unsigned long size)
     unsigned pages;
 
     size += sizeof(unsigned long);
-    
+
     size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
     vfree_top -= size;
     mem = p = vfree_top;
@@ -201,7 +201,7 @@ void *vmalloc(unsigned long size)
 void vfree(void *mem)
 {
     unsigned long size = ((unsigned long *)mem)[-1];
-    
+
     while (size) {
 	free_page(phys_to_virt(get_pte(phys_to_virt(read_cr3()), mem) & PTE_ADDR));
 	mem += PAGE_SIZE;

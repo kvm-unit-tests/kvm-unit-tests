@@ -3,12 +3,12 @@
 
 #define PSEUDO_SERIAL_PORT 0xf1
 
-	
+
 .text
 	PRINT "boo"
 	hlt
 1:	jmp 1b
-	
+
 .globl print
 print:
 	push %rax
@@ -24,7 +24,7 @@ putchar:
 	outsb
 	jmp putchar
 done:
-	
+
 	pop %rdx
 	pop %rsi
 	pop %rax

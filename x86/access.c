@@ -157,7 +157,7 @@ static void ac_test_show(ac_test_t *at);
 void lidt(idt_entry_t *idt, int nentries)
 {
     descriptor_table_t dt;
-    
+
     dt.limit = nentries * sizeof(*idt) - 1;
     dt.linear_addr = (unsigned long)idt;
     asm volatile ("lidt %0" : : "m"(dt));

@@ -19,7 +19,7 @@ stacktop:
 ring0stacktop:
 
 .data
-		
+
 .align 4096
 ptl2:
 i = 0
@@ -38,7 +38,7 @@ ptl3:
 .align 4096
 ptl4:
 	.quad ptl3 + 7
-	
+
 .align 4096
 
 gdt64_desc:
