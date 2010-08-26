@@ -49,9 +49,11 @@ struct msr_info msr_info[] =
     { .index = 0xc0000102, .name = "MSR_KERNEL_GS_BASE",
       .val_pairs = {{ .valid = 1, .value = addr_64, .expected = addr_64}}
     },
+#ifdef __x86_64__
     { .index = 0xc0000080, .name = "MSR_EFER",
       .val_pairs = {{ .valid = 1, .value = 0xD00, .expected = 0xD00}}
     },
+#endif
     { .index = 0xc0000082, .name = "MSR_LSTAR",
       .val_pairs = {{ .valid = 1, .value = addr_64, .expected = addr_64}}
     },
