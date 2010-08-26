@@ -1,6 +1,7 @@
 
 #include "libcflat.h"
 #include "smp.h"
+#include "processor.h"
 
 static inline unsigned long long rdtsc()
 {
@@ -32,7 +33,7 @@ static unsigned int inl(unsigned short port)
 #  define R "e"
 #endif
 
-static void cpuid(void)
+static void cpuid_test(void)
 {
 	asm volatile ("push %%"R "bx; cpuid; pop %%"R "bx"
 		      : : : "eax", "ecx", "edx");
@@ -47,21 +48,6 @@ static void vmcall(void)
 
 #define MSR_EFER 0xc0000080
 #define EFER_NX_MASK            (1ull << 11)
-
-unsigned long long rdmsr(unsigned index)
-{
-	unsigned a, d;
-
-	asm volatile("rdmsr" : "=a"(a), "=d"(d) : "c"(index));
-	return ((unsigned long long)d << 32) | a;
-}
-
-void wrmsr(unsigned index, unsigned long long val)
-{
-	unsigned a = val, d = val >> 32;
-
-	asm volatile("wrmsr" : : "a"(a), "d"(d), "c"(index));
-}
 
 static void mov_from_cr8(void)
 {
@@ -112,7 +98,7 @@ static struct test {
 	int (*valid)(void);
 	int parallel;
 } tests[] = {
-	{ cpuid, "cpuid", .parallel = 1,  },
+	{ cpuid_test, "cpuid", .parallel = 1,  },
 	{ vmcall, "vmcall", .parallel = 1, },
 	{ mov_from_cr8, "mov_from_cr8", .parallel = 1, },
 	{ mov_to_cr8, "mov_to_cr8" , .parallel = 1, },

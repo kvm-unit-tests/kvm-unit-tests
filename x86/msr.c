@@ -1,6 +1,7 @@
 /* msr tests */
 
 #include "libcflat.h"
+#include "processor.h"
 
 struct msr_info {
     int index;
@@ -85,21 +86,6 @@ static void report(const char *name, int passed)
 	if (passed)
 		++nr_passed;
 	printf("%s: %s\n", name, passed ? "PASS" : "FAIL");
-}
-
-static void wrmsr(unsigned index, unsigned long long value)
-{
-	unsigned a = value, d = value >> 32;
-
-	asm volatile("wrmsr" : : "a"(a), "d"(d), "c"(index));
-}
-
-static unsigned long long rdmsr(unsigned index)
-{
-	unsigned a, d;
-
-	asm volatile("rdmsr" : "=a"(a), "=d"(d) : "c"(index));
-	return ((unsigned long long)d << 32) | a;
 }
 
 static void test_msr_rw(int msr_index, unsigned long long input, unsigned long long expected)
