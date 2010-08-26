@@ -68,7 +68,7 @@ tss:
 	.rept max_cpus
 	.long 0
 	.quad ring0stacktop - i * 4096
-	.quad 0, 0, 0
+	.quad 0, 0
 	.quad 0, 0, 0, 0, 0, 0, 0, 0
 	.long 0, 0, 0
 i = i + 1
