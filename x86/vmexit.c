@@ -49,6 +49,7 @@ static void vmcall(void)
 #define MSR_EFER 0xc0000080
 #define EFER_NX_MASK            (1ull << 11)
 
+#ifdef __x86_64__
 static void mov_from_cr8(void)
 {
 	unsigned long cr8;
@@ -62,6 +63,7 @@ static void mov_to_cr8(void)
 
 	asm volatile ("mov %0, %%cr8" : : "r"(cr8));
 }
+#endif
 
 static int is_smp(void)
 {
@@ -100,8 +102,10 @@ static struct test {
 } tests[] = {
 	{ cpuid_test, "cpuid", .parallel = 1,  },
 	{ vmcall, "vmcall", .parallel = 1, },
+#ifdef __x86_64__
 	{ mov_from_cr8, "mov_from_cr8", .parallel = 1, },
 	{ mov_to_cr8, "mov_to_cr8" , .parallel = 1, },
+#endif
 	{ inl_pmtimer, "inl_from_pmtimer", .parallel = 1, },
 	{ ipi, "ipi", is_smp, .parallel = 0, },
 	{ ipi_halt, "ipi+halt", is_smp, .parallel = 0, },
