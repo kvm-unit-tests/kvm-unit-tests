@@ -30,10 +30,6 @@ CFLAGS += -O1
 CFLAGS += $(autodepend-flags) -g -fomit-frame-pointer -Wall
 CFLAGS += $(call cc-option, -fno-stack-protector, "")
 CFLAGS += $(call cc-option, -fno-stack-protector-all, "")
-CFLAGS += -I../include
-CFLAGS += -I ../libkvm
-
-LDFLAGS += $(CFLAGS) -L ../libkvm
 
 CXXFLAGS = $(autodepend-flags)
 
@@ -42,9 +38,6 @@ autodepend-flags = -MMD -MF $(dir $*).$(notdir $*).d
 LDFLAGS += -pthread -lrt
 
 kvmtrace_objs= kvmtrace.o
-
-kvmctl: $(kvmctl_objs)
-	$(CC) $(LDFLAGS) $^ -o $@
 
 kvmtrace: $(kvmtrace_objs)
 	$(CC) $(LDFLAGS) $^ -o $@
@@ -62,4 +55,4 @@ install:
 	install $(tests_and_config) $(DESTDIR)
 
 clean: arch_clean
-	$(RM) kvmctl kvmtrace *.o *.a .*.d $(libcflat) $(cflatobjs)
+	$(RM) kvmtrace *.o *.a .*.d $(libcflat) $(cflatobjs)
