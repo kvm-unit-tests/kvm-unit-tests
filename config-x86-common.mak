@@ -33,7 +33,7 @@ test_cases: $(tests-common) $(tests)
 
 $(TEST_DIR)/%.o: CFLAGS += -std=gnu99 -ffreestanding -I lib -I lib/x86
 
-$(TEST_DIR)/access.flat: $(cstart.o) $(TEST_DIR)/access.o $(TEST_DIR)/print.o
+$(TEST_DIR)/access.flat: $(cstart.o) $(TEST_DIR)/access.o
 
 $(TEST_DIR)/hypercall.flat: $(cstart.o) $(TEST_DIR)/hypercall.o
 
@@ -45,15 +45,13 @@ $(TEST_DIR)/vmexit.flat: $(cstart.o) $(TEST_DIR)/vmexit.o
 $(TEST_DIR)/smptest.flat: $(cstart.o) $(TEST_DIR)/smptest.o
 
 $(TEST_DIR)/emulator.flat: $(cstart.o) $(TEST_DIR)/emulator.o \
-			   $(TEST_DIR)/vm.o $(TEST_DIR)/print.o \
-			   $(TEST_DIR)/idt.o
+			   $(TEST_DIR)/vm.o $(TEST_DIR)/idt.o
 
 $(TEST_DIR)/port80.flat: $(cstart.o) $(TEST_DIR)/port80.o
 
 $(TEST_DIR)/tsc.flat: $(cstart.o) $(TEST_DIR)/tsc.o
 
-$(TEST_DIR)/apic.flat: $(cstart.o) $(TEST_DIR)/apic.o $(TEST_DIR)/vm.o \
-		       $(TEST_DIR)/print.o
+$(TEST_DIR)/apic.flat: $(cstart.o) $(TEST_DIR)/apic.o $(TEST_DIR)/vm.o
 
 $(TEST_DIR)/realmode.flat: $(TEST_DIR)/realmode.o
 	$(CC) -m32 -nostdlib -o $@ -Wl,-T,$(TEST_DIR)/realmode.lds $^
@@ -67,7 +65,7 @@ $(TEST_DIR)/idt_test.flat: $(cstart.o) $(TEST_DIR)/idt.o $(TEST_DIR)/idt_test.o
 $(TEST_DIR)/xsave.flat: $(cstart.o) $(TEST_DIR)/idt.o $(TEST_DIR)/xsave.o
 
 $(TEST_DIR)/rmap_chain.flat: $(cstart.o) $(TEST_DIR)/rmap_chain.o \
-			     $(TEST_DIR)/print.o $(TEST_DIR)/vm.o
+			     $(TEST_DIR)/vm.o
 
 $(TEST_DIR)/svm.flat: $(cstart.o) $(TEST_DIR)/vm.o
 
