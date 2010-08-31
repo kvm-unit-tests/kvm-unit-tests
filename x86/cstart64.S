@@ -6,7 +6,7 @@ boot_idt = 0
 
 ipi_vector = 0x20
 
-max_cpus = 4
+max_cpus = 64
 
 .bss
 
