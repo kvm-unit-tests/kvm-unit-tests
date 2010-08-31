@@ -30,3 +30,34 @@ void *memset(void *s, int c, size_t n)
 
     return s;
 }
+
+long atol(const char *ptr)
+{
+    long acc = 0;
+    const char *s = ptr;
+    int neg, c;
+
+    while (*s == ' ' || *s == '\t')
+        s++;
+    if (*s == '-'){
+        neg = 1;
+        s++;
+    } else {
+        neg = 0;
+        if (*s == '+')
+            s++;
+    }
+
+    while (*s) {
+        if (*s < '0' || *s > '9')
+            break;
+        c = *s - '0';
+        acc = acc * 10 + c;
+        s++;
+    }
+
+    if (neg)
+        acc = -acc;
+
+    return acc;
+}
