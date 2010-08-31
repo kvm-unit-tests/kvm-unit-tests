@@ -23,10 +23,14 @@
 #include <stdarg.h>
 
 typedef unsigned char u8;
+typedef signed char s8;
 typedef unsigned short u16;
+typedef signed short s16;
 typedef unsigned u32;
+typedef signed s32;
 typedef unsigned long ulong;
 typedef unsigned long long u64;
+typedef signed long long s64;
 typedef unsigned long size_t;
 typedef _Bool bool;
 
