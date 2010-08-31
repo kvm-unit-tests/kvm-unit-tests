@@ -1,6 +1,10 @@
 #ifndef __SMP_H
 #define __SMP_H
 
+#define mb() 	asm volatile("mfence":::"memory")
+#define rmb()	asm volatile("lfence":::"memory")
+#define wmb()	asm volatile("sfence" ::: "memory")
+
 struct spinlock {
     int v;
 };
