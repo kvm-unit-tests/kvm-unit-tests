@@ -26,7 +26,8 @@ FLATLIBS = lib/libcflat.a $(libgcc)
 tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/smptest.flat  $(TEST_DIR)/port80.flat \
                $(TEST_DIR)/realmode.flat $(TEST_DIR)/msr.flat \
-               $(TEST_DIR)/hypercall.flat $(TEST_DIR)/sieve.flat
+               $(TEST_DIR)/hypercall.flat $(TEST_DIR)/sieve.flat \
+               $(TEST_DIR)/kvmclock_test.flat
 
 tests_and_config = $(TEST_DIR)/*.flat $(TEST_DIR)/unittests.cfg
 
@@ -69,6 +70,9 @@ $(TEST_DIR)/rmap_chain.flat: $(cstart.o) $(TEST_DIR)/rmap_chain.o \
 			     $(TEST_DIR)/vm.o
 
 $(TEST_DIR)/svm.flat: $(cstart.o) $(TEST_DIR)/vm.o
+
+$(TEST_DIR)/kvmclock_test.flat: $(cstart.o) $(TEST_DIR)/kvmclock.o \
+                                $(TEST_DIR)/kvmclock_test.o
 
 arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat \
