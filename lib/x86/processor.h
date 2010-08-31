@@ -258,4 +258,26 @@ static inline void sti(void)
     asm volatile ("sti");
 }
 
+static inline unsigned long long rdtsc()
+{
+	long long r;
+
+#ifdef __x86_64__
+	unsigned a, d;
+
+	asm volatile ("rdtsc" : "=a"(a), "=d"(d));
+	r = a | ((long long)d << 32);
+#else
+	asm volatile ("rdtsc" : "=A"(r));
+#endif
+	return r;
+}
+
+static inline void wrtsc(u64 tsc)
+{
+	unsigned a = tsc, d = tsc >> 32;
+
+	asm volatile("wrmsr" : : "a"(a), "d"(d), "c"(0x10));
+}
+
 #endif

@@ -1,19 +1,5 @@
 #include "libcflat.h"
-
-u64 rdtsc(void)
-{
-	unsigned a, d;
-
-	asm volatile("rdtsc" : "=a"(a), "=d"(d));
-	return a | (u64)d << 32;
-}
-
-void wrtsc(u64 tsc)
-{
-	unsigned a = tsc, d = tsc >> 32;
-
-	asm volatile("wrmsr" : : "a"(a), "d"(d), "c"(0x10));
-}
+#include "processor.h"
 
 void test_wrtsc(u64 t1)
 {
