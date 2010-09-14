@@ -560,6 +560,28 @@ static bool npt_rw_check(struct test *test)
            && (test->vmcb->control.exit_info_1 == 0x07);
 }
 
+static void npt_pfwalk_prepare(struct test *test)
+{
+
+    u64 *pte;
+
+    vmcb_ident(test->vmcb);
+    pte = get_pte(read_cr3());
+
+    *pte &= ~(1ULL << 1);
+}
+
+static bool npt_pfwalk_check(struct test *test)
+{
+    u64 *pte = get_pte(read_cr3());
+
+    *pte |= (1ULL << 1);
+
+    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
+           && (test->vmcb->control.exit_info_1 == 0x7)
+	   && (test->vmcb->control.exit_info_2 == read_cr3());
+}
+
 static struct test tests[] = {
     { "null", default_supported, default_prepare, null_test,
       default_finished, null_check },
@@ -590,6 +612,8 @@ static struct test tests[] = {
 	    default_finished, npt_rsvd_check },
     { "npt_rw", npt_supported, npt_rw_prepare, npt_rw_test,
 	    default_finished, npt_rw_check },
+    { "npt_pfwalk", npt_supported, npt_pfwalk_prepare, null_test,
+	    default_finished, npt_pfwalk_check },
 };
 
 int main(int ac, char **av)
