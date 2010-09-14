@@ -11,6 +11,7 @@ u64 *pml4e;
 u64 *pdpe;
 u64 *pde[4];
 u64 *pte[2048];
+u64 *scratch_page;
 
 static bool npt_supported(void)
 {
@@ -26,6 +27,8 @@ static void setup_svm(void)
     wrmsr(MSR_VM_HSAVE_PA, virt_to_phys(hsave));
     wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_SVME);
     wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX);
+
+    scratch_page = alloc_page();
 
     if (!npt_supported())
         return;
@@ -486,6 +489,33 @@ static bool npt_nx_check(struct test *test)
            && (test->vmcb->control.exit_info_1 == 0x15);
 }
 
+static void npt_us_prepare(struct test *test)
+{
+    u64 *pte;
+
+    vmcb_ident(test->vmcb);
+    pte = get_pte((u64)scratch_page);
+
+    *pte &= ~(1ULL << 2);
+}
+
+static void npt_us_test(struct test *test)
+{
+    volatile u64 data;
+
+    data = *scratch_page;
+}
+
+static bool npt_us_check(struct test *test)
+{
+    u64 *pte = get_pte((u64)scratch_page);
+
+    *pte |= (1ULL << 2);
+
+    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
+           && (test->vmcb->control.exit_info_1 == 0x05);
+}
+
 static struct test tests[] = {
     { "null", default_supported, default_prepare, null_test,
       default_finished, null_check },
@@ -509,7 +539,9 @@ static struct test tests[] = {
     { "sel_cr0_bug", default_supported, sel_cr0_bug_prepare, sel_cr0_bug_test,
        sel_cr0_bug_finished, sel_cr0_bug_check },
     { "npt_nx", npt_supported, npt_nx_prepare, null_test,
-	    default_finished, npt_nx_check }
+	    default_finished, npt_nx_check },
+    { "npt_us", npt_supported, npt_us_prepare, npt_us_test,
+	    default_finished, npt_us_check },
 };
 
 int main(int ac, char **av)
