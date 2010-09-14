@@ -357,6 +357,40 @@ static bool check_asid_zero(struct test *test)
     return test->vmcb->control.exit_code == SVM_EXIT_ERR;
 }
 
+static void sel_cr0_bug_prepare(struct test *test)
+{
+    vmcb_ident(test->vmcb);
+    test->vmcb->control.intercept |= (1ULL << INTERCEPT_SELECTIVE_CR0);
+}
+
+static bool sel_cr0_bug_finished(struct test *test)
+{
+	return true;
+}
+
+static void sel_cr0_bug_test(struct test *test)
+{
+    unsigned long cr0;
+
+    /* read cr0, clear CD, and write back */
+    cr0  = read_cr0();
+    cr0 |= (1UL << 30);
+    write_cr0(cr0);
+
+    /*
+     * If we are here the test failed, not sure what to do now because we
+     * are not in guest-mode anymore so we can't trigger an intercept.
+     * Trigger a tripple-fault for now.
+     */
+    printf("sel_cr0 test failed. Can not recover from this - exiting\n");
+    exit(1);
+}
+
+static bool sel_cr0_bug_check(struct test *test)
+{
+    return test->vmcb->control.exit_code == SVM_EXIT_CR0_SEL_WRITE;
+}
+
 static struct test tests[] = {
     { "null", default_supported, default_prepare, null_test,
       default_finished, null_check },
@@ -377,7 +411,8 @@ static struct test tests[] = {
        mode_switch_finished, check_mode_switch },
     { "asid_zero", default_supported, prepare_asid_zero, test_asid_zero,
        default_finished, check_asid_zero },
-
+    { "sel_cr0_bug", default_supported, sel_cr0_bug_prepare, sel_cr0_bug_test,
+       sel_cr0_bug_finished, sel_cr0_bug_check },
 };
 
 int main(int ac, char **av)
