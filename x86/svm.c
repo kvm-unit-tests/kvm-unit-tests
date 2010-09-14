@@ -516,6 +516,22 @@ static bool npt_us_check(struct test *test)
            && (test->vmcb->control.exit_info_1 == 0x05);
 }
 
+static void npt_rsvd_prepare(struct test *test)
+{
+
+    vmcb_ident(test->vmcb);
+
+    pdpe[0] |= (1ULL << 8);
+}
+
+static bool npt_rsvd_check(struct test *test)
+{
+    pdpe[0] &= ~(1ULL << 8);
+
+    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
+            && (test->vmcb->control.exit_info_1 == 0x0f);
+}
+
 static struct test tests[] = {
     { "null", default_supported, default_prepare, null_test,
       default_finished, null_check },
@@ -542,6 +558,8 @@ static struct test tests[] = {
 	    default_finished, npt_nx_check },
     { "npt_us", npt_supported, npt_us_prepare, npt_us_test,
 	    default_finished, npt_us_check },
+    { "npt_rsvd", npt_supported, npt_rsvd_prepare, null_test,
+	    default_finished, npt_rsvd_check },
 };
 
 int main(int ac, char **av)
