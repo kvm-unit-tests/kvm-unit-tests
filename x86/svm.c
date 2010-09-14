@@ -25,6 +25,7 @@ static void setup_svm(void)
 
     wrmsr(MSR_VM_HSAVE_PA, virt_to_phys(hsave));
     wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_SVME);
+    wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX);
 
     if (!npt_supported())
         return;
@@ -67,6 +68,17 @@ static void setup_svm(void)
     /* PML4e level */
     pml4e    = alloc_page();
     pml4e[0] = ((u64)pdpe) | 0x27;
+}
+
+static u64 *get_pte(u64 address)
+{
+    int i1, i2;
+
+    address >>= 12;
+    i1 = (address >> 9) & 0x7ff;
+    i2 = address & 0x1ff;
+
+    return &pte[i1][i2];
 }
 
 static void vmcb_set_seg(struct vmcb_seg *seg, u16 selector,
@@ -451,6 +463,29 @@ static bool sel_cr0_bug_check(struct test *test)
     return test->vmcb->control.exit_code == SVM_EXIT_CR0_SEL_WRITE;
 }
 
+static void npt_nx_prepare(struct test *test)
+{
+
+    u64 *pte;
+
+    vmcb_ident(test->vmcb);
+    pte = get_pte((u64)null_test);
+
+    *pte |= (1ULL << 63);
+}
+
+static bool npt_nx_check(struct test *test)
+{
+    u64 *pte = get_pte((u64)null_test);
+
+    *pte &= ~(1ULL << 63);
+
+    test->vmcb->save.efer |= (1 << 11);
+
+    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
+           && (test->vmcb->control.exit_info_1 == 0x15);
+}
+
 static struct test tests[] = {
     { "null", default_supported, default_prepare, null_test,
       default_finished, null_check },
@@ -473,6 +508,8 @@ static struct test tests[] = {
        default_finished, check_asid_zero },
     { "sel_cr0_bug", default_supported, sel_cr0_bug_prepare, sel_cr0_bug_test,
        sel_cr0_bug_finished, sel_cr0_bug_check },
+    { "npt_nx", npt_supported, npt_nx_prepare, null_test,
+	    default_finished, npt_nx_check }
 };
 
 int main(int ac, char **av)
