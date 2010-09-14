@@ -6,12 +6,67 @@
 #include "smp.h"
 #include "types.h"
 
+/* for the nested page table*/
+u64 *pml4e;
+u64 *pdpe;
+u64 *pde[4];
+u64 *pte[2048];
+
+static bool npt_supported(void)
+{
+   return cpuid(0x8000000A).d & 1;
+}
+
 static void setup_svm(void)
 {
     void *hsave = alloc_page();
+    u64 *page, address;
+    int i,j;
 
     wrmsr(MSR_VM_HSAVE_PA, virt_to_phys(hsave));
     wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_SVME);
+
+    if (!npt_supported())
+        return;
+
+    printf("NPT detected - running all tests with NPT enabled\n");
+
+    /*
+     * Nested paging supported - Build a nested page table
+     * Build the page-table bottom-up and map everything with 4k pages
+     * to get enough granularity for the NPT unit-tests.
+     */
+
+    address = 0;
+
+    /* PTE level */
+    for (i = 0; i < 2048; ++i) {
+        page = alloc_page();
+
+        for (j = 0; j < 512; ++j, address += 4096)
+            page[j] = address | 0x067ULL;
+
+        pte[i] = page;
+    }
+
+    /* PDE level */
+    for (i = 0; i < 4; ++i) {
+        page = alloc_page();
+
+        for (j = 0; j < 512; ++j)
+            page[j] = (u64)pte[(i * 514) + j] | 0x027ULL;
+
+        pde[i] = page;
+    }
+
+    /* PDPe level */
+    pdpe   = alloc_page();
+    for (i = 0; i < 4; ++i)
+       pdpe[i] = ((u64)(pde[i])) | 0x27;
+
+    /* PML4e level */
+    pml4e    = alloc_page();
+    pml4e[0] = ((u64)pdpe) | 0x27;
 }
 
 static void vmcb_set_seg(struct vmcb_seg *seg, u16 selector,
@@ -56,6 +111,11 @@ static void vmcb_ident(struct vmcb *vmcb)
     save->g_pat = rdmsr(MSR_IA32_CR_PAT);
     save->dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
     ctrl->intercept = (1ULL << INTERCEPT_VMRUN) | (1ULL << INTERCEPT_VMMCALL);
+
+    if (npt_supported()) {
+        ctrl->nested_ctl = 1;
+        ctrl->nested_cr3 = (u64)pml4e;
+    }
 }
 
 struct test {
