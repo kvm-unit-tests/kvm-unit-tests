@@ -13,6 +13,18 @@ u64 *pde[4];
 u64 *pte[2048];
 u64 *scratch_page;
 
+#define LATENCY_RUNS 1000000
+
+u64 tsc_start;
+u64 tsc_end;
+
+u64 vmrun_sum, vmexit_sum;
+u64 latvmrun_max;
+u64 latvmrun_min;
+u64 latvmexit_max;
+u64 latvmexit_min;
+u64 runs;
+
 static bool npt_supported(void)
 {
    return cpuid(0x8000000A).d & 1;
@@ -162,6 +174,7 @@ static bool test_run(struct test *test, struct vmcb *vmcb)
     vmcb->save.rip = (ulong)test_thunk;
     vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
     do {
+        tsc_start = rdtsc();
         asm volatile (
             "clgi \n\t"
             "vmload \n\t"
@@ -176,8 +189,10 @@ static bool test_run(struct test *test, struct vmcb *vmcb)
             : "rbx", "rcx", "rdx", "rsi",
               "r8", "r9", "r10", "r11" , "r12", "r13", "r14", "r15",
               "memory");
+	tsc_end = rdtsc();
         ++test->exits;
     } while (!test->finished(test));
+
 
     success = test->succeeded(test);
 
@@ -582,6 +597,70 @@ static bool npt_pfwalk_check(struct test *test)
 	   && (test->vmcb->control.exit_info_2 == read_cr3());
 }
 
+static void latency_prepare(struct test *test)
+{
+    default_prepare(test);
+    runs = LATENCY_RUNS;
+    latvmrun_min = latvmexit_min = -1ULL;
+    latvmrun_max = latvmexit_max = 0;
+    vmrun_sum = vmexit_sum = 0;
+}
+
+static void latency_test(struct test *test)
+{
+    u64 cycles;
+
+start:
+    tsc_end = rdtsc();
+
+    cycles = tsc_end - tsc_start;
+
+    if (cycles > latvmrun_max)
+        latvmrun_max = cycles;
+
+    if (cycles < latvmrun_min)
+        latvmrun_min = cycles;
+
+    vmrun_sum += cycles;
+
+    tsc_start = rdtsc();
+
+    asm volatile ("vmmcall" : : : "memory");
+    goto start;
+}
+
+static bool latency_finished(struct test *test)
+{
+    u64 cycles;
+
+    tsc_end = rdtsc();
+
+    cycles = tsc_end - tsc_start;
+
+    if (cycles > latvmexit_max)
+        latvmexit_max = cycles;
+
+    if (cycles < latvmexit_min)
+        latvmexit_min = cycles;
+
+    vmexit_sum += cycles;
+
+    test->vmcb->save.rip += 3;
+
+    runs -= 1;
+
+    return runs == 0;
+}
+
+static bool latency_check(struct test *test)
+{
+    printf("    Latency VMRUN : max: %d min: %d avg: %d\n", latvmrun_max,
+            latvmrun_min, vmrun_sum / LATENCY_RUNS);
+    printf("    Latency VMEXIT: max: %d min: %d avg: %d\n", latvmexit_max,
+            latvmexit_min, vmexit_sum / LATENCY_RUNS);
+    return true;
+}
+
 static struct test tests[] = {
     { "null", default_supported, default_prepare, null_test,
       default_finished, null_check },
@@ -614,6 +693,8 @@ static struct test tests[] = {
 	    default_finished, npt_rw_check },
     { "npt_pfwalk", npt_supported, npt_pfwalk_prepare, null_test,
 	    default_finished, npt_pfwalk_check },
+    { "latency_run_exit", default_supported, latency_prepare, latency_test,
+      latency_finished, latency_check },
 };
 
 int main(int ac, char **av)
