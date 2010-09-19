@@ -19,10 +19,20 @@ u64 tsc_start;
 u64 tsc_end;
 
 u64 vmrun_sum, vmexit_sum;
+u64 vmsave_sum, vmload_sum;
+u64 stgi_sum, clgi_sum;
 u64 latvmrun_max;
 u64 latvmrun_min;
 u64 latvmexit_max;
 u64 latvmexit_min;
+u64 latvmload_max;
+u64 latvmload_min;
+u64 latvmsave_max;
+u64 latvmsave_min;
+u64 latstgi_max;
+u64 latstgi_min;
+u64 latclgi_max;
+u64 latclgi_min;
 u64 runs;
 
 static bool npt_supported(void)
@@ -661,6 +671,73 @@ static bool latency_check(struct test *test)
     return true;
 }
 
+static void lat_svm_insn_prepare(struct test *test)
+{
+    default_prepare(test);
+    runs = LATENCY_RUNS;
+    latvmload_min = latvmsave_min = latstgi_min = latclgi_min = -1ULL;
+    latvmload_max = latvmsave_max = latstgi_max = latclgi_max = 0;
+    vmload_sum = vmsave_sum = stgi_sum = clgi_sum;
+}
+
+static bool lat_svm_insn_finished(struct test *test)
+{
+    u64 vmcb_phys = virt_to_phys(test->vmcb);
+    u64 cycles;
+
+    for ( ; runs != 0; runs--) {
+        tsc_start = rdtsc();
+        asm volatile("vmload\n\t" : : "a"(vmcb_phys) : "memory");
+        cycles = rdtsc() - tsc_start;
+        if (cycles > latvmload_max)
+            latvmload_max = cycles;
+        if (cycles < latvmload_min)
+            latvmload_min = cycles;
+        vmload_sum += cycles;
+
+        tsc_start = rdtsc();
+        asm volatile("vmsave\n\t" : : "a"(vmcb_phys) : "memory");
+        cycles = rdtsc() - tsc_start;
+        if (cycles > latvmsave_max)
+            latvmsave_max = cycles;
+        if (cycles < latvmsave_min)
+            latvmsave_min = cycles;
+        vmsave_sum += cycles;
+
+        tsc_start = rdtsc();
+        asm volatile("stgi\n\t");
+        cycles = rdtsc() - tsc_start;
+        if (cycles > latstgi_max)
+            latstgi_max = cycles;
+        if (cycles < latstgi_min)
+            latstgi_min = cycles;
+        stgi_sum += cycles;
+
+        tsc_start = rdtsc();
+        asm volatile("clgi\n\t");
+        cycles = rdtsc() - tsc_start;
+        if (cycles > latclgi_max)
+            latclgi_max = cycles;
+        if (cycles < latclgi_min)
+            latclgi_min = cycles;
+        clgi_sum += cycles;
+    }
+
+    return true;
+}
+
+static bool lat_svm_insn_check(struct test *test)
+{
+    printf("    Latency VMLOAD: max: %d min: %d avg: %d\n", latvmload_max,
+            latvmload_min, vmload_sum / LATENCY_RUNS);
+    printf("    Latency VMSAVE: max: %d min: %d avg: %d\n", latvmsave_max,
+            latvmsave_min, vmsave_sum / LATENCY_RUNS);
+    printf("    Latency STGI:   max: %d min: %d avg: %d\n", latstgi_max,
+            latstgi_min, stgi_sum / LATENCY_RUNS);
+    printf("    Latency CLGI:   max: %d min: %d avg: %d\n", latclgi_max,
+            latclgi_min, clgi_sum / LATENCY_RUNS);
+    return true;
+}
 static struct test tests[] = {
     { "null", default_supported, default_prepare, null_test,
       default_finished, null_check },
@@ -695,6 +772,8 @@ static struct test tests[] = {
 	    default_finished, npt_pfwalk_check },
     { "latency_run_exit", default_supported, latency_prepare, latency_test,
       latency_finished, latency_check },
+    { "latency_svm_insn", default_supported, lat_svm_insn_prepare, null_test,
+      lat_svm_insn_finished, lat_svm_insn_check },
 };
 
 int main(int ac, char **av)
