@@ -89,7 +89,7 @@ asm (
 #endif
     );
 
-static idt_entry_t idt[256];
+static idt_entry_t *idt = 0;
 
 static int g_fail;
 static int g_tests;
@@ -125,19 +125,6 @@ void test_enable_x2apic(void)
     } else {
         printf("x2apic not detected\n");
     }
-}
-
-static void init_idt(void)
-{
-    struct {
-        u16 limit;
-        ulong idt;
-    } __attribute__((packed)) idt_ptr = {
-        sizeof(idt_entry_t) * 256 - 1,
-        (ulong)&idt,
-    };
-
-    asm volatile("lidt %0" : : "m"(idt_ptr));
 }
 
 static void set_idt_entry(unsigned vec, void (*func)(isr_regs_t *regs))
@@ -296,7 +283,6 @@ int main()
     mask_pic_interrupts();
     enable_apic();
     test_enable_x2apic();
-    init_idt();
 
     test_self_ipi();
 
