@@ -1,6 +1,7 @@
 #include "libcflat.h"
 #include "apic.h"
 #include "vm.h"
+#include "smp.h"
 
 typedef struct {
     unsigned short offset0;
@@ -274,9 +275,74 @@ static void test_ioapic_simultaneous(void)
            g_66 && g_78 && g_66_after_78 && g_66_rip == g_78_rip);
 }
 
+volatile int nmi_counter_private, nmi_counter, nmi_hlt_counter, sti_loop_active;
+
+void sti_nop(char *p)
+{
+    asm volatile (
+		  ".globl post_sti \n\t"
+		  "sti \n"
+		  /*
+		   * vmx won't exit on external interrupt if blocked-by-sti,
+		   * so give it a reason to exit by accessing an unmapped page.
+		   */
+		  "post_sti: testb $0, %0 \n\t"
+		  "nop \n\t"
+		  "cli"
+		  : : "m"(*p)
+		  );
+    nmi_counter = nmi_counter_private;
+}
+
+static void sti_loop(void *ignore)
+{
+    unsigned k = 0;
+
+    while (sti_loop_active) {
+	sti_nop((char *)(ulong)((k++ * 4096) % (128 * 1024 * 1024)));
+    }
+}
+
+static void nmi_handler(isr_regs_t *regs)
+{
+    extern void post_sti(void);
+    ++nmi_counter_private;
+    nmi_hlt_counter += regs->rip == (ulong)post_sti;
+}
+
+static void update_cr3(void *cr3)
+{
+    write_cr3((ulong)cr3);
+}
+
+static void test_sti_nmi(void)
+{
+    unsigned old_counter;
+
+    if (cpu_count() < 2) {
+	return;
+    }
+
+    set_idt_entry(2, nmi_handler);
+    on_cpu(1, update_cr3, (void *)read_cr3());
+
+    sti_loop_active = 1;
+    on_cpu_async(1, sti_loop, 0);
+    while (nmi_counter < 30000) {
+	old_counter = nmi_counter;
+	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 1);
+	while (nmi_counter == old_counter) {
+	    ;
+	}
+    }
+    sti_loop_active = 0;
+    report("nmi-after-sti", nmi_hlt_counter == 0);
+}
+
 int main()
 {
     setup_vm();
+    smp_init();
 
     test_lapic_existence();
 
@@ -288,6 +354,7 @@ int main()
 
     test_ioapic_intr();
     test_ioapic_simultaneous();
+    test_sti_nmi();
 
     printf("\nsummary: %d tests, %d failures\n", g_tests, g_fail);
 
