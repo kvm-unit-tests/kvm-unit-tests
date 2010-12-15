@@ -18,3 +18,16 @@ const char *errno_exception::what()
 		  std::strerror(_errno), _errno);
     return _buf;
 }
+
+int try_main(int (*main)(int argc, char** argv), int argc, char** argv,
+	     int ret_on_exception)
+{
+    try {
+        return main(argc, argv);
+    } catch (std::exception& e) {
+        std::fprintf(stderr, "exception: %s\n", e.what());
+    } catch (...) {
+        std::fprintf(stderr, "unknown exception\n");
+    }
+    return ret_on_exception;
+}

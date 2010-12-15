@@ -13,4 +13,7 @@ private:
     char _buf[1000];
 };
 
+int try_main(int (*main)(int argc, char** argv), int argc, char** argv,
+	     int ret_on_exception = 127);
+
 #endif
