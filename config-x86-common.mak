@@ -85,8 +85,10 @@ arch_clean:
 
 api/%.o: CFLAGS += -m32
 
-api/api-sample: LDLIBS += -lstdc++
-api/api-sample: LDFLAGS += -m32
+api/%: LDLIBS += -lstdc++
+api/%: LDFLAGS += -m32
 
-api/api-sample: api/api-sample.o api/kvmxx.o api/identity.o api/exception.o
-api/api-sample: api/memmap.o
+api/libapi.a: api/kvmxx.o api/identity.o api/exception.o api/memmap.o
+	$(AR) rcs $@ $^
+
+api/api-sample: api/api-sample.o api/libapi.a
