@@ -89,3 +89,4 @@ api/api-sample: LDLIBS += -lstdc++
 api/api-sample: LDFLAGS += -m32
 
 api/api-sample: api/api-sample.o api/kvmxx.o api/identity.o api/exception.o
+api/api-sample: api/memmap.o

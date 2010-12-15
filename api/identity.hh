@@ -2,12 +2,27 @@
 #define API_IDENTITY_HH
 
 #include "kvmxx.hh"
+#include "memmap.hh"
 #include <tr1/functional>
+#include <tr1/memory>
 #include <vector>
 
 namespace identity {
 
-void setup_vm(kvm::vm& vm);
+struct hole {
+    hole();
+    hole(void* address, size_t size);
+    void* address;
+    size_t size;
+};
+
+class vm {
+public:
+    vm(kvm::vm& vm, mem_map& mmap, hole address_space_hole = hole());
+private:
+    typedef std::tr1::shared_ptr<mem_slot> mem_slot_ptr;
+    std::vector<mem_slot_ptr> _slots;
+};
 
 class vcpu {
 public:

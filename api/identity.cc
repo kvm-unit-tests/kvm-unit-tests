@@ -6,9 +6,28 @@ namespace identity {
 
 typedef unsigned long ulong;
 
-void setup_vm(kvm::vm& vm)
+hole::hole()
+    : address(), size()
 {
-    vm.set_memory_region(0, NULL, 0, 3UL << 30);
+}
+
+hole::hole(void* address, size_t size)
+    : address(address), size(size)
+{
+}
+
+vm::vm(kvm::vm& vm, mem_map& mmap, hole h)
+{
+    uint64_t hole_gpa = reinterpret_cast<uint64_t>(h.address);
+    char* hole_hva = static_cast<char*>(h.address);
+    if (h.address) {
+        _slots.push_back(mem_slot_ptr(new mem_slot(mmap, 0, hole_gpa, NULL)));
+    }
+    uint64_t hole_end = hole_gpa + h.size;
+    uint64_t end = 3U << 30;
+    _slots.push_back(mem_slot_ptr(new mem_slot(mmap, hole_end,
+                                               end - hole_end,
+                                               hole_hva + h.size)));
     vm.set_tss_addr(3UL << 30);
 }
 
