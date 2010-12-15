@@ -81,4 +81,3 @@ arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
 	$(TEST_DIR)/.*.d $(TEST_DIR)/lib/.*.d $(TEST_DIR)/lib/*.o
 
--include $(TEST_DIR)/.*.d lib/.*.d lib/x86/.*.d

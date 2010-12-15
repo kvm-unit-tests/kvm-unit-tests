@@ -50,7 +50,7 @@ $(libcflat): $(cflatobjs)
 %.o: %.S
 	$(CC) $(CFLAGS) -c -nostdlib -o $@ $<
 
--include .*.d
+-include .*.d */.*.d */*/.*.d
 
 install:
 	mkdir -p $(DESTDIR)
