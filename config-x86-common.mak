@@ -33,6 +33,7 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/kvmclock_test.flat
 
 tests-common += api/api-sample
+tests-common += api/dirty-log
 
 tests_and_config = $(TEST_DIR)/*.flat $(TEST_DIR)/unittests.cfg
 
@@ -85,10 +86,12 @@ arch_clean:
 
 api/%.o: CFLAGS += -m32
 
-api/%: LDLIBS += -lstdc++
+api/%: LDLIBS += -lstdc++ -lboost_thread-mt -lpthread
 api/%: LDFLAGS += -m32
 
 api/libapi.a: api/kvmxx.o api/identity.o api/exception.o api/memmap.o
 	$(AR) rcs $@ $^
 
 api/api-sample: api/api-sample.o api/libapi.a
+
+api/dirty-log: api/dirty-log.o api/libapi.a
