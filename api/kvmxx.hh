@@ -57,7 +57,8 @@ private:
 class vm {
 public:
     explicit vm(system& system);
-    void set_memory_region(int slot, void *addr, uint64_t gpa, size_t len);
+    void set_memory_region(int slot, void *addr, uint64_t gpa, size_t len,
+                           uint32_t flags = 0);
     void set_tss_addr(uint32_t addr);
     system& sys() { return _system; }
 private:

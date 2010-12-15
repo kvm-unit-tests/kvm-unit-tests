@@ -150,12 +150,13 @@ vm::vm(system& system)
 {
 }
 
-void vm::set_memory_region(int slot, void *addr, uint64_t gpa, size_t len)
+void vm::set_memory_region(int slot, void *addr, uint64_t gpa, size_t len,
+                           uint32_t flags)
 {
     struct kvm_userspace_memory_region umr;
 
     umr.slot = slot;
-    umr.flags = 0;
+    umr.flags = flags;
     umr.guest_phys_addr = gpa;
     umr.memory_size = len;
     umr.userspace_addr = reinterpret_cast<uint64_t>(addr);
