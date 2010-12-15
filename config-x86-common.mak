@@ -32,6 +32,8 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/hypercall.flat $(TEST_DIR)/sieve.flat \
                $(TEST_DIR)/kvmclock_test.flat
 
+tests-common += api/api-sample
+
 tests_and_config = $(TEST_DIR)/*.flat $(TEST_DIR)/unittests.cfg
 
 test_cases: $(tests-common) $(tests)
@@ -82,3 +84,8 @@ arch_clean:
 	$(TEST_DIR)/.*.d $(TEST_DIR)/lib/.*.d $(TEST_DIR)/lib/*.o
 
 api/%.o: CFLAGS += -m32
+
+api/api-sample: LDLIBS += -lstdc++
+api/api-sample: LDFLAGS += -m32
+
+api/api-sample: api/api-sample.o api/kvmxx.o api/identity.o api/exception.o
