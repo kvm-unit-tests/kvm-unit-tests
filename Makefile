@@ -6,7 +6,7 @@ DESTDIR := $(PREFIX)/share/qemu/tests
 .PHONY: arch_clean clean
 
 #make sure env CFLAGS variable is not used
-CFLAGS =
+CFLAGS = -g
 
 libgcc := $(shell $(CC) --print-libgcc-file-name)
 
