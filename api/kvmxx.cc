@@ -163,6 +163,14 @@ void vm::set_memory_region(int slot, void *addr, uint64_t gpa, size_t len,
     _fd.ioctlp(KVM_SET_USER_MEMORY_REGION, &umr);
 }
 
+void vm::get_dirty_log(int slot, void *log)
+{
+    struct kvm_dirty_log kdl;
+    kdl.slot = slot;
+    kdl.dirty_bitmap = log;
+    _fd.ioctlp(KVM_GET_DIRTY_LOG, &kdl);
+}
+
 void vm::set_tss_addr(uint32_t addr)
 {
     _fd.ioctl(KVM_SET_TSS_ADDR, addr);

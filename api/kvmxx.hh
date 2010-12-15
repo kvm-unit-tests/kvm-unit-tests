@@ -59,6 +59,7 @@ public:
     explicit vm(system& system);
     void set_memory_region(int slot, void *addr, uint64_t gpa, size_t len,
                            uint32_t flags = 0);
+    void get_dirty_log(int slot, void *log);
     void set_tss_addr(uint32_t addr);
     system& sys() { return _system; }
 private:
