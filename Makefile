@@ -30,11 +30,13 @@ CFLAGS += -O1
 CFLAGS += $(autodepend-flags) -g -fomit-frame-pointer -Wall
 CFLAGS += $(call cc-option, -fno-stack-protector, "")
 CFLAGS += $(call cc-option, -fno-stack-protector-all, "")
+CFLAGS += -I.
 
-CXXFLAGS = $(autodepend-flags)
+CXXFLAGS += $(CFLAGS)
 
 autodepend-flags = -MMD -MF $(dir $*).$(notdir $*).d
 
+LDFLAGS += $(CFLAGS)
 LDFLAGS += -pthread -lrt
 
 kvmtrace_objs= kvmtrace.o
