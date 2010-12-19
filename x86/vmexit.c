@@ -148,7 +148,21 @@ static void enable_nx(void *junk)
 		wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX_MASK);
 }
 
-int main(void)
+bool test_wanted(struct test *test, char *wanted[], int nwanted)
+{
+	int i;
+
+	if (!nwanted)
+		return true;
+
+	for (i = 0; i < nwanted; ++i)
+		if (strcmp(wanted[i], test->name) == 0)
+			return true;
+
+	return false;
+}
+
+int main(int ac, char **av)
 {
 	int i;
 
@@ -158,7 +172,8 @@ int main(void)
 		on_cpu(i-1, enable_nx, 0);
 
 	for (i = 0; i < ARRAY_SIZE(tests); ++i)
-		do_test(&tests[i]);
+		if (test_wanted(&tests[i], av + 1, ac - 1))
+			do_test(&tests[i]);
 
 	return 0;
 }
