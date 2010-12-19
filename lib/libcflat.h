@@ -42,6 +42,7 @@ extern void panic(char *fmt, ...);
 
 extern unsigned long strlen(const char *buf);
 extern char *strcat(char *dest, const char *src);
+extern int strcmp(const char *a, const char *b);
 
 extern int printf(const char *fmt, ...);
 extern int vsnprintf(char *buf, int size, const char *fmt, va_list va);
