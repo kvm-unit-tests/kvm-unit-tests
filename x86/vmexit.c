@@ -12,6 +12,8 @@ static unsigned int inl(unsigned short port)
 
 #define GOAL (1ull << 30)
 
+static int nr_cpus;
+
 #ifdef __x86_64__
 #  define R "r"
 #else
@@ -79,6 +81,27 @@ static void inl_pmtimer(void)
     inl(0xb008);
 }
 
+static void ple_round_robin(void)
+{
+	struct counter {
+		volatile int n1;
+		int n2;
+	} __attribute__((aligned(64)));
+	static struct counter counters[64] = { { -1, 0 } };
+	int me = smp_id();
+	int you;
+	volatile struct counter *p = &counters[me];
+
+	while (p->n1 == p->n2)
+		asm volatile ("pause");
+
+	p->n2 = p->n1;
+	you = me + 1;
+	if (you == nr_cpus)
+		you = 0;
+	++counters[you].n1;
+}
+
 static struct test {
 	void (*func)(void);
 	const char *name;
@@ -94,6 +117,7 @@ static struct test {
 	{ inl_pmtimer, "inl_from_pmtimer", .parallel = 1, },
 	{ ipi, "ipi", is_smp, .parallel = 0, },
 	{ ipi_halt, "ipi+halt", is_smp, .parallel = 0, },
+	{ ple_round_robin, "ple-round-robin", .parallel = 1 },
 };
 
 unsigned iterations;
@@ -167,6 +191,7 @@ int main(int ac, char **av)
 	int i;
 
 	smp_init();
+	nr_cpus = cpu_count();
 
 	for (i = cpu_count(); i > 0; i--)
 		on_cpu(i-1, enable_nx, 0);
