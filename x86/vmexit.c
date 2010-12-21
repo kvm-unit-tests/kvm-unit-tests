@@ -144,7 +144,8 @@ static void do_test(struct test *test)
 
 static void enable_nx(void *junk)
 {
-	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX_MASK);
+	if (cpuid(0x80000001).d & (1 << 20))
+		wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX_MASK);
 }
 
 int main(void)
