@@ -9,6 +9,7 @@
 #endif
 
 #define X86_CR0_PE      0x00000001
+#define X86_CR0_WP      0x00010000
 #define X86_CR0_PG      0x80000000
 #define X86_CR4_PSE     0x00000010
 static void *free = 0;
@@ -176,7 +177,7 @@ static void setup_mmu(unsigned long len)
 #ifndef __x86_64__
     write_cr4(X86_CR4_PSE);
 #endif
-    write_cr0(X86_CR0_PG |X86_CR0_PE);
+    write_cr0(X86_CR0_PG |X86_CR0_PE | X86_CR0_WP);
 
     printf("paging enabled\n");
     printf("cr0 = %x\n", read_cr0());
