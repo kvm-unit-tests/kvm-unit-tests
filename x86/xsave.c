@@ -1,5 +1,5 @@
 #include "libcflat.h"
-#include "idt.h"
+#include "desc.h"
 
 #ifdef __x86_64__
 #define uint64_t unsigned long

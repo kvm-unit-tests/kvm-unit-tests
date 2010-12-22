@@ -1,6 +1,6 @@
 
 #include "libcflat.h"
-#include "idt.h"
+#include "desc.h"
 #include "processor.h"
 
 #define smp_id() 0

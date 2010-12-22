@@ -1,5 +1,5 @@
-#include "idt.h"
 #include "libcflat.h"
+#include "desc.h"
 #include "processor.h"
 
 typedef struct {

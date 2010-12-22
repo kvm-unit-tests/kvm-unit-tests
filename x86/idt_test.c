@@ -1,5 +1,5 @@
 #include "libcflat.h"
-#include "idt.h"
+#include "desc.h"
 
 int test_ud2(void)
 {

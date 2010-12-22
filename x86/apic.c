@@ -2,7 +2,7 @@
 #include "apic.h"
 #include "vm.h"
 #include "smp.h"
-#include "idt.h"
+#include "desc.h"
 
 typedef struct {
     ulong regs[sizeof(ulong)*2];

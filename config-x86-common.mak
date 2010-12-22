@@ -11,7 +11,7 @@ cflatobjs += \
 cflatobjs += lib/x86/fwcfg.o
 cflatobjs += lib/x86/apic.o
 cflatobjs += lib/x86/atomic.o
-cflatobjs += lib/x86/idt.o
+cflatobjs += lib/x86/desc.o
 
 $(libcflat): LDFLAGS += -nostdlib
 $(libcflat): CFLAGS += -ffreestanding -I lib
