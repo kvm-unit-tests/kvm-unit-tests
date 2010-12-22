@@ -11,6 +11,7 @@ cflatobjs += \
 cflatobjs += lib/x86/fwcfg.o
 cflatobjs += lib/x86/apic.o
 cflatobjs += lib/x86/atomic.o
+cflatobjs += lib/x86/idt.o
 
 $(libcflat): LDFLAGS += -nostdlib
 $(libcflat): CFLAGS += -ffreestanding -I lib
@@ -53,7 +54,7 @@ $(TEST_DIR)/vmexit.elf: $(cstart.o) $(TEST_DIR)/vmexit.o
 $(TEST_DIR)/smptest.elf: $(cstart.o) $(TEST_DIR)/smptest.o
 
 $(TEST_DIR)/emulator.elf: $(cstart.o) $(TEST_DIR)/emulator.o \
-			   $(TEST_DIR)/vm.o $(TEST_DIR)/idt.o
+			   $(TEST_DIR)/vm.o
 
 $(TEST_DIR)/port80.elf: $(cstart.o) $(TEST_DIR)/port80.o
 
@@ -68,9 +69,9 @@ $(TEST_DIR)/realmode.o: bits = 32
 
 $(TEST_DIR)/msr.elf: $(cstart.o) $(TEST_DIR)/msr.o
 
-$(TEST_DIR)/idt_test.elf: $(cstart.o) $(TEST_DIR)/idt.o $(TEST_DIR)/idt_test.o
+$(TEST_DIR)/idt_test.elf: $(cstart.o) $(TEST_DIR)/idt_test.o
 
-$(TEST_DIR)/xsave.elf: $(cstart.o) $(TEST_DIR)/idt.o $(TEST_DIR)/xsave.o
+$(TEST_DIR)/xsave.elf: $(cstart.o) $(TEST_DIR)/xsave.o
 
 $(TEST_DIR)/rmap_chain.elf: $(cstart.o) $(TEST_DIR)/rmap_chain.o \
 			     $(TEST_DIR)/vm.o

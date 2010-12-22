@@ -15,5 +15,6 @@ void setup_idt(void);
 
 unsigned exception_vector(void);
 unsigned exception_error_code(void);
+void set_idt_entry(int vec, void *addr, int dpl);
 
 #endif
