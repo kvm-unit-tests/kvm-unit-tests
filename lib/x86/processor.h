@@ -280,4 +280,14 @@ static inline void wrtsc(u64 tsc)
 	asm volatile("wrmsr" : : "a"(a), "d"(d), "c"(0x10));
 }
 
+static inline void irq_disable(void)
+{
+    asm volatile("cli");
+}
+
+static inline void irq_enable(void)
+{
+    asm volatile("sti");
+}
+
 #endif

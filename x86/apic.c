@@ -134,16 +134,6 @@ static void handle_irq(unsigned vec, void (*func)(isr_regs_t *regs))
 #endif
 }
 
-static void irq_disable(void)
-{
-    asm volatile("cli");
-}
-
-static void irq_enable(void)
-{
-    asm volatile("sti");
-}
-
 static void eoi(void)
 {
     apic_write(APIC_EOI, 0);
