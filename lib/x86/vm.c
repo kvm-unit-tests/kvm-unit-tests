@@ -135,23 +135,43 @@ struct ljmp {
     unsigned short seg;
 };
 
+static void setup_mmu_range(unsigned long *cr3, unsigned long start,
+			    unsigned long len)
+{
+	u64 max = (u64)len + (u64)start;
+	u64 phys = start;
+
+	while (phys + LARGE_PAGE_SIZE <= max) {
+		install_large_page(cr3, phys, (void *)(ulong)phys);
+		phys += LARGE_PAGE_SIZE;
+	}
+	while (phys + PAGE_SIZE <= max) {
+		install_page(cr3, phys, (void *)(ulong)phys);
+		phys += PAGE_SIZE;
+	}
+}
+
 static void setup_mmu(unsigned long len)
 {
     unsigned long *cr3 = alloc_page();
-    unsigned long phys = 0;
-
-    if (len < (1ul << 32))
-        len = 1ul << 32;  /* map mmio 1:1 */
 
     memset(cr3, 0, PAGE_SIZE);
-    while (phys + LARGE_PAGE_SIZE <= len) {
-	install_large_page(cr3, phys, (void *)phys);
-	phys += LARGE_PAGE_SIZE;
-    }
-    while (phys + PAGE_SIZE <= len) {
-	install_page(cr3, phys, (void *)phys);
-	phys += PAGE_SIZE;
-    }
+
+#ifdef __x86_64__
+    if (len < (1ul << 32))
+        len = (1ul << 32);  /* map mmio 1:1 */
+
+    setup_mmu_range(cr3, 0, len);
+#else
+    if (len > (1ul << 31))
+	    len = (1ul << 31);
+
+    /* 0 - 2G memory, 2G-3G valloc area, 3G-4G mmio */
+    setup_mmu_range(cr3, 0, len);
+    setup_mmu_range(cr3, 3ul << 30, (1ul << 30));
+    vfree_top = (void*)(3ul << 30);
+#endif
+
     write_cr3(virt_to_phys(cr3));
 #ifndef __x86_64__
     write_cr4(X86_CR4_PSE);
