@@ -62,7 +62,7 @@ typedef struct {
 	u16 iomap_base;
 } tss32_t;
 
-static idt_entry_t idt[256];
+static idt_entry_t idt[256] __attribute__((aligned(4096)));
 
 void load_lidt(idt_entry_t *idt, int nentries)
 {
@@ -90,6 +90,11 @@ void set_idt_entry(int vec, void *addr, int dpl)
 #endif
 }
 
+void set_idt_sel(int vec, u16 sel)
+{
+    idt_entry_t *e = &idt[vec];
+    e->selector = sel;
+}
 
 struct ex_record {
     unsigned long rip;

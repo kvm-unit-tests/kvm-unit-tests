@@ -248,3 +248,9 @@ void *vmap(unsigned long long phys, unsigned long size)
     }
     return mem;
 }
+
+void *alloc_vpage(void)
+{
+	vfree_top -= PAGE_SIZE;
+	return vfree_top;
+}

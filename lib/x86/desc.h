@@ -37,9 +37,12 @@ struct ex_regs {
 #define TSS_MAIN 0x20
 #define TSS_INTR 0x28
 
+#define NP_SEL 0x18
+
 unsigned exception_vector(void);
 unsigned exception_error_code(void);
 void set_idt_entry(int vec, void *addr, int dpl);
+void set_idt_sel(int vec, u16 sel);
 void set_gdt_entry(int num, u32 base,  u32 limit, u8 access, u8 gran);
 void set_intr_task_gate(int e, void *fn);
 void print_current_tss_info(void);

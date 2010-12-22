@@ -33,7 +33,7 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/smptest.flat  $(TEST_DIR)/port80.flat \
                $(TEST_DIR)/realmode.flat $(TEST_DIR)/msr.flat \
                $(TEST_DIR)/hypercall.flat $(TEST_DIR)/sieve.flat \
-               $(TEST_DIR)/kvmclock_test.flat
+               $(TEST_DIR)/kvmclock_test.flat  $(TEST_DIR)/eventinj.flat
 
 tests-common += api/api-sample
 tests-common += api/dirty-log
@@ -79,6 +79,8 @@ $(TEST_DIR)/svm.elf: $(cstart.o)
 
 $(TEST_DIR)/kvmclock_test.elf: $(cstart.o) $(TEST_DIR)/kvmclock.o \
                                 $(TEST_DIR)/kvmclock_test.o
+
+$(TEST_DIR)/eventinj.elf: $(cstart.o) $(TEST_DIR)/eventinj.o
 
 arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
