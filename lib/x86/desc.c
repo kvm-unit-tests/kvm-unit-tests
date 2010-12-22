@@ -90,19 +90,6 @@ void set_idt_entry(int vec, void *addr, int dpl)
 #endif
 }
 
-struct ex_regs {
-    unsigned long rax, rcx, rdx, rbx;
-    unsigned long dummy, rbp, rsi, rdi;
-#ifdef __x86_64__
-    unsigned long r8, r9, r10, r11;
-    unsigned long r12, r13, r14, r15;
-#endif
-    unsigned long vector;
-    unsigned long error_code;
-    unsigned long rip;
-    unsigned long cs;
-    unsigned long rflags;
-};
 
 struct ex_record {
     unsigned long rip;
@@ -111,10 +98,7 @@ struct ex_record {
 
 extern struct ex_record exception_table_start, exception_table_end;
 
-#ifndef __x86_64__
-__attribute__((regparm(1)))
-#endif
-void do_handle_exception(struct ex_regs *regs)
+static void check_exception_table(struct ex_regs *regs)
 {
     struct ex_record *ex;
     unsigned ex_val;
@@ -129,8 +113,32 @@ void do_handle_exception(struct ex_regs *regs)
             return;
         }
     }
-    printf("unhandled excecption\n");
+    printf("unhandled excecption %d\n", regs->vector);
     exit(7);
+}
+
+static void (*exception_handlers[32])(struct ex_regs *regs);
+
+
+void handle_exception(u8 v, void (*func)(struct ex_regs *regs))
+{
+	if (v < 32)
+		exception_handlers[v] = func;
+}
+
+#ifndef __x86_64__
+__attribute__((regparm(1)))
+#endif
+void do_handle_exception(struct ex_regs *regs)
+{
+	if (regs->vector < 32 && exception_handlers[regs->vector]) {
+		exception_handlers[regs->vector](regs);
+		return;
+	}
+	printf("unhandled cpu excecption %d\n", regs->vector);
+	if (regs->vector == 14)
+		printf("PF at %p addr %p\n", regs->rip, read_cr2());
+	exit(7);
 }
 
 #ifdef __x86_64__
@@ -143,22 +151,42 @@ void do_handle_exception(struct ex_regs *regs)
 #  define S "4"
 #endif
 
+#define EX(NAME, N) extern char NAME##_fault;	\
+	asm (".pushsection .text \n\t"		\
+	     #NAME"_fault: \n\t"		\
+	     "push"W" $0 \n\t"			\
+	     "push"W" $"#N" \n\t"		\
+	     "jmp __handle_exception \n\t"	\
+	     ".popsection")
+
+#define EX_E(NAME, N) extern char NAME##_fault;	\
+	asm (".pushsection .text \n\t"		\
+	     #NAME"_fault: \n\t"		\
+	     "push"W" $"#N" \n\t"		\
+	     "jmp __handle_exception \n\t"	\
+	     ".popsection")
+
+EX(de, 0);
+EX(db, 1);
+EX(nmi, 2);
+EX(bp, 3);
+EX(of, 4);
+EX(br, 5);
+EX(ud, 6);
+EX(nm, 7);
+EX_E(df, 8);
+EX_E(ts, 10);
+EX_E(np, 11);
+EX_E(ss, 12);
+EX_E(gp, 13);
+EX_E(pf, 14);
+EX(mf, 16);
+EX_E(ac, 17);
+EX(mc, 18);
+EX(xm, 19);
+
 asm (".pushsection .text \n\t"
-     "ud_fault: \n\t"
-     "push"W" $0 \n\t"
-     "push"W" $6 \n\t"
-     "jmp handle_exception \n\t"
-
-     "gp_fault: \n\t"
-     "push"W" $13 \n\t"
-     "jmp handle_exception \n\t"
-
-     "de_fault: \n\t"
-     "push"W" $0 \n\t"
-     "push"W" $0 \n\t"
-     "jmp handle_exception \n\t"
-
-     "handle_exception: \n\t"
+     "__handle_exception: \n\t"
 #ifdef __x86_64__
      "push %r15; push %r14; push %r13; push %r12 \n\t"
      "push %r11; push %r10; push %r9; push %r8 \n\t"
@@ -182,15 +210,37 @@ asm (".pushsection .text \n\t"
      "iret"W" \n\t"
      ".popsection");
 
+static void *idt_handlers[32] = {
+	[0] = &de_fault,
+	[1] = &db_fault,
+	[2] = &nmi_fault,
+	[3] = &bp_fault,
+	[4] = &of_fault,
+	[5] = &br_fault,
+	[6] = &ud_fault,
+	[7] = &nm_fault,
+	[8] = &df_fault,
+	[10] = &ts_fault,
+	[11] = &np_fault,
+	[12] = &ss_fault,
+	[13] = &gp_fault,
+	[14] = &pf_fault,
+	[16] = &mf_fault,
+	[17] = &ac_fault,
+	[18] = &mc_fault,
+	[19] = &xm_fault,
+};
 
 void setup_idt(void)
 {
-    extern char ud_fault, gp_fault, de_fault;
-
+    int i;
     load_lidt(idt, 256);
-    set_idt_entry(0, &de_fault, 0);
-    set_idt_entry(6, &ud_fault, 0);
-    set_idt_entry(13, &gp_fault, 0);
+    for (i = 0; i < 32; i++)
+	    if (idt_handlers[i])
+		    set_idt_entry(i, idt_handlers[i], 0);
+    handle_exception(0, check_exception_table);
+    handle_exception(6, check_exception_table);
+    handle_exception(13, check_exception_table);
 }
 
 unsigned exception_vector(void)
