@@ -202,11 +202,6 @@ int ac_test_bump(ac_test_t *at)
     return ret;
 }
 
-void invlpg(void *addr)
-{
-    asm volatile ("invlpg (%0)" : : "r"(addr));
-}
-
 pt_element_t ac_test_alloc_pt(ac_pool_t *pool)
 {
     pt_element_t ret = pool->pt_pool + pool->pt_pool_current;

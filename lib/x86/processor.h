@@ -290,4 +290,8 @@ static inline void irq_enable(void)
     asm volatile("sti");
 }
 
+static inline void invlpg(void *va)
+{
+	asm volatile("invlpg (%0)" ::"r" (va) : "memory");
+}
 #endif
