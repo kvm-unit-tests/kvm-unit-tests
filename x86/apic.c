@@ -2,22 +2,7 @@
 #include "apic.h"
 #include "vm.h"
 #include "smp.h"
-
-typedef struct {
-    unsigned short offset0;
-    unsigned short selector;
-    unsigned short ist : 3;
-    unsigned short : 5;
-    unsigned short type : 4;
-    unsigned short : 1;
-    unsigned short dpl : 2;
-    unsigned short p : 1;
-    unsigned short offset1;
-#ifdef __x86_64__
-    unsigned offset2;
-    unsigned reserved;
-#endif
-} idt_entry_t;
+#include "idt.h"
 
 typedef struct {
     ulong regs[sizeof(ulong)*2];
@@ -90,8 +75,6 @@ asm (
 #endif
     );
 
-static idt_entry_t *idt = 0;
-
 static int g_fail;
 static int g_tests;
 
@@ -128,22 +111,12 @@ void test_enable_x2apic(void)
     }
 }
 
-static void set_idt_entry(unsigned vec, void (*func)(isr_regs_t *regs))
+static void handle_irq(unsigned vec, void (*func)(isr_regs_t *regs))
 {
     u8 *thunk = vmalloc(50);
-    ulong ptr = (ulong)thunk;
-    idt_entry_t ent = {
-        .offset0 = ptr,
-        .selector = read_cs(),
-        .ist = 0,
-        .type = 14,
-        .dpl = 0,
-        .p = 1,
-        .offset1 = ptr >> 16,
-#ifdef __x86_64__
-        .offset2 = ptr >> 32,
-#endif
-    };
+
+    set_idt_entry(vec, thunk, 0);
+
 #ifdef __x86_64__
     /* sub $8, %rsp */
     *thunk++ = 0x48; *thunk++ = 0x83; *thunk++ = 0xec; *thunk++ = 0x08;
@@ -164,7 +137,6 @@ static void set_idt_entry(unsigned vec, void (*func)(isr_regs_t *regs))
     *thunk ++ = 0xe9;
     *(u32 *)thunk = (ulong)isr_entry_point - (ulong)(thunk + 4);
 #endif
-    idt[vec] = ent;
 }
 
 static void irq_disable(void)
@@ -194,7 +166,7 @@ static void test_self_ipi(void)
 {
     int vec = 0xf1;
 
-    set_idt_entry(vec, self_ipi_isr);
+    handle_irq(vec, self_ipi_isr);
     irq_enable();
     apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED | vec,
                    0);
@@ -234,7 +206,7 @@ static void ioapic_isr_77(isr_regs_t *regs)
 
 static void test_ioapic_intr(void)
 {
-    set_idt_entry(0x77, ioapic_isr_77);
+    handle_irq(0x77, ioapic_isr_77);
     set_ioapic_redir(0x10, 0x77);
     toggle_irq_line(0x10);
     asm volatile ("nop");
@@ -262,8 +234,8 @@ static void ioapic_isr_66(isr_regs_t *regs)
 
 static void test_ioapic_simultaneous(void)
 {
-    set_idt_entry(0x78, ioapic_isr_78);
-    set_idt_entry(0x66, ioapic_isr_66);
+    handle_irq(0x78, ioapic_isr_78);
+    handle_irq(0x66, ioapic_isr_66);
     set_ioapic_redir(0x10, 0x78);
     set_ioapic_redir(0x11, 0x66);
     irq_disable();
@@ -323,7 +295,7 @@ static void test_sti_nmi(void)
 	return;
     }
 
-    set_idt_entry(2, nmi_handler);
+    handle_irq(2, nmi_handler);
     on_cpu(1, update_cr3, (void *)read_cr3());
 
     sti_loop_active = 1;
@@ -343,6 +315,7 @@ int main()
 {
     setup_vm();
     smp_init();
+    setup_idt();
 
     test_lapic_existence();
 
