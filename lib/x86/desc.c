@@ -111,6 +111,9 @@ struct ex_record {
 
 extern struct ex_record exception_table_start, exception_table_end;
 
+#ifndef __x86_64__
+__attribute__((regparm(1)))
+#endif
 void do_handle_exception(struct ex_regs *regs)
 {
     struct ex_record *ex;
@@ -162,7 +165,11 @@ asm (".pushsection .text \n\t"
 #endif
      "push %"R"di; push %"R"si; push %"R"bp; sub $"S", %"R"sp \n\t"
      "push %"R"bx; push %"R"dx; push %"R"cx; push %"R"ax \n\t"
+#ifdef __x86_64__
      "mov %"R"sp, %"R"di \n\t"
+#else
+     "mov %"R"sp, %"R"ax \n\t"
+#endif
      "call do_handle_exception \n\t"
      "pop %"R"ax; pop %"R"cx; pop %"R"dx; pop %"R"bx \n\t"
      "add $"S", %"R"sp; pop %"R"bp; pop %"R"si; pop %"R"di \n\t"
