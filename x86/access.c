@@ -1,5 +1,7 @@
 
 #include "libcflat.h"
+#include "idt.h"
+#include "processor.h"
 
 #define smp_id() 0
 
@@ -101,34 +103,6 @@ static inline void *va(pt_element_t phys)
     return (void *)phys;
 }
 
-static unsigned long read_cr0()
-{
-    unsigned long cr0;
-
-    asm volatile ("mov %%cr0, %0" : "=r"(cr0));
-
-    return cr0;
-}
-
-static void write_cr0(unsigned long cr0)
-{
-    asm volatile ("mov %0, %%cr0" : : "r"(cr0));
-}
-
-typedef struct {
-    unsigned short offset0;
-    unsigned short selector;
-    unsigned short ist : 3;
-    unsigned short : 5;
-    unsigned short type : 4;
-    unsigned short : 1;
-    unsigned short dpl : 2;
-    unsigned short p : 1;
-    unsigned short offset1;
-    unsigned offset2;
-    unsigned reserved;
-} idt_entry_t;
-
 typedef struct {
     pt_element_t pt_pool;
     unsigned pt_pool_size;
@@ -146,7 +120,6 @@ typedef struct {
     pt_element_t ignore_pde;
     int expected_fault;
     unsigned expected_error;
-    idt_entry_t idt[256];
 } ac_test_t;
 
 typedef struct {
@@ -156,51 +129,6 @@ typedef struct {
 
 
 static void ac_test_show(ac_test_t *at);
-
-void lidt(idt_entry_t *idt, int nentries)
-{
-    descriptor_table_t dt;
-
-    dt.limit = nentries * sizeof(*idt) - 1;
-    dt.linear_addr = (unsigned long)idt;
-    asm volatile ("lidt %0" : : "m"(dt));
-}
-
-unsigned short read_cs()
-{
-    unsigned short r;
-
-    asm volatile ("mov %%cs, %0" : "=r"(r));
-    return r;
-}
-
-unsigned long long rdmsr(unsigned index)
-{
-    unsigned a, d;
-
-    asm volatile("rdmsr" : "=a"(a), "=d"(d) : "c"(index));
-    return ((unsigned long long)d << 32) | a;
-}
-
-void wrmsr(unsigned index, unsigned long long val)
-{
-    unsigned a = val, d = val >> 32;
-
-    asm volatile("wrmsr" : : "a"(a), "d"(d), "c"(index));
-}
-
-void set_idt_entry(idt_entry_t *e, void *addr, int dpl)
-{
-    memset(e, 0, sizeof *e);
-    e->offset0 = (unsigned long)addr;
-    e->selector = read_cs();
-    e->ist = 0;
-    e->type = 14;
-    e->dpl = dpl;
-    e->p = 1;
-    e->offset1 = (unsigned long)addr >> 16;
-    e->offset2 = (unsigned long)addr >> 32;
-}
 
 void set_cr0_wp(int wp)
 {
@@ -225,13 +153,11 @@ void set_efer_nx(int nx)
 
 static void ac_env_int(ac_pool_t *pool)
 {
-    static idt_entry_t idt[256];
+    setup_idt();
 
-    memset(idt, 0, sizeof(idt));
-    lidt(idt, 256);
     extern char page_fault, kernel_entry;
-    set_idt_entry(&idt[14], &page_fault, 0);
-    set_idt_entry(&idt[0x20], &kernel_entry, 3);
+    set_idt_entry(14, &page_fault, 0);
+    set_idt_entry(0x20, &kernel_entry, 3);
 
     pool->pt_pool = 33 * 1024 * 1024;
     pool->pt_pool_size = 120 * 1024 * 1024 - pool->pt_pool;
@@ -274,14 +200,6 @@ int ac_test_bump(ac_test_t *at)
     while (ret && !ac_test_legal(at))
 	ret = ac_test_bump_one(at);
     return ret;
-}
-
-unsigned long read_cr3()
-{
-    unsigned long cr3;
-
-    asm volatile ("mov %%cr3, %0" : "=r"(cr3));
-    return cr3;
 }
 
 void invlpg(void *addr)
