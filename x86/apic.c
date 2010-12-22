@@ -78,11 +78,6 @@ asm (
 static int g_fail;
 static int g_tests;
 
-static void outb(unsigned char data, unsigned short port)
-{
-    asm volatile ("out %0, %1" : : "a"(data), "d"(port));
-}
-
 static void report(const char *msg, int pass)
 {
     ++g_tests;
