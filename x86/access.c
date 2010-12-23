@@ -35,6 +35,9 @@ typedef unsigned long pt_element_t;
 #define MSR_EFER 0xc0000080
 #define EFER_NX_MASK		(1ull << 11)
 
+#define PT_INDEX(address, level)       \
+       ((address) >> (12 + ((level)-1) * 9)) & 511
+
 /*
  * page table access check tests
  */
@@ -420,7 +423,7 @@ void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
     at->ptep = 0;
     for (int i = 4; i >= 1 && (i >= 2 || !at->flags[AC_PDE_PSE]); --i) {
 	pt_element_t *vroot = va(root & PT_BASE_ADDR_MASK);
-	unsigned index = ((unsigned long)at->virt >> (12 + (i-1) * 9)) & 511;
+	unsigned index = PT_INDEX((unsigned long)at->virt, i);
 	pt_element_t pte = 0;
 	switch (i) {
 	case 4:
@@ -487,6 +490,22 @@ static void ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool,
 	return __ac_setup_specific_pages(at, pool, pd_page, pt_page);
 }
 
+static void dump_mapping(ac_test_t *at)
+{
+	unsigned long root = read_cr3();
+	int i;
+
+	printf("Dump mapping: address: %llx\n", at->virt);
+	for (i = 4; i >= 1 && (i >= 2 || !at->flags[AC_PDE_PSE]); --i) {
+		pt_element_t *vroot = va(root & PT_BASE_ADDR_MASK);
+		unsigned index = PT_INDEX((unsigned long)at->virt, i);
+		pt_element_t pte = vroot[index];
+
+		printf("------L%d: %llx\n", i, pte);
+		root = vroot[index];
+	}
+}
+
 static void ac_test_check(ac_test_t *at, _Bool *success_ret, _Bool cond,
                           const char *fmt, ...)
 {
@@ -511,6 +530,7 @@ static void ac_test_check(ac_test_t *at, _Bool *success_ret, _Bool cond,
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
     printf("FAIL: %s\n", buf);
+    dump_mapping(at);
 }
 
 static int pt_match(pt_element_t pte1, pt_element_t pte2, pt_element_t ignore)
