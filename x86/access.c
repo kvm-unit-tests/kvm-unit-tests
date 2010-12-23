@@ -408,7 +408,9 @@ fault:
         at->expected_error &= ~PFERR_FETCH_MASK;
 }
 
-void ac_test_setup_pte(ac_test_t *at, ac_pool_t *pool)
+void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
+			       u64 pt_page)
+
 {
     unsigned long root = read_cr3();
 
@@ -423,13 +425,12 @@ void ac_test_setup_pte(ac_test_t *at, ac_pool_t *pool)
 	switch (i) {
 	case 4:
 	case 3:
-	    pte = vroot[index];
-	    pte = ac_test_alloc_pt(pool) | PT_PRESENT_MASK;
-	    pte |= PT_WRITABLE_MASK | PT_USER_MASK;
+	    pte = pd_page ? pd_page : ac_test_alloc_pt(pool);
+	    pte |= PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_USER_MASK;
 	    break;
 	case 2:
 	    if (!at->flags[AC_PDE_PSE])
-		pte = ac_test_alloc_pt(pool);
+		pte = pt_page ? pt_page : ac_test_alloc_pt(pool);
 	    else {
 		pte = at->phys & PT_PSE_BASE_ADDR_MASK;
 		pte |= PT_PSE_MASK;
@@ -473,6 +474,17 @@ void ac_test_setup_pte(ac_test_t *at, ac_pool_t *pool)
 	root = vroot[index];
     }
     ac_set_expected_status(at);
+}
+
+static void ac_test_setup_pte(ac_test_t *at, ac_pool_t *pool)
+{
+	__ac_setup_specific_pages(at, pool, 0, 0);
+}
+
+static void ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool,
+				    u64 pd_page, u64 pt_page)
+{
+	return __ac_setup_specific_pages(at, pool, pd_page, pt_page);
 }
 
 static void ac_test_check(ac_test_t *at, _Bool *success_ret, _Bool cond,
@@ -663,6 +675,43 @@ err:
     return 0;
 }
 
+/*
+ * This test case is used to triger the bug which is fixed by
+ * commit 3ddf6c06e13e in the kvm tree
+ */
+static int check_pfec_on_prefetch_pte(ac_pool_t *pool)
+{
+	ac_test_t at1, at2;
+
+	ac_test_init(&at1, (void *)(0x123406001000));
+	ac_test_init(&at2, (void *)(0x123406003000));
+
+	at1.flags[AC_PDE_PRESENT] = 1;
+	at1.flags[AC_PTE_PRESENT] = 1;
+	ac_setup_specific_pages(&at1, pool, 30 * 1024 * 1024, 30 * 1024 * 1024);
+
+	at2.flags[AC_PDE_PRESENT] = 1;
+	at2.flags[AC_PTE_NX] = 1;
+	at2.flags[AC_PTE_PRESENT] = 1;
+	ac_setup_specific_pages(&at2, pool, 30 * 1024 * 1024, 30 * 1024 * 1024);
+
+	if (!ac_test_do_access(&at1)) {
+		printf("%s: prepare fail\n", __FUNCTION__);
+		goto err;
+	}
+
+	if (!ac_test_do_access(&at2)) {
+		printf("%s: check PFEC on prefetch pte path fail\n",
+			__FUNCTION__);
+		goto err;
+	}
+
+	return 1;
+
+err:
+    return 0;
+}
+
 int ac_test_exec(ac_test_t *at, ac_pool_t *pool)
 {
     int r;
@@ -675,11 +724,18 @@ int ac_test_exec(ac_test_t *at, ac_pool_t *pool)
     return r;
 }
 
+typedef int (*ac_test_fn)(ac_pool_t *pool);
+const ac_test_fn ac_test_cases[] =
+{
+	corrupt_hugepage_triger,
+	check_pfec_on_prefetch_pte,
+};
+
 int ac_test_run(void)
 {
     ac_test_t at;
     ac_pool_t pool;
-    int tests, successes;
+    int i, tests, successes;
 
     printf("run\n");
     tests = successes = 0;
@@ -690,8 +746,10 @@ int ac_test_run(void)
 	successes += ac_test_exec(&at, &pool);
     } while (ac_test_bump(&at));
 
-    ++tests;
-    successes += corrupt_hugepage_triger(&pool);
+    for (i = 0; i < ARRAY_SIZE(ac_test_cases); i++) {
+	++tests;
+	successes += ac_test_cases[i](&pool);
+    }
 
     printf("\n%d tests, %d failures\n", tests, tests - successes);
 
