@@ -191,7 +191,7 @@ static inline u16 sldt(void)
     return val;
 }
 
-static inline void ltr(unsigned val)
+static inline void ltr(u16 val)
 {
     asm volatile ("ltr %0" : : "rm"(val));
 }
