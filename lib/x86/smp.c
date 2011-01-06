@@ -7,15 +7,27 @@
 #define IPI_VECTOR 0x20
 
 static struct spinlock ipi_lock;
-static void (*ipi_function)(void *data);
-static void *ipi_data;
+static volatile void (*ipi_function)(void *data);
+static volatile void *ipi_data;
 static volatile int ipi_done;
+static volatile bool ipi_wait;
+static int _cpu_count;
 
 static __attribute__((used)) void ipi()
 {
-    ipi_function(ipi_data);
-    apic_write(APIC_EOI, 0);
-    ipi_done = 1;
+    void (*function)(void *data) = ipi_function;
+    void *data = ipi_data;
+    bool wait = ipi_wait;
+
+    if (!wait) {
+	ipi_done = 1;
+	apic_write(APIC_EOI, 0);
+    }
+    function(data);
+    if (wait) {
+	ipi_done = 1;
+	apic_write(APIC_EOI, 0);
+    }
 }
 
 asm (
@@ -92,13 +104,12 @@ static void __on_cpu(int cpu, void (*function)(void *data), void *data,
 	ipi_done = 0;
 	ipi_function = function;
 	ipi_data = data;
+	ipi_wait = wait;
 	apic_icr_write(APIC_INT_ASSERT | APIC_DEST_PHYSICAL | APIC_DM_FIXED
                        | IPI_VECTOR,
                        cpu);
-	if (wait) {
-		while (!ipi_done)
-		    ;
-	}
+	while (!ipi_done)
+	    ;
     }
     spin_unlock(&ipi_lock);
 }
