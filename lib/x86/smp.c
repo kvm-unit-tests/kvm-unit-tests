@@ -78,7 +78,7 @@ void spin_unlock(struct spinlock *lock)
 
 int cpu_count(void)
 {
-    return fwcfg_get_nb_cpus();
+    return _cpu_count;
 }
 
 int smp_id(void)
@@ -129,6 +129,8 @@ void smp_init(void)
 {
     int i;
     void ipi_entry(void);
+
+    _cpu_count = fwcfg_get_nb_cpus();
 
     set_ipi_descriptor(ipi_entry);
 
