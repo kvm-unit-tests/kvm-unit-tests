@@ -2,6 +2,7 @@
 #include "libcflat.h"
 #include "smp.h"
 #include "processor.h"
+#include "atomic.h"
 
 static unsigned int inl(unsigned short port)
 {
@@ -121,7 +122,7 @@ static struct test {
 };
 
 unsigned iterations;
-volatile int nr_cpus_done;
+static atomic_t nr_cpus_done;
 
 static void run_test(void *_func)
 {
@@ -131,7 +132,7 @@ static void run_test(void *_func)
     for (i = 0; i < iterations; ++i)
         func();
 
-    nr_cpus_done++;
+    atomic_inc(&nr_cpus_done);
 }
 
 static void do_test(struct test *test)
@@ -155,10 +156,10 @@ static void do_test(struct test *test)
 			for (i = 0; i < iterations; ++i)
 				func();
 		} else {
-			nr_cpus_done = 0;
+			atomic_set(&nr_cpus_done, 0);
 			for (i = cpu_count(); i > 0; i--)
 				on_cpu_async(i-1, run_test, func);
-			while (nr_cpus_done < cpu_count())
+			while (atomic_read(&nr_cpus_done) < cpu_count())
 				;
 		}
 		t2 = rdtsc();
