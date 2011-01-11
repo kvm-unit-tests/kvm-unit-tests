@@ -3,12 +3,16 @@
 #include "apic-defs.h"
 #include "apic.h"
 #include "processor.h"
+#include "vm.h"
 
 #define xstr(s) str(s)
 #define str(s) #s
 
 static volatile int test_count;
 static volatile unsigned int test_divider;
+
+static char *fault_addr;
+static ulong fault_phys;
 
 static int g_fail;
 static int g_tests;
@@ -66,6 +70,27 @@ start:
 	goto start;
 }
 
+void do_pf_tss(ulong *error_code)
+{
+	printf("PF task is running %x %x\n", error_code, *(ulong*)error_code);
+	print_current_tss_info();
+	if (*(ulong*)error_code == 0x2) /* write access, not present */
+		test_count++;
+	install_pte(phys_to_virt(read_cr3()), 1, fault_addr,
+		    fault_phys | PTE_PRESENT | PTE_WRITE, 0);
+}
+
+extern void pf_tss(void);
+
+asm (
+	"pf_tss: \n\t"
+	"push %esp \n\t"
+	"call do_pf_tss \n\t"
+	"add $4, %esp \n\t"
+	"iret\n\t"
+	"jmp pf_tss\n\t"
+    );
+
 static void jmp_tss(void)
 {
 start:
@@ -92,6 +117,7 @@ int main()
 {
 	unsigned int res;
 
+	setup_vm();
 	setup_idt();
 	setup_gdt();
 	setup_tss32();
@@ -155,6 +181,19 @@ int main()
 	asm volatile ("int $3");
 	printf("Return from int 3\n");
 	report("BP exeption", test_count == 1);
+
+	/*
+	 * test that PF triggers task gate and error code is placed on
+	 * exception task's stack
+	 */
+	fault_addr = alloc_vpage();
+	fault_phys = (ulong)virt_to_phys(alloc_page());
+	test_count = 0;
+	set_intr_task_gate(14, pf_tss);
+	printf("Access unmapped page\n");
+	*fault_addr = 0;
+	printf("Return from pf tss\n");
+	report("PF exeption", test_count == 1);
 
 	/* test that calling a task by lcall works */
 	test_count = 0;
