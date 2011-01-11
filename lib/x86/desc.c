@@ -362,7 +362,7 @@ void setup_tss32(void)
 		tss[i].cr3 = read_cr3();
 		tss[i].ss0 = tss[i].ss1 = tss[i].ss2 = 0x10;
 		tss[i].esp = tss[i].esp0 = tss[i].esp1 = tss[i].esp2 =
-			(u32)tss_stack[i];
+			(u32)tss_stack[i] + 4096;
 		tss[i].cs = 0x08;
 		tss[i].ds = tss[i].es = tss[i].fs = tss[i].gs = tss[i].ss = 0x10;
 		tss[i].iomap_base = (u16)desc_size;
