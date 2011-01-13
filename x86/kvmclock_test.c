@@ -115,7 +115,7 @@ static int cycle_test(int ncpus, long loops, int check, struct test_info *ti)
 
 int main(int ac, char **av)
 {
-        int ncpus = cpu_count();
+        int ncpus;
         int nerr = 0, i;
         long loops = DEFAULT_TEST_LOOPS;
         long sec = 0;
@@ -130,6 +130,7 @@ int main(int ac, char **av)
 
         smp_init();
 
+        ncpus = cpu_count();
         if (ncpus > MAX_CPU)
                 ncpus = MAX_CPU;
         for (i = 0; i < ncpus; ++i)
