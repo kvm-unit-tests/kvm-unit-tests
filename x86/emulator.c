@@ -594,6 +594,40 @@ static void test_div(long *mem)
 	   a == 0x1ffffffb1b963b33ul && d == 0x273ba4384ede2ul && !ex);
 }
 
+typedef unsigned __attribute__((vector_size(16))) sse128;
+
+typedef union {
+    sse128 sse;
+    unsigned u[4];
+} sse_union;
+
+static bool sseeq(sse_union *v1, sse_union *v2)
+{
+    bool ok = true;
+    int i;
+
+    for (i = 0; i < 4; ++i) {
+	ok &= v1->u[i] == v2->u[i];
+    }
+
+    return ok;
+}
+
+static void test_sse(sse_union *mem)
+{
+    sse_union v;
+
+    write_cr0(read_cr0() & ~6); /* EM, TS */
+    write_cr4(read_cr4() | 0x200); /* OSFXSR */
+    v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
+    asm("movdqu %1, %0" : "=m"(*mem) : "x"(v.sse));
+    report("movdqu (read)", sseeq(&v, mem));
+    mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
+    asm("movdqu %1, %0" : "=x"(v.sse) : "m"(*mem));
+    report("movdqu (write)", sseeq(mem, &v));
+}
+
+
 int main()
 {
 	void *mem;
@@ -632,6 +666,7 @@ int main()
 	test_bsfbsr(mem);
 	test_imul(mem);
 	test_div(mem);
+	test_sse(mem);
 
 	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);
 	return fails ? 1 : 0;
