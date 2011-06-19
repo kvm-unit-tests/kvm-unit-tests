@@ -627,15 +627,31 @@ static void test_sse(sse_union *mem)
     report("movdqu (write)", sseeq(mem, &v));
 }
 
+static void test_rip_relative(unsigned *mem, char *insn_ram)
+{
+    /* movb $1, mem+2(%rip) */
+    insn_ram[0] = 0xc6;
+    insn_ram[1] = 0x05;
+    *(unsigned *)&insn_ram[2] = 2 + (char *)mem - (insn_ram + 7);
+    insn_ram[6] = 0x01;
+    /* ret */
+    insn_ram[7] = 0xc3;
+
+    *mem = 0;
+    asm("callq *%1" : "+m"(*mem) : "r"(insn_ram));
+    report("movb $imm, 0(%rip)", *mem == 0x10000);
+}
 
 int main()
 {
 	void *mem;
+	void *insn_ram;
 	unsigned long t1, t2;
 
 	setup_vm();
 	setup_idt();
 	mem = vmap(IORAM_BASE_PHYS, IORAM_LEN);
+	insn_ram = vmalloc(4096);
 
 	// test mov reg, r/m and mov r/m, reg
 	t1 = 0x123456789abcdef;
@@ -667,6 +683,7 @@ int main()
 	test_imul(mem);
 	test_div(mem);
 	test_sse(mem);
+	test_rip_relative(mem, insn_ram);
 
 	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);
 	return fails ? 1 : 0;
