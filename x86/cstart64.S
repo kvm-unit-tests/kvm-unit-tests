@@ -21,6 +21,7 @@ ring0stacktop:
 .data
 
 .align 4096
+.globl ptl2
 ptl2:
 i = 0
 	.rept 512 * 4

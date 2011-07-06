@@ -27,6 +27,7 @@ typedef unsigned long pt_element_t;
 #define PT_NX_MASK         ((pt_element_t)1 << 63)
 
 #define CR0_WP_MASK (1UL << 16)
+#define CR4_SMEP_MASK (1UL << 20)
 
 #define PFERR_PRESENT_MASK (1U << 0)
 #define PFERR_WRITE_MASK (1U << 1)
@@ -70,6 +71,7 @@ enum {
 
     AC_CPU_EFER_NX,
     AC_CPU_CR0_WP,
+    AC_CPU_CR4_SMEP,
 
     NR_AC_FLAGS
 };
@@ -96,6 +98,7 @@ const char *ac_names[] = {
     [AC_ACCESS_TWICE] = "twice",
     [AC_CPU_EFER_NX] = "efer.nx",
     [AC_CPU_CR0_WP] = "cr0.wp",
+    [AC_CPU_CR4_SMEP] = "cr4.smep",
 };
 
 static inline void *va(pt_element_t phys)
@@ -130,6 +133,14 @@ typedef struct {
 
 static void ac_test_show(ac_test_t *at);
 
+int write_cr4_checking(unsigned long val)
+{
+    asm volatile(ASM_TRY("1f")
+            "mov %0,%%cr4\n\t"
+            "1:": : "r" (val));
+    return exception_vector();
+}
+
 void set_cr0_wp(int wp)
 {
     unsigned long cr0 = read_cr0();
@@ -138,6 +149,16 @@ void set_cr0_wp(int wp)
     if (wp)
 	cr0 |= CR0_WP_MASK;
     write_cr0(cr0);
+}
+
+void set_cr4_smep(int smep)
+{
+    unsigned long cr4 = read_cr4();
+
+    cr4 &= ~CR4_SMEP_MASK;
+    if (smep)
+	cr4 |= CR4_SMEP_MASK;
+    write_cr4(cr4);
 }
 
 void set_efer_nx(int nx)
@@ -187,7 +208,12 @@ int ac_test_bump_one(ac_test_t *at)
 
 _Bool ac_test_legal(ac_test_t *at)
 {
-    if (at->flags[AC_ACCESS_FETCH] && at->flags[AC_ACCESS_WRITE])
+    /*
+     * Since we convert current page to kernel page when cr4.smep=1,
+     * we can't switch to user mode.
+     */
+    if ((at->flags[AC_ACCESS_FETCH] && at->flags[AC_ACCESS_WRITE]) ||
+        (at->flags[AC_ACCESS_USER] && at->flags[AC_CPU_CR4_SMEP]))
 	return false;
     return true;
 }
@@ -287,6 +313,9 @@ void ac_set_expected_status(ac_test_t *at)
     if (at->flags[AC_PDE_PSE]) {
 	if (at->flags[AC_ACCESS_WRITE] && !at->expected_fault)
 	    at->expected_pde |= PT_DIRTY_MASK;
+	if (at->flags[AC_ACCESS_FETCH] && at->flags[AC_PDE_USER]
+	    && at->flags[AC_CPU_CR4_SMEP])
+	    at->expected_fault = 1;
 	goto no_pte;
     }
 
@@ -306,7 +335,11 @@ void ac_set_expected_status(ac_test_t *at)
 	&& (at->flags[AC_CPU_CR0_WP] || at->flags[AC_ACCESS_USER]))
 	at->expected_fault = 1;
 
-    if (at->flags[AC_ACCESS_FETCH] && at->flags[AC_PTE_NX])
+    if (at->flags[AC_ACCESS_FETCH]
+	&& (at->flags[AC_PTE_NX]
+	    || (at->flags[AC_CPU_CR4_SMEP]
+		&& at->flags[AC_PDE_USER]
+		&& at->flags[AC_PTE_USER])))
 	at->expected_fault = 1;
 
     if (at->expected_fault)
@@ -320,7 +353,7 @@ no_pte:
 fault:
     if (!at->expected_fault)
         at->ignore_pde = 0;
-    if (!at->flags[AC_CPU_EFER_NX])
+    if (!at->flags[AC_CPU_EFER_NX] && !at->flags[AC_CPU_CR4_SMEP])
         at->expected_error &= ~PFERR_FETCH_MASK;
 }
 
@@ -469,6 +502,14 @@ int ac_test_do_access(ac_test_t *at)
     unsigned r = unique;
     set_cr0_wp(at->flags[AC_CPU_CR0_WP]);
     set_efer_nx(at->flags[AC_CPU_EFER_NX]);
+    if (at->flags[AC_CPU_CR4_SMEP] && !(cpuid(7).b & (1 << 7))) {
+	unsigned long cr4 = read_cr4();
+	if (write_cr4_checking(cr4 | CR4_SMEP_MASK) == GP_VECTOR)
+		goto done;
+	printf("Set SMEP in CR4 - expect #GP: FAIL!\n");
+	return 0;
+    }
+    set_cr4_smep(at->flags[AC_CPU_CR4_SMEP]);
 
     if (at->flags[AC_ACCESS_TWICE]) {
 	asm volatile (
@@ -544,6 +585,7 @@ int ac_test_do_access(ac_test_t *at)
                   !pt_match(*at->pdep, at->expected_pde, at->ignore_pde),
                   "pde %x expected %x", *at->pdep, at->expected_pde);
 
+done:
     if (success && verbose) {
         printf("PASS\n");
     }
@@ -645,6 +687,58 @@ err:
     return 0;
 }
 
+static int check_smep_andnot_wp(ac_pool_t *pool)
+{
+	ac_test_t at1;
+	int err_prepare_andnot_wp, err_smep_andnot_wp;
+	extern u64 ptl2[];
+
+	ac_test_init(&at1, (void *)(0x123406001000));
+
+	at1.flags[AC_PDE_PRESENT] = 1;
+	at1.flags[AC_PTE_PRESENT] = 1;
+	at1.flags[AC_PDE_USER] = 1;
+	at1.flags[AC_PTE_USER] = 1;
+	at1.flags[AC_PDE_ACCESSED] = 1;
+	at1.flags[AC_PTE_ACCESSED] = 1;
+	at1.flags[AC_CPU_CR4_SMEP] = 1;
+	at1.flags[AC_CPU_CR0_WP] = 0;
+	at1.flags[AC_ACCESS_WRITE] = 1;
+	ac_test_setup_pte(&at1, pool);
+	ptl2[2] -= 0x4;
+
+	/*
+	 * Here we write the ro user page when
+	 * cr0.wp=0, then we execute it and SMEP
+	 * fault should happen.
+	 */
+	err_prepare_andnot_wp = ac_test_do_access(&at1);
+	if (!err_prepare_andnot_wp) {
+		printf("%s: SMEP prepare fail\n", __FUNCTION__);
+		goto clean_up;
+	}
+
+	at1.flags[AC_ACCESS_WRITE] = 0;
+	at1.flags[AC_ACCESS_FETCH] = 1;
+	ac_set_expected_status(&at1);
+	err_smep_andnot_wp = ac_test_do_access(&at1);
+
+clean_up:
+	set_cr4_smep(0);
+	ptl2[2] += 0x4;
+
+	if (!err_prepare_andnot_wp)
+		goto err;
+	if (!err_smep_andnot_wp) {
+		printf("%s: check SMEP without wp fail\n", __FUNCTION__);
+		goto err;
+	}
+	return 1;
+
+err:
+	return 0;
+}
+
 int ac_test_exec(ac_test_t *at, ac_pool_t *pool)
 {
     int r;
@@ -662,6 +756,7 @@ const ac_test_fn ac_test_cases[] =
 {
 	corrupt_hugepage_triger,
 	check_pfec_on_prefetch_pte,
+	check_smep_andnot_wp
 };
 
 int ac_test_run(void)
@@ -669,15 +764,26 @@ int ac_test_run(void)
     ac_test_t at;
     ac_pool_t pool;
     int i, tests, successes;
+    extern u64 ptl2[];
 
     printf("run\n");
     tests = successes = 0;
     ac_env_int(&pool);
     ac_test_init(&at, (void *)(0x123400000000 + 16 * smp_id()));
     do {
+	if (at.flags[AC_CPU_CR4_SMEP] && (ptl2[2] & 0x4))
+		ptl2[2] -= 0x4;
+	if (!at.flags[AC_CPU_CR4_SMEP] && !(ptl2[2] & 0x4)) {
+		set_cr4_smep(0);
+		ptl2[2] += 0x4;
+	}
+
 	++tests;
 	successes += ac_test_exec(&at, &pool);
     } while (ac_test_bump(&at));
+
+    set_cr4_smep(0);
+    ptl2[2] += 0x4;
 
     for (i = 0; i < ARRAY_SIZE(ac_test_cases); i++) {
 	++tests;
