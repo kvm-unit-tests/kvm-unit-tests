@@ -63,6 +63,22 @@ while [[ "$1" = -* ]]; do
     esac
 done
 
+# check for dependent 32 bit libraries
+cat << EOF > lib_test.c
+#include <stdc++.h>
+#include <boost_thread-mt.h>
+#include <pthread.h>
+
+int main ()
+{}
+EOF
+$cc -m32 -o /dev/null lib_test.c &> /dev/null
+exit=$?
+if [ $exit -eq 0 ]; then
+    api=true
+fi
+rm -f lib_test.c
+
 cat <<EOF > config.mak
 PREFIX=$prefix
 KERNELDIR=$(readlink -f $kerneldir)
@@ -72,4 +88,5 @@ CC=$cross_prefix$cc
 LD=$cross_prefix$ld
 OBJCOPY=$cross_prefix$objcopy
 AR=$cross_prefix$ar
+API=$api
 EOF

@@ -36,8 +36,10 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/kvmclock_test.flat  $(TEST_DIR)/eventinj.flat \
                $(TEST_DIR)/s3.flat
 
+ifdef API
 tests-common += api/api-sample
 tests-common += api/dirty-log
+endif
 
 tests_and_config = $(TEST_DIR)/*.flat $(TEST_DIR)/unittests.cfg
 
