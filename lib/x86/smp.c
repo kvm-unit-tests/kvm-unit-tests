@@ -6,8 +6,10 @@
 
 #define IPI_VECTOR 0x20
 
+typedef void (*ipi_function_type)(void *data);
+
 static struct spinlock ipi_lock;
-static volatile void (*ipi_function)(void *data);
+static volatile ipi_function_type ipi_function;
 static volatile void *ipi_data;
 static volatile int ipi_done;
 static volatile bool ipi_wait;
