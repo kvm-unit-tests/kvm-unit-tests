@@ -3,6 +3,7 @@
 #include "io.h"
 #ifndef USE_SERIAL
 #define USE_SERIAL
+#endif
 
 static struct spinlock lock;
 static int serial_iobase = 0x3f8;
