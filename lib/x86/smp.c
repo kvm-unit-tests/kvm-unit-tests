@@ -42,26 +42,6 @@ asm (
 #endif
      );
 
-
-static void set_ipi_descriptor(void (*ipi_entry)(void))
-{
-    unsigned short *desc = (void *)(IPI_VECTOR * sizeof(long) * 2);
-    unsigned short cs;
-    unsigned long ipi = (unsigned long)ipi_entry;
-
-    asm ("mov %%cs, %0" : "=r"(cs));
-    desc[0] = ipi;
-    desc[1] = cs;
-    desc[2] = 0x8e00;
-    desc[3] = ipi >> 16;
-#ifdef __x86_64__
-    desc[4] = ipi >> 32;
-    desc[5] = ipi >> 48;
-    desc[6] = 0;
-    desc[7] = 0;
-#endif
-}
-
 void spin_lock(struct spinlock *lock)
 {
     int v = 1;
@@ -134,7 +114,8 @@ void smp_init(void)
 
     _cpu_count = fwcfg_get_nb_cpus();
 
-    set_ipi_descriptor(ipi_entry);
+    setup_idt();
+    set_idt_entry(IPI_VECTOR, ipi_entry, 0);
 
     setup_smp_id(0);
     for (i = 1; i < cpu_count(); ++i)
