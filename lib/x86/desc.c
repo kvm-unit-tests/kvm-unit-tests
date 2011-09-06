@@ -62,21 +62,11 @@ typedef struct {
 	u16 iomap_base;
 } tss32_t;
 
-static idt_entry_t idt[256] __attribute__((aligned(4096)));
-
-void load_lidt(idt_entry_t *idt, int nentries)
-{
-    struct descriptor_table_ptr dt;
-
-    dt.limit = nentries * sizeof(*idt) - 1;
-    dt.base = (unsigned long)idt;
-    lidt(&dt);
-    asm volatile ("lidt %0" : : "m"(dt));
-}
+extern idt_entry_t boot_idt[256];
 
 void set_idt_entry(int vec, void *addr, int dpl)
 {
-    idt_entry_t *e = &idt[vec];
+    idt_entry_t *e = &boot_idt[vec];
     memset(e, 0, sizeof *e);
     e->offset0 = (unsigned long)addr;
     e->selector = read_cs();
@@ -92,7 +82,7 @@ void set_idt_entry(int vec, void *addr, int dpl)
 
 void set_idt_sel(int vec, u16 sel)
 {
-    idt_entry_t *e = &idt[vec];
+    idt_entry_t *e = &boot_idt[vec];
     e->selector = sel;
 }
 
@@ -239,7 +229,6 @@ static void *idt_handlers[32] = {
 void setup_idt(void)
 {
     int i;
-    load_lidt(idt, 256);
     for (i = 0; i < 32; i++)
 	    if (idt_handlers[i])
 		    set_idt_entry(i, idt_handlers[i], 0);
