@@ -642,6 +642,16 @@ static void test_rip_relative(unsigned *mem, char *insn_ram)
     report("movb $imm, 0(%rip)", *mem == 0x10000);
 }
 
+static void test_shld_shrd(u32 *mem)
+{
+    *mem = 0x12345678;
+    asm("shld %2, %1, %0" : "+m"(*mem) : "r"(0xaaaaaaaaU), "c"((u8)3));
+    report("shld (cl)", *mem == ((0x12345678 << 3) | 5));
+    *mem = 0x12345678;
+    asm("shrd %2, %1, %0" : "+m"(*mem) : "r"(0x55555555U), "c"((u8)3));
+    report("shrd (cl)", *mem == ((0x12345678 >> 3) | (5u << 29)));
+}
+
 int main()
 {
 	void *mem;
@@ -684,6 +694,7 @@ int main()
 	test_div(mem);
 	test_sse(mem);
 	test_rip_relative(mem, insn_ram);
+	test_shld_shrd(mem);
 
 	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);
 	return fails ? 1 : 0;
