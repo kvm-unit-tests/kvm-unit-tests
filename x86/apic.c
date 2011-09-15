@@ -198,6 +198,80 @@ static void test_sti_nmi(void)
     report("nmi-after-sti", nmi_hlt_counter == 0);
 }
 
+static volatile bool nmi_done, nmi_flushed;
+static volatile int nmi_received;
+static volatile int cpu0_nmi_ctr1, cpu1_nmi_ctr1;
+static volatile int cpu0_nmi_ctr2, cpu1_nmi_ctr2;
+
+static void multiple_nmi_handler(isr_regs_t *regs)
+{
+    ++nmi_received;
+}
+
+static void kick_me_nmi(void *blah)
+{
+    while (!nmi_done) {
+	++cpu1_nmi_ctr1;
+	while (cpu1_nmi_ctr1 != cpu0_nmi_ctr1 && !nmi_done) {
+	    pause();
+	}
+	if (nmi_done) {
+	    return;
+	}
+	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
+	/* make sure the NMI has arrived by sending an IPI after it */
+	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_FIXED | APIC_INT_ASSERT
+		       | 0x44, 0);
+	++cpu1_nmi_ctr2;
+	while (cpu1_nmi_ctr2 != cpu0_nmi_ctr2 && !nmi_done) {
+	    pause();
+	}
+    }
+}
+
+static void flush_nmi(isr_regs_t *regs)
+{
+    nmi_flushed = true;
+    apic_write(APIC_EOI, 0);
+}
+
+static void test_multiple_nmi(void)
+{
+    int i;
+    bool ok = true;
+
+    if (cpu_count() < 2) {
+	return;
+    }
+
+    sti();
+    handle_irq(2, multiple_nmi_handler);
+    handle_irq(0x44, flush_nmi);
+    on_cpu_async(1, kick_me_nmi, 0);
+    for (i = 0; i < 1000000; ++i) {
+	nmi_flushed = false;
+	nmi_received = 0;
+	++cpu0_nmi_ctr1;
+	while (cpu1_nmi_ctr1 != cpu0_nmi_ctr1) {
+	    pause();
+	}
+	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
+	while (!nmi_flushed) {
+	    pause();
+	}
+	if (nmi_received != 2) {
+	    ok = false;
+	    break;
+	}
+	++cpu0_nmi_ctr2;
+	while (cpu1_nmi_ctr2 != cpu0_nmi_ctr2) {
+	    pause();
+	}
+    }
+    nmi_done = true;
+    report("multiple nmi", ok);
+}
+
 int main()
 {
     setup_vm();
@@ -215,6 +289,7 @@ int main()
     test_ioapic_intr();
     test_ioapic_simultaneous();
     test_sti_nmi();
+    test_multiple_nmi();
 
     printf("\nsummary: %d tests, %d failures\n", g_tests, g_fail);
 
