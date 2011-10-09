@@ -25,6 +25,51 @@ static void test_lapic_existence(void)
     report("apic existence", (u16)lvr == 0x14);
 }
 
+#define TSC_DEADLINE_TIMER_MODE (2 << 17)
+#define TSC_DEADLINE_TIMER_VECTOR 0xef
+#define MSR_IA32_TSC            0x00000010
+#define MSR_IA32_TSCDEADLINE    0x000006e0
+
+static int tdt_count;
+
+static void tsc_deadline_timer_isr(isr_regs_t *regs)
+{
+    ++tdt_count;
+}
+
+static void start_tsc_deadline_timer(void)
+{
+    handle_irq(TSC_DEADLINE_TIMER_VECTOR, tsc_deadline_timer_isr);
+    irq_enable();
+
+    wrmsr(MSR_IA32_TSCDEADLINE, rdmsr(MSR_IA32_TSC));
+    asm volatile ("nop");
+    report("tsc deadline timer", tdt_count == 1);
+}
+
+static int enable_tsc_deadline_timer(void)
+{
+    uint32_t lvtt;
+
+    if (cpuid(1).c & (1 << 24)) {
+        lvtt = TSC_DEADLINE_TIMER_MODE | TSC_DEADLINE_TIMER_VECTOR;
+        apic_write(APIC_LVTT, lvtt);
+        start_tsc_deadline_timer();
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static void test_tsc_deadline_timer(void)
+{
+    if(enable_tsc_deadline_timer()) {
+        printf("tsc deadline timer enabled\n");
+    } else {
+        printf("tsc deadline timer not detected\n");
+    }
+}
+
 #define MSR_APIC_BASE 0x0000001b
 
 void test_enable_x2apic(void)
@@ -290,6 +335,8 @@ int main()
     test_ioapic_simultaneous();
     test_sti_nmi();
     test_multiple_nmi();
+
+    test_tsc_deadline_timer();
 
     printf("\nsummary: %d tests, %d failures\n", g_tests, g_fail);
 
