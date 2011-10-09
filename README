@@ -10,8 +10,8 @@ To create the tests' images just type 'make' in this directory.
 Tests' images created in ./<ARCH>/*.flat
 
 An example of a test invocation:
-qemu-system-x86_64 -device testdev,chardev=testlog -chardev file,id=testlog,path=msr.out -kernel ./x86/msr.flat
-This invocation runs the msr test case. The test output is in file msr.out.
+qemu-system-x86_64 -device testdev,chardev=testlog -chardev file,id=testlog,path=msr.out -serial stdio -kernel ./x86/msr.flat
+This invocation runs the msr test case. The test outputs to stdio.
 
 
 
