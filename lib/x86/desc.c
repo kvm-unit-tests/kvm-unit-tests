@@ -329,7 +329,7 @@ void setup_gdt(void)
 
 static void set_idt_task_gate(int vec, u16 sel)
 {
-    idt_entry_t *e = &idt[vec];
+    idt_entry_t *e = &boot_idt[vec];
 
     memset(e, 0, sizeof *e);
 
