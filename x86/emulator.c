@@ -475,65 +475,44 @@ void test_btc(void *mem)
 
 void test_bsfbsr(void *mem)
 {
-	unsigned long *memq = mem, rax;
+	unsigned long rax, *memq = mem;
+	unsigned eax, *meml = mem;
+	unsigned short ax, *memw = mem;
+	unsigned char z;
 
-	asm volatile("movw $0xC000, (%[memq])\n\t"
-		     "bsfw (%[memq]), %%ax\n\t"
-		     ::[memq]"r"(memq));
-	asm ("mov %%rax, %[rax]": [rax]"=m"(rax));
-	report("bsfw r/m, reg", rax == 14);
+	*memw = 0xc000;
+	asm("bsfw %[mem], %[a]" : [a]"=a"(ax) : [mem]"m"(*memw));
+	report("bsfw r/m, reg", ax == 14);
 
-	asm volatile("movl $0xC0000000, (%[memq])\n\t"
-		     "bsfl (%[memq]), %%eax\n\t"
-		     ::[memq]"r"(memq));
-	asm ("mov %%rax, %[rax]": [rax]"=m"(rax));
-	report("bsfl r/m, reg", rax == 30);
+	*meml = 0xc0000000;
+	asm("bsfl %[mem], %[a]" : [a]"=a"(eax) : [mem]"m"(*meml));
+	report("bsfl r/m, reg", eax == 30);
 
-	asm volatile("movq $0xC00000000000, %%rax\n\t"
-		     "movq %%rax, (%[memq])\n\t"
-		     "bsfq (%[memq]), %%rax\n\t"
-		     ::[memq]"r"(memq));
-	asm ("mov %%rax, %[rax]": [rax]"=m"(rax));
+	*memq = 0xc00000000000;
+	asm("bsfq %[mem], %[a]" : [a]"=a"(rax) : [mem]"m"(*memq));
 	report("bsfq r/m, reg", rax == 46);
 
-	asm volatile("movq $0, %%rax\n\t"
-		     "movq %%rax, (%[memq])\n\t"
-		     "bsfq (%[memq]), %%rax\n\t"
-		     "jnz 1f\n\t"
-		     "movl $1, %[rax]\n\t"
-		     "1:\n\t"
-		     :[rax]"=m"(rax)
-		     :[memq]"r"(memq));
-	report("bsfq r/m, reg", rax == 1);
+	*memq = 0;
+	asm("bsfq %[mem], %[a]; setz %[z]"
+	    : [a]"=a"(rax), [z]"=rm"(z) : [mem]"m"(*memq));
+	report("bsfq r/m, reg", z == 1);
 
-	asm volatile("movw $0xC000, (%[memq])\n\t"
-		     "bsrw (%[memq]), %%ax\n\t"
-		     ::[memq]"r"(memq));
-	asm ("mov %%rax, %[rax]": [rax]"=m"(rax));
-	report("bsrw r/m, reg", rax == 15);
+	*memw = 0xc000;
+	asm("bsrw %[mem], %[a]" : [a]"=a"(ax) : [mem]"m"(*memw));
+	report("bsrw r/m, reg", ax == 15);
 
-	asm volatile("movl $0xC0000000, (%[memq])\n\t"
-		     "bsrl (%[memq]), %%eax\n\t"
-		     ::[memq]"r"(memq));
-	asm ("mov %%rax, %[rax]": [rax]"=m"(rax));
-	report("bsrl r/m, reg", rax == 31);
+	*meml = 0xc0000000;
+	asm("bsrl %[mem], %[a]" : [a]"=a"(eax) : [mem]"m"(*meml));
+	report("bsrl r/m, reg", eax == 31);
 
-	asm volatile("movq $0xC00000000000, %%rax\n\t"
-		     "movq %%rax, (%[memq])\n\t"
-		     "bsrq (%[memq]), %%rax\n\t"
-		     ::[memq]"r"(memq));
-	asm ("mov %%rax, %[rax]": [rax]"=m"(rax));
+	*memq = 0xc00000000000;
+	asm("bsrq %[mem], %[a]" : [a]"=a"(rax) : [mem]"m"(*memq));
 	report("bsrq r/m, reg", rax == 47);
 
-	asm volatile("movq $0, %%rax\n\t"
-		     "movq %%rax, (%[memq])\n\t"
-		     "bsrq (%[memq]), %%rax\n\t"
-		     "jnz 1f\n\t"
-		     "movl $1, %[rax]\n\t"
-		     "1:\n\t"
-		     :[rax]"=m"(rax)
-		     :[memq]"r"(memq));
-	report("bsrq r/m, reg", rax == 1);
+	*memq = 0;
+	asm("bsrq %[mem], %[a]; setz %[z]"
+	    : [a]"=a"(rax), [z]"=rm"(z) : [mem]"m"(*memq));
+	report("bsrq r/m, reg", z == 1);
 }
 
 static void test_imul(ulong *mem)
