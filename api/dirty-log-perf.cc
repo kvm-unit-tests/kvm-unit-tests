@@ -8,9 +8,9 @@
 
 namespace {
 
-const int page_size		= 4096;
-const int64_t nr_total_pages	= 256 * 1024;
-const int64_t nr_slot_pages	= 256 * 1024;
+const int page_size	= 4096;
+int64_t nr_total_pages	= 256 * 1024;
+int64_t nr_slot_pages	= 256 * 1024;
 
 // Return the current time in nanoseconds.
 uint64_t time_ns()
@@ -67,11 +67,57 @@ void check_dirty_log(kvm::vcpu& vcpu, mem_slot& slot, void* slot_head)
 
 }
 
+void parse_options(int ac, char **av)
+{
+    int opt;
+    char *endptr;
+
+    while ((opt = getopt(ac, av, "n:m:")) != -1) {
+        switch (opt) {
+        case 'n':
+            errno = 0;
+            nr_slot_pages = strtol(optarg, &endptr, 10);
+            if (errno || endptr == optarg) {
+                printf("dirty-log-perf: Invalid number: -n %s\n", optarg);
+                exit(1);
+            }
+            if (*endptr == 'k' || *endptr == 'K') {
+                nr_slot_pages *= 1024;
+            }
+            break;
+        case 'm':
+            errno = 0;
+            nr_total_pages = strtol(optarg, &endptr, 10);
+            if (errno || endptr == optarg) {
+                printf("dirty-log-perf: Invalid number: -m %s\n", optarg);
+                exit(1);
+            }
+            if (*endptr == 'k' || *endptr == 'K') {
+                nr_total_pages *= 1024;
+            }
+            break;
+        default:
+            printf("dirty-log-perf: Invalid option\n");
+            exit(1);
+        }
+    }
+
+    if (nr_slot_pages > nr_total_pages) {
+        printf("dirty-log-perf: Invalid setting: slot %lld > mem %lld\n",
+               nr_slot_pages, nr_total_pages);
+        exit(1);
+    }
+    printf("dirty-log-perf: %lld slot pages / %lld mem pages\n",
+           nr_slot_pages, nr_total_pages);
+}
+
 int main(int ac, char **av)
 {
     kvm::system sys;
     kvm::vm vm(sys);
     mem_map memmap(vm);
+
+    parse_options(ac, av);
 
     void* mem_head;
     int64_t mem_size = nr_total_pages * page_size;
@@ -86,8 +132,8 @@ int main(int ac, char **av)
     kvm::vcpu vcpu(vm, 0);
 
     uint64_t slot_size = nr_slot_pages * page_size;
-    uint64_t next_addr = mem_addr + slot_size;
     uint64_t next_size = mem_size - slot_size;
+    uint64_t next_addr = mem_addr + slot_size;
     mem_slot slot(memmap, mem_addr, slot_size, mem_head);
     mem_slot other_slot(memmap, next_addr, next_size, (void *)next_addr);
 
