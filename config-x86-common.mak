@@ -39,6 +39,7 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
 ifdef API
 tests-common += api/api-sample
 tests-common += api/dirty-log
+tests-common += api/dirty-log-perf
 endif
 
 tests_and_config = $(TEST_DIR)/*.flat $(TEST_DIR)/unittests.cfg
@@ -93,7 +94,7 @@ arch_clean:
 
 api/%.o: CFLAGS += -m32
 
-api/%: LDLIBS += -lstdc++ -lboost_thread-mt -lpthread
+api/%: LDLIBS += -lstdc++ -lboost_thread-mt -lpthread -lrt
 api/%: LDFLAGS += -m32
 
 api/libapi.a: api/kvmxx.o api/identity.o api/exception.o api/memmap.o
@@ -102,3 +103,5 @@ api/libapi.a: api/kvmxx.o api/identity.o api/exception.o api/memmap.o
 api/api-sample: api/api-sample.o api/libapi.a
 
 api/dirty-log: api/dirty-log.o api/libapi.a
+
+api/dirty-log-perf: api/dirty-log-perf.o api/libapi.a
