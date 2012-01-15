@@ -10,6 +10,7 @@ namespace {
 
 const int page_size		= 4096;
 const int64_t nr_total_pages	= 256 * 1024;
+const int64_t nr_slot_pages	= 256 * 1024;
 
 // Return the current time in nanoseconds.
 uint64_t time_ns()
@@ -50,8 +51,8 @@ void check_dirty_log(kvm::vcpu& vcpu, mem_slot& slot, void* slot_head)
     slot.set_dirty_logging(true);
     slot.update_dirty_log();
 
-    for (int64_t i = 1; i <= nr_total_pages; i *= 2) {
-        do_guest_write(vcpu, slot_head, i, nr_total_pages);
+    for (int64_t i = 1; i <= nr_slot_pages; i *= 2) {
+        do_guest_write(vcpu, slot_head, i, nr_slot_pages);
 
         uint64_t start_ns = time_ns();
         slot.update_dirty_log();
@@ -84,7 +85,11 @@ int main(int ac, char **av)
     identity::vm ident_vm(vm, memmap, hole);
     kvm::vcpu vcpu(vm, 0);
 
-    mem_slot slot(memmap, mem_addr, mem_size, mem_head);
+    uint64_t slot_size = nr_slot_pages * page_size;
+    uint64_t next_addr = mem_addr + slot_size;
+    uint64_t next_size = mem_size - slot_size;
+    mem_slot slot(memmap, mem_addr, slot_size, mem_head);
+    mem_slot other_slot(memmap, next_addr, next_size, (void *)next_addr);
 
     // pre-allocate shadow pages
     do_guest_write(vcpu, mem_head, nr_total_pages, nr_total_pages);
