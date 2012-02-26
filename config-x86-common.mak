@@ -34,7 +34,7 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/realmode.flat $(TEST_DIR)/msr.flat \
                $(TEST_DIR)/hypercall.flat $(TEST_DIR)/sieve.flat \
                $(TEST_DIR)/kvmclock_test.flat  $(TEST_DIR)/eventinj.flat \
-               $(TEST_DIR)/s3.flat
+               $(TEST_DIR)/s3.flat $(TEST_DIR)/pmu.flat
 
 ifdef API
 tests-common += api/api-sample
@@ -87,6 +87,8 @@ $(TEST_DIR)/kvmclock_test.elf: $(cstart.o) $(TEST_DIR)/kvmclock.o \
 $(TEST_DIR)/eventinj.elf: $(cstart.o) $(TEST_DIR)/eventinj.o
 
 $(TEST_DIR)/s3.elf: $(cstart.o) $(TEST_DIR)/s3.o
+
+$(TEST_DIR)/pmu.elf: $(cstart.o) $(TEST_DIR)/pmu.o
 
 arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
