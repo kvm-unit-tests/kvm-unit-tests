@@ -2,6 +2,7 @@
 #define LIBCFLAT_PROCESSOR_H
 
 #include "libcflat.h"
+#include <stdint.h>
 
 struct descriptor_table_ptr {
     u16 limit;
@@ -97,6 +98,13 @@ static inline void wrmsr(u32 index, u64 val)
 {
     u32 a = val, d = val >> 32;
     asm volatile ("wrmsr" : : "a"(a), "d"(d), "c"(index) : "memory");
+}
+
+static inline uint64_t rdpmc(uint32_t index)
+{
+    uint32_t a, d;
+    asm volatile ("rdpmc" : "=a"(a), "=d"(d) : "c"(index));
+    return a | ((uint64_t)d << 32);
 }
 
 static inline void write_cr0(ulong val)
