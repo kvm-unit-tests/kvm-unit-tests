@@ -606,6 +606,20 @@ static void test_sse(sse_union *mem)
     report("movdqu (write)", sseeq(mem, &v));
 }
 
+static void test_mmx(uint64_t *mem)
+{
+    uint64_t v;
+
+    write_cr0(read_cr0() & ~6); /* EM, TS */
+    asm volatile("fninit");
+    v = 0x0102030405060708ULL;
+    asm("movq %1, %0" : "=m"(*mem) : "y"(v));
+    report("movq (mmx, read)", v == *mem);
+    *mem = 0x8070605040302010ull;
+    asm("movq %1, %0" : "=y"(v) : "m"(*mem));
+    report("movq (mmx, write)", v == *mem);
+}
+
 static void test_rip_relative(unsigned *mem, char *insn_ram)
 {
     /* movb $1, mem+2(%rip) */
@@ -672,6 +686,7 @@ int main()
 	test_imul(mem);
 	test_div(mem);
 	test_sse(mem);
+	test_mmx(mem);
 	test_rip_relative(mem, insn_ram);
 	test_shld_shrd(mem);
 
