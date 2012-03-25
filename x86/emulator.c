@@ -2,11 +2,14 @@
 #include "vm.h"
 #include "libcflat.h"
 #include "desc.h"
+#include "types.h"
 
 #define memset __builtin_memset
 #define TESTDEV_IO_PORT 0xe0
 
 int fails, tests;
+
+static int exceptions;
 
 void report(const char *name, int result)
 {
@@ -645,16 +648,65 @@ static void test_shld_shrd(u32 *mem)
     report("shrd (cl)", *mem == ((0x12345678 >> 3) | (5u << 29)));
 }
 
+static void advance_rip_by_3_and_note_exception(struct ex_regs *regs)
+{
+    ++exceptions;
+    regs->rip += 3;
+}
+
+static void test_mmx_movq_mf(uint64_t *mem, uint8_t *insn_page,
+			     uint8_t *alt_insn_page, void *insn_ram)
+{
+    uint16_t fcw = 0;  // all exceptions unmasked
+    ulong *cr3 = (ulong *)read_cr3();
+
+    write_cr0(read_cr0() & ~6);  // TS, EM
+    // Place a trapping instruction in the page to trigger a VMEXIT
+    insn_page[0] = 0x89; // mov %eax, (%rax)
+    insn_page[1] = 0x00;
+    insn_page[2] = 0x90; // nop
+    insn_page[3] = 0xc3; // ret
+    // Place the instruction we want the hypervisor to see in the alternate page
+    alt_insn_page[0] = 0x0f; // movq %mm0, (%rax)
+    alt_insn_page[1] = 0x7f;
+    alt_insn_page[2] = 0x00;
+    alt_insn_page[3] = 0xc3; // ret
+
+    exceptions = 0;
+    handle_exception(MF_VECTOR, advance_rip_by_3_and_note_exception);
+
+    // Load the code TLB with insn_page, but point the page tables at
+    // alt_insn_page (and keep the data TLB clear, for AMD decode assist).
+    // This will make the CPU trap on the insn_page instruction but the
+    // hypervisor will see alt_insn_page.
+    install_page(cr3, virt_to_phys(insn_page), insn_ram);
+    asm volatile("fninit; fldcw %0" : : "m"(fcw));
+    asm volatile("fldz; fldz; fdivp"); // generate exception
+    invlpg(insn_ram);
+    // Load code TLB
+    asm volatile("call *%0" : : "r"(insn_ram + 3));
+    install_page(cr3, virt_to_phys(alt_insn_page), insn_ram);
+    // Trap, let hypervisor emulate at alt_insn_page
+    asm volatile("call *%0" : : "r"(insn_ram), "a"(mem));
+    // exit MMX mode
+    asm volatile("fnclex; emms");
+    report("movq mmx generates #MF", exceptions == 1);
+    handle_exception(MF_VECTOR, 0);
+}
+
 int main()
 {
 	void *mem;
+	void *insn_page, *alt_insn_page;
 	void *insn_ram;
 	unsigned long t1, t2;
 
 	setup_vm();
 	setup_idt();
 	mem = vmap(IORAM_BASE_PHYS, IORAM_LEN);
-	insn_ram = vmalloc(4096);
+	insn_page = alloc_page();
+	alt_insn_page = alloc_page();
+	insn_ram = vmap(virt_to_phys(insn_page), 4096);
 
 	// test mov reg, r/m and mov r/m, reg
 	t1 = 0x123456789abcdef;
@@ -689,6 +741,8 @@ int main()
 	test_mmx(mem);
 	test_rip_relative(mem, insn_ram);
 	test_shld_shrd(mem);
+
+	test_mmx_movq_mf(mem, insn_page, alt_insn_page, insn_ram);
 
 	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);
 	return fails ? 1 : 0;
