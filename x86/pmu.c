@@ -80,8 +80,8 @@ struct pmu_event {
 } gp_events[] = {
 	{"core cycles", 0x003c, 1*N, 50*N},
 	{"instructions", 0x00c0, 10*N, 10.2*N},
-	{"ref cycles", 0x013c, 1*N, 30*N},
-	{"llc refference", 0x4f2e, 1, 1*N},
+	{"ref cycles", 0x013c, 0.1*N, 30*N},
+	{"llc refference", 0x4f2e, 1, 2*N},
 	{"llc misses", 0x412e, 1, 1*N},
 	{"branches", 0x00c4, 1*N, 1.1*N},
 	{"branch misses", 0x00c5, 0, 0.1*N},
