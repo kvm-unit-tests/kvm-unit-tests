@@ -21,6 +21,7 @@ void *vmalloc(unsigned long size);
 void vfree(void *mem);
 void *vmap(unsigned long long phys, unsigned long size);
 void *alloc_vpage(void);
+void *alloc_vpages(ulong nr);
 
 void install_pte(unsigned long *cr3,
                         int pte_level,
