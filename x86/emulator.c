@@ -694,6 +694,19 @@ static void test_mmx_movq_mf(uint64_t *mem, uint8_t *insn_page,
     handle_exception(MF_VECTOR, 0);
 }
 
+static void test_crosspage_mmio(volatile uint8_t *mem)
+{
+    volatile uint16_t w, *pw;
+
+    pw = (volatile uint16_t *)&mem[4095];
+    mem[4095] = 0x99;
+    mem[4096] = 0x77;
+    asm volatile("mov %1, %0" : "=r"(w) : "m"(*pw) : "memory");
+    report("cross-page mmio read", w == 0x7799);
+    asm volatile("mov %1, %0" : "=m"(*pw) : "r"((uint16_t)0x88aa));
+    report("cross-page mmio write", mem[4095] == 0xaa && mem[4096] == 0x88);
+}
+
 int main()
 {
 	void *mem;
@@ -703,7 +716,10 @@ int main()
 
 	setup_vm();
 	setup_idt();
-	mem = vmap(IORAM_BASE_PHYS, IORAM_LEN);
+	mem = alloc_vpages(2);
+	install_page((void *)read_cr3(), IORAM_BASE_PHYS, mem);
+	// install the page twice to test cross-page mmio
+	install_page((void *)read_cr3(), IORAM_BASE_PHYS, mem + 4096);
 	insn_page = alloc_page();
 	alt_insn_page = alloc_page();
 	insn_ram = vmap(virt_to_phys(insn_page), 4096);
@@ -743,6 +759,8 @@ int main()
 	test_shld_shrd(mem);
 
 	test_mmx_movq_mf(mem, insn_page, alt_insn_page, insn_ram);
+
+	test_crosspage_mmio(mem);
 
 	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);
 	return fails ? 1 : 0;
