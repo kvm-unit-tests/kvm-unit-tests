@@ -139,8 +139,8 @@ static void ioapic_isr_77(isr_regs_t *regs)
 static void test_ioapic_intr(void)
 {
     handle_irq(0x77, ioapic_isr_77);
-    set_ioapic_redir(0x10, 0x77);
-    toggle_irq_line(0x10);
+    set_ioapic_redir(0x0e, 0x77);
+    toggle_irq_line(0x0e);
     asm volatile ("nop");
     report("ioapic interrupt", g_isr_77 == 1);
 }
@@ -168,11 +168,11 @@ static void test_ioapic_simultaneous(void)
 {
     handle_irq(0x78, ioapic_isr_78);
     handle_irq(0x66, ioapic_isr_66);
-    set_ioapic_redir(0x10, 0x78);
-    set_ioapic_redir(0x11, 0x66);
+    set_ioapic_redir(0x0e, 0x78);
+    set_ioapic_redir(0x0f, 0x66);
     irq_disable();
-    toggle_irq_line(0x11);
-    toggle_irq_line(0x10);
+    toggle_irq_line(0x0f);
+    toggle_irq_line(0x0e);
     irq_enable();
     asm volatile ("nop");
     report("ioapic simultaneous interrupt",
