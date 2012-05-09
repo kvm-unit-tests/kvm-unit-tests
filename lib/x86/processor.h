@@ -302,4 +302,9 @@ static inline void invlpg(void *va)
 {
 	asm volatile("invlpg (%0)" ::"r" (va) : "memory");
 }
+
+static inline void safe_halt(void)
+{
+	asm volatile("sti; hlt");
+}
 #endif
