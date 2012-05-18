@@ -13,3 +13,4 @@ smptest: run smp_id() on every cpu and compares return value to number
 tsc: write to tsc(0) and write to tsc(100000000000) and read it back
 vmexit: long loops for each: cpuid, vmcall, mov_from_cr8, mov_to_cr8, inl_pmtimer, ipi, ipi+halt
 kvmclock_test: test of wallclock, monotonic cycle and performance of kvmclock
+pcid: basic functionality test of PCID/INVPCID feature

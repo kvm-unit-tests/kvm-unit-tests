@@ -92,6 +92,8 @@ $(TEST_DIR)/pmu.elf: $(cstart.o) $(TEST_DIR)/pmu.o
 
 $(TEST_DIR)/asyncpf.elf: $(cstart.o) $(TEST_DIR)/asyncpf.o
 
+$(TEST_DIR)/pcid.elf: $(cstart.o) $(TEST_DIR)/pcid.o
+
 arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
 	$(TEST_DIR)/.*.d $(TEST_DIR)/lib/.*.d $(TEST_DIR)/lib/*.o
