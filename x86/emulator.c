@@ -747,6 +747,33 @@ static void test_lgdt_lidt(volatile uint8_t *mem)
     report("lidt (long address)", orig.limit == fresh.limit && orig.base == fresh.base);
 }
 
+static void ss_bad_rpl(struct ex_regs *regs)
+{
+    extern char ss_bad_rpl_cont;
+
+    ++exceptions;
+    regs->rip = (ulong)&ss_bad_rpl_cont;
+}
+
+static void test_sreg(volatile uint16_t *mem)
+{
+    u16 ss = read_ss();
+
+    // check for null segment load
+    *mem = 0;
+    asm volatile("mov %0, %%ss" : : "m"(*mem));
+    report("mov null, %ss", read_ss() == 0);
+
+    // check for exception when ss.rpl != cpl on null segment load
+    exceptions = 0;
+    handle_exception(GP_VECTOR, ss_bad_rpl);
+    *mem = 3;
+    asm volatile("mov %0, %%ss; ss_bad_rpl_cont:" : : "m"(*mem));
+    report("mov null, %ss (with ss.rpl != cpl)", exceptions == 1 && read_ss() == 0);
+    handle_exception(GP_VECTOR, 0);
+    write_ss(ss);
+}
+
 int main()
 {
 	void *mem;
@@ -798,6 +825,7 @@ int main()
 	test_rip_relative(mem, insn_ram);
 	test_shld_shrd(mem);
 	//test_lgdt_lidt(mem);
+	test_sreg(mem);
 
 	test_mmx_movq_mf(mem, insn_page, alt_insn_page, insn_ram);
 
