@@ -1301,6 +1301,23 @@ static void test_cpuid(void)
 	   && outregs.ecx == ecx && outregs.edx == edx);
 }
 
+static void test_ss_base_for_esp_ebp(void)
+{
+    MK_INSN(ssrel1, "mov %ss, %ax; mov %bx, %ss; movl (%ebp), %ebx; mov %ax, %ss");
+    MK_INSN(ssrel2, "mov %ss, %ax; mov %bx, %ss; movl (%ebp,%edi,8), %ebx; mov %ax, %ss");
+    static unsigned array[] = { 0x12345678, 0, 0, 0, 0x87654321 };
+
+    inregs.ebx = 1;
+    inregs.ebp = (unsigned)array;
+    exec_in_big_real_mode(&insn_ssrel1);
+    report("ss relative addressing (1)", R_AX | R_BX, outregs.ebx == 0x87654321);
+    inregs.ebx = 1;
+    inregs.ebp = (unsigned)array;
+    inregs.edi = 0;
+    exec_in_big_real_mode(&insn_ssrel2);
+    report("ss relative addressing (2)", R_AX | R_BX, outregs.ebx == 0x87654321);
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1335,6 +1352,7 @@ void realmode_start(void)
 	test_lds_lss();
 	test_jcxz();
 	test_cpuid();
+	test_ss_base_for_esp_ebp();
 
 	exit(0);
 }
