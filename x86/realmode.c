@@ -1335,6 +1335,15 @@ static void test_sgdt_sidt(void)
     report("sidt", 0, x == y);
 }
 
+static void test_lahf(void)
+{
+    MK_INSN(lahf, "pushfw; mov %al, (%esp); popfw; lahf");
+
+    inregs.eax = 0xc7;
+    exec_in_big_real_mode(&insn_lahf);
+    report("lahf", R_AX, (outregs.eax >> 8) == inregs.eax);
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1371,6 +1380,7 @@ void realmode_start(void)
 	test_cpuid();
 	test_ss_base_for_esp_ebp();
 	test_sgdt_sidt();
+	test_lahf();
 
 	exit(0);
 }
