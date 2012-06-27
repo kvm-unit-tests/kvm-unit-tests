@@ -1287,6 +1287,20 @@ void test_jcxz(void)
 	report("jecxz short 2", R_AX, outregs.eax == 0x1234);
 }
 
+static void test_cpuid(void)
+{
+    MK_INSN(cpuid, "cpuid");
+    unsigned function = 0x1234;
+    unsigned eax, ebx, ecx, edx;
+
+    inregs.eax = eax = function;
+    asm("cpuid" : "+a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx));
+    exec_in_big_real_mode(&insn_cpuid);
+    report("cpuid", R_AX|R_BX|R_CX|R_DX,
+	   outregs.eax == eax && outregs.ebx == ebx
+	   && outregs.ecx == ecx && outregs.edx == edx);
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1320,6 +1334,7 @@ void realmode_start(void)
 	test_das();
 	test_lds_lss();
 	test_jcxz();
+	test_cpuid();
 
 	exit(0);
 }
