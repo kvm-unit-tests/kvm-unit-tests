@@ -213,7 +213,7 @@ void test_push(void *mem)
 
 void test_pop(void *mem)
 {
-	unsigned long tmp;
+	unsigned long tmp, tmp3;
 	unsigned long *stack_top = mem + 4096;
 	unsigned long memw = 0x123456789abcdeful;
 	static unsigned long tmp2;
@@ -256,6 +256,17 @@ void test_pop(void *mem)
 		     : [tmp]"=&r"(tmp) : [stack_top]"r"(stack_top)
 		     : "memory");
 	report("ret", 1);
+
+	stack_top[-1] = 0x778899;
+	asm volatile("mov %%rsp, %[tmp] \n\t"
+		     "mov %%rbp, %[tmp3] \n\t"
+		     "mov %[stack_top], %%rbp \n\t"
+		     "leave \n\t"
+		     "xchg %%rsp, %[tmp] \n\t"
+		     "xchg %%rbp, %[tmp3]"
+		     : [tmp]"=&r"(tmp), [tmp3]"=&r"(tmp3) : [stack_top]"r"(stack_top-1)
+		     : "memory");
+	report("leave", tmp == (ulong)stack_top && tmp3 == 0x778899);
 }
 
 void test_ljmp(void *mem)
