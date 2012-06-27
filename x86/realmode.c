@@ -1318,6 +1318,23 @@ static void test_ss_base_for_esp_ebp(void)
     report("ss relative addressing (2)", R_AX | R_BX, outregs.ebx == 0x87654321);
 }
 
+static void test_sgdt_sidt(void)
+{
+    MK_INSN(sgdt, "sgdtw (%eax)");
+    MK_INSN(sidt, "sidtw (%eax)");
+    unsigned x, y;
+
+    inregs.eax = (unsigned)&y;
+    asm volatile("sgdtw %0" : "=m"(x));
+    exec_in_big_real_mode(&insn_sgdt);
+    report("sgdt", 0, x == y);
+
+    inregs.eax = (unsigned)&y;
+    asm volatile("sidtw %0" : "=m"(x));
+    exec_in_big_real_mode(&insn_sidt);
+    report("sidt", 0, x == y);
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1353,6 +1370,7 @@ void realmode_start(void)
 	test_jcxz();
 	test_cpuid();
 	test_ss_base_for_esp_ebp();
+	test_sgdt_sidt();
 
 	exit(0);
 }
