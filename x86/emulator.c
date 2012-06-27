@@ -803,6 +803,22 @@ static void test_lldt(volatile uint16_t *mem)
     report("lldt", sldt() == *mem);
 }
 
+static void test_ltr(volatile uint16_t *mem)
+{
+    struct descriptor_table_ptr gdt_ptr;
+    uint64_t *gdt, *trp;
+    uint16_t tr = str();
+    uint64_t busy_mask = (uint64_t)1 << 41;
+
+    sgdt(&gdt_ptr);
+    gdt = (uint64_t *)gdt_ptr.base;
+    trp = &gdt[tr >> 3];
+    *trp &= ~busy_mask;
+    *mem = tr;
+    asm volatile("ltr %0" : : "m"(*mem) : "memory");
+    report("ltr", str() == tr && (*trp & busy_mask));
+}
+
 int main()
 {
 	void *mem;
@@ -856,6 +872,7 @@ int main()
 	//test_lgdt_lidt(mem);
 	test_sreg(mem);
 	test_lldt(mem);
+	test_ltr(mem);
 
 	test_mmx_movq_mf(mem, insn_page, alt_insn_page, insn_ram);
 
