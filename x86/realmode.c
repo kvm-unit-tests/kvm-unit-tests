@@ -1344,6 +1344,18 @@ static void test_lahf(void)
     report("lahf", R_AX, (outregs.eax >> 8) == inregs.eax);
 }
 
+static void test_movzx_movsx(void)
+{
+    MK_INSN(movsx, "movsx %al, %ebx");
+    MK_INSN(movzx, "movzx %al, %ebx");
+
+    inregs.eax = 0x1234569c;
+    exec_in_big_real_mode(&insn_movsx);
+    report("movsx", R_BX, outregs.ebx == (signed char)inregs.eax);
+    exec_in_big_real_mode(&insn_movzx);
+    report("movzx", R_BX, outregs.ebx == (unsigned char)inregs.eax);
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1381,6 +1393,7 @@ void realmode_start(void)
 	test_ss_base_for_esp_ebp();
 	test_sgdt_sidt();
 	test_lahf();
+	test_movzx_movsx();
 
 	exit(0);
 }
