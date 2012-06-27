@@ -718,6 +718,35 @@ static void test_crosspage_mmio(volatile uint8_t *mem)
     report("cross-page mmio write", mem[4095] == 0xaa && mem[4096] == 0x88);
 }
 
+static void test_lgdt_lidt(volatile uint8_t *mem)
+{
+    struct descriptor_table_ptr orig, fresh = {};
+
+    sgdt(&orig);
+    *(struct descriptor_table_ptr *)mem = (struct descriptor_table_ptr) {
+	.limit = 0xf234,
+	.base = 0x12345678abcd,
+    };
+    cli();
+    asm volatile("lgdt %0" : : "m"(*(struct descriptor_table_ptr *)mem));
+    sgdt(&fresh);
+    lgdt(&orig);
+    sti();
+    report("lgdt (long address)", orig.limit == fresh.limit && orig.base == fresh.base);
+
+    sidt(&orig);
+    *(struct descriptor_table_ptr *)mem = (struct descriptor_table_ptr) {
+	.limit = 0x432f,
+	.base = 0xdbca87654321,
+    };
+    cli();
+    asm volatile("lidt %0" : : "m"(*(struct descriptor_table_ptr *)mem));
+    sidt(&fresh);
+    lidt(&orig);
+    sti();
+    report("lidt (long address)", orig.limit == fresh.limit && orig.base == fresh.base);
+}
+
 int main()
 {
 	void *mem;
@@ -768,6 +797,7 @@ int main()
 	test_mmx(mem);
 	test_rip_relative(mem, insn_ram);
 	test_shld_shrd(mem);
+	//test_lgdt_lidt(mem);
 
 	test_mmx_movq_mf(mem, insn_page, alt_insn_page, insn_ram);
 
