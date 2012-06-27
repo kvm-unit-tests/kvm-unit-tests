@@ -1356,6 +1356,15 @@ static void test_movzx_movsx(void)
     report("movzx", R_BX, outregs.ebx == (unsigned char)inregs.eax);
 }
 
+static void test_bswap(void)
+{
+    MK_INSN(bswap, "bswap %ecx");
+
+    inregs.ecx = 0x12345678;
+    exec_in_big_real_mode(&insn_bswap);
+    report("bswap", R_CX, outregs.ecx == 0x78563412);
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1394,6 +1403,7 @@ void realmode_start(void)
 	test_sgdt_sidt();
 	test_lahf();
 	test_movzx_movsx();
+	test_bswap();
 
 	exit(0);
 }
