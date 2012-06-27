@@ -787,6 +787,22 @@ static void test_sreg(volatile uint16_t *mem)
     write_ss(ss);
 }
 
+static void test_lldt(volatile uint16_t *mem)
+{
+    u64 gdt[] = { 0, 0x0000f82000000ffffull /* ldt descriptor */ };
+    struct descriptor_table_ptr gdt_ptr = { .limit = 0xffff, .base = (ulong)&gdt };
+    struct descriptor_table_ptr orig_gdt;
+
+    cli();
+    sgdt(&orig_gdt);
+    lgdt(&gdt_ptr);
+    *mem = 0x8;
+    asm volatile("lldt %0" : : "m"(*mem));
+    lgdt(&orig_gdt);
+    sti();
+    report("lldt", sldt() == *mem);
+}
+
 int main()
 {
 	void *mem;
@@ -839,6 +855,7 @@ int main()
 	test_shld_shrd(mem);
 	//test_lgdt_lidt(mem);
 	test_sreg(mem);
+	test_lldt(mem);
 
 	test_mmx_movq_mf(mem, insn_page, alt_insn_page, insn_ram);
 
