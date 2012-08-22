@@ -18,3 +18,4 @@ SECTIONS
     edata = .;
 }
 
+ENTRY(start)

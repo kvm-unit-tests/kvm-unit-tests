@@ -9,4 +9,4 @@ SECTIONS
     .bss : { *(.bss) }
     edata = .;
 }
-
+ENTRY(start)
