@@ -554,6 +554,11 @@ void test_push_pop()
 			     "mov %fs, %ebx\n\t"
 			     "pop %fs\n\t"
 			);
+	MK_INSN(push_pop_high_esp_bits,
+		"xor $0x12340000, %esp \n\t"
+		"push %ax; \n\t"
+		"xor $0x12340000, %esp \n\t"
+		"pop %bx");
 
 	inregs = (struct regs){ 0 };
 
@@ -577,6 +582,11 @@ void test_push_pop()
 
 	exec_in_big_real_mode(&insn_push_pop_fs);
 	report("push/pop 6", R_AX|R_BX, outregs.ebx == outregs.eax);
+
+	inregs.eax = 0x9977;
+	inregs.ebx = 0x7799;
+	exec_in_big_real_mode(&insn_push_pop_high_esp_bits);
+	report("push/pop with high bits set in %esp", R_BX, outregs.ebx == 0x9977);
 }
 
 void test_null(void)
