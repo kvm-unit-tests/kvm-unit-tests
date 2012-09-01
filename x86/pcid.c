@@ -79,6 +79,7 @@ void test_pcid_enabled(void)
     write_cr3(cr3 | 0x001);
     if (write_cr4_checking(cr4 | X86_CR4_PCIDE) != GP_VECTOR)
         goto report;
+    write_cr3(cr3);
 
     passed = 1;
 
