@@ -731,6 +731,18 @@ static void test_crosspage_mmio(volatile uint8_t *mem)
     report("cross-page mmio write", mem[4095] == 0xaa && mem[4096] == 0x88);
 }
 
+static void test_string_io_mmio(volatile uint8_t *mem)
+{
+	/* Cross MMIO pages.*/
+	volatile uint8_t *mmio = mem + 4032;
+
+	asm volatile("outw %%ax, %%dx  \n\t" : : "a"(0x9999), "d"(TESTDEV_IO_PORT));
+
+	asm volatile ("cld; rep insb" : : "d" (TESTDEV_IO_PORT), "D" (mmio), "c" (1024));
+
+	report("string_io_mmio", mmio[1023] == 0x99);
+}
+
 static void test_lgdt_lidt(volatile uint8_t *mem)
 {
     struct descriptor_table_ptr orig, fresh = {};
@@ -877,6 +889,8 @@ int main()
 	test_mmx_movq_mf(mem, insn_page, alt_insn_page, insn_ram);
 
 	test_crosspage_mmio(mem);
+
+	test_string_io_mmio(mem);
 
 	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);
 	return fails ? 1 : 0;
