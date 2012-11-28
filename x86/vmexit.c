@@ -34,6 +34,7 @@ static void vmcall(void)
 	asm volatile ("vmcall" : "+a"(a), "=b"(b), "=c"(c), "=d"(d));
 }
 
+#define MSR_TSC_ADJUST 0x3b
 #define MSR_EFER 0xc0000080
 #define EFER_NX_MASK            (1ull << 11)
 
@@ -103,6 +104,16 @@ static void ple_round_robin(void)
 	++counters[you].n1;
 }
 
+static void rd_tsc_adjust_msr(void)
+{
+	rdmsr(MSR_TSC_ADJUST);
+}
+
+static void wr_tsc_adjust_msr(void)
+{
+	wrmsr(MSR_TSC_ADJUST, 0x0);
+}
+
 static struct test {
 	void (*func)(void);
 	const char *name;
@@ -119,6 +130,8 @@ static struct test {
 	{ ipi, "ipi", is_smp, .parallel = 0, },
 	{ ipi_halt, "ipi+halt", is_smp, .parallel = 0, },
 	{ ple_round_robin, "ple-round-robin", .parallel = 1 },
+	{ wr_tsc_adjust_msr, "wr_tsc_adjust_msr", .parallel = 1 },
+	{ rd_tsc_adjust_msr, "rd_tsc_adjust_msr", .parallel = 1 },
 };
 
 unsigned iterations;

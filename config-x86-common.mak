@@ -34,7 +34,8 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/realmode.flat $(TEST_DIR)/msr.flat \
                $(TEST_DIR)/hypercall.flat $(TEST_DIR)/sieve.flat \
                $(TEST_DIR)/kvmclock_test.flat  $(TEST_DIR)/eventinj.flat \
-               $(TEST_DIR)/s3.flat $(TEST_DIR)/pmu.flat $(TEST_DIR)/asyncpf.flat
+               $(TEST_DIR)/s3.flat $(TEST_DIR)/pmu.flat \
+               $(TEST_DIR)/tsc_adjust.flat $(TEST_DIR)/asyncpf.flat
 
 ifdef API
 tests-common += api/api-sample
@@ -63,6 +64,8 @@ $(TEST_DIR)/emulator.elf: $(cstart.o) $(TEST_DIR)/emulator.o
 $(TEST_DIR)/port80.elf: $(cstart.o) $(TEST_DIR)/port80.o
 
 $(TEST_DIR)/tsc.elf: $(cstart.o) $(TEST_DIR)/tsc.o
+
+$(TEST_DIR)/tsc_adjust.elf: $(cstart.o) $(TEST_DIR)/tsc_adjust.o
 
 $(TEST_DIR)/apic.elf: $(cstart.o) $(TEST_DIR)/apic.o
 
