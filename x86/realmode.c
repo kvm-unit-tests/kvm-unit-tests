@@ -1375,6 +1375,15 @@ static void test_bswap(void)
     report("bswap", R_CX, outregs.ecx == 0x78563412);
 }
 
+static void test_aad(void)
+{
+    MK_INSN(aad, "aad");
+
+    inregs.eax = 0x12345678;
+    exec_in_big_real_mode(&insn_aad);
+    report("aad", R_AX, outregs.eax == 0x123400d4);
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1414,6 +1423,7 @@ void realmode_start(void)
 	test_lahf();
 	test_movzx_movsx();
 	test_bswap();
+	test_aad();
 
 	exit(0);
 }
