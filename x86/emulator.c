@@ -718,6 +718,38 @@ static void test_mmx_movq_mf(uint64_t *mem, uint8_t *insn_page,
     handle_exception(MF_VECTOR, 0);
 }
 
+static void test_movabs(uint64_t *mem, uint8_t *insn_page,
+		       uint8_t *alt_insn_page, void *insn_ram)
+{
+    uint64_t val = 0;
+    ulong *cr3 = (ulong *)read_cr3();
+
+    // Pad with RET instructions
+    memset(insn_page, 0xc3, 4096);
+    memset(alt_insn_page, 0xc3, 4096);
+    // Place a trapping instruction in the page to trigger a VMEXIT
+    insn_page[0] = 0x89; // mov %eax, (%rax)
+    insn_page[1] = 0x00;
+    // Place the instruction we want the hypervisor to see in the alternate
+    // page. A buggy hypervisor will fetch a 32-bit immediate and return
+    // 0xffffffffc3c3c3c3.
+    alt_insn_page[0] = 0x48; // mov $0xc3c3c3c3c3c3c3c3, %rcx
+    alt_insn_page[1] = 0xb9;
+
+    // Load the code TLB with insn_page, but point the page tables at
+    // alt_insn_page (and keep the data TLB clear, for AMD decode assist).
+    // This will make the CPU trap on the insn_page instruction but the
+    // hypervisor will see alt_insn_page.
+    install_page(cr3, virt_to_phys(insn_page), insn_ram);
+    // Load code TLB
+    invlpg(insn_ram);
+    asm volatile("call *%0" : : "r"(insn_ram + 3));
+    // Trap, let hypervisor emulate at alt_insn_page
+    install_page(cr3, virt_to_phys(alt_insn_page), insn_ram);
+    asm volatile("call *%1" : "=c"(val) : "r"(insn_ram), "a"(mem), "c"(0));
+    report("64-bit mov imm", val == 0xc3c3c3c3c3c3c3c3);
+}
+
 static void test_crosspage_mmio(volatile uint8_t *mem)
 {
     volatile uint16_t w, *pw;
@@ -887,6 +919,7 @@ int main()
 	test_ltr(mem);
 
 	test_mmx_movq_mf(mem, insn_page, alt_insn_page, insn_ram);
+	test_movabs(mem, insn_page, alt_insn_page, insn_ram);
 
 	test_crosspage_mmio(mem);
 
