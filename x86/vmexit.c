@@ -4,6 +4,18 @@
 #include "processor.h"
 #include "atomic.h"
 
+static void outb(unsigned short port, int val)
+{
+    asm volatile("outb %b0, %w1" : "=a"(val) : "Nd"(port));
+}
+
+static unsigned int inb(unsigned short port)
+{
+    unsigned int val;
+    asm volatile("xorl %0, %0; inb %w1, %b0" : "=a"(val) : "Nd"(port));
+    return val;
+}
+
 static unsigned int inl(unsigned short port)
 {
     unsigned int val;
@@ -83,6 +95,21 @@ static void inl_pmtimer(void)
     inl(0xb008);
 }
 
+static void inl_nop_qemu(void)
+{
+    inl(0x1234);
+}
+
+static void inl_nop_kernel(void)
+{
+    inb(0x4d0);
+}
+
+static void outl_elcr_kernel(void)
+{
+    outb(0x4d0, 0);
+}
+
 static void ple_round_robin(void)
 {
 	struct counter {
@@ -127,6 +154,9 @@ static struct test {
 	{ mov_to_cr8, "mov_to_cr8" , .parallel = 1, },
 #endif
 	{ inl_pmtimer, "inl_from_pmtimer", .parallel = 1, },
+	{ inl_nop_qemu, "inl_from_qemu", .parallel = 1 },
+	{ inl_nop_kernel, "inl_from_kernel", .parallel = 1 },
+	{ outl_elcr_kernel, "outl_to_kernel", .parallel = 1 },
 	{ ipi, "ipi", is_smp, .parallel = 0, },
 	{ ipi_halt, "ipi+halt", is_smp, .parallel = 0, },
 	{ ple_round_robin, "ple-round-robin", .parallel = 1 },
