@@ -687,6 +687,60 @@ err:
     return 0;
 }
 
+/*
+ * If the write-fault access is from supervisor and CR0.WP is not set on the
+ * vcpu, kvm will fix it by adjusting pte access - it sets the W bit on pte
+ * and clears U bit. This is the chance that kvm can change pte access from
+ * readonly to writable.
+ *
+ * Unfortunately, the pte access is the access of 'direct' shadow page table,
+ * means direct sp.role.access = pte_access, then we will create a writable
+ * spte entry on the readonly shadow page table. It will cause Dirty bit is
+ * not tracked when two guest ptes point to the same large page. Note, it
+ * does not have other impact except Dirty bit since cr0.wp is encoded into
+ * sp.role.
+ *
+ * Note: to trigger this bug, hugepage should be disabled on host.
+ */
+static int check_large_pte_dirty_for_nowp(ac_pool_t *pool)
+{
+	ac_test_t at1, at2;
+
+	ac_test_init(&at1, (void *)(0x123403000000));
+	ac_test_init(&at2, (void *)(0x666606000000));
+
+	at2.flags[AC_PDE_PRESENT] = 1;
+	at2.flags[AC_PDE_PSE] = 1;
+
+	ac_test_setup_pte(&at2, pool);
+	if (!ac_test_do_access(&at2)) {
+		printf("%s: read on the first mapping fail.\n", __FUNCTION__);
+		goto err;
+	}
+
+	at1.flags[AC_PDE_PRESENT] = 1;
+	at1.flags[AC_PDE_PSE] = 1;
+	at1.flags[AC_ACCESS_WRITE] = 1;
+
+	ac_test_setup_pte(&at1, pool);
+	if (!ac_test_do_access(&at1)) {
+		printf("%s: write on the second mapping fail.\n", __FUNCTION__);
+		goto err;
+	}
+
+	at2.flags[AC_ACCESS_WRITE] = 1;
+	ac_set_expected_status(&at2);
+	if (!ac_test_do_access(&at2)) {
+		printf("%s: write on the first mapping fail.\n", __FUNCTION__);
+		goto err;
+	}
+
+	return 1;
+
+err:
+	return 0;
+}
+
 static int check_smep_andnot_wp(ac_pool_t *pool)
 {
 	ac_test_t at1;
@@ -756,6 +810,7 @@ const ac_test_fn ac_test_cases[] =
 {
 	corrupt_hugepage_triger,
 	check_pfec_on_prefetch_pte,
+	check_large_pte_dirty_for_nowp,
 	check_smep_andnot_wp
 };
 
