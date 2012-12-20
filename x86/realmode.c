@@ -1384,6 +1384,18 @@ static void test_aad(void)
     report("aad", R_AX, outregs.eax == 0x123400d4);
 }
 
+static void test_fninit(void)
+{
+	u16 fcw = -1, fsw = -1;
+	MK_INSN(fninit, "fninit ; fnstsw (%eax) ; fnstcw (%ebx)");
+
+	inregs.eax = (u32)&fsw;
+	inregs.ebx = (u32)&fcw;
+
+	exec_in_big_real_mode(&insn_fninit);
+	report("fninit", 0, fsw == 0 && (fcw & 0x103f) == 0x003f);
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1424,6 +1436,7 @@ void realmode_start(void)
 	test_movzx_movsx();
 	test_bswap();
 	test_aad();
+	test_fninit();
 
 	exit(0);
 }
