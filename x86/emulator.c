@@ -863,6 +863,31 @@ static void test_ltr(volatile uint16_t *mem)
     report("ltr", str() == tr && (*trp & busy_mask));
 }
 
+static void test_simplealu(u32 *mem)
+{
+    *mem = 0x1234;
+    asm("or %1, %0" : "+m"(*mem) : "r"(0x8001));
+    report("or", *mem == 0x9235);
+    asm("add %1, %0" : "+m"(*mem) : "r"(2));
+    report("add", *mem == 0x9237);
+    asm("xor %1, %0" : "+m"(*mem) : "r"(0x1111));
+    report("xor", *mem == 0x8326);
+    asm("sub %1, %0" : "+m"(*mem) : "r"(0x26));
+    report("sub", *mem == 0x8300);
+    asm("clc; adc %1, %0" : "+m"(*mem) : "r"(0x100));
+    report("adc(0)", *mem == 0x8400);
+    asm("stc; adc %1, %0" : "+m"(*mem) : "r"(0x100));
+    report("adc(0)", *mem == 0x8501);
+    asm("clc; sbb %1, %0" : "+m"(*mem) : "r"(0));
+    report("sbb(0)", *mem == 0x8501);
+    asm("stc; sbb %1, %0" : "+m"(*mem) : "r"(0));
+    report("sbb(1)", *mem == 0x8500);
+    asm("and %1, %0" : "+m"(*mem) : "r"(0xfe77));
+    report("and", *mem == 0x8400);
+    asm("test %1, %0" : "+m"(*mem) : "r"(0xf000));
+    report("test", *mem == 0x8400);
+}
+
 int main()
 {
 	void *mem;
@@ -889,6 +914,7 @@ int main()
 		     : "memory");
 	report("mov reg, r/m (1)", t2 == 0x123456789abcdef);
 
+	test_simplealu(mem);
 	test_cmps(mem);
 	test_scas(mem);
 
