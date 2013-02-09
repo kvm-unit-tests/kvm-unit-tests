@@ -583,9 +583,9 @@ static void test_imul(ulong *mem)
     report("imul rax, mem, imm", a == 0x1D950BDE1D950BC8L);
 }
 
-static void test_div(long *mem)
+static void test_muldiv(long *mem)
 {
-    long a, d;
+    long a, d, aa, dd;
     u8 ex = 1;
 
     *mem = 0; a = 1; d = 2;
@@ -598,6 +598,19 @@ static void test_div(long *mem)
 	 : "+a"(a), "+d"(d), "+q"(ex) : "m"(*mem));
     report("divq (1)",
 	   a == 0x1ffffffb1b963b33ul && d == 0x273ba4384ede2ul && !ex);
+    aa = 0x1111111111111111; dd = 0x2222222222222222;
+    *mem = 0x3333333333333333; a = aa; d = dd;
+    asm("mulb %2" : "+a"(a), "+d"(d) : "m"(*mem));
+    report("mulb mem", a == 0x1111111111110363 && d == dd);
+    *mem = 0x3333333333333333; a = aa; d = dd;
+    asm("mulw %2" : "+a"(a), "+d"(d) : "m"(*mem));
+    report("mulw mem", a == 0x111111111111c963 && d == 0x2222222222220369);
+    *mem = 0x3333333333333333; a = aa; d = dd;
+    asm("mull %2" : "+a"(a), "+d"(d) : "m"(*mem));
+    report("mull mem", a == 0x962fc963 && d == 0x369d036);
+    *mem = 0x3333333333333333; a = aa; d = dd;
+    asm("mulq %2" : "+a"(a), "+d"(d) : "m"(*mem));
+    report("mulq mem", a == 0x2fc962fc962fc963 && d == 0x369d0369d0369d0);
 }
 
 typedef unsigned __attribute__((vector_size(16))) sse128;
@@ -934,7 +947,7 @@ int main()
 	test_btc(mem);
 	test_bsfbsr(mem);
 	test_imul(mem);
-	test_div(mem);
+	test_muldiv(mem);
 	test_sse(mem);
 	test_mmx(mem);
 	test_rip_relative(mem, insn_ram);
