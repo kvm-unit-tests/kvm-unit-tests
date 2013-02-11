@@ -1,6 +1,7 @@
 /* test long rmap chains */
 
 #include "libcflat.h"
+#include "fwcfg.h"
 #include "vm.h"
 #include "smp.h"
 
@@ -21,7 +22,7 @@ int main (void)
 
     setup_vm();
 
-    nr_pages = inl(0xd1) / PAGE_SIZE;
+    nr_pages = fwcfg_get_u64(FW_CFG_RAM_SIZE) / PAGE_SIZE;
     nr_pages -= 1000;
     target_page = alloc_page();
 

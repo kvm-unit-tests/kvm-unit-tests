@@ -1,3 +1,4 @@
+#include "fwcfg.h"
 #include "vm.h"
 #include "libcflat.h"
 
@@ -185,16 +186,9 @@ static void setup_mmu(unsigned long len)
     printf("cr4 = %x\n", read_cr4());
 }
 
-static unsigned int inl(unsigned short port)
-{
-    unsigned int val;
-    asm volatile("inl %w1, %0" : "=a"(val) : "Nd"(port));
-    return val;
-}
-
 void setup_vm()
 {
-    end_of_memory = inl(0xd1);
+    end_of_memory = fwcfg_get_u64(FW_CFG_RAM_SIZE);
     free_memory(&edata, end_of_memory - (unsigned long)&edata);
     setup_mmu(end_of_memory);
 }
