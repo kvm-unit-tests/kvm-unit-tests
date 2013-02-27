@@ -112,6 +112,7 @@ static void test_msr_rw(int msr_index, unsigned long long input, unsigned long l
 
 static void test_syscall_lazy_load(void)
 {
+#ifdef __x86_64__
     extern void syscall_target();
     u16 cs = read_cs(), ss = read_ss();
     ulong tmp;
@@ -123,6 +124,7 @@ static void test_syscall_lazy_load(void)
     write_ss(ss);
     // will crash horribly if broken
     report("MSR_*STAR eager loading", true);
+#endif
 }
 
 int main(int ac, char **av)
