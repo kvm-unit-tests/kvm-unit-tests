@@ -1,0 +1,27 @@
+#!/usr/bin/bash
+
+qemukvm="${QEMU:-qemu-kvm}"
+qemusystem="${QEMU:-qemu-system-x86_64}"
+if
+	${qemukvm} -device '?' 2>&1 | fgrep -e \"testdev\" -e \"pc-testdev\" > /dev/null;
+then
+	qemu="${qemukvm}"
+else
+	if
+		${qemsystem} -device '?' 2>&1 | fgrep -e \"testdev\" -e \"pc-testdev\" > /dev/null;
+	then
+		qemu="${qemusystem}"
+	else
+		echo QEMU binary ${QEMU} has no support for test device. Exiting.
+		exit 1
+	fi
+fi
+
+if
+	${qemu} -device '?' 2>&1 | fgrep "pc-testdev" > /dev/null;
+then
+	command="${qemu} -enable-kvm -device pc-testdev -serial stdio -device isa-debug-exit,iobase=0xf4,iosize=0x4 -kernel"
+else
+	command="${qemu} -device testdev,chardev=testlog -chardev file,id=testlog,path=msr.out -serial stdio -kernel"
+fi
+exec ${command} "$@"
