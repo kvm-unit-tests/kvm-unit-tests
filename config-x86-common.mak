@@ -35,7 +35,8 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/hypercall.flat $(TEST_DIR)/sieve.flat \
                $(TEST_DIR)/kvmclock_test.flat  $(TEST_DIR)/eventinj.flat \
                $(TEST_DIR)/s3.flat $(TEST_DIR)/pmu.flat \
-               $(TEST_DIR)/tsc_adjust.flat $(TEST_DIR)/asyncpf.flat
+               $(TEST_DIR)/tsc_adjust.flat $(TEST_DIR)/asyncpf.flat \
+               $(TEST_DIR)/init.flat
 
 ifdef API
 tests-common += api/api-sample
@@ -68,6 +69,8 @@ $(TEST_DIR)/tsc.elf: $(cstart.o) $(TEST_DIR)/tsc.o
 $(TEST_DIR)/tsc_adjust.elf: $(cstart.o) $(TEST_DIR)/tsc_adjust.o
 
 $(TEST_DIR)/apic.elf: $(cstart.o) $(TEST_DIR)/apic.o
+
+$(TEST_DIR)/init.elf: $(cstart.o) $(TEST_DIR)/init.o
 
 $(TEST_DIR)/realmode.elf: $(TEST_DIR)/realmode.o
 	$(CC) -m32 -nostdlib -o $@ -Wl,-T,$(TEST_DIR)/realmode.lds $^
