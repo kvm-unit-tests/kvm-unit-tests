@@ -127,6 +127,32 @@ u32* find_resume_vector_addr(void)
    return 0;
 }
 
+#define RTC_SECONDS_ALARM       1
+#define RTC_MINUTES_ALARM       3
+#define RTC_HOURS_ALARM         5
+#define RTC_ALARM_DONT_CARE     0xC0
+
+#define RTC_REG_A               10
+#define RTC_REG_B               11
+#define RTC_REG_C               12
+
+#define REG_A_UIP               0x80
+#define REG_B_AIE               0x20
+
+static inline int rtc_in(u8 reg)
+{
+    u8 x = reg;
+    asm volatile("outb %b1, $0x70; inb $0x71, %b0"
+		 : "+a"(x) : "0"(x));
+    return x;
+}
+
+static inline void rtc_out(u8 reg, u8 val)
+{
+    asm volatile("outb %b1, $0x70; mov %b2, %b1; outb %b1, $0x71"
+		 : "+a"(reg) : "0"(reg), "ri"(val));
+}
+
 extern char resume_start, resume_end;
 
 int main(int argc, char **argv)
@@ -140,6 +166,16 @@ int main(int argc, char **argv)
 	for (addr = &resume_start; addr < &resume_end; addr++)
 		*resume_vec++ = *addr;
 	printf("copy resume code from %x\n", &resume_start);
+
+	/* Setup RTC alarm to wake up on the next second.  */
+	while ((rtc_in(RTC_REG_A) & REG_A_UIP) == 0);
+	while ((rtc_in(RTC_REG_A) & REG_A_UIP) != 0);
+	rtc_in(RTC_REG_C);
+	rtc_out(RTC_SECONDS_ALARM, RTC_ALARM_DONT_CARE);
+	rtc_out(RTC_MINUTES_ALARM, RTC_ALARM_DONT_CARE);
+	rtc_out(RTC_HOURS_ALARM, RTC_ALARM_DONT_CARE);
+	rtc_out(RTC_REG_B, rtc_in(RTC_REG_B) | REG_B_AIE);
+
 	*(volatile int*)0 = 0;
 	asm volatile("out %0, %1" :: "a"(0x2400), "d"((short)0xb004):"memory");
 	while(1)
