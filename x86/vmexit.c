@@ -1,12 +1,32 @@
-
 #include "libcflat.h"
 #include "smp.h"
 #include "processor.h"
 #include "atomic.h"
+#include "x86/vm.h"
+#include "x86/desc.h"
+#include "x86/pci.h"
 
-static void outb(unsigned short port, int val)
+struct test {
+	void (*func)(void);
+	const char *name;
+	int (*valid)(void);
+	int parallel;
+	bool (*next)(struct test *);
+};
+
+static void outb(unsigned short port, unsigned val)
 {
-    asm volatile("outb %b0, %w1" : "=a"(val) : "Nd"(port));
+    asm volatile("outb %b0, %w1" : : "a"(val), "Nd"(port));
+}
+
+static void outw(unsigned short port, unsigned val)
+{
+    asm volatile("outw %w0, %w1" : : "a"(val), "Nd"(port));
+}
+
+static void outl(unsigned short port, unsigned val)
+{
+    asm volatile("outl %d0, %w1" : : "a"(val), "Nd"(port));
 }
 
 static unsigned int inb(unsigned short port)
@@ -141,12 +161,153 @@ static void wr_tsc_adjust_msr(void)
 	wrmsr(MSR_TSC_ADJUST, 0x0);
 }
 
-static struct test {
-	void (*func)(void);
-	const char *name;
-	int (*valid)(void);
-	int parallel;
-} tests[] = {
+struct pci_test_dev_hdr {
+    uint8_t test;
+    uint8_t width;
+    uint8_t pad0[2];
+    uint32_t offset;
+    uint32_t data;
+    uint32_t count;
+    uint8_t name[];
+};
+
+static struct pci_test {
+	unsigned iobar;
+	unsigned ioport;
+	volatile void *memaddr;
+	volatile void *mem;
+	int test_idx;
+	uint32_t data;
+	uint32_t offset;
+} pci_test = {
+	.test_idx = -1
+};
+
+static void pci_mem_testb(void)
+{
+	*(volatile uint8_t *)pci_test.mem = pci_test.data;
+}
+
+static void pci_mem_testw(void)
+{
+	*(volatile uint16_t *)pci_test.mem = pci_test.data;
+}
+
+static void pci_mem_testl(void)
+{
+	*(volatile uint32_t *)pci_test.mem = pci_test.data;
+}
+
+static void pci_io_testb(void)
+{
+	outb(pci_test.ioport, pci_test.data);
+}
+
+static void pci_io_testw(void)
+{
+	outw(pci_test.ioport, pci_test.data);
+}
+
+static void pci_io_testl(void)
+{
+	outl(pci_test.ioport, pci_test.data);
+}
+
+static uint8_t ioreadb(unsigned long addr, bool io)
+{
+	if (io) {
+		return inb(addr);
+	} else {
+		return *(volatile uint8_t *)addr;
+	}
+}
+
+static uint32_t ioreadl(unsigned long addr, bool io)
+{
+	/* Note: assumes little endian */
+	if (io) {
+		return inl(addr);
+	} else {
+		return *(volatile uint32_t *)addr;
+	}
+}
+
+static void iowriteb(unsigned long addr, uint8_t data, bool io)
+{
+	if (io) {
+		outb(addr, data);
+	} else {
+		*(volatile uint8_t *)addr = data;
+	}
+}
+
+static bool pci_next(struct test *test, unsigned long addr, bool io)
+{
+	int i;
+	uint8_t width;
+
+	if (!pci_test.memaddr) {
+		test->func = NULL;
+		return true;
+	}
+	pci_test.test_idx++;
+	iowriteb(addr + offsetof(struct pci_test_dev_hdr, test),
+		 pci_test.test_idx, io);
+	width = ioreadb(addr + offsetof(struct pci_test_dev_hdr, width),
+			io);
+	switch (width) {
+		case 1:
+			test->func = io ? pci_io_testb : pci_mem_testb;
+			break;
+		case 2:
+			test->func = io ? pci_io_testw : pci_mem_testw;
+			break;
+		case 4:
+			test->func = io ? pci_io_testl : pci_mem_testl;
+			break;
+		default:
+			/* Reset index for purposes of the next test */
+			pci_test.test_idx = -1;
+			test->func = NULL;
+			return false;
+	}
+	pci_test.data = ioreadl(addr + offsetof(struct pci_test_dev_hdr, data),
+				io);
+	pci_test.offset = ioreadl(addr + offsetof(struct pci_test_dev_hdr,
+						  offset), io);
+	for (i = 0; i < pci_test.offset; ++i) {
+		char c = ioreadb(addr + offsetof(struct pci_test_dev_hdr,
+						 name) + i, io);
+		if (!c) {
+			break;
+		}
+		printf("%c",c);
+	}
+	printf(":");
+	return true;
+}
+
+static bool pci_mem_next(struct test *test)
+{
+	bool ret;
+	ret = pci_next(test, ((unsigned long)pci_test.memaddr), false);
+	if (ret) {
+		pci_test.mem = pci_test.memaddr + pci_test.offset;
+	}
+	return ret;
+}
+
+static bool pci_io_next(struct test *test)
+{
+	bool ret;
+	ret = pci_next(test, ((unsigned long)pci_test.iobar), true);
+	if (ret) {
+		pci_test.ioport = pci_test.iobar + pci_test.offset;
+	}
+	return ret;
+}
+
+static struct test tests[] = {
 	{ cpuid_test, "cpuid", .parallel = 1,  },
 	{ vmcall, "vmcall", .parallel = 1, },
 #ifdef __x86_64__
@@ -162,6 +323,8 @@ static struct test {
 	{ ple_round_robin, "ple-round-robin", .parallel = 1 },
 	{ wr_tsc_adjust_msr, "wr_tsc_adjust_msr", .parallel = 1 },
 	{ rd_tsc_adjust_msr, "rd_tsc_adjust_msr", .parallel = 1 },
+	{ NULL, "pci-mem", .parallel = 0, .next = pci_mem_next },
+	{ NULL, "pci-io", .parallel = 0, .next = pci_io_next },
 };
 
 unsigned iterations;
@@ -178,17 +341,27 @@ static void run_test(void *_func)
     atomic_inc(&nr_cpus_done);
 }
 
-static void do_test(struct test *test)
+static bool do_test(struct test *test)
 {
 	int i;
 	unsigned long long t1, t2;
-        void (*func)(void) = test->func;
+        void (*func)(void);
 
         iterations = 32;
 
         if (test->valid && !test->valid()) {
 		printf("%s (skipped)\n", test->name);
-		return;
+		return false;
+	}
+
+	if (test->next && !test->next(test)) {
+		return false;
+	}
+
+	func = test->func;
+        if (!func) {
+		printf("%s (skipped)\n", test->name);
+		return false;
 	}
 
 	do {
@@ -208,6 +381,7 @@ static void do_test(struct test *test)
 		t2 = rdtsc();
 	} while ((t2 - t1) < GOAL);
 	printf("%s %d\n", test->name, (int)((t2 - t1) / iterations));
+	return test->next;
 }
 
 static void enable_nx(void *junk)
@@ -233,16 +407,42 @@ bool test_wanted(struct test *test, char *wanted[], int nwanted)
 int main(int ac, char **av)
 {
 	int i;
+	unsigned long membar = 0, base, offset;
+	void *m;
+	pcidevaddr_t pcidev;
 
 	smp_init();
+	setup_vm();
 	nr_cpus = cpu_count();
 
 	for (i = cpu_count(); i > 0; i--)
 		on_cpu(i-1, enable_nx, 0);
 
+	pcidev = pci_find_dev(0x1b36, 0x0005);
+	if (pcidev) {
+		for (i = 0; i < 2; i++) {
+			if (!pci_bar_is_valid(pcidev, i)) {
+				continue;
+			}
+			if (pci_bar_is_memory(pcidev, i)) {
+				membar = pci_bar_addr(pcidev, i);
+				base = membar & ~4095;
+				offset = membar - base;
+				m = alloc_vpages(1);
+				
+				install_page((void *)read_cr3(), base, m);
+				pci_test.memaddr = m + offset;
+			} else {
+				pci_test.iobar = pci_bar_addr(pcidev, i);
+			}
+		}
+		printf("pci-testdev at 0x%x membar %lx iobar %x\n",
+		       pcidev, membar, pci_test.iobar);
+	}
+
 	for (i = 0; i < ARRAY_SIZE(tests); ++i)
 		if (test_wanted(&tests[i], av + 1, ac - 1))
-			do_test(&tests[i]);
+			while (do_test(&tests[i])) {}
 
 	return 0;
 }

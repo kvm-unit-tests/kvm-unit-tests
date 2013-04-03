@@ -17,14 +17,22 @@ else
 	fi
 fi
 
+if ${qemu} -device '?' 2>&1 | fgrep pci-testdev > /dev/null;
+then
+	pci_testdev="-device pci-testdev"
+else
+	pci_testdev=""
+fi
+
 if
 	${qemu} -device '?' 2>&1 | fgrep "pc-testdev" > /dev/null;
 then
-	command="${qemu} -enable-kvm -device pc-testdev -serial stdio -device isa-debug-exit,iobase=0xf4,iosize=0x4 -kernel"
+	pc_testdev="-device pc-testdev -device isa-debug-exit,iobase=0xf4,iosize=0x4"
 else
-	command="${qemu} -device testdev,chardev=testlog -chardev file,id=testlog,path=msr.out -serial stdio -kernel"
+	pc_testdev="-device testdev,chardev=testlog -chardev file,id=testlog,path=msr.out"
 fi
 
+command="${qemu} -enable-kvm $pc_testdev -serial stdio $pci_testdev -kernel"
 echo ${command} "$@"
 ${command} "$@"
 ret=$?
