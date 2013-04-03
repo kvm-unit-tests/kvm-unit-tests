@@ -56,4 +56,5 @@ extern long atol(const char *ptr);
 
 #define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
 
+#define NULL ((void *)0UL)
 #endif
