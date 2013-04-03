@@ -104,6 +104,9 @@ int vsnprintf(char *buf, int size, const char *fmt, va_list va)
 	case '%':
 	    addchar(&s, '%');
 	    break;
+	case 'c':
+            addchar(&s, va_arg(va, int));
+	    break;
 	case '\0':
 	    --fmt;
 	    break;
