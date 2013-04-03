@@ -54,4 +54,6 @@ extern void *memset(void *s, int c, size_t n);
 extern long atol(const char *ptr);
 #define ARRAY_SIZE(_a)  (sizeof(_a)/sizeof((_a)[0]))
 
+#define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
+
 #endif
