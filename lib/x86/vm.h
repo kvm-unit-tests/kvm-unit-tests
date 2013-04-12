@@ -13,6 +13,7 @@
 #define PTE_PRESENT (1ull << 0)
 #define PTE_PSE     (1ull << 7)
 #define PTE_WRITE   (1ull << 1)
+#define PTE_USER    (1ull << 2)
 #define PTE_ADDR    (0xffffffffff000ull)
 
 void setup_vm();

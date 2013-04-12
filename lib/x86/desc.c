@@ -27,41 +27,6 @@ typedef struct {
 	u8 base_high;
 } gdt_entry_t;
 
-typedef struct {
-	u16 prev;
-	u16 res1;
-	u32 esp0;
-	u16 ss0;
-	u16 res2;
-	u32 esp1;
-	u16 ss1;
-	u16 res3;
-	u32 esp2;
-	u16 ss2;
-	u16 res4;
-	u32 cr3;
-	u32 eip;
-	u32 eflags;
-	u32 eax, ecx, edx, ebx, esp, ebp, esi, edi;
-	u16 es;
-	u16 res5;
-	u16 cs;
-	u16 res6;
-	u16 ss;
-	u16 res7;
-	u16 ds;
-	u16 res8;
-	u16 fs;
-	u16 res9;
-	u16 gs;
-	u16 res10;
-	u16 ldt;
-	u16 res11;
-	u16 t:1;
-	u16 res12:15;
-	u16 iomap_base;
-} tss32_t;
-
 extern idt_entry_t boot_idt[256];
 
 void set_idt_entry(int vec, void *addr, int dpl)
@@ -268,9 +233,11 @@ unsigned exception_error_code(void)
  * 0x18 - Not presend code segment
  * 0x20 - Primery task
  * 0x28 - Interrupt task
+ *
+ * 0x30 to 0x48 - Free to use for test cases
  */
 
-static gdt_entry_t gdt[6];
+static gdt_entry_t gdt[10];
 #define TSS_GDT_OFFSET 4
 
 void set_gdt_entry(int num, u32 base,  u32 limit, u8 access, u8 gran)
@@ -327,7 +294,7 @@ void setup_gdt(void)
 		      ".Lflush2: "::"r"(0x10));
 }
 
-static void set_idt_task_gate(int vec, u16 sel)
+void set_idt_task_gate(int vec, u16 sel)
 {
     idt_entry_t *e = &boot_idt[vec];
 

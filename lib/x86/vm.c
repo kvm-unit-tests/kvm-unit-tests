@@ -109,14 +109,14 @@ void install_large_page(unsigned long *cr3,
                               unsigned long phys,
                               void *virt)
 {
-    install_pte(cr3, 2, virt, phys | PTE_PRESENT | PTE_WRITE | PTE_PSE, 0);
+    install_pte(cr3, 2, virt, phys | PTE_PRESENT | PTE_WRITE | PTE_USER | PTE_PSE, 0);
 }
 
 void install_page(unsigned long *cr3,
                   unsigned long phys,
                   void *virt)
 {
-    install_pte(cr3, 1, virt, phys | PTE_PRESENT | PTE_WRITE, 0);
+    install_pte(cr3, 1, virt, phys | PTE_PRESENT | PTE_WRITE | PTE_USER, 0);
 }
 
 

@@ -5,6 +5,10 @@
 #include "processor.h"
 #include "vm.h"
 
+#define FREE_GDT_INDEX 6
+#define MAIN_TSS_INDEX (FREE_GDT_INDEX + 0)
+#define VM86_TSS_INDEX (FREE_GDT_INDEX + 1)
+
 #define xstr(s) str(s)
 #define str(s) #s
 
@@ -113,14 +117,9 @@ start:
 	goto start;
 }
 
-int main()
+void test_kernel_mode_int()
 {
 	unsigned int res;
-
-	setup_vm();
-	setup_idt();
-	setup_gdt();
-	setup_tss32();
 
 	/* test that int $2 triggers task gate */
 	test_count = 0;
@@ -217,6 +216,62 @@ int main()
 	asm volatile ("ljmp $" xstr(TSS_INTR) ", $0xf4f4f4f4");
 	printf("Jump back succeeded\n");
 	report("ljmp", test_count == 1);
+}
+
+void test_vm86_switch(void)
+{
+    static tss32_t main_tss;
+    static tss32_t vm86_tss;
+
+    u8 *vm86_start;
+
+    /* Write a 'ud2' instruction somewhere below 1 MB */
+    vm86_start = (void*) 0x42000;
+    vm86_start[0] = 0x0f;
+    vm86_start[1] = 0x0b;
+
+    /* Main TSS */
+    set_gdt_entry(MAIN_TSS_INDEX, (u32)&main_tss, sizeof(tss32_t) - 1, 0x89, 0);
+    ltr(MAIN_TSS_INDEX << 3);
+    main_tss = (tss32_t) {
+        .prev   = VM86_TSS_INDEX << 3,
+        .cr3    = read_cr3(),
+    };
+
+    /* VM86 TSS (marked as busy, so we can iret to it) */
+    set_gdt_entry(VM86_TSS_INDEX, (u32)&vm86_tss, sizeof(tss32_t) - 1, 0x8b, 0);
+    vm86_tss = (tss32_t) {
+        .eflags = 0x20002,
+        .cr3    = read_cr3(),
+        .eip    = (u32) vm86_start & 0x0f,
+        .cs     = (u32) vm86_start >> 4,
+        .ds     = 0x1234,
+        .es     = 0x2345,
+    };
+
+    /* Setup task gate to main TSS for #UD */
+    set_idt_task_gate(6, MAIN_TSS_INDEX << 3);
+
+    /* Jump into VM86 task with iret, #UD lets it come back immediately */
+    printf("Switch to VM86 task and back\n");
+    asm volatile(
+        "pushf\n"
+        "orw $0x4000, (%esp)\n"
+        "popf\n"
+        "iret\n"
+    );
+    report("VM86", 1);
+}
+
+int main()
+{
+	setup_vm();
+	setup_idt();
+	setup_gdt();
+	setup_tss32();
+
+	test_kernel_mode_int();
+	test_vm86_switch();
 
 	printf("\nsummary: %d tests, %d failures\n", g_tests, g_fail);
 
