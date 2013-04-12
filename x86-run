@@ -13,7 +13,7 @@ else
 		qemu="${qemusystem}"
 	else
 		echo QEMU binary ${QEMU} has no support for test device. Exiting.
-		exit 1
+		exit 2
 	fi
 fi
 
@@ -24,4 +24,9 @@ then
 else
 	command="${qemu} -device testdev,chardev=testlog -chardev file,id=testlog,path=msr.out -serial stdio -kernel"
 fi
-exec ${command} "$@"
+
+echo ${command} "$@"
+${command} "$@"
+ret=$?
+echo Return value from qemu: $ret
+exit $ret
