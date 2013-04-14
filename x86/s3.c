@@ -177,7 +177,7 @@ int main(int argc, char **argv)
 	rtc_out(RTC_REG_B, rtc_in(RTC_REG_B) | REG_B_AIE);
 
 	*(volatile int*)0 = 0;
-	asm volatile("out %0, %1" :: "a"(0x2400), "d"((short)0xb004):"memory");
+	asm volatile("outw %0, %1" :: "a"((short)0x2400), "d"((short)0xb004):"memory");
 	while(1)
 		*(volatile int*)0 = 1;
 
