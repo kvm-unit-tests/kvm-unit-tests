@@ -211,6 +211,11 @@ static bool test_run(struct test *test, struct vmcb *vmcb)
     return success;
 }
 
+static bool smp_supported(void)
+{
+	return cpu_count() > 1;
+}
+
 static bool default_supported(void)
 {
     return true;
@@ -749,7 +754,7 @@ static struct test tests[] = {
       test_cr3_intercept, default_finished, check_cr3_intercept },
     { "cr3 read nointercept", default_supported, default_prepare,
       test_cr3_intercept, default_finished, check_cr3_nointercept },
-    { "cr3 read intercept emulate", default_supported,
+    { "cr3 read intercept emulate", smp_supported,
       prepare_cr3_intercept_bypass, test_cr3_intercept_bypass,
       default_finished, check_cr3_intercept },
     { "next_rip", next_rip_supported, prepare_next_rip, test_next_rip,
