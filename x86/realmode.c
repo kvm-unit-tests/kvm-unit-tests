@@ -1358,12 +1358,19 @@ static void test_movzx_movsx(void)
 {
     MK_INSN(movsx, "movsx %al, %ebx");
     MK_INSN(movzx, "movzx %al, %ebx");
+    MK_INSN(movzsah, "movsx %ah, %ebx");
+    MK_INSN(movzxah, "movzx %ah, %ebx");
 
     inregs.eax = 0x1234569c;
+    inregs.esp = 0xffff;
     exec_in_big_real_mode(&insn_movsx);
     report("movsx", R_BX, outregs.ebx == (signed char)inregs.eax);
     exec_in_big_real_mode(&insn_movzx);
     report("movzx", R_BX, outregs.ebx == (unsigned char)inregs.eax);
+    exec_in_big_real_mode(&insn_movzsah);
+    report("movsx ah", R_BX, outregs.ebx == (signed char)(inregs.eax>>8));
+    exec_in_big_real_mode(&insn_movzxah);
+    report("movzx ah", R_BX, outregs.ebx == (unsigned char)(inregs.eax >> 8));
 }
 
 static void test_bswap(void)
