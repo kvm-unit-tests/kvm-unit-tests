@@ -46,6 +46,7 @@ static void print_serial(const char *buf)
         unsigned long i;
         if (!serial_inited) {
             serial_init();
+            serial_inited = 1;
         }
 
         for (i = 0; i < len; i++) {
