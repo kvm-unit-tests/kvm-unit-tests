@@ -26,7 +26,7 @@ static void print_serial(const char *buf)
 {
 	unsigned long len = strlen(buf);
 
-	asm volatile ("cld; addr32/rep/outsb" : "+S"(buf), "+c"(len) : "d"(0xf1));
+	asm volatile ("addr32/rep/outsb" : "+S"(buf), "+c"(len) : "d"(0xf1));
 }
 
 static void exit(int code)
@@ -109,6 +109,8 @@ static void exec_in_big_real_mode(struct insn_desc *insn)
 		"pushfl \n\t"
 		"popl %[save]+36 \n\t"
 
+		/* Restore DF for the harness code */
+		"cld\n\t"
 		"xor %[tmp], %[tmp] \n\t"
 		"mov %[tmp], %%gs \n\t"
 		: [tmp]"=&r"(tmp), [save]"+m"(save)
