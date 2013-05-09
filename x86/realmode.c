@@ -1391,6 +1391,43 @@ static void test_aad(void)
     report("aad", R_AX, outregs.eax == 0x123400d4);
 }
 
+static void test_aam(void)
+{
+    MK_INSN(aam, "aam");
+
+    inregs.eax = 0x76543210;
+    exec_in_big_real_mode(&insn_aam);
+    report("aam", R_AX, outregs.eax == 0x76540106);
+}
+
+static void test_xlat(void)
+{
+    MK_INSN(xlat, "xlat");
+    u8 table[256];
+    int i;
+
+    for (i = 0; i < 256; i++) {
+        table[i] = i + 1;
+    }
+
+    inregs.eax = 0x89abcdef;
+    inregs.ebx = (u32)table;
+    exec_in_big_real_mode(&insn_xlat);
+    report("xlat", R_AX, outregs.eax == 0x89abcdf0);
+}
+
+static void test_salc(void)
+{
+    MK_INSN(clc_salc, "clc; .byte 0xd6");
+    MK_INSN(stc_salc, "stc; .byte 0xd6");
+
+    inregs.eax = 0x12345678;
+    exec_in_big_real_mode(&insn_clc_salc);
+    report("salc (1)", R_AX, outregs.eax == 0x12345600);
+    exec_in_big_real_mode(&insn_stc_salc);
+    report("salc (2)", R_AX, outregs.eax == 0x123456ff);
+}
+
 static void test_fninit(void)
 {
 	u16 fcw = -1, fsw = -1;
@@ -1443,6 +1480,9 @@ void realmode_start(void)
 	test_movzx_movsx();
 	test_bswap();
 	test_aad();
+	test_aam();
+	test_xlat();
+	test_salc();
 	test_fninit();
 
 	exit(0);
