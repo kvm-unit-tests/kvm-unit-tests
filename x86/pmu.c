@@ -88,9 +88,10 @@ struct pmu_event {
 }, fixed_events[] = {
 	{"fixed 1", MSR_CORE_PERF_FIXED_CTR0, 10*N, 10.2*N},
 	{"fixed 2", MSR_CORE_PERF_FIXED_CTR0 + 1, 1*N, 30*N},
-	{"fixed 3", MSR_CORE_PERF_FIXED_CTR0 + 2, 1*N, 30*N}
+	{"fixed 3", MSR_CORE_PERF_FIXED_CTR0 + 2, 0.1*N, 30*N}
 };
 
+static int num_counters;
 static int tests, failures;
 
 char *buf;
@@ -237,7 +238,7 @@ static void check_gp_counter(struct pmu_event *evt)
 	};
 	int i;
 
-	for (i = 0; i < eax.split.num_counters; i++, cnt.ctr++) {
+	for (i = 0; i < num_counters; i++, cnt.ctr++) {
 		cnt.count = 0;
 		measure(&cnt, 1);
 		report(evt->name, i, verify_event(cnt.count, evt));
@@ -276,7 +277,7 @@ static void check_counters_many(void)
 	pmu_counter_t cnt[10];
 	int i, n;
 
-	for (i = 0, n = 0; n < eax.split.num_counters; i++) {
+	for (i = 0, n = 0; n < num_counters; i++) {
 		if (ebx.full & (1 << i))
 			continue;
 
@@ -316,10 +317,10 @@ static void check_counter_overflow(void)
 	/* clear status before test */
 	wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL, rdmsr(MSR_CORE_PERF_GLOBAL_STATUS));
 
-	for (i = 0; i < eax.split.num_counters + 1; i++, cnt.ctr++) {
+	for (i = 0; i < num_counters + 1; i++, cnt.ctr++) {
 		uint64_t status;
 		int idx;
-		if (i == eax.split.num_counters)
+		if (i == num_counters)
 			cnt.ctr = fixed_events[0].unit_sel;
 		if (i % 2)
 			cnt.config |= EVNTSEL_INT;
@@ -355,7 +356,7 @@ static void check_rdpmc(void)
 	uint64_t val = 0x1f3456789ull;
 	int i;
 
-	for (i = 0; i < eax.split.num_counters; i++) {
+	for (i = 0; i < num_counters; i++) {
 		uint64_t x = (val & 0xffffffff) |
 			((1ull << (eax.split.bit_width - 32)) - 1) << 32;
 		wrmsr(MSR_IA32_PERFCTR0 + i, val);
@@ -394,6 +395,10 @@ int main(int ac, char **av)
 	printf("Mask length:         %d\n", eax.split.mask_length);
 	printf("Fixed counters:      %d\n", edx.split.num_counters_fixed);
 	printf("Fixed counter width: %d\n", edx.split.bit_width_fixed);
+
+	num_counters = eax.split.num_counters;
+	if (num_counters > ARRAY_SIZE(gp_events))
+		num_counters = ARRAY_SIZE(gp_events);
 
 	apic_write(APIC_LVTPC, PC_VECTOR);
 
