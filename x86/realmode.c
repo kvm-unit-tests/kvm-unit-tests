@@ -1504,6 +1504,19 @@ static void test_fninit(void)
 	report("fninit", 0, fsw == 0 && (fcw & 0x103f) == 0x003f);
 }
 
+static void test_nopl(void)
+{
+	MK_INSN(nopl1, ".byte 0x90\n\r"); // 1 byte nop
+	MK_INSN(nopl2, ".byte 0x66, 0x90\n\r"); // 2 bytes nop
+	MK_INSN(nopl3, ".byte 0x0f, 0x1f, 0x00\n\r"); // 3 bytes nop
+	MK_INSN(nopl4, ".byte 0x0f, 0x1f, 0x40, 0x00\n\r"); // 4 bytes nop
+	exec_in_big_real_mode(&insn_nopl1);
+	exec_in_big_real_mode(&insn_nopl2);
+	exec_in_big_real_mode(&insn_nopl3);
+	exec_in_big_real_mode(&insn_nopl4);
+	report("nopl", 0, 1);
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1548,6 +1561,7 @@ void realmode_start(void)
 	test_xlat();
 	test_salc();
 	test_fninit();
+	test_nopl();
 
 	exit(0);
 }
