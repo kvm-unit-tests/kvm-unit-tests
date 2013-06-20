@@ -50,6 +50,7 @@ extern int vsnprintf(char *buf, int size, const char *fmt, va_list va);
 extern void puts(const char *s);
 
 extern void *memset(void *s, int c, size_t n);
+extern void *memcpy(void *dest, const void *src, size_t n);
 
 extern long atol(const char *ptr);
 #define ARRAY_SIZE(_a)  (sizeof(_a)/sizeof((_a)[0]))
