@@ -11,6 +11,20 @@ int fails, tests;
 
 static int exceptions;
 
+struct regs {
+	u64 rax, rbx, rcx, rdx;
+	u64 rsi, rdi, rsp, rbp;
+	u64 r8, r9, r10, r11;
+	u64 r12, r13, r14, r15;
+	u64 rip, rflags;
+};
+struct regs inregs, outregs, save;
+
+struct insn_desc {
+	u64 ptr;
+	size_t len;
+};
+
 void report(const char *name, int result)
 {
 	++tests;
@@ -683,6 +697,87 @@ static void test_shld_shrd(u32 *mem)
     *mem = 0x12345678;
     asm("shrd %2, %1, %0" : "+m"(*mem) : "r"(0x55555555U), "c"((u8)3));
     report("shrd (cl)", *mem == ((0x12345678 >> 3) | (5u << 29)));
+}
+
+#define INSN_XCHG_ALL				\
+	"xchg %rax, 0+save \n\t"		\
+	"xchg %rbx, 8+save \n\t"		\
+	"xchg %rcx, 16+save \n\t"		\
+	"xchg %rdx, 24+save \n\t"		\
+	"xchg %rsi, 32+save \n\t"		\
+	"xchg %rdi, 40+save \n\t"		\
+	"xchg %rsp, 48+save \n\t"		\
+	"xchg %rbp, 56+save \n\t"		\
+	"xchg %r8, 64+save \n\t"		\
+	"xchg %r9, 72+save \n\t"		\
+	"xchg %r10, 80+save \n\t"		\
+	"xchg %r11, 88+save \n\t"		\
+	"xchg %r12, 96+save \n\t"		\
+	"xchg %r13, 104+save \n\t"		\
+	"xchg %r14, 112+save \n\t"		\
+	"xchg %r15, 120+save \n\t"
+
+asm(
+	".align 4096\n\t"
+	"insn_page:\n\t"
+	"ret\n\t"
+	"pushf\n\t"
+	"push 136+save \n\t"
+	"popf \n\t"
+	INSN_XCHG_ALL
+	"test_insn:\n\t"
+	"in  (%dx),%al\n\t"
+	".skip 31, 0x90\n\t"
+	"test_insn_end:\n\t"
+	INSN_XCHG_ALL
+	"pushf \n\t"
+	"pop 136+save \n\t"
+	"popf \n\t"
+	"ret \n\t"
+	"insn_page_end:\n\t"
+	".align 4096\n\t"
+);
+
+#define MK_INSN(name, str)				\
+    asm (						\
+	 ".pushsection .data.insn  \n\t"		\
+	 "insn_" #name ": \n\t"				\
+	 ".quad 1001f, 1002f - 1001f \n\t"		\
+	 ".popsection \n\t"				\
+	 ".pushsection .text.insn, \"ax\" \n\t"		\
+	 "1001: \n\t"					\
+	 "insn_code_" #name ": " str " \n\t"		\
+	 "1002: \n\t"					\
+	 ".popsection"					\
+    );							\
+    extern struct insn_desc insn_##name;
+
+static void trap_emulator(uint64_t *mem, void *alt_insn_page,
+			struct insn_desc *alt_insn)
+{
+	ulong *cr3 = (ulong *)read_cr3();
+	void *insn_ram;
+	extern u8 insn_page[], test_insn[];
+
+	insn_ram = vmap(virt_to_phys(insn_page), 4096);
+	memcpy(alt_insn_page, insn_page, 4096);
+	memcpy(alt_insn_page + (test_insn - insn_page),
+			(void *)(alt_insn->ptr), alt_insn->len);
+	save = inregs;
+
+	/* Load the code TLB with insn_page, but point the page tables at
+	   alt_insn_page (and keep the data TLB clear, for AMD decode assist).
+	   This will make the CPU trap on the insn_page instruction but the
+	   hypervisor will see alt_insn_page. */
+	install_page(cr3, virt_to_phys(insn_page), insn_ram);
+	invlpg(insn_ram);
+	/* Load code TLB */
+	asm volatile("call *%0" : : "r"(insn_ram));
+	install_page(cr3, virt_to_phys(alt_insn_page), insn_ram);
+	/* Trap, let hypervisor emulate at alt_insn_page */
+	asm volatile("call *%0": : "r"(insn_ram+1));
+
+	outregs = save;
 }
 
 static void advance_rip_by_3_and_note_exception(struct ex_regs *regs)
