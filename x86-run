@@ -17,7 +17,8 @@ else
 	fi
 fi
 
-if ${qemu} -device '?' 2>&1 | fgrep pci-testdev > /dev/null;
+if
+	${qemu} -device '?' 2>&1 | fgrep pci-testdev > /dev/null;
 then
 	pci_testdev="-device pci-testdev"
 else
