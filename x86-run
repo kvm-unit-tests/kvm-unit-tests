@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 qemukvm="${QEMU:-qemu-kvm}"
 qemusystem="${QEMU:-qemu-system-x86_64}"
