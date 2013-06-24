@@ -8,7 +8,7 @@ then
 	qemu="${qemukvm}"
 else
 	if
-		${qemsystem} -device '?' 2>&1 | fgrep -e \"testdev\" -e \"pc-testdev\" > /dev/null;
+		${qemusystem} -device '?' 2>&1 | fgrep -e \"testdev\" -e \"pc-testdev\" > /dev/null;
 	then
 		qemu="${qemusystem}"
 	else
