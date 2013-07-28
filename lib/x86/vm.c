@@ -9,10 +9,6 @@
 #define LARGE_PAGE_SIZE (1024 * PAGE_SIZE)
 #endif
 
-#define X86_CR0_PE      0x00000001
-#define X86_CR0_WP      0x00010000
-#define X86_CR0_PG      0x80000000
-#define X86_CR4_PSE     0x00000010
 static void *free = 0;
 static void *vfree_top = 0;
 

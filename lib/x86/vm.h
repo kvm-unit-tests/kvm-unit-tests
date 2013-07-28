@@ -16,6 +16,27 @@
 #define PTE_USER    (1ull << 2)
 #define PTE_ADDR    (0xffffffffff000ull)
 
+#define X86_CR0_PE      0x00000001
+#define X86_CR0_WP      0x00010000
+#define X86_CR0_PG      0x80000000
+#define X86_CR4_VMXE   0x00000001
+#define X86_CR4_PSE     0x00000010
+#define X86_CR4_PAE     0x00000020
+#define X86_CR4_PCIDE  0x00020000
+
+#ifdef __x86_64__
+#define SEL_NULL_DESC		0x0
+#define SEL_KERN_CODE_64	0x8
+#define SEL_KERN_DATA_64	0x10
+#define SEL_USER_CODE_64	0x18
+#define SEL_USER_DATA_64	0x20
+#define SEL_CODE_32		0x28
+#define SEL_DATA_32		0x30
+#define SEL_CODE_16		0x38
+#define SEL_DATA_16		0x40
+#define SEL_TSS_RUN		0x48
+#endif
+
 void setup_vm();
 
 void *vmalloc(unsigned long size);

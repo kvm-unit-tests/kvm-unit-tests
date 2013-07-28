@@ -9,5 +9,6 @@ tests = $(TEST_DIR)/access.flat $(TEST_DIR)/apic.flat \
 	  $(TEST_DIR)/xsave.flat $(TEST_DIR)/rmap_chain.flat \
 	  $(TEST_DIR)/pcid.flat
 tests += $(TEST_DIR)/svm.flat
+tests += $(TEST_DIR)/vmx.flat
 
 include config-x86-common.mak
