@@ -7,19 +7,24 @@
 #include "smp.h"
 #include "io.h"
 
-int fails = 0, tests = 0;
+int fails, tests;
 u32 *vmxon_region;
 struct vmcs *vmcs_root;
 u32 vpid_cnt;
 void *guest_stack, *guest_syscall_stack;
 u32 ctrl_pin, ctrl_enter, ctrl_exit, ctrl_cpu[2];
-ulong fix_cr0_set, fix_cr0_clr;
-ulong fix_cr4_set, fix_cr4_clr;
 struct regs regs;
 struct vmx_test *current;
-u64 hypercall_field = 0;
+u64 hypercall_field;
 bool launched;
 u64 host_rflags;
+
+union vmx_basic basic;
+union vmx_ctrl_pin ctrl_pin_rev;
+union vmx_ctrl_cpu ctrl_cpu_rev[2];
+union vmx_ctrl_exit ctrl_exit_rev;
+union vmx_ctrl_ent ctrl_enter_rev;
+union vmx_ept_vpid  ept_vpid;
 
 extern u64 gdt64_desc[];
 extern u64 idt_descr[];
@@ -28,7 +33,7 @@ extern void *vmx_return;
 extern void *entry_sysenter;
 extern void *guest_entry;
 
-static void report(const char *name, int result)
+void report(const char *name, int result)
 {
 	++tests;
 	if (result)
@@ -81,7 +86,7 @@ static inline int vmx_off()
 	return ret;
 }
 
-static void print_vmexit_info()
+void print_vmexit_info()
 {
 	u64 guest_rip, guest_rsp;
 	ulong reason = vmcs_read(EXI_REASON) & 0xff;
@@ -312,6 +317,9 @@ static int init_vmcs(struct vmcs **vmcs)
 
 static void init_vmx(void)
 {
+	ulong fix_cr0_set, fix_cr0_clr;
+	ulong fix_cr4_set, fix_cr4_clr;
+
 	vmxon_region = alloc_page();
 	memset(vmxon_region, 0, PAGE_SIZE);
 
@@ -442,12 +450,10 @@ static int exit_handler()
 
 	current->exits++;
 	regs.rflags = vmcs_read(GUEST_RFLAGS);
-	current->guest_regs = regs;
 	if (is_hypercall())
 		ret = handle_hypercall();
 	else
 		ret = current->exit_handler();
-	regs = current->guest_regs;
 	vmcs_write(GUEST_RFLAGS, regs.rflags);
 	switch (ret) {
 	case VMX_TEST_VMEXIT:
@@ -554,98 +560,16 @@ static int test_run(struct vmx_test *test)
 	return 0;
 }
 
-static void basic_init()
-{
-}
-
-static void basic_guest_main()
-{
-	/* Here is null guest_main, print Hello World */
-	printf("\tHello World, this is null_guest_main!\n");
-}
-
-static int basic_exit_handler()
-{
-	u64 guest_rip;
-	ulong reason;
-
-	guest_rip = vmcs_read(GUEST_RIP);
-	reason = vmcs_read(EXI_REASON) & 0xff;
-
-	switch (reason) {
-	case VMX_VMCALL:
-		print_vmexit_info();
-		vmcs_write(GUEST_RIP, guest_rip + 3);
-		return VMX_TEST_RESUME;
-	default:
-		break;
-	}
-	printf("ERROR : Unhandled vmx exit.\n");
-	print_vmexit_info();
-	return VMX_TEST_EXIT;
-}
-
-static void basic_syscall_handler(u64 syscall_no)
-{
-}
-
-static void vmenter_main()
-{
-	u64 rax;
-	u64 rsp, resume_rsp;
-
-	report("test vmlaunch", 1);
-
-	asm volatile(
-		"mov %%rsp, %0\n\t"
-		"mov %3, %%rax\n\t"
-		"vmcall\n\t"
-		"mov %%rax, %1\n\t"
-		"mov %%rsp, %2\n\t"
-		: "=r"(rsp), "=r"(rax), "=r"(resume_rsp)
-		: "g"(0xABCD));
-	report("test vmresume", (rax == 0xFFFF) && (rsp == resume_rsp));
-}
-
-static int vmenter_exit_handler()
-{
-	u64 guest_rip;
-	ulong reason;
-
-	guest_rip = vmcs_read(GUEST_RIP);
-	reason = vmcs_read(EXI_REASON) & 0xff;
-	switch (reason) {
-	case VMX_VMCALL:
-		if (current->guest_regs.rax != 0xABCD) {
-			report("test vmresume", 0);
-			return VMX_TEST_VMEXIT;
-		}
-		current->guest_regs.rax = 0xFFFF;
-		vmcs_write(GUEST_RIP, guest_rip + 3);
-		return VMX_TEST_RESUME;
-	default:
-		report("test vmresume", 0);
-		print_vmexit_info();
-	}
-	return VMX_TEST_VMEXIT;
-}
-
-
-/* name/init/guest_main/exit_handler/syscall_handler/guest_regs
-   basic_* just implement some basic functions */
-static struct vmx_test vmx_tests[] = {
-	{ "null", basic_init, basic_guest_main, basic_exit_handler,
-		basic_syscall_handler, {0} },
-	{ "vmenter", basic_init, vmenter_main, vmenter_exit_handler,
-		basic_syscall_handler, {0} },
-};
+extern struct vmx_test vmx_tests[];
 
 int main(void)
 {
-	int i;
+	int i = 0;
 
 	setup_vm();
 	setup_idt();
+	fails = tests = 0;
+	hypercall_field = 0;
 
 	if (test_vmx_capability() != 0) {
 		printf("ERROR : vmx not supported, check +vmx option\n");
@@ -666,10 +590,9 @@ int main(void)
 	}
 	test_vmxoff();
 
-	for (i = 1; i < ARRAY_SIZE(vmx_tests); ++i) {
+	while (vmx_tests[++i].name != NULL)
 		if (test_run(&vmx_tests[i]))
 			goto exit;
-	}
 
 exit:
 	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);

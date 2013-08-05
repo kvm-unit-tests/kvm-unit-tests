@@ -1,5 +1,5 @@
-#ifndef __HYPERVISOR_H
-#define __HYPERVISOR_H
+#ifndef __VMX_H
+#define __VMX_H
 
 #include "libcflat.h"
 
@@ -41,7 +41,7 @@ struct vmx_test {
 	int exits;
 };
 
-static union vmx_basic {
+union vmx_basic {
 	u64 val;
 	struct {
 		u32 revision;
@@ -53,37 +53,37 @@ static union vmx_basic {
 			insouts:1,
 			ctrl:1;
 	};
-} basic;
+};
 
-static union vmx_ctrl_pin {
+union vmx_ctrl_pin {
 	u64 val;
 	struct {
 		u32 set, clr;
 	};
-} ctrl_pin_rev;
+};
 
-static union vmx_ctrl_cpu {
+union vmx_ctrl_cpu {
 	u64 val;
 	struct {
 		u32 set, clr;
 	};
-} ctrl_cpu_rev[2];
+};
 
-static union vmx_ctrl_exit {
+union vmx_ctrl_exit {
 	u64 val;
 	struct {
 		u32 set, clr;
 	};
-} ctrl_exit_rev;
+};
 
-static union vmx_ctrl_ent {
+union vmx_ctrl_ent {
 	u64 val;
 	struct {
 		u32 set, clr;
 	};
-} ctrl_enter_rev;
+};
 
-static union vmx_ept_vpid {
+union vmx_ept_vpid {
 	u64 val;
 	struct {
 		u32:16,
@@ -93,7 +93,7 @@ static union vmx_ept_vpid {
 			: 11;
 		u32	invvpid:1;
 	};
-} ept_vpid;
+};
 
 struct descr {
 	u16 limit;
@@ -432,6 +432,16 @@ enum Ctrl1 {
 #define HYPERCALL_MASK		0xFFF
 #define HYPERCALL_VMEXIT	0x1
 
+
+extern struct regs regs;
+
+extern union vmx_basic basic;
+extern union vmx_ctrl_pin ctrl_pin_rev;
+extern union vmx_ctrl_cpu ctrl_cpu_rev[2];
+extern union vmx_ctrl_exit ctrl_exit_rev;
+extern union vmx_ctrl_ent ctrl_enter_rev;
+extern union vmx_ept_vpid  ept_vpid;
+
 static inline int vmcs_clear(struct vmcs *vmcs)
 {
 	bool ret;
@@ -461,6 +471,9 @@ static inline int vmcs_save(struct vmcs **vmcs)
 	asm volatile ("vmptrst %1; setbe %0" : "=q" (ret) : "m" (*vmcs) : "cc");
 	return ret;
 }
+
+void report(const char *name, int result);
+void print_vmexit_info();
 
 #endif
 
