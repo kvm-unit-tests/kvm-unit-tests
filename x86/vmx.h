@@ -403,10 +403,10 @@ enum Ctrl1 {
 
 #define SAVE_RFLAGS		\
 	"pushf\n\t"			\
-	"pop regs+0x80\n\t"
+	"pop host_rflags\n\t"
 
 #define LOAD_RFLAGS		\
-	"push regs+0x80\n\t"	\
+	"push host_rflags\n\t"	\
 	"popf\n\t"
 
 #define VMX_IO_SIZE_MASK		0x7

@@ -19,6 +19,7 @@ struct regs regs;
 struct vmx_test *current;
 u64 hypercall_field = 0;
 bool launched;
+u64 host_rflags;
 
 extern u64 gdt64_desc[];
 extern u64 idt_descr[];
@@ -440,12 +441,14 @@ static int exit_handler()
 	int ret;
 
 	current->exits++;
+	regs.rflags = vmcs_read(GUEST_RFLAGS);
 	current->guest_regs = regs;
 	if (is_hypercall())
 		ret = handle_hypercall();
 	else
 		ret = current->exit_handler();
 	regs = current->guest_regs;
+	vmcs_write(GUEST_RFLAGS, regs.rflags);
 	switch (ret) {
 	case VMX_TEST_VMEXIT:
 	case VMX_TEST_RESUME:
@@ -505,15 +508,15 @@ static int vmx_run()
 		return 0;
 	case VMX_TEST_LAUNCH_ERR:
 		printf("%s : vmlaunch failed.\n", __func__);
-		if ((!(regs.rflags & X86_EFLAGS_CF) && !(regs.rflags & X86_EFLAGS_ZF))
-			|| ((regs.rflags & X86_EFLAGS_CF) && (regs.rflags & X86_EFLAGS_ZF)))
+		if ((!(host_rflags & X86_EFLAGS_CF) && !(host_rflags & X86_EFLAGS_ZF))
+			|| ((host_rflags & X86_EFLAGS_CF) && (host_rflags & X86_EFLAGS_ZF)))
 			printf("\tvmlaunch set wrong flags\n");
 		report("test vmlaunch", 0);
 		break;
 	case VMX_TEST_RESUME_ERR:
 		printf("%s : vmresume failed.\n", __func__);
-		if ((!(regs.rflags & X86_EFLAGS_CF) && !(regs.rflags & X86_EFLAGS_ZF))
-			|| ((regs.rflags & X86_EFLAGS_CF) && (regs.rflags & X86_EFLAGS_ZF)))
+		if ((!(host_rflags & X86_EFLAGS_CF) && !(host_rflags & X86_EFLAGS_ZF))
+			|| ((host_rflags & X86_EFLAGS_CF) && (host_rflags & X86_EFLAGS_ZF)))
 			printf("\tvmresume set wrong flags\n");
 		report("test vmresume", 0);
 		break;
