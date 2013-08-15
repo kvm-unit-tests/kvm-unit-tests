@@ -2,10 +2,13 @@
 #include "msr.h"
 #include "processor.h"
 #include "vm.h"
+#include "io.h"
 
 u64 ia32_pat;
 u64 ia32_efer;
 volatile u32 stage;
+void *io_bitmap_a, *io_bitmap_b;
+u16 ioport;
 
 static inline void vmcall()
 {
@@ -474,6 +477,160 @@ static int cr_shadowing_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
+static void iobmp_init()
+{
+	u32 ctrl_cpu0;
+
+	io_bitmap_a = alloc_page();
+	io_bitmap_a = alloc_page();
+	memset(io_bitmap_a, 0x0, PAGE_SIZE);
+	memset(io_bitmap_b, 0x0, PAGE_SIZE);
+	ctrl_cpu0 = vmcs_read(CPU_EXEC_CTRL0);
+	ctrl_cpu0 |= CPU_IO_BITMAP;
+	ctrl_cpu0 &= (~CPU_IO);
+	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu0);
+	vmcs_write(IO_BITMAP_A, (u64)io_bitmap_a);
+	vmcs_write(IO_BITMAP_B, (u64)io_bitmap_b);
+}
+
+static void iobmp_main()
+{
+	// stage 0, test IO pass
+	set_stage(0);
+	inb(0x5000);
+	outb(0x0, 0x5000);
+	if (stage != 0)
+		report("I/O bitmap - I/O pass", 0);
+	else
+		report("I/O bitmap - I/O pass", 1);
+	// test IO width, in/out
+	((u8 *)io_bitmap_a)[0] = 0xFF;
+	set_stage(2);
+	inb(0x0);
+	if (stage != 3)
+		report("I/O bitmap - trap in", 0);
+	else
+		report("I/O bitmap - trap in", 1);
+	set_stage(3);
+	outw(0x0, 0x0);
+	if (stage != 4)
+		report("I/O bitmap - trap out", 0);
+	else
+		report("I/O bitmap - trap out", 1);
+	set_stage(4);
+	inl(0x0);
+	if (stage != 5)
+		report("I/O bitmap - I/O width, long", 0);
+	// test low/high IO port
+	set_stage(5);
+	((u8 *)io_bitmap_a)[0x5000 / 8] = (1 << (0x5000 % 8));
+	inb(0x5000);
+	if (stage == 6)
+		report("I/O bitmap - I/O port, low part", 1);
+	else
+		report("I/O bitmap - I/O port, low part", 0);
+	set_stage(6);
+	((u8 *)io_bitmap_b)[0x1000 / 8] = (1 << (0x1000 % 8));
+	inb(0x9000);
+	if (stage == 7)
+		report("I/O bitmap - I/O port, high part", 1);
+	else
+		report("I/O bitmap - I/O port, high part", 0);
+	// test partial pass
+	set_stage(7);
+	inl(0x4FFF);
+	if (stage == 8)
+		report("I/O bitmap - partial pass", 1);
+	else
+		report("I/O bitmap - partial pass", 0);
+	// test overrun
+	set_stage(8);
+	memset(io_bitmap_a, 0x0, PAGE_SIZE);
+	memset(io_bitmap_b, 0x0, PAGE_SIZE);
+	inl(0xFFFF);
+	if (stage == 9)
+		report("I/O bitmap - overrun", 1);
+	else
+		report("I/O bitmap - overrun", 0);
+	
+	return;
+}
+
+static int iobmp_exit_handler()
+{
+	u64 guest_rip;
+	ulong reason, exit_qual;
+	u32 insn_len;
+
+	guest_rip = vmcs_read(GUEST_RIP);
+	reason = vmcs_read(EXI_REASON) & 0xff;
+	exit_qual = vmcs_read(EXI_QUALIFICATION);
+	insn_len = vmcs_read(EXI_INST_LEN);
+	switch (reason) {
+	case VMX_IO:
+		switch (stage) {
+		case 2:
+			if ((exit_qual & VMX_IO_SIZE_MASK) != _VMX_IO_BYTE)
+				report("I/O bitmap - I/O width, byte", 0);
+			else
+				report("I/O bitmap - I/O width, byte", 1);
+			if (!(exit_qual & VMX_IO_IN))
+				report("I/O bitmap - I/O direction, in", 0);
+			else
+				report("I/O bitmap - I/O direction, in", 1);
+			set_stage(stage + 1);
+			break;
+		case 3:
+			if ((exit_qual & VMX_IO_SIZE_MASK) != _VMX_IO_WORD)
+				report("I/O bitmap - I/O width, word", 0);
+			else
+				report("I/O bitmap - I/O width, word", 1);
+			if (!(exit_qual & VMX_IO_IN))
+				report("I/O bitmap - I/O direction, out", 1);
+			else
+				report("I/O bitmap - I/O direction, out", 0);
+			set_stage(stage + 1);
+			break;
+		case 4:
+			if ((exit_qual & VMX_IO_SIZE_MASK) != _VMX_IO_LONG)
+				report("I/O bitmap - I/O width, long", 0);
+			else
+				report("I/O bitmap - I/O width, long", 1);
+			set_stage(stage + 1);
+			break;
+		case 5:
+			if (((exit_qual & VMX_IO_PORT_MASK) >> VMX_IO_PORT_SHIFT) == 0x5000)
+				set_stage(stage + 1);
+			break;
+		case 6:
+			if (((exit_qual & VMX_IO_PORT_MASK) >> VMX_IO_PORT_SHIFT) == 0x9000)
+				set_stage(stage + 1);
+			break;
+		case 7:
+			if (((exit_qual & VMX_IO_PORT_MASK) >> VMX_IO_PORT_SHIFT) == 0x4FFF)
+				set_stage(stage + 1);
+			break;
+		case 8:
+			if (((exit_qual & VMX_IO_PORT_MASK) >> VMX_IO_PORT_SHIFT) == 0xFFFF)
+				set_stage(stage + 1);
+			break;
+		case 0:
+		case 1:
+			set_stage(stage + 1);
+		default:
+			// Should not reach here
+			break;
+		}
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+		return VMX_TEST_RESUME;
+	default:
+		printf("guest_rip = 0x%llx\n", guest_rip);
+		printf("\tERROR : Undefined exit reason, reason = %d.\n", reason);
+		break;
+	}
+	return VMX_TEST_VMEXIT;
+}
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs
    basic_* just implement some basic functions */
 struct vmx_test vmx_tests[] = {
@@ -487,5 +644,7 @@ struct vmx_test vmx_tests[] = {
 		test_ctrl_efer_exit_handler, basic_syscall_handler, {0} },
 	{ "CR shadowing", basic_init, cr_shadowing_main,
 		cr_shadowing_exit_handler, basic_syscall_handler, {0} },
+	{ "I/O bitmap", iobmp_init, iobmp_main, iobmp_exit_handler,
+		basic_syscall_handler, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };

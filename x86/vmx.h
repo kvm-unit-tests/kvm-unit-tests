@@ -417,15 +417,15 @@ enum Ctrl1 {
 	"popf\n\t"
 
 #define VMX_IO_SIZE_MASK		0x7
-#define _VMX_IO_BYTE			1
-#define _VMX_IO_WORD			2
+#define _VMX_IO_BYTE			0
+#define _VMX_IO_WORD			1
 #define _VMX_IO_LONG			3
 #define VMX_IO_DIRECTION_MASK		(1ul << 3)
 #define VMX_IO_IN			(1ul << 3)
 #define VMX_IO_OUT			0
 #define VMX_IO_STRING			(1ul << 4)
 #define VMX_IO_REP			(1ul << 5)
-#define VMX_IO_OPRAND_DX		(1ul << 6)
+#define VMX_IO_OPRAND_IMM		(1ul << 6)
 #define VMX_IO_PORT_MASK		0xFFFF0000
 #define VMX_IO_PORT_SHIFT		16
 
