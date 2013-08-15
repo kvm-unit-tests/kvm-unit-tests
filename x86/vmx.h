@@ -152,10 +152,12 @@ enum Encoding {
 	GUEST_DEBUGCTL		= 0x2802ul,
 	GUEST_DEBUGCTL_HI	= 0x2803ul,
 	GUEST_EFER		= 0x2806ul,
+	GUEST_PAT		= 0x2804ul,
 	GUEST_PERF_GLOBAL_CTRL	= 0x2808ul,
 	GUEST_PDPTE		= 0x280aul,
 
 	/* 64-Bit Host State */
+	HOST_PAT		= 0x2c00ul,
 	HOST_EFER		= 0x2c02ul,
 	HOST_PERF_GLOBAL_CTRL	= 0x2c04ul,
 
@@ -330,11 +332,15 @@ enum Ctrl_exi {
 	EXI_HOST_64             = 1UL << 9,
 	EXI_LOAD_PERF		= 1UL << 12,
 	EXI_INTA                = 1UL << 15,
+	EXI_SAVE_PAT		= 1UL << 18,
+	EXI_LOAD_PAT		= 1UL << 19,
+	EXI_SAVE_EFER		= 1UL << 20,
 	EXI_LOAD_EFER           = 1UL << 21,
 };
 
 enum Ctrl_ent {
 	ENT_GUEST_64            = 1UL << 9,
+	ENT_LOAD_PAT		= 1UL << 14,
 	ENT_LOAD_EFER           = 1UL << 15,
 };
 
@@ -354,6 +360,7 @@ enum Ctrl0 {
 	CPU_NMI_WINDOW		= 1ul << 22,
 	CPU_IO			= 1ul << 24,
 	CPU_IO_BITMAP		= 1ul << 25,
+	CPU_MSR_BITMAP		= 1ul << 28,
 	CPU_SECONDARY		= 1ul << 31,
 };
 
