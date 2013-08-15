@@ -22,6 +22,16 @@ static inline void set_stage(u32 s)
 	barrier();
 }
 
+static inline u32 get_stage()
+{
+	u32 s;
+
+	barrier();
+	s = stage;
+	barrier();
+	return s;
+}
+
 void basic_init()
 {
 }
@@ -631,6 +641,146 @@ static int iobmp_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
+#define INSN_CPU0		0
+#define INSN_CPU1		1
+#define INSN_ALWAYS_TRAP	2
+#define INSN_NEVER_TRAP		3
+
+#define FIELD_EXIT_QUAL		0
+#define FIELD_INSN_INFO		1
+
+asm(
+	"insn_hlt: hlt;ret\n\t"
+	"insn_invlpg: invlpg 0x12345678;ret\n\t"
+	"insn_mwait: mwait;ret\n\t"
+	"insn_rdpmc: rdpmc;ret\n\t"
+	"insn_rdtsc: rdtsc;ret\n\t"
+	"insn_monitor: monitor;ret\n\t"
+	"insn_pause: pause;ret\n\t"
+	"insn_wbinvd: wbinvd;ret\n\t"
+	"insn_cpuid: cpuid;ret\n\t"
+	"insn_invd: invd;ret\n\t"
+);
+extern void insn_hlt();
+extern void insn_invlpg();
+extern void insn_mwait();
+extern void insn_rdpmc();
+extern void insn_rdtsc();
+extern void insn_monitor();
+extern void insn_pause();
+extern void insn_wbinvd();
+extern void insn_cpuid();
+extern void insn_invd();
+
+u32 cur_insn;
+
+struct insn_table {
+	const char *name;
+	u32 flag;
+	void (*insn_func)();
+	u32 type;
+	u32 reason;
+	ulong exit_qual;
+	u32 insn_info;
+	// Use FIELD_EXIT_QUAL and FIELD_INSN_INFO to efines
+	// which field need to be tested, reason is always tested
+	u32 test_field;
+};
+
+static struct insn_table insn_table[] = {
+	// Flags for Primary Processor-Based VM-Execution Controls
+	{"HLT",  CPU_HLT, insn_hlt, INSN_CPU0, 12, 0, 0, 0},
+	{"INVLPG", CPU_INVLPG, insn_invlpg, INSN_CPU0, 14,
+		0x12345678, 0, FIELD_EXIT_QUAL},
+	{"MWAIT", CPU_MWAIT, insn_mwait, INSN_CPU0, 36, 0, 0, 0},
+	{"RDPMC", CPU_RDPMC, insn_rdpmc, INSN_CPU0, 15, 0, 0, 0},
+	{"RDTSC", CPU_RDTSC, insn_rdtsc, INSN_CPU0, 16, 0, 0, 0},
+	{"MONITOR", CPU_MONITOR, insn_monitor, INSN_CPU0, 39, 0, 0, 0},
+	{"PAUSE", CPU_PAUSE, insn_pause, INSN_CPU0, 40, 0, 0, 0},
+	// Flags for Secondary Processor-Based VM-Execution Controls
+	{"WBINVD", CPU_WBINVD, insn_wbinvd, INSN_CPU1, 54, 0, 0, 0},
+	// Instructions always trap
+	{"CPUID", 0, insn_cpuid, INSN_ALWAYS_TRAP, 10, 0, 0, 0},
+	{"INVD", 0, insn_invd, INSN_ALWAYS_TRAP, 13, 0, 0, 0},
+	// Instructions never trap
+	{NULL},
+};
+
+static void insn_intercept_init()
+{
+	u32 ctrl_cpu[2];
+
+	ctrl_cpu[0] = vmcs_read(CPU_EXEC_CTRL0);
+	ctrl_cpu[0] |= CPU_HLT | CPU_INVLPG | CPU_MWAIT | CPU_RDPMC | CPU_RDTSC |
+		CPU_MONITOR | CPU_PAUSE | CPU_SECONDARY;
+	ctrl_cpu[0] &= ctrl_cpu_rev[0].clr;
+	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu[0]);
+	ctrl_cpu[1] = vmcs_read(CPU_EXEC_CTRL1);
+	ctrl_cpu[1] |= CPU_WBINVD | CPU_RDRAND;
+	ctrl_cpu[1] &= ctrl_cpu_rev[1].clr;
+	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu[1]);
+}
+
+static void insn_intercept_main()
+{
+	cur_insn = 0;
+	while(insn_table[cur_insn].name != NULL) {
+		set_stage(cur_insn);
+		if ((insn_table[cur_insn].type == INSN_CPU0
+			&& !(ctrl_cpu_rev[0].clr & insn_table[cur_insn].flag))
+			|| (insn_table[cur_insn].type == INSN_CPU1
+			&& !(ctrl_cpu_rev[1].clr & insn_table[cur_insn].flag))) {
+			printf("\tCPU_CTRL1.CPU_%s is not supported.\n",
+				insn_table[cur_insn].name);
+			continue;
+		}
+		insn_table[cur_insn].insn_func();
+		switch (insn_table[cur_insn].type) {
+		case INSN_CPU0:
+		case INSN_CPU1:
+		case INSN_ALWAYS_TRAP:
+			if (stage != cur_insn + 1)
+				report(insn_table[cur_insn].name, 0);
+			else
+				report(insn_table[cur_insn].name, 1);
+			break;
+		case INSN_NEVER_TRAP:
+			if (stage == cur_insn + 1)
+				report(insn_table[cur_insn].name, 0);
+			else
+				report(insn_table[cur_insn].name, 1);
+			break;
+		}
+		cur_insn ++;
+	}
+}
+
+static int insn_intercept_exit_handler()
+{
+	u64 guest_rip;
+	u32 reason;
+	ulong exit_qual;
+	u32 insn_len;
+	u32 insn_info;
+	bool pass;
+
+	guest_rip = vmcs_read(GUEST_RIP);
+	reason = vmcs_read(EXI_REASON) & 0xff;
+	exit_qual = vmcs_read(EXI_QUALIFICATION);
+	insn_len = vmcs_read(EXI_INST_LEN);
+	insn_info = vmcs_read(EXI_INST_INFO);
+	pass = (cur_insn == get_stage()) &&
+			insn_table[cur_insn].reason == reason;
+	if (insn_table[cur_insn].test_field & FIELD_EXIT_QUAL)
+		pass = pass && insn_table[cur_insn].exit_qual == exit_qual;
+	if (insn_table[cur_insn].test_field & FIELD_INSN_INFO)
+		pass = pass && insn_table[cur_insn].insn_info == insn_info;
+	if (pass)
+		set_stage(stage + 1);
+	vmcs_write(GUEST_RIP, guest_rip + insn_len);
+	return VMX_TEST_RESUME;
+}
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs
    basic_* just implement some basic functions */
 struct vmx_test vmx_tests[] = {
@@ -646,5 +796,7 @@ struct vmx_test vmx_tests[] = {
 		cr_shadowing_exit_handler, basic_syscall_handler, {0} },
 	{ "I/O bitmap", iobmp_init, iobmp_main, iobmp_exit_handler,
 		basic_syscall_handler, {0} },
+	{ "instruction intercept", insn_intercept_init, insn_intercept_main,
+		insn_intercept_exit_handler, basic_syscall_handler, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };

@@ -354,12 +354,17 @@ enum Ctrl0 {
 	CPU_INTR_WINDOW		= 1ul << 2,
 	CPU_HLT			= 1ul << 7,
 	CPU_INVLPG		= 1ul << 9,
+	CPU_MWAIT		= 1ul << 10,
+	CPU_RDPMC		= 1ul << 11,
+	CPU_RDTSC		= 1ul << 12,
 	CPU_CR3_LOAD		= 1ul << 15,
 	CPU_CR3_STORE		= 1ul << 16,
 	CPU_TPR_SHADOW		= 1ul << 21,
 	CPU_NMI_WINDOW		= 1ul << 22,
 	CPU_IO			= 1ul << 24,
 	CPU_IO_BITMAP		= 1ul << 25,
+	CPU_MONITOR		= 1ul << 29,
+	CPU_PAUSE		= 1ul << 30,
 	CPU_MSR_BITMAP		= 1ul << 28,
 	CPU_SECONDARY		= 1ul << 31,
 };
@@ -368,6 +373,8 @@ enum Ctrl1 {
 	CPU_EPT			= 1ul << 1,
 	CPU_VPID		= 1ul << 5,
 	CPU_URG			= 1ul << 7,
+	CPU_WBINVD		= 1ul << 6,
+	CPU_RDRAND		= 1ul << 11,
 };
 
 #define SAVE_GPR				\

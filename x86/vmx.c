@@ -336,8 +336,7 @@ static void init_vmx(void)
 			: MSR_IA32_VMX_ENTRY_CTLS);
 	ctrl_cpu_rev[0].val = rdmsr(basic.ctrl ? MSR_IA32_VMX_TRUE_PROC
 			: MSR_IA32_VMX_PROCBASED_CTLS);
-	if (ctrl_cpu_rev[0].set & CPU_SECONDARY)
-		ctrl_cpu_rev[1].val = rdmsr(MSR_IA32_VMX_PROCBASED_CTLS2);
+	ctrl_cpu_rev[1].val = rdmsr(MSR_IA32_VMX_PROCBASED_CTLS2);
 	if (ctrl_cpu_rev[1].set & CPU_EPT || ctrl_cpu_rev[1].set & CPU_VPID)
 		ept_vpid.val = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
 
