@@ -5,10 +5,18 @@
 
 u64 ia32_pat;
 u64 ia32_efer;
+volatile u32 stage;
 
 static inline void vmcall()
 {
 	asm volatile("vmcall");
+}
+
+static inline void set_stage(u32 s)
+{
+	barrier();
+	stage = s;
+	barrier();
 }
 
 void basic_init()
@@ -257,6 +265,215 @@ static int test_ctrl_efer_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
+u32 guest_cr0, guest_cr4;
+
+static void cr_shadowing_main()
+{
+	u32 cr0, cr4, tmp;
+
+	// Test read through
+	set_stage(0);
+	guest_cr0 = read_cr0();
+	if (stage == 1)
+		report("Read through CR0", 0);
+	else
+		vmcall();
+	set_stage(1);
+	guest_cr4 = read_cr4();
+	if (stage == 2)
+		report("Read through CR4", 0);
+	else
+		vmcall();
+	// Test write through
+	guest_cr0 = guest_cr0 ^ (X86_CR0_TS | X86_CR0_MP);
+	guest_cr4 = guest_cr4 ^ (X86_CR4_TSD | X86_CR4_DE);
+	set_stage(2);
+	write_cr0(guest_cr0);
+	if (stage == 3)
+		report("Write throuth CR0", 0);
+	else
+		vmcall();
+	set_stage(3);
+	write_cr4(guest_cr4);
+	if (stage == 4)
+		report("Write through CR4", 0);
+	else
+		vmcall();
+	// Test read shadow
+	set_stage(4);
+	vmcall();
+	cr0 = read_cr0();
+	if (stage != 5) {
+		if (cr0 == guest_cr0)
+			report("Read shadowing CR0", 1);
+		else
+			report("Read shadowing CR0", 0);
+	}
+	set_stage(5);
+	cr4 = read_cr4();
+	if (stage != 6) {
+		if (cr4 == guest_cr4)
+			report("Read shadowing CR4", 1);
+		else
+			report("Read shadowing CR4", 0);
+	}
+	// Test write shadow (same value with shadow)
+	set_stage(6);
+	write_cr0(guest_cr0);
+	if (stage == 7)
+		report("Write shadowing CR0 (same value with shadow)", 0);
+	else
+		vmcall();
+	set_stage(7);
+	write_cr4(guest_cr4);
+	if (stage == 8)
+		report("Write shadowing CR4 (same value with shadow)", 0);
+	else
+		vmcall();
+	// Test write shadow (different value)
+	set_stage(8);
+	tmp = guest_cr0 ^ X86_CR0_TS;
+	asm volatile("mov %0, %%rsi\n\t"
+		"mov %%rsi, %%cr0\n\t"
+		::"m"(tmp)
+		:"rsi", "memory", "cc");
+	if (stage != 9)
+		report("Write shadowing different X86_CR0_TS", 0);
+	else
+		report("Write shadowing different X86_CR0_TS", 1);
+	set_stage(9);
+	tmp = guest_cr0 ^ X86_CR0_MP;
+	asm volatile("mov %0, %%rsi\n\t"
+		"mov %%rsi, %%cr0\n\t"
+		::"m"(tmp)
+		:"rsi", "memory", "cc");
+	if (stage != 10)
+		report("Write shadowing different X86_CR0_MP", 0);
+	else
+		report("Write shadowing different X86_CR0_MP", 1);
+	set_stage(10);
+	tmp = guest_cr4 ^ X86_CR4_TSD;
+	asm volatile("mov %0, %%rsi\n\t"
+		"mov %%rsi, %%cr4\n\t"
+		::"m"(tmp)
+		:"rsi", "memory", "cc");
+	if (stage != 11)
+		report("Write shadowing different X86_CR4_TSD", 0);
+	else
+		report("Write shadowing different X86_CR4_TSD", 1);
+	set_stage(11);
+	tmp = guest_cr4 ^ X86_CR4_DE;
+	asm volatile("mov %0, %%rsi\n\t"
+		"mov %%rsi, %%cr4\n\t"
+		::"m"(tmp)
+		:"rsi", "memory", "cc");
+	if (stage != 12)
+		report("Write shadowing different X86_CR4_DE", 0);
+	else
+		report("Write shadowing different X86_CR4_DE", 1);
+}
+
+static int cr_shadowing_exit_handler()
+{
+	u64 guest_rip;
+	ulong reason;
+	u32 insn_len;
+	u32 exit_qual;
+
+	guest_rip = vmcs_read(GUEST_RIP);
+	reason = vmcs_read(EXI_REASON) & 0xff;
+	insn_len = vmcs_read(EXI_INST_LEN);
+	exit_qual = vmcs_read(EXI_QUALIFICATION);
+	switch (reason) {
+	case VMX_VMCALL:
+		switch (stage) {
+		case 0:
+			if (guest_cr0 == vmcs_read(GUEST_CR0))
+				report("Read through CR0", 1);
+			else
+				report("Read through CR0", 0);
+			break;
+		case 1:
+			if (guest_cr4 == vmcs_read(GUEST_CR4))
+				report("Read through CR4", 1);
+			else
+				report("Read through CR4", 0);
+			break;
+		case 2:
+			if (guest_cr0 == vmcs_read(GUEST_CR0))
+				report("Write through CR0", 1);
+			else
+				report("Write through CR0", 0);
+			break;
+		case 3:
+			if (guest_cr4 == vmcs_read(GUEST_CR4))
+				report("Write through CR4", 1);
+			else
+				report("Write through CR4", 0);
+			break;
+		case 4:
+			guest_cr0 = vmcs_read(GUEST_CR0) ^ (X86_CR0_TS | X86_CR0_MP);
+			guest_cr4 = vmcs_read(GUEST_CR4) ^ (X86_CR4_TSD | X86_CR4_DE);
+			vmcs_write(CR0_MASK, X86_CR0_TS | X86_CR0_MP);
+			vmcs_write(CR0_READ_SHADOW, guest_cr0 & (X86_CR0_TS | X86_CR0_MP));
+			vmcs_write(CR4_MASK, X86_CR4_TSD | X86_CR4_DE);
+			vmcs_write(CR4_READ_SHADOW, guest_cr4 & (X86_CR4_TSD | X86_CR4_DE));
+			break;
+		case 6:
+			if (guest_cr0 == (vmcs_read(GUEST_CR0) ^ (X86_CR0_TS | X86_CR0_MP)))
+				report("Write shadowing CR0 (same value)", 1);
+			else
+				report("Write shadowing CR0 (same value)", 0);
+			break;
+		case 7:
+			if (guest_cr4 == (vmcs_read(GUEST_CR4) ^ (X86_CR4_TSD | X86_CR4_DE)))
+				report("Write shadowing CR4 (same value)", 1);
+			else
+				report("Write shadowing CR4 (same value)", 0);
+			break;
+		}
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+		return VMX_TEST_RESUME;
+	case VMX_CR:
+		switch (stage) {
+		case 4:
+			report("Read shadowing CR0", 0);
+			set_stage(stage + 1);
+			break;
+		case 5:
+			report("Read shadowing CR4", 0);
+			set_stage(stage + 1);
+			break;
+		case 6:
+			report("Write shadowing CR0 (same value)", 0);
+			set_stage(stage + 1);
+			break;
+		case 7:
+			report("Write shadowing CR4 (same value)", 0);
+			set_stage(stage + 1);
+			break;
+		case 8:
+		case 9:
+			// 0x600 encodes "mov %esi, %cr0"
+			if (exit_qual == 0x600)
+				set_stage(stage + 1);
+			break;
+		case 10:
+		case 11:
+			// 0x604 encodes "mov %esi, %cr4"
+			if (exit_qual == 0x604)
+				set_stage(stage + 1);
+			break;
+		}
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+		return VMX_TEST_RESUME;
+	default:
+		printf("Unknown exit reason, %d\n", reason);
+		print_vmexit_info();
+	}
+	return VMX_TEST_VMEXIT;
+}
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs
    basic_* just implement some basic functions */
 struct vmx_test vmx_tests[] = {
@@ -268,5 +485,7 @@ struct vmx_test vmx_tests[] = {
 		test_ctrl_pat_exit_handler, basic_syscall_handler, {0} },
 	{ "control field EFER", test_ctrl_efer_init, test_ctrl_efer_main,
 		test_ctrl_efer_exit_handler, basic_syscall_handler, {0} },
+	{ "CR shadowing", basic_init, cr_shadowing_main,
+		cr_shadowing_exit_handler, basic_syscall_handler, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
