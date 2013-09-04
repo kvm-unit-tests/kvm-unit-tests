@@ -114,6 +114,95 @@ int vmenter_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
+u32 preempt_scale;
+volatile unsigned long long tsc_val;
+volatile u32 preempt_val;
+
+void preemption_timer_init()
+{
+	u32 ctrl_pin;
+
+	ctrl_pin = vmcs_read(PIN_CONTROLS) | PIN_PREEMPT;
+	ctrl_pin &= ctrl_pin_rev.clr;
+	vmcs_write(PIN_CONTROLS, ctrl_pin);
+	preempt_val = 10000000;
+	vmcs_write(PREEMPT_TIMER_VALUE, preempt_val);
+	preempt_scale = rdmsr(MSR_IA32_VMX_MISC) & 0x1F;
+}
+
+void preemption_timer_main()
+{
+	tsc_val = rdtsc();
+	if (!(ctrl_pin_rev.clr & PIN_PREEMPT)) {
+		printf("\tPreemption timer is not supported\n");
+		return;
+	}
+	if (!(ctrl_exit_rev.clr & EXI_SAVE_PREEMPT))
+		printf("\tSave preemption value is not supported\n");
+	else {
+		set_stage(0);
+		vmcall();
+		if (get_stage() == 1)
+			vmcall();
+	}
+	while (1) {
+		if (((rdtsc() - tsc_val) >> preempt_scale)
+				> 10 * preempt_val) {
+			report("Preemption timer", 0);
+			break;
+		}
+	}
+}
+
+int preemption_timer_exit_handler()
+{
+	u64 guest_rip;
+	ulong reason;
+	u32 insn_len;
+	u32 ctrl_exit;
+
+	guest_rip = vmcs_read(GUEST_RIP);
+	reason = vmcs_read(EXI_REASON) & 0xff;
+	insn_len = vmcs_read(EXI_INST_LEN);
+	switch (reason) {
+	case VMX_PREEMPT:
+		if (((rdtsc() - tsc_val) >> preempt_scale) < preempt_val)
+			report("Preemption timer", 0);
+		else
+			report("Preemption timer", 1);
+		return VMX_TEST_VMEXIT;
+	case VMX_VMCALL:
+		switch (get_stage()) {
+		case 0:
+			if (vmcs_read(PREEMPT_TIMER_VALUE) != preempt_val)
+				report("Save preemption value", 0);
+			else {
+				set_stage(get_stage() + 1);
+				ctrl_exit = (vmcs_read(EXI_CONTROLS) |
+					EXI_SAVE_PREEMPT) & ctrl_exit_rev.clr;
+				vmcs_write(EXI_CONTROLS, ctrl_exit);
+			}
+			break;
+		case 1:
+			if (vmcs_read(PREEMPT_TIMER_VALUE) >= preempt_val)
+				report("Save preemption value", 0);
+			else
+				report("Save preemption value", 1);
+			break;
+		default:
+			printf("Invalid stage.\n");
+			print_vmexit_info();
+			return VMX_TEST_VMEXIT;
+		}
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+		return VMX_TEST_RESUME;
+	default:
+		printf("Unknown exit reason, %d\n", reason);
+		print_vmexit_info();
+	}
+	return VMX_TEST_VMEXIT;
+}
+
 void msr_bmp_init()
 {
 	void *msr_bitmap;
@@ -1025,6 +1114,8 @@ struct vmx_test vmx_tests[] = {
 		basic_syscall_handler, {0} },
 	{ "vmenter", basic_init, vmenter_main, vmenter_exit_handler,
 		basic_syscall_handler, {0} },
+	{ "preemption timer", preemption_timer_init, preemption_timer_main,
+		preemption_timer_exit_handler, basic_syscall_handler, {0} },
 	{ "control field PAT", test_ctrl_pat_init, test_ctrl_pat_main,
 		test_ctrl_pat_exit_handler, basic_syscall_handler, {0} },
 	{ "control field EFER", test_ctrl_efer_init, test_ctrl_efer_main,

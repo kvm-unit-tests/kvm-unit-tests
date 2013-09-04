@@ -212,6 +212,7 @@ enum Encoding {
 	GUEST_ACTV_STATE	= 0x4826ul,
 	GUEST_SMBASE		= 0x4828ul,
 	GUEST_SYSENTER_CS	= 0x482aul,
+	PREEMPT_TIMER_VALUE	= 0x482eul,
 
 	/* 32-Bit Host State Fields */
 	HOST_SYSENTER_CS	= 0x4c00ul,
@@ -336,6 +337,7 @@ enum Ctrl_exi {
 	EXI_LOAD_PAT		= 1UL << 19,
 	EXI_SAVE_EFER		= 1UL << 20,
 	EXI_LOAD_EFER           = 1UL << 21,
+	EXI_SAVE_PREEMPT	= 1UL << 22,
 };
 
 enum Ctrl_ent {
@@ -348,6 +350,7 @@ enum Ctrl_pin {
 	PIN_EXTINT              = 1ul << 0,
 	PIN_NMI                 = 1ul << 3,
 	PIN_VIRT_NMI            = 1ul << 5,
+	PIN_PREEMPT		= 1ul << 6,
 };
 
 enum Ctrl0 {
