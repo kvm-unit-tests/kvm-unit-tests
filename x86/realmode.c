@@ -481,6 +481,9 @@ void test_io(void)
 asm ("retf: lretw");
 extern void retf();
 
+asm ("retf_imm: lretw $10");
+extern void retf_imm();
+
 void test_call(void)
 {
 	u32 esp[16];
@@ -503,6 +506,7 @@ void test_call(void)
 	MK_INSN(call_far1,  "lcallw *(%ebx)\n\t");
 	MK_INSN(call_far2,  "lcallw $0, $retf\n\t");
 	MK_INSN(ret_imm,    "sub $10, %sp; jmp 2f; 1: retw $10; 2: callw 1b");
+	MK_INSN(retf_imm,   "sub $10, %sp; lcallw $0, $retf_imm");
 
 	exec_in_big_real_mode(&insn_call1);
 	report("call 1", R_AX, outregs.eax == 0x1234);
@@ -523,6 +527,9 @@ void test_call(void)
 
 	exec_in_big_real_mode(&insn_ret_imm);
 	report("ret imm 1", 0, 1);
+
+	exec_in_big_real_mode(&insn_retf_imm);
+	report("retf imm 1", 0, 1);
 }
 
 void test_jcc_short(void)
