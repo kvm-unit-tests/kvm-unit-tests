@@ -446,6 +446,59 @@ enum Ctrl1 {
 #define HYPERCALL_MASK		0xFFF
 #define HYPERCALL_VMEXIT	0x1
 
+#define EPTP_PG_WALK_LEN_SHIFT	3ul
+#define EPTP_AD_FLAG			(1ul << 6)
+
+#define EPT_MEM_TYPE_UC	0ul
+#define EPT_MEM_TYPE_WC	1ul
+#define EPT_MEM_TYPE_WT	4ul
+#define EPT_MEM_TYPE_WP	5ul
+#define EPT_MEM_TYPE_WB	6ul
+
+#define EPT_RA			1ul
+#define EPT_WA			2ul
+#define EPT_EA			4ul
+#define EPT_PRESENT		(EPT_RA | EPT_WA | EPT_EA)	
+#define EPT_ACCESS_FLAG	(1ul << 8)
+#define EPT_DIRTY_FLAG		(1ul << 9)
+#define EPT_LARGE_PAGE		(1ul << 7)
+#define EPT_MEM_TYPE_SHIFT	3ul
+#define EPT_IGNORE_PAT		(1ul << 6)
+#define EPT_SUPPRESS_VE	(1ull << 63)
+
+#define EPT_CAP_WT		1ull
+#define EPT_CAP_PWL4		(1ull << 6)
+#define EPT_CAP_UC		(1ull << 8)
+#define EPT_CAP_WB		(1ull << 14)
+#define EPT_CAP_2M_PAGE	(1ull << 16)
+#define EPT_CAP_1G_PAGE	(1ull << 17)
+#define EPT_CAP_INVEPT		(1ull << 20)
+#define EPT_CAP_INVEPT_SINGLE	(1ull << 25)
+#define EPT_CAP_INVEPT_ALL	(1ull << 26)
+#define EPT_CAP_AD_FLAG	(1ull << 21)
+
+#define PAGE_SIZE_2M		(512 * PAGE_SIZE)
+#define PAGE_SIZE_1G		(512 * PAGE_SIZE_2M)
+#define	EPT_PAGE_LEVEL	4
+#define	EPT_PGDIR_WIDTH	9
+#define	EPT_PGDIR_MASK	511
+#define PAGE_MASK (~(PAGE_SIZE-1))
+
+#define EPT_VLT_RD		1
+#define EPT_VLT_WR		(1 << 1)
+#define EPT_VLT_FETCH		(1 << 2)
+#define EPT_VLT_PERM_RD	(1 << 3)
+#define EPT_VLT_PERM_WR	(1 << 4)
+#define EPT_VLT_PERM_EX	(1 << 5)
+#define EPT_VLT_LADDR_VLD	(1 << 7)
+#define EPT_VLT_PADDR		(1 << 8)
+
+#define MAGIC_VAL_1		0x12345678ul
+#define MAGIC_VAL_2		0x87654321ul
+#define MAGIC_VAL_3		0xfffffffful
+
+#define INVEPT_SINGLE		1
+#define INVEPT_GLOBAL		2
 
 extern struct regs regs;
 
@@ -486,8 +539,31 @@ static inline int vmcs_save(struct vmcs **vmcs)
 	return ret;
 }
 
+static inline void invept(unsigned long type, u64 eptp)
+{
+	struct {
+		u64 eptp, gpa;
+	} operand = {eptp, 0};
+	asm volatile("invept %0, %1\n" ::"m"(operand),"r"(type));
+}
+
 void report(const char *name, int result);
 void print_vmexit_info();
+void install_ept_entry(unsigned long *pml4, int pte_level,
+		unsigned long guest_addr, unsigned long pte,
+		unsigned long *pt_page);
+void install_1g_ept(unsigned long *pml4, unsigned long phys,
+		unsigned long guest_addr, u64 perm);
+void install_2m_ept(unsigned long *pml4, unsigned long phys,
+		unsigned long guest_addr, u64 perm);
+void install_ept(unsigned long *pml4, unsigned long phys,
+		unsigned long guest_addr, u64 perm);
+int setup_ept_range(unsigned long *pml4, unsigned long start,
+		unsigned long len, int map_1g, int map_2m, u64 perm);
+unsigned long get_ept_pte(unsigned long *pml4,
+		unsigned long guest_addr, int level);
+int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
+		int level, u64 pte_val);
 
 #endif
 
