@@ -3,12 +3,18 @@
 #include "processor.h"
 #include "vm.h"
 #include "io.h"
+#include "fwcfg.h"
 
 u64 ia32_pat;
 u64 ia32_efer;
 volatile u32 stage;
 void *io_bitmap_a, *io_bitmap_b;
 u16 ioport;
+
+bool init_fail;
+unsigned long *pml4;
+u64 eptp;
+void *data_page1, *data_page2;
 
 static inline void vmcall()
 {
@@ -781,6 +787,237 @@ static int insn_intercept_exit_handler()
 	return VMX_TEST_RESUME;
 }
 
+
+static int setup_ept()
+{
+	int support_2m;
+	unsigned long end_of_memory;
+
+	if (!(ept_vpid.val & EPT_CAP_UC) &&
+			!(ept_vpid.val & EPT_CAP_WB)) {
+		printf("\tEPT paging-structure memory type "
+				"UC&WB are not supported\n");
+		return 1;
+	}
+	if (ept_vpid.val & EPT_CAP_UC)
+		eptp = EPT_MEM_TYPE_UC;
+	else
+		eptp = EPT_MEM_TYPE_WB;
+	if (!(ept_vpid.val & EPT_CAP_PWL4)) {
+		printf("\tPWL4 is not supported\n");
+		return 1;
+	}
+	eptp |= (3 << EPTP_PG_WALK_LEN_SHIFT);
+	pml4 = alloc_page();
+	memset(pml4, 0, PAGE_SIZE);
+	eptp |= virt_to_phys(pml4);
+	vmcs_write(EPTP, eptp);
+	support_2m = !!(ept_vpid.val & EPT_CAP_2M_PAGE);
+	end_of_memory = fwcfg_get_u64(FW_CFG_RAM_SIZE);
+	if (end_of_memory < (1ul << 32))
+		end_of_memory = (1ul << 32);
+	if (setup_ept_range(pml4, 0, end_of_memory,
+			0, support_2m, EPT_WA | EPT_RA | EPT_EA)) {
+		printf("\tSet ept tables failed.\n");
+		return 1;
+	}
+	return 0;
+}
+
+static void ept_init()
+{
+	u32 ctrl_cpu[2];
+
+	init_fail = false;
+	ctrl_cpu[0] = vmcs_read(CPU_EXEC_CTRL0);
+	ctrl_cpu[1] = vmcs_read(CPU_EXEC_CTRL1);
+	ctrl_cpu[0] = (ctrl_cpu[0] | CPU_SECONDARY)
+		& ctrl_cpu_rev[0].clr;
+	ctrl_cpu[1] = (ctrl_cpu[1] | CPU_EPT)
+		& ctrl_cpu_rev[1].clr;
+	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu[0]);
+	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu[1] | CPU_EPT);
+	if (setup_ept())
+		init_fail = true;
+	data_page1 = alloc_page();
+	data_page2 = alloc_page();
+	memset(data_page1, 0x0, PAGE_SIZE);
+	memset(data_page2, 0x0, PAGE_SIZE);
+	*((u32 *)data_page1) = MAGIC_VAL_1;
+	*((u32 *)data_page2) = MAGIC_VAL_2;
+	install_ept(pml4, (unsigned long)data_page1, (unsigned long)data_page2,
+			EPT_RA | EPT_WA | EPT_EA);
+}
+
+static void ept_main()
+{
+	if (init_fail)
+		return;
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY)
+		&& !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
+		printf("\tEPT is not supported");
+		return;
+	}
+	set_stage(0);
+	if (*((u32 *)data_page2) != MAGIC_VAL_1 &&
+			*((u32 *)data_page1) != MAGIC_VAL_1)
+		report("EPT basic framework - read", 0);
+	else {
+		*((u32 *)data_page2) = MAGIC_VAL_3;
+		vmcall();
+		if (get_stage() == 1) {
+			if (*((u32 *)data_page1) == MAGIC_VAL_3 &&
+					*((u32 *)data_page2) == MAGIC_VAL_2)
+				report("EPT basic framework", 1);
+			else
+				report("EPT basic framework - remap", 1);
+		}
+	}
+	// Test EPT Misconfigurations
+	set_stage(1);
+	vmcall();
+	*((u32 *)data_page1) = MAGIC_VAL_1;
+	if (get_stage() != 2) {
+		report("EPT misconfigurations", 0);
+		goto t1;
+	}
+	set_stage(2);
+	vmcall();
+	*((u32 *)data_page1) = MAGIC_VAL_1;
+	if (get_stage() != 3) {
+		report("EPT misconfigurations", 0);
+		goto t1;
+	}
+	report("EPT misconfigurations", 1);
+t1:
+	// Test EPT violation
+	set_stage(3);
+	vmcall();
+	*((u32 *)data_page1) = MAGIC_VAL_1;
+	if (get_stage() == 4)
+		report("EPT violation - page permission", 1);
+	else
+		report("EPT violation - page permission", 0);
+	// Violation caused by EPT paging structure
+	set_stage(4);
+	vmcall();
+	*((u32 *)data_page1) = MAGIC_VAL_2;
+	if (get_stage() == 5)
+		report("EPT violation - paging structure", 1);
+	else
+		report("EPT violation - paging structure", 0);
+	return;
+}
+
+static int ept_exit_handler()
+{
+	u64 guest_rip;
+	ulong reason;
+	u32 insn_len;
+	u32 exit_qual;
+	static unsigned long data_page1_pte, data_page1_pte_pte;
+
+	guest_rip = vmcs_read(GUEST_RIP);
+	reason = vmcs_read(EXI_REASON) & 0xff;
+	insn_len = vmcs_read(EXI_INST_LEN);
+	exit_qual = vmcs_read(EXI_QUALIFICATION);
+	switch (reason) {
+	case VMX_VMCALL:
+		switch (get_stage()) {
+		case 0:
+			if (*((u32 *)data_page1) == MAGIC_VAL_3 &&
+					*((u32 *)data_page2) == MAGIC_VAL_2) {
+				set_stage(get_stage() + 1);
+				install_ept(pml4, (unsigned long)data_page2,
+						(unsigned long)data_page2,
+						EPT_RA | EPT_WA | EPT_EA);
+			} else
+				report("EPT basic framework - write\n", 0);
+			break;
+		case 1:
+			install_ept(pml4, (unsigned long)data_page1,
+ 				(unsigned long)data_page1, EPT_WA);
+			invept(INVEPT_SINGLE, eptp);
+			break;
+		case 2:
+			install_ept(pml4, (unsigned long)data_page1,
+ 				(unsigned long)data_page1,
+ 				EPT_RA | EPT_WA | EPT_EA |
+ 				(2 << EPT_MEM_TYPE_SHIFT));
+			invept(INVEPT_SINGLE, eptp);
+			break;
+		case 3:
+			data_page1_pte = get_ept_pte(pml4,
+				(unsigned long)data_page1, 1);
+			set_ept_pte(pml4, (unsigned long)data_page1, 
+				1, data_page1_pte & (~EPT_PRESENT));
+			invept(INVEPT_SINGLE, eptp);
+			break;
+		case 4:
+			data_page1_pte = get_ept_pte(pml4,
+				(unsigned long)data_page1, 2);
+			data_page1_pte &= PAGE_MASK;
+			data_page1_pte_pte = get_ept_pte(pml4, data_page1_pte, 2);
+			set_ept_pte(pml4, data_page1_pte, 2,
+				data_page1_pte_pte & (~EPT_PRESENT));
+			invept(INVEPT_SINGLE, eptp);
+			break;
+		// Should not reach here
+		default:
+			printf("ERROR - unknown stage, %d.\n", get_stage());
+			print_vmexit_info();
+			return VMX_TEST_VMEXIT;
+		}
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+		return VMX_TEST_RESUME;
+	case VMX_EPT_MISCONFIG:
+		switch (get_stage()) {
+		case 1:
+		case 2:
+			set_stage(get_stage() + 1);
+			install_ept(pml4, (unsigned long)data_page1,
+ 				(unsigned long)data_page1,
+ 				EPT_RA | EPT_WA | EPT_EA);
+			invept(INVEPT_SINGLE, eptp);
+			break;
+		// Should not reach here
+		default:
+			printf("ERROR - unknown stage, %d.\n", get_stage());
+			print_vmexit_info();
+			return VMX_TEST_VMEXIT;
+		}
+		return VMX_TEST_RESUME;
+	case VMX_EPT_VIOLATION:
+		switch(get_stage()) {
+		case 3:
+			if (exit_qual == (EPT_VLT_WR | EPT_VLT_LADDR_VLD |
+					EPT_VLT_PADDR))
+				set_stage(get_stage() + 1);
+			set_ept_pte(pml4, (unsigned long)data_page1, 
+				1, data_page1_pte | (EPT_PRESENT));
+			invept(INVEPT_SINGLE, eptp);
+			break;
+		case 4:
+			if (exit_qual == (EPT_VLT_RD | EPT_VLT_LADDR_VLD))
+				set_stage(get_stage() + 1);
+			set_ept_pte(pml4, data_page1_pte, 2,
+				data_page1_pte_pte | (EPT_PRESENT));
+			invept(INVEPT_SINGLE, eptp);
+			break;
+		default:
+			// Should not reach here
+			printf("ERROR : unknown stage, %d\n", get_stage());
+			print_vmexit_info();
+			return VMX_TEST_VMEXIT;
+		}
+		return VMX_TEST_RESUME;
+	default:
+		printf("Unknown exit reason, %d\n", reason);
+		print_vmexit_info();
+	}
+	return VMX_TEST_VMEXIT;
+}
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs
    basic_* just implement some basic functions */
 struct vmx_test vmx_tests[] = {
@@ -798,5 +1035,7 @@ struct vmx_test vmx_tests[] = {
 		basic_syscall_handler, {0} },
 	{ "instruction intercept", insn_intercept_init, insn_intercept_main,
 		insn_intercept_exit_handler, basic_syscall_handler, {0} },
+	{ "EPT framework", ept_init, ept_main, ept_exit_handler,
+		basic_syscall_handler, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
