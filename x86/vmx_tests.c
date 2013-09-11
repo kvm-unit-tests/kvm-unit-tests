@@ -925,7 +925,7 @@ static void ept_init()
 	ctrl_cpu[1] = (ctrl_cpu[1] | CPU_EPT)
 		& ctrl_cpu_rev[1].clr;
 	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu[0]);
-	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu[1] | CPU_EPT);
+	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu[1]);
 	if (setup_ept())
 		init_fail = true;
 	data_page1 = alloc_page();

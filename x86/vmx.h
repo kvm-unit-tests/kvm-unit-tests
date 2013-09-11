@@ -366,9 +366,9 @@ enum Ctrl0 {
 	CPU_NMI_WINDOW		= 1ul << 22,
 	CPU_IO			= 1ul << 24,
 	CPU_IO_BITMAP		= 1ul << 25,
+	CPU_MSR_BITMAP		= 1ul << 28,
 	CPU_MONITOR		= 1ul << 29,
 	CPU_PAUSE		= 1ul << 30,
-	CPU_MSR_BITMAP		= 1ul << 28,
 	CPU_SECONDARY		= 1ul << 31,
 };
 
