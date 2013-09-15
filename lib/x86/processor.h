@@ -62,6 +62,13 @@ static inline u16 read_gs(void)
     return val;
 }
 
+static inline unsigned long read_rflags(void)
+{
+	unsigned long f;
+	asm ("pushf; pop %0\n\t" : "=rm"(f));
+	return f;
+}
+
 static inline void write_ds(unsigned val)
 {
     asm ("mov %0, %%ds" : : "rm"(val) : "memory");

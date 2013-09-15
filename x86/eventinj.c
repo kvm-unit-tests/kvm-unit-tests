@@ -125,6 +125,42 @@ static void nmi_isr(struct ex_regs *r)
 	printf("After nested NMI to itself\n");
 }
 
+unsigned long after_iret_addr;
+
+static void nested_nmi_iret_isr(struct ex_regs *r)
+{
+	printf("Nested NMI isr running rip=%x\n", r->rip);
+
+	if (r->rip == after_iret_addr)
+		test_count++;
+}
+static void nmi_iret_isr(struct ex_regs *r)
+{
+	unsigned long *s = alloc_page();
+	test_count++;
+	printf("NMI isr running %p stack %p\n", &&after_iret, s);
+	handle_exception(2, nested_nmi_iret_isr);
+	printf("Try send nested NMI to itself\n");
+	apic_self_nmi();
+	printf("After nested NMI to itself\n");
+	s[4] = read_ss();
+	s[3] = 0; /* rsp */
+	s[2] = read_rflags();
+	s[1] = read_cs();
+	s[0] = after_iret_addr = (unsigned long)&&after_iret;
+	asm ("mov %%rsp, %0\n\t"
+	     "mov %1, %%rsp\n\t"
+	     "outl %2, $0xe4\n\t" /* flush stack page */
+#ifdef __x86_64__
+	     "iretq\n\t"
+#else
+	     "iretl\n\t"
+#endif
+	     : "=m"(s[3]) : "rm"(&s[0]), "a"((unsigned int)virt_to_phys(s)) : "memory");
+after_iret:
+	printf("After iret\n");
+}
+
 static void tirq0(isr_regs_t *r)
 {
 	printf("irq0 running\n");
@@ -300,6 +336,20 @@ int main()
 	irq_disable();
 	report("NMI", test_count == 2);
 
+	/* generate NMI that will fault on IRET */
+	printf("Before NMI IRET test\n");
+	test_count = 0;
+	handle_exception(2, nmi_iret_isr);
+	printf("Try send NMI to itself\n");
+	apic_self_nmi();
+	/* this is needed on VMX without NMI window notificatoin.
+	   Interrupt windows is used instead, so let pending NMI
+	   to be injected */
+	irq_enable();
+	asm volatile ("nop");
+	irq_disable();
+	printf("After NMI to itself\n");
+	report("NMI", test_count == 2);
 #ifndef __x86_64__
 	stack_phys = (ulong)virt_to_phys(alloc_page());
 	stack_va = alloc_vpage();
