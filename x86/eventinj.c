@@ -119,10 +119,10 @@ static void nmi_isr(struct ex_regs *r)
 	printf("NMI isr running %x\n", &isr_iret_ip);
 	test_count++;
 	handle_exception(2, nested_nmi_isr);
-	printf("Try send nested NMI to itself\n");
+	printf("Sending nested NMI to self\n");
 	apic_self_nmi();
 	io_delay();
-	printf("After nested NMI to itself\n");
+	printf("After nested NMI to self\n");
 }
 
 unsigned long after_iret_addr;
@@ -140,9 +140,9 @@ static void nmi_iret_isr(struct ex_regs *r)
 	test_count++;
 	printf("NMI isr running %p stack %p\n", &&after_iret, s);
 	handle_exception(2, nested_nmi_iret_isr);
-	printf("Try send nested NMI to itself\n");
+	printf("Sending nested NMI to self\n");
 	apic_self_nmi();
-	printf("After nested NMI to itself\n");
+	printf("After nested NMI to self\n");
 	s[4] = read_ss();
 	s[3] = 0; /* rsp */
 	s[2] = read_rflags();
@@ -244,12 +244,12 @@ int main()
 	/* generate HW interrupt that will fault on IDT */
 	test_count = 0;
 	flush_idt_page();
-	printf("Try send vec 33 to itself\n");
+	printf("Sending vec 33 to self\n");
 	irq_enable();
 	apic_self_ipi(33);
 	io_delay();
 	irq_disable();
-	printf("After vec 33 to itself\n");
+	printf("After vec 33 to self\n");
 	report("vec 33", test_count == 1);
 
 	/* generate soft interrupt that will fault on IDT and stack */
@@ -265,14 +265,14 @@ int main()
 	   will fault on IDT access */
 	test_count = 0;
 	flush_idt_page();
-	printf("Try send vec 32 and 33 to itself\n");
+	printf("Sending vec 32 and 33 to self\n");
 	apic_self_ipi(32);
 	apic_self_ipi(33);
 	io_delay();
 	irq_enable();
 	asm volatile("nop");
 	irq_disable();
-	printf("After vec 32 and 33 to itself\n");
+	printf("After vec 32 and 33 to self\n");
 	report("vec 32/33", test_count == 2);
 
 
@@ -281,7 +281,7 @@ int main()
 	   handled before HW interrupt */
 	test_count = 0;
 	flush_idt_page();
-	printf("Try send vec 32 and int $33\n");
+	printf("Sending vec 32 and int $33\n");
 	apic_self_ipi(32);
 	flush_stack();
 	io_delay();
@@ -295,7 +295,7 @@ int main()
 	test_count = 0;
 	handle_irq(62, tirq1);
 	flush_idt_page();
-	printf("Try send vec 33 and 62 and mask one with TPR\n");
+	printf("Sending vec 33 and 62 and mask one with TPR\n");
 	apic_write(APIC_TASKPRI, 0xf << 4);
 	irq_enable();
 	apic_self_ipi(32);
@@ -325,10 +325,10 @@ int main()
 	test_count = 0;
 	handle_exception(2, nmi_isr);
 	flush_idt_page();
-	printf("Try send NMI to itself\n");
+	printf("Sending NMI to self\n");
 	apic_self_nmi();
-	printf("After NMI to itself\n");
-	/* this is needed on VMX without NMI window notificatoin.
+	printf("After NMI to self\n");
+	/* this is needed on VMX without NMI window notification.
 	   Interrupt windows is used instead, so let pending NMI
 	   to be injected */
 	irq_enable();
@@ -340,15 +340,15 @@ int main()
 	printf("Before NMI IRET test\n");
 	test_count = 0;
 	handle_exception(2, nmi_iret_isr);
-	printf("Try send NMI to itself\n");
+	printf("Sending NMI to self\n");
 	apic_self_nmi();
-	/* this is needed on VMX without NMI window notificatoin.
+	/* this is needed on VMX without NMI window notification.
 	   Interrupt windows is used instead, so let pending NMI
 	   to be injected */
 	irq_enable();
 	asm volatile ("nop");
 	irq_disable();
-	printf("After NMI to itself\n");
+	printf("After NMI to self\n");
 	report("NMI", test_count == 2);
 #ifndef __x86_64__
 	stack_phys = (ulong)virt_to_phys(alloc_page());
