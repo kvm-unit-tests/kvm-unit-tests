@@ -316,13 +316,6 @@ static inline void safe_halt(void)
 }
 
 #ifdef __x86_64__
-static inline u64 read_rflags(void)
-{
-	u64 r;
-	asm volatile("pushf; pop %0\n\t" : "=q"(r) : : "cc");
-	return r;
-}
-
 static inline void write_rflags(u64 r)
 {
 	asm volatile("push %0; popf\n\t" : : "q"(r) : "cc");
