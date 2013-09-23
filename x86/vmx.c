@@ -1,3 +1,33 @@
+/*
+ * x86/vmx.c : Framework for testing nested virtualization
+ *	This is a framework to test nested VMX for KVM, which
+ * 	started as a project of GSoC 2013. All test cases should
+ *	be located in x86/vmx_tests.c and framework related
+ *	functions should be in this file.
+ *
+ * How to write test cases?
+ *	Add callbacks of test suite in variant "vmx_tests". You can
+ *	write:
+ *		1. init function used for initializing test suite
+ *		2. main function for codes running in L2 guest, 
+ *		3. exit_handler to handle vmexit of L2 to L1
+ *		4. syscall handler to handle L2 syscall vmexit
+ *		5. vmenter fail handler to handle direct failure of vmenter
+ *		6. guest_regs is loaded when vmenter and saved when
+ *			vmexit, you can read and set it in exit_handler
+ *	If no special function is needed for a test suite, use
+ *	coressponding basic_* functions as callback. More handlers
+ *	can be added to "vmx_tests", see details of "struct vmx_test"
+ *	and function test_run().
+ *
+ * Currently, vmx test framework only set up one VCPU and one
+ * concurrent guest test environment with same paging for L2 and
+ * L1. For usage of EPT, only 1:1 mapped paging is used from VFN
+ * to PFN.
+ *
+ * Author : Arthur Chunqi Li <yzt356@gmail.com>
+ */
+
 #include "libcflat.h"
 #include "processor.h"
 #include "vm.h"

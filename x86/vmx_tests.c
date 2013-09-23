@@ -1,3 +1,8 @@
+/*
+ * All test cases of nested virtualization should be in this file
+ *
+ * Author : Arthur Chunqi Li <yzt356@gmail.com>
+ */
 #include "vmx.h"
 #include "msr.h"
 #include "processor.h"
@@ -782,6 +787,14 @@ struct insn_table {
 	u32 test_field;
 };
 
+/*
+ * Add more test cases of instruction intercept here. Elements in this
+ * table is:
+ *	name/control flag/insn function/type/exit reason/exit qulification/
+ *	instruction info/field to test
+ * The last field defines which fields (exit_qual and insn_info) need to be
+ * tested in exit handler. If set to 0, only "reason" is checked.
+ */
 static struct insn_table insn_table[] = {
 	// Flags for Primary Processor-Based VM-Execution Controls
 	{"HLT",  CPU_HLT, insn_hlt, INSN_CPU0, 12, 0, 0, 0},
