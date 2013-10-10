@@ -133,6 +133,9 @@ void preemption_timer_init()
 	preempt_val = 10000000;
 	vmcs_write(PREEMPT_TIMER_VALUE, preempt_val);
 	preempt_scale = rdmsr(MSR_IA32_VMX_MISC) & 0x1F;
+
+	if (!(ctrl_exit_rev.clr & EXI_SAVE_PREEMPT))
+		printf("\tSave preemption value is not supported\n");
 }
 
 void preemption_timer_main()
@@ -142,9 +145,7 @@ void preemption_timer_main()
 		printf("\tPreemption timer is not supported\n");
 		return;
 	}
-	if (!(ctrl_exit_rev.clr & EXI_SAVE_PREEMPT))
-		printf("\tSave preemption value is not supported\n");
-	else {
+	if (ctrl_exit_rev.clr & EXI_SAVE_PREEMPT) {
 		set_stage(0);
 		vmcall();
 		if (get_stage() == 1)
@@ -153,8 +154,8 @@ void preemption_timer_main()
 	while (1) {
 		if (((rdtsc() - tsc_val) >> preempt_scale)
 				> 10 * preempt_val) {
-			report("Preemption timer", 0);
-			break;
+			set_stage(2);
+			vmcall();
 		}
 	}
 }
@@ -175,7 +176,7 @@ int preemption_timer_exit_handler()
 			report("Preemption timer", 0);
 		else
 			report("Preemption timer", 1);
-		return VMX_TEST_VMEXIT;
+		break;
 	case VMX_VMCALL:
 		switch (get_stage()) {
 		case 0:
@@ -187,24 +188,29 @@ int preemption_timer_exit_handler()
 					EXI_SAVE_PREEMPT) & ctrl_exit_rev.clr;
 				vmcs_write(EXI_CONTROLS, ctrl_exit);
 			}
-			break;
+			vmcs_write(GUEST_RIP, guest_rip + insn_len);
+			return VMX_TEST_RESUME;
 		case 1:
 			if (vmcs_read(PREEMPT_TIMER_VALUE) >= preempt_val)
 				report("Save preemption value", 0);
 			else
 				report("Save preemption value", 1);
+			vmcs_write(GUEST_RIP, guest_rip + insn_len);
+			return VMX_TEST_RESUME;
+		case 2:
+			report("Preemption timer", 0);
 			break;
 		default:
 			printf("Invalid stage.\n");
 			print_vmexit_info();
-			return VMX_TEST_VMEXIT;
+			break;
 		}
-		vmcs_write(GUEST_RIP, guest_rip + insn_len);
-		return VMX_TEST_RESUME;
+		break;
 	default:
 		printf("Unknown exit reason, %d\n", reason);
 		print_vmexit_info();
 	}
+	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_PREEMPT);
 	return VMX_TEST_VMEXIT;
 }
 
