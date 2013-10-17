@@ -26,7 +26,7 @@ static void outw(unsigned short port, unsigned val)
 
 static void outl(unsigned short port, unsigned val)
 {
-    asm volatile("outl %d0, %w1" : : "a"(val), "Nd"(port));
+    asm volatile("outl %0, %w1" : : "a"(val), "Nd"(port));
 }
 
 static unsigned int inb(unsigned short port)

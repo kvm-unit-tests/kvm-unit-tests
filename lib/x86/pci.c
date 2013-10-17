@@ -3,13 +3,13 @@
 
 static void outl(unsigned short port, unsigned val)
 {
-    asm volatile("outl %d0, %w1" : : "a"(val), "Nd"(port));
+    asm volatile("outl %0, %w1" : : "a"(val), "Nd"(port));
 }
 
 static unsigned inl(unsigned short port)
 {
     unsigned data;
-    asm volatile("inl %w1, %d0" : "=a"(data) : "Nd"(port));
+    asm volatile("inl %w1, %0" : "=a"(data) : "Nd"(port));
     return data;
 }
 static uint32_t pci_config_read(pcidevaddr_t dev, uint8_t reg)

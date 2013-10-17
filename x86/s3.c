@@ -143,14 +143,14 @@ static inline int rtc_in(u8 reg)
 {
     u8 x = reg;
     asm volatile("outb %b1, $0x70; inb $0x71, %b0"
-		 : "+a"(x) : "0"(x));
+		 : "=a"(x) : "0"(x));
     return x;
 }
 
 static inline void rtc_out(u8 reg, u8 val)
 {
     asm volatile("outb %b1, $0x70; mov %b2, %b1; outb %b1, $0x71"
-		 : "+a"(reg) : "0"(reg), "ri"(val));
+		 : "=a"(reg) : "0"(reg), "ri"(val));
 }
 
 extern char resume_start, resume_end;
