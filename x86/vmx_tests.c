@@ -934,6 +934,7 @@ static int setup_ept()
 
 static void ept_init()
 {
+	unsigned long base_addr1, base_addr2;
 	u32 ctrl_cpu[2];
 
 	init_fail = false;
@@ -953,6 +954,13 @@ static void ept_init()
 	memset(data_page2, 0x0, PAGE_SIZE);
 	*((u32 *)data_page1) = MAGIC_VAL_1;
 	*((u32 *)data_page2) = MAGIC_VAL_2;
+	base_addr1 = (unsigned long)data_page1 & PAGE_MASK_2M;
+	base_addr2 = (unsigned long)data_page2 & PAGE_MASK_2M;
+	if (setup_ept_range(pml4, base_addr1, base_addr1 + PAGE_SIZE_2M, 0, 0,
+			    EPT_WA | EPT_RA | EPT_EA) ||
+	    setup_ept_range(pml4, base_addr2, base_addr2 + PAGE_SIZE_2M, 0, 0,
+			    EPT_WA | EPT_RA | EPT_EA))
+		init_fail = true;
 	install_ept(pml4, (unsigned long)data_page1, (unsigned long)data_page2,
 			EPT_RA | EPT_WA | EPT_EA);
 }

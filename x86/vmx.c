@@ -203,7 +203,8 @@ void install_ept_entry(unsigned long *pml4,
 			memset(new_pt, 0, PAGE_SIZE);
 			pt[offset] = virt_to_phys(new_pt)
 					| EPT_RA | EPT_WA | EPT_EA;
-		}
+		} else
+			pt[offset] &= ~EPT_LARGE_PAGE;
 		pt = phys_to_virt(pt[offset] & 0xffffffffff000ull);
 	}
 	offset = ((unsigned long)guest_addr >> ((level-1) *

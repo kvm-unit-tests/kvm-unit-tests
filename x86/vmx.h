@@ -485,7 +485,8 @@ enum Ctrl1 {
 #define	EPT_PAGE_LEVEL	4
 #define	EPT_PGDIR_WIDTH	9
 #define	EPT_PGDIR_MASK	511
-#define PAGE_MASK (~(PAGE_SIZE-1))
+#define PAGE_MASK		(~(PAGE_SIZE-1))
+#define PAGE_MASK_2M		(~(PAGE_SIZE_2M-1))
 
 #define EPT_VLT_RD		1
 #define EPT_VLT_WR		(1 << 1)
