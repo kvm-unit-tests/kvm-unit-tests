@@ -975,7 +975,7 @@ static void ept_main()
 		return;
 	}
 	set_stage(0);
-	if (*((u32 *)data_page2) != MAGIC_VAL_1 &&
+	if (*((u32 *)data_page2) != MAGIC_VAL_1 ||
 			*((u32 *)data_page1) != MAGIC_VAL_1)
 		report("EPT basic framework - read", 0);
 	else {
