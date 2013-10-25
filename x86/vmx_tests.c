@@ -201,9 +201,10 @@ int preemption_timer_exit_handler()
 			report("Preemption timer", 0);
 			break;
 		default:
-			printf("Invalid stage.\n");
+			// Should not reach here
+			printf("ERROR : unexpected stage, %d\n", get_stage());
 			print_vmexit_info();
-			break;
+			return VMX_TEST_VMEXIT;
 		}
 		break;
 	default:
@@ -505,7 +506,7 @@ static int cr_shadowing_exit_handler()
 	exit_qual = vmcs_read(EXI_QUALIFICATION);
 	switch (reason) {
 	case VMX_VMCALL:
-		switch (stage) {
+		switch (get_stage()) {
 		case 0:
 			if (guest_cr0 == vmcs_read(GUEST_CR0))
 				report("Read through CR0", 1);
@@ -550,11 +551,16 @@ static int cr_shadowing_exit_handler()
 			else
 				report("Write shadowing CR4 (same value)", 0);
 			break;
+		default:
+			// Should not reach here
+			printf("ERROR : unexpected stage, %d\n", get_stage());
+			print_vmexit_info();
+			return VMX_TEST_VMEXIT;
 		}
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	case VMX_CR:
-		switch (stage) {
+		switch (get_stage()) {
 		case 4:
 			report("Read shadowing CR0", 0);
 			set_stage(stage + 1);
@@ -583,6 +589,11 @@ static int cr_shadowing_exit_handler()
 			if (exit_qual == 0x604)
 				set_stage(stage + 1);
 			break;
+		default:
+			// Should not reach here
+			printf("ERROR : unexpected stage, %d\n", get_stage());
+			print_vmexit_info();
+			return VMX_TEST_VMEXIT;
 		}
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
@@ -684,7 +695,11 @@ static int iobmp_exit_handler()
 	insn_len = vmcs_read(EXI_INST_LEN);
 	switch (reason) {
 	case VMX_IO:
-		switch (stage) {
+		switch (get_stage()) {
+		case 0:
+		case 1:
+			set_stage(stage + 1);
+			break;
 		case 2:
 			if ((exit_qual & VMX_IO_SIZE_MASK) != _VMX_IO_BYTE)
 				report("I/O bitmap - I/O width, byte", 0);
@@ -730,12 +745,11 @@ static int iobmp_exit_handler()
 			if (((exit_qual & VMX_IO_PORT_MASK) >> VMX_IO_PORT_SHIFT) == 0xFFFF)
 				set_stage(stage + 1);
 			break;
-		case 0:
-		case 1:
-			set_stage(stage + 1);
 		default:
 			// Should not reach here
-			break;
+			printf("ERROR : unexpected stage, %d\n", get_stage());
+			print_vmexit_info();
+			return VMX_TEST_VMEXIT;
 		}
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
@@ -1080,7 +1094,7 @@ static int ept_exit_handler()
 			break;
 		// Should not reach here
 		default:
-			printf("ERROR - unknown stage, %d.\n", get_stage());
+			printf("ERROR - unexpected stage, %d.\n", get_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
 		}
@@ -1098,7 +1112,7 @@ static int ept_exit_handler()
 			break;
 		// Should not reach here
 		default:
-			printf("ERROR - unknown stage, %d.\n", get_stage());
+			printf("ERROR - unexpected stage, %d.\n", get_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
 		}
@@ -1122,7 +1136,7 @@ static int ept_exit_handler()
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unknown stage, %d\n", get_stage());
+			printf("ERROR : unexpected stage, %d\n", get_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
 		}
