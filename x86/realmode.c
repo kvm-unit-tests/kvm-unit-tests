@@ -1375,6 +1375,7 @@ static void test_cpuid(void)
     unsigned eax, ebx, ecx, edx;
 
     inregs.eax = eax = function;
+    inregs.ecx = ecx = 0;
     asm("cpuid" : "+a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx));
     exec_in_big_real_mode(&insn_cpuid);
     report("cpuid", R_AX|R_BX|R_CX|R_DX,
