@@ -148,8 +148,8 @@ static void nmi_iret_isr(struct ex_regs *r)
 	s[2] = read_rflags();
 	s[1] = read_cs();
 	s[0] = after_iret_addr = (unsigned long)&&after_iret;
-	asm ("mov %%rsp, %0\n\t"
-	     "mov %1, %%rsp\n\t"
+	asm ("mov %%" R "sp, %0\n\t"
+	     "mov %1, %%" R "sp\n\t"
 	     "outl %2, $0xe4\n\t" /* flush stack page */
 #ifdef __x86_64__
 	     "iretq\n\t"
