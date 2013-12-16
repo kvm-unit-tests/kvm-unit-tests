@@ -44,27 +44,11 @@ static inline u32 get_stage()
 
 void basic_guest_main()
 {
-	/* Here is a basic guest_main, print Hello World */
-	printf("\tHello World, this is null_guest_main!\n");
 }
 
 int basic_exit_handler()
 {
-	u64 guest_rip;
-	ulong reason;
-
-	guest_rip = vmcs_read(GUEST_RIP);
-	reason = vmcs_read(EXI_REASON) & 0xff;
-
-	switch (reason) {
-	case VMX_VMCALL:
-		print_vmexit_info();
-		vmcs_write(GUEST_RIP, guest_rip + 3);
-		return VMX_TEST_RESUME;
-	default:
-		break;
-	}
-	printf("ERROR : Unhandled vmx exit.\n");
+	report("Basic VMX test", 0);
 	print_vmexit_info();
 	return VMX_TEST_EXIT;
 }
