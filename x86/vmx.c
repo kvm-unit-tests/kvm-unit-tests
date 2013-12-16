@@ -56,9 +56,9 @@ union vmx_ctrl_exit ctrl_exit_rev;
 union vmx_ctrl_ent ctrl_enter_rev;
 union vmx_ept_vpid  ept_vpid;
 
-extern u64 gdt64_desc[];
-extern u64 idt_descr[];
-extern u64 tss_descr[];
+extern struct descriptor_table_ptr gdt64_desc;
+extern struct descriptor_table_ptr idt_descr;
+extern struct descriptor_table_ptr tss_descr;
 extern void *vmx_return;
 extern void *entry_sysenter;
 extern void *guest_entry;
@@ -368,9 +368,9 @@ static void init_vmcs_host(void)
 	vmcs_write(HOST_SEL_FS, SEL_KERN_DATA_64);
 	vmcs_write(HOST_SEL_GS, SEL_KERN_DATA_64);
 	vmcs_write(HOST_SEL_TR, SEL_TSS_RUN);
-	vmcs_write(HOST_BASE_TR,   (u64)tss_descr);
-	vmcs_write(HOST_BASE_GDTR, (u64)gdt64_desc);
-	vmcs_write(HOST_BASE_IDTR, (u64)idt_descr);
+	vmcs_write(HOST_BASE_TR, tss_descr.base);
+	vmcs_write(HOST_BASE_GDTR, gdt64_desc.base);
+	vmcs_write(HOST_BASE_IDTR, idt_descr.base);
 	vmcs_write(HOST_BASE_FS, 0);
 	vmcs_write(HOST_BASE_GS, 0);
 
@@ -424,7 +424,7 @@ static void init_vmcs_guest(void)
 	vmcs_write(GUEST_BASE_DS, 0);
 	vmcs_write(GUEST_BASE_FS, 0);
 	vmcs_write(GUEST_BASE_GS, 0);
-	vmcs_write(GUEST_BASE_TR,   (u64)tss_descr);
+	vmcs_write(GUEST_BASE_TR, tss_descr.base);
 	vmcs_write(GUEST_BASE_LDTR, 0);
 
 	vmcs_write(GUEST_LIMIT_CS, 0xFFFFFFFF);
@@ -434,7 +434,7 @@ static void init_vmcs_guest(void)
 	vmcs_write(GUEST_LIMIT_FS, 0xFFFFFFFF);
 	vmcs_write(GUEST_LIMIT_GS, 0xFFFFFFFF);
 	vmcs_write(GUEST_LIMIT_LDTR, 0xffff);
-	vmcs_write(GUEST_LIMIT_TR, ((struct descr *)tss_descr)->limit);
+	vmcs_write(GUEST_LIMIT_TR, tss_descr.limit);
 
 	vmcs_write(GUEST_AR_CS, 0xa09b);
 	vmcs_write(GUEST_AR_DS, 0xc093);
@@ -446,12 +446,10 @@ static void init_vmcs_guest(void)
 	vmcs_write(GUEST_AR_TR, 0x8b);
 
 	/* 26.3.1.3 */
-	vmcs_write(GUEST_BASE_GDTR, (u64)gdt64_desc);
-	vmcs_write(GUEST_BASE_IDTR, (u64)idt_descr);
-	vmcs_write(GUEST_LIMIT_GDTR,
-		((struct descr *)gdt64_desc)->limit & 0xffff);
-	vmcs_write(GUEST_LIMIT_IDTR,
-		((struct descr *)idt_descr)->limit & 0xffff);
+	vmcs_write(GUEST_BASE_GDTR, gdt64_desc.base);
+	vmcs_write(GUEST_BASE_IDTR, idt_descr.base);
+	vmcs_write(GUEST_LIMIT_GDTR, gdt64_desc.limit);
+	vmcs_write(GUEST_LIMIT_IDTR, idt_descr.limit);
 
 	/* 26.3.1.4 */
 	vmcs_write(GUEST_RIP, (u64)(&guest_entry));

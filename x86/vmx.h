@@ -95,11 +95,6 @@ union vmx_ept_vpid {
 	};
 };
 
-struct descr {
-	u16 limit;
-	u64 addr;
-};
-
 enum Encoding {
 	/* 16-Bit Control Fields */
 	VPID			= 0x0000ul,
