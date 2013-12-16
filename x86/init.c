@@ -107,6 +107,7 @@ int main(int argc, char **argv)
 
 	/* The resume code will get us back to main.  */
 	asm("cli; hlt");
+	__builtin_unreachable();
 }
 
 asm (
