@@ -558,8 +558,8 @@ void install_2m_ept(unsigned long *pml4, unsigned long phys,
 		unsigned long guest_addr, u64 perm);
 void install_ept(unsigned long *pml4, unsigned long phys,
 		unsigned long guest_addr, u64 perm);
-int setup_ept_range(unsigned long *pml4, unsigned long start,
-		unsigned long len, int map_1g, int map_2m, u64 perm);
+void setup_ept_range(unsigned long *pml4, unsigned long start,
+		     unsigned long len, int map_1g, int map_2m, u64 perm);
 unsigned long get_ept_pte(unsigned long *pml4,
 		unsigned long guest_addr, int level);
 int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,

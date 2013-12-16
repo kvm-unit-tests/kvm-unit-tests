@@ -933,11 +933,8 @@ static int setup_ept()
 	end_of_memory = fwcfg_get_u64(FW_CFG_RAM_SIZE);
 	if (end_of_memory < (1ul << 32))
 		end_of_memory = (1ul << 32);
-	if (setup_ept_range(pml4, 0, end_of_memory,
-			0, support_2m, EPT_WA | EPT_RA | EPT_EA)) {
-		printf("\tSet ept tables failed.\n");
-		return 1;
-	}
+	setup_ept_range(pml4, 0, end_of_memory, 0, support_2m,
+			EPT_WA | EPT_RA | EPT_EA);
 	return 0;
 }
 
@@ -970,11 +967,10 @@ static int ept_init()
 	*((u32 *)data_page2) = MAGIC_VAL_2;
 	base_addr1 = (unsigned long)data_page1 & PAGE_MASK_2M;
 	base_addr2 = (unsigned long)data_page2 & PAGE_MASK_2M;
-	if (setup_ept_range(pml4, base_addr1, base_addr1 + PAGE_SIZE_2M, 0, 0,
-			    EPT_WA | EPT_RA | EPT_EA) ||
-	    setup_ept_range(pml4, base_addr2, base_addr2 + PAGE_SIZE_2M, 0, 0,
-			    EPT_WA | EPT_RA | EPT_EA))
-		return VMX_TEST_EXIT;
+	setup_ept_range(pml4, base_addr1, base_addr1 + PAGE_SIZE_2M, 0, 0,
+			EPT_WA | EPT_RA | EPT_EA);
+	setup_ept_range(pml4, base_addr2, base_addr2 + PAGE_SIZE_2M, 0, 0,
+			EPT_WA | EPT_RA | EPT_EA);
 	install_ept(pml4, (unsigned long)data_page1, (unsigned long)data_page2,
 			EPT_RA | EPT_WA | EPT_EA);
 	return VMX_TEST_START;

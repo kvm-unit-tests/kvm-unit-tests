@@ -248,8 +248,8 @@ void install_2m_ept(unsigned long *pml4,
 		@map_2m : whether 2M page map is used
 		@perm : permission for every page
  */
-int setup_ept_range(unsigned long *pml4, unsigned long start,
-		unsigned long len, int map_1g, int map_2m, u64 perm)
+void setup_ept_range(unsigned long *pml4, unsigned long start,
+		     unsigned long len, int map_1g, int map_2m, u64 perm)
 {
 	u64 phys = start;
 	u64 max = (u64)len + (u64)start;
@@ -270,7 +270,6 @@ int setup_ept_range(unsigned long *pml4, unsigned long start,
 		install_ept(pml4, phys, phys, perm);
 		phys += PAGE_SIZE;
 	}
-	return 0;
 }
 
 /* get_ept_pte : Get the PTE of a given level in EPT,
