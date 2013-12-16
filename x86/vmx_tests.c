@@ -679,8 +679,6 @@ static void iobmp_main()
 		report("I/O bitmap - overrun", 1);
 	else
 		report("I/O bitmap - overrun", 0);
-	
-	return;
 }
 
 static int iobmp_exit_handler()
@@ -1036,7 +1034,6 @@ t1:
 		report("EPT violation - paging structure", 1);
 	else
 		report("EPT violation - paging structure", 0);
-	return;
 }
 
 static int ept_exit_handler()
