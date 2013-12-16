@@ -977,8 +977,8 @@ static void ept_main()
 {
 	if (init_fail)
 		return;
-	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY)
-		&& !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
+	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
 		printf("\tEPT is not supported");
 		return;
 	}
