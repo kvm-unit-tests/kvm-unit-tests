@@ -539,22 +539,74 @@ static void init_vmx(void)
 	memset(guest_syscall_stack, 0, PAGE_SIZE);
 }
 
-static int test_vmx_capability(void)
+static bool exception;
+static void *exception_return;
+
+static void exception_handler(struct ex_regs *regs)
 {
-	struct cpuid r;
-	u64 ret1, ret2;
+	exception = true;
+	regs->rip = (u64)exception_return;
+}
+
+static int test_for_exception(unsigned int ex, void (*func)(void))
+{
+	handle_exception(ex, exception_handler);
+	exception = false;
+	func();
+	handle_exception(ex, NULL);
+	return exception;
+}
+
+static void do_vmxon_off(void)
+{
+	exception_return = &&resume;
+	barrier();
+	vmx_on();
+	vmx_off();
+resume:
+	return;
+}
+
+static void do_write_feature_control(void)
+{
+	exception_return = &&resume;
+	barrier();
+	wrmsr(MSR_IA32_FEATURE_CONTROL, 0);
+resume:
+	return;
+}
+
+static int test_vmx_feature_control(void)
+{
 	u64 ia32_feature_control;
-	r = cpuid(1);
-	ret1 = ((r.c) >> 5) & 1;
+	bool vmx_enabled;
+
 	ia32_feature_control = rdmsr(MSR_IA32_FEATURE_CONTROL);
-	ret2 = ((ia32_feature_control & 0x5) == 0x5);
-	if ((!ret2) && ((ia32_feature_control & 0x1) == 0)) {
-		wrmsr(MSR_IA32_FEATURE_CONTROL, 0x5);
-		ia32_feature_control = rdmsr(MSR_IA32_FEATURE_CONTROL);
-		ret2 = ((ia32_feature_control & 0x5) == 0x5);
+	vmx_enabled = ((ia32_feature_control & 0x5) == 0x5);
+	if ((ia32_feature_control & 0x5) == 0x5) {
+		printf("VMX enabled and locked by BIOS\n");
+		return 0;
+	} else if (ia32_feature_control & 0x1) {
+		printf("ERROR: VMX locked out by BIOS!?\n");
+		return 1;
 	}
-	report("test vmx capability", ret1 & ret2);
-	return !(ret1 & ret2);
+
+	wrmsr(MSR_IA32_FEATURE_CONTROL, 0);
+	report("test vmxon with FEATURE_CONTROL cleared",
+	       test_for_exception(GP_VECTOR, &do_vmxon_off));
+
+	wrmsr(MSR_IA32_FEATURE_CONTROL, 0x4);
+	report("test vmxon without FEATURE_CONTROL lock",
+	       test_for_exception(GP_VECTOR, &do_vmxon_off));
+
+	wrmsr(MSR_IA32_FEATURE_CONTROL, 0x5);
+	vmx_enabled = ((rdmsr(MSR_IA32_FEATURE_CONTROL) & 0x5) == 0x5);
+	report("test enable VMX in FEATURE_CONTROL", vmx_enabled);
+
+	report("test FEATURE_CONTROL lock bit",
+	       test_for_exception(GP_VECTOR, &do_write_feature_control));
+
+	return !vmx_enabled;
 }
 
 static int test_vmxon(void)
@@ -758,11 +810,13 @@ int main(void)
 	fails = tests = 0;
 	hypercall_field = 0;
 
-	if (test_vmx_capability() != 0) {
-		printf("ERROR : vmx not supported, check +vmx option\n");
+	if (!(cpuid(1).c & (1 << 5))) {
+		printf("WARNING: vmx not supported, add '-cpu host'\n");
 		goto exit;
 	}
 	init_vmx();
+	if (test_vmx_feature_control() != 0)
+		goto exit;
 	/* Set basic test ctxt the same as "null" */
 	current = &vmx_tests[0];
 	if (test_vmxon() != 0)
