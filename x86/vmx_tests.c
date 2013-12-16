@@ -43,10 +43,6 @@ static inline u32 get_stage()
 	return s;
 }
 
-void basic_init()
-{
-}
-
 void basic_guest_main()
 {
 	/* Here is a basic guest_main, print Hello World */
@@ -1148,9 +1144,9 @@ static int ept_exit_handler()
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs
    basic_* just implement some basic functions */
 struct vmx_test vmx_tests[] = {
-	{ "null", basic_init, basic_guest_main, basic_exit_handler,
+	{ "null", NULL, basic_guest_main, basic_exit_handler,
 		basic_syscall_handler, {0} },
-	{ "vmenter", basic_init, vmenter_main, vmenter_exit_handler,
+	{ "vmenter", NULL, vmenter_main, vmenter_exit_handler,
 		basic_syscall_handler, {0} },
 	{ "preemption timer", preemption_timer_init, preemption_timer_main,
 		preemption_timer_exit_handler, basic_syscall_handler, {0} },
@@ -1158,7 +1154,7 @@ struct vmx_test vmx_tests[] = {
 		test_ctrl_pat_exit_handler, basic_syscall_handler, {0} },
 	{ "control field EFER", test_ctrl_efer_init, test_ctrl_efer_main,
 		test_ctrl_efer_exit_handler, basic_syscall_handler, {0} },
-	{ "CR shadowing", basic_init, cr_shadowing_main,
+	{ "CR shadowing", NULL, cr_shadowing_main,
 		cr_shadowing_exit_handler, basic_syscall_handler, {0} },
 	{ "I/O bitmap", iobmp_init, iobmp_main, iobmp_exit_handler,
 		basic_syscall_handler, {0} },
