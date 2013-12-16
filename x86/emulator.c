@@ -843,6 +843,8 @@ static void test_string_io_mmio(volatile uint8_t *mem)
 	report("string_io_mmio", mmio[1023] == 0x99);
 }
 
+/* kvm doesn't allow lidt/lgdt from mmio, so the test is disabled */
+#if 0
 static void test_lgdt_lidt(volatile uint8_t *mem)
 {
     struct descriptor_table_ptr orig, fresh = {};
@@ -871,6 +873,7 @@ static void test_lgdt_lidt(volatile uint8_t *mem)
     sti();
     report("lidt (long address)", orig.limit == fresh.limit && orig.base == fresh.base);
 }
+#endif
 
 static void ss_bad_rpl(struct ex_regs *regs)
 {
