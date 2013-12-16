@@ -97,7 +97,8 @@ asm(
 
 static void __attribute__((__used__)) syscall_handler(u64 syscall_no)
 {
-	current->syscall_handler(syscall_no);
+	if (current->syscall_handler)
+		current->syscall_handler(syscall_no);
 }
 
 static inline int vmx_on()

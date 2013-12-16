@@ -69,10 +69,6 @@ int basic_exit_handler()
 	return VMX_TEST_EXIT;
 }
 
-void basic_syscall_handler(u64 syscall_no)
-{
-}
-
 void vmenter_main()
 {
 	u64 rax;
@@ -1137,26 +1133,22 @@ static int ept_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
-/* name/init/guest_main/exit_handler/syscall_handler/guest_regs
-   basic_* just implement some basic functions */
+/* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
 struct vmx_test vmx_tests[] = {
-	{ "null", NULL, basic_guest_main, basic_exit_handler,
-		basic_syscall_handler, {0} },
-	{ "vmenter", NULL, vmenter_main, vmenter_exit_handler,
-		basic_syscall_handler, {0} },
+	{ "null", NULL, basic_guest_main, basic_exit_handler, NULL, {0} },
+	{ "vmenter", NULL, vmenter_main, vmenter_exit_handler, NULL, {0} },
 	{ "preemption timer", preemption_timer_init, preemption_timer_main,
-		preemption_timer_exit_handler, basic_syscall_handler, {0} },
+		preemption_timer_exit_handler, NULL, {0} },
 	{ "control field PAT", test_ctrl_pat_init, test_ctrl_pat_main,
-		test_ctrl_pat_exit_handler, basic_syscall_handler, {0} },
+		test_ctrl_pat_exit_handler, NULL, {0} },
 	{ "control field EFER", test_ctrl_efer_init, test_ctrl_efer_main,
-		test_ctrl_efer_exit_handler, basic_syscall_handler, {0} },
+		test_ctrl_efer_exit_handler, NULL, {0} },
 	{ "CR shadowing", NULL, cr_shadowing_main,
-		cr_shadowing_exit_handler, basic_syscall_handler, {0} },
+		cr_shadowing_exit_handler, NULL, {0} },
 	{ "I/O bitmap", iobmp_init, iobmp_main, iobmp_exit_handler,
-		basic_syscall_handler, {0} },
+		NULL, {0} },
 	{ "instruction intercept", insn_intercept_init, insn_intercept_main,
-		insn_intercept_exit_handler, basic_syscall_handler, {0} },
-	{ "EPT framework", ept_init, ept_main, ept_exit_handler,
-		basic_syscall_handler, {0} },
+		insn_intercept_exit_handler, NULL, {0} },
+	{ "EPT framework", ept_init, ept_main, ept_exit_handler, NULL, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
