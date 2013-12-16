@@ -5,15 +5,6 @@
 #include "vm.h"
 #include "smp.h"
 
-void print(const char *s);
-
-static unsigned int inl(unsigned short port)
-{
-    unsigned int val;
-    asm volatile ("inl %w1, %0":"=a" (val):"Nd" (port));
-    return val;
-}
-
 int main (void)
 {
     int i;
