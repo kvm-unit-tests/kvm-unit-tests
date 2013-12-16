@@ -731,8 +731,8 @@ static int test_run(struct vmx_test *test)
 	init_vmcs(&(test->vmcs));
 	/* Directly call test->init is ok here, init_vmcs has done
 	   vmcs init, vmclear and vmptrld*/
-	if (test->init)
-		test->init(test->vmcs);
+	if (test->init && test->init(test->vmcs) != VMX_TEST_START)
+		return 0;
 	test->exits = 0;
 	current = test;
 	regs = test->guest_regs;

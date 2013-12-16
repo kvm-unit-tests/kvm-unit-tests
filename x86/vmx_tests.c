@@ -16,7 +16,6 @@ volatile u32 stage;
 void *io_bitmap_a, *io_bitmap_b;
 u16 ioport;
 
-bool init_fail;
 unsigned long *pml4;
 u64 eptp;
 void *data_page1, *data_page2;
@@ -119,28 +118,26 @@ u32 preempt_scale;
 volatile unsigned long long tsc_val;
 volatile u32 preempt_val;
 
-void preemption_timer_init()
+int preemption_timer_init()
 {
-	u32 ctrl_pin;
-
-	ctrl_pin = vmcs_read(PIN_CONTROLS) | PIN_PREEMPT;
-	ctrl_pin &= ctrl_pin_rev.clr;
-	vmcs_write(PIN_CONTROLS, ctrl_pin);
+	if (!(ctrl_pin_rev.clr & PIN_PREEMPT)) {
+		printf("\tPreemption timer is not supported\n");
+		return VMX_TEST_EXIT;
+	}
+	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) | PIN_PREEMPT);
 	preempt_val = 10000000;
 	vmcs_write(PREEMPT_TIMER_VALUE, preempt_val);
 	preempt_scale = rdmsr(MSR_IA32_VMX_MISC) & 0x1F;
 
 	if (!(ctrl_exit_rev.clr & EXI_SAVE_PREEMPT))
 		printf("\tSave preemption value is not supported\n");
+
+	return VMX_TEST_START;
 }
 
 void preemption_timer_main()
 {
 	tsc_val = rdtsc();
-	if (!(ctrl_pin_rev.clr & PIN_PREEMPT)) {
-		printf("\tPreemption timer is not supported\n");
-		return;
-	}
 	if (ctrl_exit_rev.clr & EXI_SAVE_PREEMPT) {
 		set_stage(0);
 		vmcall();
@@ -224,7 +221,7 @@ void msr_bmp_init()
 	vmcs_write(MSR_BITMAP, (u64)msr_bitmap);
 }
 
-static void test_ctrl_pat_init()
+static int test_ctrl_pat_init()
 {
 	u64 ctrl_ent;
 	u64 ctrl_exi;
@@ -237,6 +234,7 @@ static void test_ctrl_pat_init()
 	ia32_pat = rdmsr(MSR_IA32_CR_PAT);
 	vmcs_write(GUEST_PAT, 0x0);
 	vmcs_write(HOST_PAT, ia32_pat);
+	return VMX_TEST_START;
 }
 
 static void test_ctrl_pat_main()
@@ -302,7 +300,7 @@ static int test_ctrl_pat_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
-static void test_ctrl_efer_init()
+static int test_ctrl_efer_init()
 {
 	u64 ctrl_ent;
 	u64 ctrl_exi;
@@ -315,6 +313,7 @@ static void test_ctrl_efer_init()
 	ia32_efer = rdmsr(MSR_EFER);
 	vmcs_write(GUEST_EFER, ia32_efer ^ EFER_NX);
 	vmcs_write(HOST_EFER, ia32_efer ^ EFER_NX);
+	return VMX_TEST_START;
 }
 
 static void test_ctrl_efer_main()
@@ -600,7 +599,7 @@ static int cr_shadowing_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
-static void iobmp_init()
+static int iobmp_init()
 {
 	u32 ctrl_cpu0;
 
@@ -614,6 +613,7 @@ static void iobmp_init()
 	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu0);
 	vmcs_write(IO_BITMAP_A, (u64)io_bitmap_a);
 	vmcs_write(IO_BITMAP_B, (u64)io_bitmap_b);
+	return VMX_TEST_START;
 }
 
 static void iobmp_main()
@@ -828,7 +828,7 @@ static struct insn_table insn_table[] = {
 	{NULL},
 };
 
-static void insn_intercept_init()
+static int insn_intercept_init()
 {
 	u32 ctrl_cpu[2];
 
@@ -841,6 +841,7 @@ static void insn_intercept_init()
 	ctrl_cpu[1] |= CPU_WBINVD | CPU_RDRAND;
 	ctrl_cpu[1] &= ctrl_cpu_rev[1].clr;
 	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu[1]);
+	return VMX_TEST_START;
 }
 
 static void insn_intercept_main()
@@ -940,12 +941,17 @@ static int setup_ept()
 	return 0;
 }
 
-static void ept_init()
+static int ept_init()
 {
 	unsigned long base_addr1, base_addr2;
 	u32 ctrl_cpu[2];
 
-	init_fail = false;
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
+	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
+		printf("\tEPT is not supported");
+		return VMX_TEST_EXIT;
+	}
+
 	ctrl_cpu[0] = vmcs_read(CPU_EXEC_CTRL0);
 	ctrl_cpu[1] = vmcs_read(CPU_EXEC_CTRL1);
 	ctrl_cpu[0] = (ctrl_cpu[0] | CPU_SECONDARY)
@@ -955,7 +961,7 @@ static void ept_init()
 	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu[0]);
 	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu[1]);
 	if (setup_ept())
-		init_fail = true;
+		return VMX_TEST_EXIT;
 	data_page1 = alloc_page();
 	data_page2 = alloc_page();
 	memset(data_page1, 0x0, PAGE_SIZE);
@@ -968,20 +974,14 @@ static void ept_init()
 			    EPT_WA | EPT_RA | EPT_EA) ||
 	    setup_ept_range(pml4, base_addr2, base_addr2 + PAGE_SIZE_2M, 0, 0,
 			    EPT_WA | EPT_RA | EPT_EA))
-		init_fail = true;
+		return VMX_TEST_EXIT;
 	install_ept(pml4, (unsigned long)data_page1, (unsigned long)data_page2,
 			EPT_RA | EPT_WA | EPT_EA);
+	return VMX_TEST_START;
 }
 
 static void ept_main()
 {
-	if (init_fail)
-		return;
-	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
-	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
-		printf("\tEPT is not supported");
-		return;
-	}
 	set_stage(0);
 	if (*((u32 *)data_page2) != MAGIC_VAL_1 ||
 			*((u32 *)data_page1) != MAGIC_VAL_1)

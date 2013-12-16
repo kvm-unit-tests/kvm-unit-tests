@@ -32,7 +32,7 @@ struct regs {
 
 struct vmx_test {
 	const char *name;
-	void (*init)(struct vmcs *vmcs);
+	int (*init)(struct vmcs *vmcs);
 	void (*guest_main)();
 	int (*exit_handler)();
 	void (*syscall_handler)(u64 syscall_no);
@@ -434,6 +434,7 @@ enum Ctrl1 {
 #define VMX_IO_PORT_MASK		0xFFFF0000
 #define VMX_IO_PORT_SHIFT		16
 
+#define VMX_TEST_START			0
 #define VMX_TEST_VMEXIT			1
 #define VMX_TEST_EXIT			2
 #define VMX_TEST_RESUME			3
