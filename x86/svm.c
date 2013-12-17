@@ -11,7 +11,7 @@ u64 *pml4e;
 u64 *pdpe;
 u64 *pde[4];
 u64 *pte[2048];
-u64 *scratch_page;
+void *scratch_page;
 
 #define LATENCY_RUNS 1000000
 
@@ -531,9 +531,7 @@ static void npt_us_prepare(struct test *test)
 
 static void npt_us_test(struct test *test)
 {
-    volatile u64 data;
-
-    data = *scratch_page;
+    (void) *(volatile u64 *)scratch_page;
 }
 
 static bool npt_us_check(struct test *test)
