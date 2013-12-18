@@ -1,3 +1,33 @@
+/*
+ * x86/vmx.c : Framework for testing nested virtualization
+ *	This is a framework to test nested VMX for KVM, which
+ * 	started as a project of GSoC 2013. All test cases should
+ *	be located in x86/vmx_tests.c and framework related
+ *	functions should be in this file.
+ *
+ * How to write test cases?
+ *	Add callbacks of test suite in variant "vmx_tests". You can
+ *	write:
+ *		1. init function used for initializing test suite
+ *		2. main function for codes running in L2 guest, 
+ *		3. exit_handler to handle vmexit of L2 to L1
+ *		4. syscall handler to handle L2 syscall vmexit
+ *		5. vmenter fail handler to handle direct failure of vmenter
+ *		6. guest_regs is loaded when vmenter and saved when
+ *			vmexit, you can read and set it in exit_handler
+ *	If no special function is needed for a test suite, use
+ *	coressponding basic_* functions as callback. More handlers
+ *	can be added to "vmx_tests", see details of "struct vmx_test"
+ *	and function test_run().
+ *
+ * Currently, vmx test framework only set up one VCPU and one
+ * concurrent guest test environment with same paging for L2 and
+ * L1. For usage of EPT, only 1:1 mapped paging is used from VFN
+ * to PFN.
+ *
+ * Author : Arthur Chunqi Li <yzt356@gmail.com>
+ */
+
 #include "libcflat.h"
 #include "processor.h"
 #include "vm.h"
@@ -143,6 +173,160 @@ asm(
 	"	call hypercall\n\t"
 );
 
+/* EPT paging structure related functions */
+/* install_ept_entry : Install a page to a given level in EPT
+		@pml4 : addr of pml4 table
+		@pte_level : level of PTE to set
+		@guest_addr : physical address of guest
+		@pte : pte value to set
+		@pt_page : address of page table, NULL for a new page
+ */
+void install_ept_entry(unsigned long *pml4,
+		int pte_level,
+		unsigned long guest_addr,
+		unsigned long pte,
+		unsigned long *pt_page)
+{
+	int level;
+	unsigned long *pt = pml4;
+	unsigned offset;
+
+	for (level = EPT_PAGE_LEVEL; level > pte_level; --level) {
+		offset = (guest_addr >> ((level-1) * EPT_PGDIR_WIDTH + 12))
+				& EPT_PGDIR_MASK;
+		if (!(pt[offset] & (EPT_PRESENT))) {
+			unsigned long *new_pt = pt_page;
+			if (!new_pt)
+				new_pt = alloc_page();
+			else
+				pt_page = 0;
+			memset(new_pt, 0, PAGE_SIZE);
+			pt[offset] = virt_to_phys(new_pt)
+					| EPT_RA | EPT_WA | EPT_EA;
+		} else
+			pt[offset] &= ~EPT_LARGE_PAGE;
+		pt = phys_to_virt(pt[offset] & 0xffffffffff000ull);
+	}
+	offset = ((unsigned long)guest_addr >> ((level-1) *
+			EPT_PGDIR_WIDTH + 12)) & EPT_PGDIR_MASK;
+	pt[offset] = pte;
+}
+
+/* Map a page, @perm is the permission of the page */
+void install_ept(unsigned long *pml4,
+		unsigned long phys,
+		unsigned long guest_addr,
+		u64 perm)
+{
+	install_ept_entry(pml4, 1, guest_addr, (phys & PAGE_MASK) | perm, 0);
+}
+
+/* Map a 1G-size page */
+void install_1g_ept(unsigned long *pml4,
+		unsigned long phys,
+		unsigned long guest_addr,
+		u64 perm)
+{
+	install_ept_entry(pml4, 3, guest_addr,
+			(phys & PAGE_MASK) | perm | EPT_LARGE_PAGE, 0);
+}
+
+/* Map a 2M-size page */
+void install_2m_ept(unsigned long *pml4,
+		unsigned long phys,
+		unsigned long guest_addr,
+		u64 perm)
+{
+	install_ept_entry(pml4, 2, guest_addr,
+			(phys & PAGE_MASK) | perm | EPT_LARGE_PAGE, 0);
+}
+
+/* setup_ept_range : Setup a range of 1:1 mapped page to EPT paging structure.
+		@start : start address of guest page
+		@len : length of address to be mapped
+		@map_1g : whether 1G page map is used
+		@map_2m : whether 2M page map is used
+		@perm : permission for every page
+ */
+int setup_ept_range(unsigned long *pml4, unsigned long start,
+		unsigned long len, int map_1g, int map_2m, u64 perm)
+{
+	u64 phys = start;
+	u64 max = (u64)len + (u64)start;
+
+	if (map_1g) {
+		while (phys + PAGE_SIZE_1G <= max) {
+			install_1g_ept(pml4, phys, phys, perm);
+			phys += PAGE_SIZE_1G;
+		}
+	}
+	if (map_2m) {
+		while (phys + PAGE_SIZE_2M <= max) {
+			install_2m_ept(pml4, phys, phys, perm);
+			phys += PAGE_SIZE_2M;
+		}
+	}
+	while (phys + PAGE_SIZE <= max) {
+		install_ept(pml4, phys, phys, perm);
+		phys += PAGE_SIZE;
+	}
+	return 0;
+}
+
+/* get_ept_pte : Get the PTE of a given level in EPT,
+    @level == 1 means get the latest level*/
+unsigned long get_ept_pte(unsigned long *pml4,
+		unsigned long guest_addr, int level)
+{
+	int l;
+	unsigned long *pt = pml4, pte;
+	unsigned offset;
+
+	for (l = EPT_PAGE_LEVEL; l > 1; --l) {
+		offset = (guest_addr >> (((l-1) * EPT_PGDIR_WIDTH) + 12))
+				& EPT_PGDIR_MASK;
+		pte = pt[offset];
+		if (!(pte & (EPT_PRESENT)))
+			return 0;
+		if (l == level)
+			return pte;
+		if (l < 4 && (pte & EPT_LARGE_PAGE))
+			return pte;
+		pt = (unsigned long *)(pte & 0xffffffffff000ull);
+	}
+	offset = (guest_addr >> (((l-1) * EPT_PGDIR_WIDTH) + 12))
+			& EPT_PGDIR_MASK;
+	pte = pt[offset];
+	return pte;
+}
+
+int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
+		int level, u64 pte_val)
+{
+	int l;
+	unsigned long *pt = pml4;
+	unsigned offset;
+
+	if (level < 1 || level > 3)
+		return -1;
+	for (l = EPT_PAGE_LEVEL; l > 1; --l) {
+		offset = (guest_addr >> (((l-1) * EPT_PGDIR_WIDTH) + 12))
+				& EPT_PGDIR_MASK;
+		if (l == level) {
+			pt[offset] = pte_val;
+			return 0;
+		}
+		if (!(pt[offset] & (EPT_PRESENT)))
+			return -1;
+		pt = (unsigned long *)(pt[offset] & 0xffffffffff000ull);
+	}
+	offset = (guest_addr >> (((l-1) * EPT_PGDIR_WIDTH) + 12))
+			& EPT_PGDIR_MASK;
+	pt[offset] = pte_val;
+	return 0;
+}
+
+
 static void init_vmcs_ctrl(void)
 {
 	/* 26.2 CHECKS ON VMX CONTROLS AND HOST-STATE AREA */
@@ -151,7 +335,8 @@ static void init_vmcs_ctrl(void)
 	/* Disable VMEXIT of IO instruction */
 	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu[0]);
 	if (ctrl_cpu_rev[0].set & CPU_SECONDARY) {
-		ctrl_cpu[1] |= ctrl_cpu_rev[1].set & ctrl_cpu_rev[1].clr;
+		ctrl_cpu[1] = (ctrl_cpu[1] | ctrl_cpu_rev[1].set) &
+			ctrl_cpu_rev[1].clr;
 		vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu[1]);
 	}
 	vmcs_write(CR3_TARGET_COUNT, 0);
@@ -336,10 +521,14 @@ static void init_vmx(void)
 			: MSR_IA32_VMX_ENTRY_CTLS);
 	ctrl_cpu_rev[0].val = rdmsr(basic.ctrl ? MSR_IA32_VMX_TRUE_PROC
 			: MSR_IA32_VMX_PROCBASED_CTLS);
-	if (ctrl_cpu_rev[0].set & CPU_SECONDARY)
+	if ((ctrl_cpu_rev[0].clr & CPU_SECONDARY) != 0)
 		ctrl_cpu_rev[1].val = rdmsr(MSR_IA32_VMX_PROCBASED_CTLS2);
-	if (ctrl_cpu_rev[1].set & CPU_EPT || ctrl_cpu_rev[1].set & CPU_VPID)
+	else
+		ctrl_cpu_rev[1].val = 0;
+	if ((ctrl_cpu_rev[1].clr & (CPU_EPT | CPU_VPID)) != 0)
 		ept_vpid.val = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
+	else
+		ept_vpid.val = 0;
 
 	write_cr0((read_cr0() & fix_cr0_clr) | fix_cr0_set);
 	write_cr4((read_cr4() & fix_cr4_clr) | fix_cr4_set | X86_CR4_VMXE);

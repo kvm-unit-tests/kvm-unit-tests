@@ -152,10 +152,12 @@ enum Encoding {
 	GUEST_DEBUGCTL		= 0x2802ul,
 	GUEST_DEBUGCTL_HI	= 0x2803ul,
 	GUEST_EFER		= 0x2806ul,
+	GUEST_PAT		= 0x2804ul,
 	GUEST_PERF_GLOBAL_CTRL	= 0x2808ul,
 	GUEST_PDPTE		= 0x280aul,
 
 	/* 64-Bit Host State */
+	HOST_PAT		= 0x2c00ul,
 	HOST_EFER		= 0x2c02ul,
 	HOST_PERF_GLOBAL_CTRL	= 0x2c04ul,
 
@@ -210,6 +212,7 @@ enum Encoding {
 	GUEST_ACTV_STATE	= 0x4826ul,
 	GUEST_SMBASE		= 0x4828ul,
 	GUEST_SYSENTER_CS	= 0x482aul,
+	PREEMPT_TIMER_VALUE	= 0x482eul,
 
 	/* 32-Bit Host State Fields */
 	HOST_SYSENTER_CS	= 0x4c00ul,
@@ -330,11 +333,16 @@ enum Ctrl_exi {
 	EXI_HOST_64             = 1UL << 9,
 	EXI_LOAD_PERF		= 1UL << 12,
 	EXI_INTA                = 1UL << 15,
+	EXI_SAVE_PAT		= 1UL << 18,
+	EXI_LOAD_PAT		= 1UL << 19,
+	EXI_SAVE_EFER		= 1UL << 20,
 	EXI_LOAD_EFER           = 1UL << 21,
+	EXI_SAVE_PREEMPT	= 1UL << 22,
 };
 
 enum Ctrl_ent {
 	ENT_GUEST_64            = 1UL << 9,
+	ENT_LOAD_PAT		= 1UL << 14,
 	ENT_LOAD_EFER           = 1UL << 15,
 };
 
@@ -342,18 +350,25 @@ enum Ctrl_pin {
 	PIN_EXTINT              = 1ul << 0,
 	PIN_NMI                 = 1ul << 3,
 	PIN_VIRT_NMI            = 1ul << 5,
+	PIN_PREEMPT		= 1ul << 6,
 };
 
 enum Ctrl0 {
 	CPU_INTR_WINDOW		= 1ul << 2,
 	CPU_HLT			= 1ul << 7,
 	CPU_INVLPG		= 1ul << 9,
+	CPU_MWAIT		= 1ul << 10,
+	CPU_RDPMC		= 1ul << 11,
+	CPU_RDTSC		= 1ul << 12,
 	CPU_CR3_LOAD		= 1ul << 15,
 	CPU_CR3_STORE		= 1ul << 16,
 	CPU_TPR_SHADOW		= 1ul << 21,
 	CPU_NMI_WINDOW		= 1ul << 22,
 	CPU_IO			= 1ul << 24,
 	CPU_IO_BITMAP		= 1ul << 25,
+	CPU_MSR_BITMAP		= 1ul << 28,
+	CPU_MONITOR		= 1ul << 29,
+	CPU_PAUSE		= 1ul << 30,
 	CPU_SECONDARY		= 1ul << 31,
 };
 
@@ -361,6 +376,8 @@ enum Ctrl1 {
 	CPU_EPT			= 1ul << 1,
 	CPU_VPID		= 1ul << 5,
 	CPU_URG			= 1ul << 7,
+	CPU_WBINVD		= 1ul << 6,
+	CPU_RDRAND		= 1ul << 11,
 };
 
 #define SAVE_GPR				\
@@ -410,15 +427,15 @@ enum Ctrl1 {
 	"popf\n\t"
 
 #define VMX_IO_SIZE_MASK		0x7
-#define _VMX_IO_BYTE			1
-#define _VMX_IO_WORD			2
+#define _VMX_IO_BYTE			0
+#define _VMX_IO_WORD			1
 #define _VMX_IO_LONG			3
 #define VMX_IO_DIRECTION_MASK		(1ul << 3)
 #define VMX_IO_IN			(1ul << 3)
 #define VMX_IO_OUT			0
 #define VMX_IO_STRING			(1ul << 4)
 #define VMX_IO_REP			(1ul << 5)
-#define VMX_IO_OPRAND_DX		(1ul << 6)
+#define VMX_IO_OPRAND_IMM		(1ul << 6)
 #define VMX_IO_PORT_MASK		0xFFFF0000
 #define VMX_IO_PORT_SHIFT		16
 
@@ -432,6 +449,60 @@ enum Ctrl1 {
 #define HYPERCALL_MASK		0xFFF
 #define HYPERCALL_VMEXIT	0x1
 
+#define EPTP_PG_WALK_LEN_SHIFT	3ul
+#define EPTP_AD_FLAG			(1ul << 6)
+
+#define EPT_MEM_TYPE_UC	0ul
+#define EPT_MEM_TYPE_WC	1ul
+#define EPT_MEM_TYPE_WT	4ul
+#define EPT_MEM_TYPE_WP	5ul
+#define EPT_MEM_TYPE_WB	6ul
+
+#define EPT_RA			1ul
+#define EPT_WA			2ul
+#define EPT_EA			4ul
+#define EPT_PRESENT		(EPT_RA | EPT_WA | EPT_EA)	
+#define EPT_ACCESS_FLAG	(1ul << 8)
+#define EPT_DIRTY_FLAG		(1ul << 9)
+#define EPT_LARGE_PAGE		(1ul << 7)
+#define EPT_MEM_TYPE_SHIFT	3ul
+#define EPT_IGNORE_PAT		(1ul << 6)
+#define EPT_SUPPRESS_VE	(1ull << 63)
+
+#define EPT_CAP_WT		1ull
+#define EPT_CAP_PWL4		(1ull << 6)
+#define EPT_CAP_UC		(1ull << 8)
+#define EPT_CAP_WB		(1ull << 14)
+#define EPT_CAP_2M_PAGE	(1ull << 16)
+#define EPT_CAP_1G_PAGE	(1ull << 17)
+#define EPT_CAP_INVEPT		(1ull << 20)
+#define EPT_CAP_INVEPT_SINGLE	(1ull << 25)
+#define EPT_CAP_INVEPT_ALL	(1ull << 26)
+#define EPT_CAP_AD_FLAG	(1ull << 21)
+
+#define PAGE_SIZE_2M		(512 * PAGE_SIZE)
+#define PAGE_SIZE_1G		(512 * PAGE_SIZE_2M)
+#define	EPT_PAGE_LEVEL	4
+#define	EPT_PGDIR_WIDTH	9
+#define	EPT_PGDIR_MASK	511
+#define PAGE_MASK		(~(PAGE_SIZE-1))
+#define PAGE_MASK_2M		(~(PAGE_SIZE_2M-1))
+
+#define EPT_VLT_RD		1
+#define EPT_VLT_WR		(1 << 1)
+#define EPT_VLT_FETCH		(1 << 2)
+#define EPT_VLT_PERM_RD	(1 << 3)
+#define EPT_VLT_PERM_WR	(1 << 4)
+#define EPT_VLT_PERM_EX	(1 << 5)
+#define EPT_VLT_LADDR_VLD	(1 << 7)
+#define EPT_VLT_PADDR		(1 << 8)
+
+#define MAGIC_VAL_1		0x12345678ul
+#define MAGIC_VAL_2		0x87654321ul
+#define MAGIC_VAL_3		0xfffffffful
+
+#define INVEPT_SINGLE		1
+#define INVEPT_GLOBAL		2
 
 extern struct regs regs;
 
@@ -472,8 +543,31 @@ static inline int vmcs_save(struct vmcs **vmcs)
 	return ret;
 }
 
+static inline void invept(unsigned long type, u64 eptp)
+{
+	struct {
+		u64 eptp, gpa;
+	} operand = {eptp, 0};
+	asm volatile("invept %0, %1\n" ::"m"(operand),"r"(type));
+}
+
 void report(const char *name, int result);
 void print_vmexit_info();
+void install_ept_entry(unsigned long *pml4, int pte_level,
+		unsigned long guest_addr, unsigned long pte,
+		unsigned long *pt_page);
+void install_1g_ept(unsigned long *pml4, unsigned long phys,
+		unsigned long guest_addr, u64 perm);
+void install_2m_ept(unsigned long *pml4, unsigned long phys,
+		unsigned long guest_addr, u64 perm);
+void install_ept(unsigned long *pml4, unsigned long phys,
+		unsigned long guest_addr, u64 perm);
+int setup_ept_range(unsigned long *pml4, unsigned long start,
+		unsigned long len, int map_1g, int map_2m, u64 perm);
+unsigned long get_ept_pte(unsigned long *pml4,
+		unsigned long guest_addr, int level);
+int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
+		int level, u64 pte_val);
 
 #endif
 
