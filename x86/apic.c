@@ -326,7 +326,6 @@ int main()
     test_lapic_existence();
 
     mask_pic_interrupts();
-    enable_apic();
     test_enable_x2apic();
 
     test_self_ipi();
