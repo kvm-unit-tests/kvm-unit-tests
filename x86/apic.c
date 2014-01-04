@@ -4,6 +4,7 @@
 #include "smp.h"
 #include "desc.h"
 #include "isr.h"
+#include "msr.h"
 
 static int g_fail;
 static int g_tests;
@@ -70,14 +71,52 @@ static void test_tsc_deadline_timer(void)
     }
 }
 
-#define MSR_APIC_BASE 0x0000001b
+static void do_write_apicbase(void *data)
+{
+    set_exception_return(&&resume);
+    wrmsr(MSR_IA32_APICBASE, *(u64 *)data);
+resume:
+    barrier();
+}
 
 void test_enable_x2apic(void)
 {
+    u64 invalid_state = APIC_DEFAULT_PHYS_BASE | APIC_BSP | APIC_EXTD;
+    u64 apic_enabled = APIC_DEFAULT_PHYS_BASE | APIC_BSP | APIC_EN;
+    u64 x2apic_enabled =
+        APIC_DEFAULT_PHYS_BASE | APIC_BSP | APIC_EN | APIC_EXTD;
+
     if (enable_x2apic()) {
         printf("x2apic enabled\n");
+
+        report("x2apic enabled to invalid state",
+               test_for_exception(GP_VECTOR, do_write_apicbase,
+                                  &invalid_state));
+        report("x2apic enabled to apic enabled",
+               test_for_exception(GP_VECTOR, do_write_apicbase,
+                                  &apic_enabled));
+
+        wrmsr(MSR_IA32_APICBASE, APIC_DEFAULT_PHYS_BASE | APIC_BSP);
+        report("disabled to invalid state",
+               test_for_exception(GP_VECTOR, do_write_apicbase,
+                                  &invalid_state));
+        report("disabled to x2apic enabled",
+               test_for_exception(GP_VECTOR, do_write_apicbase,
+                                  &x2apic_enabled));
+
+        wrmsr(MSR_IA32_APICBASE, apic_enabled);
+        report("apic enabled to invalid state",
+               test_for_exception(GP_VECTOR, do_write_apicbase,
+                                  &invalid_state));
+
+        wrmsr(MSR_IA32_APICBASE, x2apic_enabled);
+        apic_write(APIC_SPIV, 0x1ff);
     } else {
         printf("x2apic not detected\n");
+
+        report("enable unsupported x2apic",
+               test_for_exception(GP_VECTOR, do_write_apicbase,
+                                  &x2apic_enabled));
     }
 }
 

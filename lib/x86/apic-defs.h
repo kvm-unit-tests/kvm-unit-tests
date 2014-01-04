@@ -9,6 +9,9 @@
  */
 
 #define	APIC_DEFAULT_PHYS_BASE	0xfee00000
+#define APIC_BSP		(1UL << 8)
+#define APIC_EXTD		(1UL << 10)
+#define APIC_EN			(1UL << 11)
 
 #define	APIC_ID		0x20
 
