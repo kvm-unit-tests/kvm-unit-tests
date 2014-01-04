@@ -1,5 +1,6 @@
 #include "libcflat.h"
 #include "apic.h"
+#include "msr.h"
 
 static void *g_apic = (void *)0xfee00000;
 static void *g_ioapic = (void *)0xfec00000;
@@ -99,8 +100,6 @@ uint32_t apic_id(void)
     return apic_ops->id();
 }
 
-#define MSR_APIC_BASE 0x0000001b
-
 int enable_x2apic(void)
 {
     unsigned a, b, c, d;
@@ -108,9 +107,9 @@ int enable_x2apic(void)
     asm ("cpuid" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "0"(1));
 
     if (c & (1 << 21)) {
-        asm ("rdmsr" : "=a"(a), "=d"(d) : "c"(MSR_APIC_BASE));
+        asm ("rdmsr" : "=a"(a), "=d"(d) : "c"(MSR_IA32_APICBASE));
         a |= 1 << 10;
-        asm ("wrmsr" : : "a"(a), "d"(d), "c"(MSR_APIC_BASE));
+        asm ("wrmsr" : : "a"(a), "d"(d), "c"(MSR_IA32_APICBASE));
         apic_ops = &x2apic_ops;
         return 1;
     } else {
