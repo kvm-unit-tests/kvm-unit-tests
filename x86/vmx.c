@@ -564,7 +564,7 @@ static void do_vmxon_off(void)
 	vmx_on();
 	vmx_off();
 resume:
-	return;
+	barrier();
 }
 
 static void do_write_feature_control(void)
@@ -573,7 +573,7 @@ static void do_write_feature_control(void)
 	barrier();
 	wrmsr(MSR_IA32_FEATURE_CONTROL, 0);
 resume:
-	return;
+	barrier();
 }
 
 static int test_vmx_feature_control(void)
