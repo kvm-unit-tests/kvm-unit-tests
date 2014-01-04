@@ -539,38 +539,18 @@ static void init_vmx(void)
 	memset(guest_syscall_stack, 0, PAGE_SIZE);
 }
 
-static bool exception;
-static void *exception_return;
-
-static void exception_handler(struct ex_regs *regs)
+static void do_vmxon_off(void *data)
 {
-	exception = true;
-	regs->rip = (u64)exception_return;
-}
-
-static int test_for_exception(unsigned int ex, void (*func)(void))
-{
-	handle_exception(ex, exception_handler);
-	exception = false;
-	func();
-	handle_exception(ex, NULL);
-	return exception;
-}
-
-static void do_vmxon_off(void)
-{
-	exception_return = &&resume;
-	barrier();
+	set_exception_return(&&resume);
 	vmx_on();
 	vmx_off();
 resume:
 	barrier();
 }
 
-static void do_write_feature_control(void)
+static void do_write_feature_control(void *data)
 {
-	exception_return = &&resume;
-	barrier();
+	set_exception_return(&&resume);
 	wrmsr(MSR_IA32_FEATURE_CONTROL, 0);
 resume:
 	barrier();
@@ -593,18 +573,18 @@ static int test_vmx_feature_control(void)
 
 	wrmsr(MSR_IA32_FEATURE_CONTROL, 0);
 	report("test vmxon with FEATURE_CONTROL cleared",
-	       test_for_exception(GP_VECTOR, &do_vmxon_off));
+	       test_for_exception(GP_VECTOR, &do_vmxon_off, NULL));
 
 	wrmsr(MSR_IA32_FEATURE_CONTROL, 0x4);
 	report("test vmxon without FEATURE_CONTROL lock",
-	       test_for_exception(GP_VECTOR, &do_vmxon_off));
+	       test_for_exception(GP_VECTOR, &do_vmxon_off, NULL));
 
 	wrmsr(MSR_IA32_FEATURE_CONTROL, 0x5);
 	vmx_enabled = ((rdmsr(MSR_IA32_FEATURE_CONTROL) & 0x5) == 0x5);
 	report("test enable VMX in FEATURE_CONTROL", vmx_enabled);
 
 	report("test FEATURE_CONTROL lock bit",
-	       test_for_exception(GP_VECTOR, &do_write_feature_control));
+	       test_for_exception(GP_VECTOR, &do_write_feature_control, NULL));
 
 	return !vmx_enabled;
 }

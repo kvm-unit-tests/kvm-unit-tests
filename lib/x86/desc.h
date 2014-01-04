@@ -84,4 +84,8 @@ void set_intr_task_gate(int e, void *fn);
 void print_current_tss_info(void);
 void handle_exception(u8 v, void (*func)(struct ex_regs *regs));
 
+bool test_for_exception(unsigned int ex, void (*trigger_func)(void *data),
+			void *data);
+void set_exception_return(void *addr);
+
 #endif

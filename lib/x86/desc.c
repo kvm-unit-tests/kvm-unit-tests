@@ -353,3 +353,27 @@ void print_current_tss_info(void)
                tr, tss[0].prev, tss[i].prev);
 }
 #endif
+
+static bool exception;
+static void *exception_return;
+
+static void exception_handler(struct ex_regs *regs)
+{
+	exception = true;
+	regs->rip = (unsigned long)exception_return;
+}
+
+bool test_for_exception(unsigned int ex, void (*trigger_func)(void *data),
+			void *data)
+{
+	handle_exception(ex, exception_handler);
+	exception = false;
+	trigger_func(data);
+	handle_exception(ex, NULL);
+	return exception;
+}
+
+void set_exception_return(void *addr)
+{
+	exception_return = addr;
+}
