@@ -6,17 +6,6 @@
 #include "isr.h"
 #include "msr.h"
 
-static int g_fail;
-static int g_tests;
-
-static void report(const char *msg, int pass)
-{
-    ++g_tests;
-    printf("%s: %s\n", msg, (pass ? "PASS" : "FAIL"));
-    if (!pass)
-        ++g_fail;
-}
-
 static void test_lapic_existence(void)
 {
     u32 lvr;
@@ -403,7 +392,5 @@ int main()
 
     test_tsc_deadline_timer();
 
-    printf("\nsummary: %d tests, %d failures\n", g_tests, g_fail);
-
-    return g_fail != 0;
+    return report_summary();
 }

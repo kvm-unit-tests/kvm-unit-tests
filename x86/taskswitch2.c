@@ -18,19 +18,8 @@ static volatile unsigned int test_divider;
 static char *fault_addr;
 static ulong fault_phys;
 
-static int g_fail;
-static int g_tests;
-
 static inline void io_delay(void)
 {
-}
-
-static void report(const char *msg, int pass)
-{
-    ++g_tests;
-    printf("%s: %s\n", msg, (pass ? "PASS" : "FAIL"));
-    if (!pass)
-        ++g_fail;
 }
 
 static void nmi_tss(void)
@@ -273,7 +262,5 @@ int main()
 	test_kernel_mode_int();
 	test_vm86_switch();
 
-	printf("\nsummary: %d tests, %d failures\n", g_tests, g_fail);
-
-	return g_fail != 0;
+	return report_summary();
 }

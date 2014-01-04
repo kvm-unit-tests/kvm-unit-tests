@@ -80,17 +80,6 @@ static int find_msr_info(int msr_index)
     return -1;
 }
 
-
-int nr_passed, nr_tests;
-
-static void report(const char *name, int passed)
-{
-	++nr_tests;
-	if (passed)
-		++nr_passed;
-	printf("%s: %s\n", name, passed ? "PASS" : "FAIL");
-}
-
 static void test_msr_rw(int msr_index, unsigned long long input, unsigned long long expected)
 {
     unsigned long long r = 0;
@@ -142,8 +131,6 @@ int main(int ac, char **av)
 
     test_syscall_lazy_load();
 
-    printf("%d tests, %d failures\n", nr_tests, nr_tests - nr_passed);
-
-    return nr_passed == nr_tests ? 0 : 1;
+    return report_summary();
 }
 

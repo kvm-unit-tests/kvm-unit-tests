@@ -14,7 +14,8 @@ libcflat := lib/libcflat.a
 cflatobjs := \
 	lib/panic.o \
 	lib/printf.o \
-	lib/string.o
+	lib/string.o \
+	lib/report.o
 cflatobjs += lib/argv.o
 
 #include architecure specific make rules

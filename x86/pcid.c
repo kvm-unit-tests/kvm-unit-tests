@@ -4,8 +4,6 @@
 #include "processor.h"
 #include "desc.h"
 
-int nr_passed, nr_tests;
-
 #define X86_FEATURE_PCID       (1 << 17)
 #define X86_FEATURE_INVPCID    (1 << 10)
 
@@ -21,14 +19,6 @@ struct invpcid_desc {
     unsigned long rsv  : 52;
     unsigned long addr : 64;
 };
-
-static void report(const char *name, int passed)
-{
-    ++nr_tests;
-    if (passed)
-        ++nr_passed;
-    printf("%s: %s\n", name, passed ? "PASS" : "FAIL");
-}
 
 int write_cr0_checking(unsigned long val)
 {
@@ -180,7 +170,5 @@ int main(int ac, char **av)
     else
         test_invpcid_disabled();
 
-    printf("%d tests, %d failures\n", nr_tests, nr_tests - nr_passed);
-
-    return nr_passed == nr_tests ? 0 : 1;
+    return report_summary();
 }

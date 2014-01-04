@@ -37,7 +37,6 @@
 #include "smp.h"
 #include "io.h"
 
-int fails, tests;
 u32 *vmxon_region;
 struct vmcs *vmcs_root;
 u32 vpid_cnt;
@@ -62,17 +61,6 @@ extern struct descriptor_table_ptr tss_descr;
 extern void *vmx_return;
 extern void *entry_sysenter;
 extern void *guest_entry;
-
-void report(const char *name, int result)
-{
-	++tests;
-	if (result)
-		printf("PASS: %s\n", name);
-	else {
-		printf("FAIL: %s\n", name);
-		++fails;
-	}
-}
 
 static int make_vmcs_current(struct vmcs *vmcs)
 {
@@ -787,7 +775,6 @@ int main(void)
 
 	setup_vm();
 	setup_idt();
-	fails = tests = 0;
 	hypercall_field = 0;
 
 	if (!(cpuid(1).c & (1 << 5))) {
@@ -816,6 +803,5 @@ int main(void)
 			goto exit;
 
 exit:
-	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);
-	return fails ? 1 : 0;
+	return report_summary();
 }

@@ -7,8 +7,6 @@
 #define memset __builtin_memset
 #define TESTDEV_IO_PORT 0xe0
 
-int fails, tests;
-
 static int exceptions;
 
 struct regs {
@@ -24,17 +22,6 @@ struct insn_desc {
 	u64 ptr;
 	size_t len;
 };
-
-void report(const char *name, int result)
-{
-	++tests;
-	if (result)
-		printf("PASS: %s\n", name);
-	else {
-		printf("FAIL: %s\n", name);
-		++fails;
-	}
-}
 
 static char st1[] = "abcdefghijklmnop";
 
@@ -1022,6 +1009,5 @@ int main()
 
 	test_string_io_mmio(mem);
 
-	printf("\nSUMMARY: %d tests, %d failures\n", tests, fails);
-	return fails ? 1 : 0;
+	return report_summary();
 }

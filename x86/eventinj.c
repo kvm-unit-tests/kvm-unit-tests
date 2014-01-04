@@ -12,9 +12,6 @@
 #  define R "e"
 #endif
 
-static int g_fail;
-static int g_tests;
-
 static inline void io_delay(void)
 {
 }
@@ -22,14 +19,6 @@ static inline void io_delay(void)
 static inline void outl(int addr, int val)
 {
         asm volatile ("outl %1, %w0" : : "d" (addr), "a" (val));
-}
-
-static void report(const char *msg, int pass)
-{
-    ++g_tests;
-    printf("%s: %s\n", msg, (pass ? "PASS" : "FAIL"));
-    if (!pass)
-        ++g_fail;
 }
 
 void apic_self_ipi(u8 v)
@@ -416,7 +405,5 @@ int main()
 	printf("After int 33 with shadowed stack\n");
 	report("int 33 with shadowed stack", test_count == 1);
 
-	printf("\nsummary: %d tests, %d failures\n", g_tests, g_fail);
-
-	return g_fail != 0;
+	return report_summary();
 }

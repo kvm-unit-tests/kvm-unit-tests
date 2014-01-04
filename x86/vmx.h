@@ -547,7 +547,6 @@ static inline void invept(unsigned long type, u64 eptp)
 	asm volatile("invept %0, %1\n" ::"m"(operand),"r"(type));
 }
 
-void report(const char *name, int result);
 void print_vmexit_info();
 void install_ept_entry(unsigned long *pml4, int pte_level,
 		unsigned long guest_addr, unsigned long pte,

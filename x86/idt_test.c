@@ -21,19 +21,6 @@ int test_gp(void)
     return exception_vector();
 }
 
-static int nr_fail, nr_test;
-
-static void report(int cond, const char *name)
-{
-    ++nr_test;
-    if (!cond) {
-        ++nr_fail;
-        printf("%s: FAIL\n", name);
-    } else {
-        printf("%s: PASS\n", name);
-    }
-}
-
 int main(void)
 {
     int r;
@@ -41,9 +28,9 @@ int main(void)
     printf("Starting IDT test\n");
     setup_idt();
     r = test_gp();
-    report(r == GP_VECTOR, "Testing #GP");
+    report("Testing #GP", r == GP_VECTOR);
     r = test_ud2();
-    report(r == UD_VECTOR, "Testing #UD");
-    printf("%d failures of %d tests\n", nr_fail, nr_test);
-    return !nr_fail ? 0 : 1;
+    report("Testing #UD", r == UD_VECTOR);
+
+    return report_summary();
 }

@@ -92,7 +92,6 @@ struct pmu_event {
 };
 
 static int num_counters;
-static int tests, failures;
 
 char *buf;
 
@@ -211,13 +210,6 @@ static void measure(pmu_counter_t *evt, int count)
 		stop_event(&evt[i]);
 }
 
-static void report(const char *name, int n, bool pass)
-{
-    printf("%s: pmu %s-%d\n", pass ? "PASS" : "FAIL", name, n);
-    tests += 1;
-    failures += !pass;
-}
-
 static bool verify_event(uint64_t count, struct pmu_event *e)
 {
 	// printf("%lld >= %lld <= %lld\n", e->min, count, e->max);
@@ -236,12 +228,14 @@ static void check_gp_counter(struct pmu_event *evt)
 		.ctr = MSR_IA32_PERFCTR0,
 		.config = EVNTSEL_OS | EVNTSEL_USR | evt->unit_sel,
 	};
+	char fmt[100];
 	int i;
 
 	for (i = 0; i < num_counters; i++, cnt.ctr++) {
 		cnt.count = 0;
 		measure(&cnt, 1);
-		report(evt->name, i, verify_event(cnt.count, evt));
+		snprintf(fmt, sizeof(fmt), "%s-%%d", evt->name);
+		report(fmt, verify_event(cnt.count, evt), i);
 	}
 }
 
@@ -268,7 +262,7 @@ static void check_fixed_counters(void)
 		cnt.count = 0;
 		cnt.ctr = fixed_events[i].unit_sel;
 		measure(&cnt, 1);
-		report("fixed", i, verify_event(cnt.count, &fixed_events[i]));
+		report("fixed-%d", verify_event(cnt.count, &fixed_events[i]), i);
 	}
 }
 
@@ -299,7 +293,7 @@ static void check_counters_many(void)
 		if (!verify_counter(&cnt[i]))
 			break;
 
-	report("all counters", 0, i == n);
+	report("all counters", i == n);
 }
 
 static void check_counter_overflow(void)
@@ -329,13 +323,13 @@ static void check_counter_overflow(void)
 		idx = event_to_global_idx(&cnt);
 		cnt.count = 1 - count;
 		measure(&cnt, 1);
-		report("overflow", i, cnt.count == 1);
+		report("overflow-%d", cnt.count == 1, i);
 		status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
-		report("overflow status", i, status & (1ull << idx));
+		report("overflow status-%d", status & (1ull << idx), i);
 		wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL, status);
 		status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
-		report("overflow status clear", i, !(status & (1ull << idx)));
-		report("overflow irq", i, check_irq() == (i % 2));
+		report("overflow status clear-%d", !(status & (1ull << idx)), i);
+		report("overflow irq-%d", check_irq() == (i % 2), i);
 	}
 }
 
@@ -348,7 +342,7 @@ static void check_gp_counter_cmask(void)
 	};
 	cnt.config |= (0x2 << EVNTSEL_CMASK_SHIFT);
 	measure(&cnt, 1);
-	report("cmask", 0, cnt.count < gp_events[1].min);
+	report("cmask", cnt.count < gp_events[1].min);
 }
 
 static void check_rdpmc(void)
@@ -360,15 +354,15 @@ static void check_rdpmc(void)
 		uint64_t x = (val & 0xffffffff) |
 			((1ull << (eax.split.bit_width - 32)) - 1) << 32;
 		wrmsr(MSR_IA32_PERFCTR0 + i, val);
-		report("rdpmc", i, rdpmc(i) == x);
-		report("rdpmc fast", i, rdpmc(i | (1<<31)) == (u32)val);
+		report("rdpmc-%d", rdpmc(i) == x, i);
+		report("rdpmc fast-%d", rdpmc(i | (1<<31)) == (u32)val, i);
 	}
 	for (i = 0; i < edx.split.num_counters_fixed; i++) {
 		uint64_t x = (val & 0xffffffff) |
 			((1ull << (edx.split.bit_width_fixed - 32)) - 1) << 32;
 		wrmsr(MSR_CORE_PERF_FIXED_CTR0 + i, val);
-		report("rdpmc fixed", i, rdpmc(i | (1 << 30)) == x);
-		report("rdpmc fixed fast", i, rdpmc(i | (3<<30)) == (u32)val);
+		report("rdpmc fixed-%d", rdpmc(i | (1 << 30)) == x, i);
+		report("rdpmc fixed fast-%d", rdpmc(i | (3<<30)) == (u32)val, i);
 	}
 }
 
@@ -409,6 +403,5 @@ int main(int ac, char **av)
 	check_counter_overflow();
 	check_gp_counter_cmask();
 
-	printf("\n%d tests, %d failures\n", tests, failures);
-	return !failures ? 0 : 1;
+	return report_summary();
 }

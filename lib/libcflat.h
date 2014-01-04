@@ -45,6 +45,7 @@ extern char *strcat(char *dest, const char *src);
 extern int strcmp(const char *a, const char *b);
 
 extern int printf(const char *fmt, ...);
+extern int snprintf(char *buf, int size, const char *fmt, ...);
 extern int vsnprintf(char *buf, int size, const char *fmt, va_list va);
 
 extern void puts(const char *s);
@@ -58,4 +59,7 @@ extern long atol(const char *ptr);
 #define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
 
 #define NULL ((void *)0UL)
+
+void report(const char *msg_fmt, bool pass, ...);
+int report_summary(void);
 #endif
