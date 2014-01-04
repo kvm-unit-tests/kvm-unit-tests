@@ -3,6 +3,7 @@
 *.d
 *.o
 *.flat
+*.elf
 .pc
 patches
 .stgit-*
