@@ -66,6 +66,8 @@ typedef struct {
     ".popsection \n\t"                                  \
     "1111:"
 
+#define DB_VECTOR   1
+#define BP_VECTOR   3
 #define UD_VECTOR   6
 #define GP_VECTOR   13
 
