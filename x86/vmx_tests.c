@@ -655,13 +655,21 @@ static void iobmp_main()
 		report("I/O bitmap - overrun", 1);
 	else
 		report("I/O bitmap - overrun", 0);
+	set_stage(9);
+	vmcall();
+	outb(0x0, 0x0);
+	report("I/O bitmap - ignore unconditional exiting", stage == 9);
+	set_stage(10);
+	vmcall();
+	outb(0x0, 0x0);
+	report("I/O bitmap - unconditional exiting", stage == 11);
 }
 
 static int iobmp_exit_handler()
 {
 	u64 guest_rip;
 	ulong reason, exit_qual;
-	u32 insn_len;
+	u32 insn_len, ctrl_cpu0;
 
 	guest_rip = vmcs_read(GUEST_RIP);
 	reason = vmcs_read(EXI_REASON) & 0xff;
@@ -718,6 +726,32 @@ static int iobmp_exit_handler()
 		case 8:
 			if (((exit_qual & VMX_IO_PORT_MASK) >> VMX_IO_PORT_SHIFT) == 0xFFFF)
 				set_stage(stage + 1);
+			break;
+		case 9:
+		case 10:
+			ctrl_cpu0 = vmcs_read(CPU_EXEC_CTRL0);
+			vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu0 & ~CPU_IO);
+			set_stage(stage + 1);
+			break;
+		default:
+			// Should not reach here
+			printf("ERROR : unexpected stage, %d\n", get_stage());
+			print_vmexit_info();
+			return VMX_TEST_VMEXIT;
+		}
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+		return VMX_TEST_RESUME;
+	case VMX_VMCALL:
+		switch (get_stage()) {
+		case 9:
+			ctrl_cpu0 = vmcs_read(CPU_EXEC_CTRL0);
+			ctrl_cpu0 |= CPU_IO | CPU_IO_BITMAP;
+			vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu0);
+			break;
+		case 10:
+			ctrl_cpu0 = vmcs_read(CPU_EXEC_CTRL0);
+			ctrl_cpu0 = (ctrl_cpu0 & ~CPU_IO_BITMAP) | CPU_IO;
+			vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu0);
 			break;
 		default:
 			// Should not reach here
