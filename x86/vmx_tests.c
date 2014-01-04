@@ -9,6 +9,8 @@
 #include "vm.h"
 #include "io.h"
 #include "fwcfg.h"
+#include "isr.h"
+#include "apic.h"
 
 u64 ia32_pat;
 u64 ia32_efer;
@@ -1151,6 +1153,146 @@ static int ept_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
+#define TIMER_VECTOR	222
+
+static volatile bool timer_fired;
+
+static void timer_isr(isr_regs_t *regs)
+{
+	timer_fired = true;
+	apic_write(APIC_EOI, 0);
+}
+
+static int interrupt_init(struct vmcs *vmcs)
+{
+	msr_bmp_init();
+	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_EXTINT);
+	handle_irq(TIMER_VECTOR, timer_isr);
+	return VMX_TEST_START;
+}
+
+static void interrupt_main(void)
+{
+	long long start, loops;
+
+	set_stage(0);
+
+	apic_write(APIC_LVTT, TIMER_VECTOR);
+	irq_enable();
+
+	apic_write(APIC_TMICT, 1);
+	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
+		asm volatile ("nop");
+	report("direct interrupt while running guest", timer_fired);
+
+	apic_write(APIC_TMICT, 0);
+	irq_disable();
+	vmcall();
+	timer_fired = false;
+	apic_write(APIC_TMICT, 1);
+	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
+		asm volatile ("nop");
+	report("intercepted interrupt while running guest", timer_fired);
+
+	irq_enable();
+	apic_write(APIC_TMICT, 0);
+	irq_disable();
+	vmcall();
+	timer_fired = false;
+	start = rdtsc();
+	apic_write(APIC_TMICT, 1000000);
+
+	asm volatile ("sti; hlt");
+
+	report("direct interrupt + hlt",
+	       rdtsc() - start > 1000000 && timer_fired);
+
+	apic_write(APIC_TMICT, 0);
+	irq_disable();
+	vmcall();
+	timer_fired = false;
+	start = rdtsc();
+	apic_write(APIC_TMICT, 1000000);
+
+	asm volatile ("sti; hlt");
+
+	report("intercepted interrupt + hlt",
+	       rdtsc() - start > 10000 && timer_fired);
+
+	apic_write(APIC_TMICT, 0);
+	irq_disable();
+	vmcall();
+	timer_fired = false;
+	start = rdtsc();
+	apic_write(APIC_TMICT, 1000000);
+
+	irq_enable();
+	asm volatile ("nop");
+	vmcall();
+
+	report("direct interrupt + activity state hlt",
+	       rdtsc() - start > 10000 && timer_fired);
+
+	apic_write(APIC_TMICT, 0);
+	irq_disable();
+	vmcall();
+	timer_fired = false;
+	start = rdtsc();
+	apic_write(APIC_TMICT, 1000000);
+
+	irq_enable();
+	asm volatile ("nop");
+	vmcall();
+
+	report("intercepted interrupt + activity state hlt",
+	       rdtsc() - start > 10000 && timer_fired);
+}
+
+static int interrupt_exit_handler(void)
+{
+	u64 guest_rip = vmcs_read(GUEST_RIP);
+	ulong reason = vmcs_read(EXI_REASON) & 0xff;
+	u32 insn_len = vmcs_read(EXI_INST_LEN);
+
+	switch (reason) {
+	case VMX_VMCALL:
+		switch (get_stage()) {
+		case 0:
+		case 2:
+		case 5:
+			vmcs_write(PIN_CONTROLS,
+				   vmcs_read(PIN_CONTROLS) | PIN_EXTINT);
+			break;
+		case 1:
+		case 3:
+			vmcs_write(PIN_CONTROLS,
+				   vmcs_read(PIN_CONTROLS) & ~PIN_EXTINT);
+			break;
+		case 4:
+		case 6:
+			vmcs_write(GUEST_ACTV_STATE, ACTV_HLT);
+			break;
+		}
+		set_stage(get_stage() + 1);
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+		return VMX_TEST_RESUME;
+	case VMX_EXTINT:
+		irq_enable();
+		asm volatile ("nop");
+		irq_disable();
+		if (get_stage() >= 2) {
+			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
+			vmcs_write(GUEST_RIP, guest_rip + insn_len);
+		}
+		return VMX_TEST_RESUME;
+	default:
+		printf("Unknown exit reason, %d\n", reason);
+		print_vmexit_info();
+	}
+
+	return VMX_TEST_VMEXIT;
+}
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
 struct vmx_test vmx_tests[] = {
 	{ "null", NULL, basic_guest_main, basic_exit_handler, NULL, {0} },
@@ -1168,5 +1310,7 @@ struct vmx_test vmx_tests[] = {
 	{ "instruction intercept", insn_intercept_init, insn_intercept_main,
 		insn_intercept_exit_handler, NULL, {0} },
 	{ "EPT framework", ept_init, ept_main, ept_exit_handler, NULL, {0} },
+	{ "interrupt", interrupt_init, interrupt_main,
+		interrupt_exit_handler, NULL, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };

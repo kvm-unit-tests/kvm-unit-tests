@@ -500,6 +500,9 @@ enum Ctrl1 {
 #define INVEPT_SINGLE		1
 #define INVEPT_GLOBAL		2
 
+#define ACTV_ACTIVE		0
+#define ACTV_HLT		1
+
 extern struct regs regs;
 
 extern union vmx_basic basic;

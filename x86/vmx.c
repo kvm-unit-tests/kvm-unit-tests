@@ -445,7 +445,7 @@ static void init_vmcs_guest(void)
 	vmcs_write(GUEST_RFLAGS, 0x2);
 
 	/* 26.3.1.5 */
-	vmcs_write(GUEST_ACTV_STATE, 0);
+	vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 	vmcs_write(GUEST_INTR_STATE, 0);
 }
 
@@ -470,7 +470,6 @@ static int init_vmcs(struct vmcs **vmcs)
 	ctrl_pin |= PIN_EXTINT | PIN_NMI | PIN_VIRT_NMI;
 	ctrl_exit = EXI_LOAD_EFER | EXI_HOST_64;
 	ctrl_enter = (ENT_LOAD_EFER | ENT_GUEST_64);
-	ctrl_cpu[0] |= CPU_HLT;
 	/* DIsable IO instruction VMEXIT now */
 	ctrl_cpu[0] &= (~(CPU_IO | CPU_IO_BITMAP));
 	ctrl_cpu[1] = 0;
