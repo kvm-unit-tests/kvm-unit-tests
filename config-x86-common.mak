@@ -86,7 +86,7 @@ $(TEST_DIR)/xsave.elf: $(cstart.o) $(TEST_DIR)/xsave.o
 
 $(TEST_DIR)/rmap_chain.elf: $(cstart.o) $(TEST_DIR)/rmap_chain.o
 
-$(TEST_DIR)/svm.elf: $(cstart.o)
+$(TEST_DIR)/svm.elf: $(cstart.o) $(TEST_DIR)/svm.o
 
 $(TEST_DIR)/kvmclock_test.elf: $(cstart.o) $(TEST_DIR)/kvmclock.o \
                                 $(TEST_DIR)/kvmclock_test.o
