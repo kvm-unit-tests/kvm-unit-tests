@@ -120,6 +120,32 @@ void test_enable_x2apic(void)
     }
 }
 
+#define ALTERNATE_APIC_BASE	0x42000000
+
+static void test_apicbase(void)
+{
+    u64 orig_apicbase = rdmsr(MSR_IA32_APICBASE);
+    u32 lvr = apic_read(APIC_LVR);
+    u64 value;
+
+    wrmsr(MSR_IA32_APICBASE, orig_apicbase & ~(APIC_EN | APIC_EXTD));
+    wrmsr(MSR_IA32_APICBASE, ALTERNATE_APIC_BASE | APIC_BSP | APIC_EN);
+
+    report("relocate apic",
+           *(volatile u32 *)(ALTERNATE_APIC_BASE + APIC_LVR) == lvr);
+
+    value = orig_apicbase | (1UL << (cpuid(0x80000008).a & 0xff));
+    report("apicbase: reserved physaddr bits",
+           test_for_exception(GP_VECTOR, do_write_apicbase, &value));
+
+    value = orig_apicbase | 1;
+    report("apicbase: reserved low bits",
+           test_for_exception(GP_VECTOR, do_write_apicbase, &value));
+
+    wrmsr(MSR_IA32_APICBASE, orig_apicbase);
+    apic_write(APIC_SPIV, 0x1ff);
+}
+
 static void eoi(void)
 {
     apic_write(APIC_EOI, 0);
@@ -366,6 +392,7 @@ int main()
 
     mask_pic_interrupts();
     test_enable_x2apic();
+    test_apicbase();
 
     test_self_ipi();
 
