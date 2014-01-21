@@ -1,0 +1,46 @@
+#!/bin/bash
+
+if [ ! -f config.mak ]; then
+	echo run ./configure first. See ./configure -h
+	exit 2
+fi
+source config.mak
+
+qemu="${QEMU:-qemu-system-arm}"
+qpath=$(which $qemu 2>/dev/null)
+
+if [ -z "$qpath" ]; then
+	echo $qemu not found.
+	exit 2
+fi
+
+if ! $qemu -machine '?' 2>&1 | grep 'ARM Virtual Machine' > /dev/null; then
+	echo "$qpath doesn't support mach-virt ('-machine virt'). Exiting."
+	exit 2
+fi
+
+M='-machine virt'
+
+if ! $qemu $M -device '?' 2>&1 | grep virtconsole > /dev/null; then
+	echo "$qpath doesn't support virtio-console for chr-testdev. Exiting."
+	exit 2
+fi
+
+if $qemu $M -chardev testdev,id=id -kernel . 2>&1 \
+		| grep backend > /dev/null; then
+	echo "$qpath doesn't support chr-testdev. Exiting."
+	exit 2
+fi
+
+M='-machine virt,accel=kvm:tcg'
+chr_testdev='-device virtio-serial-device'
+chr_testdev+=' -device virtconsole,chardev=ctd -chardev testdev,id=ctd'
+
+command="$qemu $M -cpu $PROCESSOR $chr_testdev"
+command+=" -display none -serial stdio -kernel"
+
+echo $command "$@"
+$command "$@"
+ret=$?
+echo Return value from qemu: $ret
+exit $ret

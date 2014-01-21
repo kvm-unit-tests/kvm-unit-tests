@@ -6,8 +6,7 @@ cc=gcc
 ld=ld
 objcopy=objcopy
 ar=ar
-arch=`uname -m | sed -e s/i.86/i386/`
-processor="$arch"
+arch=`uname -m | sed -e s/i.86/i386/ | sed -e 's/arm.*/arm/'`
 cross_prefix=
 
 usage() {
@@ -16,6 +15,7 @@ usage() {
 
 	Options include:
 	    --arch=ARCH            architecture to compile for ($arch)
+	    --processor=PROCESSOR  processor to compile for ($arch)
 	    --cross-prefix=PREFIX  cross compiler prefix
 	    --cc=CC		   c compiler to use ($cc)
 	    --ld=LD		   ld linker to use ($ld)
@@ -62,6 +62,12 @@ while [[ "$1" = -* ]]; do
 	    ;;
     esac
 done
+[ -z "$processor" ] && processor="$arch"
+
+if [ "$processor" = "arm" ]; then
+    processor="cortex-a15"
+fi
+
 if [ "$arch" = "i386" ] || [ "$arch" = "x86_64" ]; then
     testdir=x86
 else
@@ -76,6 +82,7 @@ if [ -f $testdir/run ]; then
 fi
 
 # check for dependent 32 bit libraries
+if [ "$arch" != "arm" ]; then
 cat << EOF > lib_test.c
 #include <stdc++.h>
 #include <boost_thread-mt.h>
@@ -90,6 +97,7 @@ if [ $exit -eq 0 ]; then
     api=true
 fi
 rm -f lib_test.c
+fi
 
 # link lib/asm for the architecture
 rm -f lib/asm
