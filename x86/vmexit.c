@@ -130,6 +130,11 @@ static void outl_elcr_kernel(void)
     outb(0x4d0, 0);
 }
 
+static void mov_dr(void)
+{
+    asm volatile("mov %0, %%dr7" : : "r" (0x400L));
+}
+
 static void ple_round_robin(void)
 {
 	struct counter {
@@ -318,6 +323,7 @@ static struct test tests[] = {
 	{ inl_nop_qemu, "inl_from_qemu", .parallel = 1 },
 	{ inl_nop_kernel, "inl_from_kernel", .parallel = 1 },
 	{ outl_elcr_kernel, "outl_to_kernel", .parallel = 1 },
+	{ mov_dr, "mov_dr", .parallel = 1 },
 	{ ipi, "ipi", is_smp, .parallel = 0, },
 	{ ipi_halt, "ipi+halt", is_smp, .parallel = 0, },
 	{ ple_round_robin, "ple-round-robin", .parallel = 1 },
