@@ -645,6 +645,13 @@ static void test_sse(sse_union *mem)
     mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
     asm("movdqu %1, %0" : "=x"(v.sse) : "m"(*mem));
     report("movdqu (write)", sseeq(mem, &v));
+
+    v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
+    asm("movaps %1, %0" : "=m"(*mem) : "x"(v.sse));
+    report("movaps (read)", sseeq(mem, &v));
+    mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
+    asm("movaps %1, %0" : "=x"(v.sse) : "m"(*mem));
+    report("movaps (write)", sseeq(&v, mem));
 }
 
 static void test_mmx(uint64_t *mem)
