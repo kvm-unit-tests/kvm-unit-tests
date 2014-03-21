@@ -91,6 +91,18 @@ static void print_serial(const char *buf)
 #endif
 }
 
+static void print_serial_u32(u32 value)
+{
+	char n[12], *p;
+	p = &n[11];
+	*p = 0;
+	do {
+		*--p = '0' + (value % 10);
+		value /= 10;
+	} while (value > 0);
+	print_serial(p);
+}
+
 static void exit(int code)
 {
 	outb(code, 0xf4);
@@ -1534,6 +1546,85 @@ static void test_nopl(void)
 	report("nopl", 0, 1);
 }
 
+static u32 perf_baseline;
+
+#define PERF_COUNT 100000
+
+#define MK_INSN_PERF(name, insn)                                \
+	MK_INSN(name, "rdtsc; mov %eax, %ebx; mov %edx, %esi\n" \
+		      "1:" insn "\n"                            \
+		      "loop 1b\n"                               \
+		      "rdtsc");
+
+static u32 cycles_in_big_real_mode(struct insn_desc *insn)
+{
+	u64 start, end;
+
+	inregs.ecx = PERF_COUNT;
+	exec_in_big_real_mode(insn);
+	start = ((u64)outregs.esi << 32) | outregs.ebx;
+	end = ((u64)outregs.edx << 32) | outregs.eax;
+
+	return end - start;
+}
+
+static void test_perf_loop(void)
+{
+	/*
+	 * This test runs simple instructions that should roughly take the
+	 * the same time to emulate: PERF_COUNT iterations of "loop" and 3
+	 * setup instructions.  Other performance tests can run PERF_COUNT
+	 * iterations of the same instruction and subtract the cycle count
+	 * of this test.
+	 */
+	MK_INSN_PERF(perf_loop, "");
+	perf_baseline = cycles_in_big_real_mode(&insn_perf_loop);
+	print_serial_u32(perf_baseline / (PERF_COUNT + 3));
+	print_serial(" cycles/emulated jump instruction\n");
+}
+
+static void test_perf_mov(void)
+{
+	u32 cyc;
+
+	MK_INSN_PERF(perf_move, "mov %esi, %edi");
+	cyc = cycles_in_big_real_mode(&insn_perf_move);
+	print_serial_u32((cyc - perf_baseline) / PERF_COUNT);
+	print_serial(" cycles/emulated move instruction\n");
+}
+
+static void test_perf_arith(void)
+{
+	u32 cyc;
+
+	MK_INSN_PERF(perf_arith, "add $4, %edi");
+	cyc = cycles_in_big_real_mode(&insn_perf_arith);
+	print_serial_u32((cyc - perf_baseline) / PERF_COUNT);
+	print_serial(" cycles/emulated arithmetic instruction\n");
+}
+
+static void test_perf_memory_load(void)
+{
+	u32 cyc, tmp;
+
+	MK_INSN_PERF(perf_memory_load, "cmp $0, (%edi)");
+	inregs.edi = (u32)&tmp;
+	cyc = cycles_in_big_real_mode(&insn_perf_memory_load);
+	print_serial_u32((cyc - perf_baseline) / PERF_COUNT);
+	print_serial(" cycles/emulated memory load instruction\n");
+}
+
+static void test_perf_memory_rmw(void)
+{
+	u32 cyc, tmp;
+
+	MK_INSN_PERF(perf_memory_rmw, "add $1, (%edi)");
+	inregs.edi = (u32)&tmp;
+	cyc = cycles_in_big_real_mode(&insn_perf_memory_rmw);
+	print_serial_u32((cyc - perf_baseline) / PERF_COUNT);
+	print_serial(" cycles/emulated memory RMW instruction\n");
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1580,6 +1671,11 @@ void realmode_start(void)
 	test_salc();
 	test_fninit();
 	test_nopl();
+	test_perf_loop();
+	test_perf_mov();
+	test_perf_arith();
+	test_perf_memory_load();
+	test_perf_memory_rmw();
 
 	exit(0);
 }
