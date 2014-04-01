@@ -1548,12 +1548,12 @@ static void test_nopl(void)
 
 static u32 perf_baseline;
 
-#define PERF_COUNT 100000
+#define PERF_COUNT 1000000
 
 #define MK_INSN_PERF(name, insn)                                \
 	MK_INSN(name, "rdtsc; mov %eax, %ebx; mov %edx, %esi\n" \
 		      "1:" insn "\n"                            \
-		      "loop 1b\n"                               \
+		      ".byte 0x67; loop 1b\n"                   \
 		      "rdtsc");
 
 static u32 cycles_in_big_real_mode(struct insn_desc *insn)
