@@ -1614,6 +1614,17 @@ static void test_perf_memory_load(void)
 	print_serial(" cycles/emulated memory load instruction\n");
 }
 
+static void test_perf_memory_store(void)
+{
+	u32 cyc, tmp;
+
+	MK_INSN_PERF(perf_memory_store, "mov %ax, (%edi)");
+	inregs.edi = (u32)&tmp;
+	cyc = cycles_in_big_real_mode(&insn_perf_memory_store);
+	print_serial_u32((cyc - perf_baseline) / PERF_COUNT);
+	print_serial(" cycles/emulated memory store instruction\n");
+}
+
 static void test_perf_memory_rmw(void)
 {
 	u32 cyc, tmp;
@@ -1675,6 +1686,7 @@ void realmode_start(void)
 	test_perf_mov();
 	test_perf_arith();
 	test_perf_memory_load();
+	test_perf_memory_store();
 	test_perf_memory_rmw();
 
 	exit(0);
