@@ -83,6 +83,7 @@ static void of_isr(struct ex_regs *r)
 	printf("OF isr running\n");
 	test_count++;
 }
+#endif
 
 static void np_isr(struct ex_regs *r)
 {
@@ -90,7 +91,6 @@ static void np_isr(struct ex_regs *r)
 	set_idt_sel(33, read_cs());
 	test_count++;
 }
-#endif
 
 static void de_isr(struct ex_regs *r)
 {
@@ -316,7 +316,6 @@ int main()
 	while(test_count != 2); /* wait for second irq */
 	irq_disable();
 
-#ifndef __x86_64__
 	/* test fault durint NP delivery */
 	printf("Before NP test\n");
 	test_count = 0;
@@ -327,7 +326,6 @@ int main()
 	asm volatile ("int $33");
 	printf("After int33\n");
 	report("NP exception", test_count == 2);
-#endif
 
 	/* generate NMI that will fault on IDT */
 	test_count = 0;
