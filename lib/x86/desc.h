@@ -106,6 +106,7 @@ extern idt_entry_t boot_idt[256];
 #ifndef __x86_64__
 extern gdt_entry_t gdt32[];
 extern tss32_t tss;
+extern tss32_t tss_intr;
 #endif
 
 unsigned exception_vector(void);
@@ -113,6 +114,7 @@ unsigned exception_error_code(void);
 void set_idt_entry(int vec, void *addr, int dpl);
 void set_idt_sel(int vec, u16 sel);
 void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran);
+void set_gdt_task_gate(u16 tss_sel, u16 sel);
 void set_idt_task_gate(int vec, u16 sel);
 void set_intr_task_gate(int e, void *fn);
 void print_current_tss_info(void);

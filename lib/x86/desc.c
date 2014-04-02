@@ -217,6 +217,11 @@ void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran)
 	gdt32[num].access = access;
 }
 
+void set_gdt_task_gate(u16 sel, u16 tss_sel)
+{
+    set_gdt_entry(sel, tss_sel, 0, 0x85, 0); // task, present
+}
+
 void set_idt_task_gate(int vec, u16 sel)
 {
     idt_entry_t *e = &boot_idt[vec];
@@ -235,7 +240,7 @@ void set_idt_task_gate(int vec, u16 sel)
  * 1 - interrupt task
  */
 
-static tss32_t tss_intr;
+tss32_t tss_intr;
 static char tss_stack[4096];
 
 void setup_tss32(void)
