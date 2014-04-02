@@ -34,10 +34,10 @@ gdt32:
 	.quad 0x00cf9b000000ffff // flat 32-bit code segment
 	.quad 0x00cf93000000ffff // flat 32-bit data segment
 	.quad 0x00cf1b000000ffff // flat 32-bit code segment, not present
+	.quad 0x00cffb000000ffff // 64-bit code segment (user)
+	.quad 0x00cff3000000ffff // 64-bit data segment (user)
 
-	.quad 0			 // 12 spare selectors
-	.quad 0
-	.quad 0
+	.quad 0			 // 10 spare selectors
 	.quad 0
 	.quad 0
 	.quad 0

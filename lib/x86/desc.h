@@ -72,8 +72,10 @@ typedef struct {
 #define KERNEL_CS 0x08
 #define KERNEL_DS 0x10
 #define NP_SEL 0x18
-#define TSS_INTR 0x20
-#define FIRST_SPARE_SEL 0x28
+#define USER_CS 0x23
+#define USER_DS 0x2b
+#define TSS_INTR 0x30
+#define FIRST_SPARE_SEL 0x38
 #define TSS_MAIN 0x80
 
 typedef struct {

@@ -191,11 +191,13 @@ unsigned exception_error_code(void)
 /*
  * GDT, with 6 entries:
  * 0x00 - NULL descriptor
- * 0x08 - Code segment
- * 0x10 - Data segment
- * 0x18 - Not present code segment
- * 0x20 - Interrupt task
- * 0x28 to 0x78 - Free to use for test cases
+ * 0x08 - Code segment (ring 0)
+ * 0x10 - Data segment (ring 0)
+ * 0x18 - Not present code segment (ring 0)
+ * 0x20 - Code segment (ring 3)
+ * 0x28 - Data segment (ring 3)
+ * 0x30 - Interrupt task
+ * 0x38 to 0x78 - Free to use for test cases
  * 0x80 - Primary task (CPU 0)
  */
 

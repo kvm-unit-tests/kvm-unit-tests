@@ -346,16 +346,16 @@ static void init_vmcs_host(void)
 	vmcs_write(HOST_CR3, read_cr3());
 	vmcs_write(HOST_CR4, read_cr4());
 	vmcs_write(HOST_SYSENTER_EIP, (u64)(&entry_sysenter));
-	vmcs_write(HOST_SYSENTER_CS,  SEL_KERN_CODE_64);
+	vmcs_write(HOST_SYSENTER_CS,  KERNEL_CS);
 
 	/* 26.2.3 */
-	vmcs_write(HOST_SEL_CS, SEL_KERN_CODE_64);
-	vmcs_write(HOST_SEL_SS, SEL_KERN_DATA_64);
-	vmcs_write(HOST_SEL_DS, SEL_KERN_DATA_64);
-	vmcs_write(HOST_SEL_ES, SEL_KERN_DATA_64);
-	vmcs_write(HOST_SEL_FS, SEL_KERN_DATA_64);
-	vmcs_write(HOST_SEL_GS, SEL_KERN_DATA_64);
-	vmcs_write(HOST_SEL_TR, SEL_TSS_RUN);
+	vmcs_write(HOST_SEL_CS, KERNEL_CS);
+	vmcs_write(HOST_SEL_SS, KERNEL_DS);
+	vmcs_write(HOST_SEL_DS, KERNEL_DS);
+	vmcs_write(HOST_SEL_ES, KERNEL_DS);
+	vmcs_write(HOST_SEL_FS, KERNEL_DS);
+	vmcs_write(HOST_SEL_GS, KERNEL_DS);
+	vmcs_write(HOST_SEL_TR, TSS_MAIN);
 	vmcs_write(HOST_BASE_TR, tss_descr.base);
 	vmcs_write(HOST_BASE_GDTR, gdt64_desc.base);
 	vmcs_write(HOST_BASE_IDTR, idt_descr.base);
@@ -389,7 +389,7 @@ static void init_vmcs_guest(void)
 	vmcs_write(GUEST_CR0, guest_cr0);
 	vmcs_write(GUEST_CR3, guest_cr3);
 	vmcs_write(GUEST_CR4, guest_cr4);
-	vmcs_write(GUEST_SYSENTER_CS,  SEL_KERN_CODE_64);
+	vmcs_write(GUEST_SYSENTER_CS,  KERNEL_CS);
 	vmcs_write(GUEST_SYSENTER_ESP,
 		(u64)(guest_syscall_stack + PAGE_SIZE - 1));
 	vmcs_write(GUEST_SYSENTER_EIP, (u64)(&entry_sysenter));
@@ -397,13 +397,13 @@ static void init_vmcs_guest(void)
 	vmcs_write(GUEST_EFER, rdmsr(MSR_EFER));
 
 	/* 26.3.1.2 */
-	vmcs_write(GUEST_SEL_CS, SEL_KERN_CODE_64);
-	vmcs_write(GUEST_SEL_SS, SEL_KERN_DATA_64);
-	vmcs_write(GUEST_SEL_DS, SEL_KERN_DATA_64);
-	vmcs_write(GUEST_SEL_ES, SEL_KERN_DATA_64);
-	vmcs_write(GUEST_SEL_FS, SEL_KERN_DATA_64);
-	vmcs_write(GUEST_SEL_GS, SEL_KERN_DATA_64);
-	vmcs_write(GUEST_SEL_TR, SEL_TSS_RUN);
+	vmcs_write(GUEST_SEL_CS, KERNEL_CS);
+	vmcs_write(GUEST_SEL_SS, KERNEL_DS);
+	vmcs_write(GUEST_SEL_DS, KERNEL_DS);
+	vmcs_write(GUEST_SEL_ES, KERNEL_DS);
+	vmcs_write(GUEST_SEL_FS, KERNEL_DS);
+	vmcs_write(GUEST_SEL_GS, KERNEL_DS);
+	vmcs_write(GUEST_SEL_TR, TSS_MAIN);
 	vmcs_write(GUEST_SEL_LDTR, 0);
 
 	vmcs_write(GUEST_BASE_CS, 0);

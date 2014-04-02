@@ -553,8 +553,8 @@ int ac_test_do_access(ac_test_t *at)
 		    [write]"r"(at->flags[AC_ACCESS_WRITE]),
 		    [user]"r"(at->flags[AC_ACCESS_USER]),
 		    [fetch]"r"(at->flags[AC_ACCESS_FETCH]),
-		    [user_ds]"i"(32+3),
-		    [user_cs]"i"(24+3),
+		    [user_ds]"i"(USER_DS),
+		    [user_cs]"i"(USER_CS),
 		    [user_stack_top]"r"(user_stack + sizeof user_stack),
 		    [kernel_entry_vector]"i"(0x20)
 		  : "rsi");
