@@ -9,9 +9,6 @@
 #define MAIN_TSS_INDEX (FREE_GDT_INDEX + 0)
 #define VM86_TSS_INDEX (FREE_GDT_INDEX + 1)
 
-#define xstr(s) str(s)
-#define str(s) #s
-
 static volatile int test_count;
 static volatile unsigned int test_divider;
 
