@@ -7,13 +7,6 @@
 #define X86_FEATURE_PCID       (1 << 17)
 #define X86_FEATURE_INVPCID    (1 << 10)
 
-#define X86_CR0_PG             (1 << 31)
-#define X86_CR3_PCID_MASK      0x00000fff
-#define X86_CR4_PCIDE          (1 << 17)
-
-#define X86_IA32_EFER          0xc0000080
-#define X86_EFER_LMA           (1UL << 8)
-
 struct invpcid_desc {
     unsigned long pcid : 12;
     unsigned long rsv  : 52;

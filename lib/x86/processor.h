@@ -14,6 +14,20 @@
 #  define S "4"
 #endif
 
+#define X86_CR0_PE     0x00000001
+#define X86_CR0_MP     0x00000002
+#define X86_CR0_TS     0x00000008
+#define X86_CR0_WP     0x00010000
+#define X86_CR0_PG     0x80000000
+#define X86_CR4_VMXE   0x00000001
+#define X86_CR4_TSD    0x00000004
+#define X86_CR4_DE     0x00000008
+#define X86_CR4_PSE    0x00000010
+#define X86_CR4_PAE    0x00000020
+#define X86_CR4_PCIDE  0x00020000
+
+#define X86_IA32_EFER          0xc0000080
+#define X86_EFER_LMA           (1UL << 8)
 
 struct descriptor_table_ptr {
     u16 limit;
