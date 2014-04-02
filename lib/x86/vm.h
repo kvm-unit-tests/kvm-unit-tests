@@ -25,17 +25,18 @@ void *alloc_vpage(void);
 void *alloc_vpages(ulong nr);
 uint64_t virt_to_phys_cr3(void *mem);
 
-void install_pte(unsigned long *cr3,
-                        int pte_level,
-                        void *virt,
-                        unsigned long pte,
-                        unsigned long *pt_page);
+unsigned long *get_pte(unsigned long *cr3, void *virt);
+unsigned long *install_pte(unsigned long *cr3,
+                           int pte_level,
+                           void *virt,
+                           unsigned long pte,
+                           unsigned long *pt_page);
 
 void *alloc_page();
 
-void install_large_page(unsigned long *cr3,unsigned long phys,
-                               void *virt);
-void install_page(unsigned long *cr3, unsigned long phys, void *virt);
+unsigned long *install_large_page(unsigned long *cr3,unsigned long phys,
+                                  void *virt);
+unsigned long *install_page(unsigned long *cr3, unsigned long phys, void *virt);
 
 static inline unsigned long virt_to_phys(const void *virt)
 {
