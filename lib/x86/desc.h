@@ -71,16 +71,18 @@ typedef struct {
 #define UD_VECTOR   6
 #define GP_VECTOR   13
 
+#define KERNEL_CS 0x08
+#define KERNEL_DS 0x10
+#define NP_SEL 0x18
 #define TSS_MAIN 0x20
 #define TSS_INTR 0x28
-
-#define NP_SEL 0x18
+#define FIRST_SPARE_SEL 0x30
 
 unsigned exception_vector(void);
 unsigned exception_error_code(void);
 void set_idt_entry(int vec, void *addr, int dpl);
 void set_idt_sel(int vec, u16 sel);
-void set_gdt_entry(int num, u32 base,  u32 limit, u8 access, u8 gran);
+void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran);
 void set_idt_task_gate(int vec, u16 sel);
 void set_intr_task_gate(int e, void *fn);
 void print_current_tss_info(void);

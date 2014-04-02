@@ -228,10 +228,11 @@ unsigned exception_error_code(void)
  */
 
 static gdt_entry_t gdt[10];
-#define TSS_GDT_OFFSET 4
 
-void set_gdt_entry(int num, u32 base,  u32 limit, u8 access, u8 gran)
+void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran)
 {
+	int num = sel >> 3;
+
 	/* Setup the descriptor base address */
 	gdt[num].base_low = (base & 0xFFFF);
 	gdt[num].base_middle = (base >> 16) & 0xFF;
@@ -261,15 +262,15 @@ void setup_gdt(void)
 	/* The second entry is our Code Segment. The base address
 	 *  is 0, the limit is 4GBytes, it uses 4KByte granularity,
 	 *  uses 32-bit opcodes, and is a Code Segment descriptor. */
-	set_gdt_entry(1, 0, 0xFFFFFFFF, 0x9A, 0xcf);
+	set_gdt_entry(KERNEL_CS, 0, 0xFFFFFFFF, 0x9A, 0xcf);
 
 	/* The third entry is our Data Segment. It's EXACTLY the
 	 *  same as our code segment, but the descriptor type in
 	 *  this entry's access byte says it's a Data Segment */
-	set_gdt_entry(2, 0, 0xFFFFFFFF, 0x92, 0xcf);
+	set_gdt_entry(KERNEL_DS, 0, 0xFFFFFFFF, 0x92, 0xcf);
 
 	/* Same as code register above but not present */
-	set_gdt_entry(3, 0, 0xFFFFFFFF, 0x1A, 0xcf);
+	set_gdt_entry(NP_SEL, 0, 0xFFFFFFFF, 0x1A, 0xcf);
 
 
 	/* Flush out the old GDT and install the new changes! */
@@ -280,7 +281,7 @@ void setup_gdt(void)
 		      "mov %0, %%fs\n\t"
 		      "mov %0, %%gs\n\t"
 		      "mov %0, %%ss\n\t"
-		      "jmp $0x08, $.Lflush2\n\t"
+		      "jmp $" xstr(KERNEL_CS), $.Lflush2\n\t"
 		      ".Lflush2: "::"r"(0x10));
 }
 
@@ -315,10 +316,11 @@ void setup_tss32(void)
 		tss[i].ss0 = tss[i].ss1 = tss[i].ss2 = 0x10;
 		tss[i].esp = tss[i].esp0 = tss[i].esp1 = tss[i].esp2 =
 			(u32)tss_stack[i] + 4096;
-		tss[i].cs = 0x08;
-		tss[i].ds = tss[i].es = tss[i].fs = tss[i].gs = tss[i].ss = 0x10;
+		tss[i].cs = KERNEL_CS;
+		tss[i].ds = tss[i].es = tss[i].fs = tss[i].gs =
+			tss[i].ss = KERNEL_DS;
 		tss[i].iomap_base = (u16)desc_size;
-		set_gdt_entry(TSS_GDT_OFFSET + i, (u32)&tss[i],
+		set_gdt_entry(TSS_MAIN + (i << 3), (u32)&tss[i],
 			     desc_size - 1, 0x89, 0x0f);
 	}
 

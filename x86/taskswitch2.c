@@ -5,9 +5,8 @@
 #include "processor.h"
 #include "vm.h"
 
-#define FREE_GDT_INDEX 6
-#define MAIN_TSS_INDEX (FREE_GDT_INDEX + 0)
-#define VM86_TSS_INDEX (FREE_GDT_INDEX + 1)
+#define MAIN_TSS_SEL (FIRST_SPARE_SEL + 0)
+#define VM86_TSS_SEL (FIRST_SPARE_SEL + 8)
 
 static volatile int test_count;
 static volatile unsigned int test_divider;
@@ -217,15 +216,15 @@ void test_vm86_switch(void)
     vm86_start[1] = 0x0b;
 
     /* Main TSS */
-    set_gdt_entry(MAIN_TSS_INDEX, (u32)&main_tss, sizeof(tss32_t) - 1, 0x89, 0);
-    ltr(MAIN_TSS_INDEX << 3);
+    set_gdt_entry(MAIN_TSS_SEL, (u32)&main_tss, sizeof(tss32_t) - 1, 0x89, 0);
+    ltr(MAIN_TSS_SEL);
     main_tss = (tss32_t) {
-        .prev   = VM86_TSS_INDEX << 3,
+        .prev   = VM86_TSS_SEL,
         .cr3    = read_cr3(),
     };
 
     /* VM86 TSS (marked as busy, so we can iret to it) */
-    set_gdt_entry(VM86_TSS_INDEX, (u32)&vm86_tss, sizeof(tss32_t) - 1, 0x8b, 0);
+    set_gdt_entry(VM86_TSS_SEL, (u32)&vm86_tss, sizeof(tss32_t) - 1, 0x8b, 0);
     vm86_tss = (tss32_t) {
         .eflags = 0x20002,
         .cr3    = read_cr3(),
@@ -236,7 +235,7 @@ void test_vm86_switch(void)
     };
 
     /* Setup task gate to main TSS for #UD */
-    set_idt_task_gate(6, MAIN_TSS_INDEX << 3);
+    set_idt_task_gate(6, MAIN_TSS_SEL);
 
     /* Jump into VM86 task with iret, #UD lets it come back immediately */
     printf("Switch to VM86 task and back\n");
