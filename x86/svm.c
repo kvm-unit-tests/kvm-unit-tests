@@ -95,7 +95,7 @@ static void setup_svm(void)
     pml4e[0] = ((u64)pdpe) | 0x27;
 }
 
-static u64 *get_pte(u64 address)
+static u64 *npt_get_pte(u64 address)
 {
     int i1, i2;
 
@@ -502,14 +502,14 @@ static void npt_nx_prepare(struct test *test)
     u64 *pte;
 
     vmcb_ident(test->vmcb);
-    pte = get_pte((u64)null_test);
+    pte = npt_get_pte((u64)null_test);
 
     *pte |= (1ULL << 63);
 }
 
 static bool npt_nx_check(struct test *test)
 {
-    u64 *pte = get_pte((u64)null_test);
+    u64 *pte = npt_get_pte((u64)null_test);
 
     *pte &= ~(1ULL << 63);
 
@@ -524,7 +524,7 @@ static void npt_us_prepare(struct test *test)
     u64 *pte;
 
     vmcb_ident(test->vmcb);
-    pte = get_pte((u64)scratch_page);
+    pte = npt_get_pte((u64)scratch_page);
 
     *pte &= ~(1ULL << 2);
 }
@@ -536,7 +536,7 @@ static void npt_us_test(struct test *test)
 
 static bool npt_us_check(struct test *test)
 {
-    u64 *pte = get_pte((u64)scratch_page);
+    u64 *pte = npt_get_pte((u64)scratch_page);
 
     *pte |= (1ULL << 2);
 
@@ -566,7 +566,7 @@ static void npt_rw_prepare(struct test *test)
     u64 *pte;
 
     vmcb_ident(test->vmcb);
-    pte = get_pte(0x80000);
+    pte = npt_get_pte(0x80000);
 
     *pte &= ~(1ULL << 1);
 }
@@ -580,7 +580,7 @@ static void npt_rw_test(struct test *test)
 
 static bool npt_rw_check(struct test *test)
 {
-    u64 *pte = get_pte(0x80000);
+    u64 *pte = npt_get_pte(0x80000);
 
     *pte |= (1ULL << 1);
 
@@ -594,14 +594,14 @@ static void npt_pfwalk_prepare(struct test *test)
     u64 *pte;
 
     vmcb_ident(test->vmcb);
-    pte = get_pte(read_cr3());
+    pte = npt_get_pte(read_cr3());
 
     *pte &= ~(1ULL << 1);
 }
 
 static bool npt_pfwalk_check(struct test *test)
 {
-    u64 *pte = get_pte(read_cr3());
+    u64 *pte = npt_get_pte(read_cr3());
 
     *pte |= (1ULL << 1);
 
