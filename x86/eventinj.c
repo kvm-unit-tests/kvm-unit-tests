@@ -59,16 +59,24 @@ static volatile int test_count;
 ulong stack_phys;
 void *stack_va;
 
-static void pf_tss(void)
+void do_pf_tss(void)
 {
-start:
 	printf("PF running\n");
 	install_pte(phys_to_virt(read_cr3()), 1, stack_va,
 		    stack_phys | PTE_PRESENT | PTE_WRITE, 0);
 	invlpg(stack_va);
-	asm volatile ("iret");
-	goto start;
 }
+
+extern void pf_tss(void);
+
+asm (
+        "pf_tss: \n\t"
+        "call do_pf_tss \n\t"
+        "add $"S", %"R "sp\n\t"        // discard error code
+        "iret"W" \n\t"
+        "jmp pf_tss\n\t"
+    );
+
 
 static void of_isr(struct ex_regs *r)
 {
@@ -114,39 +122,51 @@ static void nmi_isr(struct ex_regs *r)
 	printf("After nested NMI to self\n");
 }
 
-unsigned long after_iret_addr;
+unsigned long *iret_stack;
 
 static void nested_nmi_iret_isr(struct ex_regs *r)
 {
 	printf("Nested NMI isr running rip=%x\n", r->rip);
 
-	if (r->rip == after_iret_addr)
+	if (r->rip == iret_stack[-3])
 		test_count++;
 }
+
+extern void do_iret(ulong phys_stack, void *virt_stack);
+
+// Return to same privilege level won't pop SS or SP, so
+// save it in RDX while we run on the nested stack
+
+asm("do_iret:"
+#ifdef __x86_64__
+	"mov %rdi, %rax \n\t"		// phys_stack
+	"mov %rsi, %rdx \n\t"		// virt_stack
+#else
+	"mov 4(%esp), %eax \n\t"	// phys_stack
+	"mov 8(%esp), %edx \n\t"	// virt_stack
+#endif
+	"xchg %"R "dx, %"R "sp \n\t"	// point to new stack
+	"pushf"W" \n\t"
+	"mov %cs, %ecx \n\t"
+	"push"W" %"R "cx \n\t"
+	"push"W" $1f \n\t"
+	"outl %eax, $0xe4 \n\t"		// flush page
+	"iret"W" \n\t"
+	"1: xchg %"R "dx, %"R "sp \n\t"	// point to old stack
+	"ret\n\t"
+   );
+
 static void nmi_iret_isr(struct ex_regs *r)
 {
 	unsigned long *s = alloc_page();
 	test_count++;
-	printf("NMI isr running %p stack %p\n", &&after_iret, s);
+	printf("NMI isr running stack %p\n", s);
 	handle_exception(2, nested_nmi_iret_isr);
 	printf("Sending nested NMI to self\n");
 	apic_self_nmi();
 	printf("After nested NMI to self\n");
-	s[4] = read_ss();
-	s[3] = 0; /* rsp */
-	s[2] = read_rflags();
-	s[1] = read_cs();
-	s[0] = after_iret_addr = (unsigned long)&&after_iret;
-	asm ("mov %%" R "sp, %0\n\t"
-	     "mov %1, %%" R "sp\n\t"
-	     "outl %2, $0xe4\n\t" /* flush stack page */
-#ifdef __x86_64__
-	     "iretq\n\t"
-#else
-	     "iretl\n\t"
-#endif
-	     : "=m"(s[3]) : "rm"(&s[0]), "a"((unsigned int)virt_to_phys(s)) : "memory");
-after_iret:
+	iret_stack = &s[128];
+	do_iret(virt_to_phys(s), iret_stack);
 	printf("After iret\n");
 }
 
