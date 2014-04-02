@@ -77,6 +77,7 @@ tss_descr:
 gdt64_end:
 
 i = 0
+.globl tss
 tss:
 	.rept max_cpus
 	.long 0

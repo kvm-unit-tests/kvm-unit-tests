@@ -187,6 +187,8 @@ unsigned exception_error_code(void)
     return error_code;
 }
 
+static char intr_alt_stack[4096];
+
 #ifndef __x86_64__
 /*
  * GDT, with 6 entries:
@@ -243,7 +245,6 @@ void set_idt_task_gate(int vec, u16 sel)
  */
 
 tss32_t tss_intr;
-static char tss_stack[4096];
 
 void setup_tss32(void)
 {
@@ -253,7 +254,7 @@ void setup_tss32(void)
 	tss_intr.cr3 = read_cr3();
 	tss_intr.ss0 = tss_intr.ss1 = tss_intr.ss2 = 0x10;
 	tss_intr.esp = tss_intr.esp0 = tss_intr.esp1 = tss_intr.esp2 =
-		(u32)tss_stack + 4096;
+		(u32)intr_alt_stack + 4096;
 	tss_intr.cs = 0x08;
 	tss_intr.ds = tss_intr.es = tss_intr.fs = tss_intr.gs = tss_intr.ss = 0x10;
 	tss_intr.iomap_base = (u16)desc_size;
@@ -266,6 +267,16 @@ void set_intr_task_gate(int e, void *fn)
 	set_idt_task_gate(e, TSS_INTR);
 }
 
+void setup_alt_stack(void)
+{
+	setup_tss32();
+}
+
+void set_intr_alt_stack(int e, void *fn)
+{
+	set_intr_task_gate(e, fn);
+}
+
 void print_current_tss_info(void)
 {
 	u16 tr = str();
@@ -275,6 +286,17 @@ void print_current_tss_info(void)
 	else
 		printf("TR=%x (%s) Main TSS back link %x. Intr TSS back link %x\n",
 		       tr, tr ? "interrupt" : "main", tss.prev, tss_intr.prev);
+}
+#else
+void set_intr_alt_stack(int e, void *addr)
+{
+	set_idt_entry(e, addr, 0);
+	boot_idt[e].ist = 1;
+}
+
+void setup_alt_stack(void)
+{
+	tss.ist1 = (u64)intr_alt_stack + 4096;
 }
 #endif
 

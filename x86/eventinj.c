@@ -183,7 +183,7 @@ int main()
 
 	setup_vm();
 	setup_idt();
-	setup_tss32();
+	setup_alt_stack();
 
 	handle_irq(32, tirq0);
 	handle_irq(33, tirq1);
@@ -344,7 +344,7 @@ int main()
 
 	/* Generate DE and PF exceptions serially */
 	test_divider = 0;
-	set_intr_task_gate(14, pf_tss);
+	set_intr_alt_stack(14, pf_tss);
 	handle_exception(0, de_isr);
 	printf("Try to divide by 0\n");
 	/* install read only pte */
@@ -363,7 +363,7 @@ int main()
 	/* Generate NP and PF exceptions serially */
 	printf("Before NP test\n");
 	test_count = 0;
-	set_intr_task_gate(14, pf_tss);
+	set_intr_alt_stack(14, pf_tss);
 	handle_exception(11, np_isr);
 	set_idt_sel(33, NP_SEL);
 	/* install read only pte */

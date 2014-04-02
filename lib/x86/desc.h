@@ -2,11 +2,7 @@
 #define __IDT_TEST__
 
 void setup_idt(void);
-#ifndef __x86_64__
-void setup_tss32(void);
-#else
-static inline void setup_tss32(void){}
-#endif
+void setup_alt_stack(void);
 
 struct ex_regs {
     unsigned long rax, rcx, rdx, rbx;
@@ -56,6 +52,24 @@ typedef struct {
 	u16 res12:15;
 	u16 iomap_base;
 } tss32_t;
+
+typedef struct  __attribute__((packed)) {
+	u32 res1;
+	u64 rsp0;
+	u64 rsp1;
+	u64 rsp2;
+	u64 res2;
+	u64 ist1;
+	u64 ist2;
+	u64 ist3;
+	u64 ist4;
+	u64 ist5;
+	u64 ist6;
+	u64 ist7;
+	u64 res3;
+	u16 res4;
+	u16 iomap_base;
+} tss64_t;
 
 #define ASM_TRY(catch)                                  \
     "movl $0, %%gs:4 \n\t"                              \
@@ -109,6 +123,12 @@ extern idt_entry_t boot_idt[256];
 extern gdt_entry_t gdt32[];
 extern tss32_t tss;
 extern tss32_t tss_intr;
+void set_gdt_task_gate(u16 tss_sel, u16 sel);
+void set_idt_task_gate(int vec, u16 sel);
+void set_intr_task_gate(int vec, void *fn);
+void setup_tss32(void);
+#else
+extern tss64_t tss;
 #endif
 
 unsigned exception_vector(void);
@@ -116,9 +136,7 @@ unsigned exception_error_code(void);
 void set_idt_entry(int vec, void *addr, int dpl);
 void set_idt_sel(int vec, u16 sel);
 void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran);
-void set_gdt_task_gate(u16 tss_sel, u16 sel);
-void set_idt_task_gate(int vec, u16 sel);
-void set_intr_task_gate(int e, void *fn);
+void set_intr_alt_stack(int e, void *fn);
 void print_current_tss_info(void);
 void handle_exception(u8 v, void (*func)(struct ex_regs *regs));
 
