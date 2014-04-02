@@ -28,10 +28,25 @@ i = 0
         i = i + 1
         .endr
 
+.globl gdt32
 gdt32:
 	.quad 0
 	.quad 0x00cf9b000000ffff // flat 32-bit code segment
 	.quad 0x00cf93000000ffff // flat 32-bit data segment
+	.quad 0x00cf1b000000ffff // flat 32-bit code segment, not present
+
+	.quad 0			 // 12 spare selectors
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad 0
+	.quad 0
 
 tss_descr:
         .rept max_cpus
@@ -40,6 +55,7 @@ tss_descr:
 gdt32_end:
 
 i = 0
+.globl tss
 tss:
         .rept max_cpus
         .long 0

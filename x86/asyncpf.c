@@ -89,7 +89,6 @@ int main(int ac, char **av)
 
 	setup_vm();
 	setup_idt();
-	setup_gdt();
 	printf("install handler\n");
 	handle_exception(14, pf_isr);
 	apf_reason = 0;

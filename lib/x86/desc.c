@@ -193,69 +193,28 @@ unsigned exception_error_code(void)
  * 0x00 - NULL descriptor
  * 0x08 - Code segment
  * 0x10 - Data segment
- * 0x18 - Not presend code segment
- * 0x20 - Primery task
- * 0x28 - Interrupt task
- *
- * 0x30 to 0x48 - Free to use for test cases
+ * 0x18 - Not present code segment
+ * 0x20 - Interrupt task
+ * 0x28 to 0x78 - Free to use for test cases
+ * 0x80 - Primary task (CPU 0)
  */
-
-static gdt_entry_t gdt[10];
 
 void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran)
 {
 	int num = sel >> 3;
 
 	/* Setup the descriptor base address */
-	gdt[num].base_low = (base & 0xFFFF);
-	gdt[num].base_middle = (base >> 16) & 0xFF;
-	gdt[num].base_high = (base >> 24) & 0xFF;
+	gdt32[num].base_low = (base & 0xFFFF);
+	gdt32[num].base_middle = (base >> 16) & 0xFF;
+	gdt32[num].base_high = (base >> 24) & 0xFF;
 
 	/* Setup the descriptor limits */
-	gdt[num].limit_low = (limit & 0xFFFF);
-	gdt[num].granularity = ((limit >> 16) & 0x0F);
+	gdt32[num].limit_low = (limit & 0xFFFF);
+	gdt32[num].granularity = ((limit >> 16) & 0x0F);
 
 	/* Finally, set up the granularity and access flags */
-	gdt[num].granularity |= (gran & 0xF0);
-	gdt[num].access = access;
-}
-
-void setup_gdt(void)
-{
-	struct descriptor_table_ptr gp;
-	/* Setup the GDT pointer and limit */
-	gp.limit = sizeof(gdt) - 1;
-	gp.base = (ulong)&gdt;
-
-	memset(gdt, 0, sizeof(gdt));
-
-	/* Our NULL descriptor */
-	set_gdt_entry(0, 0, 0, 0, 0);
-
-	/* The second entry is our Code Segment. The base address
-	 *  is 0, the limit is 4GBytes, it uses 4KByte granularity,
-	 *  uses 32-bit opcodes, and is a Code Segment descriptor. */
-	set_gdt_entry(KERNEL_CS, 0, 0xFFFFFFFF, 0x9A, 0xcf);
-
-	/* The third entry is our Data Segment. It's EXACTLY the
-	 *  same as our code segment, but the descriptor type in
-	 *  this entry's access byte says it's a Data Segment */
-	set_gdt_entry(KERNEL_DS, 0, 0xFFFFFFFF, 0x92, 0xcf);
-
-	/* Same as code register above but not present */
-	set_gdt_entry(NP_SEL, 0, 0xFFFFFFFF, 0x1A, 0xcf);
-
-
-	/* Flush out the old GDT and install the new changes! */
-	lgdt(&gp);
-
-	asm volatile ("mov %0, %%ds\n\t"
-		      "mov %0, %%es\n\t"
-		      "mov %0, %%fs\n\t"
-		      "mov %0, %%gs\n\t"
-		      "mov %0, %%ss\n\t"
-		      "jmp $" xstr(KERNEL_CS), $.Lflush2\n\t"
-		      ".Lflush2: "::"r"(0x10));
+	gdt32[num].granularity |= (gran & 0xF0);
+	gdt32[num].access = access;
 }
 
 void set_idt_task_gate(int vec, u16 sel)
@@ -276,46 +235,39 @@ void set_idt_task_gate(int vec, u16 sel)
  * 1 - interrupt task
  */
 
-static tss32_t tss[2];
-static char tss_stack[2][4096];
+static tss32_t tss_intr;
+static char tss_stack[4096];
 
 void setup_tss32(void)
 {
 	u16 desc_size = sizeof(tss32_t);
-	int i;
 
-	for (i = 0; i < 2; i++) {
-		tss[i].cr3 = read_cr3();
-		tss[i].ss0 = tss[i].ss1 = tss[i].ss2 = 0x10;
-		tss[i].esp = tss[i].esp0 = tss[i].esp1 = tss[i].esp2 =
-			(u32)tss_stack[i] + 4096;
-		tss[i].cs = KERNEL_CS;
-		tss[i].ds = tss[i].es = tss[i].fs = tss[i].gs =
-			tss[i].ss = KERNEL_DS;
-		tss[i].iomap_base = (u16)desc_size;
-		set_gdt_entry(TSS_MAIN + (i << 3), (u32)&tss[i],
-			     desc_size - 1, 0x89, 0x0f);
-	}
-
-	ltr(TSS_MAIN);
+	tss.cr3 = read_cr3();
+	tss_intr.cr3 = read_cr3();
+	tss_intr.ss0 = tss_intr.ss1 = tss_intr.ss2 = 0x10;
+	tss_intr.esp = tss_intr.esp0 = tss_intr.esp1 = tss_intr.esp2 =
+		(u32)tss_stack + 4096;
+	tss_intr.cs = 0x08;
+	tss_intr.ds = tss_intr.es = tss_intr.fs = tss_intr.gs = tss_intr.ss = 0x10;
+	tss_intr.iomap_base = (u16)desc_size;
+	set_gdt_entry(TSS_INTR, (u32)&tss_intr, desc_size - 1, 0x89, 0x0f);
 }
 
 void set_intr_task_gate(int e, void *fn)
 {
-	tss[1].eip = (u32)fn;
+	tss_intr.eip = (u32)fn;
 	set_idt_task_gate(e, TSS_INTR);
 }
 
 void print_current_tss_info(void)
 {
 	u16 tr = str();
-	int i = (tr == TSS_MAIN) ? 0 : 1;
 
 	if (tr != TSS_MAIN && tr != TSS_INTR)
 		printf("Unknown TSS %x\n", tr);
 	else
-		printf("TR=%x Main TSS back link %x. Current TSS back link %x\n",
-               tr, tss[0].prev, tss[i].prev);
+		printf("TR=%x (%s) Main TSS back link %x. Intr TSS back link %x\n",
+		       tr, tr ? "interrupt" : "main", tss.prev, tss_intr.prev);
 }
 #endif
 

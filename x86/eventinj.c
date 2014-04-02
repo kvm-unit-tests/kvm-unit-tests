@@ -183,7 +183,6 @@ int main()
 
 	setup_vm();
 	setup_idt();
-	setup_gdt();
 	setup_tss32();
 
 	handle_irq(32, tirq0);

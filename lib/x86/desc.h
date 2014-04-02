@@ -3,10 +3,8 @@
 
 void setup_idt(void);
 #ifndef __x86_64__
-void setup_gdt(void);
 void setup_tss32(void);
 #else
-static inline void setup_gdt(void){}
 static inline void setup_tss32(void){}
 #endif
 
@@ -74,9 +72,9 @@ typedef struct {
 #define KERNEL_CS 0x08
 #define KERNEL_DS 0x10
 #define NP_SEL 0x18
-#define TSS_MAIN 0x20
-#define TSS_INTR 0x28
-#define FIRST_SPARE_SEL 0x30
+#define TSS_INTR 0x20
+#define FIRST_SPARE_SEL 0x28
+#define TSS_MAIN 0x80
 
 typedef struct {
     unsigned short offset0;
@@ -104,6 +102,11 @@ typedef struct {
 } gdt_entry_t;
 
 extern idt_entry_t boot_idt[256];
+
+#ifndef __x86_64__
+extern gdt_entry_t gdt32[];
+extern tss32_t tss;
+#endif
 
 unsigned exception_vector(void);
 unsigned exception_error_code(void);
