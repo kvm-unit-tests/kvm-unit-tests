@@ -73,7 +73,7 @@ void install_pte(unsigned long *cr3,
             else
                 pt_page = 0;
 	    memset(new_pt, 0, PAGE_SIZE);
-	    pt[offset] = virt_to_phys(new_pt) | PTE_PRESENT | PTE_WRITE;
+	    pt[offset] = virt_to_phys(new_pt) | PTE_PRESENT | PTE_WRITE | PTE_USER;
 	}
 	pt = phys_to_virt(pt[offset] & 0xffffffffff000ull);
     }
