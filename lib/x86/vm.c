@@ -116,23 +116,6 @@ void install_page(unsigned long *cr3,
 }
 
 
-static inline void load_gdt(unsigned long *table, int nent)
-{
-    struct descriptor_table_ptr descr;
-
-    descr.limit = nent * 8 - 1;
-    descr.base = (ulong)table;
-    lgdt(&descr);
-}
-
-#define SEG_CS_32 8
-#define SEG_CS_64 16
-
-struct ljmp {
-    void *ofs;
-    unsigned short seg;
-};
-
 static void setup_mmu_range(unsigned long *cr3, unsigned long start,
 			    unsigned long len)
 {
