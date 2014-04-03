@@ -55,7 +55,6 @@ static void flush_idt_page()
 static volatile unsigned int test_divider;
 static volatile int test_count;
 
-#ifndef __x86_64__
 ulong stack_phys;
 void *stack_va;
 
@@ -69,15 +68,24 @@ void do_pf_tss(void)
 
 extern void pf_tss(void);
 
-asm (
-        "pf_tss: \n\t"
+asm ("pf_tss: \n\t"
+#ifdef __x86_64__
+        // no task on x86_64, save/restore caller-save regs
+        "push %rax; push %rcx; push %rdx; push %rsi; push %rdi\n"
+        "push %r8; push %r9; push %r10; push %r11\n"
+#endif
         "call do_pf_tss \n\t"
-        "add $"S", %"R "sp\n\t"        // discard error code
+#ifdef __x86_64__
+        "pop %r11; pop %r10; pop %r9; pop %r8\n"
+        "pop %rdi; pop %rsi; pop %rdx; pop %rcx; pop %rax\n"
+#endif
+        "add $"S", %"R "sp\n\t"	// discard error code
         "iret"W" \n\t"
         "jmp pf_tss\n\t"
     );
 
 
+#ifndef __x86_64__
 static void of_isr(struct ex_regs *r)
 {
 	printf("OF isr running\n");
@@ -356,7 +364,6 @@ int main()
 	irq_disable();
 	printf("After NMI to self\n");
 	report("NMI", test_count == 2);
-#ifndef __x86_64__
 	stack_phys = (ulong)virt_to_phys(alloc_page());
 	stack_va = alloc_vpage();
 
@@ -395,7 +402,6 @@ int main()
 	restore_stack();
 	printf("After int33\n");
 	report("NP PF exceptions", test_count == 2);
-#endif
 
 	pt = alloc_page();
 	cr3 = (void*)read_cr3();
