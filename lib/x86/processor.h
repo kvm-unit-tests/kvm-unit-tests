@@ -4,6 +4,17 @@
 #include "libcflat.h"
 #include <stdint.h>
 
+#ifdef __x86_64__
+#  define R "r"
+#  define W "q"
+#  define S "8"
+#else
+#  define R "e"
+#  define W "l"
+#  define S "4"
+#endif
+
+
 struct descriptor_table_ptr {
     u16 limit;
     ulong base;

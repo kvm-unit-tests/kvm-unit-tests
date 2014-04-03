@@ -3,12 +3,6 @@
 #include "vm.h"
 #include "desc.h"
 
-#ifdef __x86_64__
-#  define R "r"
-#else
-#  define R "e"
-#endif
-
 extern char isr_entry_point[];
 
 asm (

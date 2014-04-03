@@ -47,12 +47,6 @@ static unsigned int inl(unsigned short port)
 
 static int nr_cpus;
 
-#ifdef __x86_64__
-#  define R "r"
-#else
-#  define R "e"
-#endif
-
 static void cpuid_test(void)
 {
 	asm volatile ("push %%"R "bx; cpuid; pop %%"R "bx"

@@ -101,16 +101,6 @@ void do_handle_exception(struct ex_regs *regs)
 	exit(7);
 }
 
-#ifdef __x86_64__
-#  define R "r"
-#  define W "q"
-#  define S "8"
-#else
-#  define R "e"
-#  define W "l"
-#  define S "4"
-#endif
-
 #define EX(NAME, N) extern char NAME##_fault;	\
 	asm (".pushsection .text \n\t"		\
 	     #NAME"_fault: \n\t"		\
