@@ -2,33 +2,6 @@
 #include "desc.h"
 #include "processor.h"
 
-typedef struct {
-    unsigned short offset0;
-    unsigned short selector;
-    unsigned short ist : 3;
-    unsigned short : 5;
-    unsigned short type : 4;
-    unsigned short : 1;
-    unsigned short dpl : 2;
-    unsigned short p : 1;
-    unsigned short offset1;
-#ifdef __x86_64__
-    unsigned offset2;
-    unsigned reserved;
-#endif
-} idt_entry_t;
-
-typedef struct {
-	u16 limit_low;
-	u16 base_low;
-	u8 base_middle;
-	u8 access;
-	u8 granularity;
-	u8 base_high;
-} gdt_entry_t;
-
-extern idt_entry_t boot_idt[256];
-
 void set_idt_entry(int vec, void *addr, int dpl)
 {
     idt_entry_t *e = &boot_idt[vec];
