@@ -1,47 +1,12 @@
 #include "libcflat.h"
 #include "desc.h"
+#include "processor.h"
 
 #ifdef __x86_64__
 #define uint64_t unsigned long
 #else
 #define uint64_t unsigned long long
 #endif
-
-static inline void __cpuid(unsigned int *eax, unsigned int *ebx,
-        unsigned int *ecx, unsigned int *edx)
-{
-    /* ecx is often an input as well as an output. */
-    asm volatile("cpuid"
-            : "=a" (*eax),
-            "=b" (*ebx),
-            "=c" (*ecx),
-            "=d" (*edx)
-            : "0" (*eax), "2" (*ecx));
-}
-
-/*
- * Generic CPUID function
- * clear %ecx since some cpus (Cyrix MII) do not set or clear %ecx
- * resulting in stale register contents being returned.
- */
-void cpuid(unsigned int op,
-        unsigned int *eax, unsigned int *ebx,
-        unsigned int *ecx, unsigned int *edx)
-{
-    *eax = op;
-    *ecx = 0;
-    __cpuid(eax, ebx, ecx, edx);
-}
-
-/* Some CPUID calls want 'count' to be placed in ecx */
-void cpuid_count(unsigned int op, int count,
-        unsigned int *eax, unsigned int *ebx,
-        unsigned int *ecx, unsigned int *edx)
-{
-    *eax = op;
-    *ecx = count;
-    __cpuid(eax, ebx, ecx, edx);
-}
 
 int xgetbv_checking(u32 index, u64 *result)
 {
@@ -68,13 +33,6 @@ int xsetbv_checking(u32 index, u64 value)
     return exception_vector();
 }
 
-unsigned long read_cr4(void)
-{
-    unsigned long val;
-    asm volatile("mov %%cr4,%0" : "=r" (val));
-    return val;
-}
-
 int write_cr4_checking(unsigned long val)
 {
     asm volatile(ASM_TRY("1f")
@@ -87,20 +45,16 @@ int write_cr4_checking(unsigned long val)
 #define CPUID_1_ECX_OSXSAVE	    (1 << 27)
 int check_cpuid_1_ecx(unsigned int bit)
 {
-    unsigned int eax, ebx, ecx, edx;
-    cpuid(1, &eax, &ebx, &ecx, &edx);
-    if (ecx & bit)
-        return 1;
-    return 0;
+    return (cpuid(1).c & bit) != 0;
 }
 
 uint64_t get_supported_xcr0(void)
 {
-    unsigned int eax, ebx, ecx, edx;
-    cpuid_count(0xd, 0, &eax, &ebx, &ecx, &edx);
+    struct cpuid r;
+    r = cpuid_indexed(0xd, 0);
     printf("eax %x, ebx %x, ecx %x, edx %x\n",
-            eax, ebx, ecx, edx);
-    return eax + ((u64)edx << 32);
+            r.a, r.b, r.c, r.d);
+    return r.a + ((u64)r.d << 32);
 }
 
 #define X86_CR4_OSXSAVE			0x00040000
