@@ -25,6 +25,7 @@
 #define X86_CR4_PSE    0x00000010
 #define X86_CR4_PAE    0x00000020
 #define X86_CR4_PCIDE  0x00020000
+#define X86_CR4_SMAP   0x00200000
 
 #define X86_IA32_EFER          0xc0000080
 #define X86_EFER_LMA           (1UL << 8)
@@ -37,6 +38,16 @@ struct descriptor_table_ptr {
 static inline void barrier(void)
 {
     asm volatile ("" : : : "memory");
+}
+
+static inline void clac(void)
+{
+    asm volatile (".byte 0x0f, 0x01, 0xca" : : : "memory");
+}
+
+static inline void stac(void)
+{
+    asm volatile (".byte 0x0f, 0x01, 0xcb" : : : "memory");
 }
 
 static inline u16 read_cs(void)
@@ -330,7 +341,7 @@ static inline void irq_enable(void)
     asm volatile("sti");
 }
 
-static inline void invlpg(void *va)
+static inline void invlpg(volatile void *va)
 {
 	asm volatile("invlpg (%0)" ::"r" (va) : "memory");
 }

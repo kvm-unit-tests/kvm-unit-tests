@@ -37,7 +37,7 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/kvmclock_test.flat  $(TEST_DIR)/eventinj.flat \
                $(TEST_DIR)/s3.flat $(TEST_DIR)/pmu.flat \
                $(TEST_DIR)/tsc_adjust.flat $(TEST_DIR)/asyncpf.flat \
-               $(TEST_DIR)/init.flat
+               $(TEST_DIR)/init.flat $(TEST_DIR)/smap.flat
 
 ifdef API
 tests-common += api/api-sample
@@ -100,6 +100,8 @@ $(TEST_DIR)/pmu.elf: $(cstart.o) $(TEST_DIR)/pmu.o
 $(TEST_DIR)/asyncpf.elf: $(cstart.o) $(TEST_DIR)/asyncpf.o
 
 $(TEST_DIR)/pcid.elf: $(cstart.o) $(TEST_DIR)/pcid.o
+
+$(TEST_DIR)/smap.elf: $(cstart.o) $(TEST_DIR)/smap.o
 
 $(TEST_DIR)/vmx.elf: $(cstart.o) $(TEST_DIR)/vmx.o $(TEST_DIR)/vmx_tests.o
 
