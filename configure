@@ -91,6 +91,17 @@ if [ $exit -eq 0 ]; then
 fi
 rm -f lib_test.c
 
+# link lib/asm for the architecture
+rm -f lib/asm
+asm=asm-generic
+if [ -d lib/$arch/asm ]; then
+	asm=$arch/asm
+elif [ -d lib/$testdir/asm ]; then
+	asm=$testdir/asm
+fi
+ln -s $asm lib/asm
+
+# create the config
 cat <<EOF > config.mak
 PREFIX=$prefix
 KERNELDIR=$(readlink -f $kerneldir)

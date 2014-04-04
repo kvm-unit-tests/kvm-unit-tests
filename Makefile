@@ -77,11 +77,11 @@ libfdt_clean:
 	$(LIBFDT_objdir)/.*.d
 
 distclean: clean libfdt_clean
-	$(RM) config.mak $(TEST_DIR)-run test.log msr.out cscope.*
+	$(RM) lib/asm config.mak $(TEST_DIR)-run test.log msr.out cscope.*
 
-cscope: common_dirs = lib lib/libfdt
+cscope: common_dirs = lib lib/libfdt lib/asm lib/asm-generic
 cscope:
 	$(RM) ./cscope.*
-	find $(TEST_DIR) lib/$(TEST_DIR) $(common_dirs) -maxdepth 1 \
+	find -L $(TEST_DIR) lib/$(TEST_DIR) $(common_dirs) -maxdepth 1 \
 		-name '*.[chsS]' -print | sed 's,^\./,,' > ./cscope.files
 	cscope -bk

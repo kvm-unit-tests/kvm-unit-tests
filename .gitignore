@@ -9,6 +9,7 @@ patches
 .stgit-*
 cscope.*
 *.swp
+/lib/asm
 /config.mak
 /*-run
 /test.log
