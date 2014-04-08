@@ -41,7 +41,8 @@ cflatobjs += \
 	lib/chr-testdev.o \
 	lib/arm/io.o \
 	lib/arm/setup.o \
-	lib/arm/spinlock.o
+	lib/arm/spinlock.o \
+	lib/arm/processor.o
 
 libeabi = lib/arm/libeabi.a
 eabiobjs = lib/arm/eabi_compat.o
