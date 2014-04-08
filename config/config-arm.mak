@@ -30,6 +30,9 @@ CFLAGS += -Wextra
 CFLAGS += -O2
 CFLAGS += -I lib -I lib/libfdt
 
+asm-offsets = lib/arm/asm-offsets.h
+include config/asm-offsets.mak
+
 cflatobjs += \
 	lib/alloc.o \
 	lib/devicetree.o \
@@ -59,7 +62,7 @@ FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libgcc) $(libeabi)
 $(libeabi): $(eabiobjs)
 	$(AR) rcs $@ $^
 
-arch_clean: libfdt_clean
+arch_clean: libfdt_clean asm_offsets_clean
 	$(RM) $(TEST_DIR)/*.{o,flat,elf} $(libeabi) $(eabiobjs) \
 	      $(TEST_DIR)/.*.d lib/arm/.*.d
 
@@ -69,7 +72,9 @@ tests_and_config = $(TEST_DIR)/*.flat $(TEST_DIR)/unittests.cfg
 
 cstart.o = $(TEST_DIR)/cstart.o
 
-test_cases: $(tests-common) $(tests)
+generated_files = $(asm-offsets)
+
+test_cases: $(generated_files) $(tests-common) $(tests)
 
 $(TEST_DIR)/selftest.elf: $(cstart.o) $(TEST_DIR)/selftest.o
 
