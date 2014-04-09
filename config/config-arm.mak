@@ -37,7 +37,8 @@ cflatobjs += \
 	lib/virtio-mmio.o \
 	lib/chr-testdev.o \
 	lib/arm/io.o \
-	lib/arm/setup.o
+	lib/arm/setup.o \
+	lib/arm/spinlock.o
 
 libeabi = lib/arm/libeabi.a
 eabiobjs = lib/arm/eabi_compat.o
