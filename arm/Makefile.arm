@@ -18,6 +18,6 @@ cflatobjs += lib/arm/processor.o
 # arm specific tests
 tests =
 
-include config/config-arm-common.mak
+include $(TEST_DIR)/Makefile.common
 
 arch_clean: arm_clean

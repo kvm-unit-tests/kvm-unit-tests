@@ -34,8 +34,7 @@ each as a standalone test.
 
 Directory structure:
 .:		configure script, top-level Makefile, and run_tests.sh
-./config:	collection of architecture dependent makefiles
-./docs:		documentation files
+./scripts:	helper scripts for building and running tests
 ./lib:		general architecture neutral services for the tests
 ./lib/<ARCH>:	architecture dependent services for the tests
 ./<ARCH>:	the sources of the tests and the created objects/images
