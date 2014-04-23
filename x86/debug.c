@@ -109,5 +109,5 @@ hw_wp:
 	       n == 1 &&
 	       bp_addr[0] == ((unsigned long)&&hw_wp) && dr6[0] == 0xffff4ff2);
 
-	return 0;
+	return report_summary();
 }
