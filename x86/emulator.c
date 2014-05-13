@@ -891,14 +891,14 @@ static void test_sreg(volatile uint16_t *mem)
     // check for null segment load
     *mem = 0;
     asm volatile("mov %0, %%ss" : : "m"(*mem));
-    report("mov null, %ss", read_ss() == 0);
+    report("mov null, %%ss", read_ss() == 0);
 
     // check for exception when ss.rpl != cpl on null segment load
     exceptions = 0;
     handle_exception(GP_VECTOR, ss_bad_rpl);
     *mem = 3;
     asm volatile("mov %0, %%ss; ss_bad_rpl_cont:" : : "m"(*mem));
-    report("mov null, %ss (with ss.rpl != cpl)", exceptions == 1 && read_ss() == 0);
+    report("mov null, %%ss (with ss.rpl != cpl)", exceptions == 1 && read_ss() == 0);
     handle_exception(GP_VECTOR, 0);
     write_ss(ss);
 }
