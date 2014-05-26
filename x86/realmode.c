@@ -1636,6 +1636,16 @@ static void test_perf_memory_rmw(void)
 	print_serial(" cycles/emulated memory RMW instruction\n");
 }
 
+void test_dr_mod(void)
+{
+	MK_INSN(drmod, "movl %ebx, %dr0\n\t"
+		       ".byte 0x0f \n\t .byte 0x21 \n\t .byte 0x0\n\t");
+	inregs.eax = 0xdead;
+	inregs.ebx = 0xaced;
+	exec_in_big_real_mode(&insn_drmod);
+	report("mov dr with mod bits", R_AX | R_BX, outregs.eax == 0xaced);
+}
+
 void realmode_start(void)
 {
 	test_null();
@@ -1681,6 +1691,7 @@ void realmode_start(void)
 	test_xlat();
 	test_salc();
 	test_fninit();
+	test_dr_mod();
 	test_nopl();
 	test_perf_loop();
 	test_perf_mov();
