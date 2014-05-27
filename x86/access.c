@@ -62,6 +62,7 @@ enum {
     AC_PDE_PSE,
     AC_PDE_NX,
     AC_PDE_BIT51,
+    AC_PDE_BIT13,
 
     AC_ACCESS_USER,
     AC_ACCESS_WRITE,
@@ -92,6 +93,7 @@ const char *ac_names[] = {
     [AC_PDE_PSE] = "pde.pse",
     [AC_PDE_NX] = "pde.nx",
     [AC_PDE_BIT51] = "pde.51",
+    [AC_PDE_BIT13] = "pde.13",
     [AC_ACCESS_WRITE] = "write",
     [AC_ACCESS_USER] = "user",
     [AC_ACCESS_FETCH] = "fetch",
@@ -208,13 +210,23 @@ int ac_test_bump_one(ac_test_t *at)
 
 _Bool ac_test_legal(ac_test_t *at)
 {
+    if (at->flags[AC_ACCESS_FETCH] && at->flags[AC_ACCESS_WRITE])
+	return false;
+
     /*
      * Since we convert current page to kernel page when cr4.smep=1,
      * we can't switch to user mode.
      */
-    if ((at->flags[AC_ACCESS_FETCH] && at->flags[AC_ACCESS_WRITE]) ||
-        (at->flags[AC_ACCESS_USER] && at->flags[AC_CPU_CR4_SMEP]))
+    if (at->flags[AC_ACCESS_USER] && at->flags[AC_CPU_CR4_SMEP])
 	return false;
+
+    /*
+     * pde.bit13 checks handling of reserved bits in largepage PDEs.  It is
+     * meaningless if there is a PTE.
+     */
+    if (!at->flags[AC_PDE_PSE] && at->flags[AC_PDE_BIT13])
+        return false;
+
     return true;
 }
 
@@ -259,7 +271,7 @@ void ac_set_expected_status(ac_test_t *at)
     at->expected_error = PFERR_PRESENT_MASK;
 
     pde_valid = at->flags[AC_PDE_PRESENT]
-        && !at->flags[AC_PDE_BIT51]
+        && !at->flags[AC_PDE_BIT51] && !at->flags[AC_PDE_BIT13]
         && !(at->flags[AC_PDE_NX] && !at->flags[AC_CPU_EFER_NX]);
     pte_valid = pde_valid
         && at->flags[AC_PTE_PRESENT]
@@ -398,6 +410,8 @@ void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
 		pte |= PT_NX_MASK;
 	    if (at->flags[AC_PDE_BIT51])
 		pte |= 1ull << 51;
+	    if (at->flags[AC_PDE_BIT13])
+		pte |= 1ull << 13;
 	    at->pdep = &vroot[index];
 	    break;
 	case 1:
