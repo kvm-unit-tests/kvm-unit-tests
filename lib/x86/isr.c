@@ -90,3 +90,35 @@ void handle_irq(unsigned vec, void (*func)(isr_regs_t *regs))
     *(u32 *)thunk = (ulong)isr_entry_point - (ulong)(thunk + 4);
 #endif
 }
+
+void handle_external_interrupt(int vector)
+{
+#ifdef __x86_64__
+	unsigned long tmp;
+#endif
+	idt_entry_t *idt = &boot_idt[vector];
+	unsigned long entry =
+	    idt->offset0 | ((unsigned long)idt->offset1 << 16) |
+	    ((unsigned long)idt->offset2 << 32);
+
+	asm volatile(
+#ifdef __x86_64__
+		     "mov %%rsp, %[sp]\n\t"
+		     "and $0xfffffffffffffff0, %%rsp\n\t"
+		     "push $%c[ss]\n\t"
+		     "push %[sp]\n\t"
+#endif
+		     "pushf\n\t"
+		     "orl $0x200, (%%rsp)\n\t"
+		     "push $%c[cs]\n\t"
+		     "call *%[entry]\n\t"
+		     :
+#ifdef __x86_64__
+		     [sp]"=&r"(tmp)
+#endif
+		     :
+		     [entry]"r"(entry),
+		     [ss]"i"(KERNEL_DS),
+		     [cs]"i"(KERNEL_CS)
+		     );
+}

@@ -10,5 +10,5 @@ typedef struct {
 } isr_regs_t;
 
 void handle_irq(unsigned vec, void (*func)(isr_regs_t *regs));
-
+void handle_external_interrupt(int vector);
 #endif

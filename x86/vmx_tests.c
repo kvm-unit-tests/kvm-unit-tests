@@ -1290,6 +1290,16 @@ static void interrupt_main(void)
 
 	report("intercepted interrupt + activity state hlt",
 	       rdtsc() - start > 10000 && timer_fired);
+
+	apic_write(APIC_TMICT, 0);
+	irq_disable();
+	set_stage(7);
+	vmcall();
+	timer_fired = false;
+	apic_write(APIC_TMICT, 1);
+	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
+		asm volatile ("nop");
+	report("running a guest with interrupt acknowledgement set", timer_fired);
 }
 
 static int interrupt_exit_handler(void)
@@ -1307,6 +1317,11 @@ static int interrupt_exit_handler(void)
 			vmcs_write(PIN_CONTROLS,
 				   vmcs_read(PIN_CONTROLS) | PIN_EXTINT);
 			break;
+		case 7:
+			vmcs_write(EXI_CONTROLS, vmcs_read(EXI_CONTROLS) | EXI_INTA);
+			vmcs_write(PIN_CONTROLS,
+				   vmcs_read(PIN_CONTROLS) | PIN_EXTINT);
+			break;
 		case 1:
 		case 3:
 			vmcs_write(PIN_CONTROLS,
@@ -1321,9 +1336,14 @@ static int interrupt_exit_handler(void)
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	case VMX_EXTINT:
-		irq_enable();
-		asm volatile ("nop");
-		irq_disable();
+		if (vmcs_read(EXI_CONTROLS) & EXI_INTA) {
+			int vector = vmcs_read(EXI_INTR_INFO) & 0xff;
+			handle_external_interrupt(vector);
+		} else {
+			irq_enable();
+			asm volatile ("nop");
+			irq_disable();
+		}
 		if (get_stage() >= 2) {
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 			vmcs_write(GUEST_RIP, guest_rip + insn_len);
