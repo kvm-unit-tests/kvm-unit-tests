@@ -551,6 +551,7 @@ static inline void invept(unsigned long type, u64 eptp)
 }
 
 void print_vmexit_info();
+void ept_sync(int type, u64 eptp);
 void install_ept_entry(unsigned long *pml4, int pte_level,
 		unsigned long guest_addr, unsigned long pte,
 		unsigned long *pt_page);

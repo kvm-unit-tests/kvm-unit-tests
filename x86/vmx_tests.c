@@ -1116,21 +1116,21 @@ static int ept_exit_handler()
 		case 1:
 			install_ept(pml4, (unsigned long)data_page1,
  				(unsigned long)data_page1, EPT_WA);
-			invept(INVEPT_SINGLE, eptp);
+			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 2:
 			install_ept(pml4, (unsigned long)data_page1,
  				(unsigned long)data_page1,
  				EPT_RA | EPT_WA | EPT_EA |
  				(2 << EPT_MEM_TYPE_SHIFT));
-			invept(INVEPT_SINGLE, eptp);
+			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 3:
 			data_page1_pte = get_ept_pte(pml4,
 				(unsigned long)data_page1, 1);
 			set_ept_pte(pml4, (unsigned long)data_page1, 
 				1, data_page1_pte & (~EPT_PRESENT));
-			invept(INVEPT_SINGLE, eptp);
+			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 4:
 			data_page1_pte = get_ept_pte(pml4,
@@ -1139,7 +1139,7 @@ static int ept_exit_handler()
 			data_page1_pte_pte = get_ept_pte(pml4, data_page1_pte, 2);
 			set_ept_pte(pml4, data_page1_pte, 2,
 				data_page1_pte_pte & (~EPT_PRESENT));
-			invept(INVEPT_SINGLE, eptp);
+			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		// Should not reach here
 		default:
@@ -1157,7 +1157,7 @@ static int ept_exit_handler()
 			install_ept(pml4, (unsigned long)data_page1,
  				(unsigned long)data_page1,
  				EPT_RA | EPT_WA | EPT_EA);
-			invept(INVEPT_SINGLE, eptp);
+			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		// Should not reach here
 		default:
@@ -1174,14 +1174,14 @@ static int ept_exit_handler()
 				set_stage(get_stage() + 1);
 			set_ept_pte(pml4, (unsigned long)data_page1, 
 				1, data_page1_pte | (EPT_PRESENT));
-			invept(INVEPT_SINGLE, eptp);
+			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 4:
 			if (exit_qual == (EPT_VLT_RD | EPT_VLT_LADDR_VLD))
 				set_stage(get_stage() + 1);
 			set_ept_pte(pml4, data_page1_pte, 2,
 				data_page1_pte_pte | (EPT_PRESENT));
-			invept(INVEPT_SINGLE, eptp);
+			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		default:
 			// Should not reach here

@@ -288,6 +288,26 @@ unsigned long get_ept_pte(unsigned long *pml4,
 	return pte;
 }
 
+void ept_sync(int type, u64 eptp)
+{
+	switch (type) {
+	case INVEPT_SINGLE:
+		if (ept_vpid.val & EPT_CAP_INVEPT_SINGLE) {
+			invept(INVEPT_SINGLE, eptp);
+			break;
+		}
+		/* else fall through */
+	case INVEPT_GLOBAL:
+		if (ept_vpid.val & EPT_CAP_INVEPT_ALL) {
+			invept(INVEPT_GLOBAL, eptp);
+			break;
+		}
+		/* else fall through */
+	default:
+		printf("WARNING: invept is not supported!\n");
+	}
+}
+
 int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
 		int level, u64 pte_val)
 {
