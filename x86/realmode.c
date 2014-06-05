@@ -1650,6 +1650,20 @@ void test_dr_mod(void)
 	report("mov dr with mod bits", R_AX | R_BX, outregs.eax == 0xaced);
 }
 
+void test_smsw(void)
+{
+	MK_INSN(smsw, "movl %cr0, %ebx\n\t"
+		      "movl %ebx, %ecx\n\t"
+		      "or $0x40000000, %ebx\n\t"
+		      "movl %ebx, %cr0\n\t"
+		      "smswl %eax\n\t"
+		      "movl %ecx, %cr0\n\t");
+	inregs.eax = 0x12345678;
+	exec_in_big_real_mode(&insn_smsw);
+	report("smsw", R_AX | R_BX | R_CX, outregs.eax == outregs.ebx);
+}
+
+
 void realmode_start(void)
 {
 	test_null();
@@ -1696,6 +1710,7 @@ void realmode_start(void)
 	test_salc();
 	test_fninit();
 	test_dr_mod();
+	test_smsw();
 	test_nopl();
 	test_perf_loop();
 	test_perf_mov();
