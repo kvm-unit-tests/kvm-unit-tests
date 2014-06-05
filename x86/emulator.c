@@ -336,7 +336,7 @@ void test_incdecnotneg(void *mem)
     report("lock notb", *mb == vb);
 }
 
-void test_smsw(void)
+void test_smsw(uint64_t *h_mem)
 {
 	char mem[16];
 	unsigned short msw, msw_orig, *pmsw;
@@ -355,6 +355,12 @@ void test_smsw(void)
 		if (i != 4 && pmsw[i])
 			zero = 0;
 	report("smsw (2)", msw == pmsw[4] && zero);
+
+	/* Trigger exit on smsw */
+	*h_mem = 0x12345678abcdeful;
+	asm volatile("smsw %0" : "=m"(*h_mem));
+	report("smsw (3)", msw == (unsigned short)*h_mem &&
+		(*h_mem & ~0xfffful) == 0x12345678ab0000ul);
 }
 
 void test_lmsw(void)
@@ -998,7 +1004,7 @@ int main()
 
 	test_cr8();
 
-	test_smsw();
+	test_smsw(mem);
 	test_lmsw();
 	test_ljmp(mem);
 	test_stringio();
