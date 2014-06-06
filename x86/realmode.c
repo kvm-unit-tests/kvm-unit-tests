@@ -103,6 +103,8 @@ static void print_serial_u32(u32 value)
 	print_serial(p);
 }
 
+static int failed;
+
 static void exit(int code)
 {
 	outb(code, 0xf4);
@@ -222,6 +224,8 @@ static void report(const char *name, u16 regs_ignore, _Bool ok)
     print_serial(ok ? "PASS: " : "FAIL: ");
     print_serial(name);
     print_serial("\n");
+    if (!ok)
+	failed = 1;
 }
 
 #define MK_INSN(name, str)				\
@@ -1700,7 +1704,7 @@ void realmode_start(void)
 	test_perf_memory_store();
 	test_perf_memory_rmw();
 
-	exit(0);
+	exit(failed);
 }
 
 unsigned long long r_gdt[] = { 0, 0x9b000000ffff, 0x93000000ffff };
