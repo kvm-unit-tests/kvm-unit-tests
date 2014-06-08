@@ -825,6 +825,26 @@ static void test_movabs(uint64_t *mem, uint8_t *insn_page,
     report("64-bit mov imm2", outregs.rcx == 0x9090909090909090);
 }
 
+static void test_smsw_reg(uint64_t *mem, uint8_t *insn_page,
+		      uint8_t *alt_insn_page, void *insn_ram)
+{
+	unsigned long cr0 = read_cr0();
+	inregs = (struct regs){ .rax = 0x1234567890abcdeful };
+
+	MK_INSN(smsww, "smsww %ax\n\t");
+	trap_emulator(mem, alt_insn_page, &insn_smsww);
+	report("16-bit smsw reg", (u16)outregs.rax == (u16)cr0 &&
+				  outregs.rax >> 16 == inregs.rax >> 16);
+
+	MK_INSN(smswl, "smswl %eax\n\t");
+	trap_emulator(mem, alt_insn_page, &insn_smswl);
+	report("32-bit smsw reg", outregs.rax == (u32)cr0);
+
+	MK_INSN(smswq, "smswq %rax\n\t");
+	trap_emulator(mem, alt_insn_page, &insn_smswq);
+	report("64-bit smsw reg", outregs.rax == cr0);
+}
+
 static void test_crosspage_mmio(volatile uint8_t *mem)
 {
     volatile uint16_t w, *pw;
@@ -1024,6 +1044,7 @@ int main()
 
 	test_mmx_movq_mf(mem, insn_page, alt_insn_page, insn_ram);
 	test_movabs(mem, insn_page, alt_insn_page, insn_ram);
+	test_smsw_reg(mem, insn_page, alt_insn_page, insn_ram);
 
 	test_crosspage_mmio(mem);
 
