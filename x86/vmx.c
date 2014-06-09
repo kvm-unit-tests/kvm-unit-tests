@@ -160,7 +160,35 @@ void print_vmexit_info()
 
 static void test_vmclear(void)
 {
-	report("test vmclear", vmcs_clear(vmcs_root) == 0);
+	struct vmcs *tmp_root;
+	int width = cpuid(0x80000008).a & 0xff;
+
+	/*
+	 * Note- The tests below do not necessarily have a
+	 * valid VMCS, but that's ok since the invalid vmcs
+	 * is only used for a specific test and is discarded
+	 * without touching its contents
+	 */
+
+	/* Unaligned page access */
+	tmp_root = (struct vmcs *)((intptr_t)vmcs_root + 1);
+	report("test vmclear with unaligned vmcs",
+	       vmcs_clear(tmp_root) == 1);
+
+	/* gpa bits beyond physical address width are set*/
+	tmp_root = (struct vmcs *)((intptr_t)vmcs_root |
+				   ((u64)1 << (width+1)));
+	report("test vmclear with vmcs address bits set beyond physical address width",
+	       vmcs_clear(tmp_root) == 1);
+
+	/* Pass VMXON region */
+	tmp_root = (struct vmcs *)vmxon_region;
+	report("test vmclear with vmxon region",
+	       vmcs_clear(tmp_root) == 1);
+
+	/* Valid VMCS */
+	report("test vmclear with valid vmcs region", vmcs_clear(vmcs_root) == 0);
+
 }
 
 static void test_vmxoff(void)
@@ -665,11 +693,29 @@ out:
 
 static void test_vmptrld(void)
 {
-	struct vmcs *vmcs;
+	struct vmcs *vmcs, *tmp_root;
+	int width = cpuid(0x80000008).a & 0xff;
 
 	vmcs = alloc_page();
 	vmcs->revision_id = basic.revision;
-	report("test vmptrld", make_vmcs_current(vmcs) == 0);
+
+	/* Unaligned page access */
+	tmp_root = (struct vmcs *)((intptr_t)vmcs + 1);
+	report("test vmptrld with unaligned vmcs",
+	       vmcs_clear(tmp_root) == 1);
+
+	/* gpa bits beyond physical address width are set*/
+	tmp_root = (struct vmcs *)((intptr_t)vmcs |
+				   ((u64)1 << (width+1)));
+	report("test vmptrld with vmcs address bits set beyond physical address width",
+	       vmcs_clear(tmp_root) == 1);
+
+	/* Pass VMXON region */
+	tmp_root = (struct vmcs *)vmxon_region;
+	report("test vmptrld with vmxon region",
+	       vmcs_clear(tmp_root) == 1);
+
+	report("test vmptrld with valid vmcs region", make_vmcs_current(vmcs) == 0);
 }
 
 static void test_vmptrst(void)
