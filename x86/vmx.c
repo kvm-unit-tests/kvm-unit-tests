@@ -37,7 +37,7 @@
 #include "smp.h"
 #include "io.h"
 
-u32 *vmxon_region;
+u64 *vmxon_region;
 struct vmcs *vmcs_root;
 u32 vpid_cnt;
 void *guest_stack, *guest_syscall_stack;
@@ -622,10 +622,44 @@ static int test_vmx_feature_control(void)
 
 static int test_vmxon(void)
 {
-	int ret;
+	int ret, ret1;
+	u64 *tmp_region = vmxon_region;
+	int width = cpuid(0x80000008).a & 0xff;
 
+	/* Unaligned page access */
+	vmxon_region = (u64 *)((intptr_t)vmxon_region + 1);
+	ret1 = vmx_on();
+	report("test vmxon with unaligned vmxon region", ret1);
+	if (!ret1) {
+		ret = 1;
+		goto out;
+	}
+
+	/* gpa bits beyond physical address width are set*/
+	vmxon_region = (u64 *)((intptr_t)tmp_region | ((u64)1 << (width+1)));
+	ret1 = vmx_on();
+	report("test vmxon with bits set beyond physical address width", ret1);
+	if (!ret1) {
+		ret = 1;
+		goto out;
+	}
+
+	/* invalid revision indentifier */
+	vmxon_region = tmp_region;
+	*vmxon_region = 0xba9da9;
+	ret1 = vmx_on();
+	report("test vmxon with invalid revision identifier", ret1);
+	if (!ret1) {
+		ret = 1;
+		goto out;
+	}
+
+	/* and finally a valid region */
+	*vmxon_region = basic.revision;
 	ret = vmx_on();
-	report("test vmxon", !ret);
+	report("test vmxon with valid vmxon region", !ret);
+
+out:
 	return ret;
 }
 
