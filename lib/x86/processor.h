@@ -351,11 +351,4 @@ static inline void safe_halt(void)
 	asm volatile("sti; hlt");
 }
 
-#ifdef __x86_64__
-static inline void write_rflags(u64 r)
-{
-	asm volatile("push %0; popf\n\t" : : "q"(r) : "cc");
-}
-#endif
-
 #endif

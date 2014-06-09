@@ -91,8 +91,10 @@ void vmx_inc_test_stage(void)
 static int make_vmcs_current(struct vmcs *vmcs)
 {
 	bool ret;
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
 
-	asm volatile ("vmptrld %1; setbe %0" : "=q" (ret) : "m" (vmcs) : "cc");
+	asm volatile ("push %1; popf; vmptrld %2; setbe %0"
+		      : "=q" (ret) : "q" (rflags), "m" (vmcs) : "cc");
 	return ret;
 }
 
@@ -118,16 +120,19 @@ static void __attribute__((__used__)) syscall_handler(u64 syscall_no)
 static inline int vmx_on()
 {
 	bool ret;
-	asm volatile ("vmxon %1; setbe %0\n\t"
-		: "=q"(ret) : "m"(vmxon_region) : "cc");
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+	asm volatile ("push %1; popf; vmxon %2; setbe %0\n\t"
+		      : "=q" (ret) : "q" (rflags), "m" (vmxon_region) : "cc");
 	return ret;
 }
 
 static inline int vmx_off()
 {
 	bool ret;
-	asm volatile("vmxoff; setbe %0\n\t"
-		: "=q"(ret) : : "cc");
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+
+	asm volatile("push %1; popf; vmxoff; setbe %0\n\t"
+		     : "=q"(ret) : "q" (rflags) : "cc");
 	return ret;
 }
 
@@ -155,20 +160,13 @@ void print_vmexit_info()
 
 static void test_vmclear(void)
 {
-	u64 rflags;
-
-	rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
-	write_rflags(rflags);
 	report("test vmclear", vmcs_clear(vmcs_root) == 0);
 }
 
 static void test_vmxoff(void)
 {
 	int ret;
-	u64 rflags;
 
-	rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
-	write_rflags(rflags);
 	ret = vmx_off();
 	report("test vmxoff", !ret);
 }
@@ -625,10 +623,7 @@ static int test_vmx_feature_control(void)
 static int test_vmxon(void)
 {
 	int ret;
-	u64 rflags;
 
-	rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
-	write_rflags(rflags);
 	ret = vmx_on();
 	report("test vmxon", !ret);
 	return ret;
@@ -636,27 +631,21 @@ static int test_vmxon(void)
 
 static void test_vmptrld(void)
 {
-	u64 rflags;
 	struct vmcs *vmcs;
 
 	vmcs = alloc_page();
 	vmcs->revision_id = basic.revision;
-	rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
-	write_rflags(rflags);
 	report("test vmptrld", make_vmcs_current(vmcs) == 0);
 }
 
 static void test_vmptrst(void)
 {
-	u64 rflags;
 	int ret;
 	struct vmcs *vmcs1, *vmcs2;
 
 	vmcs1 = alloc_page();
 	memset(vmcs1, 0, PAGE_SIZE);
 	init_vmcs(&vmcs1);
-	rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
-	write_rflags(rflags);
 	ret = vmcs_save(&vmcs2);
 	report("test vmptrst", (!ret) && (vmcs1 == vmcs2));
 }

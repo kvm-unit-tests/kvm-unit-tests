@@ -2,6 +2,7 @@
 #define __VMX_H
 
 #include "libcflat.h"
+#include "processor.h"
 
 struct vmcs {
 	u32 revision_id; /* vmcs revision identifier */
@@ -503,7 +504,10 @@ void vmx_inc_test_stage(void);
 static inline int vmcs_clear(struct vmcs *vmcs)
 {
 	bool ret;
-	asm volatile ("vmclear %1; setbe %0" : "=q" (ret) : "m" (vmcs) : "cc");
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+
+	asm volatile ("push %1; popf; vmclear %2; setbe %0"
+		      : "=q" (ret) : "q" (rflags), "m" (vmcs) : "cc");
 	return ret;
 }
 
@@ -525,8 +529,10 @@ static inline int vmcs_write(enum Encoding enc, u64 val)
 static inline int vmcs_save(struct vmcs **vmcs)
 {
 	bool ret;
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
 
-	asm volatile ("vmptrst %1; setbe %0" : "=q" (ret) : "m" (*vmcs) : "cc");
+	asm volatile ("push %1; popf; vmptrst %2; setbe %0"
+		      : "=q" (ret) : "q" (rflags), "m" (*vmcs) : "cc");
 	return ret;
 }
 
