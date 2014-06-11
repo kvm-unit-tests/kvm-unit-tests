@@ -1,9 +1,13 @@
 
+ifeq ($(wildcard config.mak),)
+$(error run ./configure first. See ./configure -h)
+endif
+
 include config.mak
 
 DESTDIR := $(PREFIX)/share/qemu/tests
 
-.PHONY: arch_clean clean
+.PHONY: arch_clean clean distclean
 
 #make sure env CFLAGS variable is not used
 CFLAGS =
@@ -53,3 +57,6 @@ install:
 
 clean: arch_clean
 	$(RM) lib/.*.d $(libcflat) $(cflatobjs)
+
+distclean: clean
+	$(RM) config.mak $(TEST_DIR)-run test.log msr.out

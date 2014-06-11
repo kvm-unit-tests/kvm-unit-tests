@@ -8,3 +8,8 @@
 patches
 .stgit-*
 cscope.*
+*.swp
+/config.mak
+/*-run
+/test.log
+/msr.out
