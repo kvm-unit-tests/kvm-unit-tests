@@ -21,8 +21,8 @@ CFLAGS += -O1
 libgcc := $(shell $(CC) -m$(bits) --print-libgcc-file-name)
 
 FLATLIBS = lib/libcflat.a $(libgcc)
-%.elf: %.o $(FLATLIBS) flat.lds
-	$(CC) $(CFLAGS) -nostdlib -o $@ -Wl,-T,flat.lds \
+%.elf: %.o $(FLATLIBS) x86/flat.lds
+	$(CC) $(CFLAGS) -nostdlib -o $@ -Wl,-T,x86/flat.lds \
 		$(filter %.o, $^) $(FLATLIBS)
 
 %.flat: %.elf

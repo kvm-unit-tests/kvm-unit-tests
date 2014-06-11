@@ -62,6 +62,18 @@ while [[ "$1" = -* ]]; do
 	    ;;
     esac
 done
+if [ "$arch" = "i386" ] || [ "$arch" = "x86_64" ]; then
+    testdir=x86
+else
+    testdir=$arch
+fi
+if [ ! -d $testdir ]; then
+    echo "$testdir does not exist!"
+    exit 1
+fi
+if [ -f $testdir/run ]; then
+    ln -fs $testdir/run $testdir-run
+fi
 
 # check for dependent 32 bit libraries
 cat << EOF > lib_test.c
@@ -89,4 +101,5 @@ LD=$cross_prefix$ld
 OBJCOPY=$cross_prefix$objcopy
 AR=$cross_prefix$ar
 API=$api
+TEST_DIR=$testdir
 EOF

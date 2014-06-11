@@ -6,7 +6,7 @@
  */
 
 #include "libcflat.h"
-#include "lib/x86/desc.h"
+#include "x86/desc.h"
 
 #define TSS_RETURN		(FIRST_SPARE_SEL)
 

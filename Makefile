@@ -18,7 +18,7 @@ cflatobjs := \
 	lib/report.o
 
 #include architecure specific make rules
-include config-$(ARCH).mak
+include config/config-$(ARCH).mak
 
 # cc-option
 # Usage: OP_CFLAGS+=$(call cc-option, -falign-functions=0, -malign-functions=0)
@@ -31,7 +31,6 @@ CFLAGS += $(autodepend-flags) -Wall
 CFLAGS += $(call cc-option, -fomit-frame-pointer, "")
 CFLAGS += $(call cc-option, -fno-stack-protector, "")
 CFLAGS += $(call cc-option, -fno-stack-protector-all, "")
-CFLAGS += -I.
 
 CXXFLAGS += $(CFLAGS)
 
@@ -46,11 +45,11 @@ $(libcflat): $(cflatobjs)
 %.o: %.S
 	$(CC) $(CFLAGS) -c -nostdlib -o $@ $<
 
--include .*.d */.*.d */*/.*.d
+-include */.*.d */*/.*.d
 
 install:
 	mkdir -p $(DESTDIR)
 	install $(tests_and_config) $(DESTDIR)
 
 clean: arch_clean
-	$(RM) *.o *.a .*.d lib/.*.d $(libcflat) $(cflatobjs)
+	$(RM) lib/.*.d $(libcflat) $(cflatobjs)

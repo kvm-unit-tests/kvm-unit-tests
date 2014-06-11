@@ -1,7 +1,7 @@
 #include "libcflat.h"
-#include "lib/x86/desc.h"
-#include "lib/x86/processor.h"
-#include "lib/x86/vm.h"
+#include "x86/desc.h"
+#include "x86/processor.h"
+#include "x86/vm.h"
 
 #define X86_FEATURE_SMAP	20
 #define X86_EFLAGS_AC		(1 << 18)

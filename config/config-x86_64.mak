@@ -1,4 +1,3 @@
-TEST_DIR=x86
 cstart.o = $(TEST_DIR)/cstart64.o
 bits = 64
 ldarch = elf64-x86-64
@@ -11,4 +10,4 @@ tests = $(TEST_DIR)/access.flat $(TEST_DIR)/apic.flat \
 tests += $(TEST_DIR)/svm.flat
 tests += $(TEST_DIR)/vmx.flat
 
-include config-x86-common.mak
+include config/config-x86-common.mak
