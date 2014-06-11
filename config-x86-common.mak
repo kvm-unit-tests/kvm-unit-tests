@@ -1,13 +1,9 @@
 #This is a make file with common rules for both x86 & x86-64
 
-CFLAGS += -I../include/x86
-
 all: test_cases
 
-cflatobjs += \
-	lib/x86/io.o \
-	lib/x86/smp.o
-
+cflatobjs += lib/x86/io.o
+cflatobjs += lib/x86/smp.o
 cflatobjs += lib/x86/vm.o
 cflatobjs += lib/x86/fwcfg.o
 cflatobjs += lib/x86/apic.o
@@ -20,15 +16,17 @@ $(libcflat): LDFLAGS += -nostdlib
 $(libcflat): CFLAGS += -ffreestanding -I lib
 
 CFLAGS += -m$(bits)
+CFLAGS += -O1
 
 libgcc := $(shell $(CC) -m$(bits) --print-libgcc-file-name)
 
 FLATLIBS = lib/libcflat.a $(libgcc)
 %.elf: %.o $(FLATLIBS) flat.lds
-	$(CC) $(CFLAGS) -nostdlib -o $@ -Wl,-T,flat.lds $(filter %.o, $^) $(FLATLIBS)
+	$(CC) $(CFLAGS) -nostdlib -o $@ -Wl,-T,flat.lds \
+		$(filter %.o, $^) $(FLATLIBS)
 
 %.flat: %.elf
-	objcopy -O elf32-i386 $^ $@
+	$(OBJCOPY) -O elf32-i386 $^ $@
 
 tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/smptest.flat  $(TEST_DIR)/port80.flat \
@@ -109,7 +107,7 @@ $(TEST_DIR)/debug.elf: $(cstart.o) $(TEST_DIR)/debug.o
 
 arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
-	$(TEST_DIR)/.*.d $(TEST_DIR)/lib/.*.d $(TEST_DIR)/lib/*.o
+	$(TEST_DIR)/.*.d lib/x86/.*.d
 
 api/%.o: CFLAGS += -m32
 

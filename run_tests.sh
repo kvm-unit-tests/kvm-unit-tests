@@ -27,7 +27,7 @@ function run()
         return
     fi
 
-	cmdline="./x86-run $kernel -smp $smp -display none $opts"
+    cmdline="./x86-run $kernel -smp $smp $opts"
     if [ $verbose != 0 ]; then
         echo $cmdline
     fi
@@ -92,8 +92,8 @@ Usage: $0 [-g group] [-h] [-v]
     -h: Output this help text
     -v: Enables verbose mode
 
-Set the environment variable QEMU=/path/to/qemu-system-x86_64 to allow the
-internally used x86-run to pick up the right qemu binary.
+Set the environment variable QEMU=/path/to/qemu-system-x86_64 to
+specify the appropriate qemu binary for x86-run.
 
 EOF
 }
