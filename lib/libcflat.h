@@ -41,7 +41,6 @@ typedef _Bool bool;
 #define false 0
 
 extern void exit(int code);
-extern void panic(char *fmt, ...);
 
 extern unsigned long strlen(const char *buf);
 extern char *strcat(char *dest, const char *src);
