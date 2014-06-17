@@ -820,8 +820,8 @@ static int iobmp_exit_handler()
 #define INSN_ALWAYS_TRAP	2
 #define INSN_NEVER_TRAP		3
 
-#define FIELD_EXIT_QUAL		0
-#define FIELD_INSN_INFO		1
+#define FIELD_EXIT_QUAL		(1 << 0)
+#define FIELD_INSN_INFO		(1 << 1)
 
 asm(
 	"insn_hlt: hlt;ret\n\t"
@@ -829,6 +829,12 @@ asm(
 	"insn_mwait: mwait;ret\n\t"
 	"insn_rdpmc: rdpmc;ret\n\t"
 	"insn_rdtsc: rdtsc;ret\n\t"
+	"insn_cr3_load: mov %rax,%cr3;ret\n\t"
+	"insn_cr3_store: mov %cr3,%rax;ret\n\t"
+#ifdef __x86_64__
+	"insn_cr8_load: mov %rax,%cr8;ret\n\t"
+	"insn_cr8_store: mov %cr8,%rax;ret\n\t"
+#endif
 	"insn_monitor: monitor;ret\n\t"
 	"insn_pause: pause;ret\n\t"
 	"insn_wbinvd: wbinvd;ret\n\t"
@@ -840,6 +846,12 @@ extern void insn_invlpg();
 extern void insn_mwait();
 extern void insn_rdpmc();
 extern void insn_rdtsc();
+extern void insn_cr3_load();
+extern void insn_cr3_store();
+#ifdef __x86_64__
+extern void insn_cr8_load();
+extern void insn_cr8_store();
+#endif
 extern void insn_monitor();
 extern void insn_pause();
 extern void insn_wbinvd();
@@ -856,7 +868,7 @@ struct insn_table {
 	u32 reason;
 	ulong exit_qual;
 	u32 insn_info;
-	// Use FIELD_EXIT_QUAL and FIELD_INSN_INFO to efines
+	// Use FIELD_EXIT_QUAL and FIELD_INSN_INFO to define
 	// which field need to be tested, reason is always tested
 	u32 test_field;
 };
@@ -877,6 +889,16 @@ static struct insn_table insn_table[] = {
 	{"MWAIT", CPU_MWAIT, insn_mwait, INSN_CPU0, 36, 0, 0, 0},
 	{"RDPMC", CPU_RDPMC, insn_rdpmc, INSN_CPU0, 15, 0, 0, 0},
 	{"RDTSC", CPU_RDTSC, insn_rdtsc, INSN_CPU0, 16, 0, 0, 0},
+	{"CR3 load", CPU_CR3_LOAD, insn_cr3_load, INSN_CPU0, 28, 0x3, 0,
+		FIELD_EXIT_QUAL},
+	{"CR3 store", CPU_CR3_STORE, insn_cr3_store, INSN_CPU0, 28, 0x13, 0,
+		FIELD_EXIT_QUAL},
+#ifdef __x86_64__
+	{"CR8 load", CPU_CR8_LOAD, insn_cr8_load, INSN_CPU0, 28, 0x8, 0,
+		FIELD_EXIT_QUAL},
+	{"CR8 store", CPU_CR8_STORE, insn_cr8_store, INSN_CPU0, 28, 0x18, 0,
+		FIELD_EXIT_QUAL},
+#endif
 	{"MONITOR", CPU_MONITOR, insn_monitor, INSN_CPU0, 39, 0, 0, 0},
 	{"PAUSE", CPU_PAUSE, insn_pause, INSN_CPU0, 40, 0, 0, 0},
 	// Flags for Secondary Processor-Based VM-Execution Controls
@@ -894,6 +916,10 @@ static int insn_intercept_init()
 
 	ctrl_cpu[0] = vmcs_read(CPU_EXEC_CTRL0);
 	ctrl_cpu[0] |= CPU_HLT | CPU_INVLPG | CPU_MWAIT | CPU_RDPMC | CPU_RDTSC |
+		CPU_CR3_LOAD | CPU_CR3_STORE |
+#ifdef __x86_64__
+		CPU_CR8_LOAD | CPU_CR8_STORE |
+#endif
 		CPU_MONITOR | CPU_PAUSE | CPU_SECONDARY;
 	ctrl_cpu[0] &= ctrl_cpu_rev[0].clr;
 	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu[0]);

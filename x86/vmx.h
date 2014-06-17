@@ -357,6 +357,8 @@ enum Ctrl0 {
 	CPU_RDTSC		= 1ul << 12,
 	CPU_CR3_LOAD		= 1ul << 15,
 	CPU_CR3_STORE		= 1ul << 16,
+	CPU_CR8_LOAD		= 1ul << 19,
+	CPU_CR8_STORE		= 1ul << 20,
 	CPU_TPR_SHADOW		= 1ul << 21,
 	CPU_NMI_WINDOW		= 1ul << 22,
 	CPU_IO			= 1ul << 24,
