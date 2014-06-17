@@ -1398,6 +1398,116 @@ static int interrupt_exit_handler(void)
 	return VMX_TEST_VMEXIT;
 }
 
+static int dbgctls_init(struct vmcs *vmcs)
+{
+	u64 dr7 = 0x402;
+	u64 zero = 0;
+
+	msr_bmp_init();
+	asm volatile(
+		"mov %0,%%dr0\n\t"
+		"mov %0,%%dr1\n\t"
+		"mov %0,%%dr2\n\t"
+		"mov %1,%%dr7\n\t"
+		: : "r" (zero), "r" (dr7));
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0x1);
+	vmcs_write(GUEST_DR7, 0x404);
+	vmcs_write(GUEST_DEBUGCTL, 0x2);
+
+	vmcs_write(ENT_CONTROLS, vmcs_read(ENT_CONTROLS) | ENT_LOAD_DBGCTLS);
+	vmcs_write(EXI_CONTROLS, vmcs_read(EXI_CONTROLS) | EXI_SAVE_DBGCTLS);
+
+	return VMX_TEST_START;
+}
+
+static void dbgctls_main(void)
+{
+	u64 dr7, debugctl;
+
+	asm volatile("mov %%dr7,%0" : "=r" (dr7));
+	debugctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	/* Commented out: KVM does not support DEBUGCTL so far */
+	report("Load debug controls", dr7 == 0x404 /* && debugctl == 0x2 */);
+
+	dr7 = 0x408;
+	asm volatile("mov %0,%%dr7" : : "r" (dr7));
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0x3);
+
+	vmx_set_test_stage(0);
+	vmcall();
+	report("Save debug controls", vmx_get_test_stage() == 1);
+
+	if (ctrl_enter_rev.set & ENT_LOAD_DBGCTLS ||
+	    ctrl_exit_rev.set & EXI_SAVE_DBGCTLS) {
+		printf("\tDebug controls are always loaded/saved\n");
+		return;
+	}
+	vmx_set_test_stage(2);
+	vmcall();
+
+	asm volatile("mov %%dr7,%0" : "=r" (dr7));
+	debugctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	/* Commented out: KVM does not support DEBUGCTL so far */
+	report("Guest=host debug controls", dr7 == 0x402 /* && debugctl == 0x1 */);
+
+	dr7 = 0x408;
+	asm volatile("mov %0,%%dr7" : : "r" (dr7));
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0x3);
+
+	vmx_set_test_stage(3);
+	vmcall();
+	report("Don't save debug controls", vmx_get_test_stage() == 4);
+}
+
+static int dbgctls_exit_handler(void)
+{
+	unsigned int reason = vmcs_read(EXI_REASON) & 0xff;
+	u32 insn_len = vmcs_read(EXI_INST_LEN);
+	u64 guest_rip = vmcs_read(GUEST_RIP);
+	u64 dr7, debugctl;
+
+	asm volatile("mov %%dr7,%0" : "=r" (dr7));
+	debugctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+
+	switch (reason) {
+	case VMX_VMCALL:
+		switch (vmx_get_test_stage()) {
+		case 0:
+			if (dr7 == 0x400 && debugctl == 0 &&
+			    vmcs_read(GUEST_DR7) == 0x408 /* &&
+			    Commented out: KVM does not support DEBUGCTL so far
+			    vmcs_read(GUEST_DEBUGCTL) == 0x3 */)
+				vmx_inc_test_stage();
+			break;
+		case 2:
+			dr7 = 0x402;
+			asm volatile("mov %0,%%dr7" : : "r" (dr7));
+			wrmsr(MSR_IA32_DEBUGCTLMSR, 0x1);
+			vmcs_write(GUEST_DR7, 0x404);
+			vmcs_write(GUEST_DEBUGCTL, 0x2);
+
+			vmcs_write(ENT_CONTROLS,
+				vmcs_read(ENT_CONTROLS) & ~ENT_LOAD_DBGCTLS);
+			vmcs_write(EXI_CONTROLS,
+				vmcs_read(EXI_CONTROLS) & ~EXI_SAVE_DBGCTLS);
+			break;
+		case 3:
+			if (dr7 == 0x400 && debugctl == 0 &&
+			    vmcs_read(GUEST_DR7) == 0x404 /* &&
+			    Commented out: KVM does not support DEBUGCTL so far
+			    vmcs_read(GUEST_DEBUGCTL) == 0x2 */)
+				vmx_inc_test_stage();
+			break;
+		}
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+		return VMX_TEST_RESUME;
+	default:
+		printf("Unknown exit reason, %d\n", reason);
+		print_vmexit_info();
+	}
+	return VMX_TEST_VMEXIT;
+}
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
 struct vmx_test vmx_tests[] = {
 	{ "null", NULL, basic_guest_main, basic_exit_handler, NULL, {0} },
@@ -1417,5 +1527,7 @@ struct vmx_test vmx_tests[] = {
 	{ "EPT framework", ept_init, ept_main, ept_exit_handler, NULL, {0} },
 	{ "interrupt", interrupt_init, interrupt_main,
 		interrupt_exit_handler, NULL, {0} },
+	{ "debug controls", dbgctls_init, dbgctls_main, dbgctls_exit_handler,
+		NULL, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };

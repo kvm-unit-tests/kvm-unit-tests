@@ -305,6 +305,7 @@ enum Reason {
 #define X86_EFLAGS_ZF	0x00000040 /* Zero Flag */
 
 enum Ctrl_exi {
+	EXI_SAVE_DBGCTLS	= 1UL << 2,
 	EXI_HOST_64             = 1UL << 9,
 	EXI_LOAD_PERF		= 1UL << 12,
 	EXI_INTA                = 1UL << 15,
@@ -316,6 +317,7 @@ enum Ctrl_exi {
 };
 
 enum Ctrl_ent {
+	ENT_LOAD_DBGCTLS	= 1UL << 2,
 	ENT_GUEST_64            = 1UL << 9,
 	ENT_LOAD_PAT		= 1UL << 14,
 	ENT_LOAD_EFER           = 1UL << 15,
