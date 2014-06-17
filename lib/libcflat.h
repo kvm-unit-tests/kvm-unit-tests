@@ -63,5 +63,6 @@ extern long atol(const char *ptr);
 #define NULL ((void *)0UL)
 
 void report(const char *msg_fmt, bool pass, ...);
+void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...);
 int report_summary(void);
 #endif
