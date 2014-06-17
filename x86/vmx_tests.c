@@ -807,7 +807,6 @@ static int iobmp_exit_handler()
 #define INSN_CPU0		0
 #define INSN_CPU1		1
 #define INSN_ALWAYS_TRAP	2
-#define INSN_NEVER_TRAP		3
 
 #define FIELD_EXIT_QUAL		(1 << 0)
 #define FIELD_INSN_INFO		(1 << 1)
@@ -818,7 +817,7 @@ asm(
 	"insn_mwait: mwait;ret\n\t"
 	"insn_rdpmc: rdpmc;ret\n\t"
 	"insn_rdtsc: rdtsc;ret\n\t"
-	"insn_cr3_load: mov %rax,%cr3;ret\n\t"
+	"insn_cr3_load: mov cr3,%rax; mov %rax,%cr3;ret\n\t"
 	"insn_cr3_store: mov %cr3,%rax;ret\n\t"
 #ifdef __x86_64__
 	"insn_cr8_load: mov %rax,%cr8;ret\n\t"
@@ -848,6 +847,7 @@ extern void insn_cpuid();
 extern void insn_invd();
 
 u32 cur_insn;
+u64 cr3;
 
 struct insn_table {
 	const char *name;
@@ -901,55 +901,56 @@ static struct insn_table insn_table[] = {
 
 static int insn_intercept_init()
 {
-	u32 ctrl_cpu[2];
+	u32 ctrl_cpu;
 
-	ctrl_cpu[0] = vmcs_read(CPU_EXEC_CTRL0);
-	ctrl_cpu[0] |= CPU_HLT | CPU_INVLPG | CPU_MWAIT | CPU_RDPMC | CPU_RDTSC |
-		CPU_CR3_LOAD | CPU_CR3_STORE |
-#ifdef __x86_64__
-		CPU_CR8_LOAD | CPU_CR8_STORE |
-#endif
-		CPU_MONITOR | CPU_PAUSE | CPU_SECONDARY;
-	ctrl_cpu[0] &= ctrl_cpu_rev[0].clr;
-	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu[0]);
-	ctrl_cpu[1] = vmcs_read(CPU_EXEC_CTRL1);
-	ctrl_cpu[1] |= CPU_WBINVD | CPU_RDRAND;
-	ctrl_cpu[1] &= ctrl_cpu_rev[1].clr;
-	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu[1]);
+	ctrl_cpu = ctrl_cpu_rev[0].set | CPU_SECONDARY;
+	ctrl_cpu &= ctrl_cpu_rev[0].clr;
+	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu);
+	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu_rev[1].set);
+	cr3 = read_cr3();
 	return VMX_TEST_START;
 }
 
 static void insn_intercept_main()
 {
-	cur_insn = 0;
-	while(insn_table[cur_insn].name != NULL) {
-		vmx_set_test_stage(cur_insn);
-		if ((insn_table[cur_insn].type == INSN_CPU0
-			&& !(ctrl_cpu_rev[0].clr & insn_table[cur_insn].flag))
-			|| (insn_table[cur_insn].type == INSN_CPU1
-			&& !(ctrl_cpu_rev[1].clr & insn_table[cur_insn].flag))) {
-			printf("\tCPU_CTRL1.CPU_%s is not supported.\n",
-				insn_table[cur_insn].name);
+	char msg[80];
+
+	for (cur_insn = 0; insn_table[cur_insn].name != NULL; cur_insn++) {
+		vmx_set_test_stage(cur_insn * 2);
+		if ((insn_table[cur_insn].type == INSN_CPU0 &&
+		     !(ctrl_cpu_rev[0].clr & insn_table[cur_insn].flag)) ||
+		    (insn_table[cur_insn].type == INSN_CPU1 &&
+		     !(ctrl_cpu_rev[1].clr & insn_table[cur_insn].flag))) {
+			printf("\tCPU_CTRL%d.CPU_%s is not supported.\n",
+			       insn_table[cur_insn].type - INSN_CPU0,
+			       insn_table[cur_insn].name);
 			continue;
 		}
+
+		if ((insn_table[cur_insn].type == INSN_CPU0 &&
+		     !(ctrl_cpu_rev[0].set & insn_table[cur_insn].flag)) ||
+		    (insn_table[cur_insn].type == INSN_CPU1 &&
+		     !(ctrl_cpu_rev[1].set & insn_table[cur_insn].flag))) {
+			/* skip hlt, it stalls the guest and is tested below */
+			if (insn_table[cur_insn].insn_func != insn_hlt)
+				insn_table[cur_insn].insn_func();
+			snprintf(msg, sizeof(msg), "execute %s",
+				 insn_table[cur_insn].name);
+			report(msg, vmx_get_test_stage() == cur_insn * 2);
+		} else if (insn_table[cur_insn].type != INSN_ALWAYS_TRAP)
+			printf("\tCPU_CTRL%d.CPU_%s always traps.\n",
+			       insn_table[cur_insn].type - INSN_CPU0,
+			       insn_table[cur_insn].name);
+
+		vmcall();
+
 		insn_table[cur_insn].insn_func();
-		switch (insn_table[cur_insn].type) {
-		case INSN_CPU0:
-		case INSN_CPU1:
-		case INSN_ALWAYS_TRAP:
-			if (vmx_get_test_stage() != cur_insn + 1)
-				report(insn_table[cur_insn].name, 0);
-			else
-				report(insn_table[cur_insn].name, 1);
-			break;
-		case INSN_NEVER_TRAP:
-			if (vmx_get_test_stage() == cur_insn + 1)
-				report(insn_table[cur_insn].name, 0);
-			else
-				report(insn_table[cur_insn].name, 1);
-			break;
-		}
-		cur_insn ++;
+		snprintf(msg, sizeof(msg), "intercept %s",
+			 insn_table[cur_insn].name);
+		report(msg, vmx_get_test_stage() == cur_insn * 2 + 1);
+
+		vmx_set_test_stage(cur_insn * 2 + 1);
+		vmcall();
 	}
 }
 
@@ -967,14 +968,36 @@ static int insn_intercept_exit_handler()
 	exit_qual = vmcs_read(EXI_QUALIFICATION);
 	insn_len = vmcs_read(EXI_INST_LEN);
 	insn_info = vmcs_read(EXI_INST_INFO);
-	pass = (cur_insn == vmx_get_test_stage()) &&
+
+	if (reason == VMX_VMCALL) {
+		u32 val = 0;
+
+		if (insn_table[cur_insn].type == INSN_CPU0)
+			val = vmcs_read(CPU_EXEC_CTRL0);
+		else if (insn_table[cur_insn].type == INSN_CPU1)
+			val = vmcs_read(CPU_EXEC_CTRL1);
+
+		if (vmx_get_test_stage() & 1)
+			val &= ~insn_table[cur_insn].flag;
+		else
+			val |= insn_table[cur_insn].flag;
+
+		if (insn_table[cur_insn].type == INSN_CPU0)
+			vmcs_write(CPU_EXEC_CTRL0, val | ctrl_cpu_rev[0].set);
+		else if (insn_table[cur_insn].type == INSN_CPU1)
+			vmcs_write(CPU_EXEC_CTRL1, val | ctrl_cpu_rev[1].set);
+	} else {
+		pass = (cur_insn * 2 == vmx_get_test_stage()) &&
 			insn_table[cur_insn].reason == reason;
-	if (insn_table[cur_insn].test_field & FIELD_EXIT_QUAL)
-		pass = pass && insn_table[cur_insn].exit_qual == exit_qual;
-	if (insn_table[cur_insn].test_field & FIELD_INSN_INFO)
-		pass = pass && insn_table[cur_insn].insn_info == insn_info;
-	if (pass)
-		vmx_inc_test_stage();
+		if (insn_table[cur_insn].test_field & FIELD_EXIT_QUAL &&
+		    insn_table[cur_insn].exit_qual != exit_qual)
+			pass = false;
+		if (insn_table[cur_insn].test_field & FIELD_INSN_INFO &&
+		    insn_table[cur_insn].insn_info != insn_info)
+			pass = false;
+		if (pass)
+			vmx_inc_test_stage();
+	}
 	vmcs_write(GUEST_RIP, guest_rip + insn_len);
 	return VMX_TEST_RESUME;
 }
