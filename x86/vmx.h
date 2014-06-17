@@ -55,28 +55,7 @@ union vmx_basic {
 	};
 };
 
-union vmx_ctrl_pin {
-	u64 val;
-	struct {
-		u32 set, clr;
-	};
-};
-
-union vmx_ctrl_cpu {
-	u64 val;
-	struct {
-		u32 set, clr;
-	};
-};
-
-union vmx_ctrl_exit {
-	u64 val;
-	struct {
-		u32 set, clr;
-	};
-};
-
-union vmx_ctrl_ent {
+union vmx_ctrl_msr {
 	u64 val;
 	struct {
 		u32 set, clr;
@@ -508,10 +487,10 @@ enum Ctrl1 {
 extern struct regs regs;
 
 extern union vmx_basic basic;
-extern union vmx_ctrl_pin ctrl_pin_rev;
-extern union vmx_ctrl_cpu ctrl_cpu_rev[2];
-extern union vmx_ctrl_exit ctrl_exit_rev;
-extern union vmx_ctrl_ent ctrl_enter_rev;
+extern union vmx_ctrl_msr ctrl_pin_rev;
+extern union vmx_ctrl_msr ctrl_cpu_rev[2];
+extern union vmx_ctrl_msr ctrl_exit_rev;
+extern union vmx_ctrl_msr ctrl_enter_rev;
 extern union vmx_ept_vpid  ept_vpid;
 
 void vmx_set_test_stage(u32 s);

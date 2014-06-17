@@ -49,10 +49,10 @@ bool launched;
 u64 host_rflags;
 
 union vmx_basic basic;
-union vmx_ctrl_pin ctrl_pin_rev;
-union vmx_ctrl_cpu ctrl_cpu_rev[2];
-union vmx_ctrl_exit ctrl_exit_rev;
-union vmx_ctrl_ent ctrl_enter_rev;
+union vmx_ctrl_msr ctrl_pin_rev;
+union vmx_ctrl_msr ctrl_cpu_rev[2];
+union vmx_ctrl_msr ctrl_exit_rev;
+union vmx_ctrl_msr ctrl_enter_rev;
 union vmx_ept_vpid  ept_vpid;
 
 extern struct descriptor_table_ptr gdt64_desc;
