@@ -62,6 +62,32 @@ extern void *vmx_return;
 extern void *entry_sysenter;
 extern void *guest_entry;
 
+static volatile u32 stage;
+
+void vmx_set_test_stage(u32 s)
+{
+	barrier();
+	stage = s;
+	barrier();
+}
+
+u32 vmx_get_test_stage(void)
+{
+	u32 s;
+
+	barrier();
+	s = stage;
+	barrier();
+	return s;
+}
+
+void vmx_inc_test_stage(void)
+{
+	barrier();
+	stage++;
+	barrier();
+}
+
 static int make_vmcs_current(struct vmcs *vmcs)
 {
 	bool ret;

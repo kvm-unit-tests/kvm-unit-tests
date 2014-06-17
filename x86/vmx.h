@@ -514,6 +514,10 @@ extern union vmx_ctrl_exit ctrl_exit_rev;
 extern union vmx_ctrl_ent ctrl_enter_rev;
 extern union vmx_ept_vpid  ept_vpid;
 
+void vmx_set_test_stage(u32 s);
+u32 vmx_get_test_stage(void);
+void vmx_inc_test_stage(void);
+
 static inline int vmcs_clear(struct vmcs *vmcs)
 {
 	bool ret;
