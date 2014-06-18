@@ -845,6 +845,15 @@ static void test_smsw_reg(uint64_t *mem, uint8_t *insn_page,
 	report("64-bit smsw reg", outregs.rax == cr0);
 }
 
+static void test_nop(uint64_t *mem, uint8_t *insn_page,
+		uint8_t *alt_insn_page, void *insn_ram)
+{
+	inregs = (struct regs){ .rax = 0x1234567890abcdeful };
+	MK_INSN(nop, "nop\n\t");
+	trap_emulator(mem, alt_insn_page, &insn_nop);
+	report("nop", outregs.rax == inregs.rax);
+}
+
 static void test_crosspage_mmio(volatile uint8_t *mem)
 {
     volatile uint16_t w, *pw;
@@ -1045,6 +1054,7 @@ int main()
 	test_mmx_movq_mf(mem, insn_page, alt_insn_page, insn_ram);
 	test_movabs(mem, insn_page, alt_insn_page, insn_ram);
 	test_smsw_reg(mem, insn_page, alt_insn_page, insn_ram);
+	test_nop(mem, insn_page, alt_insn_page, insn_ram);
 
 	test_crosspage_mmio(mem);
 
