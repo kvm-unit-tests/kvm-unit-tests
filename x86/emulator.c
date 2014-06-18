@@ -710,6 +710,18 @@ static void test_shld_shrd(u32 *mem)
     report("shrd (cl)", *mem == ((0x12345678 >> 3) | (5u << 29)));
 }
 
+static void test_cmov(u32 *mem)
+{
+	u64 val;
+	*mem = 0xabcdef12u;
+	asm ("movq $0x1234567812345678, %%rax\n\t"
+	     "cmpl %%eax, %%eax\n\t"
+	     "cmovnel (%[mem]), %%eax\n\t"
+	     "movq %%rax, %[val]\n\t"
+	     : [val]"=r"(val) : [mem]"r"(mem) : "%rax", "cc");
+	report("cmovnel", val == 0x12345678ul);
+}
+
 #define INSN_XCHG_ALL				\
 	"xchg %rax, 0+save \n\t"		\
 	"xchg %rbx, 8+save \n\t"		\
@@ -1054,12 +1066,12 @@ int main()
 	test_sreg(mem);
 	test_lldt(mem);
 	test_ltr(mem);
+	test_cmov(mem);
 
 	test_mmx_movq_mf(mem, insn_page, alt_insn_page, insn_ram);
 	test_movabs(mem, insn_page, alt_insn_page, insn_ram);
 	test_smsw_reg(mem, insn_page, alt_insn_page, insn_ram);
 	test_nop(mem, insn_page, alt_insn_page, insn_ram);
-
 	test_crosspage_mmio(mem);
 
 	test_string_io_mmio(mem);
