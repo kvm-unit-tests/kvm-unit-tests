@@ -46,12 +46,13 @@ union vmx_basic {
 	struct {
 		u32 revision;
 		u32	size:13,
-			: 3,
+			reserved1: 3,
 			width:1,
 			dual:1,
 			type:4,
 			insouts:1,
-			ctrl:1;
+			ctrl:1,
+			reserved2:8;
 	};
 };
 

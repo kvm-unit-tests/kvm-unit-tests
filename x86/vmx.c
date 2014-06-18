@@ -661,6 +661,77 @@ static void test_vmptrst(void)
 	report("test vmptrst", (!ret) && (vmcs1 == vmcs2));
 }
 
+struct vmx_ctl_msr {
+	const char *name;
+	u32 index, true_index;
+	u32 default1;
+} vmx_ctl_msr[] = {
+	{ "MSR_IA32_VMX_PINBASED_CTLS", MSR_IA32_VMX_PINBASED_CTLS,
+	  MSR_IA32_VMX_TRUE_PIN, 0x16 },
+	{ "MSR_IA32_VMX_PROCBASED_CTLS", MSR_IA32_VMX_PROCBASED_CTLS,
+	  MSR_IA32_VMX_TRUE_PROC, 0x401e172 },
+	{ "MSR_IA32_VMX_PROCBASED_CTLS2", MSR_IA32_VMX_PROCBASED_CTLS2,
+	  MSR_IA32_VMX_PROCBASED_CTLS2, 0 },
+	{ "MSR_IA32_VMX_EXIT_CTLS", MSR_IA32_VMX_EXIT_CTLS,
+	  MSR_IA32_VMX_TRUE_EXIT, 0x36dff },
+	{ "MSR_IA32_VMX_ENTRY_CTLS", MSR_IA32_VMX_ENTRY_CTLS,
+	  MSR_IA32_VMX_TRUE_ENTRY, 0x11ff },
+};
+
+static void test_vmx_caps(void)
+{
+	u64 val, default1, fixed0, fixed1;
+	union vmx_ctrl_msr ctrl, true_ctrl;
+	unsigned int n;
+	bool ok;
+
+	printf("\nTest suite: VMX capability reporting\n");
+
+	report("MSR_IA32_VMX_BASIC",
+	       (basic.revision & (1ul << 31)) == 0 &&
+	       basic.size > 0 && basic.size <= 4096 &&
+	       (basic.type == 0 || basic.type == 6) &&
+	       basic.reserved1 == 0 && basic.reserved2 == 0);
+
+	val = rdmsr(MSR_IA32_VMX_MISC);
+	report("MSR_IA32_VMX_MISC",
+	       (!(ctrl_cpu_rev[1].clr & CPU_URG) || val & (1ul << 5)) &&
+	       ((val >> 16) & 0x1ff) <= 256 &&
+	       (val & 0xc0007e00) == 0);
+
+	for (n = 0; n < ARRAY_SIZE(vmx_ctl_msr); n++) {
+		ctrl.val = rdmsr(vmx_ctl_msr[n].index);
+		default1 = vmx_ctl_msr[n].default1;
+		ok = (ctrl.set & default1) == default1;
+		ok = ok && (ctrl.set & ~ctrl.clr) == 0;
+		if (ok && basic.ctrl) {
+			true_ctrl.val = rdmsr(vmx_ctl_msr[n].true_index);
+			ok = ctrl.clr == true_ctrl.clr;
+			ok = ok && ctrl.set == (true_ctrl.set | default1);
+		}
+		report(vmx_ctl_msr[n].name, ok);
+	}
+
+	fixed0 = rdmsr(MSR_IA32_VMX_CR0_FIXED0);
+	fixed1 = rdmsr(MSR_IA32_VMX_CR0_FIXED1);
+	report("MSR_IA32_VMX_IA32_VMX_CR0_FIXED0/1",
+	       ((fixed0 ^ fixed1) & ~fixed1) == 0);
+
+	fixed0 = rdmsr(MSR_IA32_VMX_CR4_FIXED0);
+	fixed1 = rdmsr(MSR_IA32_VMX_CR4_FIXED1);
+	report("MSR_IA32_VMX_IA32_VMX_CR4_FIXED0/1",
+	       ((fixed0 ^ fixed1) & ~fixed1) == 0);
+
+	val = rdmsr(MSR_IA32_VMX_VMCS_ENUM);
+	report("MSR_IA32_VMX_VMCS_ENUM",
+	       (val & 0x3e) >= 0x2a &&
+	       (val & 0xfffffffffffffc01Ull) == 0);
+
+	val = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
+	report("MSR_IA32_VMX_EPT_VPID_CAP",
+	       (val & 0xfffff07ef9eebebeUll) == 0);
+}
+
 /* This function can only be called in guest */
 static void __attribute__((__used__)) hypercall(u32 hypercall_no)
 {
@@ -803,7 +874,7 @@ static int test_run(struct vmx_test *test)
 	regs = test->guest_regs;
 	vmcs_write(GUEST_RFLAGS, regs.rflags | 0x2);
 	launched = 0;
-	printf("\nTest suite : %s\n", test->name);
+	printf("\nTest suite: %s\n", test->name);
 	vmx_run();
 	if (vmx_off()) {
 		printf("%s : vmxoff failed.\n", __func__);
@@ -842,6 +913,7 @@ int main(void)
 		goto exit;
 	}
 	test_vmxoff();
+	test_vmx_caps();
 
 	while (vmx_tests[++i].name != NULL)
 		if (test_run(&vmx_tests[i]))
