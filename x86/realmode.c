@@ -1663,6 +1663,14 @@ void test_smsw(void)
 	report("smsw", R_AX | R_BX | R_CX, outregs.eax == outregs.ebx);
 }
 
+void test_xadd(void)
+{
+	MK_INSN(xadd, "xaddl %eax, %eax\n\t");
+	inregs.eax = 0x12345678;
+	exec_in_big_real_mode(&insn_xadd);
+	report("xadd", R_AX, outregs.eax == inregs.eax * 2);
+}
+
 
 void realmode_start(void)
 {
@@ -1712,6 +1720,7 @@ void realmode_start(void)
 	test_dr_mod();
 	test_smsw();
 	test_nopl();
+	test_xadd();
 	test_perf_loop();
 	test_perf_mov();
 	test_perf_arith();
