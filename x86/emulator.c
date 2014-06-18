@@ -496,7 +496,7 @@ void test_btc(void *mem)
 {
 	unsigned int *a = mem;
 
-	memset(mem, 0, 3 * sizeof(unsigned int));
+	memset(mem, 0, 4 * sizeof(unsigned int));
 
 	asm ("btcl $32, %0" :: "m"(a[0]) : "memory");
 	asm ("btcl $1, %0" :: "m"(a[1]) : "memory");
@@ -505,6 +505,10 @@ void test_btc(void *mem)
 
 	asm ("btcl %1, %0" :: "m"(a[3]), "r"(-1) : "memory");
 	report("btcl reg, r/m", a[0] == 1 && a[1] == 2 && a[2] == 0x80000004);
+
+	asm ("btcq %1, %0" : : "m"(a[2]), "r"(-1l) : "memory");
+	report("btcq reg, r/m", a[0] == 1 && a[1] == 0x80000002 &&
+		a[2] == 0x80000004 && a[3] == 0);
 }
 
 void test_bsfbsr(void *mem)
