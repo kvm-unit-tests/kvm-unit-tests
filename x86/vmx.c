@@ -868,7 +868,7 @@ static int test_run(struct vmx_test *test)
 	/* Directly call test->init is ok here, init_vmcs has done
 	   vmcs init, vmclear and vmptrld*/
 	if (test->init && test->init(test->vmcs) != VMX_TEST_START)
-		return 0;
+		goto out;
 	test->exits = 0;
 	current = test;
 	regs = test->guest_regs;
@@ -876,6 +876,7 @@ static int test_run(struct vmx_test *test)
 	launched = 0;
 	printf("\nTest suite: %s\n", test->name);
 	vmx_run();
+out:
 	if (vmx_off()) {
 		printf("%s : vmxoff failed.\n", __func__);
 		return 1;
