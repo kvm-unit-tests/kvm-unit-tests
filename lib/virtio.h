@@ -10,6 +10,8 @@
  */
 #include "libcflat.h"
 
+#define VIRTIO_ID_CONSOLE 3
+
 struct virtio_device_id {
 	u32 device;
 	u32 vendor;
