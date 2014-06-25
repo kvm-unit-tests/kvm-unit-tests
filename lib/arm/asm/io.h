@@ -2,6 +2,7 @@
 #define _ASMARM_IO_H_
 #include "libcflat.h"
 #include "asm/barrier.h"
+#include "asm/page.h"
 
 #define __iomem
 #define __force
@@ -74,6 +75,18 @@ static inline void __raw_writel(u32 val, volatile void __iomem *addr)
 	asm volatile("str %1, %0"
 		     : "+Qo" (*(volatile u32 __force *)addr)
 		     : "r" (val));
+}
+
+#define virt_to_phys virt_to_phys
+static inline phys_addr_t virt_to_phys(const volatile void *x)
+{
+	return __virt_to_phys((unsigned long)(x));
+}
+
+#define phys_to_virt phys_to_virt
+static inline void *phys_to_virt(phys_addr_t x)
+{
+	return (void *)__phys_to_virt(x);
 }
 
 #include "asm-generic/io.h"
