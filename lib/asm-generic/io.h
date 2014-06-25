@@ -10,6 +10,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include "libcflat.h"
+#include "asm/page.h"
 
 #ifndef __raw_readb
 static inline u8 __raw_readb(const volatile void *addr)
@@ -156,6 +157,18 @@ static inline void *ioremap(u64 phys_addr, size_t size __unused)
 {
 	assert(sizeof(long) == 8 || !(phys_addr >> 32));
 	return (void *)(unsigned long)phys_addr;
+}
+#endif
+
+#ifndef virt_to_phys
+static inline unsigned long virt_to_phys(volatile void *address)
+{
+	return __pa((unsigned long)address);
+}
+
+static inline void *phys_to_virt(unsigned long address)
+{
+	return __va(address);
 }
 #endif
 
