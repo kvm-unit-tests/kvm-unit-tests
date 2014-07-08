@@ -702,18 +702,18 @@ static void test_vmptrld(void)
 	/* Unaligned page access */
 	tmp_root = (struct vmcs *)((intptr_t)vmcs + 1);
 	report("test vmptrld with unaligned vmcs",
-	       vmcs_clear(tmp_root) == 1);
+	       make_vmcs_current(tmp_root) == 1);
 
 	/* gpa bits beyond physical address width are set*/
 	tmp_root = (struct vmcs *)((intptr_t)vmcs |
 				   ((u64)1 << (width+1)));
 	report("test vmptrld with vmcs address bits set beyond physical address width",
-	       vmcs_clear(tmp_root) == 1);
+	       make_vmcs_current(tmp_root) == 1);
 
 	/* Pass VMXON region */
 	tmp_root = (struct vmcs *)vmxon_region;
 	report("test vmptrld with vmxon region",
-	       vmcs_clear(tmp_root) == 1);
+	       make_vmcs_current(tmp_root) == 1);
 
 	report("test vmptrld with valid vmcs region", make_vmcs_current(vmcs) == 0);
 }
