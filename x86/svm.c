@@ -1,6 +1,7 @@
 #include "svm.h"
 #include "libcflat.h"
 #include "processor.h"
+#include "desc.h"
 #include "msr.h"
 #include "vm.h"
 #include "smp.h"
@@ -356,7 +357,7 @@ static void test_mode_switch(struct test *test)
 		 "	ljmp *1f\n" /* jump to 32-bit code segment */
 		 "1:\n"
 		 "	.long 2f\n"
-		 "	.long 40\n"
+		 "	.long " xstr(KERNEL_CS32) "\n"
 		 ".code32\n"
 		 "2:\n"
 		 "	movl %%cr0, %%eax\n"
@@ -369,9 +370,9 @@ static void test_mode_switch(struct test *test)
 		 "	movl %%cr4, %%eax\n"
 		 "	btcl $5, %%eax\n" /* clear PAE */
 		 "	movl %%eax, %%cr4\n"
-		 "	movw $64, %%ax\n"
+		 "	movw %[ds16], %%ax\n"
 		 "	movw %%ax, %%ds\n"
-		 "	ljmpl $56, $3f\n" /* jump to 16 bit protected-mode */
+		 "	ljmpl %[cs16], $3f\n" /* jump to 16 bit protected-mode */
 		 ".code16\n"
 		 "3:\n"
 		 "	movl %%cr0, %%eax\n"
@@ -383,7 +384,7 @@ static void test_mode_switch(struct test *test)
 		 "	movl %%cr0, %%eax\n"
 		 "	btsl $0, %%eax\n" /* set PE  */
 		 "	movl %%eax, %%cr0\n"
-		 "	ljmpl $40, $5f\n" /* back to protected mode */
+		 "	ljmpl %[cs32], $5f\n" /* back to protected mode */
 		 ".code32\n"
 		 "5:\n"
 		 "	movl %%cr4, %%eax\n"
@@ -396,11 +397,13 @@ static void test_mode_switch(struct test *test)
 		 "	movl %%cr0, %%eax\n"
 		 "	btsl  $31, %%eax\n" /* set PG */
 		 "	movl %%eax, %%cr0\n"
-		 "	ljmpl $8, $6f\n"    /* back to long mode */
+		 "	ljmpl %[cs64], $6f\n"    /* back to long mode */
 		 ".code64\n\t"
 		 "6:\n"
 		 "	vmmcall\n"
-		 ::: "rax", "rbx", "rcx", "rdx", "memory");
+		 :: [cs16] "i"(KERNEL_CS16), [ds16] "i"(KERNEL_DS16),
+		    [cs32] "i"(KERNEL_CS32), [cs64] "i"(KERNEL_CS64)
+		 : "rax", "rbx", "rcx", "rdx", "memory");
 }
 
 static bool mode_switch_finished(struct test *test)

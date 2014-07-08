@@ -88,8 +88,19 @@ typedef struct  __attribute__((packed)) {
 #define NP_SEL 0x18
 #define USER_CS 0x23
 #define USER_DS 0x2b
-#define TSS_INTR 0x30
-#define FIRST_SPARE_SEL 0x38
+#ifdef __x86_64__
+#define KERNEL_CS64 KERNEL_CS
+#define KERNEL_DS64 KERNEL_DS
+#define KERNEL_CS32 0x30
+#define KERNEL_DS32 0x38
+#define KERNEL_CS16 0x40
+#define KERNEL_DS16 0x48
+#else
+#define KERNEL_CS32 KERNEL_CS
+#define KERNEL_DS32 KERNEL_DS
+#endif
+#define TSS_INTR 0x50
+#define FIRST_SPARE_SEL 0x58
 #define TSS_MAIN 0x80
 
 typedef struct {
