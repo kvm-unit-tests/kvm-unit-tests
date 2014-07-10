@@ -1,4 +1,6 @@
 /*
+ * virtqueue support adapted from the Linux kernel.
+ *
  * Copyright (C) 2014, Red Hat Inc, Andrew Jones <drjones@redhat.com>
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
@@ -6,6 +8,7 @@
 #include "libcflat.h"
 #include "devicetree.h"
 #include "alloc.h"
+#include "asm/page.h"
 #include "asm/io.h"
 #include "virtio.h"
 #include "virtio-mmio.h"
@@ -32,9 +35,68 @@ static void vm_set(struct virtio_device *vdev, unsigned offset,
 		writeb(p[i], vm_dev->base + VIRTIO_MMIO_CONFIG + offset + i);
 }
 
+static bool vm_notify(struct virtqueue *vq)
+{
+	struct virtio_mmio_device *vm_dev = to_virtio_mmio_device(vq->vdev);
+	writel(vq->index, vm_dev->base + VIRTIO_MMIO_QUEUE_NOTIFY);
+	return true;
+}
+
+static struct virtqueue *vm_setup_vq(struct virtio_device *vdev,
+				     unsigned index,
+				     void (*callback)(struct virtqueue *vq),
+				     const char *name)
+{
+	struct virtio_mmio_device *vm_dev = to_virtio_mmio_device(vdev);
+	struct vring_virtqueue *vq;
+	void *queue;
+	unsigned num = VIRTIO_MMIO_QUEUE_NUM_MIN;
+
+	vq = calloc(1, sizeof(*vq));
+	queue = memalign(PAGE_SIZE, VIRTIO_MMIO_QUEUE_SIZE_MIN);
+	if (!vq || !queue)
+		return NULL;
+
+	writel(index, vm_dev->base + VIRTIO_MMIO_QUEUE_SEL);
+
+	assert(readl(vm_dev->base + VIRTIO_MMIO_QUEUE_NUM_MAX) >= num);
+
+	if (readl(vm_dev->base + VIRTIO_MMIO_QUEUE_PFN) != 0) {
+		printf("%s: virtqueue %d already setup! base=%p\n",
+				__func__, index, vm_dev->base);
+		return NULL;
+	}
+
+	writel(num, vm_dev->base + VIRTIO_MMIO_QUEUE_NUM);
+	writel(VIRTIO_MMIO_VRING_ALIGN,
+			vm_dev->base + VIRTIO_MMIO_QUEUE_ALIGN);
+	writel(virt_to_pfn(queue), vm_dev->base + VIRTIO_MMIO_QUEUE_PFN);
+
+	vring_init_virtqueue(vq, index, num, VIRTIO_MMIO_VRING_ALIGN,
+			     vdev, queue, vm_notify, callback, name);
+
+	return &vq->vq;
+}
+
+static int vm_find_vqs(struct virtio_device *vdev, unsigned nvqs,
+		       struct virtqueue *vqs[], vq_callback_t *callbacks[],
+		       const char *names[])
+{
+	unsigned i;
+
+	for (i = 0; i < nvqs; ++i) {
+		vqs[i] = vm_setup_vq(vdev, i, callbacks[i], names[i]);
+		if (vqs[i] == NULL)
+			return -1;
+	}
+
+	return 0;
+}
+
 static const struct virtio_config_ops vm_config_ops = {
 	.get = vm_get,
 	.set = vm_set,
+	.find_vqs = vm_find_vqs,
 };
 
 static void vm_device_init(struct virtio_mmio_device *vm_dev)
@@ -42,6 +104,8 @@ static void vm_device_init(struct virtio_mmio_device *vm_dev)
 	vm_dev->vdev.id.device = readl(vm_dev->base + VIRTIO_MMIO_DEVICE_ID);
 	vm_dev->vdev.id.vendor = readl(vm_dev->base + VIRTIO_MMIO_VENDOR_ID);
 	vm_dev->vdev.config = &vm_config_ops;
+
+	writel(PAGE_SIZE, vm_dev->base + VIRTIO_MMIO_GUEST_PAGE_SIZE);
 }
 
 /******************************************************

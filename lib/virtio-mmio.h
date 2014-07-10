@@ -8,6 +8,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include "libcflat.h"
+#include "asm/page.h"
 #include "virtio.h"
 
 #define VIRTIO_MMIO_MAGIC_VALUE		0x000
@@ -33,6 +34,23 @@
 #define VIRTIO_MMIO_INT_VRING		(1 << 0)
 #define VIRTIO_MMIO_INT_CONFIG		(1 << 1)
 
+#define VIRTIO_MMIO_VRING_ALIGN		PAGE_SIZE
+
+/*
+ * The minimum queue size is 2*VIRTIO_MMIO_VRING_ALIGN, which
+ * means the largest queue num for the minimum queue size is 128, i.e.
+ * 2*VIRTIO_MMIO_VRING_ALIGN = vring_size(128, VIRTIO_MMIO_VRING_ALIGN),
+ * where vring_size is
+ *
+ * unsigned vring_size(unsigned num, unsigned long align)
+ * {
+ *     return ((sizeof(struct vring_desc) * num + sizeof(u16) * (3 + num)
+ *              + align - 1) & ~(align - 1))
+ *             + sizeof(u16) * 3 + sizeof(struct vring_used_elem) * num;
+ * }
+ */
+#define VIRTIO_MMIO_QUEUE_SIZE_MIN	(2*VIRTIO_MMIO_VRING_ALIGN)
+#define VIRTIO_MMIO_QUEUE_NUM_MIN	128
 
 #define to_virtio_mmio_device(vdev_ptr) \
 	container_of(vdev_ptr, struct virtio_mmio_device, vdev)
