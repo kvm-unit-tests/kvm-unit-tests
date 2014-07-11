@@ -21,45 +21,45 @@
 #define __LIBCFLAT_H
 
 #include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
 #define xstr(s) xxstr(s)
 #define xxstr(s) #s
 
-typedef unsigned char u8;
-typedef signed char s8;
-typedef unsigned short u16;
-typedef signed short s16;
-typedef unsigned u32;
-typedef signed s32;
-typedef unsigned long ulong;
-typedef unsigned long long u64;
-typedef signed long long s64;
-typedef unsigned long size_t;
-typedef _Bool bool;
+typedef uint8_t		u8;
+typedef int8_t		s8;
+typedef uint16_t	u16;
+typedef int16_t		s16;
+typedef uint32_t	u32;
+typedef int32_t		s32;
+typedef uint64_t	u64;
+typedef int64_t		s64;
+typedef unsigned long	ulong;
 
-#define true 1
+typedef _Bool		bool;
 #define false 0
+#define true  1
 
+extern void puts(const char *s);
 extern void exit(int code);
 extern void abort(void);
 
 extern int printf(const char *fmt, ...);
 extern int snprintf(char *buf, int size, const char *fmt, ...);
 extern int vsnprintf(char *buf, int size, const char *fmt, va_list va);
-
-extern void puts(const char *s);
-
 extern long atol(const char *ptr);
-#define ARRAY_SIZE(_a)  (sizeof(_a)/sizeof((_a)[0]))
-
-#define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
-
-#define NULL ((void *)0UL)
 
 void report(const char *msg_fmt, bool pass, ...);
 void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...);
 int report_summary(void);
+
+#define ARRAY_SIZE(_a) (sizeof(_a)/sizeof((_a)[0]))
+
+#define container_of(ptr, type, member) ({				\
+	const typeof( ((type *)0)->member ) *__mptr = (ptr);		\
+	(type *)( (char *)__mptr - offsetof(type,member) );})
 
 #define assert(cond)							\
 do {									\
