@@ -19,6 +19,7 @@ cflatobjs := \
 	lib/argv.o \
 	lib/printf.o \
 	lib/string.o \
+	lib/abort.o \
 	lib/report.o
 
 #include architecure specific make rules

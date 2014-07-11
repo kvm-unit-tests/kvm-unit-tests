@@ -42,6 +42,7 @@ typedef _Bool bool;
 #define false 0
 
 extern void exit(int code);
+extern void abort(void);
 
 extern int printf(const char *fmt, ...);
 extern int snprintf(char *buf, int size, const char *fmt, ...);
@@ -59,4 +60,12 @@ extern long atol(const char *ptr);
 void report(const char *msg_fmt, bool pass, ...);
 void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...);
 int report_summary(void);
+
+#define assert(cond)							\
+do {									\
+	if (!(cond))							\
+		printf("%s:%d: assert failed\n", __FILE__, __LINE__),	\
+		abort();						\
+} while (0)
+
 #endif
