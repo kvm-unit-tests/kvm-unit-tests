@@ -744,7 +744,7 @@ void test_iret()
 	MK_INSN(iret_flags32, "pushfl\n\t"
 			      "popl %eax\n\t"
 			      "andl $~0x2, %eax\n\t"
-			      "orl $0xffc08028, %eax\n\t"
+			      "orl $0xffc18028, %eax\n\t"
 			      "pushl %eax\n\t"
 			      "pushl %cs\n\t"
 			      "call 1f\n\t"
@@ -773,6 +773,7 @@ void test_iret()
 
 	exec_in_big_real_mode(&insn_iret_flags32);
 	report("iret 3", R_AX, 1);
+	report("rflags.rf", ~0, !(outregs.eflags & (1 << 16)));
 
 	exec_in_big_real_mode(&insn_iret_flags16);
 	report("iret 4", R_AX, 1);
