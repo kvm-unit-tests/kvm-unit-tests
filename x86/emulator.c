@@ -182,7 +182,7 @@ void test_cr8(void)
 	src = 3;
 	asm volatile("mov %[src], %%cr8; mov %%cr8, %[dst]"
 		     : [dst]"+r"(dst), [src]"+r"(src));
-	report("mov %cr8", dst == 3 && src == 3);
+	report("mov %%cr8", dst == 3 && src == 3);
 }
 
 void test_push(void *mem)
@@ -208,7 +208,7 @@ void test_push(void *mem)
 		     : "memory");
 
 	report("push $imm8", stack_top[-1] == -7ul);
-	report("push %reg", stack_top[-2] == -17ul);
+	report("push %%reg", stack_top[-2] == -17ul);
 	report("push mem", stack_top[-3] == 0x123456789abcdeful);
 	report("push $imm", stack_top[-4] == -7070707);
 }
@@ -698,7 +698,7 @@ static void test_rip_relative(unsigned *mem, char *insn_ram)
 
     *mem = 0;
     asm("callq *%1" : "+m"(*mem) : "r"(insn_ram));
-    report("movb $imm, 0(%rip)", *mem == 0x10000);
+    report("movb $imm, 0(%%rip)", *mem == 0x10000);
 }
 
 static void test_shld_shrd(u32 *mem)
