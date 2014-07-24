@@ -144,6 +144,7 @@ extern tss64_t tss;
 
 unsigned exception_vector(void);
 unsigned exception_error_code(void);
+bool exception_rflags_rf(void);
 void set_idt_entry(int vec, void *addr, int dpl);
 void set_idt_sel(int vec, u16 sel);
 void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran);

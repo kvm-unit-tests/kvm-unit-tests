@@ -36,8 +36,8 @@ static void check_exception_table(struct ex_regs *regs)
     struct ex_record *ex;
     unsigned ex_val;
 
-    ex_val = regs->vector | (regs->error_code << 16);
-
+    ex_val = regs->vector | (regs->error_code << 16) |
+		(((regs->rflags >> 16) & 1) << 8);
     asm("mov %0, %%gs:4" : : "r"(ex_val));
 
     for (ex = &exception_table_start; ex != &exception_table_end; ++ex) {
@@ -173,9 +173,9 @@ void setup_idt(void)
 
 unsigned exception_vector(void)
 {
-    unsigned short vector;
+    unsigned char vector;
 
-    asm("mov %%gs:4, %0" : "=rm"(vector));
+    asm("movb %%gs:4, %0" : "=q"(vector));
     return vector;
 }
 
@@ -185,6 +185,14 @@ unsigned exception_error_code(void)
 
     asm("mov %%gs:6, %0" : "=rm"(error_code));
     return error_code;
+}
+
+bool exception_rflags_rf(void)
+{
+    unsigned char rf_flag;
+
+    asm("movb %%gs:5, %b0" : "=q"(rf_flag));
+    return rf_flag & 1;
 }
 
 static char intr_alt_stack[4096];
