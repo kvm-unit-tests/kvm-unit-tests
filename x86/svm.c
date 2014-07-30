@@ -36,6 +36,9 @@ u64 latclgi_max;
 u64 latclgi_min;
 u64 runs;
 
+u8 *io_bitmap;
+u8 io_bitmap_area[16384];
+
 static bool npt_supported(void)
 {
    return cpuid(0x8000000A).d & 1;
@@ -52,6 +55,8 @@ static void setup_svm(void)
     wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX);
 
     scratch_page = alloc_page();
+
+    io_bitmap = (void *) (((ulong)io_bitmap_area + 4095) & ~4095);
 
     if (!npt_supported())
         return;
@@ -149,6 +154,7 @@ static void vmcb_ident(struct vmcb *vmcb)
     save->g_pat = rdmsr(MSR_IA32_CR_PAT);
     save->dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
     ctrl->intercept = (1ULL << INTERCEPT_VMRUN) | (1ULL << INTERCEPT_VMMCALL);
+    ctrl->iopm_base_pa = virt_to_phys(io_bitmap);
 
     if (npt_supported()) {
         ctrl->nested_ctl = 1;
