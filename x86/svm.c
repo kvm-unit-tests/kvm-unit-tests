@@ -174,6 +174,48 @@ static void test_thunk(struct test *test)
     asm volatile ("vmmcall" : : : "memory");
 }
 
+struct regs {
+        u64 rax;
+        u64 rcx;
+        u64 rdx;
+        u64 rbx;
+        u64 cr2;
+        u64 rbp;
+        u64 rsi;
+        u64 rdi;
+        u64 r8;
+        u64 r9;
+        u64 r10;
+        u64 r11;
+        u64 r12;
+        u64 r13;
+        u64 r14;
+        u64 r15;
+        u64 rflags;
+};
+
+struct regs regs;
+
+// rax handled specially below
+
+#define SAVE_GPR_C                              \
+        "xchg %%rbx, regs+0x8\n\t"              \
+        "xchg %%rcx, regs+0x10\n\t"             \
+        "xchg %%rdx, regs+0x18\n\t"             \
+        "xchg %%rbp, regs+0x28\n\t"             \
+        "xchg %%rsi, regs+0x30\n\t"             \
+        "xchg %%rdi, regs+0x38\n\t"             \
+        "xchg %%r8, regs+0x40\n\t"              \
+        "xchg %%r9, regs+0x48\n\t"              \
+        "xchg %%r10, regs+0x50\n\t"             \
+        "xchg %%r11, regs+0x58\n\t"             \
+        "xchg %%r12, regs+0x60\n\t"             \
+        "xchg %%r13, regs+0x68\n\t"             \
+        "xchg %%r14, regs+0x70\n\t"             \
+        "xchg %%r15, regs+0x78\n\t"
+
+#define LOAD_GPR_C      SAVE_GPR_C
+
 static bool test_run(struct test *test, struct vmcb *vmcb)
 {
     u64 vmcb_phys = virt_to_phys(vmcb);
@@ -184,19 +226,26 @@ static bool test_run(struct test *test, struct vmcb *vmcb)
     test->prepare(test);
     vmcb->save.rip = (ulong)test_thunk;
     vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
+    regs.rdi = (ulong)test;
     do {
         tsc_start = rdtsc();
         asm volatile (
             "clgi \n\t"
             "vmload \n\t"
-            "push %%rbp \n\t"
-            "push %1 \n\t"
+            "mov regs+0x80, %%r15\n\t"  // rflags
+            "mov %%r15, 0x170(%0)\n\t"
+            "mov regs, %%r15\n\t"       // rax
+            "mov %%r15, 0x1f8(%0)\n\t"
+            LOAD_GPR_C
             "vmrun \n\t"
-            "pop %1 \n\t"
-            "pop %%rbp \n\t"
+            SAVE_GPR_C
+            "mov 0x170(%0), %%r15\n\t"  // rflags
+            "mov %%r15, regs+0x80\n\t"
+            "mov 0x1f8(%0), %%r15\n\t"  // rax
+            "mov %%r15, regs\n\t"
             "vmsave \n\t"
             "stgi"
-            : : "a"(vmcb_phys), "D"(test)
+            : : "a"(vmcb_phys)
             : "rbx", "rcx", "rdx", "rsi",
               "r8", "r9", "r10", "r11" , "r12", "r13", "r14", "r15",
               "memory");
