@@ -175,10 +175,15 @@ struct test {
     ulong scratch;
 };
 
+static inline void vmmcall(void)
+{
+    asm volatile ("vmmcall" : : : "memory");
+}
+
 static void test_thunk(struct test *test)
 {
     test->guest_func(test);
-    asm volatile ("vmmcall" : : : "memory");
+    vmmcall();
 }
 
 struct regs {
