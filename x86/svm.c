@@ -6,6 +6,7 @@
 #include "vm.h"
 #include "smp.h"
 #include "types.h"
+#include "io.h"
 
 /* for the nested page table*/
 u64 *pml4e;
@@ -505,6 +506,129 @@ static bool check_mode_switch(struct test *test)
 	return test->scratch == 2;
 }
 
+static void prepare_ioio(struct test *test)
+{
+    test->vmcb->control.intercept |= (1ULL << INTERCEPT_IOIO_PROT);
+    test->scratch = 0;
+    memset(io_bitmap, 0, 8192);
+    io_bitmap[8192] = 0xFF;
+}
+
+int get_test_stage(struct test *test)
+{
+    barrier();
+    return test->scratch;
+}
+
+void inc_test_stage(struct test *test)
+{
+    barrier();
+    test->scratch++;
+    barrier();
+}
+
+static void test_ioio(struct test *test)
+{
+    // stage 0, test IO pass
+    inb(0x5000);
+    outb(0x0, 0x5000);
+    if (get_test_stage(test) != 0)
+        goto fail;
+
+    // test IO width, in/out
+    io_bitmap[0] = 0xFF;
+    inc_test_stage(test);
+    inb(0x0);
+    if (get_test_stage(test) != 2)
+        goto fail;
+
+    outw(0x0, 0x0);
+    if (get_test_stage(test) != 3)
+        goto fail;
+
+    inl(0x0);
+    if (get_test_stage(test) != 4)
+        goto fail;
+
+    // test low/high IO port
+    io_bitmap[0x5000 / 8] = (1 << (0x5000 % 8));
+    inb(0x5000);
+    if (get_test_stage(test) != 5)
+        goto fail;
+
+    io_bitmap[0x9000 / 8] = (1 << (0x9000 % 8));
+    inw(0x9000);
+    if (get_test_stage(test) != 6)
+        goto fail;
+
+    // test partial pass
+    io_bitmap[0x5000 / 8] = (1 << (0x5000 % 8));
+    inl(0x4FFF);
+    if (get_test_stage(test) != 7)
+        goto fail;
+
+    // test across pages
+    inc_test_stage(test);
+    inl(0x7FFF);
+    if (get_test_stage(test) != 8)
+        goto fail;
+
+    inc_test_stage(test);
+    io_bitmap[0x8000 / 8] = 1 << (0x8000 % 8);
+    inl(0x7FFF);
+    if (get_test_stage(test) != 10)
+        goto fail;
+
+    io_bitmap[0] = 0;
+    inl(0xFFFF);
+    if (get_test_stage(test) != 11)
+        goto fail;
+
+    io_bitmap[0] = 0xFF;
+    io_bitmap[8192] = 0;
+    inl(0xFFFF);
+    inc_test_stage(test);
+    if (get_test_stage(test) != 12)
+        goto fail;
+
+    return;
+
+fail:
+    printf("test failure, stage %d\n", get_test_stage(test));
+    test->scratch = -1;
+}
+
+static bool ioio_finished(struct test *test)
+{
+    unsigned port, size;
+
+    /* Only expect IOIO intercepts */
+    if (test->vmcb->control.exit_code == SVM_EXIT_VMMCALL)
+        return true;
+
+    if (test->vmcb->control.exit_code != SVM_EXIT_IOIO)
+        return true;
+
+    /* one step forward */
+    test->scratch += 1;
+
+    port = test->vmcb->control.exit_info_1 >> 16;
+    size = (test->vmcb->control.exit_info_1 >> SVM_IOIO_SIZE_SHIFT) & 7;
+
+    while (size--) {
+        io_bitmap[port / 8] &= ~(1 << (port & 7));
+        port++;
+    }
+
+    return false;
+}
+
+static bool check_ioio(struct test *test)
+{
+    memset(io_bitmap, 0, 8193);
+    return test->scratch != -1;
+}
+
 static void prepare_asid_zero(struct test *test)
 {
     test->vmcb->control.asid = 0;
@@ -804,6 +928,8 @@ static struct test tests[] = {
       default_finished, null_check },
     { "vmrun", default_supported, default_prepare, test_vmrun,
        default_finished, check_vmrun },
+    { "ioio", default_supported, prepare_ioio, test_ioio,
+       ioio_finished, check_ioio },
     { "vmrun intercept check", default_supported, prepare_no_vmrun_int,
       null_test, default_finished, check_no_vmrun_int },
     { "cr3 read intercept", default_supported, prepare_cr3_intercept,
