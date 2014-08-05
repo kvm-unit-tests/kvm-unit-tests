@@ -19,12 +19,6 @@ struct msr_info {
 
 struct msr_info msr_info[] =
 {
-    { .index = 0x0000001b, .name = "MSR_IA32_APICBASE",
-      .val_pairs = {
-            { .valid = 1, .value = 0x0000000056789900, .expected = 0x0000000056789900},
-            { .valid = 1, .value = 0x0000000056789D01, .expected = 0x0000000056789D01},
-        }
-    },
     { .index = 0x00000174, .name = "IA32_SYSENTER_CS",
       .val_pairs = {{ .valid = 1, .value = 0x1234, .expected = 0x1234}}
     },
