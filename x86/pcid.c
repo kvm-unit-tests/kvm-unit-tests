@@ -53,7 +53,7 @@ void test_pcid_enabled(void)
         goto report;
 
     /* try clearing CR0.PG when CR4.PCIDE=1, #GP expected */
-    if (write_cr0_checking(cr0 | X86_CR0_PG) != GP_VECTOR)
+    if (write_cr0_checking(cr0 & ~X86_CR0_PG) != GP_VECTOR)
         goto report;
 
     write_cr4(cr4);
