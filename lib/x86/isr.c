@@ -93,13 +93,13 @@ void handle_irq(unsigned vec, void (*func)(isr_regs_t *regs))
 
 void handle_external_interrupt(int vector)
 {
-#ifdef __x86_64__
-	unsigned long tmp;
-#endif
 	idt_entry_t *idt = &boot_idt[vector];
 	unsigned long entry =
-	    idt->offset0 | ((unsigned long)idt->offset1 << 16) |
-	    ((unsigned long)idt->offset2 << 32);
+		idt->offset0 | ((unsigned long)idt->offset1 << 16);
+#ifdef __x86_64__
+	unsigned long tmp;
+	entry |= ((unsigned long)idt->offset2 << 32);
+#endif
 
 	asm volatile(
 #ifdef __x86_64__
@@ -109,7 +109,7 @@ void handle_external_interrupt(int vector)
 		     "push %[sp]\n\t"
 #endif
 		     "pushf\n\t"
-		     "orl $0x200, (%%rsp)\n\t"
+		     "orl $0x200, (%%"R"sp)\n\t"
 		     "push $%c[cs]\n\t"
 		     "call *%[entry]\n\t"
 		     :
