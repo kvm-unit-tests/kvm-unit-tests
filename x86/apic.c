@@ -35,6 +35,7 @@ static void start_tsc_deadline_timer(void)
     wrmsr(MSR_IA32_TSCDEADLINE, rdmsr(MSR_IA32_TSC));
     asm volatile ("nop");
     report("tsc deadline timer", tdt_count == 1);
+    report("tsc deadline timer clearing", rdmsr(MSR_IA32_TSCDEADLINE) == 0);
 }
 
 static int enable_tsc_deadline_timer(void)
