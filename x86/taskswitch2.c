@@ -7,6 +7,7 @@
 
 #define MAIN_TSS_SEL (FIRST_SPARE_SEL + 0)
 #define VM86_TSS_SEL (FIRST_SPARE_SEL + 8)
+#define CONFORM_CS_SEL  (FIRST_SPARE_SEL + 16)
 
 static volatile int test_count;
 static volatile unsigned int test_divider;
@@ -99,6 +100,14 @@ start:
 	asm volatile ("iret");
 	test_count++;
 	printf("IRQ task restarts after iret.\n");
+	goto start;
+}
+
+static void user_tss(void)
+{
+start:
+	test_count++;
+	asm volatile ("iret");
 	goto start;
 }
 
@@ -248,6 +257,19 @@ void test_vm86_switch(void)
     report("VM86", 1);
 }
 
+void test_conforming_switch(void)
+{
+	/* test lcall with conforming segment, cs.dpl != cs.rpl */
+	test_count = 0;
+
+	tss_intr.cs = CONFORM_CS_SEL | 3;
+	tss_intr.eip = (u32)user_tss;
+	tss_intr.ds = tss_intr.gs = tss_intr.fs = tss_intr.ss = USER_DS;
+	set_gdt_entry(CONFORM_CS_SEL, 0, 0xffffffff, 0x9f, 0xc0);
+	asm volatile("lcall $" xstr(TSS_INTR) ", $0xf4f4f4f4");
+	report("lcall with cs.rpl != cs.dpl", test_count == 1);
+}
+
 int main()
 {
 	setup_vm();
@@ -256,6 +278,7 @@ int main()
 
 	test_kernel_mode_int();
 	test_vm86_switch();
+	test_conforming_switch();
 
 	return report_summary();
 }
