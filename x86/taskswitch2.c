@@ -106,6 +106,8 @@ start:
 static void user_tss(void)
 {
 start:
+	printf("Conforming task is running\n");
+	print_current_tss_info();
 	test_count++;
 	asm volatile ("iret");
 	goto start;
@@ -260,6 +262,8 @@ void test_vm86_switch(void)
     report("VM86", 1);
 }
 
+#define IOPL_SHIFT 12
+
 void test_conforming_switch(void)
 {
 	/* test lcall with conforming segment, cs.dpl != cs.rpl */
@@ -268,6 +272,7 @@ void test_conforming_switch(void)
 	tss_intr.cs = CONFORM_CS_SEL | 3;
 	tss_intr.eip = (u32)user_tss;
 	tss_intr.ds = tss_intr.gs = tss_intr.fs = tss_intr.ss = USER_DS;
+	tss_intr.eflags |= 3 << IOPL_SHIFT;
 	set_gdt_entry(CONFORM_CS_SEL, 0, 0xffffffff, 0x9f, 0xc0);
 	asm volatile("lcall $" xstr(TSS_INTR) ", $0xf4f4f4f4");
 	report("lcall with cs.rpl != cs.dpl", test_count == 1);
