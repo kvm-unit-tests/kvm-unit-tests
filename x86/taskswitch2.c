@@ -187,10 +187,13 @@ void test_kernel_mode_int()
 	*fault_addr = 0;
 	printf("Return from pf tss\n");
 	report("PF exeption", test_count == 1);
+}
 
+void test_gdt_task_gate(void)
+{
 	/* test that calling a task by lcall works */
 	test_count = 0;
-	set_intr_task_gate(0, irq_tss);
+	tss_intr.eip = (u32)irq_tss;
 	printf("Calling task by lcall\n");
 	/* hlt opcode is 0xf4 I use destination IP 0xf4f4f4f4 to catch
 	   incorrect instruction length calculation */
@@ -205,7 +208,7 @@ void test_kernel_mode_int()
 
 	/* test that calling a task by ljmp works */
 	test_count = 0;
-	set_intr_task_gate(0, jmp_tss);
+	tss_intr.eip = (u32)jmp_tss;
 	printf("Jumping to a task by ljmp\n");
 	asm volatile ("ljmp $" xstr(TSS_INTR) ", $0xf4f4f4f4");
 	printf("Jump back succeeded\n");
@@ -276,6 +279,7 @@ int main()
 	setup_idt();
 	setup_tss32();
 
+	test_gdt_task_gate();
 	test_kernel_mode_int();
 	test_vm86_switch();
 	test_conforming_switch();
