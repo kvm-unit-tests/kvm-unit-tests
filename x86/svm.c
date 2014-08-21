@@ -797,6 +797,27 @@ static bool npt_pfwalk_check(struct test *test)
 	   && (test->vmcb->control.exit_info_2 == read_cr3());
 }
 
+static void npt_l1mmio_prepare(struct test *test)
+{
+    vmcb_ident(test->vmcb);
+}
+
+u32 nested_apic_version;
+
+static void npt_l1mmio_test(struct test *test)
+{
+    u32 *data = (void*)(0xfee00030UL);
+
+    nested_apic_version = *data;
+}
+
+static bool npt_l1mmio_check(struct test *test)
+{
+    u32 *data = (void*)(0xfee00030);
+
+    return (nested_apic_version == *data);
+}
+
 static void latency_prepare(struct test *test)
 {
     default_prepare(test);
@@ -962,6 +983,8 @@ static struct test tests[] = {
 	    default_finished, npt_rw_check },
     { "npt_pfwalk", npt_supported, npt_pfwalk_prepare, null_test,
 	    default_finished, npt_pfwalk_check },
+    { "npt_l1mmio", npt_supported, npt_l1mmio_prepare, npt_l1mmio_test,
+	    default_finished, npt_l1mmio_check },
     { "latency_run_exit", default_supported, latency_prepare, latency_test,
       latency_finished, latency_check },
     { "latency_svm_insn", default_supported, lat_svm_insn_prepare, null_test,

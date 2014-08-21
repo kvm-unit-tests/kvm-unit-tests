@@ -1036,6 +1036,8 @@ static int setup_ept()
 	return 0;
 }
 
+static int apic_version;
+
 static int ept_init()
 {
 	unsigned long base_addr1, base_addr2;
@@ -1071,6 +1073,8 @@ static int ept_init()
 			EPT_WA | EPT_RA | EPT_EA);
 	install_ept(pml4, (unsigned long)data_page1, (unsigned long)data_page2,
 			EPT_RA | EPT_WA | EPT_EA);
+
+	apic_version = *((u32 *)0xfee00030UL);
 	return VMX_TEST_START;
 }
 
@@ -1124,6 +1128,10 @@ t1:
 		report("EPT violation - paging structure", 1);
 	else
 		report("EPT violation - paging structure", 0);
+
+	// Test EPT access to L1 MMIO
+	vmx_set_test_stage(6);
+	report("EPT - MMIO access", *((u32 *)0xfee00030UL) == apic_version);
 }
 
 static int ept_exit_handler()
