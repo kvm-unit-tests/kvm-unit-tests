@@ -18,6 +18,7 @@ function run()
     local kernel="$4"
     local opts="$5"
     local arch="$6"
+    local check="$7"
 
     if [ -z "$testname" ]; then
         return
@@ -31,6 +32,18 @@ function run()
         echo "skip $1 ($arch only)"
         return
     fi
+
+    # check a file for a particular value before running a test
+    # the check line can contain multiple files to check separated by a space
+    # but each check parameter needs to be of the form <path>=<value>
+    for check_param in ${check[@]}; do
+        path=${check_param%%=*}
+        value=${check_param#*=}
+        if [ "$path" ] && [ "$(cat $path)" != "$value" ]; then
+            echo "skip $1 ($path not equal to $value)"
+            return
+        fi
+    done
 
     cmdline="./$TEST_DIR-run $kernel -smp $smp $opts"
     if [ $verbose != 0 ]; then
@@ -57,18 +70,20 @@ function run_all()
     local opts
     local groups
     local arch
+    local check
 
     exec {config_fd}<$config
 
     while read -u $config_fd line; do
         if [[ "$line" =~ ^\[(.*)\]$ ]]; then
-            run "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch"
+            run "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$check"
             testname=${BASH_REMATCH[1]}
             smp=1
             kernel=""
             opts=""
             groups=""
             arch=""
+            check=""
         elif [[ $line =~ ^file\ *=\ *(.*)$ ]]; then
             kernel=$TEST_DIR/${BASH_REMATCH[1]}
         elif [[ $line =~ ^smp\ *=\ *(.*)$ ]]; then
@@ -79,10 +94,12 @@ function run_all()
             groups=${BASH_REMATCH[1]}
         elif [[ $line =~ ^arch\ *=\ *(.*)$ ]]; then
             arch=${BASH_REMATCH[1]}
+        elif [[ $line =~ ^check\ *=\ *(.*)$ ]]; then
+            check=${BASH_REMATCH[1]}
         fi
     done
 
-    run "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch"
+    run "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$check"
 
     exec {config_fd}<&-
 }
