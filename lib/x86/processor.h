@@ -280,13 +280,21 @@ static inline ulong read_dr7(void)
 
 struct cpuid { u32 a, b, c, d; };
 
-static inline struct cpuid cpuid_indexed(u32 function, u32 index)
+static inline struct cpuid raw_cpuid(u32 function, u32 index)
 {
     struct cpuid r;
     asm volatile ("cpuid"
                   : "=a"(r.a), "=b"(r.b), "=c"(r.c), "=d"(r.d)
                   : "0"(function), "2"(index));
     return r;
+}
+
+static inline struct cpuid cpuid_indexed(u32 function, u32 index)
+{
+    u32 level = raw_cpuid(function & 0xf0000000, 0).a;
+    if (level < function)
+        return (struct cpuid) { 0, 0, 0, 0 };
+    return raw_cpuid(function, index);
 }
 
 static inline struct cpuid cpuid(u32 function)
@@ -296,9 +304,9 @@ static inline struct cpuid cpuid(u32 function)
 
 static inline u8 cpuid_maxphyaddr(void)
 {
-    if (cpuid(0x80000000).a < 0x80000008)
+    if (raw_cpuid(0x80000000, 0).a < 0x80000008)
         return 36;
-    return cpuid(0x80000008).a & 0xff;
+    return raw_cpuid(0x80000008, 0).a & 0xff;
 }
 
 
