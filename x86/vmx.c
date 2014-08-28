@@ -161,7 +161,7 @@ void print_vmexit_info()
 static void test_vmclear(void)
 {
 	struct vmcs *tmp_root;
-	int width = cpuid(0x80000008).a & 0xff;
+	int width = cpuid_maxphyaddr();
 
 	/*
 	 * Note- The tests below do not necessarily have a
@@ -652,7 +652,7 @@ static int test_vmxon(void)
 {
 	int ret, ret1;
 	u64 *tmp_region = vmxon_region;
-	int width = cpuid(0x80000008).a & 0xff;
+	int width = cpuid_maxphyaddr();
 
 	/* Unaligned page access */
 	vmxon_region = (u64 *)((intptr_t)vmxon_region + 1);
@@ -694,7 +694,7 @@ out:
 static void test_vmptrld(void)
 {
 	struct vmcs *vmcs, *tmp_root;
-	int width = cpuid(0x80000008).a & 0xff;
+	int width = cpuid_maxphyaddr();
 
 	vmcs = alloc_page();
 	vmcs->revision_id = basic.revision;
