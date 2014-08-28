@@ -294,6 +294,14 @@ static inline struct cpuid cpuid(u32 function)
     return cpuid_indexed(function, 0);
 }
 
+static inline u8 cpuid_maxphyaddr(void)
+{
+    if (cpuid(0x80000000).a < 0x80000008)
+        return 36;
+    return cpuid(0x80000008).a & 0xff;
+}
+
+
 static inline void pause(void)
 {
     asm volatile ("pause");

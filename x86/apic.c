@@ -124,7 +124,7 @@ static void test_apicbase(void)
     report("relocate apic",
            *(volatile u32 *)(ALTERNATE_APIC_BASE + APIC_LVR) == lvr);
 
-    value = orig_apicbase | (1UL << (cpuid(0x80000008).a & 0xff));
+    value = orig_apicbase | (1UL << cpuid_maxphyaddr());
     report("apicbase: reserved physaddr bits",
            test_for_exception(GP_VECTOR, do_write_apicbase, &value));
 
