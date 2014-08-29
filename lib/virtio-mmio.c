@@ -85,7 +85,9 @@ static int vm_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 	unsigned i;
 
 	for (i = 0; i < nvqs; ++i) {
-		vqs[i] = vm_setup_vq(vdev, i, callbacks[i], names[i]);
+		vqs[i] = vm_setup_vq(vdev, i,
+				     callbacks ? callbacks[i] : NULL,
+				     names ? names[i] : "");
 		if (vqs[i] == NULL)
 			return -1;
 	}
