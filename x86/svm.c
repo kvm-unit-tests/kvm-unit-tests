@@ -87,7 +87,7 @@ static void setup_svm(void)
         page = alloc_page();
 
         for (j = 0; j < 512; ++j)
-            page[j] = (u64)pte[(i * 514) + j] | 0x027ULL;
+            page[j] = (u64)pte[(i * 512) + j] | 0x027ULL;
 
         pde[i] = page;
     }
