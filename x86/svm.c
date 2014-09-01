@@ -802,20 +802,23 @@ static void npt_l1mmio_prepare(struct test *test)
     vmcb_ident(test->vmcb);
 }
 
-u32 nested_apic_version;
+u32 nested_apic_version1;
+u32 nested_apic_version2;
 
 static void npt_l1mmio_test(struct test *test)
 {
-    u32 *data = (void*)(0xfee00030UL);
+    volatile u32 *data = (volatile void*)(0xfee00030UL);
 
-    nested_apic_version = *data;
+    nested_apic_version1 = *data;
+    nested_apic_version2 = *data;
 }
 
 static bool npt_l1mmio_check(struct test *test)
 {
-    u32 *data = (void*)(0xfee00030);
+    volatile u32 *data = (volatile void*)(0xfee00030);
+    u32 lvr = *data;
 
-    return (nested_apic_version == *data);
+    return nested_apic_version1 == lvr && nested_apic_version2 == lvr;
 }
 
 static void latency_prepare(struct test *test)
