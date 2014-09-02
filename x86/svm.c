@@ -855,6 +855,34 @@ static bool npt_l1mmio_check(struct test *test)
     return nested_apic_version1 == lvr && nested_apic_version2 == lvr;
 }
 
+static void npt_rw_l1mmio_prepare(struct test *test)
+{
+
+    u64 *pte;
+
+    vmcb_ident(test->vmcb);
+    pte = npt_get_pte(0xfee00080);
+
+    *pte &= ~(1ULL << 1);
+}
+
+static void npt_rw_l1mmio_test(struct test *test)
+{
+    volatile u32 *data = (volatile void*)(0xfee00080);
+
+    *data = *data;
+}
+
+static bool npt_rw_l1mmio_check(struct test *test)
+{
+    u64 *pte = npt_get_pte(0xfee00080);
+
+    *pte |= (1ULL << 1);
+
+    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
+           && (test->vmcb->control.exit_info_1 == 0x100000007ULL);
+}
+
 static void latency_prepare(struct test *test)
 {
     default_prepare(test);
@@ -1024,6 +1052,8 @@ static struct test tests[] = {
 	    default_finished, npt_rw_pfwalk_check },
     { "npt_l1mmio", npt_supported, npt_l1mmio_prepare, npt_l1mmio_test,
 	    default_finished, npt_l1mmio_check },
+    { "npt_rw_l1mmio", npt_supported, npt_rw_l1mmio_prepare, npt_rw_l1mmio_test,
+	    default_finished, npt_rw_l1mmio_check },
     { "latency_run_exit", default_supported, latency_prepare, latency_test,
       latency_finished, latency_check },
     { "latency_svm_insn", default_supported, lat_svm_insn_prepare, null_test,
