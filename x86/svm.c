@@ -102,6 +102,17 @@ static void setup_svm(void)
     pml4e[0] = ((u64)pdpe) | 0x27;
 }
 
+static u64 *npt_get_pde(u64 address)
+{
+    int i1, i2;
+
+    address >>= 21;
+    i1 = (address >> 9) & 0x3;
+    i2 = address & 0x1ff;
+
+    return &pde[i1][i2];
+}
+
 static u64 *npt_get_pte(u64 address)
 {
     int i1, i2;
@@ -731,20 +742,27 @@ static bool npt_us_check(struct test *test)
            && (test->vmcb->control.exit_info_1 == 0x100000005ULL);
 }
 
+u64 save_pde;
+
 static void npt_rsvd_prepare(struct test *test)
 {
+    u64 *pde;
 
     vmcb_ident(test->vmcb);
+    pde = npt_get_pde((u64) null_test);
 
-    pdpe[0] |= (1ULL << 8);
+    save_pde = *pde;
+    *pde = (1ULL << 19) | (1ULL << 7) | 0x27;
 }
 
 static bool npt_rsvd_check(struct test *test)
 {
-    pdpe[0] &= ~(1ULL << 8);
+    u64 *pde = npt_get_pde((u64) null_test);
+
+    *pde = save_pde;
 
     return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-            && (test->vmcb->control.exit_info_1 == 0x200000006ULL);
+            && (test->vmcb->control.exit_info_1 == 0x10000001dULL);
 }
 
 static void npt_rw_prepare(struct test *test)
@@ -775,7 +793,7 @@ static bool npt_rw_check(struct test *test)
            && (test->vmcb->control.exit_info_1 == 0x100000007ULL);
 }
 
-static void npt_pfwalk_prepare(struct test *test)
+static void npt_rw_pfwalk_prepare(struct test *test)
 {
 
     u64 *pte;
@@ -786,7 +804,7 @@ static void npt_pfwalk_prepare(struct test *test)
     *pte &= ~(1ULL << 1);
 }
 
-static bool npt_pfwalk_check(struct test *test)
+static bool npt_rw_pfwalk_check(struct test *test)
 {
     u64 *pte = npt_get_pte(read_cr3());
 
@@ -795,6 +813,22 @@ static bool npt_pfwalk_check(struct test *test)
     return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
            && (test->vmcb->control.exit_info_1 == 0x200000006ULL)
 	   && (test->vmcb->control.exit_info_2 == read_cr3());
+}
+
+static void npt_rsvd_pfwalk_prepare(struct test *test)
+{
+
+    vmcb_ident(test->vmcb);
+
+    pdpe[0] |= (1ULL << 8);
+}
+
+static bool npt_rsvd_pfwalk_check(struct test *test)
+{
+    pdpe[0] &= ~(1ULL << 8);
+
+    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
+            && (test->vmcb->control.exit_info_1 == 0x200000006ULL);
 }
 
 static void npt_l1mmio_prepare(struct test *test)
@@ -984,8 +1018,10 @@ static struct test tests[] = {
 	    default_finished, npt_rsvd_check },
     { "npt_rw", npt_supported, npt_rw_prepare, npt_rw_test,
 	    default_finished, npt_rw_check },
-    { "npt_pfwalk", npt_supported, npt_pfwalk_prepare, null_test,
-	    default_finished, npt_pfwalk_check },
+    { "npt_rsvd_pfwalk", npt_supported, npt_rsvd_pfwalk_prepare, null_test,
+	    default_finished, npt_rsvd_pfwalk_check },
+    { "npt_rw_pfwalk", npt_supported, npt_rw_pfwalk_prepare, null_test,
+	    default_finished, npt_rw_pfwalk_check },
     { "npt_l1mmio", npt_supported, npt_l1mmio_prepare, npt_l1mmio_test,
 	    default_finished, npt_l1mmio_check },
     { "latency_run_exit", default_supported, latency_prepare, latency_test,
