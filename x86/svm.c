@@ -703,7 +703,7 @@ static bool npt_nx_check(struct test *test)
     test->vmcb->save.efer |= (1 << 11);
 
     return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-           && (test->vmcb->control.exit_info_1 == 0x15);
+           && (test->vmcb->control.exit_info_1 == 0x100000015ULL);
 }
 
 static void npt_us_prepare(struct test *test)
@@ -728,7 +728,7 @@ static bool npt_us_check(struct test *test)
     *pte |= (1ULL << 2);
 
     return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-           && (test->vmcb->control.exit_info_1 == 0x05);
+           && (test->vmcb->control.exit_info_1 == 0x100000005ULL);
 }
 
 static void npt_rsvd_prepare(struct test *test)
@@ -744,7 +744,7 @@ static bool npt_rsvd_check(struct test *test)
     pdpe[0] &= ~(1ULL << 8);
 
     return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-            && (test->vmcb->control.exit_info_1 == 0x0f);
+            && (test->vmcb->control.exit_info_1 == 0x200000006ULL);
 }
 
 static void npt_rw_prepare(struct test *test)
@@ -772,7 +772,7 @@ static bool npt_rw_check(struct test *test)
     *pte |= (1ULL << 1);
 
     return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-           && (test->vmcb->control.exit_info_1 == 0x07);
+           && (test->vmcb->control.exit_info_1 == 0x100000007ULL);
 }
 
 static void npt_pfwalk_prepare(struct test *test)
@@ -793,7 +793,7 @@ static bool npt_pfwalk_check(struct test *test)
     *pte |= (1ULL << 1);
 
     return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-           && (test->vmcb->control.exit_info_1 == 0x7)
+           && (test->vmcb->control.exit_info_1 == 0x200000006ULL)
 	   && (test->vmcb->control.exit_info_2 == read_cr3());
 }
 
