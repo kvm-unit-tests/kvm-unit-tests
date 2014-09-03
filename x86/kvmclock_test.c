@@ -7,9 +7,12 @@
 #define DEFAULT_TEST_LOOPS 100000000L
 #define DEFAULT_THRESHOLD  5L
 
+long loops = DEFAULT_TEST_LOOPS;
+long sec = 0;
+long threshold = DEFAULT_THRESHOLD;
+
 struct test_info {
         struct spinlock lock;
-        long loops;               /* test loops */
         u64 warps;                /* warp count */
         u64 stalls;               /* stall count */
         long long worst;          /* worst warp */
@@ -20,26 +23,22 @@ struct test_info {
 
 struct test_info ti[4];
 
-static int wallclock_test(long sec, long threshold)
+static void wallclock_test(void *data)
 {
+        int *p_err = data;
         long ksec, offset;
         struct timespec ts;
 
-        printf("Wallclock test, threshold %ld\n", threshold);
         kvm_get_wallclock(&ts);
         ksec = ts.tv_sec;
 
         offset = ksec - sec;
-        printf("Seconds get from host:     %ld\n", sec);
-        printf("Seconds get from kvmclock: %ld\n", ksec);
-        printf("Offset:                    %ld\n", offset);
+        printf("Seconds get from kvmclock: %ld (cpu %d, offset: %ld)\n", ksec, smp_id(), offset);
 
         if (offset > threshold || offset < -threshold) {
                 printf("offset too large!\n");
-                return 1;
+                (*p_err)++;
         }
-
-        return 0;
 }
 
 static void kvm_clock_test(void *data)
@@ -47,7 +46,7 @@ static void kvm_clock_test(void *data)
         struct test_info *hv_test_info = (struct test_info *)data;
         long i, check = hv_test_info->check;
 
-        for (i = 0; i < hv_test_info->loops; i++){
+        for (i = 0; i < loops; i++){
                 cycle_t t0, t1;
                 long long delta;
 
@@ -82,7 +81,7 @@ static void kvm_clock_test(void *data)
         atomic_dec(&hv_test_info->ncpus);
 }
 
-static int cycle_test(int ncpus, long loops, int check, struct test_info *ti)
+static int cycle_test(int ncpus, int check, struct test_info *ti)
 {
         int i;
         unsigned long long begin, end;
@@ -90,7 +89,6 @@ static int cycle_test(int ncpus, long loops, int check, struct test_info *ti)
         begin = rdtsc();
 
         atomic_set(&ti->ncpus, ncpus);
-        ti->loops = loops;
         ti->check = check;
         for (i = ncpus - 1; i >= 0; i--)
                 on_cpu_async(i, kvm_clock_test, (void *)ti);
@@ -102,7 +100,7 @@ static int cycle_test(int ncpus, long loops, int check, struct test_info *ti)
         end = rdtsc();
 
         printf("Total vcpus: %d\n", ncpus);
-        printf("Test  loops: %ld\n", ti->loops);
+        printf("Test  loops: %ld\n", loops);
         if (check == 1) {
                 printf("Total warps:  %lld\n", ti->warps);
                 printf("Total stalls: %lld\n", ti->stalls);
@@ -115,11 +113,9 @@ static int cycle_test(int ncpus, long loops, int check, struct test_info *ti)
 
 int main(int ac, char **av)
 {
+        int nerr = 0;
         int ncpus;
-        int nerr = 0, i;
-        long loops = DEFAULT_TEST_LOOPS;
-        long sec = 0;
-        long threshold = DEFAULT_THRESHOLD;
+        int i;
 
         if (ac > 1)
                 loops = atol(av[1]);
@@ -136,29 +132,33 @@ int main(int ac, char **av)
         for (i = 0; i < ncpus; ++i)
                 on_cpu(i, kvm_clock_init, (void *)0);
 
-        if (ac > 2)
-                nerr += wallclock_test(sec, threshold);
+        if (ac > 2) {
+                printf("Wallclock test, threshold %ld\n", threshold);
+                printf("Seconds get from host:     %ld\n", sec);
+                for (i = 0; i < ncpus; ++i)
+                        on_cpu(i, wallclock_test, &nerr);
+        }
 
         printf("Check the stability of raw cycle ...\n");
         pvclock_set_flags(PVCLOCK_TSC_STABLE_BIT
                           | PVCLOCK_RAW_CYCLE_BIT);
-        if (cycle_test(ncpus, loops, 1, &ti[0]))
+        if (cycle_test(ncpus, 1, &ti[0]))
                 printf("Raw cycle is not stable\n");
         else
                 printf("Raw cycle is stable\n");
 
         pvclock_set_flags(PVCLOCK_TSC_STABLE_BIT);
         printf("Monotonic cycle test:\n");
-        nerr += cycle_test(ncpus, loops, 1, &ti[1]);
+        nerr += cycle_test(ncpus, 1, &ti[1]);
 
         printf("Measure the performance of raw cycle ...\n");
         pvclock_set_flags(PVCLOCK_TSC_STABLE_BIT
                           | PVCLOCK_RAW_CYCLE_BIT);
-        cycle_test(ncpus, loops, 0, &ti[2]);
+        cycle_test(ncpus, 0, &ti[2]);
 
         printf("Measure the performance of adjusted cycle ...\n");
         pvclock_set_flags(PVCLOCK_TSC_STABLE_BIT);
-        cycle_test(ncpus, loops, 0, &ti[3]);
+        cycle_test(ncpus, 0, &ti[3]);
 
         for (i = 0; i < ncpus; ++i)
                 on_cpu(i, kvm_clock_clear, (void *)0);
