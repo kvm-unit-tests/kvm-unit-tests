@@ -322,14 +322,16 @@ unsigned long get_ept_pte(unsigned long *pml4,
 	unsigned long *pt = pml4, pte;
 	unsigned offset;
 
-	for (l = EPT_PAGE_LEVEL; l > 1; --l) {
+	if (level < 1 || level > 3)
+		return -1;
+	for (l = EPT_PAGE_LEVEL; ; --l) {
 		offset = (guest_addr >> (((l-1) * EPT_PGDIR_WIDTH) + 12))
 				& EPT_PGDIR_MASK;
 		pte = pt[offset];
 		if (!(pte & (EPT_PRESENT)))
 			return 0;
 		if (l == level)
-			return pte;
+			break;
 		if (l < 4 && (pte & EPT_LARGE_PAGE))
 			return pte;
 		pt = (unsigned long *)(pte & 0xffffffffff000ull);
@@ -369,13 +371,11 @@ int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
 
 	if (level < 1 || level > 3)
 		return -1;
-	for (l = EPT_PAGE_LEVEL; l > 1; --l) {
+	for (l = EPT_PAGE_LEVEL; ; --l) {
 		offset = (guest_addr >> (((l-1) * EPT_PGDIR_WIDTH) + 12))
 				& EPT_PGDIR_MASK;
-		if (l == level) {
-			pt[offset] = pte_val;
-			return 0;
-		}
+		if (l == level)
+			break;
 		if (!(pt[offset] & (EPT_PRESENT)))
 			return -1;
 		pt = (unsigned long *)(pt[offset] & 0xffffffffff000ull);
