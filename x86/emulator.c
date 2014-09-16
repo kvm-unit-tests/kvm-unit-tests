@@ -884,6 +884,21 @@ static void test_mov_dr(uint64_t *mem, uint8_t *insn_page,
 	report("mov_dr6", outregs.rax == dr6_fixed_1);
 }
 
+static void test_push16(uint64_t *mem)
+{
+	uint64_t rsp1, rsp2;
+	uint16_t r;
+
+	asm volatile (	"movq %%rsp, %[rsp1]\n\t"
+			"pushw %[v]\n\t"
+			"popw %[r]\n\t"
+			"movq %%rsp, %[rsp2]\n\t"
+			"movq %[rsp1], %%rsp\n\t" :
+			[rsp1]"=r"(rsp1), [rsp2]"=r"(rsp2), [r]"=r"(r)
+			: [v]"m"(*mem) : "memory");
+	report("push16", rsp1 == rsp2);
+}
+
 static void test_crosspage_mmio(volatile uint8_t *mem)
 {
     volatile uint16_t w, *pw;
@@ -1087,6 +1102,7 @@ int main()
 	test_smsw_reg(mem, insn_page, alt_insn_page, insn_ram);
 	test_nop(mem, insn_page, alt_insn_page, insn_ram);
 	test_mov_dr(mem, insn_page, alt_insn_page, insn_ram);
+	test_push16(mem);
 	test_crosspage_mmio(mem);
 
 	test_string_io_mmio(mem);
