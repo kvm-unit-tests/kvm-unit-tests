@@ -832,6 +832,17 @@ static void test_mmx_movq_mf(uint64_t *mem, uint8_t *insn_page,
     handle_exception(MF_VECTOR, 0);
 }
 
+static void test_jmp_noncanonical(uint64_t *mem)
+{
+	*mem = 0x1111111111111111ul;
+
+	exceptions = 0;
+	handle_exception(GP_VECTOR, advance_rip_by_3_and_note_exception);
+	asm volatile ("jmp %0" : : "m"(*mem));
+	report("jump to non-canonical address", exceptions == 1);
+	handle_exception(GP_VECTOR, 0);
+}
+
 static void test_movabs(uint64_t *mem, uint8_t *insn_page,
 		       uint8_t *alt_insn_page, void *insn_ram)
 {
@@ -1106,6 +1117,8 @@ int main()
 	test_crosspage_mmio(mem);
 
 	test_string_io_mmio(mem);
+
+	test_jmp_noncanonical(mem);
 
 	return report_summary();
 }
