@@ -236,10 +236,19 @@ static int test_ctrl_pat_init()
 	u64 ctrl_exi;
 
 	msr_bmp_init();
+	if (!(ctrl_exit_rev.clr & EXI_SAVE_PAT) &&
+	    !(ctrl_exit_rev.clr & EXI_LOAD_PAT) &&
+	    !(ctrl_enter_rev.clr & ENT_LOAD_PAT)) {
+		printf("\tSave/load PAT is not supported\n");
+		return 1;
+	}
+
 	ctrl_ent = vmcs_read(ENT_CONTROLS);
 	ctrl_exi = vmcs_read(EXI_CONTROLS);
-	vmcs_write(ENT_CONTROLS, ctrl_ent | ENT_LOAD_PAT);
-	vmcs_write(EXI_CONTROLS, ctrl_exi | (EXI_SAVE_PAT | EXI_LOAD_PAT));
+	ctrl_ent |= ctrl_enter_rev.clr & ENT_LOAD_PAT;
+	ctrl_exi |= ctrl_exit_rev.clr & (EXI_SAVE_PAT | EXI_LOAD_PAT);
+	vmcs_write(ENT_CONTROLS, ctrl_ent);
+	vmcs_write(EXI_CONTROLS, ctrl_exi);
 	ia32_pat = rdmsr(MSR_IA32_CR_PAT);
 	vmcs_write(GUEST_PAT, 0x0);
 	vmcs_write(HOST_PAT, ia32_pat);
