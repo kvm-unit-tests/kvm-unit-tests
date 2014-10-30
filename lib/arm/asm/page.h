@@ -18,6 +18,28 @@
 
 #include <asm/setup.h>
 
+typedef u64 pteval_t;
+typedef u64 pmdval_t;
+typedef u64 pgdval_t;
+typedef struct { pteval_t pte; } pte_t;
+typedef struct { pmdval_t pmd; } pmd_t;
+typedef struct { pgdval_t pgd; } pgd_t;
+typedef struct { pteval_t pgprot; } pgprot_t;
+
+#define pte_val(x)		((x).pte)
+#define pmd_val(x)		((x).pmd)
+#define pgd_val(x)		((x).pgd)
+#define pgprot_val(x)		((x).pgprot)
+
+#define __pte(x)		((pte_t) { (x) } )
+#define __pmd(x)		((pmd_t) { (x) } )
+#define __pgd(x)		((pgd_t) { (x) } )
+#define __pgprot(x)		((pgprot_t) { (x) } )
+
+typedef struct { pgd_t pgd; } pud_t;
+#define pud_val(x)		(pgd_val((x).pgd))
+#define __pud(x)		((pud_t) { __pgd(x) } )
+
 #ifndef __virt_to_phys
 #define __phys_to_virt(x)	((unsigned long) (x))
 #define __virt_to_phys(x)	(x)
