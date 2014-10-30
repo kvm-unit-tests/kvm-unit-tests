@@ -1,12 +1,19 @@
 #include "libcflat.h"
 #include "asm/spinlock.h"
 #include "asm/barrier.h"
+#include "asm/mmu.h"
 
 void spin_lock(struct spinlock *lock)
 {
 	u32 val, fail;
 
 	dmb();
+
+	if (!mmu_enabled()) {
+		lock->v = 1;
+		return;
+	}
+
 	do {
 		asm volatile(
 		"1:	ldrex	%0, [%2]\n"
