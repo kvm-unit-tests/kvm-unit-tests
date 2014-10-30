@@ -9,12 +9,10 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 
+#include "const.h"
+
 #define PAGE_SHIFT		12
-#ifndef __ASSEMBLY__
-#define PAGE_SIZE		(1UL << PAGE_SHIFT)
-#else
-#define PAGE_SIZE		(1 << PAGE_SHIFT)
-#endif
+#define PAGE_SIZE		(_AC(1,UL) << PAGE_SHIFT)
 #define PAGE_MASK		(~(PAGE_SIZE-1))
 
 #ifndef __ASSEMBLY__
