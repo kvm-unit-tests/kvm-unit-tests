@@ -30,6 +30,10 @@
 #define xstr(s) xxstr(s)
 #define xxstr(s) #s
 
+#define __ALIGN_MASK(x, mask)	(((x) + (mask)) & ~(mask))
+#define __ALIGN(x, a)		__ALIGN_MASK(x, (typeof(x))(a) - 1)
+#define ALIGN(x, a)		__ALIGN((x), (a))
+
 typedef uint8_t		u8;
 typedef int8_t		s8;
 typedef uint16_t	u16;

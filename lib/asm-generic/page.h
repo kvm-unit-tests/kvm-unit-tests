@@ -16,13 +16,16 @@
 #define PAGE_SIZE		(1 << PAGE_SHIFT)
 #endif
 #define PAGE_MASK		(~(PAGE_SIZE-1))
-#define PAGE_ALIGN(addr)	(((addr) + (PAGE_SIZE-1)) & PAGE_MASK)
 
 #ifndef __ASSEMBLY__
+
+#define PAGE_ALIGN(addr)	ALIGN(addr, PAGE_SIZE)
+
 #define __va(x)			((void *)((unsigned long) (x)))
 #define __pa(x)			((unsigned long) (x))
 #define virt_to_pfn(kaddr)	(__pa(kaddr) >> PAGE_SHIFT)
 #define pfn_to_virt(pfn)	__va((pfn) << PAGE_SHIFT)
-#endif
 
-#endif
+#endif /* __ASSEMBLY__ */
+
+#endif /* _ASM_GENERIC_PAGE_H_ */

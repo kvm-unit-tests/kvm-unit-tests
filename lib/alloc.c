@@ -7,8 +7,6 @@
 #include "asm/spinlock.h"
 #include "asm/io.h"
 
-#define ALIGN_UP_MASK(x, mask)	(((x) + (mask)) & ~(mask))
-#define ALIGN_UP(x, a)		ALIGN_UP_MASK(x, (typeof(x))(a) - 1)
 #define MIN(a, b)		((a) < (b) ? (a) : (b))
 #define MAX(a, b)		((a) > (b) ? (a) : (b))
 
@@ -70,7 +68,7 @@ static phys_addr_t phys_alloc_aligned_safe(phys_addr_t size,
 
 	spin_lock(&lock);
 
-	addr = ALIGN_UP(base, align);
+	addr = ALIGN(base, align);
 	size += addr - base;
 
 	if ((top_safe - base) < size) {
