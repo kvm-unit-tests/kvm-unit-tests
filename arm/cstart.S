@@ -72,6 +72,39 @@ halt:
 	b	1b
 
 /*
+ * asm_mmu_enable
+ *   Inputs:
+ *     (r0 - lo, r1 - hi) is the base address of the translation table
+ *   Outputs: none
+ */
+.equ	PRRR,	0xeeaa4400		@ MAIR0 (from Linux kernel)
+.equ	NMRR,	0xff000004		@ MAIR1 (from Linux kernel)
+.globl asm_mmu_enable
+asm_mmu_enable:
+	/* TTBCR */
+	mrc	p15, 0, r2, c2, c0, 2
+	orr	r2, #(1 << 31)		@ TTB_EAE
+	mcr	p15, 0, r2, c2, c0, 2
+
+	/* MAIR */
+	ldr	r2, =PRRR
+	mrc	p15, 0, r2, c10, c2, 0
+	ldr	r2, =NMRR
+	mrc	p15, 0, r2, c10, c2, 1
+
+	/* TTBR0 */
+	mcrr	p15, 0, r0, r1, c2
+
+	/* SCTLR */
+	mrc	p15, 0, r2, c1, c0, 0
+	orr	r2, #CR_C
+	orr	r2, #CR_I
+	orr	r2, #CR_M
+	mcr	p15, 0, r2, c1, c0, 0
+
+	mov     pc, lr
+
+/*
  * Vector stubs
  * Simplified version of the Linux kernel implementation
  *   arch/arm/kernel/entry-armv.S

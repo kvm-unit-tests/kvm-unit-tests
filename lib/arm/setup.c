@@ -16,6 +16,7 @@
 #include "alloc.h"
 #include "asm/setup.h"
 #include "asm/page.h"
+#include "asm/mmu.h"
 
 extern unsigned long stacktop;
 extern void io_init(void);
@@ -57,6 +58,8 @@ static void mem_init(phys_addr_t freemem_start)
 
 	phys_alloc_init(freemem_start, mem_end - freemem_start);
 	phys_alloc_set_minimum_alignment(SMP_CACHE_BYTES);
+
+	mmu_enable_idmap();
 }
 
 void setup(unsigned long arg __unused, unsigned long id __unused,

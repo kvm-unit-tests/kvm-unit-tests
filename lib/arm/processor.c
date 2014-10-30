@@ -92,6 +92,17 @@ void do_handle_exception(enum vector v, struct pt_regs *regs)
 
 	printf("Exception frame registers:\n");
 	show_regs(regs);
+	if (v == EXCPTN_DABT) {
+		unsigned long far, fsr;
+		asm volatile("mrc p15, 0, %0, c6, c0, 0": "=r" (far));
+		asm volatile("mrc p15, 0, %0, c5, c0, 0": "=r" (fsr));
+		printf("DFAR: %08lx    DFSR: %08lx\n", far, fsr);
+	} else if (v == EXCPTN_PABT) {
+		unsigned long far, fsr;
+		asm volatile("mrc p15, 0, %0, c6, c0, 2": "=r" (far));
+		asm volatile("mrc p15, 0, %0, c5, c0, 1": "=r" (fsr));
+		printf("IFAR: %08lx    IFSR: %08lx\n", far, fsr);
+	}
 	abort();
 }
 
