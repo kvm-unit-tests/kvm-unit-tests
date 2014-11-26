@@ -1051,6 +1051,29 @@ static void test_simplealu(u32 *mem)
     report("test", *mem == 0x8400);
 }
 
+static void illegal_movbe_handler(struct ex_regs *regs)
+{
+	extern char bad_movbe_cont;
+
+	++exceptions;
+	regs->rip = (ulong)&bad_movbe_cont;
+}
+
+static void test_illegal_movbe(void)
+{
+	if (!(cpuid(1).c & (1 << 22))) {
+		printf("SKIP: illegal movbe\n");
+		return;
+	}
+
+	exceptions = 0;
+	handle_exception(UD_VECTOR, illegal_movbe_handler);
+	asm volatile(".byte 0x0f; .byte 0x38; .byte 0xf0; .byte 0xc0;\n\t"
+		     " bad_movbe_cont:" : : : "rax");
+	report("illegal movbe", exceptions == 1);
+	handle_exception(UD_VECTOR, 0);
+}
+
 int main()
 {
 	void *mem;
@@ -1119,6 +1142,7 @@ int main()
 	test_string_io_mmio(mem);
 
 	test_jmp_noncanonical(mem);
+	test_illegal_movbe();
 
 	return report_summary();
 }
