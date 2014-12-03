@@ -359,7 +359,7 @@ void test_smsw(uint64_t *h_mem)
 
 	/* Trigger exit on smsw */
 	*h_mem = 0x12345678abcdeful;
-	asm volatile("smsw %0" : "=m"(*h_mem));
+	asm volatile("smsw %0" : "+m"(*h_mem));
 	report("smsw (3)", msw == (unsigned short)*h_mem &&
 		(*h_mem & ~0xfffful) == 0x12345678ab0000ul);
 }
