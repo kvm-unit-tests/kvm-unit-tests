@@ -271,7 +271,8 @@ void test_conforming_switch(void)
 
 	tss_intr.cs = CONFORM_CS_SEL | 3;
 	tss_intr.eip = (u32)user_tss;
-	tss_intr.ds = tss_intr.gs = tss_intr.fs = tss_intr.ss = USER_DS;
+	tss_intr.ss = USER_DS;
+	tss_intr.ds = tss_intr.gs = tss_intr.es = tss_intr.fs = tss_intr.ss;
 	tss_intr.eflags |= 3 << IOPL_SHIFT;
 	set_gdt_entry(CONFORM_CS_SEL, 0, 0xffffffff, 0x9f, 0xc0);
 	asm volatile("lcall $" xstr(TSS_INTR) ", $0xf4f4f4f4");
