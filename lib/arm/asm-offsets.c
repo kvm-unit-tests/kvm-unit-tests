@@ -6,13 +6,8 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <libcflat.h>
+#include <kbuild.h>
 #include <asm/ptrace.h>
-
-#define DEFINE(sym, val) \
-	asm volatile("\n->" #sym " %0 " #val : : "i" (val))
-#define OFFSET(sym, str, mem)	DEFINE(sym, offsetof(struct str, mem))
-#define COMMENT(x)		asm volatile("\n->#" x)
-#define BLANK()			asm volatile("\n->" : : )
 
 int main(void)
 {

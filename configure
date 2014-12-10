@@ -62,14 +62,23 @@ while [[ "$1" = -* ]]; do
 	    ;;
     esac
 done
+
+arch_name=$arch
+[ "$arch" = "aarch64" ] && arch="arm64"
+[ "$arch_name" = "arm64" ] && arch_name="aarch64"
+
 [ -z "$processor" ] && processor="$arch"
 
-if [ "$processor" = "arm" ]; then
+if [ "$processor" = "arm64" ]; then
+    processor="cortex-a57"
+elif [ "$processor" = "arm" ]; then
     processor="cortex-a15"
 fi
 
 if [ "$arch" = "i386" ] || [ "$arch" = "x86_64" ]; then
     testdir=x86
+elif [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
+    testdir=arm
 else
     testdir=$arch
 fi
@@ -114,6 +123,7 @@ cat <<EOF > config.mak
 PREFIX=$prefix
 KERNELDIR=$(readlink -f $kerneldir)
 ARCH=$arch
+ARCH_NAME=$arch_name
 PROCESSOR=$processor
 CC=$cross_prefix$cc
 LD=$cross_prefix$ld

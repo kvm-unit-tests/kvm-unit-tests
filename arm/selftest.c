@@ -8,10 +8,12 @@
 #include <libcflat.h>
 #include <alloc.h>
 #include <asm/setup.h>
+#ifdef __arm__
 #include <asm/ptrace.h>
 #include <asm/asm-offsets.h>
 #include <asm/processor.h>
 #include <asm/page.h>
+#endif
 
 static void assert_args(int num_args, int needed_args)
 {
@@ -70,6 +72,7 @@ static void check_setup(int argc, char **argv)
 	assert_args(nr_tests, 2);
 }
 
+#ifdef __arm__
 static struct pt_regs expected_regs;
 /*
  * Capture the current register state and execute an instruction
@@ -177,6 +180,7 @@ static void check_vectors(void *arg __unused)
 	report("svc", check_svc());
 	exit(report_summary());
 }
+#endif
 
 int main(int argc, char **argv)
 {
@@ -188,6 +192,7 @@ int main(int argc, char **argv)
 
 		check_setup(argc-1, &argv[1]);
 
+#ifdef __arm__
 	} else if (strcmp(argv[0], "vectors-kernel") == 0) {
 
 		check_vectors(NULL);
@@ -197,6 +202,7 @@ int main(int argc, char **argv)
 		void *sp = memalign(PAGE_SIZE, PAGE_SIZE);
 		memset(sp, 0, PAGE_SIZE);
 		start_usr(check_vectors, NULL, (unsigned long)sp + PAGE_SIZE);
+#endif
 	}
 
 	return report_summary();

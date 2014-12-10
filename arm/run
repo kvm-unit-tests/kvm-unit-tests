@@ -5,8 +5,9 @@ if [ ! -f config.mak ]; then
 	exit 2
 fi
 source config.mak
+processor="$PROCESSOR"
 
-qemu="${QEMU:-qemu-system-arm}"
+qemu="${QEMU:-qemu-system-$ARCH_NAME}"
 qpath=$(which $qemu 2>/dev/null)
 
 if [ -z "$qpath" ]; then
@@ -36,7 +37,12 @@ M='-machine virt,accel=kvm:tcg'
 chr_testdev='-device virtio-serial-device'
 chr_testdev+=' -device virtconsole,chardev=ctd -chardev testdev,id=ctd'
 
-command="$qemu $M -cpu $PROCESSOR $chr_testdev"
+# arm64 must use '-cpu host' with kvm
+if [ "$(arch)" = "aarch64" ] && [ "$ARCH" = "arm64" ] && [ -c /dev/kvm ]; then
+	processor="host"
+fi
+
+command="$qemu $M -cpu $processor $chr_testdev"
 command+=" -display none -serial stdio -kernel"
 
 echo $command "$@"
