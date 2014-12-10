@@ -2,10 +2,10 @@
 SECTIONS
 {
     .text : { *(.init) *(.text) *(.text.*) }
-    . = ALIGN(4K);
+    . = ALIGN(64K);
     .data : {
         exception_stacks = .;
-        . += 4K;
+        . += 64K;
         exception_stacks_end = .;
         *(.data)
     }
@@ -13,10 +13,10 @@ SECTIONS
     .rodata : { *(.rodata) }
     . = ALIGN(16);
     .bss : { *(.bss) }
-    . = ALIGN(4K);
+    . = ALIGN(64K);
     edata = .;
-    . += 8K;
-    . = ALIGN(4K);
+    . += 64K;
+    . = ALIGN(64K);
     stacktop = .;
 }
 
