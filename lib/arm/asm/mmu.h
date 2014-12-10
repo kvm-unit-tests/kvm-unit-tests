@@ -5,7 +5,7 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include <asm/page.h>
+#include <asm/setup.h>
 #include <asm/barrier.h>
 #include <alloc.h>
 

@@ -62,4 +62,10 @@
 #define PTE_EXT_NG		(_AT(pteval_t, 1) << 11)	/* nG */
 #define PTE_EXT_XN		(_AT(pteval_t, 1) << 54)	/* XN */
 
+/*
+ * 40-bit physical address supported.
+ */
+#define PHYS_MASK_SHIFT		(40)
+#define PHYS_MASK		((_AC(1, ULL) << PHYS_MASK_SHIFT) - 1)
+
 #endif /* _ASMARM_PGTABLE_HWDEF_H_ */

@@ -16,7 +16,7 @@
 
 #define PAGE_ALIGN(addr)	ALIGN(addr, PAGE_SIZE)
 
-#include <asm/setup.h>
+#include <alloc.h>
 
 typedef u64 pteval_t;
 typedef u64 pmdval_t;
@@ -51,6 +51,5 @@ typedef struct { pgd_t pgd; } pud_t;
 #define virt_to_pfn(kaddr)	(__pa(kaddr) >> PAGE_SHIFT)
 #define pfn_to_virt(pfn)	__va((pfn) << PAGE_SHIFT)
 
-#endif /* __ASSEMBLY__ */
-
+#endif /* !__ASSEMBLY__ */
 #endif /* _ASMARM_PAGE_H_ */
