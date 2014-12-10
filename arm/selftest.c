@@ -8,12 +8,10 @@
 #include <libcflat.h>
 #include <alloc.h>
 #include <asm/setup.h>
-#ifdef __arm__
 #include <asm/ptrace.h>
 #include <asm/asm-offsets.h>
 #include <asm/processor.h>
 #include <asm/page.h>
-#endif
 
 static void assert_args(int num_args, int needed_args)
 {
@@ -72,8 +70,10 @@ static void check_setup(int argc, char **argv)
 	assert_args(nr_tests, 2);
 }
 
-#ifdef __arm__
 static struct pt_regs expected_regs;
+static bool und_works;
+static bool svc_works;
+#if defined(__arm__)
 /*
  * Capture the current register state and execute an instruction
  * that causes an exception. The test handler will check that its
@@ -114,7 +114,6 @@ static bool check_regs(struct pt_regs *regs)
 	return true;
 }
 
-static bool und_works;
 static void und_handler(struct pt_regs *regs)
 {
 	und_works = check_regs(regs);
@@ -132,7 +131,6 @@ static bool check_und(void)
 	return und_works;
 }
 
-static bool svc_works;
 static void svc_handler(struct pt_regs *regs)
 {
 	u32 svc = *(u32 *)(regs->ARM_pc - 4) & 0xffffff;
@@ -173,6 +171,124 @@ static bool check_svc(void)
 
 	return svc_works;
 }
+#elif defined(__aarch64__)
+#include <asm/esr.h>
+
+/*
+ * Capture the current register state and execute an instruction
+ * that causes an exception. The test handler will check that its
+ * capture of the current register state matches the capture done
+ * here.
+ *
+ * NOTE: update clobber list if passed insns needs more than x0,x1
+ */
+#define test_exception(pre_insns, excptn_insn, post_insns)	\
+	asm volatile(						\
+		pre_insns "\n"					\
+		"mov	x1, %0\n"				\
+		"ldr	x0, [x1, #" xstr(S_PSTATE) "]\n"	\
+		"mrs	x1, nzcv\n"				\
+		"orr	w0, w0, w1\n"				\
+		"mov	x1, %0\n"				\
+		"str	w0, [x1, #" xstr(S_PSTATE) "]\n"	\
+		"mov	x0, sp\n"				\
+		"str	x0, [x1, #" xstr(S_SP) "]\n"		\
+		"adr	x0, 1f\n"				\
+		"str	x0, [x1, #" xstr(S_PC) "]\n"		\
+		"stp	 x2,  x3, [x1,  #16]\n"			\
+		"stp	 x4,  x5, [x1,  #32]\n"			\
+		"stp	 x6,  x7, [x1,  #48]\n"			\
+		"stp	 x8,  x9, [x1,  #64]\n"			\
+		"stp	x10, x11, [x1,  #80]\n"			\
+		"stp	x12, x13, [x1,  #96]\n"			\
+		"stp	x14, x15, [x1, #112]\n"			\
+		"stp	x16, x17, [x1, #128]\n"			\
+		"stp	x18, x19, [x1, #144]\n"			\
+		"stp	x20, x21, [x1, #160]\n"			\
+		"stp	x22, x23, [x1, #176]\n"			\
+		"stp	x24, x25, [x1, #192]\n"			\
+		"stp	x26, x27, [x1, #208]\n"			\
+		"stp	x28, x29, [x1, #224]\n"			\
+		"str	x30, [x1, #" xstr(S_LR) "]\n"		\
+		"stp	 x0,  x1, [x1]\n"			\
+	"1:"	excptn_insn "\n"				\
+		post_insns "\n"					\
+	:: "r" (&expected_regs) : "x0", "x1")
+
+static bool check_regs(struct pt_regs *regs)
+{
+	unsigned i;
+
+	/* exception handlers should always run in EL1 */
+	if (current_level() != CurrentEL_EL1)
+		return false;
+
+	for (i = 0; i < ARRAY_SIZE(regs->regs); ++i) {
+		if (regs->regs[i] != expected_regs.regs[i])
+			return false;
+	}
+
+	regs->pstate &= 0xf0000000 /* NZCV */ | 0x3c0 /* DAIF */
+			| PSR_MODE_MASK;
+
+	return regs->sp == expected_regs.sp
+		&& regs->pc == expected_regs.pc
+		&& regs->pstate == expected_regs.pstate;
+}
+
+static enum vector check_vector_prep(void)
+{
+	unsigned long daif;
+
+	if (user_mode)
+		return EL0_SYNC_64;
+
+	asm volatile("mrs %0, daif" : "=r" (daif) ::);
+	expected_regs.pstate = daif | PSR_MODE_EL1h;
+	return EL1H_SYNC;
+}
+
+static void unknown_handler(struct pt_regs *regs, unsigned int esr __unused)
+{
+	und_works = check_regs(regs);
+	regs->pc += 4;
+}
+
+static bool check_und(void)
+{
+	enum vector v = check_vector_prep();
+
+	install_exception_handler(v, ESR_EL1_EC_UNKNOWN, unknown_handler);
+
+	/* try to read an el2 sysreg from el0/1 */
+	test_exception("", "mrs x0, sctlr_el2", "");
+
+	install_exception_handler(v, ESR_EL1_EC_UNKNOWN, NULL);
+
+	return und_works;
+}
+
+static void svc_handler(struct pt_regs *regs, unsigned int esr)
+{
+	u16 svc = esr & 0xffff;
+
+	expected_regs.pc += 4;
+	svc_works = check_regs(regs) && svc == 123;
+}
+
+static bool check_svc(void)
+{
+	enum vector v = check_vector_prep();
+
+	install_exception_handler(v, ESR_EL1_EC_SVC64, svc_handler);
+
+	test_exception("", "svc #123", "");
+
+	install_exception_handler(v, ESR_EL1_EC_SVC64, NULL);
+
+	return svc_works;
+}
+#endif
 
 static void check_vectors(void *arg __unused)
 {
@@ -180,7 +296,6 @@ static void check_vectors(void *arg __unused)
 	report("svc", check_svc());
 	exit(report_summary());
 }
-#endif
 
 int main(int argc, char **argv)
 {
@@ -192,7 +307,6 @@ int main(int argc, char **argv)
 
 		check_setup(argc-1, &argv[1]);
 
-#ifdef __arm__
 	} else if (strcmp(argv[0], "vectors-kernel") == 0) {
 
 		check_vectors(NULL);
@@ -202,7 +316,6 @@ int main(int argc, char **argv)
 		void *sp = memalign(PAGE_SIZE, PAGE_SIZE);
 		memset(sp, 0, PAGE_SIZE);
 		start_usr(check_vectors, NULL, (unsigned long)sp + PAGE_SIZE);
-#endif
 	}
 
 	return report_summary();

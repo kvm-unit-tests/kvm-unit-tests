@@ -10,6 +10,7 @@ kernel_offset = 0x80000
 CFLAGS += -D__aarch64__
 
 cstart.o = $(TEST_DIR)/cstart64.o
+cflatobjs += lib/arm64/processor.o
 
 # arm64 specific tests
 tests =
