@@ -1,8 +1,44 @@
 #ifndef _ASMARM_PGTABLE_HWDEF_H_
 #define _ASMARM_PGTABLE_HWDEF_H_
 /*
- * From arch/arm/include/asm/pgtable-3level-hwdef.h
+ * From arch/arm/include/asm/pgtable-3level.h
+ *      arch/arm/include/asm/pgtable-3level-hwdef.h
  */
+
+#define PTRS_PER_PGD		4
+#define PGDIR_SHIFT		30
+#define PGDIR_SIZE		(_AC(1,UL) << PGDIR_SHIFT)
+#define PGDIR_MASK		(~((1 << PGDIR_SHIFT) - 1))
+
+#define PTRS_PER_PTE		512
+#define PTRS_PER_PMD		512
+
+#define PMD_SHIFT		21
+#define PMD_SIZE		(_AC(1,UL) << PMD_SHIFT)
+#define PMD_MASK		(~((1 << PMD_SHIFT) - 1))
+
+#define L_PMD_SECT_VALID	(_AT(pmdval_t, 1) << 0)
+
+#define L_PTE_VALID		(_AT(pteval_t, 1) << 0)		/* Valid */
+#define L_PTE_PRESENT		(_AT(pteval_t, 3) << 0)		/* Present */
+#define L_PTE_USER		(_AT(pteval_t, 1) << 6)		/* AP[1] */
+#define L_PTE_SHARED		(_AT(pteval_t, 3) << 8)		/* SH[1:0], inner shareable */
+#define L_PTE_YOUNG		(_AT(pteval_t, 1) << 10)	/* AF */
+#define L_PTE_XN		(_AT(pteval_t, 1) << 54)	/* XN */
+
+/*
+ * AttrIndx[2:0] encoding (mapping attributes defined in the MAIR* registers).
+ */
+#define L_PTE_MT_UNCACHED	(_AT(pteval_t, 0) << 2)	/* strongly ordered */
+#define L_PTE_MT_BUFFERABLE	(_AT(pteval_t, 1) << 2)	/* normal non-cacheable */
+#define L_PTE_MT_WRITETHROUGH	(_AT(pteval_t, 2) << 2)	/* normal inner write-through */
+#define L_PTE_MT_WRITEBACK	(_AT(pteval_t, 3) << 2)	/* normal inner write-back */
+#define L_PTE_MT_WRITEALLOC	(_AT(pteval_t, 7) << 2)	/* normal inner write-alloc */
+#define L_PTE_MT_DEV_SHARED	(_AT(pteval_t, 4) << 2)	/* device */
+#define L_PTE_MT_DEV_NONSHARED	(_AT(pteval_t, 4) << 2)	/* device */
+#define L_PTE_MT_DEV_WC		(_AT(pteval_t, 1) << 2)	/* normal non-cacheable */
+#define L_PTE_MT_DEV_CACHED	(_AT(pteval_t, 3) << 2)	/* normal inner write-back */
+#define L_PTE_MT_MASK		(_AT(pteval_t, 7) << 2)
 
 /*
  * Hardware page table definitions.
