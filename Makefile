@@ -82,6 +82,6 @@ distclean: clean libfdt_clean
 cscope: common_dirs = lib lib/libfdt lib/asm lib/asm-generic
 cscope:
 	$(RM) ./cscope.*
-	find -L $(TEST_DIR) lib/$(TEST_DIR) $(common_dirs) -maxdepth 1 \
-		-name '*.[chsS]' -print | sed 's,^\./,,' > ./cscope.files
+	find -L $(TEST_DIR) lib/$(TEST_DIR) lib/$(ARCH) $(common_dirs) -maxdepth 1 \
+		-name '*.[chsS]' -print | sed 's,^\./,,' | sort -u > ./cscope.files
 	cscope -bk
