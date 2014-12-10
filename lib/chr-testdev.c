@@ -13,7 +13,7 @@ static struct virtio_device *vcon;
 static struct virtqueue *in_vq, *out_vq;
 static struct spinlock lock;
 
-static void __testdev_send(char *buf, size_t len)
+static void __testdev_send(char *buf, unsigned int len)
 {
 	int ret;
 
@@ -29,8 +29,8 @@ static void __testdev_send(char *buf, size_t len)
 
 void chr_testdev_exit(int code)
 {
+	unsigned int len;
 	char buf[8];
-	int len;
 
 	snprintf(buf, sizeof(buf), "%dq", code);
 	len = strlen(buf);

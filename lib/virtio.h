@@ -139,7 +139,8 @@ extern void vring_init_virtqueue(struct vring_virtqueue *vq, unsigned index,
 				 bool (*notify)(struct virtqueue *),
 				 void (*callback)(struct virtqueue *),
 				 const char *name);
-extern int virtqueue_add_outbuf(struct virtqueue *vq, char *buf, size_t len);
+extern int virtqueue_add_outbuf(struct virtqueue *vq, char *buf,
+				unsigned int len);
 extern bool virtqueue_kick(struct virtqueue *vq);
 extern void detach_buf(struct vring_virtqueue *vq, unsigned head);
 extern void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len);

@@ -47,7 +47,7 @@ void vring_init_virtqueue(struct vring_virtqueue *vq, unsigned index,
 	vq->data[i] = NULL;
 }
 
-int virtqueue_add_outbuf(struct virtqueue *_vq, char *buf, size_t len)
+int virtqueue_add_outbuf(struct virtqueue *_vq, char *buf, unsigned int len)
 {
 	struct vring_virtqueue *vq = to_vvq(_vq);
 	unsigned avail;
