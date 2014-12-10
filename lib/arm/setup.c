@@ -10,13 +10,13 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include "libcflat.h"
-#include "libfdt/libfdt.h"
-#include "devicetree.h"
-#include "alloc.h"
-#include "asm/setup.h"
-#include "asm/page.h"
-#include "asm/mmu.h"
+#include <libcflat.h>
+#include <libfdt/libfdt.h>
+#include <devicetree.h>
+#include <alloc.h>
+#include <asm/setup.h>
+#include <asm/page.h>
+#include <asm/mmu.h>
 
 extern unsigned long stacktop;
 extern void io_init(void);

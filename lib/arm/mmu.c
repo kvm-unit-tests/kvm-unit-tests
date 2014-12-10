@@ -5,9 +5,9 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include "asm/setup.h"
-#include "asm/mmu.h"
-#include "asm/pgtable-hwdef.h"
+#include <asm/setup.h>
+#include <asm/mmu.h>
+#include <asm/pgtable-hwdef.h>
 
 static bool mmu_on;
 static pgd_t idmap[PTRS_PER_PGD] __attribute__((aligned(L1_CACHE_BYTES)));

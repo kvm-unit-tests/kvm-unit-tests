@@ -5,13 +5,13 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include "libcflat.h"
-#include "alloc.h"
-#include "asm/setup.h"
-#include "asm/ptrace.h"
-#include "asm/asm-offsets.h"
-#include "asm/processor.h"
-#include "asm/page.h"
+#include <libcflat.h>
+#include <alloc.h>
+#include <asm/setup.h>
+#include <asm/ptrace.h>
+#include <asm/asm-offsets.h>
+#include <asm/processor.h>
+#include <asm/page.h>
 
 static void assert_args(int num_args, int needed_args)
 {

@@ -1,8 +1,8 @@
 #ifndef _ASMARM_IO_H_
 #define _ASMARM_IO_H_
-#include "libcflat.h"
-#include "asm/barrier.h"
-#include "asm/page.h"
+#include <libcflat.h>
+#include <asm/barrier.h>
+#include <asm/page.h>
 
 #define __iomem
 #define __force
@@ -89,6 +89,6 @@ static inline void *phys_to_virt(phys_addr_t x)
 	return (void *)__phys_to_virt(x);
 }
 
-#include "asm-generic/io.h"
+#include <asm-generic/io.h>
 
 #endif /* _ASMARM_IO_H_ */

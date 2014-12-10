@@ -1,7 +1,7 @@
-#include "libcflat.h"
-#include "asm/spinlock.h"
-#include "asm/barrier.h"
-#include "asm/mmu.h"
+#include <libcflat.h>
+#include <asm/spinlock.h>
+#include <asm/barrier.h>
+#include <asm/mmu.h>
 
 void spin_lock(struct spinlock *lock)
 {

@@ -49,7 +49,7 @@
 #define PSR_ENDIAN_MASK	0x00000200	/* Endianness state mask */
 
 #ifndef __ASSEMBLY__
-#include "libcflat.h"
+#include <libcflat.h>
 
 struct pt_regs {
 	unsigned long uregs[18];

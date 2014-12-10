@@ -5,7 +5,7 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include "ptrace.h"
+#include <asm/ptrace.h>
 
 enum vector {
 	EXCPTN_RST,

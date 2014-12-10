@@ -1,7 +1,7 @@
 /*
  * Adapted from u-boot's arch/arm/lib/eabi_compat.c
  */
-#include "libcflat.h"
+#include <libcflat.h>
 
 int raise(int signum __unused)
 {

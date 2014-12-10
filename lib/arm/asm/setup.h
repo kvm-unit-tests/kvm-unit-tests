@@ -5,8 +5,8 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include "libcflat.h"
-#include "alloc.h"
+#include <libcflat.h>
+#include <alloc.h>
 
 #define NR_CPUS			8
 extern u32 cpus[NR_CPUS];

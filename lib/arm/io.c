@@ -8,11 +8,11 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include "libcflat.h"
-#include "devicetree.h"
-#include "chr-testdev.h"
-#include "asm/spinlock.h"
-#include "asm/io.h"
+#include <libcflat.h>
+#include <devicetree.h>
+#include <chr-testdev.h>
+#include <asm/spinlock.h>
+#include <asm/io.h>
 
 extern void halt(int code);
 

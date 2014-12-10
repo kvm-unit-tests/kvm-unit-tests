@@ -5,9 +5,9 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include "libcflat.h"
-#include "asm/ptrace.h"
-#include "asm/processor.h"
+#include <libcflat.h>
+#include <asm/ptrace.h>
+#include <asm/processor.h>
 
 static const char *processor_modes[] = {
 	"USER_26", "FIQ_26" , "IRQ_26" , "SVC_26" ,

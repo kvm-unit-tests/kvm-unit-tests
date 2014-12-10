@@ -5,9 +5,9 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include "asm/page.h"
-#include "asm/barrier.h"
-#include "alloc.h"
+#include <asm/page.h>
+#include <asm/barrier.h>
+#include <alloc.h>
 
 #define PTRS_PER_PGD	4
 #define PGDIR_SHIFT	30

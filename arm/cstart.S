@@ -6,9 +6,9 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #define __ASSEMBLY__
-#include "asm/asm-offsets.h"
-#include "asm/ptrace.h"
-#include "asm/cp15.h"
+#include <asm/asm-offsets.h>
+#include <asm/ptrace.h>
+#include <asm/cp15.h>
 
 .arm
 
