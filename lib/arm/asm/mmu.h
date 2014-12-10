@@ -8,6 +8,11 @@
 #include <asm/pgtable.h>
 #include <asm/barrier.h>
 
+#define PTE_USER		L_PTE_USER
+#define PTE_SHARED		L_PTE_SHARED
+#define PTE_AF			PTE_EXT_AF
+#define PTE_WBWA		L_PTE_MT_WRITEALLOC
+
 static inline void local_flush_tlb_all(void)
 {
 	asm volatile("mcr p15, 0, %0, c8, c7, 0" :: "r" (0));
@@ -21,9 +26,6 @@ static inline void flush_tlb_all(void)
 	local_flush_tlb_all();
 }
 
-extern bool mmu_enabled(void);
-extern void mmu_enable(pgd_t *pgtable);
-extern void mmu_enable_idmap(void);
-extern void mmu_init_io_sect(pgd_t *pgtable);
+#include <asm/mmu-api.h>
 
 #endif /* __ASMARM_MMU_H_ */

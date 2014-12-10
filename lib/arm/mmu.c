@@ -8,9 +8,9 @@
 #include <asm/setup.h>
 #include <asm/mmu.h>
 
-static bool mmu_on;
-static pgd_t idmap[PTRS_PER_PGD] __attribute__((aligned(L1_CACHE_BYTES)));
+pgd_t *mmu_idmap;
 
+static bool mmu_on;
 bool mmu_enabled(void)
 {
 	return mmu_on;
@@ -24,29 +24,62 @@ void mmu_enable(pgd_t *pgtable)
 	mmu_on = true;
 }
 
-void mmu_init_io_sect(pgd_t *pgtable)
+void mmu_set_range_ptes(pgd_t *pgtable, unsigned long virt_offset,
+			unsigned long phys_start, unsigned long phys_end,
+			pgprot_t prot)
 {
-	/*
-	 * mach-virt reserves the first 1G section for I/O
-	 */
-	pgd_val(pgtable[0]) = PMD_TYPE_SECT | PMD_SECT_AF | PMD_SECT_USER;
-	pgd_val(pgtable[0]) |= PMD_SECT_UNCACHED;
+	unsigned long vaddr = virt_offset & PAGE_MASK;
+	unsigned long paddr = phys_start & PAGE_MASK;
+	unsigned long virt_end = phys_end - paddr + vaddr;
+
+	for (; vaddr < virt_end; vaddr += PAGE_SIZE, paddr += PAGE_SIZE) {
+		pgd_t *pgd = pgd_offset(pgtable, vaddr);
+		pud_t *pud = pud_alloc(pgd, vaddr);
+		pmd_t *pmd = pmd_alloc(pud, vaddr);
+		pte_t *pte = pte_alloc(pmd, vaddr);
+
+		pte_val(*pte) = paddr;
+		pte_val(*pte) |= PTE_TYPE_PAGE | PTE_AF | PTE_SHARED;
+		pte_val(*pte) |= pgprot_val(prot);
+	}
+}
+
+void mmu_set_range_sect(pgd_t *pgtable, unsigned long virt_offset,
+			unsigned long phys_start, unsigned long phys_end,
+			pgprot_t prot)
+{
+	unsigned long vaddr = virt_offset & PGDIR_MASK;
+	unsigned long paddr = phys_start & PGDIR_MASK;
+	unsigned long virt_end = phys_end - paddr + vaddr;
+
+	for (; vaddr < virt_end; vaddr += PGDIR_SIZE, paddr += PGDIR_SIZE) {
+		pgd_t *pgd = pgd_offset(pgtable, vaddr);
+		pgd_val(*pgd) = paddr;
+		pgd_val(*pgd) |= PMD_TYPE_SECT | PMD_SECT_AF | PMD_SECT_S;
+		pgd_val(*pgd) |= pgprot_val(prot);
+	}
+}
+
+
+void mmu_init_io_sect(pgd_t *pgtable, unsigned long virt_offset)
+{
+	mmu_set_range_sect(pgtable, virt_offset,
+		PHYS_IO_OFFSET, PHYS_IO_END,
+		__pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
 }
 
 void mmu_enable_idmap(void)
 {
-	unsigned long sect, end;
+	unsigned long phys_end = sizeof(long) == 8 || !(PHYS_END >> 32)
+						? PHYS_END : 0xfffff000;
 
-	mmu_init_io_sect(idmap);
+	mmu_idmap = pgd_alloc();
 
-	end = sizeof(long) == 8 || !(PHYS_END >> 32) ? PHYS_END : 0xfffff000;
+	mmu_init_io_sect(mmu_idmap, PHYS_IO_OFFSET);
 
-	for (sect = PHYS_OFFSET & PGDIR_MASK; sect < end; sect += PGDIR_SIZE) {
-		int i = sect >> PGDIR_SHIFT;
-		pgd_val(idmap[i]) = sect;
-		pgd_val(idmap[i]) |= PMD_TYPE_SECT | PMD_SECT_AF | PMD_SECT_USER;
-		pgd_val(idmap[i]) |= PMD_SECT_S | PMD_SECT_WBWA;
-	}
+	mmu_set_range_ptes(mmu_idmap, PHYS_OFFSET,
+		PHYS_OFFSET, phys_end,
+		__pgprot(PTE_WBWA | PTE_USER));
 
-	mmu_enable(idmap);
+	mmu_enable(mmu_idmap);
 }
