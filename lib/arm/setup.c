@@ -22,7 +22,7 @@ extern unsigned long stacktop;
 extern void io_init(void);
 extern void setup_args(const char *args);
 
-u32 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (~0UL) };
+u32 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (~0U) };
 int nr_cpus;
 
 phys_addr_t __phys_offset, __phys_end;
