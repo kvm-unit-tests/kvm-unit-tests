@@ -8,6 +8,8 @@
 #include <asm/setup.h>
 #include <asm/mmu.h>
 
+extern unsigned long etext;
+
 pgd_t *mmu_idmap;
 
 static bool mmu_on;
@@ -72,13 +74,19 @@ void mmu_enable_idmap(void)
 {
 	unsigned long phys_end = sizeof(long) == 8 || !(PHYS_END >> 32)
 						? PHYS_END : 0xfffff000;
+	unsigned long code_end = (unsigned long)&etext;
 
 	mmu_idmap = pgd_alloc();
 
 	mmu_init_io_sect(mmu_idmap, PHYS_IO_OFFSET);
 
+	/* armv8 requires code shared between EL1 and EL0 to be read-only */
 	mmu_set_range_ptes(mmu_idmap, PHYS_OFFSET,
-		PHYS_OFFSET, phys_end,
+		PHYS_OFFSET, code_end,
+		__pgprot(PTE_WBWA | PTE_RDONLY | PTE_USER));
+
+	mmu_set_range_ptes(mmu_idmap, code_end,
+		code_end, phys_end,
 		__pgprot(PTE_WBWA | PTE_USER));
 
 	mmu_enable(mmu_idmap);

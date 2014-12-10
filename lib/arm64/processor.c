@@ -84,9 +84,32 @@ void *get_sp(void)
 	return (void *)sp;
 }
 
+bool get_far(unsigned int esr, unsigned long *far)
+{
+	unsigned int ec = esr >> ESR_EL1_EC_SHIFT;
+
+	asm volatile("mrs %0, far_el1": "=r" (*far));
+
+	switch (ec) {
+	case ESR_EL1_EC_IABT_EL0:
+	case ESR_EL1_EC_IABT_EL1:
+	case ESR_EL1_EC_PC_ALIGN:
+	case ESR_EL1_EC_DABT_EL0:
+	case ESR_EL1_EC_DABT_EL1:
+	case ESR_EL1_EC_WATCHPT_EL0:
+	case ESR_EL1_EC_WATCHPT_EL1:
+		if ((esr & 0x3f /* DFSC */) != 0x10
+				|| !(esr & 0x400 /* FnV */))
+			return true;
+	}
+	return false;
+}
+
 static void bad_exception(enum vector v, struct pt_regs *regs,
 			  unsigned int esr, bool bad_vector)
 {
+	unsigned long far;
+	bool far_valid = get_far(esr, &far);
 	unsigned int ec = esr >> ESR_EL1_EC_SHIFT;
 
 	if (bad_vector) {
@@ -104,7 +127,8 @@ static void bad_exception(enum vector v, struct pt_regs *regs,
 	}
 
 	printf("Vector: %d (%s)\n", v, vector_names[v]);
-	printf("ESR_EL1: %08lx, ec=0x%x (%s)\n", esr, ec, ec_names[ec]);
+	printf("ESR_EL1: %8s%08lx, ec=0x%x (%s)\n", "", esr, ec, ec_names[ec]);
+	printf("FAR_EL1: %016lx (%svalid)\n", far, far_valid ? "" : "not ");
 	printf("Exception frame registers:\n");
 	show_regs(regs);
 	abort();

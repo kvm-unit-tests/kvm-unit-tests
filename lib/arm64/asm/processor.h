@@ -5,6 +5,18 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
+
+/* System Control Register (SCTLR_EL1) bits */
+#define SCTLR_EL1_EE	(1 << 25)
+#define SCTLR_EL1_WXN	(1 << 19)
+#define SCTLR_EL1_I	(1 << 12)
+#define SCTLR_EL1_SA0	(1 << 4)
+#define SCTLR_EL1_SA	(1 << 3)
+#define SCTLR_EL1_C	(1 << 2)
+#define SCTLR_EL1_A	(1 << 1)
+#define SCTLR_EL1_M	(1 << 0)
+
+#ifndef __ASSEMBLY__
 #include <asm/ptrace.h>
 
 enum vector {
@@ -38,6 +50,7 @@ extern void install_exception_handler(enum vector v, unsigned int ec,
 
 extern void show_regs(struct pt_regs *regs);
 extern void *get_sp(void);
+extern bool get_far(unsigned int esr, unsigned long *far);
 
 static inline unsigned long current_level(void)
 {
@@ -49,4 +62,5 @@ static inline unsigned long current_level(void)
 extern bool user_mode;
 extern void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr);
 
+#endif /* !__ASSEMBLY__ */
 #endif /* _ASMARM64_PROCESSOR_H_ */

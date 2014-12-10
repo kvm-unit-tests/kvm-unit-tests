@@ -15,7 +15,6 @@ CFLAGS += -mcpu=$(PROCESSOR)
 cstart.o = $(TEST_DIR)/cstart.o
 cflatobjs += lib/arm/spinlock.o
 cflatobjs += lib/arm/processor.o
-cflatobjs += lib/arm/mmu.o
 
 # arm specific tests
 tests =

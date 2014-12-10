@@ -9,6 +9,7 @@
 #include <asm/barrier.h>
 
 #define PTE_USER		L_PTE_USER
+#define PTE_RDONLY		PTE_AP2
 #define PTE_SHARED		L_PTE_SHARED
 #define PTE_AF			PTE_EXT_AF
 #define PTE_WBWA		L_PTE_MT_WRITEALLOC

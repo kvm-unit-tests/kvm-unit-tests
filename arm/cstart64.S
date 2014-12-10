@@ -8,6 +8,9 @@
 #define __ASSEMBLY__
 #include <asm/asm-offsets.h>
 #include <asm/ptrace.h>
+#include <asm/processor.h>
+#include <asm/page.h>
+#include <asm/pgtable-hwdef.h>
 
 .section .init
 
@@ -53,6 +56,67 @@ exceptions_init:
 halt:
 1:	wfi
 	b	1b
+
+/*
+ * asm_mmu_enable
+ *   Inputs:
+ *     x0 is the base address of the translation table
+ *   Outputs: none
+ *
+ * Adapted from
+ *   arch/arm64/kernel/head.S
+ *   arch/arm64/mm/proc.S
+ */
+
+/*
+ * Memory region attributes for LPAE:
+ *
+ *   n = AttrIndx[2:0]
+ *                      n       MAIR
+ *   DEVICE_nGnRnE      000     00000000
+ *   DEVICE_nGnRE       001     00000100
+ *   DEVICE_GRE         010     00001100
+ *   NORMAL_NC          011     01000100
+ *   NORMAL             100     11111111
+ */
+#define MAIR(attr, mt) ((attr) << ((mt) * 8))
+
+.globl asm_mmu_enable
+asm_mmu_enable:
+	ic	iallu			// I+BTB cache invalidate
+	tlbi	vmalle1is		// invalidate I + D TLBs
+	dsb	ish
+
+	/* TCR */
+	ldr	x1, =TCR_TxSZ(VA_BITS) |		\
+		     TCR_TG0_64K | TCR_TG1_64K |	\
+		     TCR_IRGN_WBWA | TCR_ORGN_WBWA |	\
+		     TCR_SHARED
+	mov	x2, #3			// 011 is 42 bits
+	bfi	x1, x2, #32, #3
+	msr	tcr_el1, x1
+
+	/* MAIR */
+	ldr	x1, =MAIR(0x00, MT_DEVICE_nGnRnE) |	\
+		     MAIR(0x04, MT_DEVICE_nGnRE) |	\
+		     MAIR(0x0c, MT_DEVICE_GRE) |	\
+		     MAIR(0x44, MT_NORMAL_NC) |		\
+		     MAIR(0xff, MT_NORMAL)
+	msr	mair_el1, x1
+
+	/* TTBR0 */
+	msr	ttbr0_el1, x0
+	isb
+
+	/* SCTLR */
+	mrs	x1, sctlr_el1
+	orr	x1, x1, SCTLR_EL1_C
+	orr	x1, x1, SCTLR_EL1_I
+	orr	x1, x1, SCTLR_EL1_M
+	msr	sctlr_el1, x1
+	isb
+
+	ret
 
 /*
  * Vectors

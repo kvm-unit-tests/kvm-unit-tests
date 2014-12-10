@@ -3,6 +3,7 @@ SECTIONS
 {
     .text : { *(.init) *(.text) *(.text.*) }
     . = ALIGN(64K);
+    etext = .;
     .data : {
         exception_stacks = .;
         . += 64K;

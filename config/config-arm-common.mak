@@ -33,6 +33,7 @@ cflatobjs += lib/virtio-mmio.o
 cflatobjs += lib/chr-testdev.o
 cflatobjs += lib/arm/io.o
 cflatobjs += lib/arm/setup.o
+cflatobjs += lib/arm/mmu.o
 
 libeabi = lib/arm/libeabi.a
 eabiobjs = lib/arm/eabi_compat.o

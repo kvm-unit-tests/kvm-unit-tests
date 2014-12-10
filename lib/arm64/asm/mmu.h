@@ -5,14 +5,20 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
+#include <asm/pgtable.h>
+#include <asm/barrier.h>
 
-static inline bool mmu_enabled(void)
+#define PMD_SECT_UNCACHED	PMD_ATTRINDX(MT_DEVICE_nGnRE)
+#define PTE_WBWA		PTE_ATTRINDX(MT_NORMAL)
+
+static inline void flush_tlb_all(void)
 {
-	return false;
+	dsb(ishst);
+	asm("tlbi	vmalle1is");
+	dsb(ish);
+	isb();
 }
 
-static inline void mmu_enable_idmap(void)
-{
-}
+#include <asm/mmu-api.h>
 
 #endif /* __ASMARM64_MMU_H_ */
