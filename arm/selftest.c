@@ -188,11 +188,11 @@ int main(int argc, char **argv)
 
 		check_setup(argc-1, &argv[1]);
 
-	} else if (strcmp(argv[0], "vectors-svc") == 0) {
+	} else if (strcmp(argv[0], "vectors-kernel") == 0) {
 
 		check_vectors(NULL);
 
-	} else if (strcmp(argv[0], "vectors-usr") == 0) {
+	} else if (strcmp(argv[0], "vectors-user") == 0) {
 
 		void *sp = memalign(PAGE_SIZE, PAGE_SIZE);
 		memset(sp, 0, PAGE_SIZE);
