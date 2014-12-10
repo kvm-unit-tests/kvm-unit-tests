@@ -26,7 +26,7 @@ if ! $qemu $M -device '?' 2>&1 | grep virtconsole > /dev/null; then
 	exit 2
 fi
 
-if $qemu $M -chardev testdev,id=id -kernel . 2>&1 \
+if $qemu $M -chardev testdev,id=id -initrd . 2>&1 \
 		| grep backend > /dev/null; then
 	echo "$qpath doesn't support chr-testdev. Exiting."
 	exit 2
