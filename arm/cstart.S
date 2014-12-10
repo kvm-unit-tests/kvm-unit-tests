@@ -19,15 +19,23 @@ start:
 	/*
 	 * bootloader params are in r0-r2
 	 * See the kernel doc Documentation/arm/Booting
+	 *   r0 = 0
+	 *   r1 = machine type number
+	 *   r2 = physical address of the dtb
+	 *
+	 * As we have no need for r0's nor r1's value, then
+	 * put the dtb in r0. This allows setup to be consistent
+	 * with arm64.
 	 */
 	ldr	sp, =stacktop
-	push	{r0-r3}
+	mov	r0, r2
+	push	{r0-r1}
 
 	/* set up vector table and mode stacks */
 	bl	exceptions_init
 
 	/* complete setup */
-	pop	{r0-r3}
+	pop	{r0-r1}
 	bl	setup
 
 	/* run the test */

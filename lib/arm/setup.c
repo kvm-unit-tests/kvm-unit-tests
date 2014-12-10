@@ -62,8 +62,7 @@ static void mem_init(phys_addr_t freemem_start)
 	mmu_enable_idmap();
 }
 
-void setup(unsigned long arg __unused, unsigned long id __unused,
-	   const void *fdt)
+void setup(const void *fdt)
 {
 	const char *bootargs;
 	u32 fdt_size;
