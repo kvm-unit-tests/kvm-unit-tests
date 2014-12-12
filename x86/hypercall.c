@@ -76,5 +76,5 @@ int main(int ac, char **av)
 	report("VMMCALL on edge of canonical address space (AMD)", test_edge());
 #endif
 
-	return 0;
+	return report_summary();
 }
