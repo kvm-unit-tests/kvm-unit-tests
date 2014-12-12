@@ -19,7 +19,9 @@ struct hole {
 class vm {
 public:
     vm(kvm::vm& vm, mem_map& mmap, hole address_space_hole = hole());
+    ~vm();
 private:
+    void *tss;
     typedef std::tr1::shared_ptr<mem_slot> mem_slot_ptr;
     std::vector<mem_slot_ptr> _slots;
 };
