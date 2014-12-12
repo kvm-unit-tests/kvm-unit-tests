@@ -125,7 +125,7 @@ int main(int ac, char **av)
         printf("dirty-log-perf: Could not allocate guest memory.\n");
         exit(1);
     }
-    uint64_t mem_addr = reinterpret_cast<uint64_t>(mem_head);
+    uint64_t mem_addr = reinterpret_cast<uintptr_t>(mem_head);
 
     identity::hole hole(mem_head, mem_size);
     identity::vm ident_vm(vm, memmap, hole);

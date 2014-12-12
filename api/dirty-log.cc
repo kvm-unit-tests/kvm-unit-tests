@@ -62,7 +62,7 @@ int main(int ac, char **av)
     bool running = true;
     int nr_fail = 0;
     mem_slot logged_slot(memmap,
-                         reinterpret_cast<uint64_t>(logged_slot_virt),
+                         reinterpret_cast<uintptr_t>(logged_slot_virt),
                          4096, logged_slot_virt);
     boost::thread host_poll_thread(check_dirty_log, ref(logged_slot),
                                    ref(running),

@@ -18,7 +18,7 @@ hole::hole(void* address, size_t size)
 
 vm::vm(kvm::vm& vm, mem_map& mmap, hole h)
 {
-    uint64_t hole_gpa = reinterpret_cast<uint64_t>(h.address);
+    uint64_t hole_gpa = reinterpret_cast<uintptr_t>(h.address);
     char* hole_hva = static_cast<char*>(h.address);
     if (h.address) {
         _slots.push_back(mem_slot_ptr(new mem_slot(mmap, 0, hole_gpa, NULL)));
@@ -51,7 +51,7 @@ void vcpu::setup_sregs()
     asm ("mov %%gs:0, %0" : "=r"(gsbase));
     sregs.gs.base = gsbase;
 
-    sregs.tr.base = reinterpret_cast<ulong>(&*_stack.begin());
+    sregs.tr.base = reinterpret_cast<uintptr_t>(&*_stack.begin());
     sregs.tr.type = 11;
     sregs.tr.s = 0;
     sregs.tr.present = 1;

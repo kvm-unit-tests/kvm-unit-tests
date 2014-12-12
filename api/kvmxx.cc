@@ -159,7 +159,7 @@ void vm::set_memory_region(int slot, void *addr, uint64_t gpa, size_t len,
     umr.flags = flags;
     umr.guest_phys_addr = gpa;
     umr.memory_size = len;
-    umr.userspace_addr = reinterpret_cast<uint64_t>(addr);
+    umr.userspace_addr = reinterpret_cast<uintptr_t>(addr);
     _fd.ioctlp(KVM_SET_USER_MEMORY_REGION, &umr);
 }
 
