@@ -11,11 +11,16 @@ mem_slot::mem_slot(mem_map& map, uint64_t gpa, uint64_t size, void* hva)
     , _log()
 {
     map._free_slots.pop();
-    update();
+    if (_size) {
+        update();
+    }
 }
 
 mem_slot::~mem_slot()
 {
+    if (!_size) {
+        return;
+    }
     _size = 0;
     try {
         update();
@@ -35,7 +40,9 @@ void mem_slot::set_dirty_logging(bool enabled)
         } else {
             _log.resize(0);
         }
-        update();
+        if (_size) {
+            update();
+        }
     }
 }
 
