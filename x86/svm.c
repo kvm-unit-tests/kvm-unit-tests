@@ -239,11 +239,10 @@ struct regs regs;
 
 #define LOAD_GPR_C      SAVE_GPR_C
 
-static bool test_run(struct test *test, struct vmcb *vmcb)
+static void test_run(struct test *test, struct vmcb *vmcb)
 {
     u64 vmcb_phys = virt_to_phys(vmcb);
     u64 guest_stack[10000];
-    bool success;
 
     test->vmcb = vmcb;
     test->prepare(test);
@@ -276,12 +275,7 @@ static bool test_run(struct test *test, struct vmcb *vmcb)
         ++test->exits;
     } while (!test->finished(test));
 
-
-    success = test->succeeded(test);
-
-    printf("%s: %s\n", test->name, success ? "PASS" : "FAIL");
-
-    return success;
+    report("%s", test->succeeded(test), test->name);
 }
 
 static bool smp_supported(void)
@@ -610,7 +604,7 @@ static void test_ioio(struct test *test)
     return;
 
 fail:
-    printf("test failure, stage %d\n", get_test_stage(test));
+    report("stage %d\n", false, get_test_stage(test));
     test->scratch = -1;
 }
 
@@ -685,8 +679,8 @@ static void sel_cr0_bug_test(struct test *test)
      * are not in guest-mode anymore so we can't trigger an intercept.
      * Trigger a tripple-fault for now.
      */
-    printf("sel_cr0 test failed. Can not recover from this - exiting\n");
-    exit(1);
+    report("sel_cr0 test. Can not recover from this - exiting\n", false);
+    exit(report_summary());
 }
 
 static bool sel_cr0_bug_check(struct test *test)
@@ -1062,7 +1056,7 @@ static struct test tests[] = {
 
 int main(int ac, char **av)
 {
-    int i, nr, passed, done;
+    int i, nr;
     struct vmcb *vmcb;
 
     setup_vm();
@@ -1078,14 +1072,11 @@ int main(int ac, char **av)
     vmcb = alloc_page();
 
     nr = ARRAY_SIZE(tests);
-    passed = done = 0;
     for (i = 0; i < nr; ++i) {
         if (!tests[i].supported())
             continue;
-        done += 1;
-        passed += test_run(&tests[i], vmcb);
+        test_run(&tests[i], vmcb);
     }
 
-    printf("\nSUMMARY: %d TESTS, %d FAILURES\n", done, (done - passed));
-    return passed == done ? 0 : 1;
+    return report_summary();
 }
