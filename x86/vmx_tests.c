@@ -271,13 +271,8 @@ static void test_ctrl_pat_main()
 	wrmsr(MSR_IA32_CR_PAT, 0x6);
 	vmcall();
 	guest_ia32_pat = rdmsr(MSR_IA32_CR_PAT);
-	if (ctrl_enter_rev.clr & ENT_LOAD_PAT) {
-		if (guest_ia32_pat != ia32_pat) {
-			report("Entry load PAT", 0);
-			return;
-		}
-		report("Entry load PAT", 1);
-	}
+	if (ctrl_enter_rev.clr & ENT_LOAD_PAT)
+		report("Entry load PAT", guest_ia32_pat == ia32_pat);
 }
 
 static int test_ctrl_pat_exit_handler()
@@ -295,19 +290,12 @@ static int test_ctrl_pat_exit_handler()
 			printf("\tEXI_SAVE_PAT is not supported\n");
 			vmcs_write(GUEST_PAT, 0x6);
 		} else {
-			if (guest_pat == 0x6)
-				report("Exit save PAT", 1);
-			else
-				report("Exit save PAT", 0);
+			report("Exit save PAT", guest_pat == 0x6);
 		}
 		if (!(ctrl_exit_rev.clr & EXI_LOAD_PAT))
 			printf("\tEXI_LOAD_PAT is not supported\n");
-		else {
-			if (rdmsr(MSR_IA32_CR_PAT) == ia32_pat)
-				report("Exit load PAT", 1);
-			else
-				report("Exit load PAT", 0);
-		}
+		else
+			report("Exit load PAT", rdmsr(MSR_IA32_CR_PAT) == ia32_pat);
 		vmcs_write(GUEST_PAT, ia32_pat);
 		vmcs_write(GUEST_RIP, guest_rip + 3);
 		return VMX_TEST_RESUME;
@@ -350,13 +338,8 @@ static void test_ctrl_efer_main()
 	wrmsr(MSR_EFER, ia32_efer);
 	vmcall();
 	guest_ia32_efer = rdmsr(MSR_EFER);
-	if (ctrl_enter_rev.clr & ENT_LOAD_EFER) {
-		if (guest_ia32_efer != ia32_efer) {
-			report("Entry load EFER", 0);
-			return;
-		}
-		report("Entry load EFER", 1);
-	}
+	if (ctrl_enter_rev.clr & ENT_LOAD_EFER)
+		report("Entry load EFER", guest_ia32_efer == ia32_efer);
 }
 
 static int test_ctrl_efer_exit_handler()
@@ -374,19 +357,13 @@ static int test_ctrl_efer_exit_handler()
 			printf("\tEXI_SAVE_EFER is not supported\n");
 			vmcs_write(GUEST_EFER, ia32_efer);
 		} else {
-			if (guest_efer == ia32_efer)
-				report("Exit save EFER", 1);
-			else
-				report("Exit save EFER", 0);
+			report("Exit save EFER", guest_efer == ia32_efer);
 		}
 		if (!(ctrl_exit_rev.clr & EXI_LOAD_EFER)) {
 			printf("\tEXI_LOAD_EFER is not supported\n");
 			wrmsr(MSR_EFER, ia32_efer ^ EFER_NX);
 		} else {
-			if (rdmsr(MSR_EFER) == (ia32_efer ^ EFER_NX))
-				report("Exit load EFER", 1);
-			else
-				report("Exit load EFER", 0);
+			report("Exit load EFER", rdmsr(MSR_EFER) == (ia32_efer ^ EFER_NX));
 		}
 		vmcs_write(GUEST_PAT, ia32_efer);
 		vmcs_write(GUEST_RIP, guest_rip + 3);
@@ -436,20 +413,12 @@ static void cr_shadowing_main()
 	vmx_set_test_stage(4);
 	vmcall();
 	cr0 = read_cr0();
-	if (vmx_get_test_stage() != 5) {
-		if (cr0 == guest_cr0)
-			report("Read shadowing CR0", 1);
-		else
-			report("Read shadowing CR0", 0);
-	}
+	if (vmx_get_test_stage() != 5)
+		report("Read shadowing CR0", cr0 == guest_cr0);
 	vmx_set_test_stage(5);
 	cr4 = read_cr4();
-	if (vmx_get_test_stage() != 6) {
-		if (cr4 == guest_cr4)
-			report("Read shadowing CR4", 1);
-		else
-			report("Read shadowing CR4", 0);
-	}
+	if (vmx_get_test_stage() != 6)
+		report("Read shadowing CR4", cr4 == guest_cr4);
 	// Test write shadow (same value with shadow)
 	vmx_set_test_stage(6);
 	write_cr0(guest_cr0);
@@ -470,40 +439,28 @@ static void cr_shadowing_main()
 		"mov %%rsi, %%cr0\n\t"
 		::"m"(tmp)
 		:"rsi", "memory", "cc");
-	if (vmx_get_test_stage() != 9)
-		report("Write shadowing different X86_CR0_TS", 0);
-	else
-		report("Write shadowing different X86_CR0_TS", 1);
+	report("Write shadowing different X86_CR0_TS", vmx_get_test_stage() == 9);
 	vmx_set_test_stage(9);
 	tmp = guest_cr0 ^ X86_CR0_MP;
 	asm volatile("mov %0, %%rsi\n\t"
 		"mov %%rsi, %%cr0\n\t"
 		::"m"(tmp)
 		:"rsi", "memory", "cc");
-	if (vmx_get_test_stage() != 10)
-		report("Write shadowing different X86_CR0_MP", 0);
-	else
-		report("Write shadowing different X86_CR0_MP", 1);
+	report("Write shadowing different X86_CR0_MP", vmx_get_test_stage() == 10);
 	vmx_set_test_stage(10);
 	tmp = guest_cr4 ^ X86_CR4_TSD;
 	asm volatile("mov %0, %%rsi\n\t"
 		"mov %%rsi, %%cr4\n\t"
 		::"m"(tmp)
 		:"rsi", "memory", "cc");
-	if (vmx_get_test_stage() != 11)
-		report("Write shadowing different X86_CR4_TSD", 0);
-	else
-		report("Write shadowing different X86_CR4_TSD", 1);
+	report("Write shadowing different X86_CR4_TSD", vmx_get_test_stage() == 11);
 	vmx_set_test_stage(11);
 	tmp = guest_cr4 ^ X86_CR4_DE;
 	asm volatile("mov %0, %%rsi\n\t"
 		"mov %%rsi, %%cr4\n\t"
 		::"m"(tmp)
 		:"rsi", "memory", "cc");
-	if (vmx_get_test_stage() != 12)
-		report("Write shadowing different X86_CR4_DE", 0);
-	else
-		report("Write shadowing different X86_CR4_DE", 1);
+	report("Write shadowing different X86_CR4_DE", vmx_get_test_stage() == 12);
 }
 
 static int cr_shadowing_exit_handler()
@@ -521,28 +478,16 @@ static int cr_shadowing_exit_handler()
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
-			if (guest_cr0 == vmcs_read(GUEST_CR0))
-				report("Read through CR0", 1);
-			else
-				report("Read through CR0", 0);
+			report("Read through CR0", guest_cr0 == vmcs_read(GUEST_CR0));
 			break;
 		case 1:
-			if (guest_cr4 == vmcs_read(GUEST_CR4))
-				report("Read through CR4", 1);
-			else
-				report("Read through CR4", 0);
+			report("Read through CR4", guest_cr4 == vmcs_read(GUEST_CR4));
 			break;
 		case 2:
-			if (guest_cr0 == vmcs_read(GUEST_CR0))
-				report("Write through CR0", 1);
-			else
-				report("Write through CR0", 0);
+			report("Write through CR0", guest_cr0 == vmcs_read(GUEST_CR0));
 			break;
 		case 3:
-			if (guest_cr4 == vmcs_read(GUEST_CR4))
-				report("Write through CR4", 1);
-			else
-				report("Write through CR4", 0);
+			report("Write through CR4", guest_cr4 == vmcs_read(GUEST_CR4));
 			break;
 		case 4:
 			guest_cr0 = vmcs_read(GUEST_CR0) ^ (X86_CR0_TS | X86_CR0_MP);
@@ -553,16 +498,12 @@ static int cr_shadowing_exit_handler()
 			vmcs_write(CR4_READ_SHADOW, guest_cr4 & (X86_CR4_TSD | X86_CR4_DE));
 			break;
 		case 6:
-			if (guest_cr0 == (vmcs_read(GUEST_CR0) ^ (X86_CR0_TS | X86_CR0_MP)))
-				report("Write shadowing CR0 (same value)", 1);
-			else
-				report("Write shadowing CR0 (same value)", 0);
+			report("Write shadowing CR0 (same value)",
+					guest_cr0 == (vmcs_read(GUEST_CR0) ^ (X86_CR0_TS | X86_CR0_MP)));
 			break;
 		case 7:
-			if (guest_cr4 == (vmcs_read(GUEST_CR4) ^ (X86_CR4_TSD | X86_CR4_DE)))
-				report("Write shadowing CR4 (same value)", 1);
-			else
-				report("Write shadowing CR4 (same value)", 0);
+			report("Write shadowing CR4 (same value)",
+					guest_cr4 == (vmcs_read(GUEST_CR4) ^ (X86_CR4_TSD | X86_CR4_DE)));
 			break;
 		default:
 			// Should not reach here
@@ -642,59 +583,37 @@ static void iobmp_main()
 	vmx_set_test_stage(0);
 	inb(0x5000);
 	outb(0x0, 0x5000);
-	if (vmx_get_test_stage() != 0)
-		report("I/O bitmap - I/O pass", 0);
-	else
-		report("I/O bitmap - I/O pass", 1);
+	report("I/O bitmap - I/O pass", vmx_get_test_stage() == 0);
 	// test IO width, in/out
 	((u8 *)io_bitmap_a)[0] = 0xFF;
 	vmx_set_test_stage(2);
 	inb(0x0);
-	if (vmx_get_test_stage() != 3)
-		report("I/O bitmap - trap in", 0);
-	else
-		report("I/O bitmap - trap in", 1);
+	report("I/O bitmap - trap in", vmx_get_test_stage() == 3);
 	vmx_set_test_stage(3);
 	outw(0x0, 0x0);
-	if (vmx_get_test_stage() != 4)
-		report("I/O bitmap - trap out", 0);
-	else
-		report("I/O bitmap - trap out", 1);
+	report("I/O bitmap - trap out", vmx_get_test_stage() == 4);
 	vmx_set_test_stage(4);
 	inl(0x0);
-	if (vmx_get_test_stage() != 5)
-		report("I/O bitmap - I/O width, long", 0);
+	report("I/O bitmap - I/O width, long", vmx_get_test_stage() == 5);
 	// test low/high IO port
 	vmx_set_test_stage(5);
 	((u8 *)io_bitmap_a)[0x5000 / 8] = (1 << (0x5000 % 8));
 	inb(0x5000);
-	if (vmx_get_test_stage() == 6)
-		report("I/O bitmap - I/O port, low part", 1);
-	else
-		report("I/O bitmap - I/O port, low part", 0);
+	report("I/O bitmap - I/O port, low part", vmx_get_test_stage() == 6);
 	vmx_set_test_stage(6);
 	((u8 *)io_bitmap_b)[0x1000 / 8] = (1 << (0x1000 % 8));
 	inb(0x9000);
-	if (vmx_get_test_stage() == 7)
-		report("I/O bitmap - I/O port, high part", 1);
-	else
-		report("I/O bitmap - I/O port, high part", 0);
+	report("I/O bitmap - I/O port, high part", vmx_get_test_stage() == 7);
 	// test partial pass
 	vmx_set_test_stage(7);
 	inl(0x4FFF);
-	if (vmx_get_test_stage() == 8)
-		report("I/O bitmap - partial pass", 1);
-	else
-		report("I/O bitmap - partial pass", 0);
+	report("I/O bitmap - partial pass", vmx_get_test_stage() == 8);
 	// test overrun
 	vmx_set_test_stage(8);
 	memset(io_bitmap_a, 0x0, PAGE_SIZE);
 	memset(io_bitmap_b, 0x0, PAGE_SIZE);
 	inl(0xFFFF);
-	if (vmx_get_test_stage() == 9)
-		report("I/O bitmap - overrun", 1);
-	else
-		report("I/O bitmap - overrun", 0);
+	report("I/O bitmap - overrun", vmx_get_test_stage() == 9);
 	vmx_set_test_stage(9);
 	vmcall();
 	outb(0x0, 0x0);
@@ -725,32 +644,21 @@ static int iobmp_exit_handler()
 			vmx_inc_test_stage();
 			break;
 		case 2:
-			if ((exit_qual & VMX_IO_SIZE_MASK) != _VMX_IO_BYTE)
-				report("I/O bitmap - I/O width, byte", 0);
-			else
-				report("I/O bitmap - I/O width, byte", 1);
-			if (!(exit_qual & VMX_IO_IN))
-				report("I/O bitmap - I/O direction, in", 0);
-			else
-				report("I/O bitmap - I/O direction, in", 1);
+			report("I/O bitmap - I/O width, byte",
+					(exit_qual & VMX_IO_SIZE_MASK) == _VMX_IO_BYTE);
+			report("I/O bitmap - I/O direction, in", exit_qual & VMX_IO_IN);
 			vmx_inc_test_stage();
 			break;
 		case 3:
-			if ((exit_qual & VMX_IO_SIZE_MASK) != _VMX_IO_WORD)
-				report("I/O bitmap - I/O width, word", 0);
-			else
-				report("I/O bitmap - I/O width, word", 1);
-			if (!(exit_qual & VMX_IO_IN))
-				report("I/O bitmap - I/O direction, out", 1);
-			else
-				report("I/O bitmap - I/O direction, out", 0);
+			report("I/O bitmap - I/O width, word",
+					(exit_qual & VMX_IO_SIZE_MASK) == _VMX_IO_WORD);
+			report("I/O bitmap - I/O direction, out",
+					!(exit_qual & VMX_IO_IN));
 			vmx_inc_test_stage();
 			break;
 		case 4:
-			if ((exit_qual & VMX_IO_SIZE_MASK) != _VMX_IO_LONG)
-				report("I/O bitmap - I/O width, long", 0);
-			else
-				report("I/O bitmap - I/O width, long", 1);
+			report("I/O bitmap - I/O width, long",
+					(exit_qual & VMX_IO_SIZE_MASK) == _VMX_IO_LONG);
 			vmx_inc_test_stage();
 			break;
 		case 5:
@@ -922,8 +830,6 @@ static int insn_intercept_init()
 
 static void insn_intercept_main()
 {
-	char msg[80];
-
 	for (cur_insn = 0; insn_table[cur_insn].name != NULL; cur_insn++) {
 		vmx_set_test_stage(cur_insn * 2);
 		if ((insn_table[cur_insn].type == INSN_CPU0 &&
@@ -943,9 +849,8 @@ static void insn_intercept_main()
 			/* skip hlt, it stalls the guest and is tested below */
 			if (insn_table[cur_insn].insn_func != insn_hlt)
 				insn_table[cur_insn].insn_func();
-			snprintf(msg, sizeof(msg), "execute %s",
-				 insn_table[cur_insn].name);
-			report(msg, vmx_get_test_stage() == cur_insn * 2);
+			report("execute %s", vmx_get_test_stage() == cur_insn * 2,
+					insn_table[cur_insn].name);
 		} else if (insn_table[cur_insn].type != INSN_ALWAYS_TRAP)
 			printf("\tCPU_CTRL%d.CPU_%s always traps.\n",
 			       insn_table[cur_insn].type - INSN_CPU0,
@@ -954,9 +859,8 @@ static void insn_intercept_main()
 		vmcall();
 
 		insn_table[cur_insn].insn_func();
-		snprintf(msg, sizeof(msg), "intercept %s",
-			 insn_table[cur_insn].name);
-		report(msg, vmx_get_test_stage() == cur_insn * 2 + 1);
+		report("intercept %s", vmx_get_test_stage() == cur_insn * 2 + 1,
+				insn_table[cur_insn].name);
 
 		vmx_set_test_stage(cur_insn * 2 + 1);
 		vmcall();
@@ -1115,28 +1019,18 @@ static void ept_main()
 	vmx_set_test_stage(2);
 	vmcall();
 	*((u32 *)data_page1) = MAGIC_VAL_1;
-	if (vmx_get_test_stage() != 3) {
-		report("EPT misconfigurations", 0);
-		goto t1;
-	}
-	report("EPT misconfigurations", 1);
+	report("EPT misconfigurations", vmx_get_test_stage() == 3);
 t1:
 	// Test EPT violation
 	vmx_set_test_stage(3);
 	vmcall();
 	*((u32 *)data_page1) = MAGIC_VAL_1;
-	if (vmx_get_test_stage() == 4)
-		report("EPT violation - page permission", 1);
-	else
-		report("EPT violation - page permission", 0);
+	report("EPT violation - page permission", vmx_get_test_stage() == 4);
 	// Violation caused by EPT paging structure
 	vmx_set_test_stage(4);
 	vmcall();
 	*((u32 *)data_page1) = MAGIC_VAL_2;
-	if (vmx_get_test_stage() == 5)
-		report("EPT violation - paging structure", 1);
-	else
-		report("EPT violation - paging structure", 0);
+	report("EPT violation - paging structure", vmx_get_test_stage() == 5);
 
 	// Test EPT access to L1 MMIO
 	vmx_set_test_stage(6);
