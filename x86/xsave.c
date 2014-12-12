@@ -65,134 +65,103 @@ uint64_t get_supported_xcr0(void)
 #define XSTATE_SSE      0x2
 #define XSTATE_YMM      0x4
 
-static int total_tests, fail_tests;
-
-void pass_if(int condition)
-{
-    total_tests ++;
-    if (condition)
-        printf("Pass!\n");
-    else {
-        printf("Fail!\n");
-        fail_tests ++;
-    }
-}
-
 void test_xsave(void)
 {
     unsigned long cr4;
     uint64_t supported_xcr0;
     uint64_t test_bits;
     u64 xcr0;
-    int r;
 
     printf("Legal instruction testing:\n");
+
     supported_xcr0 = get_supported_xcr0();
     printf("Supported XCR0 bits: 0x%x\n", supported_xcr0);
 
-    printf("Check minimal XSAVE required bits: ");
     test_bits = XSTATE_FP | XSTATE_SSE;
-    pass_if((supported_xcr0 & test_bits) == test_bits);
+    report("Check minimal XSAVE required bits",
+		    (supported_xcr0 & test_bits) == test_bits);
 
-    printf("Set CR4 OSXSAVE: ");
     cr4 = read_cr4();
-    r = write_cr4_checking(cr4 | X86_CR4_OSXSAVE);
-    pass_if(r == 0);
+    report("Set CR4 OSXSAVE", write_cr4_checking(cr4 | X86_CR4_OSXSAVE) == 0);
+    report("Check CPUID.1.ECX.OSXSAVE - expect 1",
+		    check_cpuid_1_ecx(CPUID_1_ECX_OSXSAVE));
 
-    printf("Check CPUID.1.ECX.OSXSAVE - expect 1: ");
-    pass_if(check_cpuid_1_ecx(CPUID_1_ECX_OSXSAVE));
-
-    printf("    Legal tests\n");
-    printf("        xsetbv(XCR_XFEATURE_ENABLED_MASK, XSTATE_FP): ");
+    printf("\tLegal tests\n");
     test_bits = XSTATE_FP;
-    r = xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits);
-    pass_if(r == 0);
-    printf("        xsetbv(XCR_XFEATURE_ENABLED_MASK, "
-            "XSTATE_FP | XSTATE_SSE): ");
+    report("\t\txsetbv(XCR_XFEATURE_ENABLED_MASK, XSTATE_FP)",
+	xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits) == 0);
+
     test_bits = XSTATE_FP | XSTATE_SSE;
-    r = xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits);
-    pass_if(r == 0);
-    printf("        xgetbv(XCR_XFEATURE_ENABLED_MASK): ");
-    r = xgetbv_checking(XCR_XFEATURE_ENABLED_MASK, &xcr0);
-    pass_if(r == 0);
-    printf("    Illegal tests\n");
-    printf("        xsetbv(XCR_XFEATURE_ENABLED_MASK, 0) - expect #GP: ");
+    report("\t\txsetbv(XCR_XFEATURE_ENABLED_MASK, XSTATE_FP | XSTATE_SSE)",
+	xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits) == 0);
+    report("        xgetbv(XCR_XFEATURE_ENABLED_MASK)",
+	xgetbv_checking(XCR_XFEATURE_ENABLED_MASK, &xcr0) == 0);
+
+    printf("\tIllegal tests\n");
     test_bits = 0;
-    r = xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits);
-    pass_if(r == GP_VECTOR);
-    printf("        xsetbv(XCR_XFEATURE_ENABLED_MASK, XSTATE_SSE) "
-            "- expect #GP: ");
-    test_bits = XSTATE_SSE;
-    r = xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits);
-    pass_if(r == GP_VECTOR);
-    if (supported_xcr0 & XSTATE_YMM) {
-        printf("        xsetbv(XCR_XFEATURE_ENABLED_MASK, "
-                "XSTATE_YMM) - expect #GP: ");
-        test_bits = XSTATE_YMM;
-        r = xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits);
-        pass_if(r == GP_VECTOR);
-        printf("        xsetbv(XCR_XFEATURE_ENABLED_MASK, "
-                "XSTATE_FP | XSTATE_YMM) - expect #GP: ");
-        test_bits = XSTATE_FP | XSTATE_YMM;
-        r = xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits);
-        pass_if(r == GP_VECTOR);
-    }
-    printf("        xsetbv(XCR_XFEATURE_ILLEGAL_MASK, XSTATE_FP) "
-            "- expect #GP: ");
-    test_bits = XSTATE_SSE;
-    r = xsetbv_checking(XCR_XFEATURE_ILLEGAL_MASK, test_bits);
-    pass_if(r == GP_VECTOR);
-    printf("        xgetbv(XCR_XFEATURE_ILLEGAL_MASK, XSTATE_FP) "
-            "- expect #GP: ");
-    test_bits = XSTATE_SSE;
-    r = xsetbv_checking(XCR_XFEATURE_ILLEGAL_MASK, test_bits);
-    pass_if(r == GP_VECTOR);
+    report("\t\txsetbv(XCR_XFEATURE_ENABLED_MASK, 0) - expect #GP",
+	xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits) == GP_VECTOR);
 
-    printf("Unset CR4 OSXSAVE: ");
+    test_bits = XSTATE_SSE;
+    report("\t\txsetbv(XCR_XFEATURE_ENABLED_MASK, XSTATE_SSE) - expect #GP",
+	xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits) == GP_VECTOR);
+
+    if (supported_xcr0 & XSTATE_YMM) {
+        test_bits = XSTATE_YMM;
+        report("\t\txsetbv(XCR_XFEATURE_ENABLED_MASK, XSTATE_YMM) - expect #GP",
+		xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits) == GP_VECTOR);
+
+        test_bits = XSTATE_FP | XSTATE_YMM;
+        report("\t\txsetbv(XCR_XFEATURE_ENABLED_MASK, XSTATE_FP | XSTATE_YMM) - expect #GP",
+		xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits) == GP_VECTOR);
+    }
+
+    test_bits = XSTATE_SSE;
+    report("\t\txsetbv(XCR_XFEATURE_ILLEGAL_MASK, XSTATE_FP) - expect #GP",
+	xsetbv_checking(XCR_XFEATURE_ILLEGAL_MASK, test_bits) == GP_VECTOR);
+
+    test_bits = XSTATE_SSE;
+    report("\t\txgetbv(XCR_XFEATURE_ILLEGAL_MASK, XSTATE_FP) - expect #GP",
+	xsetbv_checking(XCR_XFEATURE_ILLEGAL_MASK, test_bits) == GP_VECTOR);
+
     cr4 &= ~X86_CR4_OSXSAVE;
-    r = write_cr4_checking(cr4);
-    pass_if(r == 0);
-    printf("Check CPUID.1.ECX.OSXSAVE - expect 0: ");
-    pass_if(check_cpuid_1_ecx(CPUID_1_ECX_OSXSAVE) == 0);
-    printf("    Illegal tests:\n");
-    printf("        xsetbv(XCR_XFEATURE_ENABLED_MASK, XSTATE_FP) - expect #UD: ");
+    report("Unset CR4 OSXSAVE", write_cr4_checking(cr4) == 0);
+    report("Check CPUID.1.ECX.OSXSAVE - expect 0",
+	check_cpuid_1_ecx(CPUID_1_ECX_OSXSAVE) == 0);
+
+    printf("\tIllegal tests:\n");
     test_bits = XSTATE_FP;
-    r = xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits);
-    pass_if(r == UD_VECTOR);
-    printf("        xsetbv(XCR_XFEATURE_ENABLED_MASK, "
-            "XSTATE_FP | XSTATE_SSE) - expect #UD: ");
+    report("\t\txsetbv(XCR_XFEATURE_ENABLED_MASK, XSTATE_FP) - expect #UD",
+	xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits) == UD_VECTOR);
+
     test_bits = XSTATE_FP | XSTATE_SSE;
-    r = xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits);
-    pass_if(r == UD_VECTOR);
-    printf("    Illegal tests:\n");
-    printf("	xgetbv(XCR_XFEATURE_ENABLED_MASK) - expect #UD: ");
-    r = xgetbv_checking(XCR_XFEATURE_ENABLED_MASK, &xcr0);
-    pass_if(r == UD_VECTOR);
+    report("\t\txsetbv(XCR_XFEATURE_ENABLED_MASK, XSTATE_FP | XSTATE_SSE) - expect #UD",
+	xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, test_bits) == UD_VECTOR);
+
+    printf("\tIllegal tests:\n");
+    report("\txgetbv(XCR_XFEATURE_ENABLED_MASK) - expect #UD",
+	xgetbv_checking(XCR_XFEATURE_ENABLED_MASK, &xcr0) == UD_VECTOR);
 }
 
 void test_no_xsave(void)
 {
     unsigned long cr4;
     u64 xcr0;
-    int r;
 
-    printf("Check CPUID.1.ECX.OSXSAVE - expect 0: ");
-    pass_if(check_cpuid_1_ecx(CPUID_1_ECX_OSXSAVE) == 0);
+    report("Check CPUID.1.ECX.OSXSAVE - expect 0",
+	check_cpuid_1_ecx(CPUID_1_ECX_OSXSAVE) == 0);
 
     printf("Illegal instruction testing:\n");
 
-    printf("Set OSXSAVE in CR4 - expect #GP: ");
     cr4 = read_cr4();
-    r = write_cr4_checking(cr4 | X86_CR4_OSXSAVE);
-    pass_if(r == GP_VECTOR);
+    report("Set OSXSAVE in CR4 - expect #GP",
+	write_cr4_checking(cr4 | X86_CR4_OSXSAVE) == GP_VECTOR);
 
-    printf("Execute xgetbv - expect #UD: ");
-    r = xgetbv_checking(XCR_XFEATURE_ENABLED_MASK, &xcr0);
-    pass_if(r == UD_VECTOR);
+    report("Execute xgetbv - expect #UD",
+	xgetbv_checking(XCR_XFEATURE_ENABLED_MASK, &xcr0) == UD_VECTOR);
 
-    printf("Execute xsetbv - expect #UD: ");
-    r = xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, 0x3);
-    pass_if(r == UD_VECTOR);
+    report("Execute xsetbv - expect #UD",
+	xsetbv_checking(XCR_XFEATURE_ENABLED_MASK, 0x3) == UD_VECTOR);
 }
 
 int main(void)
@@ -205,12 +174,5 @@ int main(void)
         printf("CPU don't has XSAVE feature\n");
         test_no_xsave();
     }
-    printf("Total test: %d\n", total_tests);
-    if (fail_tests == 0)
-        printf("ALL PASS!\n");
-    else {
-        printf("Fail %d tests.\n", fail_tests);
-        return 1;
-    }
-    return 0;
+    return report_summary();
 }
