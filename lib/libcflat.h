@@ -57,6 +57,8 @@ extern int snprintf(char *buf, int size, const char *fmt, ...);
 extern int vsnprintf(char *buf, int size, const char *fmt, va_list va);
 extern long atol(const char *ptr);
 
+void report_prefix_push(const char *prefix);
+void report_prefix_pop(void);
 void report(const char *msg_fmt, bool pass, ...);
 void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...);
 int report_summary(void);

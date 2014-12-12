@@ -13,6 +13,27 @@
 #include "libcflat.h"
 
 static unsigned int tests, failures, xfailures;
+static char prefixes[256];
+
+void report_prefix_push(const char *prefix)
+{
+	strcat(prefixes, prefix);
+	strcat(prefixes, ": ");
+}
+
+void report_prefix_pop(void)
+{
+	char *p, *q;
+
+	if (!*prefixes)
+		return;
+
+	for (p = prefixes, q = strstr(p, ": ") + 2;
+			*q;
+			p = q, q = strstr(p, ": ") + 2)
+		;
+	*p = '\0';
+}
 
 void va_report_xfail(const char *msg_fmt, bool xfail, bool cond, va_list va)
 {
@@ -22,6 +43,7 @@ void va_report_xfail(const char *msg_fmt, bool xfail, bool cond, va_list va)
 
 	tests++;
 	printf("%s: ", cond ? pass : fail);
+	puts(prefixes);
 	vsnprintf(buf, sizeof(buf), msg_fmt, va);
 	puts(buf);
 	puts("\n");
