@@ -8,7 +8,6 @@ ldarch = elf32-littlearm
 kernel_offset = 0x10000
 machine = -marm
 
-CFLAGS += -D__arm__
 CFLAGS += $(machine)
 CFLAGS += -mcpu=$(PROCESSOR)
 
