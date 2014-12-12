@@ -228,14 +228,12 @@ static void check_gp_counter(struct pmu_event *evt)
 		.ctr = MSR_IA32_PERFCTR0,
 		.config = EVNTSEL_OS | EVNTSEL_USR | evt->unit_sel,
 	};
-	char fmt[100];
 	int i;
 
 	for (i = 0; i < num_counters; i++, cnt.ctr++) {
 		cnt.count = 0;
 		measure(&cnt, 1);
-		snprintf(fmt, sizeof(fmt), "%s-%%d", evt->name);
-		report(fmt, verify_event(cnt.count, evt), i);
+		report("%s-%d", verify_event(cnt.count, evt), evt->name, i);
 	}
 }
 
