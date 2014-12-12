@@ -13,23 +13,10 @@
 #include "asm/processor.h"
 #include "asm/page.h"
 
-#define TESTGRP "selftest"
-
-static char testname[64];
-
-static void testname_set(const char *subtest)
-{
-	strcpy(testname, TESTGRP);
-	if (subtest) {
-		strcat(testname, "::");
-		strcat(testname, subtest);
-	}
-}
-
 static void assert_args(int num_args, int needed_args)
 {
 	if (num_args < needed_args) {
-		printf("%s: not enough arguments\n", testname);
+		printf("selftest: not enough arguments\n");
 		abort();
 	}
 }
@@ -60,19 +47,24 @@ static void check_setup(int argc, char **argv)
 		if (!var)
 			continue;
 
+		report_prefix_push(var);
+
 		if (strcmp(var, "mem") == 0) {
 
 			phys_addr_t memsize = PHYS_END - PHYS_OFFSET;
 			phys_addr_t expected = ((phys_addr_t)val)*1024*1024;
 
-			report("%s[%s]", memsize == expected, testname, "mem");
+			report("size = %d MB", memsize == expected,
+							memsize/1024/1024);
 			++nr_tests;
 
 		} else if (strcmp(var, "smp") == 0) {
 
-			report("%s[%s]", nr_cpus == (int)val, testname, "smp");
+			report("nr_cpus = %d", nr_cpus == (int)val, nr_cpus);
 			++nr_tests;
 		}
+
+		report_prefix_pop();
 	}
 
 	assert_args(nr_tests, 2);
@@ -181,15 +173,16 @@ static bool check_svc(void)
 
 static void check_vectors(void *arg __unused)
 {
-	report("%s", check_und() && check_svc(), testname);
+	report("und", check_und());
+	report("svc", check_svc());
 	exit(report_summary());
 }
 
 int main(int argc, char **argv)
 {
-	testname_set(NULL);
+	report_prefix_push("selftest");
 	assert_args(argc, 1);
-	testname_set(argv[0]);
+	report_prefix_push(argv[0]);
 
 	if (strcmp(argv[0], "setup") == 0) {
 
