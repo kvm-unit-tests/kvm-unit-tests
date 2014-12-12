@@ -1,4 +1,5 @@
 #include "kvmxx.hh"
+#include "exception.hh"
 #include "memmap.hh"
 #include "identity.hh"
 #include <boost/thread/thread.hpp>
@@ -111,7 +112,7 @@ void parse_options(int ac, char **av)
            nr_slot_pages, nr_total_pages);
 }
 
-int main(int ac, char **av)
+int test_main(int ac, char **av)
 {
     kvm::system sys;
     kvm::vm vm(sys);
@@ -141,4 +142,9 @@ int main(int ac, char **av)
     do_guest_write(vcpu, mem_head, nr_total_pages, nr_total_pages);
     check_dirty_log(vcpu, slot, mem_head);
     return 0;
+}
+
+int main(int ac, char** av)
+{
+    return try_main(test_main, ac, av);
 }

@@ -1,4 +1,5 @@
 #include "kvmxx.hh"
+#include "exception.hh"
 #include "memmap.hh"
 #include "identity.hh"
 #include <boost/thread/thread.hpp>
@@ -48,7 +49,7 @@ void check_dirty_log(mem_slot& slot,
 using boost::ref;
 using std::tr1::bind;
 
-int main(int ac, char **av)
+int test_main(int ac, char **av)
 {
     kvm::system sys;
     kvm::vm vm(sys);
@@ -75,4 +76,9 @@ int main(int ac, char **av)
     host_poll_thread.join();
     printf("Dirty bitmap failures: %d\n", nr_fail);
     return nr_fail == 0 ? 0 : 1;
+}
+
+int main(int ac, char** av)
+{
+    return try_main(test_main, ac, av);
 }
