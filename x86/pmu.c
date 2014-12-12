@@ -309,6 +309,8 @@ static void check_counter_overflow(void)
 	/* clear status before test */
 	wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL, rdmsr(MSR_CORE_PERF_GLOBAL_STATUS));
 
+	report_prefix_push("overflow");
+
 	for (i = 0; i < num_counters + 1; i++, cnt.ctr++) {
 		uint64_t status;
 		int idx;
@@ -321,14 +323,16 @@ static void check_counter_overflow(void)
 		idx = event_to_global_idx(&cnt);
 		cnt.count = 1 - count;
 		measure(&cnt, 1);
-		report("overflow-%d", cnt.count == 1, i);
+		report("cntr-%d", cnt.count == 1, i);
 		status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
-		report("overflow status-%d", status & (1ull << idx), i);
+		report("status-%d", status & (1ull << idx), i);
 		wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL, status);
 		status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
-		report("overflow status clear-%d", !(status & (1ull << idx)), i);
-		report("overflow irq-%d", check_irq() == (i % 2), i);
+		report("status clear-%d", !(status & (1ull << idx)), i);
+		report("irq-%d", check_irq() == (i % 2), i);
 	}
+
+	report_prefix_pop();
 }
 
 static void check_gp_counter_cmask(void)
@@ -348,20 +352,24 @@ static void check_rdpmc(void)
 	uint64_t val = 0x1f3456789ull;
 	int i;
 
+	report_prefix_push("rdpmc");
+
 	for (i = 0; i < num_counters; i++) {
 		uint64_t x = (val & 0xffffffff) |
 			((1ull << (eax.split.bit_width - 32)) - 1) << 32;
 		wrmsr(MSR_IA32_PERFCTR0 + i, val);
-		report("rdpmc-%d", rdpmc(i) == x, i);
-		report("rdpmc fast-%d", rdpmc(i | (1<<31)) == (u32)val, i);
+		report("cntr-%d", rdpmc(i) == x, i);
+		report("fast-%d", rdpmc(i | (1<<31)) == (u32)val, i);
 	}
 	for (i = 0; i < edx.split.num_counters_fixed; i++) {
 		uint64_t x = (val & 0xffffffff) |
 			((1ull << (edx.split.bit_width_fixed - 32)) - 1) << 32;
 		wrmsr(MSR_CORE_PERF_FIXED_CTR0 + i, val);
-		report("rdpmc fixed-%d", rdpmc(i | (1 << 30)) == x, i);
-		report("rdpmc fixed fast-%d", rdpmc(i | (3<<30)) == (u32)val, i);
+		report("fixed cntr-%d", rdpmc(i | (1 << 30)) == x, i);
+		report("fixed fast-%d", rdpmc(i | (3<<30)) == (u32)val, i);
 	}
+
+	report_prefix_pop();
 }
 
 int main(int ac, char **av)

@@ -121,19 +121,23 @@ static void test_apicbase(void)
     wrmsr(MSR_IA32_APICBASE, orig_apicbase & ~(APIC_EN | APIC_EXTD));
     wrmsr(MSR_IA32_APICBASE, ALTERNATE_APIC_BASE | APIC_BSP | APIC_EN);
 
+    report_prefix_push("apicbase");
+
     report("relocate apic",
            *(volatile u32 *)(ALTERNATE_APIC_BASE + APIC_LVR) == lvr);
 
     value = orig_apicbase | (1UL << cpuid_maxphyaddr());
-    report("apicbase: reserved physaddr bits",
+    report("reserved physaddr bits",
            test_for_exception(GP_VECTOR, do_write_apicbase, &value));
 
     value = orig_apicbase | 1;
-    report("apicbase: reserved low bits",
+    report("reserved low bits",
            test_for_exception(GP_VECTOR, do_write_apicbase, &value));
 
     wrmsr(MSR_IA32_APICBASE, orig_apicbase);
     apic_write(APIC_SPIV, 0x1ff);
+
+    report_prefix_pop();
 }
 
 static void eoi(void)
