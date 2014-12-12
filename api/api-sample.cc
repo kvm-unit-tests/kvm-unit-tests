@@ -1,8 +1,8 @@
 
-#include "api/kvmxx.hh"
-#include "api/identity.hh"
-#include "api/exception.hh"
-#include "stdio.h"
+#include "kvmxx.hh"
+#include "identity.hh"
+#include "exception.hh"
+#include <stdio.h>
 
 static int global = 0;
 

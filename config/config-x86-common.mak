@@ -113,7 +113,7 @@ arch_clean:
 
 api/%.o: CFLAGS += -m32
 
-api/%: LDLIBS += -lstdc++ -lboost_thread-mt -lpthread -lrt
+api/%: LDLIBS += -lstdc++ -lboost_thread -lpthread -lrt
 api/%: LDFLAGS += -m32
 
 api/libapi.a: api/kvmxx.o api/identity.o api/exception.o api/memmap.o
