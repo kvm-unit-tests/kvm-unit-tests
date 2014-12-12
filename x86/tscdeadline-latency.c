@@ -80,12 +80,13 @@ static void test_tsc_deadline_timer(void)
         printf("tsc deadline timer enabled\n");
     } else {
         printf("tsc deadline timer not detected\n");
+        exit(1);
     }
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    int i;
+    int i, size;
 
     setup_vm();
     smp_init();
@@ -95,15 +96,16 @@ int main()
 
     mask_pic_interrupts();
 
-    delta = 200000;
+    delta = argc <= 1 ? 200000 : atol(argv[1]);
+    size = argc <= 2 ? TABLE_SIZE : atol(argv[1]);
     test_tsc_deadline_timer();
     irq_enable();
 
     do {
         asm volatile("hlt");
-    } while (table_idx < TABLE_SIZE);
+    } while (table_idx < size);
 
-    for (i = 0; i < TABLE_SIZE; i++)
+    for (i = 0; i < size; i++)
         printf("latency: %d\n", table[i]);
 
     return report_summary();
