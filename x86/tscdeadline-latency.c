@@ -3,9 +3,9 @@
  *
  * In octave:
  * load latency
- * min(list)
- * max(list)
- * mean(list)
+ * min(latency)
+ * max(latency)
+ * mean(latency)
  * hist(latency, 50)
  */
 
