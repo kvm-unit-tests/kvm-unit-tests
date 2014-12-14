@@ -1525,6 +1525,80 @@ static int dbgctls_exit_handler(void)
 	return VMX_TEST_VMEXIT;
 }
 
+struct vmx_msr_entry {
+	u32 index;
+	u32 reserved;
+	u64 value;
+} __attribute__((packed));
+
+#define MSR_MAGIC 0x31415926
+struct vmx_msr_entry *exit_msr_store, *entry_msr_load, *exit_msr_load;
+
+static int msr_switch_init(struct vmcs *vmcs)
+{
+	msr_bmp_init();
+	exit_msr_store = alloc_page();
+	exit_msr_load = alloc_page();
+	entry_msr_load = alloc_page();
+	memset(exit_msr_store, 0, PAGE_SIZE);
+	memset(exit_msr_load, 0, PAGE_SIZE);
+	memset(entry_msr_load, 0, PAGE_SIZE);
+	entry_msr_load[0].index = MSR_KERNEL_GS_BASE;
+	entry_msr_load[0].value = MSR_MAGIC;
+
+	vmx_set_test_stage(1);
+	vmcs_write(ENT_MSR_LD_CNT, 1);
+	vmcs_write(ENTER_MSR_LD_ADDR, (u64)entry_msr_load);
+	vmcs_write(EXI_MSR_ST_CNT, 1);
+	vmcs_write(EXIT_MSR_ST_ADDR, (u64)exit_msr_store);
+	vmcs_write(EXI_MSR_LD_CNT, 1);
+	vmcs_write(EXIT_MSR_LD_ADDR, (u64)exit_msr_load);
+	return VMX_TEST_START;
+}
+
+static void msr_switch_main()
+{
+	if (vmx_get_test_stage() == 1) {
+		report("VM entry MSR load",
+			rdmsr(MSR_KERNEL_GS_BASE) == MSR_MAGIC);
+		vmx_set_test_stage(2);
+		wrmsr(MSR_KERNEL_GS_BASE, MSR_MAGIC + 1);
+		exit_msr_store[0].index = MSR_KERNEL_GS_BASE;
+		exit_msr_load[0].index = MSR_KERNEL_GS_BASE;
+		exit_msr_load[0].value = MSR_MAGIC + 2;
+	}
+	vmcall();
+}
+
+static int msr_switch_exit_handler()
+{
+	ulong reason;
+
+	reason = vmcs_read(EXI_REASON);
+	switch (reason) {
+	case 0x80000000 | VMX_FAIL_MSR:
+		if (vmx_get_test_stage() == 3) {
+			report("VM entry MSR load: try to load FS_BASE",
+				vmcs_read(EXI_QUALIFICATION) == 1);
+			return VMX_TEST_VMEXIT;
+		}
+		break;
+	case VMX_VMCALL:
+		if (vmx_get_test_stage() == 2) {
+			report("VM exit MSR store",
+				exit_msr_store[0].value == MSR_MAGIC + 1);
+			report("VM exit MSR load",
+				rdmsr(MSR_KERNEL_GS_BASE) == MSR_MAGIC + 2);
+			vmx_set_test_stage(3);
+			entry_msr_load[0].index = MSR_FS_BASE;
+			return VMX_TEST_RESUME;
+		}
+	}
+	printf("ERROR %s: unexpected stage=%u or reason=%lu\n",
+		__func__, vmx_get_test_stage(), reason);
+	return VMX_TEST_EXIT;
+}
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
 struct vmx_test vmx_tests[] = {
 	{ "null", NULL, basic_guest_main, basic_exit_handler, NULL, {0} },
@@ -1546,5 +1620,7 @@ struct vmx_test vmx_tests[] = {
 		interrupt_exit_handler, NULL, {0} },
 	{ "debug controls", dbgctls_init, dbgctls_main, dbgctls_exit_handler,
 		NULL, {0} },
+	{ "MSR switch", msr_switch_init, msr_switch_main,
+		msr_switch_exit_handler, NULL, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
