@@ -1,6 +1,8 @@
 #include "libcflat.h"
 #include "smp.h"
 
+unsigned nipis;
+
 static void ipi_test(void *data)
 {
     int n = (long)data;
@@ -8,6 +10,8 @@ static void ipi_test(void *data)
     printf("ipi called, cpu %d\n", n);
     if (n != smp_id())
 	printf("but wrong cpu %d\n", smp_id());
+    else
+        nipis++;
 }
 
 int main()
@@ -21,5 +25,7 @@ int main()
     printf("found %d cpus\n", ncpus);
     for (i = 0; i < ncpus; ++i)
 	on_cpu(i, ipi_test, (void *)(long)i);
-    return 0;
+
+    report("IPI to each CPU", nipis == ncpus);
+    return report_summary();
 }
