@@ -70,7 +70,7 @@ static void x2apic_icr_write(u32 val, u32 dest)
 
 static uint32_t x2apic_id(void)
 {
-    return xapic_read(APIC_ID);
+    return x2apic_read(APIC_ID);
 }
 
 static const struct apic_ops x2apic_ops = {
