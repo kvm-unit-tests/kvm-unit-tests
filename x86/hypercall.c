@@ -24,8 +24,8 @@ static inline long kvm_hypercall0_amd(unsigned int nr)
 }
 
 
-#ifdef __x86_64__
 volatile unsigned long test_rip;
+#ifdef __x86_64__
 extern void gp_tss(void);
 asm ("gp_tss: \n\t"
 	"add $8, %rsp\n\t"            // discard error code
