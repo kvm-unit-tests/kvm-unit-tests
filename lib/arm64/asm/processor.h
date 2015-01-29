@@ -20,6 +20,7 @@
 #include <asm/ptrace.h>
 #include <asm/esr.h>
 #include <asm/sysreg.h>
+#include <asm/barrier.h>
 
 enum vector {
 	EL1T_SYNC,
@@ -82,6 +83,17 @@ extern int mpidr_to_cpu(uint64_t mpidr);
 
 extern void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr);
 extern bool is_user(void);
+
+static inline u64 get_cntvct(void)
+{
+	isb();
+	return read_sysreg(cntvct_el0);
+}
+
+static inline u32 get_cntfrq(void)
+{
+	return read_sysreg(cntfrq_el0);
+}
 
 #endif /* !__ASSEMBLY__ */
 #endif /* _ASMARM64_PROCESSOR_H_ */

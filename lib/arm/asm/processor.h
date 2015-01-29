@@ -7,6 +7,7 @@
  */
 #include <asm/ptrace.h>
 #include <asm/sysreg.h>
+#include <asm/barrier.h>
 
 enum vector {
 	EXCPTN_RST,
@@ -50,5 +51,19 @@ extern int mpidr_to_cpu(uint64_t mpidr);
 
 extern void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr);
 extern bool is_user(void);
+
+#define CNTVCT		__ACCESS_CP15_64(1, c14)
+#define CNTFRQ		__ACCESS_CP15(c14, 0, c0, 0)
+
+static inline u64 get_cntvct(void)
+{
+	isb();
+	return read_sysreg(CNTVCT);
+}
+
+static inline u32 get_cntfrq(void)
+{
+	return read_sysreg(CNTFRQ);
+}
 
 #endif /* _ASMARM_PROCESSOR_H_ */
