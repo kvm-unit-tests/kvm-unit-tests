@@ -92,7 +92,7 @@ asm_mmu_enable:
 		     TCR_TG0_64K | TCR_TG1_64K |	\
 		     TCR_IRGN_WBWA | TCR_ORGN_WBWA |	\
 		     TCR_SHARED
-	mov	x2, #3			// 011 is 42 bits
+	mrs	x2, id_aa64mmfr0_el1
 	bfi	x1, x2, #32, #3
 	msr	tcr_el1, x1
 
