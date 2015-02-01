@@ -115,6 +115,7 @@ void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr)
 		"bic	r0, #" xstr(MODE_MASK) "\n"
 		"orr	r0, #" xstr(USR_MODE) "\n"
 		"msr	cpsr_c, r0\n"
+		"isb\n"
 		"mov	r0, %0\n"
 		"mov	sp, %1\n"
 		"mov	pc, %2\n"

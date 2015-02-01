@@ -50,6 +50,7 @@ start:
 .macro set_mode_stack mode, stack
 	add	\stack, #S_FRAME_SIZE
 	msr	cpsr_c, #(\mode | PSR_I_BIT | PSR_F_BIT)
+	isb
 	mov	sp, \stack
 .endm
 
@@ -70,6 +71,7 @@ exceptions_init:
 	set_mode_stack	FIQ_MODE, r1
 
 	msr	cpsr_cxsf, r2		@ back to svc mode
+	isb
 	mov	pc, lr
 
 .text
@@ -96,12 +98,13 @@ asm_mmu_enable:
 
 	/* MAIR */
 	ldr	r2, =PRRR
-	mrc	p15, 0, r2, c10, c2, 0
+	mcr	p15, 0, r2, c10, c2, 0
 	ldr	r2, =NMRR
-	mrc	p15, 0, r2, c10, c2, 1
+	mcr	p15, 0, r2, c10, c2, 1
 
 	/* TTBR0 */
 	mcrr	p15, 0, r0, r1, c2
+	isb
 
 	/* SCTLR */
 	mrc	p15, 0, r2, c1, c0, 0
@@ -109,6 +112,7 @@ asm_mmu_enable:
 	orr	r2, #CR_I
 	orr	r2, #CR_M
 	mcr	p15, 0, r2, c1, c0, 0
+	isb
 
 	mov     pc, lr
 
