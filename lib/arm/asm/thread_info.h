@@ -7,8 +7,15 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
+#include <asm/processor.h>
+#include <asm/page.h>
 
-#define THREAD_SIZE		16384
+#define __MIN_THREAD_SIZE	16384
+#if PAGE_SIZE > __MIN_THREAD_SIZE
+#define THREAD_SIZE		PAGE_SIZE
+#else
+#define THREAD_SIZE		__MIN_THREAD_SIZE
+#endif
 #define THREAD_START_SP		(THREAD_SIZE - 16)
 
 #define TIF_USER_MODE		(1U << 0)
@@ -16,6 +23,12 @@
 struct thread_info {
 	int cpu;
 	unsigned int flags;
+#ifdef __arm__
+	exception_fn exception_handlers[EXCPTN_MAX];
+#else
+	vector_fn vector_handlers[VECTOR_MAX];
+	exception_fn exception_handlers[VECTOR_MAX][EC_MAX];
+#endif
 	char ext[0];		/* allow unit tests to add extended info */
 };
 

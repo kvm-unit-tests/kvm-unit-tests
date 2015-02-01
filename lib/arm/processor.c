@@ -8,6 +8,7 @@
 #include <libcflat.h>
 #include <asm/ptrace.h>
 #include <asm/processor.h>
+#include <asm/thread_info.h>
 
 static const char *processor_modes[] = {
 	"USER_26", "FIQ_26" , "IRQ_26" , "SVC_26" ,
@@ -64,18 +65,28 @@ void show_regs(struct pt_regs *regs)
 	}
 }
 
-static exception_fn exception_handlers[EXCPTN_MAX];
-
 void install_exception_handler(enum vector v, exception_fn fn)
 {
+	struct thread_info *ti = current_thread_info();
+
 	if (v < EXCPTN_MAX)
-		exception_handlers[v] = fn;
+		ti->exception_handlers[v] = fn;
 }
 
 void do_handle_exception(enum vector v, struct pt_regs *regs)
 {
-	if (v < EXCPTN_MAX && exception_handlers[v]) {
-		exception_handlers[v](regs);
+	struct thread_info *ti = thread_info_sp(regs->ARM_sp);
+
+	if (ti->flags & TIF_USER_MODE) {
+		if (v < EXCPTN_MAX && ti->exception_handlers[v]) {
+			ti->exception_handlers[v](regs);
+			return;
+		}
+		ti = current_thread_info();
+	}
+
+	if (v < EXCPTN_MAX && ti->exception_handlers[v]) {
+		ti->exception_handlers[v](regs);
 		return;
 	}
 

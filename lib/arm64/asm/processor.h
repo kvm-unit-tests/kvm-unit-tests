@@ -49,6 +49,7 @@ extern void install_exception_handler(enum vector v, unsigned int ec,
 				      exception_fn fn);
 extern void default_vector_handler(enum vector v, struct pt_regs *regs,
 				   unsigned int esr);
+extern void vector_handlers_default_init(vector_fn *handlers);
 
 extern void show_regs(struct pt_regs *regs);
 extern bool get_far(unsigned int esr, unsigned long *far);

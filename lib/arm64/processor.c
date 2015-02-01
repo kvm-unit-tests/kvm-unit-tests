@@ -9,6 +9,7 @@
 #include <asm/ptrace.h>
 #include <asm/processor.h>
 #include <asm/esr.h>
+#include <asm/thread_info.h>
 
 static const char *vector_names[] = {
 	"el1t_sync",
@@ -128,44 +129,66 @@ static void bad_exception(enum vector v, struct pt_regs *regs,
 	abort();
 }
 
-static exception_fn exception_handlers[VECTOR_MAX][EC_MAX];
-
 void install_exception_handler(enum vector v, unsigned int ec, exception_fn fn)
 {
+	struct thread_info *ti = current_thread_info();
+
 	if (v < VECTOR_MAX && ec < EC_MAX)
-		exception_handlers[v][ec] = fn;
+		ti->exception_handlers[v][ec] = fn;
 }
 
 void default_vector_handler(enum vector v, struct pt_regs *regs,
 			    unsigned int esr)
 {
+	struct thread_info *ti = thread_info_sp(regs->sp);
 	unsigned int ec = esr >> ESR_EL1_EC_SHIFT;
 
-	if (ec < EC_MAX && exception_handlers[v][ec])
-		exception_handlers[v][ec](regs, esr);
+	if (ti->flags & TIF_USER_MODE) {
+		if (ec < EC_MAX && ti->exception_handlers[v][ec]) {
+			ti->exception_handlers[v][ec](regs, esr);
+			return;
+		}
+		ti = current_thread_info();
+	}
+
+	if (ec < EC_MAX && ti->exception_handlers[v][ec])
+		ti->exception_handlers[v][ec](regs, esr);
 	else
 		bad_exception(v, regs, esr, false);
 }
 
-static vector_fn vector_handlers[VECTOR_MAX] = {
-	[EL1H_SYNC]	= default_vector_handler,
-	[EL1H_IRQ]	= default_vector_handler,
-	[EL0_SYNC_64]	= default_vector_handler,
-	[EL0_IRQ_64]	= default_vector_handler,
-};
+void vector_handlers_default_init(vector_fn *handlers)
+{
+	handlers[EL1H_SYNC]	= default_vector_handler;
+	handlers[EL1H_IRQ]	= default_vector_handler;
+	handlers[EL0_SYNC_64]	= default_vector_handler;
+	handlers[EL0_IRQ_64]	= default_vector_handler;
+}
 
 void do_handle_exception(enum vector v, struct pt_regs *regs, unsigned int esr)
 {
-	if (v < VECTOR_MAX && vector_handlers[v])
-		vector_handlers[v](v, regs, esr);
+	struct thread_info *ti = thread_info_sp(regs->sp);
+
+	if (ti->flags & TIF_USER_MODE) {
+		if (v < VECTOR_MAX && ti->vector_handlers[v]) {
+			ti->vector_handlers[v](v, regs, esr);
+			return;
+		}
+		ti = current_thread_info();
+	}
+
+	if (v < VECTOR_MAX && ti->vector_handlers[v])
+		ti->vector_handlers[v](v, regs, esr);
 	else
 		bad_exception(v, regs, esr, true);
 }
 
 void install_vector_handler(enum vector v, vector_fn fn)
 {
+	struct thread_info *ti = current_thread_info();
+
 	if (v < VECTOR_MAX)
-		vector_handlers[v] = fn;
+		ti->vector_handlers[v] = fn;
 }
 
 void thread_info_init(struct thread_info *ti, unsigned int flags)
@@ -173,6 +196,7 @@ void thread_info_init(struct thread_info *ti, unsigned int flags)
 	memset(ti, 0, sizeof(struct thread_info));
 	ti->cpu = mpidr_to_cpu(get_mpidr());
 	ti->flags = flags;
+	vector_handlers_default_init(ti->vector_handlers);
 }
 
 void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr)
