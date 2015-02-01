@@ -4,6 +4,11 @@
  * Adapted form arch/arm/include/asm/barrier.h
  */
 
+#define sev()		asm volatile("sev" : : : "memory")
+#define wfe()		asm volatile("wfe" : : : "memory")
+#define wfi()		asm volatile("wfi" : : : "memory")
+#define cpu_relax()	asm volatile(""    : : : "memory")
+
 #define isb(option) __asm__ __volatile__ ("isb " #option : : : "memory")
 #define dsb(option) __asm__ __volatile__ ("dsb " #option : : : "memory")
 #define dmb(option) __asm__ __volatile__ ("dmb " #option : : : "memory")
