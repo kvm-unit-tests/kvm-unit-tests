@@ -10,7 +10,7 @@
 #include <asm/processor.h>
 #include <asm/esr.h>
 
-static char *vector_names[] = {
+static const char *vector_names[] = {
 	"el1t_sync",
 	"el1t_irq",
 	"el1t_fiq",
@@ -29,7 +29,7 @@ static char *vector_names[] = {
 	"el0_error_32",
 };
 
-static char *ec_names[EC_MAX] = {
+static const char *ec_names[EC_MAX] = {
 	[ESR_EL1_EC_UNKNOWN]		= "UNKNOWN",
 	[ESR_EL1_EC_WFI]		= "WFI",
 	[ESR_EL1_EC_CP15_32]		= "CP15_32",
@@ -142,8 +142,8 @@ void install_exception_handler(enum vector v, unsigned int ec, exception_fn fn)
 		exception_handlers[v][ec] = fn;
 }
 
-static void default_vector_handler(enum vector v, struct pt_regs *regs,
-				   unsigned int esr)
+void default_vector_handler(enum vector v, struct pt_regs *regs,
+			    unsigned int esr)
 {
 	unsigned int ec = esr >> ESR_EL1_EC_SHIFT;
 

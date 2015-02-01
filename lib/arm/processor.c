@@ -20,7 +20,7 @@ static const char *processor_modes[] = {
 	"UK12_32", "UK13_32", "UK14_32", "SYS_32"
 };
 
-static char *vector_names[] = {
+static const char *vector_names[] = {
 	"rst", "und", "svc", "pabt", "dabt", "addrexcptn", "irq", "fiq"
 };
 
