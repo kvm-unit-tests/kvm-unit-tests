@@ -18,6 +18,12 @@ SECTIONS
     edata = .;
     . += 64K;
     . = ALIGN(64K);
+    /*
+     * stack depth is ~16K, see THREAD_SIZE
+     * sp must be 16 byte aligned for arm64, and 8 byte aligned for arm
+     * sp must always be strictly less than the true stacktop
+     */
+    stackptr = . - 16;
     stacktop = .;
 }
 

@@ -11,7 +11,7 @@
 #include <asm/ptrace.h>
 #include <asm/asm-offsets.h>
 #include <asm/processor.h>
-#include <asm/page.h>
+#include <asm/thread_info.h>
 
 static void assert_args(int num_args, int needed_args)
 {
@@ -313,9 +313,9 @@ int main(int argc, char **argv)
 
 	} else if (strcmp(argv[0], "vectors-user") == 0) {
 
-		void *sp = memalign(PAGE_SIZE, PAGE_SIZE);
-		memset(sp, 0, PAGE_SIZE);
-		start_usr(check_vectors, NULL, (unsigned long)sp + PAGE_SIZE);
+		void *sp = memalign(THREAD_SIZE, THREAD_SIZE);
+		start_usr(check_vectors, NULL,
+				(unsigned long)sp + THREAD_START_SP);
 	}
 
 	return report_summary();

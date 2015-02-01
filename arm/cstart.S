@@ -27,7 +27,7 @@ start:
 	 * put the dtb in r0. This allows setup to be consistent
 	 * with arm64.
 	 */
-	ldr	sp, =stacktop
+	ldr	sp, =stackptr
 	mov	r0, r2
 	push	{r0-r1}
 

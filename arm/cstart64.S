@@ -21,7 +21,10 @@ start:
 	 * The physical address of the dtb is in x0, x1-x3 are reserved
 	 * See the kernel doc Documentation/arm64/booting.txt
 	 */
-	adr     x4, stacktop
+	mov	x4, #1
+	msr	spsel, x4
+	isb
+	adr     x4, stackptr
 	mov	sp, x4
 	stp	x0, x1, [sp, #-16]!
 
