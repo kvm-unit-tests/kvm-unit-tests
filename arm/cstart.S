@@ -121,8 +121,9 @@ asm_mmu_enable:
  * Simplified version of the Linux kernel implementation
  *   arch/arm/kernel/entry-armv.S
  *
- * Each mode has an S_FRAME_SIZE sized stack initialized
- * in exceptions_init
+ * Each mode has an S_FRAME_SIZE sized memory region,
+ * and the mode's stack pointer has been initialized
+ * to the base of that region in exceptions_init.
  */
 .macro vector_stub, name, vec, mode, correction=0
 .align 5
