@@ -64,12 +64,6 @@ void show_regs(struct pt_regs *regs)
 	}
 }
 
-void *get_sp(void)
-{
-	register unsigned long sp asm("sp");
-	return (void *)sp;
-}
-
 static exception_fn exception_handlers[EXCPTN_MAX];
 
 void install_exception_handler(enum vector v, exception_fn fn)

@@ -23,7 +23,6 @@ typedef void (*exception_fn)(struct pt_regs *);
 extern void install_exception_handler(enum vector v, exception_fn fn);
 
 extern void show_regs(struct pt_regs *regs);
-extern void *get_sp(void);
 
 static inline unsigned long current_cpsr(void)
 {

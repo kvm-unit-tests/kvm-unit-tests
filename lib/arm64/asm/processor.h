@@ -51,7 +51,6 @@ extern void default_vector_handler(enum vector v, struct pt_regs *regs,
 				   unsigned int esr);
 
 extern void show_regs(struct pt_regs *regs);
-extern void *get_sp(void);
 extern bool get_far(unsigned int esr, unsigned long *far);
 
 static inline unsigned long current_level(void)

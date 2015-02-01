@@ -78,12 +78,6 @@ void show_regs(struct pt_regs *regs)
 	printf("\n");
 }
 
-void *get_sp(void)
-{
-	register unsigned long sp asm("sp");
-	return (void *)sp;
-}
-
 bool get_far(unsigned int esr, unsigned long *far)
 {
 	unsigned int ec = esr >> ESR_EL1_EC_SHIFT;
