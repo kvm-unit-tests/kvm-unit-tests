@@ -168,12 +168,18 @@ void install_vector_handler(enum vector v, vector_fn fn)
 		vector_handlers[v] = fn;
 }
 
-bool user_mode;
+void thread_info_init(struct thread_info *ti, unsigned int flags)
+{
+	memset(ti, 0, sizeof(struct thread_info));
+	ti->cpu = mpidr_to_cpu(get_mpidr());
+	ti->flags = flags;
+}
+
 void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr)
 {
 	sp_usr &= (~15UL); /* stack ptr needs 16-byte alignment */
 
-	user_mode = true;
+	thread_info_init(thread_info_sp(sp_usr), TIF_USER_MODE);
 
 	asm volatile(
 		"mov	x0, %0\n"
@@ -183,4 +189,9 @@ void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr)
 		"msr	spsr_el1, x3\n"
 		"eret\n"
 	:: "r" (arg), "r" (sp_usr), "r" (func) : "x0", "x3");
+}
+
+bool is_user(void)
+{
+	return current_thread_info()->flags & TIF_USER_MODE;
 }

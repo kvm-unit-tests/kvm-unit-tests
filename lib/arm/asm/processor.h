@@ -33,6 +33,17 @@ static inline unsigned long current_cpsr(void)
 
 #define current_mode() (current_cpsr() & MODE_MASK)
 
+static inline unsigned int get_mpidr(void)
+{
+	unsigned int mpidr;
+	asm volatile("mrc p15, 0, %0, c0, c0, 5" : "=r" (mpidr));
+	return mpidr;
+}
+
+/* Only support Aff0 for now, up to 4 cpus */
+#define mpidr_to_cpu(mpidr) ((int)((mpidr) & 0xff))
+
 extern void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr);
+extern bool is_user(void);
 
 #endif /* _ASMARM_PROCESSOR_H_ */

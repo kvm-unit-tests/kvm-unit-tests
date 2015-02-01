@@ -14,6 +14,7 @@
 #include <libfdt/libfdt.h>
 #include <devicetree.h>
 #include <alloc.h>
+#include <asm/thread_info.h>
 #include <asm/setup.h>
 #include <asm/page.h>
 #include <asm/mmu.h>
@@ -78,6 +79,8 @@ void setup(const void *fdt)
 	mem_init(PAGE_ALIGN((unsigned long)&stacktop + fdt_size));
 	io_init();
 	cpu_init();
+
+	thread_info_init(current_thread_info(), 0);
 
 	assert(dt_get_bootargs(&bootargs) == 0);
 	setup_args(bootargs);

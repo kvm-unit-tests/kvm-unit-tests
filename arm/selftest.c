@@ -240,7 +240,7 @@ static enum vector check_vector_prep(void)
 {
 	unsigned long daif;
 
-	if (user_mode)
+	if (is_user())
 		return EL0_SYNC_64;
 
 	asm volatile("mrs %0, daif" : "=r" (daif) ::);

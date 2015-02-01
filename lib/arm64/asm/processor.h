@@ -60,8 +60,20 @@ static inline unsigned long current_level(void)
 	return el & 0xc;
 }
 
-extern bool user_mode;
+#define DEFINE_GET_SYSREG32(reg)				\
+static inline unsigned int get_##reg(void)			\
+{								\
+	unsigned int reg;					\
+	asm volatile("mrs %0, " #reg "_el1" : "=r" (reg));	\
+	return reg;						\
+}
+DEFINE_GET_SYSREG32(mpidr)
+
+/* Only support Aff0 for now, gicv2 only */
+#define mpidr_to_cpu(mpidr) ((int)((mpidr) & 0xff))
+
 extern void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr);
+extern bool is_user(void);
 
 #endif /* !__ASSEMBLY__ */
 #endif /* _ASMARM64_PROCESSOR_H_ */

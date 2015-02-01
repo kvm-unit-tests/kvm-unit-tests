@@ -100,9 +100,18 @@ void do_handle_exception(enum vector v, struct pt_regs *regs)
 	abort();
 }
 
+void thread_info_init(struct thread_info *ti, unsigned int flags)
+{
+	memset(ti, 0, sizeof(struct thread_info));
+	ti->cpu = mpidr_to_cpu(get_mpidr());
+	ti->flags = flags;
+}
+
 void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr)
 {
 	sp_usr &= (~7UL); /* stack ptr needs 8-byte alignment */
+
+	thread_info_init(thread_info_sp(sp_usr), TIF_USER_MODE);
 
 	asm volatile(
 		"mrs	r0, cpsr\n"
@@ -114,4 +123,9 @@ void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr)
 		"mov	sp, %1\n"
 		"mov	pc, %2\n"
 	:: "r" (arg), "r" (sp_usr), "r" (func) : "r0");
+}
+
+bool is_user(void)
+{
+	return current_thread_info()->flags & TIF_USER_MODE;
 }

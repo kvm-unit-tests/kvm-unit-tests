@@ -156,13 +156,7 @@ asm_mmu_enable:
 	mrs	x2, spsr_el1
 	stp	x1, x2, [sp, #S_PC]
 
-	and	x2, x2, #PSR_MODE_MASK
-	cmp	x2, #PSR_MODE_EL0t
-	b.ne	1f
-	adr	x2, user_mode
-	str	xzr, [x2]		/* we're in kernel mode now */
-
-1:	mov	x0, \vec
+	mov	x0, \vec
 	mov	x1, sp
 	mrs	x2, esr_el1
 	bl	do_handle_exception
@@ -171,14 +165,6 @@ asm_mmu_enable:
 	msr	spsr_el1, x2
 	msr	elr_el1, x1
 
-	and	x2, x2, #PSR_MODE_MASK
-	cmp	x2, #PSR_MODE_EL0t
-	b.ne	1f
-	adr	x2, user_mode
-	mov	x1, #1
-	str	x1, [x2]		/* we're going back to user mode */
-
-1:
 	.if \vec >= 8
 	ldr	x1, [sp, #S_SP]
 	msr	sp_el0, x1
