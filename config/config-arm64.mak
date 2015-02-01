@@ -9,6 +9,7 @@ kernel_offset = 0x80000
 
 cstart.o = $(TEST_DIR)/cstart64.o
 cflatobjs += lib/arm64/processor.o
+cflatobjs += lib/arm64/spinlock.o
 
 # arm64 specific tests
 tests =
