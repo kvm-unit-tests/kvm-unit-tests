@@ -6,16 +6,25 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <asm/setup.h>
+#include <asm/thread_info.h>
+#include <asm/cpumask.h>
 #include <asm/mmu.h>
 
 extern unsigned long etext;
 
 pgd_t *mmu_idmap;
 
-static bool mmu_on;
+static cpumask_t mmu_enabled_cpumask;
 bool mmu_enabled(void)
 {
-	return mmu_on;
+	struct thread_info *ti = current_thread_info();
+	return cpumask_test_cpu(ti->cpu, &mmu_enabled_cpumask);
+}
+
+void mmu_set_enabled(void)
+{
+	struct thread_info *ti = current_thread_info();
+	cpumask_set_cpu(ti->cpu, &mmu_enabled_cpumask);
 }
 
 extern void asm_mmu_enable(phys_addr_t pgtable);
@@ -23,7 +32,7 @@ void mmu_enable(pgd_t *pgtable)
 {
 	asm_mmu_enable(__pa(pgtable));
 	flush_tlb_all();
-	mmu_on = true;
+	mmu_set_enabled();
 }
 
 void mmu_set_range_ptes(pgd_t *pgtable, unsigned long virt_offset,
