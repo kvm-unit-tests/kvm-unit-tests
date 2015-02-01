@@ -7,11 +7,16 @@
  */
 #include <libcflat.h>
 #include <alloc.h>
+#include <devicetree.h>
 #include <asm/setup.h>
 #include <asm/ptrace.h>
 #include <asm/asm-offsets.h>
 #include <asm/processor.h>
 #include <asm/thread_info.h>
+#include <asm/psci.h>
+#include <asm/smp.h>
+#include <asm/cpumask.h>
+#include <asm/barrier.h>
 
 static void assert_args(int num_args, int needed_args)
 {
@@ -297,6 +302,45 @@ static void check_vectors(void *arg __unused)
 	exit(report_summary());
 }
 
+static bool psci_check(void)
+{
+	const struct fdt_property *method;
+	int node, len, ver;
+
+	node = fdt_node_offset_by_compatible(dt_fdt(), -1, "arm,psci-0.2");
+	if (node < 0) {
+		printf("PSCI v0.2 compatibility required\n");
+		return false;
+	}
+
+	method = fdt_get_property(dt_fdt(), node, "method", &len);
+	if (method == NULL) {
+		printf("bad psci device tree node\n");
+		return false;
+	}
+
+	if (len < 4 || strcmp(method->data, "hvc") != 0) {
+		printf("psci method must be hvc\n");
+		return false;
+	}
+
+	ver = psci_invoke(PSCI_0_2_FN_PSCI_VERSION, 0, 0, 0);
+	printf("PSCI version %d.%d\n", PSCI_VERSION_MAJOR(ver),
+				       PSCI_VERSION_MINOR(ver));
+
+	return true;
+}
+
+static cpumask_t smp_reported;
+static void cpu_report(void)
+{
+	int cpu = smp_processor_id();
+
+	report("CPU%d online", true, cpu);
+	cpumask_set_cpu(cpu, &smp_reported);
+	halt();
+}
+
 int main(int argc, char **argv)
 {
 	report_prefix_push("selftest");
@@ -316,6 +360,22 @@ int main(int argc, char **argv)
 		void *sp = memalign(THREAD_SIZE, THREAD_SIZE);
 		start_usr(check_vectors, NULL,
 				(unsigned long)sp + THREAD_START_SP);
+
+	} else if (strcmp(argv[0], "smp") == 0) {
+
+		int cpu;
+
+		report("PSCI version", psci_check());
+
+		for_each_present_cpu(cpu) {
+			if (cpu == 0)
+				continue;
+			smp_boot_secondary(cpu, cpu_report);
+		}
+
+		cpumask_set_cpu(0, &smp_reported);
+		while (!cpumask_full(&smp_reported))
+			cpu_relax();
 	}
 
 	return report_summary();
