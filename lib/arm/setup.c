@@ -18,6 +18,7 @@
 #include <asm/setup.h>
 #include <asm/page.h>
 #include <asm/mmu.h>
+#include <asm/smp.h>
 
 extern unsigned long stacktop;
 extern void io_init(void);
@@ -30,14 +31,17 @@ phys_addr_t __phys_offset, __phys_end;
 
 static void cpu_set(int fdtnode __unused, u32 regval, void *info __unused)
 {
-	assert(nr_cpus < NR_CPUS);
-	cpus[nr_cpus++] = regval;
+	int cpu = nr_cpus++;
+	assert(cpu < NR_CPUS);
+	cpus[cpu] = regval;
+	set_cpu_present(cpu, true);
 }
 
 static void cpu_init(void)
 {
 	nr_cpus = 0;
 	assert(dt_for_each_cpu_node(cpu_set, NULL) == 0);
+	set_cpu_online(0, true);
 }
 
 static void mem_init(phys_addr_t freemem_start)

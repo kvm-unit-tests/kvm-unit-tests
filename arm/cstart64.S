@@ -55,6 +55,31 @@ exceptions_init:
 
 .text
 
+.globl secondary_entry
+secondary_entry:
+	/* Enable FP/ASIMD */
+	mov	x0, #(3 << 20)
+	msr	cpacr_el1, x0
+
+	/* set up exception handling */
+	bl	exceptions_init
+
+	/* enable the MMU */
+	adr	x0, mmu_idmap
+	ldr	x0, [x0]
+	bl	asm_mmu_enable
+
+	/* set the stack */
+	adr	x1, secondary_data
+	ldr	x0, [x1]
+	mov	sp, x0
+
+	/* finish init in C code */
+	bl	secondary_cinit
+
+	/* x0 is now the entry function, run it */
+	br	x0
+
 .globl halt
 halt:
 1:	wfi

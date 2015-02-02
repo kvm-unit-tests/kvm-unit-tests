@@ -6,9 +6,12 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #define __ASSEMBLY__
+#include <asm/thread_info.h>
 #include <asm/asm-offsets.h>
 #include <asm/ptrace.h>
 #include <asm/cp15.h>
+
+#define THREAD_START_SP ((THREAD_SIZE - S_FRAME_SIZE * 8) & ~7)
 
 .arm
 
@@ -16,6 +19,22 @@
 
 .globl start
 start:
+	/*
+	 * set stack, making room at top of stack for cpu0's
+	 * exception stacks. Must start wtih stackptr, not
+	 * stacktop, so the thread size masking (shifts) work.
+	 */
+	ldr	sp, =stackptr
+	lsr	sp, #THREAD_SHIFT
+	lsl	sp, #THREAD_SHIFT
+	add	sp, #THREAD_START_SP
+
+	/*
+	 * save sp before pushing anything on the stack
+	 * lr makes a good temp register right now
+	 */
+	mov	lr, sp
+
 	/*
 	 * bootloader params are in r0-r2
 	 * See the kernel doc Documentation/arm/Booting
@@ -27,11 +46,12 @@ start:
 	 * put the dtb in r0. This allows setup to be consistent
 	 * with arm64.
 	 */
-	ldr	sp, =stackptr
 	mov	r0, r2
 	push	{r0-r1}
 
 	/* set up vector table and mode stacks */
+	mov	r0, lr			@ lr is stack top (see above),
+					@ which is the exception stacks base
 	bl	exceptions_init
 
 	/* complete setup */
@@ -62,19 +82,42 @@ exceptions_init:
 	mcr	p15, 0, r2, c12, c0, 0	@ write VBAR
 
 	mrs	r2, cpsr
-	ldr	r1, =exception_stacks
 
 	/* first frame reserved for svc mode */
-	set_mode_stack	UND_MODE, r1
-	set_mode_stack	ABT_MODE, r1
-	set_mode_stack	IRQ_MODE, r1
-	set_mode_stack	FIQ_MODE, r1
+	set_mode_stack	UND_MODE, r0
+	set_mode_stack	ABT_MODE, r0
+	set_mode_stack	IRQ_MODE, r0
+	set_mode_stack	FIQ_MODE, r0
 
 	msr	cpsr_cxsf, r2		@ back to svc mode
 	isb
 	mov	pc, lr
 
 .text
+
+.global secondary_entry
+secondary_entry:
+	/* enable the MMU */
+	mov	r1, #0
+	ldr	r0, =mmu_idmap
+	ldr	r0, [r0]
+	bl	asm_mmu_enable
+
+	/*
+	 * Set the stack, and set up vector table
+	 * and exception stacks. Exception stacks
+	 * space starts at stack top and grows up.
+	 */
+	ldr	r1, =secondary_data
+	ldr	r0, [r1]
+	mov	sp, r0
+	bl	exceptions_init
+
+	/* finish init in C code */
+	bl	secondary_cinit
+
+	/* r0 is now the entry function, run it */
+	mov	pc, r0
 
 .globl halt
 halt:
@@ -168,7 +211,9 @@ vector_svc:
 	 * and spsr_<exception> (parent CPSR)
 	 */
 	push	{ r1 }
-	ldr	r1, =exception_stacks
+	lsr	r1, sp, #THREAD_SHIFT
+	lsl	r1, #THREAD_SHIFT
+	add	r1, #THREAD_START_SP
 	str	r0, [r1, #S_R0]
 	pop	{ r0 }
 	str	r0, [r1, #S_R1]

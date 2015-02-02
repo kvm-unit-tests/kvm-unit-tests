@@ -36,6 +36,7 @@ cflatobjs += lib/arm/setup.o
 cflatobjs += lib/arm/mmu.o
 cflatobjs += lib/arm/bitops.o
 cflatobjs += lib/arm/psci.o
+cflatobjs += lib/arm/smp.o
 
 libeabi = lib/arm/libeabi.a
 eabiobjs = lib/arm/eabi_compat.o

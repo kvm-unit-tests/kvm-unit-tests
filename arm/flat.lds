@@ -5,9 +5,6 @@ SECTIONS
     . = ALIGN(64K);
     etext = .;
     .data : {
-        exception_stacks = .;
-        . += 64K;
-        exception_stacks_end = .;
         *(.data)
     }
     . = ALIGN(16);

@@ -7,16 +7,33 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include <asm/processor.h>
 #include <asm/page.h>
 
-#define __MIN_THREAD_SIZE	16384
-#if PAGE_SIZE > __MIN_THREAD_SIZE
+#define MIN_THREAD_SHIFT	14	/* THREAD_SIZE == 16K */
+#if PAGE_SHIFT > MIN_THREAD_SHIFT
+#define THREAD_SHIFT		PAGE_SHIFT
 #define THREAD_SIZE		PAGE_SIZE
+#define THREAD_MASK		PAGE_MASK
 #else
-#define THREAD_SIZE		__MIN_THREAD_SIZE
+#define THREAD_SHIFT		MIN_THREAD_SHIFT
+#define THREAD_SIZE		(_AC(1,UL) << THREAD_SHIFT)
+#define THREAD_MASK		(~(THREAD_SIZE-1))
 #endif
+
+#ifndef __ASSEMBLY__
+#include <asm/processor.h>
+
+#ifdef __arm__
+#include <asm/ptrace.h>
+/*
+ * arm needs room left at the top for the exception stacks,
+ * and the stack needs to be 8-byte aligned
+ */
+#define THREAD_START_SP \
+	((THREAD_SIZE - (sizeof(struct pt_regs) * 8)) & ~7)
+#else
 #define THREAD_START_SP		(THREAD_SIZE - 16)
+#endif
 
 #define TIF_USER_MODE		(1U << 0)
 
@@ -46,4 +63,5 @@ static inline struct thread_info *current_thread_info(void)
 
 extern void thread_info_init(struct thread_info *ti, unsigned int flags);
 
+#endif /* !__ASSEMBLY__ */
 #endif /* _ASMARM_THREAD_INFO_H_ */
