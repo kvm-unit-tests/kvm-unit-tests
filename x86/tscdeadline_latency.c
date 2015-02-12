@@ -9,6 +9,17 @@
  * hist(latency, 50)
  */
 
+/*
+ * for host tracing of breakmax option:
+ *
+ * # cd /sys/kernel/debug/tracing/
+ * # echo x86-tsc > trace_clock
+ * # echo "kvm_exit kvm_entry kvm_msr" > set_event
+ * # echo "sched_switch $extratracepoints" >> set_event
+ * # echo apic_timer_fn > set_ftrace_filter
+ * # echo "function" > current_tracer
+ */
+
 #include "libcflat.h"
 #include "apic.h"
 #include "vm.h"
@@ -37,6 +48,8 @@ int delta;
 #define TABLE_SIZE 10000
 u64 table[TABLE_SIZE];
 volatile int table_idx;
+volatile int hitmax = 0;
+int breakmax = 0;
 
 static void tsc_deadline_timer_isr(isr_regs_t *regs)
 {
@@ -45,6 +58,12 @@ static void tsc_deadline_timer_isr(isr_regs_t *regs)
 
     if (table_idx < TABLE_SIZE && tdt_count > 1)
         table[table_idx++] = now - exptime;
+
+    if (breakmax && tdt_count > 1 && (now - exptime) > breakmax) {
+        hitmax = 1;
+        apic_write(APIC_EOI, 0);
+        return;
+    }
 
     exptime = now+delta;
     wrmsr(MSR_IA32_TSCDEADLINE, now+delta);
@@ -97,16 +116,21 @@ int main(int argc, char **argv)
     mask_pic_interrupts();
 
     delta = argc <= 1 ? 200000 : atol(argv[1]);
-    size = argc <= 2 ? TABLE_SIZE : atol(argv[1]);
+    size = argc <= 2 ? TABLE_SIZE : atol(argv[2]);
+    breakmax = argc <= 3 ? 0 : atol(argv[3]);
+    printf("breakmax=%d\n", breakmax);
     test_tsc_deadline_timer();
     irq_enable();
 
     do {
         asm volatile("hlt");
-    } while (table_idx < size);
+    } while (!hitmax && table_idx < size);
 
-    for (i = 0; i < size; i++)
+    for (i = 0; i < table_idx; i++) {
+        if (hitmax && i == table_idx-1)
+            printf("hit max: %d < ", breakmax);
         printf("latency: %d\n", table[i]);
+    }
 
     return report_summary();
 }
