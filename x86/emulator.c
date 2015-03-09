@@ -838,7 +838,7 @@ static void test_jmp_noncanonical(uint64_t *mem)
 
 	exceptions = 0;
 	handle_exception(GP_VECTOR, advance_rip_by_3_and_note_exception);
-	asm volatile ("jmp %0" : : "m"(*mem));
+	asm volatile ("jmp *%0" : : "m"(*mem));
 	report("jump to non-canonical address", exceptions == 1);
 	handle_exception(GP_VECTOR, 0);
 }
