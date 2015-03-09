@@ -11,6 +11,7 @@
 #include "fwcfg.h"
 #include "isr.h"
 #include "apic.h"
+#include "types.h"
 
 u64 ia32_pat;
 u64 ia32_efer;
@@ -1493,6 +1494,44 @@ static int msr_switch_exit_handler()
 	return VMX_TEST_EXIT;
 }
 
+static int vmmcall_init(struct vmcs *vmcs	)
+{
+	vmcs_write(EXC_BITMAP, 1 << UD_VECTOR);
+	return VMX_TEST_START;
+}
+
+static void vmmcall_main(void)
+{
+	asm volatile(
+		"mov $0xABCD, %%rax\n\t"
+		"vmmcall\n\t"
+		::: "rax");
+
+	report("VMMCALL", 0);
+}
+
+static int vmmcall_exit_handler()
+{
+	ulong reason;
+
+	reason = vmcs_read(EXI_REASON);
+	switch (reason) {
+	case VMX_VMCALL:
+		printf("here\n");
+		report("VMMCALL triggers #UD", 0);
+		break;
+	case VMX_EXC_NMI:
+		report("VMMCALL triggers #UD",
+		       (vmcs_read(EXI_INTR_INFO) & 0xff) == UD_VECTOR);
+		break;
+	default:
+		printf("Unknown exit reason, %d\n", reason);
+		print_vmexit_info();
+	}
+
+	return VMX_TEST_VMEXIT;
+}
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
 struct vmx_test vmx_tests[] = {
 	{ "null", NULL, basic_guest_main, basic_exit_handler, NULL, {0} },
@@ -1516,5 +1555,6 @@ struct vmx_test vmx_tests[] = {
 		NULL, {0} },
 	{ "MSR switch", msr_switch_init, msr_switch_main,
 		msr_switch_exit_handler, NULL, {0} },
+	{ "vmmcall", vmmcall_init, vmmcall_main, vmmcall_exit_handler, NULL, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
