@@ -114,22 +114,22 @@ asm (".pushsection .text \n\t"
      "push %r15; push %r14; push %r13; push %r12 \n\t"
      "push %r11; push %r10; push %r9; push %r8 \n\t"
 #endif
-     "push %"R"di; push %"R"si; push %"R"bp; sub $"S", %"R"sp \n\t"
-     "push %"R"bx; push %"R"dx; push %"R"cx; push %"R"ax \n\t"
+     "push %"R "di; push %"R "si; push %"R "bp; sub $"S", %"R "sp \n\t"
+     "push %"R "bx; push %"R "dx; push %"R "cx; push %"R "ax \n\t"
 #ifdef __x86_64__
-     "mov %"R"sp, %"R"di \n\t"
+     "mov %"R "sp, %"R "di \n\t"
 #else
-     "mov %"R"sp, %"R"ax \n\t"
+     "mov %"R "sp, %"R "ax \n\t"
 #endif
      "call do_handle_exception \n\t"
-     "pop %"R"ax; pop %"R"cx; pop %"R"dx; pop %"R"bx \n\t"
-     "add $"S", %"R"sp; pop %"R"bp; pop %"R"si; pop %"R"di \n\t"
+     "pop %"R "ax; pop %"R "cx; pop %"R "dx; pop %"R "bx \n\t"
+     "add $"S", %"R "sp; pop %"R "bp; pop %"R "si; pop %"R "di \n\t"
 #ifdef __x86_64__
      "pop %r8; pop %r9; pop %r10; pop %r11 \n\t"
      "pop %r12; pop %r13; pop %r14; pop %r15 \n\t"
 #endif
-     "add $"S", %"R"sp \n\t"
-     "add $"S", %"R"sp \n\t"
+     "add $"S", %"R "sp \n\t"
+     "add $"S", %"R "sp \n\t"
      "iret"W" \n\t"
      ".popsection");
 

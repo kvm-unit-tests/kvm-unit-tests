@@ -109,7 +109,7 @@ void handle_external_interrupt(int vector)
 		     "push %[sp]\n\t"
 #endif
 		     "pushf\n\t"
-		     "orl $0x200, (%%"R"sp)\n\t"
+		     "orl $0x200, (%%"R "sp)\n\t"
 		     "push $%c[cs]\n\t"
 		     "call *%[entry]\n\t"
 		     :
