@@ -1,19 +1,33 @@
 #!/bin/bash
+NOTFOUND=1
+TESTDEVNOTSUPP=2
 
 qemukvm="${QEMU:-qemu-kvm}"
 qemusystem="${QEMU:-qemu-system-x86_64}"
-if
-	${qemukvm} -device '?' 2>&1 | grep -F -e \"testdev\" -e \"pc-testdev\" > /dev/null;
+
+if      ! [ -z "${QEMU}" ]
 then
-	qemu="${qemukvm}"
+	qemu="${QEMU}"
 else
-	if
-		${qemusystem} -device '?' 2>&1 | grep -F -e \"testdev\" -e \"pc-testdev\" > /dev/null;
+	for qemucmds in ${qemukvm} ${qemusystem}
+	do
+		unset QEMUFOUND
+		unset qemu
+		if ! [ -z "${QEMUFOUND=$(${qemucmds} --help 2>/dev/null | grep "QEMU")}" ] &&
+		       ${qemucmds} -device '?' 2>&1 | grep -F -e \"testdev\" -e \"pc-testdev\" > /dev/null;
+		then
+		    qemu="${qemucmds}"
+		    break
+		fi
+	done
+	if      [ -z "${QEMUFOUND}" ]
 	then
-		qemu="${qemusystem}"
-	else
-		echo QEMU binary ${QEMU} has no support for test device. Exiting.
-		exit 2
+		echo "A QEMU binary was not found, You can set a custom location by using the QEMU=<path> environment variable "
+		exit ${NOTFOUND}
+	elif    [ -z "${qemu}" ]
+	then
+		echo "No Qemu test device support found"
+		exit ${TESTDEVNOTSUPP}
 	fi
 fi
 
