@@ -2,33 +2,28 @@
 NOTFOUND=1
 TESTDEVNOTSUPP=2
 
-qemukvm="${QEMU:-qemu-kvm}"
-qemusystem="${QEMU:-qemu-system-x86_64}"
+qemubinarysearch="${QEMU:-qemu-kvm qemu-system-x86_64}"
 
-if      ! [ -z "${QEMU}" ]
-then
-	qemu="${QEMU}"
-else
-	for qemucmds in ${qemukvm} ${qemusystem}
-	do
-		unset QEMUFOUND
-		unset qemu
-		if ! [ -z "${QEMUFOUND=$(${qemucmds} --help 2>/dev/null | grep "QEMU")}" ] &&
-		       ${qemucmds} -device '?' 2>&1 | grep -F -e \"testdev\" -e \"pc-testdev\" > /dev/null;
-		then
-		    qemu="${qemucmds}"
-		    break
-		fi
-	done
-	if      [ -z "${QEMUFOUND}" ]
+for qemucmd in ${qemubinarysearch}
+do
+	unset QEMUFOUND
+	unset qemu
+	if ! [ -z "${QEMUFOUND=$(${qemucmd} --help 2>/dev/null | grep "QEMU")}" ] &&
+			${qemucmd} -device '?' 2>&1 | grep -F -e \"testdev\" -e \"pc-testdev\" > /dev/null;
 	then
-		echo "A QEMU binary was not found, You can set a custom location by using the QEMU=<path> environment variable "
-		exit ${NOTFOUND}
-	elif    [ -z "${qemu}" ]
-	then
-		echo "No Qemu test device support found"
-		exit ${TESTDEVNOTSUPP}
+		qemu="${qemucmd}"
+		break
 	fi
+done
+
+if      [ -z "${QEMUFOUND}" ]
+then
+	echo "A QEMU binary was not found, You can set a custom location by using the QEMU=<path> environment variable "
+	exit ${NOTFOUND}
+elif    [ -z "${qemu}" ]
+then
+	echo "No Qemu test device support found"
+	exit ${TESTDEVNOTSUPP}
 fi
 
 if
