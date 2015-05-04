@@ -1297,10 +1297,8 @@ static int interrupt_exit_handler(void)
 			asm volatile ("nop");
 			irq_disable();
 		}
-		if (vmx_get_test_stage() >= 2) {
+		if (vmx_get_test_stage() >= 2)
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
-			vmcs_write(GUEST_RIP, guest_rip + insn_len);
-		}
 		return VMX_TEST_RESUME;
 	default:
 		printf("Unknown exit reason, %d\n", reason);
