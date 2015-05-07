@@ -48,6 +48,7 @@ asm ("pf_tss:\n"
 
 #define USER_BASE	(1 << 24)
 #define USER_VAR(v)	(*((__typeof__(&(v))) (((unsigned long)&v) + USER_BASE)))
+#define USER_ADDR(v)   ((void *)((unsigned long)(&v) + USER_BASE))
 
 static void init_test(int i)
 {
@@ -56,6 +57,29 @@ static void init_test(int i)
 		invlpg(&test);
 		invlpg(&USER_VAR(test));
 	}
+}
+
+static void check_smap_nowp(void)
+{
+	test = 0x99;
+
+	*get_pte(phys_to_virt(read_cr3()), USER_ADDR(test)) &= ~PTE_WRITE;
+
+	write_cr4(read_cr4() & ~X86_CR4_SMAP);
+	write_cr0(read_cr0() & ~X86_CR0_WP);
+	clac();
+	write_cr3(read_cr3());
+
+	init_test(0);
+	USER_VAR(test) = 0x99;
+	report("write from user page with SMAP=0, AC=0, WP=0, PTE.U=1 && PTE.W=0", pf_count == 0);
+
+	write_cr4(read_cr4() | X86_CR4_SMAP);
+	write_cr3(read_cr3());
+
+	init_test(0);
+	(void)USER_VAR(test);
+	report("read from user page with SMAP=1, AC=0, WP=0, PTE.U=1 && PTE.W=0", pf_count == 1 && save == 0x99);
 }
 
 int main(int ac, char **av)
@@ -149,6 +173,8 @@ int main(int ac, char **av)
 		    "2:");
 		report("executing on user page with AC=0", pf_count == 0);
 	}
+
+	check_smap_nowp();
 
 	// TODO: implicit kernel access from ring 3 (e.g. int)
 
