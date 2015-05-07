@@ -80,6 +80,12 @@ static void check_smap_nowp(void)
 	init_test(0);
 	(void)USER_VAR(test);
 	report("read from user page with SMAP=1, AC=0, WP=0, PTE.U=1 && PTE.W=0", pf_count == 1 && save == 0x99);
+
+	/* Undo changes */
+	*get_pte(phys_to_virt(read_cr3()), USER_ADDR(test)) |= PTE_WRITE;
+
+	write_cr0(read_cr0() | X86_CR0_WP);
+	write_cr3(read_cr3());
 }
 
 int main(int ac, char **av)
