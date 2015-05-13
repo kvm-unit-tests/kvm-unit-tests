@@ -20,8 +20,14 @@ typedef struct {
 
 void mask_pic_interrupts(void);
 
+void eoi(void);
+
 void ioapic_write_redir(unsigned line, ioapic_redir_entry_t e);
 void ioapic_write_reg(unsigned reg, uint32_t value);
+ioapic_redir_entry_t ioapic_read_redir(unsigned line);
+uint32_t ioapic_read_reg(unsigned reg);
+
+void set_mask(unsigned line, int mask);
 
 void enable_apic(void);
 uint32_t apic_read(unsigned reg);

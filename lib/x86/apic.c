@@ -17,6 +17,11 @@ static void outb(unsigned char data, unsigned short port)
     asm volatile ("out %0, %1" : : "a"(data), "d"(port));
 }
 
+void eoi(void)
+{
+    apic_write(APIC_EOI, 0);
+}
+
 static u32 xapic_read(unsigned reg)
 {
     return *(volatile u32 *)(g_apic + reg);
@@ -117,6 +122,12 @@ int enable_x2apic(void)
     }
 }
 
+u32 ioapic_read_reg(unsigned reg)
+{
+    *(volatile u32 *)g_ioapic = reg;
+    return *(volatile u32 *)(g_ioapic + 0x10);
+}
+
 void ioapic_write_reg(unsigned reg, u32 value)
 {
     *(volatile u32 *)g_ioapic = reg;
@@ -127,6 +138,24 @@ void ioapic_write_redir(unsigned line, ioapic_redir_entry_t e)
 {
     ioapic_write_reg(0x10 + line * 2 + 0, ((u32 *)&e)[0]);
     ioapic_write_reg(0x10 + line * 2 + 1, ((u32 *)&e)[1]);
+}
+
+ioapic_redir_entry_t ioapic_read_redir(unsigned line)
+{
+    ioapic_redir_entry_t e;
+
+    ((u32 *)&e)[0] = ioapic_read_reg(0x10 + line * 2 + 0);
+    ((u32 *)&e)[1] = ioapic_read_reg(0x10 + line * 2 + 1);
+    return e;
+
+}
+
+void set_mask(unsigned line, int mask)
+{
+    ioapic_redir_entry_t e = ioapic_read_redir(line);
+
+    e.mask = mask;
+    ioapic_write_redir(line, e);
 }
 
 void enable_apic(void)

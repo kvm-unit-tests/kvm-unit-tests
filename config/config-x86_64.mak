@@ -10,5 +10,6 @@ tests = $(TEST_DIR)/access.flat $(TEST_DIR)/apic.flat \
 tests += $(TEST_DIR)/svm.flat
 tests += $(TEST_DIR)/vmx.flat
 tests += $(TEST_DIR)/tscdeadline_latency.flat
+tests += $(TEST_DIR)/ioapic.flat
 
 include config/config-x86-common.mak

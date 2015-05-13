@@ -32,11 +32,6 @@ void apic_self_nmi(void)
 	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
 }
 
-static void eoi(void)
-{
-    apic_write(APIC_EOI, 0);
-}
-
 #define flush_phys_addr(__s) outl(0xe4, __s)
 #define flush_stack() do {						\
 		int __l;						\

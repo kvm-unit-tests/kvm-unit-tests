@@ -69,6 +69,8 @@ $(TEST_DIR)/tsc_adjust.elf: $(cstart.o) $(TEST_DIR)/tsc_adjust.o
 
 $(TEST_DIR)/apic.elf: $(cstart.o) $(TEST_DIR)/apic.o
 
+$(TEST_DIR)/ioapic.elf: $(cstart.o) $(TEST_DIR)/ioapic.o
+
 $(TEST_DIR)/tscdeadline_latency.elf: $(cstart.o) $(TEST_DIR)/tscdeadline_latency.o
 
 $(TEST_DIR)/init.elf: $(cstart.o) $(TEST_DIR)/init.o

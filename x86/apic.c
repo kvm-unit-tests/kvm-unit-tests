@@ -140,11 +140,6 @@ static void test_apicbase(void)
     report_prefix_pop();
 }
 
-static void eoi(void)
-{
-    apic_write(APIC_EOI, 0);
-}
-
 static int ipi_count;
 
 static void self_ipi_isr(isr_regs_t *regs)
@@ -163,79 +158,6 @@ static void test_self_ipi(void)
                    0);
     asm volatile ("nop");
     report("self ipi", ipi_count == 1);
-}
-
-static void set_ioapic_redir(unsigned line, unsigned vec)
-{
-    ioapic_redir_entry_t e = {
-        .vector = vec,
-        .delivery_mode = 0,
-        .trig_mode = 0,
-    };
-
-    ioapic_write_redir(line, e);
-}
-
-static void set_irq_line(unsigned line, int val)
-{
-    asm volatile("out %0, %1" : : "a"((u8)val), "d"((u16)(0x2000 + line)));
-}
-
-static void toggle_irq_line(unsigned line)
-{
-    set_irq_line(line, 1);
-    set_irq_line(line, 0);
-}
-
-static int g_isr_77;
-
-static void ioapic_isr_77(isr_regs_t *regs)
-{
-    ++g_isr_77;
-    eoi();
-}
-
-static void test_ioapic_intr(void)
-{
-    handle_irq(0x77, ioapic_isr_77);
-    set_ioapic_redir(0x0e, 0x77);
-    toggle_irq_line(0x0e);
-    asm volatile ("nop");
-    report("ioapic interrupt", g_isr_77 == 1);
-}
-
-static int g_78, g_66, g_66_after_78;
-static ulong g_66_rip, g_78_rip;
-
-static void ioapic_isr_78(isr_regs_t *regs)
-{
-    ++g_78;
-    g_78_rip = regs->rip;
-    eoi();
-}
-
-static void ioapic_isr_66(isr_regs_t *regs)
-{
-    ++g_66;
-    if (g_78)
-        ++g_66_after_78;
-    g_66_rip = regs->rip;
-    eoi();
-}
-
-static void test_ioapic_simultaneous(void)
-{
-    handle_irq(0x78, ioapic_isr_78);
-    handle_irq(0x66, ioapic_isr_66);
-    set_ioapic_redir(0x0e, 0x78);
-    set_ioapic_redir(0x0f, 0x66);
-    irq_disable();
-    toggle_irq_line(0x0f);
-    toggle_irq_line(0x0e);
-    irq_enable();
-    asm volatile ("nop");
-    report("ioapic simultaneous interrupt",
-           g_66 && g_78 && g_66_after_78 && g_66_rip == g_78_rip);
 }
 
 volatile int nmi_counter_private, nmi_counter, nmi_hlt_counter, sti_loop_active;
@@ -390,8 +312,6 @@ int main()
 
     test_self_ipi();
 
-    test_ioapic_intr();
-    test_ioapic_simultaneous();
     test_sti_nmi();
     test_multiple_nmi();
 
