@@ -23,7 +23,6 @@ secondary_entry_fn secondary_cinit(void)
 	secondary_entry_fn entry;
 
 	thread_info_init(ti, 0);
-	mmu_set_enabled();
 
 	/*
 	 * Save secondary_data.entry locally to avoid opening a race

@@ -14,32 +14,38 @@ extern unsigned long etext;
 
 pgd_t *mmu_idmap;
 
-static cpumask_t mmu_enabled_cpumask;
+/* CPU 0 starts with disabled MMU */
+static cpumask_t mmu_disabled_cpumask = { {1} };
+
 bool mmu_enabled(void)
 {
-	struct thread_info *ti = current_thread_info();
-	return cpumask_test_cpu(ti->cpu, &mmu_enabled_cpumask);
-}
+	int cpu = current_thread_info()->cpu;
 
-void mmu_set_enabled(void)
-{
-	struct thread_info *ti = current_thread_info();
-	cpumask_set_cpu(ti->cpu, &mmu_enabled_cpumask);
+	return !cpumask_test_cpu(cpu, &mmu_disabled_cpumask);
 }
 
 extern void asm_mmu_enable(phys_addr_t pgtable);
 void mmu_enable(pgd_t *pgtable)
 {
+	int cpu = current_thread_info()->cpu;
+
 	asm_mmu_enable(__pa(pgtable));
 	flush_tlb_all();
-	mmu_set_enabled();
+	cpumask_clear_cpu(cpu, &mmu_disabled_cpumask);
+}
+
+void mmu_mark_disabled(int cpu)
+{
+	cpumask_set_cpu(cpu, &mmu_disabled_cpumask);
 }
 
 extern void asm_mmu_disable(void);
 void mmu_disable(void)
 {
-	struct thread_info *ti = current_thread_info();
-	cpumask_clear_cpu(ti->cpu, &mmu_enabled_cpumask);
+	int cpu = current_thread_info()->cpu;
+
+	mmu_mark_disabled(cpu);
+
 	asm_mmu_disable();
 }
 
