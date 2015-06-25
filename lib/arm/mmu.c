@@ -35,6 +35,14 @@ void mmu_enable(pgd_t *pgtable)
 	mmu_set_enabled();
 }
 
+extern void asm_mmu_disable(void);
+void mmu_disable(void)
+{
+	struct thread_info *ti = current_thread_info();
+	cpumask_clear_cpu(ti->cpu, &mmu_enabled_cpumask);
+	asm_mmu_disable();
+}
+
 void mmu_set_range_ptes(pgd_t *pgtable, unsigned long virt_offset,
 			unsigned long phys_start, unsigned long phys_end,
 			pgprot_t prot)

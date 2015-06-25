@@ -159,6 +159,15 @@ asm_mmu_enable:
 
 	mov     pc, lr
 
+.globl asm_mmu_disable
+asm_mmu_disable:
+	/* SCTLR */
+	mrc	p15, 0, r0, c1, c0, 0
+	bic	r0, #CR_M
+	mcr	p15, 0, r0, c1, c0, 0
+	isb
+	mov     pc, lr
+
 /*
  * Vector stubs
  * Simplified version of the Linux kernel implementation

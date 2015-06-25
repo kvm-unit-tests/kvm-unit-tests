@@ -146,6 +146,14 @@ asm_mmu_enable:
 
 	ret
 
+.globl asm_mmu_disable
+asm_mmu_disable:
+	mrs	x0, sctlr_el1
+	bic	x0, x0, SCTLR_EL1_M
+	msr	sctlr_el1, x0
+	isb
+	ret
+
 /*
  * Vectors
  * Adapted from arch/arm64/kernel/entry.S
