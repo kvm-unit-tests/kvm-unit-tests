@@ -7,10 +7,9 @@ void spin_lock(struct spinlock *lock)
 {
 	u32 val, fail;
 
-	dmb();
-
 	if (!mmu_enabled()) {
 		lock->v = 1;
+		smp_mb();
 		return;
 	}
 
@@ -25,11 +24,12 @@ void spin_lock(struct spinlock *lock)
 		: "r" (&lock->v)
 		: "cc" );
 	} while (fail);
-	dmb();
+
+	smp_mb();
 }
 
 void spin_unlock(struct spinlock *lock)
 {
+	smp_mb();
 	lock->v = 0;
-	dmb();
 }

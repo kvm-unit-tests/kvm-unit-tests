@@ -13,10 +13,9 @@ void spin_lock(struct spinlock *lock)
 {
 	u32 val, fail;
 
-	smp_mb();
-
 	if (!mmu_enabled()) {
 		lock->v = 1;
+		smp_mb();
 		return;
 	}
 
@@ -35,9 +34,9 @@ void spin_lock(struct spinlock *lock)
 
 void spin_unlock(struct spinlock *lock)
 {
+	smp_mb();
 	if (mmu_enabled())
 		asm volatile("stlrh wzr, [%0]" :: "r" (&lock->v));
 	else
 		lock->v = 0;
-	smp_mb();
 }
