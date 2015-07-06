@@ -21,12 +21,12 @@ static void gcc_builtin_unlock(int *lock_var)
 }
 static void none_lock(int *lock_var)
 {
-	while (*lock_var != 0);
-	*lock_var = 1;
+	while (*(volatile int *)lock_var != 0);
+	*(volatile int *)lock_var = 1;
 }
 static void none_unlock(int *lock_var)
 {
-	*lock_var = 0;
+	*(volatile int *)lock_var = 0;
 }
 
 static int global_a, global_b;
