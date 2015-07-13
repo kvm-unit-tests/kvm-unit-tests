@@ -64,6 +64,9 @@ $(LIBFDT_archive): $(addprefix $(LIBFDT_objdir)/,$(LIBFDT_OBJS))
 
 -include */.*.d */*/.*.d
 
+standalone: all
+	@scripts/mkstandalone.sh
+
 install:
 	mkdir -p $(DESTDIR)
 	install $(tests_and_config) $(DESTDIR)
@@ -78,6 +81,7 @@ libfdt_clean:
 
 distclean: clean libfdt_clean
 	$(RM) lib/asm config.mak $(TEST_DIR)-run test.log msr.out cscope.*
+	$(RM) -r tests
 
 cscope: common_dirs = lib lib/libfdt lib/asm lib/asm-generic
 cscope:

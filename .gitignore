@@ -14,3 +14,4 @@ cscope.*
 /*-run
 /test.log
 /msr.out
+/tests
