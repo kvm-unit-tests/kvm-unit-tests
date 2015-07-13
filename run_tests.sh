@@ -5,6 +5,7 @@ if [ ! -f config.mak ]; then
     exit
 fi
 source config.mak
+source scripts/functions.bash
 
 config=$TEST_DIR/unittests.cfg
 qemu=${QEMU:-qemu-system-$ARCH}
@@ -61,49 +62,6 @@ function run()
     fi
 }
 
-function run_all()
-{
-    local config="$1"
-    local testname
-    local smp
-    local kernel
-    local opts
-    local groups
-    local arch
-    local check
-
-    exec {config_fd}<$config
-
-    while read -u $config_fd line; do
-        if [[ "$line" =~ ^\[(.*)\]$ ]]; then
-            run "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$check"
-            testname=${BASH_REMATCH[1]}
-            smp=1
-            kernel=""
-            opts=""
-            groups=""
-            arch=""
-            check=""
-        elif [[ $line =~ ^file\ *=\ *(.*)$ ]]; then
-            kernel=$TEST_DIR/${BASH_REMATCH[1]}
-        elif [[ $line =~ ^smp\ *=\ *(.*)$ ]]; then
-            smp=${BASH_REMATCH[1]}
-        elif [[ $line =~ ^extra_params\ *=\ *(.*)$ ]]; then
-            opts=${BASH_REMATCH[1]}
-        elif [[ $line =~ ^groups\ *=\ *(.*)$ ]]; then
-            groups=${BASH_REMATCH[1]}
-        elif [[ $line =~ ^arch\ *=\ *(.*)$ ]]; then
-            arch=${BASH_REMATCH[1]}
-        elif [[ $line =~ ^check\ *=\ *(.*)$ ]]; then
-            check=${BASH_REMATCH[1]}
-        fi
-    done
-
-    run "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$check"
-
-    exec {config_fd}<&-
-}
-
 function usage()
 {
 cat <<EOF
@@ -139,4 +97,4 @@ while getopts "g:hv" opt; do
     esac
 done
 
-run_all $config
+for_each_unittest $config run
