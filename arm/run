@@ -44,9 +44,11 @@ fi
 
 command="$qemu $M -cpu $processor $chr_testdev"
 command+=" -display none -serial stdio -kernel"
-
 echo $command "$@"
-$command "$@"
-ret=$?
-echo Return value from qemu: $ret
-exit $ret
+
+if [ "$DRYRUN" != "yes" ]; then
+	$command "$@"
+	ret=$?
+	echo Return value from qemu: $ret
+	exit $ret
+fi

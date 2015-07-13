@@ -44,7 +44,10 @@ fi
 
 command="${qemu} -enable-kvm $pc_testdev -vnc none -serial stdio $pci_testdev -kernel"
 echo ${command} "$@"
-${command} "$@"
-ret=$?
-echo Return value from qemu: $ret
-exit $ret
+
+if [ "$DRYRUN" != "yes" ]; then
+	${command} "$@"
+	ret=$?
+	echo Return value from qemu: $ret
+	exit $ret
+fi
