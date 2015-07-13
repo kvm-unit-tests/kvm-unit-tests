@@ -5,7 +5,7 @@ endif
 
 include config.mak
 
-DESTDIR := $(PREFIX)/share/qemu/tests
+DESTDIR := $(PREFIX)/share/kvm-unit-tests/
 
 .PHONY: arch_clean clean distclean cscope
 
@@ -67,9 +67,9 @@ $(LIBFDT_archive): $(addprefix $(LIBFDT_objdir)/,$(LIBFDT_OBJS))
 standalone: all
 	@scripts/mkstandalone.sh
 
-install:
+install: standalone
 	mkdir -p $(DESTDIR)
-	install $(tests_and_config) $(DESTDIR)
+	install tests/* $(DESTDIR)
 
 clean: arch_clean
 	$(RM) lib/.*.d $(libcflat) $(cflatobjs)

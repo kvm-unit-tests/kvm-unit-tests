@@ -64,8 +64,6 @@ arm_clean: libfdt_clean asm_offsets_clean
 
 ##################################################################
 
-tests_and_config = $(TEST_DIR)/*.flat $(TEST_DIR)/unittests.cfg
-
 generated_files = $(asm-offsets)
 
 test_cases: $(generated_files) $(tests-common) $(tests)
