@@ -16,6 +16,16 @@ To select a specific qemu binary, specify the QEMU=<path>
 environment variable, e.g.
   QEMU=/tmp/qemu/x86_64-softmmu/qemu-system-x86_64 ./x86-run ./x86/msr.flat
 
+To create and use standalone tests do
+  ./configure
+  make standalone
+  (send tests/some-test somewhere)
+  (go to somewhere)
+  ./some-test
+
+'make install' will install all tests in PREFIX/share/kvm-unit-tests/tests,
+each as a standalone test.
+
 Directory structure:
 .:		configure script, top-level Makefile, and run_tests.sh
 ./config:	collection of architecture dependent makefiles
