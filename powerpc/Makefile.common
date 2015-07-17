@@ -16,6 +16,7 @@ CFLAGS += -ffreestanding
 CFLAGS += -Wextra
 CFLAGS += -O2
 CFLAGS += -I lib -I lib/libfdt
+CFLAGS += -Wa,-mregnames
 
 asm-offsets = lib/$(ARCH)/asm-offsets.h
 include scripts/asm-offsets.mak
@@ -24,6 +25,7 @@ cflatobjs += lib/util.o
 cflatobjs += lib/alloc.o
 cflatobjs += lib/devicetree.o
 cflatobjs += lib/powerpc/io.o
+cflatobjs += lib/powerpc/hcall.o
 
 libgcc := $(shell $(CC) $(machine) --print-libgcc-file-name)
 
