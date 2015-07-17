@@ -4,6 +4,8 @@ SECTIONS
     .text : { *(.init) *(.text) *(.text.*) }
     . = ALIGN(64K);
     etext = .;
+    .opd : { *(.opd) }
+    . = ALIGN(16);
     .data : {
         *(.data)
     }
@@ -11,16 +13,20 @@ SECTIONS
     .rodata : { *(.rodata) }
     . = ALIGN(16);
     .bss : { *(.bss) }
+    . = ALIGN(256);
+    /*
+     * tocptr is tocbase + 32K, allowing toc offsets to be +-32K
+     */
+    tocptr = . + 32K;
+    .got : { *(.toc) *(.got) }
     . = ALIGN(64K);
     edata = .;
     . += 64K;
     . = ALIGN(64K);
     /*
-     * stack depth is 16K for arm and PAGE_SIZE for arm64, see THREAD_SIZE
-     * sp must be 16 byte aligned for arm64, and 8 byte aligned for arm
-     * sp must always be strictly less than the true stacktop
+     * stackptr set with initial stack frame (64 bytes) preallocated
      */
-    stackptr = . - 16;
+    stackptr = . - 64;
     stacktop = .;
 }
 
