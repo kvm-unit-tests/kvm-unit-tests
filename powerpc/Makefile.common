@@ -17,6 +17,7 @@ CFLAGS += -Wextra
 CFLAGS += -O2
 CFLAGS += -I lib -I lib/libfdt
 CFLAGS += -Wa,-mregnames
+CFLAGS += -fpie
 
 asm-offsets = lib/$(ARCH)/asm-offsets.h
 include scripts/asm-offsets.mak
@@ -31,11 +32,17 @@ cflatobjs += lib/powerpc/setup.o
 libgcc := $(shell $(CC) $(machine) --print-libgcc-file-name)
 
 FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libgcc)
-%.elf: LDFLAGS = $(CFLAGS) -nostdlib
+%.elf: LDFLAGS = $(CFLAGS) -nostdlib -pie
 %.elf: %.o $(FLATLIBS) powerpc/flat.lds
 	$(CC) $(LDFLAGS) -o $@ \
 		-Wl,-T,powerpc/flat.lds,--build-id=none \
 		$(filter %.o, $^) $(FLATLIBS)
+	@echo -n Checking $@ for unsupported reloc types...
+	@if $(OBJDUMP) -R $@ | grep R_ | grep -v R_PPC64_RELATIVE; then	\
+		false;							\
+	else								\
+		echo " looks good.";					\
+	fi
 
 $(TEST_DIR)/boot_rom.bin: $(TEST_DIR)/boot_rom.elf
 	dd if=/dev/zero of=$@ bs=256 count=1
@@ -54,4 +61,4 @@ generated_files = $(asm-offsets)
 
 test_cases: $(generated_files) $(tests-common) $(tests)
 
-$(TEST_DIR)/selftest.elf: $(cstart.o) $(TEST_DIR)/selftest.o
+$(TEST_DIR)/selftest.elf: $(cstart.o) $(reloc.o) $(TEST_DIR)/selftest.o
