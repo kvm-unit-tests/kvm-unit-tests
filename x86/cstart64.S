@@ -213,7 +213,11 @@ idt_descr:
 
 load_tss:
 	lidtq idt_descr
-	mov $0, %eax
+	mov $0x10, %eax
+	mov %ax, %ds
+	mov %ax, %es
+	mov %ax, %fs
+	mov %ax, %gs
 	mov %ax, %ss
 	mov $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
 	mov (%rax), %eax
