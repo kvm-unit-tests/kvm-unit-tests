@@ -94,3 +94,17 @@ int report_summary(void)
 
 	spin_unlock(&lock);
 }
+
+void report_abort(const char *msg_fmt, ...)
+{
+	va_list va;
+
+	puts("ABORT: ");
+	puts(prefixes);
+	va_start(va, msg_fmt);
+	vprintf(msg_fmt, va);
+	va_end(va);
+	puts("\n");
+	report_summary();
+	abort();
+}

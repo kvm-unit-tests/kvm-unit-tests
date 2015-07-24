@@ -58,11 +58,12 @@ extern int vsnprintf(char *buf, int size, const char *fmt, va_list va);
 extern int vprintf(const char *fmt, va_list va);
 extern long atol(const char *ptr);
 
-void report_prefix_push(const char *prefix);
-void report_prefix_pop(void);
-void report(const char *msg_fmt, bool pass, ...);
-void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...);
-int report_summary(void);
+extern void report_prefix_push(const char *prefix);
+extern void report_prefix_pop(void);
+extern void report(const char *msg_fmt, bool pass, ...);
+extern void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...);
+extern void report_abort(const char *msg_fmt, ...);
+extern int report_summary(void);
 
 #define ARRAY_SIZE(_a) (sizeof(_a)/sizeof((_a)[0]))
 

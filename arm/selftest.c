@@ -6,6 +6,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <libcflat.h>
+#include <util.h>
 #include <alloc.h>
 #include <devicetree.h>
 #include <asm/setup.h>
@@ -18,43 +19,21 @@
 #include <asm/cpumask.h>
 #include <asm/barrier.h>
 
-static void assert_args(int num_args, int needed_args)
-{
-	if (num_args < needed_args) {
-		printf("selftest: not enough arguments\n");
-		abort();
-	}
-}
-
-static char *split_var(char *s, long *val)
-{
-	char *p;
-
-	p = strchr(s, '=');
-	if (!p)
-		return NULL;
-
-	*val = atol(p+1);
-	*p = '\0';
-
-	return s;
-}
-
 static void check_setup(int argc, char **argv)
 {
-	int nr_tests = 0, i;
-	char *var;
+	int nr_tests = 0, len, i;
 	long val;
 
 	for (i = 0; i < argc; ++i) {
 
-		var = split_var(argv[i], &val);
-		if (!var)
+		len = parse_keyval(argv[i], &val);
+		if (len == -1)
 			continue;
 
-		report_prefix_push(var);
+		argv[i][len] = '\0';
+		report_prefix_push(argv[i]);
 
-		if (strcmp(var, "mem") == 0) {
+		if (strcmp(argv[i], "mem") == 0) {
 
 			phys_addr_t memsize = PHYS_END - PHYS_OFFSET;
 			phys_addr_t expected = ((phys_addr_t)val)*1024*1024;
@@ -63,7 +42,7 @@ static void check_setup(int argc, char **argv)
 							memsize/1024/1024);
 			++nr_tests;
 
-		} else if (strcmp(var, "smp") == 0) {
+		} else if (strcmp(argv[i], "smp") == 0) {
 
 			report("nr_cpus = %d", nr_cpus == (int)val, nr_cpus);
 			++nr_tests;
@@ -72,7 +51,8 @@ static void check_setup(int argc, char **argv)
 		report_prefix_pop();
 	}
 
-	assert_args(nr_tests, 2);
+	if (nr_tests < 2)
+		report_abort("missing input");
 }
 
 static struct pt_regs expected_regs;
@@ -343,7 +323,10 @@ static void cpu_report(void)
 int main(int argc, char **argv)
 {
 	report_prefix_push("selftest");
-	assert_args(argc, 1);
+
+	if (!argc)
+		report_abort("no test specified");
+
 	report_prefix_push(argv[0]);
 
 	if (strcmp(argv[0], "setup") == 0) {
