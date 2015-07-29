@@ -188,6 +188,38 @@ static void test_ioapic_level_sequential(void)
 	report("sequential level interrupts", g_isr_99 == 2);
 }
 
+static volatile int g_isr_9a;
+
+static void ioapic_isr_9a(isr_regs_t *regs)
+{
+	++g_isr_9a;
+	if (g_isr_9a == 2)
+		set_irq_line(0x0e, 0);
+	eoi();
+}
+
+static void test_ioapic_level_retrigger(void)
+{
+	int i;
+
+	handle_irq(0x9a, ioapic_isr_9a);
+	set_ioapic_redir(0x0e, 0x9a, LEVEL_TRIGGERED);
+
+	asm volatile ("cli");
+	set_irq_line(0x0e, 1);
+
+	for (i = 0; i < 10; i++) {
+		if (g_isr_9a == 2)
+			break;
+
+		asm volatile ("sti; hlt; cli");
+	}
+
+	asm volatile ("sti");
+
+	report("retriggered level interrupts without masking", g_isr_9a == 2);
+}
+
 static volatile int g_isr_81;
 
 static void ioapic_isr_81(isr_regs_t *regs)
@@ -242,6 +274,30 @@ static void test_ioapic_level_mask(void)
 	report("unmasked level interrupt", g_isr_82 == 1);
 }
 
+static volatile int g_isr_83;
+
+static void ioapic_isr_83(isr_regs_t *regs)
+{
+	++g_isr_83;
+	set_mask(0x0e, true);
+	eoi();
+}
+
+static void test_ioapic_level_retrigger_mask(void)
+{
+	handle_irq(0x83, ioapic_isr_83);
+	set_ioapic_redir(0x0e, 0x83, LEVEL_TRIGGERED);
+
+	set_irq_line(0x0e, 1);
+	asm volatile ("nop");
+	set_mask(0x0e, false);
+	asm volatile ("nop");
+	report("retriggered level interrupts with mask", g_isr_83 == 2);
+
+	set_irq_line(0x0e, 0);
+	set_mask(0x0e, false);
+}
+
 
 int main(void)
 {
@@ -263,9 +319,11 @@ int main(void)
 	test_ioapic_simultaneous();
 	test_ioapic_level_coalesce();
 	test_ioapic_level_sequential();
+	test_ioapic_level_retrigger();
 
 	test_ioapic_edge_mask();
 	test_ioapic_level_mask();
+	test_ioapic_level_retrigger_mask();
 
 	return report_summary();
 }
