@@ -246,6 +246,25 @@ int dt_get_bootargs(const char **bootargs)
 	return 0;
 }
 
+int dt_get_default_console_node(void)
+{
+	const struct fdt_property *prop;
+	int node, len;
+
+	node = fdt_path_offset(fdt, "/chosen");
+	if (node < 0)
+		return node;
+
+	prop = fdt_get_property(fdt, node, "stdout-path", &len);
+	if (!prop) {
+		prop = fdt_get_property(fdt, node, "linux,stdout-path", &len);
+		if (!prop)
+			return len;
+	}
+
+	return fdt_path_offset(fdt, prop->data);
+}
+
 int dt_init(const void *fdt_ptr)
 {
 	struct dt_bus *defbus = (struct dt_bus *)&dt_default_bus;

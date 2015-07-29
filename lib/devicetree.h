@@ -215,6 +215,15 @@ extern int dt_get_reg(int fdtnode, int regidx, struct dt_reg *reg);
 extern int dt_get_bootargs(const char **bootargs);
 
 /*
+ * dt_get_default_console_node gets the node of the path stored in
+ * /chosen/stdout-path (or the deprecated /chosen/linux,stdout-path)
+ * returns
+ *  - the node (>= 0) on success
+ *  - a negative FDT_ERR_* value on failure
+ */
+extern int dt_get_default_console_node(void);
+
+/*
  * dt_get_memory_params gets the memory parameters from the /memory node(s)
  * storing each memory region ("address size" tuple) in consecutive entries
  * of @regs, up to @nr_regs
