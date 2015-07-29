@@ -9,6 +9,7 @@
 #include <alloc.h>
 #include <asm/thread_info.h>
 #include <asm/cpumask.h>
+#include <asm/barrier.h>
 #include <asm/mmu.h>
 #include <asm/psci.h>
 #include <asm/smp.h>
@@ -23,6 +24,7 @@ secondary_entry_fn secondary_cinit(void)
 	secondary_entry_fn entry;
 
 	thread_info_init(ti, 0);
+	mmu_mark_enabled(ti->cpu);
 
 	/*
 	 * Save secondary_data.entry locally to avoid opening a race
@@ -45,6 +47,7 @@ void smp_boot_secondary(int cpu, secondary_entry_fn entry)
 
 	secondary_data.stack = stack_base + THREAD_START_SP;
 	secondary_data.entry = entry;
+	mmu_mark_disabled(cpu);
 	assert(cpu_psci_cpu_boot(cpu) == 0);
 
 	while (!cpu_online(cpu))

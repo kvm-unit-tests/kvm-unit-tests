@@ -9,7 +9,6 @@
 #include <asm/psci.h>
 #include <asm/setup.h>
 #include <asm/page.h>
-#include <asm/mmu-api.h>
 
 #define T PSCI_INVOKE_ARG_TYPE
 __attribute__((noinline))
@@ -30,7 +29,6 @@ int psci_cpu_on(unsigned long cpuid, unsigned long entry_point)
 extern void secondary_entry(void);
 int cpu_psci_cpu_boot(unsigned int cpu)
 {
-	mmu_mark_disabled(cpu);
 	int err = psci_cpu_on(cpus[cpu], __pa(secondary_entry));
 	if (err)
 		printf("failed to boot CPU%d (%d)\n", cpu, err);
