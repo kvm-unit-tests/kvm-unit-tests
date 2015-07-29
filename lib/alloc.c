@@ -44,6 +44,7 @@ void phys_alloc_init(phys_addr_t base_addr, phys_addr_t size)
 	base = base_addr;
 	top = base + size;
 	align_min = DEFAULT_MINIMUM_ALIGNMENT;
+	nr_regions = 0;
 	spin_unlock(&lock);
 }
 
@@ -58,6 +59,7 @@ void phys_alloc_set_minimum_alignment(phys_addr_t align)
 static phys_addr_t phys_alloc_aligned_safe(phys_addr_t size,
 					   phys_addr_t align, bool safe)
 {
+	static bool warned = false;
 	phys_addr_t addr, size_orig = size;
 	u64 top_safe = top;
 
@@ -72,9 +74,9 @@ static phys_addr_t phys_alloc_aligned_safe(phys_addr_t size,
 	size += addr - base;
 
 	if ((top_safe - base) < size) {
-		printf("%s: requested=0x%llx (align=0x%llx), "
+		printf("phys_alloc: requested=0x%llx (align=0x%llx), "
 		       "need=0x%llx, but free=0x%llx. "
-		       "top=0x%llx, top_safe=0x%llx\n", __func__,
+		       "top=0x%llx, top_safe=0x%llx\n",
 		       size_orig, align, size, top_safe - base,
 		       top, top_safe);
 		spin_unlock(&lock);
@@ -87,9 +89,10 @@ static phys_addr_t phys_alloc_aligned_safe(phys_addr_t size,
 		regions[nr_regions].base = addr;
 		regions[nr_regions].size = size_orig;
 		++nr_regions;
-	} else {
-		printf("%s: WARNING: no free log entries, "
-		       "can't log allocation...\n", __func__);
+	} else if (!warned) {
+		printf("WARNING: phys_alloc: No free log entries, "
+		       "can no longer log allocations...\n");
+		warned = true;
 	}
 
 	spin_unlock(&lock);
