@@ -34,6 +34,11 @@ static void set_dr1(void *value)
 	asm volatile("mov %0,%%dr1" : : "r" (value));
 }
 
+static void set_dr6(unsigned long value)
+{
+	asm volatile("mov %0,%%dr6" : : "r" (value));
+}
+
 static void set_dr7(unsigned long value)
 {
 	asm volatile("mov %0,%%dr7" : : "r" (value));
@@ -70,15 +75,26 @@ sw_bp:
 	asm volatile("int3");
 	report("#BP", bp_addr[0] == (unsigned long)&&sw_bp + 1);
 
-	set_dr0(&&hw_bp);
+	n = 0;
+	set_dr0(&&hw_bp1);
 	set_dr7(0x00000402);
-hw_bp:
+hw_bp1:
 	asm volatile("nop");
-	report("hw breakpoint",
+	report("hw breakpoint (test that dr6.BS is not set)",
 	       n == 1 &&
-	       bp_addr[0] == ((unsigned long)&&hw_bp) && dr6[0] == 0xffff0ff1);
+	       bp_addr[0] == ((unsigned long)&&hw_bp1) && dr6[0] == 0xffff0ff1);
 
 	n = 0;
+	set_dr0(&&hw_bp2);
+	set_dr6(0x00004002);
+hw_bp2:
+	asm volatile("nop");
+	report("hw breakpoint (test that dr6.BS is not cleared)",
+	       n == 1 &&
+	       bp_addr[0] == ((unsigned long)&&hw_bp2) && dr6[0] == 0xffff4ff1);
+
+	n = 0;
+	set_dr6(0);
 	asm volatile(
 		"pushf\n\t"
 		"pop %%rax\n\t"
@@ -104,10 +120,31 @@ hw_bp:
 		"mov $42,%%rax\n\t"
 		"mov %%rax,%0\n\t"
 		: "=m" (value) : : "rax");
-hw_wp:
-	report("hw watchpoint",
+hw_wp1:
+	report("hw watchpoint (test that dr6.BS is not cleared)",
 	       n == 1 &&
-	       bp_addr[0] == ((unsigned long)&&hw_wp) && dr6[0] == 0xffff4ff2);
+	       bp_addr[0] == ((unsigned long)&&hw_wp1) && dr6[0] == 0xffff4ff2);
+
+	n = 0;
+	set_dr6(0);
+
+	asm volatile(
+		"mov $42,%%rax\n\t"
+		"mov %%rax,%0\n\t"
+		: "=m" (value) : : "rax");
+hw_wp2:
+	report("hw watchpoint (test that dr6.BS is not set)",
+	       n == 1 &&
+	       bp_addr[0] == ((unsigned long)&&hw_wp2) && dr6[0] == 0xffff0ff2);
+
+	n = 0;
+	set_dr6(0);
+sw_icebp:
+	asm volatile(".byte 0xf1");
+	report("icebp",
+	       n == 1 &&
+	       bp_addr[0] == (unsigned long)&&sw_icebp + 1 &&
+	       dr6[0] == 0xffff0ff0);
 
 	return report_summary();
 }
