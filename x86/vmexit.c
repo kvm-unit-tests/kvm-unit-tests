@@ -5,6 +5,7 @@
 #include "x86/vm.h"
 #include "x86/desc.h"
 #include "x86/pci.h"
+#include "x86/acpi.h"
 
 struct test {
 	void (*func)(void);
@@ -104,9 +105,10 @@ static void ipi_halt(void)
 		;
 }
 
+int pm_tmr_blk;
 static void inl_pmtimer(void)
 {
-    inl(0xb008);
+    inl(pm_tmr_blk);
 }
 
 static void inl_nop_qemu(void)
@@ -406,6 +408,7 @@ bool test_wanted(struct test *test, char *wanted[], int nwanted)
 
 int main(int ac, char **av)
 {
+	struct fadt_descriptor_rev1 *fadt;
 	int i;
 	unsigned long membar = 0, base, offset;
 	void *m;
@@ -417,6 +420,10 @@ int main(int ac, char **av)
 
 	for (i = cpu_count(); i > 0; i--)
 		on_cpu(i-1, enable_nx, 0);
+
+	fadt = find_acpi_table_addr(FACP_SIGNATURE);
+	pm_tmr_blk = fadt->pm_tmr_blk;
+	printf("PM timer port is %x\n", pm_tmr_blk);
 
 	pcidev = pci_find_dev(0x1b36, 0x0005);
 	if (pcidev) {

@@ -1,5 +1,5 @@
 #include "libcflat.h"
-#include "acpi.h"
+#include "x86/acpi.h"
 
 u32* find_resume_vector_addr(void)
 {
@@ -40,6 +40,7 @@ extern char resume_start, resume_end;
 
 int main(int argc, char **argv)
 {
+	struct fadt_descriptor_rev1 *fadt = find_acpi_table_addr(FACP_SIGNATURE);
 	volatile u32 *resume_vector_ptr = find_resume_vector_addr();
 	char *addr, *resume_vec = (void*)0x1000;
 
@@ -60,7 +61,7 @@ int main(int argc, char **argv)
 	rtc_out(RTC_REG_B, rtc_in(RTC_REG_B) | REG_B_AIE);
 
 	*(volatile int*)0 = 0;
-	asm volatile("outw %0, %1" :: "a"((short)0x2400), "d"((short)0xb004):"memory");
+	asm volatile("outw %0, %1" :: "a"((short)0x2400), "d"((short)fadt->pm1a_cnt_blk):"memory");
 	while(1)
 		*(volatile int*)0 = 1;
 
