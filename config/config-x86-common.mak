@@ -11,6 +11,7 @@ cflatobjs += lib/x86/atomic.o
 cflatobjs += lib/x86/desc.o
 cflatobjs += lib/x86/isr.o
 cflatobjs += lib/x86/pci.o
+cflatobjs += lib/x86/acpi.o
 
 $(libcflat): LDFLAGS += -nostdlib
 $(libcflat): CFLAGS += -ffreestanding -I lib
