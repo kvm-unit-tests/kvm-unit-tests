@@ -46,7 +46,7 @@ static void check_exception_table(struct ex_regs *regs)
             return;
         }
     }
-    printf("unhandled excecption %d\n", regs->vector);
+    printf("unhandled exception %d\n", regs->vector);
     exit(7);
 }
 
@@ -68,7 +68,7 @@ void do_handle_exception(struct ex_regs *regs)
 		exception_handlers[regs->vector](regs);
 		return;
 	}
-	printf("unhandled cpu excecption %d\n", regs->vector);
+	printf("unhandled cpu exception %d\n", regs->vector);
 	if (regs->vector == 14)
 		printf("PF at %p addr %p\n", regs->rip, read_cr2());
 	exit(7);
