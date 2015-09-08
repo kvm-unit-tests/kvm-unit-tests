@@ -9,11 +9,11 @@ ifeq ($(LOADADDR),)
 	LOADADDR = 0x40000000
 endif
 
-tests-common = \
-	$(TEST_DIR)/selftest.flat \
-	$(TEST_DIR)/spinlock-test.flat \
-	$(TEST_DIR)/pci-test.flat \
-	$(TEST_DIR)/pmu.flat
+tests-common  = $(TEST_DIR)/selftest.flat
+tests-common += $(TEST_DIR)/spinlock-test.flat
+tests-common += $(TEST_DIR)/pci-test.flat
+tests-common += $(TEST_DIR)/pmu.flat
+tests-common += $(TEST_DIR)/gic.flat
 
 all: test_cases
 

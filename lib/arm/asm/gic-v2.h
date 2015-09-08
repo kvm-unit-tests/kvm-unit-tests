@@ -13,7 +13,9 @@
 #endif
 
 #define GICD_ENABLE			0x1
+
 #define GICC_ENABLE			0x1
+#define GICC_IAR_INT_ID_MASK		0x3ff
 
 #ifndef __ASSEMBLY__
 

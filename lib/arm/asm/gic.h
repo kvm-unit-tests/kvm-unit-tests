@@ -13,6 +13,7 @@
 #define GICD_TYPER			0x0004
 #define GICD_ISENABLER			0x0100
 #define GICD_IPRIORITYR			0x0400
+#define GICD_SGIR			0x0f00
 
 #define GICD_TYPER_IRQS(typer)		((((typer) & 0x1f) + 1) * 32)
 #define GICD_INT_EN_SET_SGI		0x0000ffff
@@ -21,8 +22,11 @@
 /* CPU interface registers */
 #define GICC_CTLR			0x0000
 #define GICC_PMR			0x0004
+#define GICC_IAR			0x000c
+#define GICC_EOIR			0x0010
 
 #define GICC_INT_PRI_THRESHOLD		0xf0
+#define GICC_INT_SPURIOUS		0x3ff
 
 #ifndef __ASSEMBLY__
 
