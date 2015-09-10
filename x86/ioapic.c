@@ -147,15 +147,16 @@ static void test_ioapic_simultaneous(void)
 	       g_66 && g_78 && g_66_after_78 && g_66_rip == g_78_rip);
 }
 
-static int g_tmr_79 = -1;
+static volatile int g_tmr_79 = -1;
 
 static void ioapic_isr_79(isr_regs_t *regs)
 {
 	g_tmr_79 = apic_read_bit(APIC_TMR, 0x79);
+	set_irq_line(0x0e, 0);
 	eoi();
 }
 
-static void test_ioapic_edge_tmr(void)
+static void test_ioapic_edge_tmr(bool expected_tmr_before)
 {
 	int tmr_before;
 
@@ -164,8 +165,81 @@ static void test_ioapic_edge_tmr(void)
 	tmr_before = apic_read_bit(APIC_TMR, 0x79);
 	toggle_irq_line(0x0e);
 	asm volatile ("nop");
-	report("TMR for ioapic edge interrupts",
-	       !tmr_before && !g_tmr_79);
+	report("TMR for ioapic edge interrupts (expected %s)",
+	       tmr_before == expected_tmr_before && !g_tmr_79,
+	       expected_tmr_before ? "true" : "false");
+}
+
+static void test_ioapic_level_tmr(bool expected_tmr_before)
+{
+	int tmr_before;
+
+	handle_irq(0x79, ioapic_isr_79);
+	set_ioapic_redir(0x0e, 0x79, LEVEL_TRIGGERED);
+	tmr_before = apic_read_bit(APIC_TMR, 0x79);
+	set_irq_line(0x0e, 1);
+	asm volatile ("nop");
+	report("TMR for ioapic level interrupts (expected %s)",
+	       tmr_before == expected_tmr_before && g_tmr_79,
+	       expected_tmr_before ? "true" : "false");
+}
+
+#define IPI_DELAY 1000000
+
+static void delay(int count)
+{
+	while(count--) asm("");
+}
+
+static void toggle_irq_line_0x0e(void *data)
+{
+	irq_disable();
+	delay(IPI_DELAY);
+	toggle_irq_line(0x0e);
+	irq_enable();
+}
+
+static void test_ioapic_edge_tmr_smp(bool expected_tmr_before)
+{
+	int tmr_before;
+	int i;
+
+	g_tmr_79 = -1;
+	handle_irq(0x79, ioapic_isr_79);
+	set_ioapic_redir(0x0e, 0x79, EDGE_TRIGGERED);
+	tmr_before = apic_read_bit(APIC_TMR, 0x79);
+	on_cpu_async(1, toggle_irq_line_0x0e, 0);
+	i = 0;
+	while(g_tmr_79 == -1) i++;
+	printf("%d iterations before interrupt received\n", i);
+	report("TMR for ioapic edge interrupts (expected %s)",
+	       tmr_before == expected_tmr_before && !g_tmr_79,
+	       expected_tmr_before ? "true" : "false");
+}
+
+static void set_irq_line_0x0e(void *data)
+{
+	irq_disable();
+	delay(IPI_DELAY);
+	set_irq_line(0x0e, 1);
+	irq_enable();
+}
+
+static void test_ioapic_level_tmr_smp(bool expected_tmr_before)
+{
+	int i, tmr_before;
+
+	g_tmr_79 = -1;
+	handle_irq(0x79, ioapic_isr_79);
+	set_ioapic_redir(0x0e, 0x79, LEVEL_TRIGGERED);
+	tmr_before = apic_read_bit(APIC_TMR, 0x79);
+	on_cpu_async(1, set_irq_line_0x0e, 0);
+	i = 0;
+	while(g_tmr_79 == -1) i++;
+	printf("%d iterations before interrupt received\n", i);
+	report("TMR for ioapic level interrupts (expected %s)",
+	       tmr_before == expected_tmr_before && g_tmr_79,
+	       expected_tmr_before ? "true" : "false");
 }
 
 static int g_isr_98;
@@ -239,28 +313,6 @@ static void test_ioapic_level_retrigger(void)
 	asm volatile ("sti");
 
 	report("retriggered level interrupts without masking", g_isr_9a == 2);
-}
-
-static int g_tmr_9b = -1;
-
-static void ioapic_isr_9b(isr_regs_t *regs)
-{
-	g_tmr_9b = apic_read_bit(APIC_TMR, 0x9b);
-	set_irq_line(0x0e, 0);
-	eoi();
-}
-
-static void test_ioapic_level_tmr(void)
-{
-	int tmr_before;
-
-	handle_irq(0x9b, ioapic_isr_9b);
-	set_ioapic_redir(0x0e, 0x9b, LEVEL_TRIGGERED);
-	tmr_before = apic_read_bit(APIC_TMR, 0x9b);
-	set_irq_line(0x0e, 1);
-	asm volatile ("nop");
-	report("TMR for ioapic level interrupts",
-	       !tmr_before && g_tmr_9b);
 }
 
 static volatile int g_isr_81;
@@ -365,9 +417,6 @@ int main(void)
 	test_ioapic_level_intr();
 	test_ioapic_simultaneous();
 
-	test_ioapic_edge_tmr();
-	test_ioapic_level_tmr();
-
 	test_ioapic_level_coalesce();
 	test_ioapic_level_sequential();
 	test_ioapic_level_retrigger();
@@ -375,6 +424,18 @@ int main(void)
 	test_ioapic_edge_mask();
 	test_ioapic_level_mask();
 	test_ioapic_level_retrigger_mask();
+
+	test_ioapic_edge_tmr(false);
+	test_ioapic_level_tmr(false);
+	test_ioapic_level_tmr(true);
+	test_ioapic_edge_tmr(true);
+
+	if (cpu_count() > 1) {
+		test_ioapic_edge_tmr_smp(false);
+		test_ioapic_level_tmr_smp(false);
+		test_ioapic_level_tmr_smp(true);
+		test_ioapic_edge_tmr_smp(true);
+	}
 
 	return report_summary();
 }
