@@ -95,6 +95,13 @@ void apic_write(unsigned reg, u32 val)
     apic_ops->reg_write(reg, val);
 }
 
+bool apic_read_bit(unsigned reg, int n)
+{
+    reg += (n >> 5) << 4;
+    n &= 31;
+    return (apic_read(reg) & (1 << n)) != 0;
+}
+
 void apic_icr_write(u32 val, u32 dest)
 {
     apic_ops->icr_write(val, dest);

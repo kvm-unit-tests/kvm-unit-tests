@@ -147,6 +147,27 @@ static void test_ioapic_simultaneous(void)
 	       g_66 && g_78 && g_66_after_78 && g_66_rip == g_78_rip);
 }
 
+static int g_tmr_79 = -1;
+
+static void ioapic_isr_79(isr_regs_t *regs)
+{
+	g_tmr_79 = apic_read_bit(APIC_TMR, 0x79);
+	eoi();
+}
+
+static void test_ioapic_edge_tmr(void)
+{
+	int tmr_before;
+
+	handle_irq(0x79, ioapic_isr_79);
+	set_ioapic_redir(0x0e, 0x79, EDGE_TRIGGERED);
+	tmr_before = apic_read_bit(APIC_TMR, 0x79);
+	toggle_irq_line(0x0e);
+	asm volatile ("nop");
+	report("TMR for ioapic edge interrupts",
+	       !tmr_before && !g_tmr_79);
+}
+
 static int g_isr_98;
 
 static void ioapic_isr_98(isr_regs_t *regs)
@@ -218,6 +239,28 @@ static void test_ioapic_level_retrigger(void)
 	asm volatile ("sti");
 
 	report("retriggered level interrupts without masking", g_isr_9a == 2);
+}
+
+static int g_tmr_9b = -1;
+
+static void ioapic_isr_9b(isr_regs_t *regs)
+{
+	g_tmr_9b = apic_read_bit(APIC_TMR, 0x9b);
+	set_irq_line(0x0e, 0);
+	eoi();
+}
+
+static void test_ioapic_level_tmr(void)
+{
+	int tmr_before;
+
+	handle_irq(0x9b, ioapic_isr_9b);
+	set_ioapic_redir(0x0e, 0x9b, LEVEL_TRIGGERED);
+	tmr_before = apic_read_bit(APIC_TMR, 0x9b);
+	set_irq_line(0x0e, 1);
+	asm volatile ("nop");
+	report("TMR for ioapic level interrupts",
+	       !tmr_before && g_tmr_9b);
 }
 
 static volatile int g_isr_81;
@@ -306,7 +349,11 @@ int main(void)
 	setup_idt();
 
 	mask_pic_interrupts();
-	enable_apic();
+
+	if (enable_x2apic())
+		printf("x2apic enabled\n");
+	else
+		printf("x2apic not detected\n");
 
 	irq_enable();
 
@@ -317,6 +364,10 @@ int main(void)
 	test_ioapic_edge_intr();
 	test_ioapic_level_intr();
 	test_ioapic_simultaneous();
+
+	test_ioapic_edge_tmr();
+	test_ioapic_level_tmr();
+
 	test_ioapic_level_coalesce();
 	test_ioapic_level_sequential();
 	test_ioapic_level_retrigger();
