@@ -408,4 +408,27 @@
 #define MSR_VM_IGNNE                    0xc0010115
 #define MSR_VM_HSAVE_PA                 0xc0010117
 
+/* Define synthetic interrupt controller model specific registers. */
+#define HV_X64_MSR_SCONTROL                     0x40000080
+#define HV_X64_MSR_SVERSION                     0x40000081
+#define HV_X64_MSR_SIEFP                        0x40000082
+#define HV_X64_MSR_SIMP                         0x40000083
+#define HV_X64_MSR_EOM                          0x40000084
+#define HV_X64_MSR_SINT0                        0x40000090
+#define HV_X64_MSR_SINT1                        0x40000091
+#define HV_X64_MSR_SINT2                        0x40000092
+#define HV_X64_MSR_SINT3                        0x40000093
+#define HV_X64_MSR_SINT4                        0x40000094
+#define HV_X64_MSR_SINT5                        0x40000095
+#define HV_X64_MSR_SINT6                        0x40000096
+#define HV_X64_MSR_SINT7                        0x40000097
+#define HV_X64_MSR_SINT8                        0x40000098
+#define HV_X64_MSR_SINT9                        0x40000099
+#define HV_X64_MSR_SINT10                       0x4000009A
+#define HV_X64_MSR_SINT11                       0x4000009B
+#define HV_X64_MSR_SINT12                       0x4000009C
+#define HV_X64_MSR_SINT13                       0x4000009D
+#define HV_X64_MSR_SINT14                       0x4000009E
+#define HV_X64_MSR_SINT15                       0x4000009F
+
 #endif /* _ASM_X86_MSR_INDEX_H */

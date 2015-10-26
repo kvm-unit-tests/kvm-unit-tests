@@ -36,7 +36,8 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/kvmclock_test.flat  $(TEST_DIR)/eventinj.flat \
                $(TEST_DIR)/s3.flat $(TEST_DIR)/pmu.flat \
                $(TEST_DIR)/tsc_adjust.flat $(TEST_DIR)/asyncpf.flat \
-               $(TEST_DIR)/init.flat $(TEST_DIR)/smap.flat
+               $(TEST_DIR)/init.flat $(TEST_DIR)/smap.flat \
+               $(TEST_DIR)/hyperv_synic.flat
 
 ifdef API
 tests-common += api/api-sample
@@ -109,6 +110,8 @@ $(TEST_DIR)/vmx.elf: $(cstart.o) $(TEST_DIR)/vmx.o $(TEST_DIR)/vmx_tests.o
 $(TEST_DIR)/debug.elf: $(cstart.o) $(TEST_DIR)/debug.o
 
 $(TEST_DIR)/memory.elf: $(cstart.o) $(TEST_DIR)/memory.o
+
+$(TEST_DIR)/hyperv_synic.elf: $(cstart.o) $(TEST_DIR)/hyperv_synic.o
 
 arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
