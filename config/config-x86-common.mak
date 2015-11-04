@@ -108,6 +108,8 @@ $(TEST_DIR)/vmx.elf: $(cstart.o) $(TEST_DIR)/vmx.o $(TEST_DIR)/vmx_tests.o
 
 $(TEST_DIR)/debug.elf: $(cstart.o) $(TEST_DIR)/debug.o
 
+$(TEST_DIR)/memory.elf: $(cstart.o) $(TEST_DIR)/memory.o
+
 arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
 	$(TEST_DIR)/.*.d lib/x86/.*.d
