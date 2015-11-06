@@ -180,6 +180,19 @@ int vsnprintf(char *buf, int size, const char *fmt, va_list va)
 		break;
 	    }
 	    break;
+	case 'u':
+	    switch (nlong) {
+	    case 0:
+		print_unsigned(&s, va_arg(va, unsigned), 10, props);
+		break;
+	    case 1:
+		print_unsigned(&s, va_arg(va, unsigned long), 10, props);
+		break;
+	    default:
+		print_unsigned(&s, va_arg(va, unsigned long long), 10, props);
+		break;
+	    }
+	    break;
 	case 'x':
 	    switch (nlong) {
 	    case 0:
