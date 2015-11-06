@@ -46,7 +46,7 @@ function run()
         fi
     done
 
-    cmdline="./$TEST_DIR-run $kernel -smp $smp $opts"
+    cmdline="TESTNAME=$testname ./$TEST_DIR-run $kernel -smp $smp $opts"
     if [ $verbose != 0 ]; then
         echo $cmdline
     fi
