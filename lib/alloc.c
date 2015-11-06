@@ -61,14 +61,16 @@ static phys_addr_t phys_alloc_aligned_safe(phys_addr_t size,
 {
 	static bool warned = false;
 	phys_addr_t addr, size_orig = size;
-	u64 top_safe = top;
+	u64 top_safe;
+
+	spin_lock(&lock);
+
+	top_safe = top;
 
 	if (safe && sizeof(long) == 4)
 		top_safe = MIN(top, 1ULL << 32);
 
 	align = MAX(align, align_min);
-
-	spin_lock(&lock);
 
 	addr = ALIGN(base, align);
 	size += addr - base;
