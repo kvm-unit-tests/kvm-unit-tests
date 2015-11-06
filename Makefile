@@ -1,4 +1,6 @@
 
+SHELL := /bin/bash
+
 ifeq ($(wildcard config.mak),)
 $(error run ./configure first. See ./configure -h)
 endif
