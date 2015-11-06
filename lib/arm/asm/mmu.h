@@ -14,8 +14,11 @@
 #define PTE_AF			PTE_EXT_AF
 #define PTE_WBWA		L_PTE_MT_WRITEALLOC
 
+/* See B3.18.7 TLB maintenance operations */
+
 static inline void local_flush_tlb_all(void)
 {
+	/* TLBIALL */
 	asm volatile("mcr p15, 0, %0, c8, c7, 0" :: "r" (0));
 	dsb();
 	isb();
@@ -25,6 +28,14 @@ static inline void flush_tlb_all(void)
 {
 	//TODO
 	local_flush_tlb_all();
+}
+
+static inline void flush_tlb_page(unsigned long vaddr)
+{
+	/* TLBIMVAA */
+	asm volatile("mcr p15, 0, %0, c8, c7, 3" :: "r" (vaddr));
+	dsb();
+	isb();
 }
 
 #include <asm/mmu-api.h>

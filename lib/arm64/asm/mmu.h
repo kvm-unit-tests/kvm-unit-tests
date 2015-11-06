@@ -19,6 +19,14 @@ static inline void flush_tlb_all(void)
 	isb();
 }
 
+static inline void flush_tlb_page(unsigned long vaddr)
+{
+	unsigned long page = vaddr >> 12;
+	dsb(ishst);
+	asm("tlbi	vaae1is, %0" :: "r" (page));
+	dsb(ish);
+}
+
 #include <asm/mmu-api.h>
 
 #endif /* __ASMARM64_MMU_H_ */
