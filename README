@@ -1,3 +1,9 @@
+Welcome to kvm-unit-tests
+
+See http://www.linux-kvm.org/page/KVM-unit-tests for a high-level
+description of this project, as well as running tests and adding
+tests HOWTOs.
+
 This directory contains sources for a kvm test suite.
 
 To create the test images do
