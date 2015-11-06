@@ -29,6 +29,7 @@ function mkstandalone()
 	local opts="$5"
 	local arch="$6"
 	local check="$7"
+	local accel="$8"
 
 	if [ -z "$testname" ]; then
 		return 1
@@ -39,7 +40,7 @@ function mkstandalone()
 	fi
 
 	standalone=tests/$testname
-	cmdline=$(DRYRUN=yes ./$TEST_DIR-run $kernel)
+	cmdline=$(DRYRUN=yes ACCEL=$accel ./$TEST_DIR-run $kernel)
 	if [ $? -ne 0 ]; then
 		echo $cmdline
 		exit 1
@@ -94,10 +95,16 @@ qemu="$qemu"
 if [ "\$QEMU" ]; then
 	qemu="\$QEMU"
 fi
-cmdline="\`echo '$cmdline' | sed s%$kernel%\$bin%\`"
 echo \$qemu $cmdline -smp $smp $opts
-\$qemu \$cmdline -smp $smp $opts
-ret=\$?
+
+cmdline="\`echo '$cmdline' | sed s%$kernel%_NO_FILE_4Uhere_%\`"
+if \$qemu \$cmdline 2>&1 | grep 'No accelerator found'; then
+        ret=2
+else
+	cmdline="\`echo '$cmdline' | sed s%$kernel%\$bin%\`"
+	\$qemu \$cmdline -smp $smp $opts
+	ret=\$?
+fi
 echo Return value from qemu: \$ret
 if [ \$ret -le 1 ]; then
 	echo PASS $testname 1>&2

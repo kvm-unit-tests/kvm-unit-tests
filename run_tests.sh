@@ -20,6 +20,7 @@ function run()
     local opts="$5"
     local arch="$6"
     local check="$7"
+    local accel="$8"
 
     if [ -z "$testname" ]; then
         return
@@ -46,7 +47,7 @@ function run()
         fi
     done
 
-    cmdline="TESTNAME=$testname ./$TEST_DIR-run $kernel -smp $smp $opts"
+    cmdline="TESTNAME=$testname ACCEL=$accel ./$TEST_DIR-run $kernel -smp $smp $opts"
     if [ $verbose != 0 ]; then
         echo $cmdline
     fi

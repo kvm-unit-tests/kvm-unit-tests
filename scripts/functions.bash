@@ -10,12 +10,13 @@ function for_each_unittest()
 	local groups
 	local arch
 	local check
+	local accel
 
 	exec {fd}<"$unittests"
 
 	while read -u $fd line; do
 		if [[ "$line" =~ ^\[(.*)\]$ ]]; then
-			"$cmd" "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$check"
+			"$cmd" "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$check" "$accel"
 			testname=${BASH_REMATCH[1]}
 			smp=1
 			kernel=""
@@ -23,6 +24,7 @@ function for_each_unittest()
 			groups=""
 			arch=""
 			check=""
+			accel=""
 		elif [[ $line =~ ^file\ *=\ *(.*)$ ]]; then
 			kernel=$TEST_DIR/${BASH_REMATCH[1]}
 		elif [[ $line =~ ^smp\ *=\ *(.*)$ ]]; then
@@ -35,8 +37,10 @@ function for_each_unittest()
 			arch=${BASH_REMATCH[1]}
 		elif [[ $line =~ ^check\ *=\ *(.*)$ ]]; then
 			check=${BASH_REMATCH[1]}
+		elif [[ $line =~ ^accel\ *=\ *(.*)$ ]]; then
+			accel=${BASH_REMATCH[1]}
 		fi
 	done
-	"$cmd" "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$check"
+	"$cmd" "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$check" "$accel"
 	exec {fd}<&-
 }

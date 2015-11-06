@@ -7,6 +7,42 @@ fi
 source config.mak
 processor="$PROCESSOR"
 
+if [ -c /dev/kvm ]; then
+	if [ "$HOST" = "arm" ] && [ "$ARCH" = "arm" ]; then
+		kvm_available=yes
+	elif [ "$HOST" = "aarch64" ]; then
+		kvm_available=yes
+	fi
+fi
+
+if [ "$ACCEL" = "kvm" ] && [ "$kvm_available" != "yes" ] &&
+		[ "$DRYRUN" != "yes" ]; then
+	printf "skip $TESTNAME (kvm only)\n\n"
+	exit 2
+fi
+
+if [ -z "$ACCEL" ]; then
+	if [ "$DRYRUN" = "yes" ]; then
+		# Output kvm with tcg fallback for dryrun (when both are
+		# allowed), since the command line we output may get used
+		# elsewhere.
+		ACCEL="kvm:tcg"
+	elif [ "$kvm_available" = "yes" ]; then
+		ACCEL="kvm"
+	else
+		ACCEL="tcg"
+	fi
+fi
+
+if [ "$ARCH" = "arm64" ]; then
+	if [[ $ACCEL =~ kvm ]]; then
+		# arm64 must use '-cpu host' with kvm, and we can't use
+		# '-cpu host' with tcg, so we force kvm-only (no fallback)
+		ACCEL="kvm"
+		processor="host"
+	fi
+fi
+
 qemu="${QEMU:-qemu-system-$ARCH_NAME}"
 qpath=$(which $qemu 2>/dev/null)
 
@@ -33,15 +69,10 @@ if $qemu $M -chardev testdev,id=id -initrd . 2>&1 \
 	exit 2
 fi
 
-M='-machine virt,accel=kvm:tcg'
 chr_testdev='-device virtio-serial-device'
 chr_testdev+=' -device virtconsole,chardev=ctd -chardev testdev,id=ctd'
 
-# arm64 must use '-cpu host' with kvm
-if [ "$(arch)" = "aarch64" ] && [ "$ARCH" = "arm64" ] && [ -c /dev/kvm ]; then
-	processor="host"
-fi
-
+M+=",accel=$ACCEL"
 command="$qemu $M -cpu $processor $chr_testdev"
 command+=" -display none -serial stdio -kernel"
 echo $command "$@"
