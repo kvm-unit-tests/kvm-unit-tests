@@ -41,3 +41,29 @@ Directory structure:
 ./<ARCH>:	the sources of the tests and the created objects/images
 
 See <ARCH>/README for architecture specific documentation.
+
+CONTRIBUTING:
+=============
+
+Style
+-----
+
+Currently there is a mix of indentation styles so any changes to
+existing files should be consistent with the existing style. For new
+files:
+
+  - C: please use standard linux-with-tabs
+  - Shell: use TABs for indentation
+
+Patches
+-------
+
+Patches are welcome at the KVM mailing list <kvm@vger.kernel.org>.
+
+Please prefix messages with: [kvm-unit-tests PATCH]
+
+You can add the following to .git/config to do this automatically for you:
+
+[format]
+	subjectprefix = kvm-unit-tests PATCH
+
