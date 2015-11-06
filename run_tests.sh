@@ -98,4 +98,13 @@ while getopts "g:hv" opt; do
     esac
 done
 
+#
+# Probe for MAX_SMP
+#
+MAX_SMP=$(getconf _NPROCESSORS_CONF)
+while ./$TEST_DIR-run _NO_FILE_4Uhere_ -smp $MAX_SMP \
+		|& grep -q 'exceeds max cpus'; do
+	((--MAX_SMP))
+done
+
 for_each_unittest $config run

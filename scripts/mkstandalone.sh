@@ -95,12 +95,19 @@ qemu="$qemu"
 if [ "\$QEMU" ]; then
 	qemu="\$QEMU"
 fi
+
+MAX_SMP="MAX_SMP"
 echo \$qemu $cmdline -smp $smp $opts
 
 cmdline="\`echo '$cmdline' | sed s%$kernel%_NO_FILE_4Uhere_%\`"
 if \$qemu \$cmdline 2>&1 | grep 'No accelerator found'; then
-        ret=2
+	ret=2
 else
+	MAX_SMP=\`getconf _NPROCESSORS_CONF\`
+	while \$qemu \$cmdline -smp \$MAX_SMP 2>&1 | grep 'exceeds max cpus' > /dev/null; do
+		MAX_SMP=\`expr \$MAX_SMP - 1\`
+	done
+
 	cmdline="\`echo '$cmdline' | sed s%$kernel%\$bin%\`"
 	\$qemu \$cmdline -smp $smp $opts
 	ret=\$?
