@@ -376,6 +376,9 @@ int main(int argc, char **argv)
 		cpumask_set_cpu(0, &smp_reported);
 		while (!cpumask_full(&smp_reported))
 			cpu_relax();
+	} else {
+		printf("Unknown subtest\n");
+		abort();
 	}
 
 	return report_summary();
