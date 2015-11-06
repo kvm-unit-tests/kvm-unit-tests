@@ -7,6 +7,7 @@ ld=ld
 objcopy=objcopy
 ar=ar
 arch=`uname -m | sed -e s/i.86/i386/ | sed -e 's/arm.*/arm/'`
+host=$arch
 cross_prefix=
 
 usage() {
@@ -122,6 +123,7 @@ ln -s $asm lib/asm
 cat <<EOF > config.mak
 PREFIX=$prefix
 KERNELDIR=$(readlink -f $kerneldir)
+HOST=$host
 ARCH=$arch
 ARCH_NAME=$arch_name
 PROCESSOR=$processor
