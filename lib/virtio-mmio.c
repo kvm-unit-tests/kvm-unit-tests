@@ -54,8 +54,7 @@ static struct virtqueue *vm_setup_vq(struct virtio_device *vdev,
 
 	vq = calloc(1, sizeof(*vq));
 	queue = memalign(PAGE_SIZE, VIRTIO_MMIO_QUEUE_SIZE_MIN);
-	if (!vq || !queue)
-		return NULL;
+	assert(vq && queue);
 
 	writel(index, vm_dev->base + VIRTIO_MMIO_QUEUE_SEL);
 
@@ -162,8 +161,7 @@ static struct virtio_device *virtio_mmio_dt_bind(u32 devid)
 		return NULL;
 
 	vm_dev = calloc(1, sizeof(*vm_dev));
-	if (!vm_dev)
-		return NULL;
+	assert(vm_dev != NULL);
 
 	vm_dev->base = info.base;
 	vm_device_init(vm_dev);
