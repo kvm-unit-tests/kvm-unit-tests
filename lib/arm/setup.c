@@ -39,8 +39,11 @@ static void cpu_set(int fdtnode __unused, u32 regval, void *info __unused)
 
 static void cpu_init(void)
 {
+	int ret;
+
 	nr_cpus = 0;
-	assert(dt_for_each_cpu_node(cpu_set, NULL) == 0);
+	ret = dt_for_each_cpu_node(cpu_set, NULL);
+	assert(ret == 0);
 	set_cpu_online(0, true);
 }
 
@@ -49,8 +52,10 @@ static void mem_init(phys_addr_t freemem_start)
 	/* we only expect one membank to be defined in the DT */
 	struct dt_pbus_reg regs[1];
 	phys_addr_t mem_start, mem_end;
+	int ret;
 
-	assert(dt_get_memory_params(regs, 1));
+	ret = dt_get_memory_params(regs, 1);
+	assert(ret != 0);
 
 	mem_start = regs[0].addr;
 	mem_end = mem_start + regs[0].size;
@@ -71,14 +76,17 @@ void setup(const void *fdt)
 {
 	const char *bootargs;
 	u32 fdt_size;
+	int ret;
 
 	/*
 	 * Move the fdt to just above the stack. The free memory
 	 * then starts just after the fdt.
 	 */
 	fdt_size = fdt_totalsize(fdt);
-	assert(fdt_move(fdt, &stacktop, fdt_size) == 0);
-	assert(dt_init(&stacktop) == 0);
+	ret = fdt_move(fdt, &stacktop, fdt_size);
+	assert(ret == 0);
+	ret = dt_init(&stacktop);
+	assert(ret == 0);
 
 	mem_init(PAGE_ALIGN((unsigned long)&stacktop + fdt_size));
 	io_init();
@@ -86,6 +94,7 @@ void setup(const void *fdt)
 
 	thread_info_init(current_thread_info(), 0);
 
-	assert(dt_get_bootargs(&bootargs) == 0);
+	ret = dt_get_bootargs(&bootargs);
+	assert(ret == 0);
 	setup_args(bootargs);
 }

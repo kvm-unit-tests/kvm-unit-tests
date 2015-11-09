@@ -123,10 +123,12 @@ static int vm_dt_match(const struct dt_device *dev, int fdtnode)
 	struct vm_dt_info *info = (struct vm_dt_info *)dev->info;
 	struct dt_pbus_reg base;
 	u32 magic;
+	int ret;
 
 	dt_device_bind_node((struct dt_device *)dev, fdtnode);
 
-	assert(dt_pbus_get_base(dev, &base) == 0);
+	ret = dt_pbus_get_base(dev, &base);
+	assert(ret == 0);
 	info->base = ioremap(base.addr, base.size);
 
 	magic = readl(info->base + VIRTIO_MMIO_MAGIC_VALUE);
