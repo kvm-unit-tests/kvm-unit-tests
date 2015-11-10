@@ -1150,6 +1150,68 @@ static int ept_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
+static int vpid_init()
+{
+	u32 ctrl_cpu1;
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
+		!(ctrl_cpu_rev[1].clr & CPU_VPID)) {
+		printf("\tVPID is not supported");
+		return VMX_TEST_EXIT;
+	}
+
+	ctrl_cpu1 = vmcs_read(CPU_EXEC_CTRL1);
+	ctrl_cpu1 |= CPU_VPID;
+	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu1);
+	return VMX_TEST_START;
+}
+
+static void vpid_main()
+{
+	vmx_set_test_stage(0);
+	vmcall();
+	report("INVVPID SINGLE", vmx_get_test_stage() == 0);
+	vmx_set_test_stage(1);
+	vmcall();
+	report("INVVPID ALL", vmx_get_test_stage() == 1);
+}
+
+static int vpid_exit_handler()
+{
+	u64 guest_rip;
+	ulong reason;
+	u32 insn_len;
+	u32 exit_qual;
+
+	guest_rip = vmcs_read(GUEST_RIP);
+	reason = vmcs_read(EXI_REASON) & 0xff;
+	insn_len = vmcs_read(EXI_INST_LEN);
+	exit_qual = vmcs_read(EXI_QUALIFICATION);
+
+	switch (reason) {
+	case VMX_VMCALL:
+		switch(vmx_get_test_stage()) {
+		case 0:
+			vpid_sync(INVVPID_SINGLE, 1);
+			break;
+		case 1:
+			vpid_sync(INVVPID_ALL, 1);
+			break;
+		default:
+			printf("ERROR: unexpected stage, %d\n",
+					vmx_get_test_stage());
+			print_vmexit_info();
+			return VMX_TEST_VMEXIT;
+		}
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+		return VMX_TEST_RESUME;
+	default:
+		printf("Unknown exit reason, %d\n", reason);
+		print_vmexit_info();
+	}
+	return VMX_TEST_VMEXIT;
+}
+
 #define TIMER_VECTOR	222
 
 static volatile bool timer_fired;
@@ -1547,6 +1609,7 @@ struct vmx_test vmx_tests[] = {
 	{ "instruction intercept", insn_intercept_init, insn_intercept_main,
 		insn_intercept_exit_handler, NULL, {0} },
 	{ "EPT framework", ept_init, ept_main, ept_exit_handler, NULL, {0} },
+	{ "VPID", vpid_init, vpid_main, vpid_exit_handler, NULL, {0} },
 	{ "interrupt", interrupt_init, interrupt_main,
 		interrupt_exit_handler, NULL, {0} },
 	{ "debug controls", dbgctls_init, dbgctls_main, dbgctls_exit_handler,

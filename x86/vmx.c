@@ -386,6 +386,23 @@ int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
 	return 0;
 }
 
+void vpid_sync(int type, u16 vpid)
+{
+	switch(type) {
+	case INVVPID_SINGLE:
+		if (ept_vpid.val & VPID_CAP_INVVPID_SINGLE) {
+			invvpid(INVVPID_SINGLE, vpid, 0);
+			break;
+		}
+	case INVVPID_ALL:
+		if (ept_vpid.val & VPID_CAP_INVVPID_ALL) {
+			invvpid(INVVPID_ALL, vpid, 0);
+			break;
+		}
+	default:
+		printf("WARNING: invvpid is not supported\n");
+	}
+}
 
 static void init_vmcs_ctrl(void)
 {

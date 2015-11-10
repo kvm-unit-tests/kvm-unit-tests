@@ -460,6 +460,9 @@ enum Ctrl1 {
 #define EPT_CAP_INVEPT_SINGLE	(1ull << 25)
 #define EPT_CAP_INVEPT_ALL	(1ull << 26)
 #define EPT_CAP_AD_FLAG	(1ull << 21)
+#define VPID_CAP_INVVPID (1ull << 32)
+#define VPID_CAP_INVVPID_SINGLE  (1ull << 41)
+#define VPID_CAP_INVVPID_ALL  (1ull << 42)
 
 #define PAGE_SIZE_2M		(512 * PAGE_SIZE)
 #define PAGE_SIZE_1G		(512 * PAGE_SIZE_2M)
@@ -484,6 +487,9 @@ enum Ctrl1 {
 
 #define INVEPT_SINGLE		1
 #define INVEPT_GLOBAL		2
+
+#define INVVPID_SINGLE      1
+#define INVVPID_ALL         2
 
 #define ACTV_ACTIVE		0
 #define ACTV_HLT		1
@@ -544,8 +550,19 @@ static inline void invept(unsigned long type, u64 eptp)
 	asm volatile("invept %0, %1\n" ::"m"(operand),"r"(type));
 }
 
+static inline void invvpid(unsigned long type, u16 vpid, u64 gva)
+{
+	struct {
+		u64 vpid : 16;
+		u64 rsvd : 48;
+		u64 gva;
+	} operand = {vpid, 0, gva};
+	asm volatile("invvpid %0, %1\n" ::"m"(operand),"r"(type));
+}
+
 void print_vmexit_info();
 void ept_sync(int type, u64 eptp);
+void vpid_sync(int type, u16 vpid);
 void install_ept_entry(unsigned long *pml4, int pte_level,
 		unsigned long guest_addr, unsigned long pte,
 		unsigned long *pt_page);
