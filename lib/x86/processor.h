@@ -2,6 +2,7 @@
 #define LIBCFLAT_PROCESSOR_H
 
 #include "libcflat.h"
+#include "msr.h"
 #include <stdint.h>
 
 #ifdef __x86_64__
@@ -338,6 +339,21 @@ static inline unsigned long long rdtsc()
 	asm volatile ("rdtsc" : "=A"(r));
 #endif
 	return r;
+}
+
+static inline unsigned long long rdtscp(u32 *aux)
+{
+       long long r;
+
+#ifdef __x86_64__
+       unsigned a, d;
+
+       asm volatile ("rdtscp" : "=a"(a), "=d"(d), "=c"(*aux));
+       r = a | ((long long)d << 32);
+#else
+       asm volatile ("rdtscp" : "=A"(r), "=c"(*aux));
+#endif
+       return r;
 }
 
 static inline void wrtsc(u64 tsc)
