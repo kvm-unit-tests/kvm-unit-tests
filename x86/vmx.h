@@ -302,9 +302,6 @@ enum Reason {
 	VMX_XSETBV		= 55
 };
 
-#define X86_EFLAGS_CF	0x00000001 /* Carry Flag */
-#define X86_EFLAGS_ZF	0x00000040 /* Zero Flag */
-
 enum Ctrl_exi {
 	EXI_SAVE_DBGCTLS	= 1UL << 2,
 	EXI_HOST_64             = 1UL << 9,

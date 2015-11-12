@@ -4,7 +4,6 @@
 #include "x86/vm.h"
 
 #define X86_FEATURE_SMAP	20
-#define X86_EFLAGS_AC		(1 << 18)
 
 volatile int pf_count = 0;
 volatile int save;

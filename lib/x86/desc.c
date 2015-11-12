@@ -18,6 +18,12 @@ void set_idt_entry(int vec, void *addr, int dpl)
 #endif
 }
 
+void set_idt_dpl(int vec, u16 dpl)
+{
+    idt_entry_t *e = &boot_idt[vec];
+    e->dpl = dpl;
+}
+
 void set_idt_sel(int vec, u16 sel)
 {
     idt_entry_t *e = &boot_idt[vec];
