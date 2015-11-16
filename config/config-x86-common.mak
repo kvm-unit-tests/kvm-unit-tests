@@ -105,6 +105,8 @@ $(TEST_DIR)/pcid.elf: $(cstart.o) $(TEST_DIR)/pcid.o
 
 $(TEST_DIR)/smap.elf: $(cstart.o) $(TEST_DIR)/smap.o
 
+$(TEST_DIR)/pku.elf: $(cstart.o) $(TEST_DIR)/pku.o
+
 $(TEST_DIR)/vmx.elf: $(cstart.o) $(TEST_DIR)/vmx.o $(TEST_DIR)/vmx_tests.o
 
 $(TEST_DIR)/debug.elf: $(cstart.o) $(TEST_DIR)/debug.o
