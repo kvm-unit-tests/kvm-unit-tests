@@ -61,7 +61,7 @@ static inline u16 read_cs(void)
 {
     unsigned val;
 
-    asm ("mov %%cs, %0" : "=mr"(val));
+    asm volatile ("mov %%cs, %0" : "=mr"(val));
     return val;
 }
 
@@ -69,7 +69,7 @@ static inline u16 read_ds(void)
 {
     unsigned val;
 
-    asm ("mov %%ds, %0" : "=mr"(val));
+    asm volatile ("mov %%ds, %0" : "=mr"(val));
     return val;
 }
 
@@ -77,7 +77,7 @@ static inline u16 read_es(void)
 {
     unsigned val;
 
-    asm ("mov %%es, %0" : "=mr"(val));
+    asm volatile ("mov %%es, %0" : "=mr"(val));
     return val;
 }
 
@@ -85,7 +85,7 @@ static inline u16 read_ss(void)
 {
     unsigned val;
 
-    asm ("mov %%ss, %0" : "=mr"(val));
+    asm volatile ("mov %%ss, %0" : "=mr"(val));
     return val;
 }
 
@@ -93,7 +93,7 @@ static inline u16 read_fs(void)
 {
     unsigned val;
 
-    asm ("mov %%fs, %0" : "=mr"(val));
+    asm volatile ("mov %%fs, %0" : "=mr"(val));
     return val;
 }
 
@@ -101,45 +101,45 @@ static inline u16 read_gs(void)
 {
     unsigned val;
 
-    asm ("mov %%gs, %0" : "=mr"(val));
+    asm volatile ("mov %%gs, %0" : "=mr"(val));
     return val;
 }
 
 static inline unsigned long read_rflags(void)
 {
 	unsigned long f;
-	asm ("pushf; pop %0\n\t" : "=rm"(f));
+	asm volatile ("pushf; pop %0\n\t" : "=rm"(f));
 	return f;
 }
 
 static inline void write_ds(unsigned val)
 {
-    asm ("mov %0, %%ds" : : "rm"(val) : "memory");
+    asm volatile ("mov %0, %%ds" : : "rm"(val) : "memory");
 }
 
 static inline void write_es(unsigned val)
 {
-    asm ("mov %0, %%es" : : "rm"(val) : "memory");
+    asm volatile ("mov %0, %%es" : : "rm"(val) : "memory");
 }
 
 static inline void write_ss(unsigned val)
 {
-    asm ("mov %0, %%ss" : : "rm"(val) : "memory");
+    asm volatile ("mov %0, %%ss" : : "rm"(val) : "memory");
 }
 
 static inline void write_fs(unsigned val)
 {
-    asm ("mov %0, %%fs" : : "rm"(val) : "memory");
+    asm volatile ("mov %0, %%fs" : : "rm"(val) : "memory");
 }
 
 static inline void write_gs(unsigned val)
 {
-    asm ("mov %0, %%gs" : : "rm"(val) : "memory");
+    asm volatile ("mov %0, %%gs" : : "rm"(val) : "memory");
 }
 
 static inline void write_rflags(unsigned long f)
 {
-	asm ("push %0; popf\n\t" : : "rm"(f));
+    asm volatile ("push %0; popf\n\t" : : "rm"(f));
 }
 
 static inline u64 rdmsr(u32 index)
