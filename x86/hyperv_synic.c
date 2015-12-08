@@ -8,31 +8,12 @@
 #include "io.h"
 #include "smp.h"
 #include "atomic.h"
+#include "hyperv.h"
 
 #define MAX_CPUS 4
-#define HYPERV_CPUID_FEATURES                   0x40000003
-#define HV_X64_MSR_SYNIC_AVAILABLE              (1 << 2)
-#define HV_SYNIC_CONTROL_ENABLE                 (1ULL << 0)
-#define HV_SYNIC_SIMP_ENABLE                    (1ULL << 0)
-#define HV_SYNIC_SIEFP_ENABLE                   (1ULL << 0)
-#define HV_SYNIC_SINT_MASKED                    (1ULL << 16)
-#define HV_SYNIC_SINT_AUTO_EOI                  (1ULL << 17)
-#define HV_SYNIC_SINT_VECTOR_MASK               (0xFF)
-#define HV_SYNIC_SINT_COUNT                     16
-
-enum {
-    HV_TEST_DEV_SINT_ROUTE_CREATE = 1,
-    HV_TEST_DEV_SINT_ROUTE_DESTROY,
-    HV_TEST_DEV_SINT_ROUTE_SET_SINT
-};
 
 static atomic_t isr_enter_count[MAX_CPUS];
 static atomic_t cpus_comp_count;
-
-static bool synic_supported(void)
-{
-   return cpuid(HYPERV_CPUID_FEATURES).a & HV_X64_MSR_SYNIC_AVAILABLE;
-}
 
 static void synic_sint_auto_eoi_isr(isr_regs_t *regs)
 {
@@ -43,11 +24,6 @@ static void synic_sint_isr(isr_regs_t *regs)
 {
     atomic_inc(&isr_enter_count[smp_id()]);
     eoi();
-}
-
-static void synic_ctl(u8 ctl, u8 vcpu_id, u8 sint)
-{
-    outl((ctl << 16)|((vcpu_id) << 8)|sint, 0x3000);
 }
 
 struct sint_vec_entry {
@@ -86,7 +62,7 @@ static void synic_prepare_sint_vecs(void)
     }
 }
 
-static void synic_sints_prepare(u8 vcpu)
+static void synic_sints_prepare(int vcpu)
 {
     bool auto_eoi;
     int i, vec;
@@ -94,9 +70,7 @@ static void synic_sints_prepare(u8 vcpu)
     for (i = 0; i < HV_SYNIC_SINT_COUNT; i++) {
         vec = sint_vecs[i].vec;
         auto_eoi = sint_vecs[i].auto_eoi;
-        wrmsr(HV_X64_MSR_SINT0 + i,
-                (u64)vec | ((auto_eoi) ? HV_SYNIC_SINT_AUTO_EOI : 0));
-        synic_ctl(HV_TEST_DEV_SINT_ROUTE_CREATE, vcpu, i);
+        synic_sint_create(vcpu, i, vec, auto_eoi);
     }
 }
 
@@ -132,13 +106,13 @@ ret:
     atomic_inc(&cpus_comp_count);
 }
 
-static void synic_sints_test(u8 dst_vcpu)
+static void synic_sints_test(int dst_vcpu)
 {
     int i;
 
     atomic_set(&isr_enter_count[dst_vcpu], 0);
     for (i = 0; i < HV_SYNIC_SINT_COUNT; i++) {
-        synic_ctl(HV_TEST_DEV_SINT_ROUTE_SET_SINT, dst_vcpu, i);
+        synic_sint_set(dst_vcpu, i);
     }
 
     while (atomic_read(&isr_enter_count[dst_vcpu]) != HV_SYNIC_SINT_COUNT) {
@@ -148,7 +122,7 @@ static void synic_sints_test(u8 dst_vcpu)
 
 static void synic_test(void *ctx)
 {
-    u8 dst_vcpu = (ulong)ctx;
+    int dst_vcpu = (ulong)ctx;
 
     irq_enable();
     synic_sints_test(dst_vcpu);
@@ -157,12 +131,12 @@ static void synic_test(void *ctx)
 
 static void synic_test_cleanup(void *ctx)
 {
-    u8 vcpu = smp_id();
+    int vcpu = smp_id();
     int i;
 
     irq_enable();
     for (i = 0; i < HV_SYNIC_SINT_COUNT; i++) {
-        synic_ctl(HV_TEST_DEV_SINT_ROUTE_DESTROY, vcpu, i);
+        synic_sint_destroy(vcpu, i);
         wrmsr(HV_X64_MSR_SINT0 + i, 0xFF|HV_SYNIC_SINT_MASKED);
     }
 

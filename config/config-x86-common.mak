@@ -113,7 +113,8 @@ $(TEST_DIR)/debug.elf: $(cstart.o) $(TEST_DIR)/debug.o
 
 $(TEST_DIR)/memory.elf: $(cstart.o) $(TEST_DIR)/memory.o
 
-$(TEST_DIR)/hyperv_synic.elf: $(cstart.o) $(TEST_DIR)/hyperv_synic.o
+$(TEST_DIR)/hyperv_synic.elf: $(cstart.o) $(TEST_DIR)/hyperv.o \
+                              $(TEST_DIR)/hyperv_synic.o
 
 arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
