@@ -67,44 +67,40 @@ static void do_write_apicbase(void *data)
     wrmsr(MSR_IA32_APICBASE, *(u64 *)data);
 }
 
+static bool test_write_apicbase_exception(u64 data)
+{
+    data |= APIC_DEFAULT_PHYS_BASE | APIC_BSP;
+    return test_for_exception(GP_VECTOR, do_write_apicbase, &data);
+}
+
 void test_enable_x2apic(void)
 {
-    u64 invalid_state = APIC_DEFAULT_PHYS_BASE | APIC_BSP | APIC_EXTD;
-    u64 apic_enabled = APIC_DEFAULT_PHYS_BASE | APIC_BSP | APIC_EN;
-    u64 x2apic_enabled =
-        APIC_DEFAULT_PHYS_BASE | APIC_BSP | APIC_EN | APIC_EXTD;
-
     if (enable_x2apic()) {
         printf("x2apic enabled\n");
 
         report("x2apic enabled to invalid state",
-               test_for_exception(GP_VECTOR, do_write_apicbase,
-                                  &invalid_state));
+               test_write_apicbase_exception(APIC_EXTD));
         report("x2apic enabled to apic enabled",
-               test_for_exception(GP_VECTOR, do_write_apicbase,
-                                  &apic_enabled));
+               test_write_apicbase_exception(APIC_EN));
 
-        wrmsr(MSR_IA32_APICBASE, APIC_DEFAULT_PHYS_BASE | APIC_BSP);
+        report("x2apic enabled to disabled state",
+               !test_write_apicbase_exception(0));
         report("disabled to invalid state",
-               test_for_exception(GP_VECTOR, do_write_apicbase,
-                                  &invalid_state));
+               test_write_apicbase_exception(APIC_EXTD));
         report("disabled to x2apic enabled",
-               test_for_exception(GP_VECTOR, do_write_apicbase,
-                                  &x2apic_enabled));
+               test_write_apicbase_exception(APIC_EN | APIC_EXTD));
 
-        wrmsr(MSR_IA32_APICBASE, apic_enabled);
+        wrmsr(MSR_IA32_APICBASE, APIC_EN);
         report("apic enabled to invalid state",
-               test_for_exception(GP_VECTOR, do_write_apicbase,
-                                  &invalid_state));
+               test_write_apicbase_exception(APIC_EXTD));
 
-        wrmsr(MSR_IA32_APICBASE, x2apic_enabled);
+        wrmsr(MSR_IA32_APICBASE, APIC_EN | APIC_EXTD);
         apic_write(APIC_SPIV, 0x1ff);
     } else {
         printf("x2apic not detected\n");
 
         report("enable unsupported x2apic",
-               test_for_exception(GP_VECTOR, do_write_apicbase,
-                                  &x2apic_enabled));
+               test_write_apicbase_exception(APIC_EN | APIC_EXTD));
     }
 }
 
