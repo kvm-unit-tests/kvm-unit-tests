@@ -3,6 +3,8 @@ bits = 32
 ldarch = elf32-i386
 CFLAGS += -I $(KERNELDIR)/include
 
+cflatobjs += lib/x86/setjmp32.o
+
 tests = $(TEST_DIR)/taskswitch.flat $(TEST_DIR)/taskswitch2.flat \
 	$(TEST_DIR)/cmpxchg8b.flat
 

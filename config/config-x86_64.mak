@@ -3,6 +3,8 @@ bits = 64
 ldarch = elf64-x86-64
 CFLAGS += -mno-red-zone
 
+cflatobjs += lib/x86/setjmp64.o
+
 tests = $(TEST_DIR)/access.flat $(TEST_DIR)/apic.flat \
 	  $(TEST_DIR)/emulator.flat $(TEST_DIR)/idt_test.flat \
 	  $(TEST_DIR)/xsave.flat $(TEST_DIR)/rmap_chain.flat \

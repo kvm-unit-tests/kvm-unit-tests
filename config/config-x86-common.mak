@@ -34,7 +34,7 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/realmode.flat $(TEST_DIR)/msr.flat \
                $(TEST_DIR)/hypercall.flat $(TEST_DIR)/sieve.flat \
                $(TEST_DIR)/kvmclock_test.flat  $(TEST_DIR)/eventinj.flat \
-               $(TEST_DIR)/s3.flat $(TEST_DIR)/pmu.flat \
+               $(TEST_DIR)/s3.flat $(TEST_DIR)/pmu.flat $(TEST_DIR)/setjmp.flat \
                $(TEST_DIR)/tsc_adjust.flat $(TEST_DIR)/asyncpf.flat \
                $(TEST_DIR)/init.flat $(TEST_DIR)/smap.flat \
                $(TEST_DIR)/hyperv_synic.flat $(TEST_DIR)/hyperv_stimer.flat \
@@ -118,6 +118,8 @@ $(TEST_DIR)/hyperv_synic.elf: $(cstart.o) $(TEST_DIR)/hyperv.o \
 
 $(TEST_DIR)/hyperv_stimer.elf: $(cstart.o) $(TEST_DIR)/hyperv.o \
                                $(TEST_DIR)/hyperv_stimer.o
+
+$(TEST_DIR)/setjmp.elf: $(cstart.o) $(TEST_DIR)/setjmp.o
 
 arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
