@@ -617,19 +617,19 @@ static void init_vmx(void)
 
 static void do_vmxon_off(void *data)
 {
-	set_exception_return(&&resume);
-	vmx_on();
-	vmx_off();
-resume:
-	barrier();
+	jmp_buf jmpbuf;
+	if (set_exception_jmpbuf(jmpbuf) == 0) {
+		vmx_on();
+		vmx_off();
+	}
 }
 
 static void do_write_feature_control(void *data)
 {
-	set_exception_return(&&resume);
-	wrmsr(MSR_IA32_FEATURE_CONTROL, 0);
-resume:
-	barrier();
+	jmp_buf jmpbuf;
+	if (set_exception_jmpbuf(jmpbuf) == 0) {
+		wrmsr(MSR_IA32_FEATURE_CONTROL, 0);
+	}
 }
 
 static int test_vmx_feature_control(void)

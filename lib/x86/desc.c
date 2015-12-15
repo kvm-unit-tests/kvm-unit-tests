@@ -1,6 +1,7 @@
 #include "libcflat.h"
 #include "desc.h"
 #include "processor.h"
+#include <setjmp.h>
 
 void set_idt_entry(int vec, void *addr, int dpl)
 {
@@ -315,12 +316,18 @@ void setup_alt_stack(void)
 #endif
 
 static bool exception;
-static void *exception_return;
+static jmp_buf *exception_jmpbuf;
+
+static void exception_handler_longjmp(void)
+{
+	longjmp(*exception_jmpbuf, 1);
+}
 
 static void exception_handler(struct ex_regs *regs)
 {
+	/* longjmp must happen after iret, so do not do it now.  */
 	exception = true;
-	regs->rip = (unsigned long)exception_return;
+	regs->rip = (unsigned long)&exception_handler_longjmp;
 }
 
 bool test_for_exception(unsigned int ex, void (*trigger_func)(void *data),
@@ -333,7 +340,7 @@ bool test_for_exception(unsigned int ex, void (*trigger_func)(void *data),
 	return exception;
 }
 
-void set_exception_return(void *addr)
+void __set_exception_jmpbuf(jmp_buf *addr)
 {
-	exception_return = addr;
+	exception_jmpbuf = addr;
 }

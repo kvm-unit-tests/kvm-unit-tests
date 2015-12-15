@@ -1,6 +1,8 @@
 #ifndef __IDT_TEST__
 #define __IDT_TEST__
 
+#include <setjmp.h>
+
 void setup_idt(void);
 void setup_alt_stack(void);
 
@@ -155,6 +157,8 @@ void handle_exception(u8 v, void (*func)(struct ex_regs *regs));
 
 bool test_for_exception(unsigned int ex, void (*trigger_func)(void *data),
 			void *data);
-void set_exception_return(void *addr);
+void __set_exception_jmpbuf(jmp_buf *addr);
+#define set_exception_jmpbuf(jmpbuf) \
+	(setjmp(jmpbuf) ? : (__set_exception_jmpbuf(&(jmpbuf)), 0))
 
 #endif

@@ -63,10 +63,10 @@ static void test_tsc_deadline_timer(void)
 
 static void do_write_apicbase(void *data)
 {
-    set_exception_return(&&resume);
-    wrmsr(MSR_IA32_APICBASE, *(u64 *)data);
-resume:
-    barrier();
+    jmp_buf jmpbuf;
+    if (set_exception_jmpbuf(jmpbuf) == 0) {
+        wrmsr(MSR_IA32_APICBASE, *(u64 *)data);
+    }
 }
 
 void test_enable_x2apic(void)
