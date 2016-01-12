@@ -333,11 +333,15 @@ static void exception_handler(struct ex_regs *regs)
 bool test_for_exception(unsigned int ex, void (*trigger_func)(void *data),
 			void *data)
 {
+	jmp_buf jmpbuf;
+	int ret;
+
 	handle_exception(ex, exception_handler);
-	exception = false;
-	trigger_func(data);
+	ret = set_exception_jmpbuf(jmpbuf);
+	if (ret == 0)
+		trigger_func(data);
 	handle_exception(ex, NULL);
-	return exception;
+	return ret;
 }
 
 void __set_exception_jmpbuf(jmp_buf *addr)
