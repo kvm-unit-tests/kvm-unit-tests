@@ -221,11 +221,16 @@ void install_vector_handler(enum vector v, vector_fn fn)
 		ti->vector_handlers[v] = fn;
 }
 
-void thread_info_init(struct thread_info *ti, unsigned int flags)
+static void __thread_info_init(struct thread_info *ti, unsigned int flags)
 {
 	memset(ti, 0, sizeof(struct thread_info));
 	ti->cpu = mpidr_to_cpu(get_mpidr());
 	ti->flags = flags;
+}
+
+void thread_info_init(struct thread_info *ti, unsigned int flags)
+{
+	__thread_info_init(ti, flags);
 	vector_handlers_default_init(ti->vector_handlers);
 }
 
@@ -233,7 +238,7 @@ void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr)
 {
 	sp_usr &= (~15UL); /* stack ptr needs 16-byte alignment */
 
-	thread_info_init(thread_info_sp(sp_usr), TIF_USER_MODE);
+	__thread_info_init(thread_info_sp(sp_usr), TIF_USER_MODE);
 
 	asm volatile(
 		"mov	x0, %0\n"
