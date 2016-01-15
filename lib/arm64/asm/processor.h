@@ -18,6 +18,7 @@
 
 #ifndef __ASSEMBLY__
 #include <asm/ptrace.h>
+#include <asm/esr.h>
 
 enum vector {
 	EL1T_SYNC,

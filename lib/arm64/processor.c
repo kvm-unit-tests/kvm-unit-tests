@@ -8,7 +8,6 @@
 #include <libcflat.h>
 #include <asm/ptrace.h>
 #include <asm/processor.h>
-#include <asm/esr.h>
 #include <asm/thread_info.h>
 
 static const char *vector_names[] = {

@@ -177,7 +177,6 @@ static bool check_svc(void)
 	return svc_works;
 }
 #elif defined(__aarch64__)
-#include <asm/esr.h>
 
 /*
  * Capture the current register state and execute an instruction
