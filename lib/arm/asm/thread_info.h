@@ -22,6 +22,7 @@
 
 #ifndef __ASSEMBLY__
 #include <asm/processor.h>
+#include <alloc.h>
 
 #ifdef __arm__
 #include <asm/ptrace.h>
@@ -34,6 +35,12 @@
 #else
 #define THREAD_START_SP		(THREAD_SIZE - 16)
 #endif
+
+static inline void *thread_stack_alloc(void)
+{
+	void *sp = memalign(THREAD_SIZE, THREAD_SIZE);
+	return sp + THREAD_START_SP;
+}
 
 #define TIF_USER_MODE		(1U << 0)
 

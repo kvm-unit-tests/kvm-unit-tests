@@ -6,7 +6,6 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <libcflat.h>
-#include <alloc.h>
 #include <asm/thread_info.h>
 #include <asm/cpumask.h>
 #include <asm/barrier.h>
@@ -43,10 +42,9 @@ secondary_entry_fn secondary_cinit(void)
 
 void smp_boot_secondary(int cpu, secondary_entry_fn entry)
 {
-	void *stack_base = memalign(THREAD_SIZE, THREAD_SIZE);
 	int ret;
 
-	secondary_data.stack = stack_base + THREAD_START_SP;
+	secondary_data.stack = thread_stack_alloc();
 	secondary_data.entry = entry;
 	mmu_mark_disabled(cpu);
 	ret = cpu_psci_cpu_boot(cpu);

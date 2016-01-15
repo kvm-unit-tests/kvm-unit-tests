@@ -356,9 +356,8 @@ int main(int argc, char **argv)
 
 	} else if (strcmp(argv[0], "vectors-user") == 0) {
 
-		void *sp = memalign(THREAD_SIZE, THREAD_SIZE);
 		start_usr(check_vectors, NULL,
-				(unsigned long)sp + THREAD_START_SP);
+				(unsigned long)thread_stack_alloc());
 
 	} else if (strcmp(argv[0], "smp") == 0) {
 
