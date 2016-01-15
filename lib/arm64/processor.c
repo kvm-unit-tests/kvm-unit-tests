@@ -101,7 +101,7 @@ bool get_far(unsigned int esr, unsigned long *far)
 }
 
 static void bad_exception(enum vector v, struct pt_regs *regs,
-			  unsigned int esr, bool bad_vector)
+			  unsigned int esr, bool esr_valid, bool bad_vector)
 {
 	unsigned long far;
 	bool far_valid = get_far(esr, &far);
@@ -113,7 +113,7 @@ static void bad_exception(enum vector v, struct pt_regs *regs,
 					vector_names[v]);
 		else
 			printf("Got bad vector=%d\n", v);
-	} else {
+	} else if (esr_valid) {
 		if (ec_names[ec])
 			printf("Unhandled exception ec=0x%x (%s)\n", ec,
 					ec_names[ec]);
@@ -137,8 +137,16 @@ void install_exception_handler(enum vector v, unsigned int ec, exception_fn fn)
 		ti->exception_handlers[v][ec] = fn;
 }
 
-void default_vector_handler(enum vector v, struct pt_regs *regs,
-			    unsigned int esr)
+void install_irq_handler(enum vector v, irq_handler_fn fn)
+{
+	struct thread_info *ti = current_thread_info();
+
+	if (v < VECTOR_MAX)
+		ti->exception_handlers[v][0] = (exception_fn)fn;
+}
+
+void default_vector_sync_handler(enum vector v, struct pt_regs *regs,
+				 unsigned int esr)
 {
 	struct thread_info *ti = thread_info_sp(regs->sp);
 	unsigned int ec = esr >> ESR_EL1_EC_SHIFT;
@@ -154,15 +162,37 @@ void default_vector_handler(enum vector v, struct pt_regs *regs,
 	if (ec < EC_MAX && ti->exception_handlers[v][ec])
 		ti->exception_handlers[v][ec](regs, esr);
 	else
-		bad_exception(v, regs, esr, false);
+		bad_exception(v, regs, esr, true, false);
+}
+
+void default_vector_irq_handler(enum vector v, struct pt_regs *regs,
+				unsigned int esr)
+{
+	struct thread_info *ti = thread_info_sp(regs->sp);
+	irq_handler_fn irq_handler =
+		(irq_handler_fn)ti->exception_handlers[v][0];
+
+	if (ti->flags & TIF_USER_MODE) {
+		if (irq_handler) {
+			irq_handler(regs);
+			return;
+		}
+		ti = current_thread_info();
+		irq_handler = (irq_handler_fn)ti->exception_handlers[v][0];
+	}
+
+	if (irq_handler)
+		irq_handler(regs);
+	else
+		bad_exception(v, regs, esr, false, false);
 }
 
 void vector_handlers_default_init(vector_fn *handlers)
 {
-	handlers[EL1H_SYNC]	= default_vector_handler;
-	handlers[EL1H_IRQ]	= default_vector_handler;
-	handlers[EL0_SYNC_64]	= default_vector_handler;
-	handlers[EL0_IRQ_64]	= default_vector_handler;
+	handlers[EL1H_SYNC]	= default_vector_sync_handler;
+	handlers[EL1H_IRQ]	= default_vector_irq_handler;
+	handlers[EL0_SYNC_64]	= default_vector_sync_handler;
+	handlers[EL0_IRQ_64]	= default_vector_irq_handler;
 }
 
 void do_handle_exception(enum vector v, struct pt_regs *regs, unsigned int esr)
@@ -180,7 +210,7 @@ void do_handle_exception(enum vector v, struct pt_regs *regs, unsigned int esr)
 	if (v < VECTOR_MAX && ti->vector_handlers[v])
 		ti->vector_handlers[v](v, regs, esr);
 	else
-		bad_exception(v, regs, esr, true);
+		bad_exception(v, regs, esr, true, true);
 }
 
 void install_vector_handler(enum vector v, vector_fn fn)

@@ -44,11 +44,15 @@ enum vector {
 typedef void (*vector_fn)(enum vector v, struct pt_regs *regs,
 			  unsigned int esr);
 typedef void (*exception_fn)(struct pt_regs *regs, unsigned int esr);
+typedef void (*irq_handler_fn)(struct pt_regs *regs);
 extern void install_vector_handler(enum vector v, vector_fn fn);
 extern void install_exception_handler(enum vector v, unsigned int ec,
 				      exception_fn fn);
-extern void default_vector_handler(enum vector v, struct pt_regs *regs,
-				   unsigned int esr);
+extern void install_irq_handler(enum vector v, irq_handler_fn fn);
+extern void default_vector_sync_handler(enum vector v, struct pt_regs *regs,
+					unsigned int esr);
+extern void default_vector_irq_handler(enum vector v, struct pt_regs *regs,
+				       unsigned int esr);
 extern void vector_handlers_default_init(vector_fn *handlers);
 
 extern void show_regs(struct pt_regs *regs);
