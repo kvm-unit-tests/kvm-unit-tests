@@ -1,7 +1,6 @@
 #ifndef PCI_H
 #define PCI_H
 
-#include <inttypes.h>
 #include "libcflat.h"
 
 typedef uint16_t pcidevaddr_t;
