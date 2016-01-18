@@ -2,6 +2,7 @@
 
 all: test_cases
 
+cflatobjs += lib/pci.o
 cflatobjs += lib/x86/io.o
 cflatobjs += lib/x86/smp.o
 cflatobjs += lib/x86/vm.o
@@ -10,7 +11,6 @@ cflatobjs += lib/x86/apic.o
 cflatobjs += lib/x86/atomic.o
 cflatobjs += lib/x86/desc.o
 cflatobjs += lib/x86/isr.o
-cflatobjs += lib/x86/pci.o
 cflatobjs += lib/x86/acpi.o
 
 $(libcflat): LDFLAGS += -nostdlib

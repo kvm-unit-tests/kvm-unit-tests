@@ -1,13 +1,11 @@
+/*
+ * Copyright (C) 2013, Red Hat Inc, Michael S. Tsirkin <mst@redhat.com>
+ *
+ * This work is licensed under the terms of the GNU LGPL, version 2.
+ */
 #include <linux/pci_regs.h>
 #include "pci.h"
-#include "io.h"
-
-static uint32_t pci_config_read(pcidevaddr_t dev, uint8_t reg)
-{
-    uint32_t index = reg | (dev << 8) | (0x1 << 31); 
-    outl(index, 0xCF8);
-    return inl(0xCFC);
-}
+#include "asm/pci.h"
 
 /* Scan bus look for a specific device. Only bus 0 scanned for now. */
 pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id)

@@ -2,9 +2,9 @@
 #include "smp.h"
 #include "processor.h"
 #include "atomic.h"
+#include "pci.h"
 #include "x86/vm.h"
 #include "x86/desc.h"
-#include "x86/pci.h"
 #include "x86/acpi.h"
 #include "x86/io.h"
 
