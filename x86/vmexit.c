@@ -6,6 +6,7 @@
 #include "x86/desc.h"
 #include "x86/pci.h"
 #include "x86/acpi.h"
+#include "x86/io.h"
 
 struct test {
 	void (*func)(void);
@@ -14,35 +15,6 @@ struct test {
 	int parallel;
 	bool (*next)(struct test *);
 };
-
-static void outb(unsigned short port, unsigned val)
-{
-    asm volatile("outb %b0, %w1" : : "a"(val), "Nd"(port));
-}
-
-static void outw(unsigned short port, unsigned val)
-{
-    asm volatile("outw %w0, %w1" : : "a"(val), "Nd"(port));
-}
-
-static void outl(unsigned short port, unsigned val)
-{
-    asm volatile("outl %0, %w1" : : "a"(val), "Nd"(port));
-}
-
-static unsigned int inb(unsigned short port)
-{
-    unsigned int val;
-    asm volatile("xorl %0, %0; inb %w1, %b0" : "=a"(val) : "Nd"(port));
-    return val;
-}
-
-static unsigned int inl(unsigned short port)
-{
-    unsigned int val;
-    asm volatile("inl %w1, %0" : "=a"(val) : "Nd"(port));
-    return val;
-}
 
 #define GOAL (1ull << 30)
 
@@ -123,7 +95,7 @@ static void inl_nop_kernel(void)
 
 static void outl_elcr_kernel(void)
 {
-    outb(0x4d0, 0);
+    outb(0, 0x4d0);
 }
 
 static void mov_dr(void)
@@ -201,17 +173,17 @@ static void pci_mem_testl(void)
 
 static void pci_io_testb(void)
 {
-	outb(pci_test.ioport, pci_test.data);
+	outb(pci_test.data, pci_test.ioport);
 }
 
 static void pci_io_testw(void)
 {
-	outw(pci_test.ioport, pci_test.data);
+	outw(pci_test.data, pci_test.ioport);
 }
 
 static void pci_io_testl(void)
 {
-	outl(pci_test.ioport, pci_test.data);
+	outl(pci_test.data, pci_test.ioport);
 }
 
 static uint8_t ioreadb(unsigned long addr, bool io)
@@ -236,7 +208,7 @@ static uint32_t ioreadl(unsigned long addr, bool io)
 static void iowriteb(unsigned long addr, uint8_t data, bool io)
 {
 	if (io) {
-		outb(addr, data);
+		outb(data, addr);
 	} else {
 		*(volatile uint8_t *)addr = data;
 	}

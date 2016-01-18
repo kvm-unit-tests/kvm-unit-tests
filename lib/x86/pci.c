@@ -1,21 +1,11 @@
 #include <linux/pci_regs.h>
 #include "pci.h"
+#include "io.h"
 
-static void outl(unsigned short port, unsigned val)
-{
-    asm volatile("outl %0, %w1" : : "a"(val), "Nd"(port));
-}
-
-static unsigned inl(unsigned short port)
-{
-    unsigned data;
-    asm volatile("inl %w1, %0" : "=a"(data) : "Nd"(port));
-    return data;
-}
 static uint32_t pci_config_read(pcidevaddr_t dev, uint8_t reg)
 {
     uint32_t index = reg | (dev << 8) | (0x1 << 31); 
-    outl(0xCF8, index);
+    outl(index, 0xCF8);
     return inl(0xCFC);
 }
 
