@@ -19,4 +19,24 @@ unsigned long pci_bar_addr(pcidevaddr_t dev, int bar_num);
 bool pci_bar_is_memory(pcidevaddr_t dev, int bar_num);
 bool pci_bar_is_valid(pcidevaddr_t dev, int bar_num);
 
-#endif
+/*
+ * pci-testdev is a driver for the pci-testdev qemu pci device. The
+ * device enables testing mmio and portio exits, and measuring their
+ * speed.
+ */
+#define PCI_VENDOR_ID_REDHAT		0x1b36
+#define PCI_DEVICE_ID_REDHAT_TEST	0x0005
+
+#define PCI_TESTDEV_NUM_BARS		2
+
+struct pci_test_dev_hdr {
+	uint8_t  test;
+	uint8_t  width;
+	uint8_t  pad0[2];
+	uint32_t offset;
+	uint32_t data;
+	uint32_t count;
+	uint8_t  name[];
+};
+
+#endif /* PCI_H */

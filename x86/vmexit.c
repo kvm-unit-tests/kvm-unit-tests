@@ -134,16 +134,6 @@ static void wr_tsc_adjust_msr(void)
 	wrmsr(MSR_TSC_ADJUST, 0x0);
 }
 
-struct pci_test_dev_hdr {
-    uint8_t test;
-    uint8_t width;
-    uint8_t pad0[2];
-    uint32_t offset;
-    uint32_t data;
-    uint32_t count;
-    uint8_t name[];
-};
-
 static struct pci_test {
 	unsigned iobar;
 	unsigned ioport;
@@ -397,9 +387,9 @@ int main(int ac, char **av)
 	pm_tmr_blk = fadt->pm_tmr_blk;
 	printf("PM timer port is %x\n", pm_tmr_blk);
 
-	pcidev = pci_find_dev(0x1b36, 0x0005);
+	pcidev = pci_find_dev(PCI_VENDOR_ID_REDHAT, PCI_DEVICE_ID_REDHAT_TEST);
 	if (pcidev) {
-		for (i = 0; i < 2; i++) {
+		for (i = 0; i < PCI_TESTDEV_NUM_BARS; i++) {
 			if (!pci_bar_is_valid(pcidev, i)) {
 				continue;
 			}
