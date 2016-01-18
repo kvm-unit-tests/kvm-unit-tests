@@ -6,7 +6,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 
-#include <const.h>
+#include <linux/const.h>
 
 #define PAGE_SHIFT		12
 #define PAGE_SIZE		(_AC(1,UL) << PAGE_SHIFT)

@@ -9,7 +9,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 
-#include "const.h"
+#include <linux/const.h>
 
 #define PAGE_SHIFT		12
 #define PAGE_SIZE		(_AC(1,UL) << PAGE_SHIFT)
@@ -24,6 +24,6 @@
 #define virt_to_pfn(kaddr)	(__pa(kaddr) >> PAGE_SHIFT)
 #define pfn_to_virt(pfn)	__va((pfn) << PAGE_SHIFT)
 
-#endif /* __ASSEMBLY__ */
+#endif /* !__ASSEMBLY__ */
 
 #endif /* _ASM_GENERIC_PAGE_H_ */

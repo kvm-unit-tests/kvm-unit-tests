@@ -1,7 +1,7 @@
 #ifndef _ASMARM64_PSCI_H_
 #define _ASMARM64_PSCI_H_
 #include <libcflat.h>
-#include <asm/uapi-psci.h>
+#include <linux/psci.h>
 
 #define PSCI_INVOKE_ARG_TYPE	u64
 #define PSCI_FN_CPU_ON		PSCI_0_2_FN64_CPU_ON

@@ -11,7 +11,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 
-#include <const.h>
+#include <linux/const.h>
 
 #define PGTABLE_LEVELS		2
 #define VA_BITS			42

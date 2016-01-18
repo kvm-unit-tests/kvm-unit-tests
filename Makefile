@@ -85,7 +85,7 @@ distclean: clean libfdt_clean
 	$(RM) lib/asm config.mak $(TEST_DIR)-run test.log msr.out cscope.*
 	$(RM) -r tests
 
-cscope: common_dirs = lib lib/libfdt lib/asm lib/asm-generic
+cscope: common_dirs = lib lib/libfdt lib/linux lib/asm lib/asm-generic
 cscope:
 	$(RM) ./cscope.*
 	find -L $(TEST_DIR) lib/$(TEST_DIR) lib/$(ARCH) $(common_dirs) -maxdepth 1 \
