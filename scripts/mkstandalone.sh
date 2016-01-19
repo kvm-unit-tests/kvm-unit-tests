@@ -48,12 +48,13 @@ function mkstandalone()
 	qemu=$(cut -d' ' -f1 <<< "$cmdline")
 	cmdline=$(cut -d' ' -f2- <<< "$cmdline")
 
-	cat <<EOF > $standalone
-#!/bin/sh
+	exec {tmpfd}<&1
+	exec > $standalone
 
-EOF
+	echo "#!/bin/sh"
+
 if [ "$arch" ]; then
-	cat <<EOF >> $standalone
+	cat <<EOF
 ARCH=\`uname -m | sed -e s/i.86/i386/ | sed -e 's/arm.*/arm/'\`
 [ "\$ARCH" = "aarch64" ] && ARCH="arm64"
 if [ "\$ARCH" != "$arch" ]; then
@@ -64,7 +65,7 @@ fi
 EOF
 fi
 if [ "$check" ]; then
-	cat <<EOF >> $standalone
+	cat <<EOF
 for param in $check; do
 	path=\`echo \$param | cut -d= -f1\`
 	value=\`echo \$param | cut -d= -f2\`
@@ -77,18 +78,18 @@ done
 EOF
 fi
 if [ ! -f $kernel ]; then
-	cat <<EOF >> $standalone
+	cat <<EOF
 echo "skip $testname (test kernel not present)" 1>&2
 exit 1
 EOF
 else
-	cat <<EOF >> $standalone
+	cat <<EOF
 trap 'rm -f \$bin; exit 1' HUP INT TERM
 bin=\`mktemp\`
 base64 -d << 'BIN_EOF' | zcat > \$bin &&
 EOF
-gzip - < $kernel | base64 >> $standalone
-	cat <<EOF >> $standalone
+gzip - < $kernel | base64
+	cat <<EOF
 BIN_EOF
 
 qemu="$qemu"
@@ -122,8 +123,10 @@ rm -f \$bin
 exit 0
 EOF
 fi
-chmod +x $standalone
-return 0
+	exec 1<&$tmpfd {tmpfd}<&-
+	chmod +x $standalone
+
+	return 0
 }
 
 trap 'rm -f $cfg; exit 1' HUP INT TERM
