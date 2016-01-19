@@ -7,19 +7,6 @@ fi
 source config.mak
 source scripts/functions.bash
 
-one_kernel="$1"
-[ "$one_kernel" ] && one_kernel_base=$(basename $one_kernel)
-one_testname="$2"
-if [ -n "$one_kernel" ] && [ ! -f $one_kernel ]; then
-	echo "$one_kernel doesn't exist"
-	exit 1
-elif [ -n "$one_kernel" ] && [ -z "$one_testname" ]; then
-	one_testname="${one_kernel_base%.*}"
-fi
-
-unittests=$TEST_DIR/unittests.cfg
-mkdir -p tests
-
 escape ()
 {
 	for arg in "${@}"; do
@@ -89,11 +76,21 @@ function mkstandalone()
 	return 0
 }
 
-trap 'rm -f $cfg; exit 1' HUP INT TERM
 trap 'rm -f $cfg' EXIT
 cfg=$(mktemp)
 
-if [ -n "$one_testname" ]; then
+unittests=$TEST_DIR/unittests.cfg
+one_kernel="$1"
+
+if [ "$one_kernel" ]; then
+	[ ! -f $one_kernel ] && {
+		echo "$one_kernel doesn't exist"
+		exit 1
+	}
+
+	one_kernel_base=$(basename $one_kernel)
+	one_testname="${2:-${one_kernel_base%.*}}"
+
 	if grep -q "\[$one_testname\]" $unittests; then
 		sed -n "/\\[$one_testname\\]/,/^\\[/p" $unittests \
 			| awk '!/^\[/ || NR == 1' > $cfg
@@ -104,5 +101,7 @@ if [ -n "$one_testname" ]; then
 else
 	cp -f $unittests $cfg
 fi
+
+mkdir -p tests
 
 for_each_unittest $cfg mkstandalone
