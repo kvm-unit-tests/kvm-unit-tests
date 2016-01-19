@@ -55,13 +55,6 @@ function mkstandalone()
 	fi
 
 	standalone=tests/$testname
-	cmdline=$(DRYRUN=yes ACCEL=$accel ./$TEST_DIR-run $kernel)
-	if [ $? -ne 0 ]; then
-		echo $cmdline
-		exit 1
-	fi
-	qemu=$(cut -d' ' -f1 <<< "$cmdline")
-	cmdline=$(cut -d' ' -f2- <<< "$cmdline")
 
 	exec {tmpfd}<&1
 	exec > $standalone
@@ -91,31 +84,24 @@ else
 	echo "trap 'rm -f \$cleanup' EXIT"
 
 	temp_file bin "$kernel"
+	temp_file RUNTIME_arch_run "$TEST_DIR/run"
 
 	cat <<EOF
 
-qemu="$qemu"
-if [ "\$QEMU" ]; then
-	qemu="\$QEMU"
-fi
-
 MAX_SMP="MAX_SMP"
-echo \$qemu $cmdline -smp $smp $opts
+echo \$RUNTIME_arch_run \$bin -smp $smp $opts
 
-cmdline="\`echo '$cmdline' | sed s%$kernel%_NO_FILE_4Uhere_%\`"
-if \$qemu \$cmdline 2>&1 | grep 'No accelerator found'; then
+if \$RUNTIME_arch_run _NO_FILE_4Uhere_ 2>&1 | grep 'No accelerator found'; then
 	ret=2
 else
 	MAX_SMP=\`getconf _NPROCESSORS_CONF\`
-	while \$qemu \$cmdline -smp \$MAX_SMP 2>&1 | grep 'exceeds max cpus' > /dev/null; do
+	while \$RUNTIME_arch_run \$bin -smp \$MAX_SMP 2>&1 | grep 'exceeds max cpus' > /dev/null; do
 		MAX_SMP=\`expr \$MAX_SMP - 1\`
 	done
 
-	cmdline="\`echo '$cmdline' | sed s%$kernel%\$bin%\`"
-	\$qemu \$cmdline -smp $smp $opts
+	\$RUNTIME_arch_run \$bin -smp $smp $opts
 	ret=\$?
 fi
-echo Return value from qemu: \$ret
 if [ \$ret -le 1 ]; then
 	echo PASS $testname 1>&2
 else
