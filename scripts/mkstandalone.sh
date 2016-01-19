@@ -71,6 +71,7 @@ function mkstandalone()
 	generate_test "$@" > $standalone
 
 	chmod +x $standalone
+	echo Written $standalone.
 
 	return 0
 }
