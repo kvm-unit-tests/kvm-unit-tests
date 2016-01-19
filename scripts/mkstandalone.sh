@@ -20,6 +20,21 @@ fi
 unittests=$TEST_DIR/unittests.cfg
 mkdir -p tests
 
+temp_file ()
+{
+	local var="$1"
+	local file="$2"
+
+	echo "$var=\`mktemp\`"
+	echo "cleanup=\"\$$var \$cleanup\""
+	echo "base64 -d << 'BIN_EOF' | zcat > \$$var || exit 1"
+
+	gzip - < $file | base64
+
+	echo "BIN_EOF"
+	echo "chmod +x \$$var"
+}
+
 function mkstandalone()
 {
 	local testname="$1"
@@ -73,14 +88,11 @@ echo "skip $testname (test kernel not present)" 1>&2
 exit 1
 EOF
 else
+	echo "trap 'rm -f \$cleanup; exit 1' HUP INT TERM"
+
+	temp_file bin "$kernel"
+
 	cat <<EOF
-trap 'rm -f \$bin; exit 1' HUP INT TERM
-bin=\`mktemp\`
-base64 -d << 'BIN_EOF' | zcat > \$bin &&
-EOF
-gzip - < $kernel | base64
-	cat <<EOF
-BIN_EOF
 
 qemu="$qemu"
 if [ "\$QEMU" ]; then
