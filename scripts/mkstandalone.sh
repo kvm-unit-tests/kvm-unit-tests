@@ -42,23 +42,9 @@ temp_file ()
 	echo "chmod +x \$$var"
 }
 
-function mkstandalone()
+generate_test ()
 {
-	local testname="$1"
 	local args=( $(escape "${@}") )
-
-	if [ -z "$testname" ]; then
-		return 1
-	fi
-
-	if [ -n "$one_testname" ] && [ "$testname" != "$one_testname" ]; then
-		return 1
-	fi
-
-	standalone=tests/$testname
-
-	exec {tmpfd}<&1
-	exec > $standalone
 
 	echo "#!/bin/bash"
 	grep '^ARCH=' config.mak
@@ -66,8 +52,8 @@ function mkstandalone()
 	if [ ! -f $kernel ]; then
 		echo 'echo "skip '"$testname"' (test kernel not present)"'
 		echo 'exit 1'
-	else
-	# XXX: bad indentation
+		return 1
+	fi
 
 	echo "trap 'rm -f \$cleanup' EXIT"
 
@@ -80,9 +66,24 @@ function mkstandalone()
 
 	echo "run ${args[@]}"
 	echo "exit 0"
+}
+
+function mkstandalone()
+{
+	local testname="$1"
+
+	if [ -z "$testname" ]; then
+		return 1
 	fi
 
-	exec 1<&$tmpfd {tmpfd}<&-
+	if [ -n "$one_testname" ] && [ "$testname" != "$one_testname" ]; then
+		return 1
+	fi
+
+	standalone=tests/$testname
+
+	generate_test "$@" > $standalone
+
 	chmod +x $standalone
 
 	return 0
