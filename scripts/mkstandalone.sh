@@ -75,12 +75,12 @@ done
 
 EOF
 fi
-if [ ! -f $kernel ]; then
-	cat <<EOF
-echo "skip $testname (test kernel not present)" 1>&2
-exit 1
-EOF
-else
+	if [ ! -f $kernel ]; then
+		echo 'echo "skip '"$testname"' (test kernel not present)" 1>&2'
+		echo 'exit 1'
+	else
+	# XXX: bad indentation
+
 	echo "trap 'rm -f \$cleanup' EXIT"
 
 	temp_file bin "$kernel"
@@ -109,7 +109,8 @@ else
 fi
 exit 0
 EOF
-fi
+	fi
+
 	exec 1<&$tmpfd {tmpfd}<&-
 	chmod +x $standalone
 
