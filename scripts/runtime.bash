@@ -1,3 +1,5 @@
+: "${RUNTIME_arch_run?}"
+
 qemu=${QEMU:-qemu-system-$ARCH}
 verbose=0
 
@@ -37,14 +39,14 @@ function run()
         fi
     done
 
-    cmdline="TESTNAME=$testname ACCEL=$accel ./$TEST_DIR-run $kernel -smp $smp $opts"
+    cmdline="TESTNAME=$testname ACCEL=$accel $RUNTIME_arch_run $kernel -smp $smp $opts"
     if [ $verbose != 0 ]; then
         echo $cmdline
     fi
 
     # extra_params in the config file may contain backticks that need to be
     # expanded, so use eval to start qemu
-    eval $cmdline >> test.log
+    eval $cmdline
 
     if [ $? -le 1 ]; then
         echo -e "\e[32mPASS\e[0m $1"

@@ -6,6 +6,8 @@ if [ ! -f config.mak ]; then
 fi
 source config.mak
 source scripts/functions.bash
+
+RUNTIME_arch_run="./$TEST_DIR/run >> test.log"
 source scripts/runtime.bash
 
 config=$TEST_DIR/unittests.cfg
