@@ -52,18 +52,8 @@ function mkstandalone()
 	exec > $standalone
 
 	echo "#!/bin/sh"
+	grep '^ARCH=' config.mak
 
-if [ "$arch" ]; then
-	cat <<EOF
-ARCH=\`uname -m | sed -e s/i.86/i386/ | sed -e 's/arm.*/arm/'\`
-[ "\$ARCH" = "aarch64" ] && ARCH="arm64"
-if [ "\$ARCH" != "$arch" ]; then
-	echo "skip $testname ($arch only)" 1>&2
-	exit 1
-fi
-
-EOF
-fi
 if [ "$check" ]; then
 	cat <<EOF
 for param in $check; do
