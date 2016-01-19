@@ -20,6 +20,13 @@ fi
 unittests=$TEST_DIR/unittests.cfg
 mkdir -p tests
 
+escape ()
+{
+	for arg in "${@}"; do
+		printf "%q " "$arg"; # XXX: trailing whitespace
+	done
+}
+
 temp_file ()
 {
 	local var="$1"
@@ -38,13 +45,7 @@ temp_file ()
 function mkstandalone()
 {
 	local testname="$1"
-	local groups="$2"
-	local smp="$3"
-	local kernel="$4"
-	local opts="$5"
-	local arch="$6"
-	local check="$7"
-	local accel="$8"
+	local args=( $(escape "${@}") )
 
 	if [ -z "$testname" ]; then
 		return 1
@@ -62,21 +63,8 @@ function mkstandalone()
 	echo "#!/bin/bash"
 	grep '^ARCH=' config.mak
 
-if [ "$check" ]; then
-	cat <<EOF
-for param in $check; do
-	path=\`echo \$param | cut -d= -f1\`
-	value=\`echo \$param | cut -d= -f2\`
-	if [ -f "\$path" ] && [ "\`cat \$path\`" != "\$value" ]; then
-		echo "skip $testname (\$path not equal to \$value)" 1>&2
-		exit 1
-	fi
-done
-
-EOF
-fi
 	if [ ! -f $kernel ]; then
-		echo 'echo "skip '"$testname"' (test kernel not present)" 1>&2'
+		echo 'echo "skip '"$testname"' (test kernel not present)"'
 		echo 'exit 1'
 	else
 	# XXX: bad indentation
@@ -84,31 +72,14 @@ fi
 	echo "trap 'rm -f \$cleanup' EXIT"
 
 	temp_file bin "$kernel"
+	args[3]='$bin'
+
 	temp_file RUNTIME_arch_run "$TEST_DIR/run"
 
-	cat <<EOF
+	cat scripts/runtime.bash
 
-MAX_SMP="MAX_SMP"
-echo \$RUNTIME_arch_run \$bin -smp $smp $opts
-
-if \$RUNTIME_arch_run _NO_FILE_4Uhere_ 2>&1 | grep 'No accelerator found'; then
-	ret=2
-else
-	MAX_SMP=\`getconf _NPROCESSORS_CONF\`
-	while \$RUNTIME_arch_run \$bin -smp \$MAX_SMP 2>&1 | grep 'exceeds max cpus' > /dev/null; do
-		MAX_SMP=\`expr \$MAX_SMP - 1\`
-	done
-
-	\$RUNTIME_arch_run \$bin -smp $smp $opts
-	ret=\$?
-fi
-if [ \$ret -le 1 ]; then
-	echo PASS $testname 1>&2
-else
-	echo FAIL $testname 1>&2
-fi
-exit 0
-EOF
+	echo "run ${args[@]}"
+	echo "exit 0"
 	fi
 
 	exec 1<&$tmpfd {tmpfd}<&-
