@@ -52,7 +52,6 @@ generate_test ()
 	cat scripts/runtime.bash
 
 	echo "run ${args[@]}"
-	echo "exit 0"
 }
 
 function mkstandalone()

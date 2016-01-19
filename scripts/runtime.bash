@@ -47,12 +47,15 @@ function run()
     # extra_params in the config file may contain backticks that need to be
     # expanded, so use eval to start qemu
     eval $cmdline
+    ret=$?
 
-    if [ $? -le 1 ]; then
+    if [ $ret -le 1 ]; then
         echo -e "\e[32mPASS\e[0m $1"
     else
         echo -e "\e[31mFAIL\e[0m $1"
     fi
+
+    return $ret
 }
 
 function usage()
