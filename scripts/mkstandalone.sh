@@ -66,7 +66,7 @@ function mkstandalone()
 	exec {tmpfd}<&1
 	exec > $standalone
 
-	echo "#!/bin/sh"
+	echo "#!/bin/bash"
 	grep '^ARCH=' config.mak
 
 if [ "$check" ]; then
@@ -88,7 +88,7 @@ echo "skip $testname (test kernel not present)" 1>&2
 exit 1
 EOF
 else
-	echo "trap 'rm -f \$cleanup; exit 1' HUP INT TERM"
+	echo "trap 'rm -f \$cleanup' EXIT"
 
 	temp_file bin "$kernel"
 
@@ -121,7 +121,6 @@ if [ \$ret -le 1 ]; then
 else
 	echo FAIL $testname 1>&2
 fi
-rm -f \$bin
 exit 0
 EOF
 fi
