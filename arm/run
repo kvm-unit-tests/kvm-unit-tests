@@ -1,10 +1,12 @@
 #!/bin/bash
 
-if [ ! -f config.mak ]; then
-	echo run ./configure first. See ./configure -h
-	exit 2
+if [ -z "$STANDALONE" ]; then
+	if [ ! -f config.mak ]; then
+		echo "run ./configure && make first. See ./configure -h"
+		exit 2
+	fi
+	source config.mak
 fi
-source config.mak
 processor="$PROCESSOR"
 
 if [ -c /dev/kvm ]; then

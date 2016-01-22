@@ -29,12 +29,21 @@ temp_file ()
 	echo "chmod +x \$$var"
 }
 
+config_export ()
+{
+	echo "export $(grep ^${1}= config.mak)"
+}
+
 generate_test ()
 {
 	local args=( $(escape "${@}") )
 
 	echo "#!/bin/bash"
-	grep '^ARCH=' config.mak
+	echo "export STANDALONE=yes"
+	echo "export HOST=\$(uname -m | sed -e s/i.86/i386/ | sed -e 's/arm.*/arm/')"
+	config_export ARCH
+	config_export ARCH_NAME
+	config_export PROCESSOR
 
 	if [ ! -f $kernel ]; then
 		echo 'echo "skip '"$testname"' (test kernel not present)"'
