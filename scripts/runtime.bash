@@ -1,7 +1,6 @@
 : "${RUNTIME_arch_run?}"
 
 qemu=${QEMU:-qemu-system-$ARCH}
-verbose=0
 
 function run()
 {
@@ -40,7 +39,7 @@ function run()
     done
 
     cmdline="TESTNAME=$testname ACCEL=$accel $RUNTIME_arch_run $kernel -smp $smp $opts"
-    if [ $verbose != 0 ]; then
+    if [ "$verbose" = "yes" ]; then
         echo $cmdline
     fi
 
@@ -57,40 +56,6 @@ function run()
 
     return $ret
 }
-
-function usage()
-{
-cat <<EOF
-
-Usage: $0 [-g group] [-h] [-v]
-
-    -g: Only execute tests in the given group
-    -h: Output this help text
-    -v: Enables verbose mode
-
-Set the environment variable QEMU=/path/to/qemu-system-ARCH to
-specify the appropriate qemu binary for ARCH-run.
-
-EOF
-}
-
-while getopts "g:hv" opt; do
-    case $opt in
-        g)
-            only_group=$OPTARG
-            ;;
-        h)
-            usage
-            exit
-            ;;
-        v)
-            verbose=1
-            ;;
-        *)
-            exit
-            ;;
-    esac
-done
 
 MAX_SMP=$(getconf _NPROCESSORS_CONF)
 #
