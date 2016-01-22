@@ -7,9 +7,10 @@ fi
 source config.mak
 source scripts/functions.bash
 
-RUNTIME_arch_run="./$TEST_DIR/run >> test.log"
+RUNTIME_arch_run="./$TEST_DIR/run"
 source scripts/runtime.bash
 
+RUNTIME_arch_run="./$TEST_DIR/run >> test.log"
 config=$TEST_DIR/unittests.cfg
-
+echo > test.log
 for_each_unittest $config run

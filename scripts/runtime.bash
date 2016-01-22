@@ -74,7 +74,6 @@ specify the appropriate qemu binary for ARCH-run.
 EOF
 }
 
-echo > test.log
 while getopts "g:hv" opt; do
     case $opt in
         g)
@@ -93,11 +92,17 @@ while getopts "g:hv" opt; do
     esac
 done
 
-#
-# Probe for MAX_SMP
-#
 MAX_SMP=$(getconf _NPROCESSORS_CONF)
-while ./$TEST_DIR-run _NO_FILE_4Uhere_ -smp $MAX_SMP \
-		|& grep -q 'exceeds max cpus'; do
+#
+# Probe for MAX_SMP, in case it's less than the number of host cpus.
+#
+# This probing currently only works for ARM, as x86 bails on another
+# error first. Also, this probing isn't necessary for any ARM hosts
+# running kernels later than v4.3, i.e. those including ef748917b52
+# "arm/arm64: KVM: Remove 'config KVM_ARM_MAX_VCPUS'". So, at some
+# point when maintaining the while loop gets too tiresome, we can
+# just remove it...
+while $RUNTIME_arch_run _NO_FILE_4Uhere_ -smp $MAX_SMP \
+		|& grep -qi 'exceeds max CPUs'; do
 	((--MAX_SMP))
 done
