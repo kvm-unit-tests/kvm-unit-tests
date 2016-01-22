@@ -30,8 +30,11 @@ if [ -z "$ACCEL" ]; then
 	fi
 fi
 
-if [ "$ARCH" = "arm64" ] && [ "$ACCEL" = "kvm" ]; then
+if [ "$HOST" = "aarch64" ] && [ "$ACCEL" = "kvm" ]; then
 	processor="host"
+	if [ "$ARCH" = "arm" ]; then
+		processor+=",aarch64=off"
+	fi
 fi
 
 qemu="${QEMU:-qemu-system-$ARCH_NAME}"
