@@ -17,32 +17,21 @@ if [ -c /dev/kvm ]; then
 	fi
 fi
 
-if [ "$ACCEL" = "kvm" ] && [ "$kvm_available" != "yes" ] &&
-		[ "$DRYRUN" != "yes" ]; then
-	printf "skip $TESTNAME (kvm only)\n\n"
+if [ "$ACCEL" = "kvm" ] && [ "$kvm_available" != "yes" ]; then
+	echo "skip $TESTNAME (kvm only)"
 	exit 2
 fi
 
 if [ -z "$ACCEL" ]; then
-	if [ "$DRYRUN" = "yes" ]; then
-		# Output kvm with tcg fallback for dryrun (when both are
-		# allowed), since the command line we output may get used
-		# elsewhere.
-		ACCEL="kvm:tcg"
-	elif [ "$kvm_available" = "yes" ]; then
+	if [ "$kvm_available" = "yes" ]; then
 		ACCEL="kvm"
 	else
 		ACCEL="tcg"
 	fi
 fi
 
-if [ "$ARCH" = "arm64" ]; then
-	if [[ $ACCEL =~ kvm ]]; then
-		# arm64 must use '-cpu host' with kvm, and we can't use
-		# '-cpu host' with tcg, so we force kvm-only (no fallback)
-		ACCEL="kvm"
-		processor="host"
-	fi
+if [ "$ARCH" = "arm64" ] && [ "$ACCEL" = "kvm" ]; then
+	processor="host"
 fi
 
 qemu="${QEMU:-qemu-system-$ARCH_NAME}"
@@ -79,9 +68,7 @@ command="$qemu $M -cpu $processor $chr_testdev"
 command+=" -display none -serial stdio -kernel"
 echo $command "$@"
 
-if [ "$DRYRUN" != "yes" ]; then
-	$command "$@"
-	ret=$?
-	echo Return value from qemu: $ret
-	exit $ret
-fi
+$command "$@"
+ret=$?
+echo Return value from qemu: $ret
+exit $ret
