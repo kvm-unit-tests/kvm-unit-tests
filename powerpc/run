@@ -1,0 +1,52 @@
+#!/bin/bash
+
+if [ -z "$STANDALONE" ]; then
+	if [ ! -f config.mak ]; then
+		echo "run ./configure && make first. See ./configure -h"
+		exit 2
+	fi
+	source config.mak
+fi
+
+if [ -c /dev/kvm ]; then
+	if [ "$HOST" = "ppc64" ] && [ "$ARCH" = "ppc64" ]; then
+		kvm_available=yes
+	fi
+fi
+
+if [ "$ACCEL" = "kvm" ] && [ "$kvm_available" != "yes" ]; then
+	echo "skip $TESTNAME (kvm only)"
+	exit 2
+fi
+
+if [ -z "$ACCEL" ]; then
+	if [ "$kvm_available" = "yes" ]; then
+		ACCEL="kvm"
+	else
+		ACCEL="tcg"
+	fi
+fi
+
+qemu="${QEMU:-qemu-system-$ARCH_NAME}"
+qpath=$(which $qemu 2>/dev/null)
+
+if [ -z "$qpath" ]; then
+	echo $qemu not found.
+	exit 2
+fi
+
+if ! $qemu -machine '?' 2>&1 | grep 'pseries' > /dev/null; then
+	echo "$qpath doesn't support pSeries ('-machine pseries'). Exiting."
+	exit 2
+fi
+
+M='-machine pseries'
+M+=",accel=$ACCEL"
+command="$qemu $M -bios powerpc/boot_rom.bin"
+command+=" -display none -serial stdio -kernel"
+echo $command "$@"
+
+$command "$@"
+ret=$?
+echo Return value from qemu: $ret
+exit $ret
