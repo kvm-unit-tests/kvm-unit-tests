@@ -53,6 +53,11 @@ generate_test ()
 
 	echo "trap 'rm -f \$cleanup' EXIT"
 
+	if [ "$FIRMWARE" ]; then
+		temp_file FIRMWARE "$FIRMWARE"
+		echo 'export FIRMWARE'
+	fi
+
 	temp_file bin "$kernel"
 	args[3]='$bin'
 

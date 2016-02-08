@@ -83,6 +83,7 @@ elif [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
     testdir=arm
 elif [ "$arch" = "ppc64" ]; then
     testdir=powerpc
+    firmware="$testdir/boot_rom.bin"
 else
     testdir=$arch
 fi
@@ -137,4 +138,5 @@ OBJDUMP=$cross_prefix$objdump
 AR=$cross_prefix$ar
 API=$api
 TEST_DIR=$testdir
+FIRMWARE=$firmware
 EOF
