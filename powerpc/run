@@ -46,7 +46,10 @@ command="$qemu $M -bios $FIRMWARE"
 command+=" -display none -serial stdio -kernel"
 echo $command "$@"
 
-$command "$@"
-ret=$?
+#FIXME: rtas-poweroff always exits with zero, so we have to parse
+#       the true exit code from the output.
+lines=$($command "$@")
+echo "$lines"
+ret=$(grep '^EXIT: ' <<<"$lines" | sed 's/.*STATUS=\([0-9][0-9]*\).*/\1/')
 echo Return value from qemu: $ret
 exit $ret

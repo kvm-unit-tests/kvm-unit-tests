@@ -29,5 +29,9 @@ void puts(const char *s)
 
 void exit(int code)
 {
+// FIXME: change this print-exit/rtas-poweroff to chr_testdev_exit(),
+//        maybe by plugging chr-testdev into a spapr-vty.
+	printf("\nEXIT: STATUS=%d\n", ((code) << 1) | 1);
+	rtas_power_off();
 	halt(code);
 }
