@@ -88,3 +88,17 @@ hcall:
 .globl halt
 halt:
 1:	b	1b
+
+.globl enter_rtas
+enter_rtas:
+	mflr	r0
+	std	r0, 16(r1)
+	LOAD_REG_ADDR(r11, rtas_entry)
+	ld	r10, 0(r11)
+//FIXME: change this bctrl to an rtas-prep, rfid, rtas-return sequence
+	mtctr	r10
+	nop
+	bctrl
+	ld	r0, 16(r1)
+	mtlr	r0
+	blr

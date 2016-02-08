@@ -7,6 +7,7 @@
  */
 #include <libcflat.h>
 #include <asm/spinlock.h>
+#include <asm/rtas.h>
 
 extern void halt(int code);
 extern void putchar(int c);
@@ -15,6 +16,7 @@ static struct spinlock print_lock;
 
 void io_init(void)
 {
+	rtas_init();
 }
 
 void puts(const char *s)
