@@ -50,7 +50,8 @@ static void uart0_init(void)
 		}
 
 	} else {
-		assert(dt_pbus_translate_node(ret, 0, &base) == 0);
+		ret = dt_pbus_translate_node(ret, 0, &base);
+		assert(ret == 0);
 	}
 
 	uart0_base = ioremap(base.addr, base.size);
