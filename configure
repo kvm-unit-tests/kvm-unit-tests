@@ -80,6 +80,8 @@ if [ "$arch" = "i386" ] || [ "$arch" = "x86_64" ]; then
     testdir=x86
 elif [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
     testdir=arm
+elif [ "$arch" = "ppc64" ]; then
+    testdir=powerpc
 else
     testdir=$arch
 fi
