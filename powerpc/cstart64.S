@@ -20,10 +20,16 @@
 
 .section .init
 
+/*
+ * start is the entry point. r3 points to the DTB
+ */
 .globl start
 start:
 	LOAD_REG_IMMEDIATE(r1, stackptr)
 	LOAD_REG_IMMEDIATE(r2, tocptr)
+
+	/* save DTB pointer */
+	std	r3, 56(r1)
 
 	/* patch sc1 if needed */
 	bl	hcall_have_broken_sc1
@@ -33,7 +39,15 @@ start:
 	LOAD_REG_IMMEDIATE(r4, SC1_REPLACEMENT)
 	stw	r4, 0(r3)
 
-1:	bl	main
+	/* complete setup */
+1:	ld	r3, 56(r1)
+	bl	setup
+
+	/* run the test */
+	LOAD_REG_IMMEDIATE(r5, __argc)
+	LOAD_REG_IMMEDIATE(r4, __argv)
+	lwz	r3, 0(r5)
+	bl	main
 	bl	exit
 	b	halt
 
