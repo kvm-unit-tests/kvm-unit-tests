@@ -27,12 +27,18 @@ extern void setup_args(const char *args);
 u32 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (~0U) };
 int nr_cpus;
 
+struct mem_region mem_regions[NR_MEM_REGIONS];
 phys_addr_t __phys_offset, __phys_end;
 
 static void cpu_set(int fdtnode __unused, u32 regval, void *info __unused)
 {
 	int cpu = nr_cpus++;
-	assert(cpu < NR_CPUS);
+
+	if (cpu >= NR_CPUS) {
+		printf("Number cpus exceeds maximum supported (%d).\n",
+			NR_CPUS);
+		assert(0);
+	}
 	cpus[cpu] = regval;
 	set_cpu_present(cpu, true);
 }
@@ -49,24 +55,46 @@ static void cpu_init(void)
 
 static void mem_init(phys_addr_t freemem_start)
 {
-	/* we only expect one membank to be defined in the DT */
-	struct dt_pbus_reg regs[1];
-	phys_addr_t mem_start, mem_end;
-	int ret;
+	struct dt_pbus_reg regs[NR_MEM_REGIONS];
+	struct mem_region primary, mem = {
+		.start = (phys_addr_t)-1,
+	};
+	int nr_regs, i;
 
-	ret = dt_get_memory_params(regs, 1);
-	assert(ret != 0);
+	nr_regs = dt_get_memory_params(regs, NR_MEM_REGIONS);
+	assert(nr_regs > 0);
 
-	mem_start = regs[0].addr;
-	mem_end = mem_start + regs[0].size;
+	primary.end = 0;
 
-	assert(!(mem_start & ~PHYS_MASK) && !((mem_end-1) & ~PHYS_MASK));
-	assert(freemem_start >= mem_start && freemem_start < mem_end);
+	for (i = 0; i < nr_regs; ++i) {
+		mem_regions[i].start = regs[i].addr;
+		mem_regions[i].end = regs[i].addr + regs[i].size;
 
-	__phys_offset = mem_start;	/* PHYS_OFFSET */
-	__phys_end = mem_end;		/* PHYS_END */
+		/*
+		 * pick the region we're in for our primary region
+		 */
+		if (freemem_start >= mem_regions[i].start
+				&& freemem_start < mem_regions[i].end) {
+			mem_regions[i].flags |= MR_F_PRIMARY;
+			primary = mem_regions[i];
+		}
 
-	phys_alloc_init(freemem_start, mem_end - freemem_start);
+		/*
+		 * set the lowest and highest addresses found,
+		 * ignoring potential gaps
+		 */
+		if (mem_regions[i].start < mem.start)
+			mem.start = mem_regions[i].start;
+		if (mem_regions[i].end > mem.end)
+			mem.end = mem_regions[i].end;
+	}
+	assert(primary.end != 0);
+	assert(!(mem.start & ~PHYS_MASK) && !((mem.end - 1) & ~PHYS_MASK));
+
+	__phys_offset = mem.start;	/* PHYS_OFFSET */
+	__phys_end = mem.end;		/* PHYS_END */
+
+	phys_alloc_init(freemem_start, primary.end - freemem_start);
 	phys_alloc_set_minimum_alignment(SMP_CACHE_BYTES);
 
 	mmu_enable_idmap();

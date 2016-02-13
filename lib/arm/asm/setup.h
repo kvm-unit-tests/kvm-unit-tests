@@ -6,6 +6,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <libcflat.h>
+#include <alloc.h>	/* phys_addr_t */
 #include <asm/page.h>
 #include <asm/pgtable-hwdef.h>
 
@@ -13,6 +14,14 @@
 extern u32 cpus[NR_CPUS];
 extern int nr_cpus;
 
+#define NR_MEM_REGIONS		8
+#define MR_F_PRIMARY		(1U << 0)
+struct mem_region {
+	phys_addr_t start;
+	phys_addr_t end;
+	unsigned int flags;
+};
+extern struct mem_region mem_regions[NR_MEM_REGIONS];
 extern phys_addr_t __phys_offset, __phys_end;
 
 #define PHYS_OFFSET		(__phys_offset)
