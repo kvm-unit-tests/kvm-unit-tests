@@ -55,6 +55,7 @@ extern void abort(void);
 extern int printf(const char *fmt, ...);
 extern int snprintf(char *buf, int size, const char *fmt, ...);
 extern int vsnprintf(char *buf, int size, const char *fmt, va_list va);
+extern int vprintf(const char *fmt, va_list va);
 extern long atol(const char *ptr);
 
 void report_prefix_push(const char *prefix);

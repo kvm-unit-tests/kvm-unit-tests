@@ -1,5 +1,7 @@
 #include "libcflat.h"
 
+#define BUFSZ 2000
+
 typedef struct pstream {
     char *buffer;
     int remain;
@@ -235,10 +237,20 @@ int snprintf(char *buf, int size, const char *fmt, ...)
     return r;
 }
 
+int vprintf(const char *fmt, va_list va)
+{
+    char buf[BUFSZ];
+    int r;
+
+    r = vsnprintf(buf, sizeof(buf), fmt, va);
+    puts(buf);
+    return r;
+}
+
 int printf(const char *fmt, ...)
 {
     va_list va;
-    char buf[2000];
+    char buf[BUFSZ];
     int r;
 
     va_start(va, fmt);
