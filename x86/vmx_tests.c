@@ -566,7 +566,7 @@ static int iobmp_init()
 	u32 ctrl_cpu0;
 
 	io_bitmap_a = alloc_page();
-	io_bitmap_a = alloc_page();
+	io_bitmap_b = alloc_page();
 	memset(io_bitmap_a, 0x0, PAGE_SIZE);
 	memset(io_bitmap_b, 0x0, PAGE_SIZE);
 	ctrl_cpu0 = vmcs_read(CPU_EXEC_CTRL0);
