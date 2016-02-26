@@ -7,7 +7,7 @@ ld=ld
 objcopy=objcopy
 objdump=objdump
 ar=ar
-arch=`uname -m | sed -e s/i.86/i386/ | sed -e 's/arm.*/arm/'`
+arch=`uname -m | sed -e 's/i.86/i386/;s/arm.*/arm/;s/ppc64.*/ppc64/'`
 host=$arch
 cross_prefix=
 

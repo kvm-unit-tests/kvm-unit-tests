@@ -11,6 +11,7 @@ all: $(TEST_DIR)/boot_rom.bin test_cases
 
 ##################################################################
 
+CFLAGS += $(arch_CFLAGS)
 CFLAGS += -std=gnu99
 CFLAGS += -ffreestanding
 CFLAGS += -Wextra
@@ -30,13 +31,11 @@ cflatobjs += lib/powerpc/hcall.o
 cflatobjs += lib/powerpc/setup.o
 cflatobjs += lib/powerpc/rtas.o
 
-libgcc := $(shell $(CC) $(machine) --print-libgcc-file-name)
-
-FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libgcc)
-%.elf: LDFLAGS = $(CFLAGS) -nostdlib -pie
+FLATLIBS = $(libcflat) $(LIBFDT_archive)
+%.elf: LDFLAGS = $(arch_LDFLAGS) -nostdlib -pie
 %.elf: %.o $(FLATLIBS) powerpc/flat.lds
-	$(CC) $(LDFLAGS) -o $@ \
-		-Wl,-T,powerpc/flat.lds,--build-id=none \
+	$(LD) $(LDFLAGS) -o $@ \
+	      -T powerpc/flat.lds --build-id=none \
 		$(filter %.o, $^) $(FLATLIBS)
 	@echo -n Checking $@ for unsupported reloc types...
 	@if $(OBJDUMP) -R $@ | grep R_ | grep -v R_PPC64_RELATIVE; then	\
@@ -50,7 +49,7 @@ $(TEST_DIR)/boot_rom.bin: $(TEST_DIR)/boot_rom.elf
 	$(OBJCOPY) -O binary $^ >(cat - >>$@)
 
 $(TEST_DIR)/boot_rom.elf: $(TEST_DIR)/boot_rom.o
-	$(LD) -nostdlib -Ttext=0x100 --entry=start --build-id=none -o $@ $<
+	$(LD) -EB -nostdlib -Ttext=0x100 --entry=start --build-id=none -o $@ $<
 
 powerpc_clean: libfdt_clean asm_offsets_clean
 	$(RM) $(TEST_DIR)/*.{o,elf} $(TEST_DIR)/boot_rom.bin \

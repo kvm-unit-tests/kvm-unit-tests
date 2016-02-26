@@ -5,6 +5,9 @@
 #
 bits = 64
 
+arch_CFLAGS = -mbig-endian
+arch_LDFLAGS = -EB
+
 cstart.o = $(TEST_DIR)/cstart64.o
 reloc.o  = $(TEST_DIR)/reloc64.o
 cflatobjs += lib/ppc64/spinlock.o
