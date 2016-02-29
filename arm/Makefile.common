@@ -25,8 +25,9 @@ CFLAGS += -O2
 CFLAGS += -I lib -I lib/libfdt
 
 asm-offsets = lib/$(ARCH)/asm-offsets.h
-include config/asm-offsets.mak
+include scripts/asm-offsets.mak
 
+cflatobjs += lib/util.o
 cflatobjs += lib/alloc.o
 cflatobjs += lib/devicetree.o
 cflatobjs += lib/virtio.o

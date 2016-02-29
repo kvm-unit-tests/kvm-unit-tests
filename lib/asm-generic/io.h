@@ -104,27 +104,27 @@ static inline u64 __bswap64(u64 x)
 #endif
 
 #define le16_to_cpu(x) \
-	({ u16 __r = __cpu_is_be() ? __bswap16(x) : (x); __r; })
+	({ u16 __r = __cpu_is_be() ? __bswap16(x) : ((u16)x); __r; })
 #define cpu_to_le16 le16_to_cpu
 
 #define le32_to_cpu(x) \
-	({ u32 __r = __cpu_is_be() ? __bswap32(x) : (x); __r; })
+	({ u32 __r = __cpu_is_be() ? __bswap32(x) : ((u32)x); __r; })
 #define cpu_to_le32 le32_to_cpu
 
 #define le64_to_cpu(x) \
-	({ u64 __r = __cpu_is_be() ? __bswap64(x) : (x); __r; })
+	({ u64 __r = __cpu_is_be() ? __bswap64(x) : ((u64)x); __r; })
 #define cpu_to_le64 le64_to_cpu
 
 #define be16_to_cpu(x) \
-	({ u16 __r = !__cpu_is_be() ? __bswap16(x) : (x); __r; })
+	({ u16 __r = !__cpu_is_be() ? __bswap16(x) : ((u16)x); __r; })
 #define cpu_to_be16 be16_to_cpu
 
 #define be32_to_cpu(x) \
-	({ u32 __r = !__cpu_is_be() ? __bswap32(x) : (x); __r; })
+	({ u32 __r = !__cpu_is_be() ? __bswap32(x) : ((u32)x); __r; })
 #define cpu_to_be32 be32_to_cpu
 
 #define be64_to_cpu(x) \
-	({ u64 __r = !__cpu_is_be() ? __bswap64(x) : (x); __r; })
+	({ u64 __r = !__cpu_is_be() ? __bswap64(x) : ((u64)x); __r; })
 #define cpu_to_be64 be64_to_cpu
 
 #ifndef rmb

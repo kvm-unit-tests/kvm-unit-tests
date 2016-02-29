@@ -1,0 +1,65 @@
+#
+# powerpc common makefile
+#
+# Authors: Andrew Jones <drjones@redhat.com>
+#
+
+tests-common = \
+	$(TEST_DIR)/selftest.elf
+
+all: $(TEST_DIR)/boot_rom.bin test_cases
+
+##################################################################
+
+CFLAGS += -std=gnu99
+CFLAGS += -ffreestanding
+CFLAGS += -Wextra
+CFLAGS += -O2
+CFLAGS += -I lib -I lib/libfdt
+CFLAGS += -Wa,-mregnames
+CFLAGS += -fpie
+
+asm-offsets = lib/$(ARCH)/asm-offsets.h
+include scripts/asm-offsets.mak
+
+cflatobjs += lib/util.o
+cflatobjs += lib/alloc.o
+cflatobjs += lib/devicetree.o
+cflatobjs += lib/powerpc/io.o
+cflatobjs += lib/powerpc/hcall.o
+cflatobjs += lib/powerpc/setup.o
+cflatobjs += lib/powerpc/rtas.o
+
+libgcc := $(shell $(CC) $(machine) --print-libgcc-file-name)
+
+FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libgcc)
+%.elf: LDFLAGS = $(CFLAGS) -nostdlib -pie
+%.elf: %.o $(FLATLIBS) powerpc/flat.lds
+	$(CC) $(LDFLAGS) -o $@ \
+		-Wl,-T,powerpc/flat.lds,--build-id=none \
+		$(filter %.o, $^) $(FLATLIBS)
+	@echo -n Checking $@ for unsupported reloc types...
+	@if $(OBJDUMP) -R $@ | grep R_ | grep -v R_PPC64_RELATIVE; then	\
+		false;							\
+	else								\
+		echo " looks good.";					\
+	fi
+
+$(TEST_DIR)/boot_rom.bin: $(TEST_DIR)/boot_rom.elf
+	dd if=/dev/zero of=$@ bs=256 count=1
+	$(OBJCOPY) -O binary $^ >(cat - >>$@)
+
+$(TEST_DIR)/boot_rom.elf: $(TEST_DIR)/boot_rom.o
+	$(LD) -nostdlib -Ttext=0x100 --entry=start --build-id=none -o $@ $<
+
+powerpc_clean: libfdt_clean asm_offsets_clean
+	$(RM) $(TEST_DIR)/*.{o,elf} $(TEST_DIR)/boot_rom.bin \
+	      $(TEST_DIR)/.*.d lib/powerpc/.*.d
+
+##################################################################
+
+generated_files = $(asm-offsets)
+
+test_cases: $(generated_files) $(tests-common) $(tests)
+
+$(TEST_DIR)/selftest.elf: $(cstart.o) $(reloc.o) $(TEST_DIR)/selftest.o

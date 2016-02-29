@@ -32,7 +32,7 @@ LIBFDT_include = $(addprefix $(LIBFDT_srcdir)/,$(LIBFDT_INCLUDES))
 LIBFDT_version = $(addprefix $(LIBFDT_srcdir)/,$(LIBFDT_VERSION))
 
 #include architecure specific make rules
-include config/config-$(ARCH).mak
+include $(TEST_DIR)/Makefile
 
 # cc-option
 # Usage: OP_CFLAGS+=$(call cc-option, -falign-functions=0, -malign-functions=0)
@@ -85,9 +85,11 @@ distclean: clean libfdt_clean
 	$(RM) lib/asm config.mak $(TEST_DIR)-run test.log msr.out cscope.*
 	$(RM) -r tests
 
-cscope: common_dirs = lib lib/libfdt lib/linux lib/asm lib/asm-generic
+cscope: cscope_dirs = lib lib/libfdt lib/linux
+cscope: cscope_dirs += lib/$(ARCH)/asm lib/$(TEST_DIR)/asm lib/asm-generic
+cscope: cscope_dirs += $(TEST_DIR) lib/$(TEST_DIR) lib/$(ARCH)
 cscope:
 	$(RM) ./cscope.*
-	find -L $(TEST_DIR) lib/$(TEST_DIR) lib/$(ARCH) $(common_dirs) -maxdepth 1 \
+	find -L $(cscope_dirs) -maxdepth 1 \
 		-name '*.[chsS]' -print | sed 's,^\./,,' | sort -u > ./cscope.files
 	cscope -bk

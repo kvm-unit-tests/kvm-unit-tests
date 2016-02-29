@@ -47,15 +47,13 @@ void va_report_xfail(const char *msg_fmt, bool xfail, bool cond, va_list va)
 {
 	char *pass = xfail ? "XPASS" : "PASS";
 	char *fail = xfail ? "XFAIL" : "FAIL";
-	char buf[2000];
 
 	spin_lock(&lock);
 
 	tests++;
 	printf("%s: ", cond ? pass : fail);
 	puts(prefixes);
-	vsnprintf(buf, sizeof(buf), msg_fmt, va);
-	puts(buf);
+	vprintf(msg_fmt, va);
 	puts("\n");
 	if (xfail && cond)
 		failures++;
@@ -95,4 +93,18 @@ int report_summary(void)
 	return failures > 0 ? 1 : 0;
 
 	spin_unlock(&lock);
+}
+
+void report_abort(const char *msg_fmt, ...)
+{
+	va_list va;
+
+	puts("ABORT: ");
+	puts(prefixes);
+	va_start(va, msg_fmt);
+	vprintf(msg_fmt, va);
+	va_end(va);
+	puts("\n");
+	report_summary();
+	abort();
 }

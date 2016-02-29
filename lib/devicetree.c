@@ -165,22 +165,24 @@ int dt_pbus_get_base_compatible(const char *compatible,
 int dt_get_memory_params(struct dt_pbus_reg *regs, int nr_regs)
 {
 	const char *pn = "device_type", *pv = "memory";
-	int node, ret, pl = strlen(pv) + 1, nr = 0;
+	int node, ret, reg_idx, pl = strlen(pv) + 1, nr = 0;
 	struct dt_pbus_reg reg;
 
 	node = fdt_node_offset_by_prop_value(fdt, -1, pn, pv, pl);
 
 	while (node >= 0) {
 
+		reg_idx = 0;
+
 		while (nr < nr_regs) {
-			ret = dt_pbus_translate_node(node, nr, &reg);
+			ret = dt_pbus_translate_node(node, reg_idx, &reg);
 			if (ret == -FDT_ERR_NOTFOUND)
 				break;
 			if (ret < 0)
 				return ret;
 			regs[nr].addr = reg.addr;
 			regs[nr].size = reg.size;
-			++nr;
+			++nr, ++reg_idx;
 		}
 
 		node = fdt_node_offset_by_prop_value(fdt, node, pn, pv, pl);

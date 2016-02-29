@@ -2,11 +2,11 @@
  * Initialize machine setup information and I/O.
  *
  * After running setup() unit tests may query how many cpus they have
- * (nr_cpus), how much memory they have (PHYS_END - PHYS_OFFSET), may
- * use dynamic memory allocation (malloc, etc.), printf, and exit.
+ * (nr_cpus), how much memory they have (PHYSICAL_END - PHYSICAL_START),
+ * may use dynamic memory allocation (malloc, etc.), printf, and exit.
  * Finally, argc and argv are also ready to be passed to main().
  *
- * Copyright (C) 2014, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ * Copyright (C) 2016, Red Hat Inc, Andrew Jones <drjones@redhat.com>
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
@@ -14,11 +14,8 @@
 #include <libfdt/libfdt.h>
 #include <devicetree.h>
 #include <alloc.h>
-#include <asm/thread_info.h>
 #include <asm/setup.h>
 #include <asm/page.h>
-#include <asm/mmu.h>
-#include <asm/smp.h>
 
 extern unsigned long stacktop;
 extern void io_init(void);
@@ -28,10 +25,18 @@ u32 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (~0U) };
 int nr_cpus;
 
 struct mem_region mem_regions[NR_MEM_REGIONS];
-phys_addr_t __phys_offset, __phys_end;
+phys_addr_t __physical_start, __physical_end;
+unsigned __icache_bytes, __dcache_bytes;
 
-static void cpu_set(int fdtnode __unused, u32 regval, void *info __unused)
+struct cpu_set_params {
+	unsigned icache_bytes;
+	unsigned dcache_bytes;
+};
+
+static void cpu_set(int fdtnode, u32 regval, void *info)
 {
+	static bool read_common_info = false;
+	struct cpu_set_params *params = info;
 	int cpu = nr_cpus++;
 
 	if (cpu >= NR_CPUS) {
@@ -40,17 +45,37 @@ static void cpu_set(int fdtnode __unused, u32 regval, void *info __unused)
 		assert(0);
 	}
 	cpus[cpu] = regval;
-	set_cpu_present(cpu, true);
+
+	if (!read_common_info) {
+		const struct fdt_property *prop;
+		u32 *data;
+
+		prop = fdt_get_property(dt_fdt(), fdtnode,
+					"i-cache-line-size", NULL);
+		assert(prop != NULL);
+		data = (u32 *)prop->data;
+		params->icache_bytes = fdt32_to_cpu(*data);
+
+		prop = fdt_get_property(dt_fdt(), fdtnode,
+					"d-cache-line-size", NULL);
+		assert(prop != NULL);
+		data = (u32 *)prop->data;
+		params->dcache_bytes = fdt32_to_cpu(*data);
+
+		read_common_info = true;
+	}
 }
 
 static void cpu_init(void)
 {
+	struct cpu_set_params params;
 	int ret;
 
 	nr_cpus = 0;
-	ret = dt_for_each_cpu_node(cpu_set, NULL);
+	ret = dt_for_each_cpu_node(cpu_set, &params);
 	assert(ret == 0);
-	set_cpu_online(0, true);
+	__icache_bytes = params.icache_bytes;
+	__dcache_bytes = params.dcache_bytes;
 }
 
 static void mem_init(phys_addr_t freemem_start)
@@ -89,15 +114,14 @@ static void mem_init(phys_addr_t freemem_start)
 			mem.end = mem_regions[i].end;
 	}
 	assert(primary.end != 0);
-	assert(!(mem.start & ~PHYS_MASK) && !((mem.end - 1) & ~PHYS_MASK));
+//	assert(!(mem.start & ~PHYS_MASK) && !((mem.end - 1) & ~PHYS_MASK));
 
-	__phys_offset = mem.start;	/* PHYS_OFFSET */
-	__phys_end = mem.end;		/* PHYS_END */
+	__physical_start = mem.start;	/* PHYSICAL_START */
+	__physical_end = mem.end;	/* PHYSICAL_END */
 
 	phys_alloc_init(freemem_start, primary.end - freemem_start);
-	phys_alloc_set_minimum_alignment(SMP_CACHE_BYTES);
-
-	mmu_enable_idmap();
+	phys_alloc_set_minimum_alignment(__icache_bytes > __dcache_bytes
+					 ? __icache_bytes : __dcache_bytes);
 }
 
 void setup(const void *fdt)
@@ -116,11 +140,9 @@ void setup(const void *fdt)
 	ret = dt_init(&stacktop);
 	assert(ret == 0);
 
+	cpu_init();
 	mem_init(PAGE_ALIGN((unsigned long)&stacktop + fdt_size));
 	io_init();
-	cpu_init();
-
-	thread_info_init(current_thread_info(), 0);
 
 	ret = dt_get_bootargs(&bootargs);
 	assert(ret == 0);
