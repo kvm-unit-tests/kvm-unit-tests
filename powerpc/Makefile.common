@@ -11,7 +11,6 @@ all: $(TEST_DIR)/boot_rom.bin test_cases
 
 ##################################################################
 
-CFLAGS += $(arch_CFLAGS)
 CFLAGS += -std=gnu99
 CFLAGS += -ffreestanding
 CFLAGS += -Wextra
@@ -32,6 +31,7 @@ cflatobjs += lib/powerpc/setup.o
 cflatobjs += lib/powerpc/rtas.o
 
 FLATLIBS = $(libcflat) $(LIBFDT_archive)
+%.elf: CFLAGS += $(arch_CFLAGS)
 %.elf: LDFLAGS = $(arch_LDFLAGS) -nostdlib -pie
 %.elf: %.o $(FLATLIBS) powerpc/flat.lds
 	$(LD) $(LDFLAGS) -o $@ \
@@ -48,6 +48,7 @@ $(TEST_DIR)/boot_rom.bin: $(TEST_DIR)/boot_rom.elf
 	dd if=/dev/zero of=$@ bs=256 count=1
 	$(OBJCOPY) -O binary $^ >(cat - >>$@)
 
+$(TEST_DIR)/boot_rom.elf: CFLAGS = -mbig-endian
 $(TEST_DIR)/boot_rom.elf: $(TEST_DIR)/boot_rom.o
 	$(LD) -EB -nostdlib -Ttext=0x100 --entry=start --build-id=none -o $@ $<
 

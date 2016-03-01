@@ -5,8 +5,13 @@
 #
 bits = 64
 
-arch_CFLAGS = -mbig-endian
-arch_LDFLAGS = -EB
+ifeq ($(ENDIAN),little)
+    arch_CFLAGS = -mlittle-endian
+    arch_LDFLAGS = -EL
+else
+    arch_CFLAGS = -mbig-endian
+    arch_LDFLAGS = -EB
+endif
 
 cstart.o = $(TEST_DIR)/cstart64.o
 reloc.o  = $(TEST_DIR)/reloc64.o

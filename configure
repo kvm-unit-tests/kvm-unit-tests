@@ -10,6 +10,7 @@ ar=ar
 arch=`uname -m | sed -e 's/i.86/i386/;s/arm.*/arm/;s/ppc64.*/ppc64/'`
 host=$arch
 cross_prefix=
+endian=""
 
 usage() {
     cat <<-EOF
@@ -23,6 +24,7 @@ usage() {
 	    --ld=LD		   ld linker to use ($ld)
 	    --prefix=PREFIX        where to install things ($prefix)
 	    --kerneldir=DIR        kernel build directory for kvm.h ($kerneldir)
+	    --endian=ENDIAN        endianness to compile for (little or big, ppc64 only)
 EOF
     exit 1
 }
@@ -49,6 +51,9 @@ while [[ "$1" = -* ]]; do
 	    ;;
 	--cross-prefix)
 	    cross_prefix="$arg"
+	    ;;
+	--endian)
+	    endian="$arg"
 	    ;;
 	--cc)
 	    cc="$arg"
@@ -84,6 +89,10 @@ elif [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
 elif [ "$arch" = "ppc64" ]; then
     testdir=powerpc
     firmware="$testdir/boot_rom.bin"
+    if [ "$endian" != "little" ] && [ "$endian" != "big" ]; then
+        echo "You must provide endianness (big or little)!"
+        usage
+    fi
 else
     testdir=$arch
 fi
@@ -139,4 +148,5 @@ AR=$cross_prefix$ar
 API=$api
 TEST_DIR=$testdir
 FIRMWARE=$firmware
+ENDIAN=$endian
 EOF

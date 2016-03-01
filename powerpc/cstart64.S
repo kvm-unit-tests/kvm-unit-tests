@@ -8,6 +8,7 @@
 #define __ASSEMBLY__
 #include <asm/hcall.h>
 #include <asm/ppc_asm.h>
+#include <asm/rtas.h>
 
 .section .init
 
@@ -16,6 +17,7 @@
  */
 .globl start
 start:
+	FIXUP_ENDIAN
 	/*
 	 * We were loaded at QEMU's kernel load address, but we're not
 	 * allowed to link there due to how QEMU deals with linker VMAs,
@@ -84,12 +86,22 @@ halt:
 enter_rtas:
 	mflr	r0
 	std	r0, 16(r1)
+
+	LOAD_REG_ADDR(r10, rtas_return_loc)
+	mtlr	r10
 	LOAD_REG_ADDR(r11, rtas_entry)
 	ld	r10, 0(r11)
-//FIXME: change this bctrl to an rtas-prep, rfid, rtas-return sequence
-	mtctr	r10
-	nop
-	bctrl
+
+	mfmsr	r11
+	LOAD_REG_IMMEDIATE(r9, RTAS_MSR_MASK)
+	and	r11, r11, r9
+	mtsrr0	r10
+	mtsrr1	r11
+	rfid
+	b       .
+
+rtas_return_loc:
+	FIXUP_ENDIAN
 	ld	r0, 16(r1)
 	mtlr	r0
 	blr
