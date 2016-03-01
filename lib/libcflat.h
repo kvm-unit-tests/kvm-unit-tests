@@ -74,7 +74,8 @@ extern int report_summary(void);
 #define assert(cond)							\
 do {									\
 	if (!(cond))							\
-		printf("%s:%d: assert failed\n", __FILE__, __LINE__),	\
+		printf("%s:%d: assert failed: %s\n",			\
+		       __FILE__, __LINE__, #cond),			\
 		abort();						\
 } while (0)
 
