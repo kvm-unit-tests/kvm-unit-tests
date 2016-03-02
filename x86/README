@@ -41,7 +41,9 @@ Tests in this directory and what they do:
  pcid:		basic functionality test of PCID/INVPCID feature
 
 Legacy notes:
- The exit status of the binary (and the script) is inconsistent: with
- qemu-system, after the unit-test is done, the exit status of qemu is 1,
- different from the 'old style' qemu-kvm, whose exit status in successful
- completion is 0.
+ The exit status of the binary is inconsistent; with qemu-system, after
+ the unit-test is done, the exit status of qemu is 1, different from the
+ 'old style' qemu-kvm, whose exit status in successful completion is 0.
+ The run script converts the qemu-system exit status to 0 (SUCCESS), and
+ treats the legacy exit status of 0 as an error, converting it to an exit
+ status of 1.

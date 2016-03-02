@@ -17,13 +17,13 @@ escape ()
 temp_file ()
 {
 	local var="$1"
-	local file="$2"
+	local file="${2:--}"
 
 	echo "$var=\`mktemp\`"
 	echo "cleanup=\"\$$var \$cleanup\""
 	echo "base64 -d << 'BIN_EOF' | zcat > \$$var || exit 2"
 
-	gzip - < $file | base64
+	gzip -c "$file" | base64
 
 	echo "BIN_EOF"
 	echo "chmod +x \$$var"
@@ -61,7 +61,8 @@ generate_test ()
 	temp_file bin "$kernel"
 	args[3]='$bin'
 
-	temp_file RUNTIME_arch_run "$TEST_DIR/run"
+	(echo "#!/bin/bash"
+	 cat scripts/arch-run.bash "$TEST_DIR/run") | temp_file RUNTIME_arch_run
 
 	cat scripts/runtime.bash
 

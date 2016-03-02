@@ -48,7 +48,7 @@ function run()
     eval $cmdline
     ret=$?
 
-    if [ $ret -le 1 ]; then
+    if [ $ret -eq 0 ]; then
         echo -e "\e[32mPASS\e[0m $1"
     else
         echo -e "\e[31mFAIL\e[0m $1"

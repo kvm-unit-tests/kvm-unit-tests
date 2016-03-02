@@ -6,6 +6,7 @@ if [ -z "$STANDALONE" ]; then
 		exit 2
 	fi
 	source config.mak
+	source scripts/arch-run.bash
 fi
 
 if [ -c /dev/kvm ]; then
@@ -46,10 +47,22 @@ command="$qemu $M -bios $FIRMWARE"
 command+=" -display none -serial stdio -kernel"
 echo $command "$@"
 
-#FIXME: rtas-poweroff always exits with zero, so we have to parse
-#       the true exit code from the output.
-lines=$($command "$@")
+# powerpc tests currently exit with rtas-poweroff, which exits with 0.
+# run_qemu treats that as a failure exit and returns 1, so we need
+# to fixup the fixup below by parsing the true exit code from the output.
+# The second fixup is also a FIXME, because once we add chr-testdev
+# support for powerpc, we won't need the second fixup.
+lines=$(run_qemu $command "$@")
+ret=$?
 echo "$lines"
-ret=$(grep '^EXIT: ' <<<"$lines" | sed 's/.*STATUS=\([0-9][0-9]*\).*/\1/')
-echo Return value from qemu: $ret
+if [ $ret -eq 1 ]; then
+	testret=$(grep '^EXIT: ' <<<"$lines" | sed 's/.*STATUS=\([0-9][0-9]*\).*/\1/')
+	if [ "$testret" ]; then
+		if [ $testret -eq 1 ]; then
+			ret=0
+		else
+			ret=$testret
+		fi
+	fi
+fi
 exit $ret

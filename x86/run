@@ -1,5 +1,7 @@
 #!/bin/bash
 
+[ -z "$STANDALONE" ] && source scripts/arch-run.bash
+
 qemubinarysearch="${QEMU:-qemu-kvm qemu-system-x86_64}"
 
 for qemucmd in ${qemubinarysearch}
@@ -43,7 +45,4 @@ fi
 command="${qemu} -enable-kvm $pc_testdev -vnc none -serial stdio $pci_testdev $hyperv_testdev -kernel"
 echo ${command} "$@"
 
-${command} "$@"
-ret=$?
-echo Return value from qemu: $ret
-exit $ret
+run_qemu ${command} "$@"

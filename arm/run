@@ -6,6 +6,7 @@ if [ -z "$STANDALONE" ]; then
 		exit 2
 	fi
 	source config.mak
+	source scripts/arch-run.bash
 fi
 processor="$PROCESSOR"
 
@@ -71,7 +72,4 @@ command="$qemu $M -cpu $processor $chr_testdev"
 command+=" -display none -serial stdio -kernel"
 echo $command "$@"
 
-$command "$@"
-ret=$?
-echo Return value from qemu: $ret
-exit $ret
+run_qemu $command "$@"
