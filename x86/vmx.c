@@ -233,7 +233,7 @@ void install_ept_entry(unsigned long *pml4,
 	unsigned offset;
 
 	for (level = EPT_PAGE_LEVEL; level > pte_level; --level) {
-		offset = (guest_addr >> ((level-1) * EPT_PGDIR_WIDTH + 12))
+		offset = (guest_addr >> EPT_LEVEL_SHIFT(level))
 				& EPT_PGDIR_MASK;
 		if (!(pt[offset] & (EPT_PRESENT))) {
 			unsigned long *new_pt = pt_page;
@@ -248,8 +248,7 @@ void install_ept_entry(unsigned long *pml4,
 			pt[offset] &= ~EPT_LARGE_PAGE;
 		pt = phys_to_virt(pt[offset] & EPT_ADDR_MASK);
 	}
-	offset = ((unsigned long)guest_addr >> ((level-1) *
-			EPT_PGDIR_WIDTH + 12)) & EPT_PGDIR_MASK;
+	offset = (guest_addr >> EPT_LEVEL_SHIFT(level)) & EPT_PGDIR_MASK;
 	pt[offset] = pte;
 }
 
@@ -325,8 +324,7 @@ unsigned long get_ept_pte(unsigned long *pml4,
 	if (level < 1 || level > 3)
 		return -1;
 	for (l = EPT_PAGE_LEVEL; ; --l) {
-		offset = (guest_addr >> (((l-1) * EPT_PGDIR_WIDTH) + 12))
-				& EPT_PGDIR_MASK;
+		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
 		pte = pt[offset];
 		if (!(pte & (EPT_PRESENT)))
 			return 0;
@@ -336,8 +334,7 @@ unsigned long get_ept_pte(unsigned long *pml4,
 			return pte;
 		pt = (unsigned long *)(pte & EPT_ADDR_MASK);
 	}
-	offset = (guest_addr >> (((l-1) * EPT_PGDIR_WIDTH) + 12))
-			& EPT_PGDIR_MASK;
+	offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
 	pte = pt[offset];
 	return pte;
 }
@@ -372,16 +369,14 @@ int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
 	if (level < 1 || level > 3)
 		return -1;
 	for (l = EPT_PAGE_LEVEL; ; --l) {
-		offset = (guest_addr >> (((l-1) * EPT_PGDIR_WIDTH) + 12))
-				& EPT_PGDIR_MASK;
+		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
 		if (l == level)
 			break;
 		if (!(pt[offset] & (EPT_PRESENT)))
 			return -1;
 		pt = (unsigned long *)(pt[offset] & EPT_ADDR_MASK);
 	}
-	offset = (guest_addr >> (((l-1) * EPT_PGDIR_WIDTH) + 12))
-			& EPT_PGDIR_MASK;
+	offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
 	pt[offset] = pte_val;
 	return 0;
 }
