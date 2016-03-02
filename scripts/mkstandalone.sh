@@ -2,7 +2,7 @@
 
 if [ ! -f config.mak ]; then
 	echo "run ./configure && make first. See ./configure -h"
-	exit
+	exit 1
 fi
 source config.mak
 source scripts/functions.bash
@@ -21,7 +21,7 @@ temp_file ()
 
 	echo "$var=\`mktemp\`"
 	echo "cleanup=\"\$$var \$cleanup\""
-	echo "base64 -d << 'BIN_EOF' | zcat > \$$var || exit 1"
+	echo "base64 -d << 'BIN_EOF' | zcat > \$$var || exit 2"
 
 	gzip - < $file | base64
 
@@ -47,8 +47,8 @@ generate_test ()
 
 	if [ ! -f $kernel ]; then
 		echo 'echo "skip '"$testname"' (test kernel not present)"'
-		echo 'exit 1'
-		return 1
+		echo 'exit 2'
+		return
 	fi
 
 	echo "trap 'rm -f \$cleanup' EXIT"
@@ -73,11 +73,11 @@ function mkstandalone()
 	local testname="$1"
 
 	if [ -z "$testname" ]; then
-		return 1
+		return
 	fi
 
 	if [ -n "$one_testname" ] && [ "$testname" != "$one_testname" ]; then
-		return 1
+		return
 	fi
 
 	standalone=tests/$testname
@@ -86,8 +86,6 @@ function mkstandalone()
 
 	chmod +x $standalone
 	echo Written $standalone.
-
-	return 0
 }
 
 trap 'rm -f $cfg' EXIT

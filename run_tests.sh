@@ -4,7 +4,7 @@ verbose="no"
 
 if [ ! -f config.mak ]; then
     echo "run ./configure && make first. See ./configure -h"
-    exit
+    exit 1
 fi
 source config.mak
 source scripts/functions.bash
@@ -41,7 +41,7 @@ while getopts "g:hv" opt; do
             verbose="yes"
             ;;
         *)
-            exit
+            exit 1
             ;;
     esac
 done

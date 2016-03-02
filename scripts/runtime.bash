@@ -23,7 +23,7 @@ function run()
 
     if [ -n "$arch" ] && [ "$arch" != "$ARCH" ]; then
         echo "skip $1 ($arch only)"
-        return
+        return 2
     fi
 
     # check a file for a particular value before running a test
@@ -34,7 +34,7 @@ function run()
         value=${check_param#*=}
         if [ "$path" ] && [ "$(cat $path)" != "$value" ]; then
             echo "skip $1 ($path not equal to $value)"
-            return
+            return 2
         fi
     done
 
