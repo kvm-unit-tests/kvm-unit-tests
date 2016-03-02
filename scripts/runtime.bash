@@ -10,8 +10,8 @@ function run()
     local kernel="$4"
     local opts="$5"
     local arch="$6"
-    local check="$7"
-    local accel="$8"
+    local check="${CHECK:-$7}"
+    local accel="${ACCEL:-$8}"
 
     if [ -z "$testname" ]; then
         return
@@ -57,7 +57,7 @@ function run()
     return $ret
 }
 
-MAX_SMP=$(getconf _NPROCESSORS_CONF)
+: ${MAX_SMP:=$(getconf _NPROCESSORS_CONF)}
 #
 # Probe for MAX_SMP, in case it's less than the number of host cpus.
 #
