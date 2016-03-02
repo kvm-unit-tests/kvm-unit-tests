@@ -3,6 +3,7 @@
 
 #include "libcflat.h"
 #include "processor.h"
+#include "bitops.h"
 
 struct vmcs {
 	u32 revision_id; /* vmcs revision identifier */
@@ -466,6 +467,7 @@ enum Ctrl1 {
 #define EPT_PAGE_LEVEL		4
 #define EPT_PGDIR_WIDTH		9
 #define EPT_PGDIR_MASK		511
+#define EPT_ADDR_MASK		GENMASK_ULL(51, 12)
 #define PAGE_MASK		(~(PAGE_SIZE-1))
 #define PAGE_MASK_2M		(~(PAGE_SIZE_2M-1))
 

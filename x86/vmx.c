@@ -246,7 +246,7 @@ void install_ept_entry(unsigned long *pml4,
 					| EPT_RA | EPT_WA | EPT_EA;
 		} else
 			pt[offset] &= ~EPT_LARGE_PAGE;
-		pt = phys_to_virt(pt[offset] & 0xffffffffff000ull);
+		pt = phys_to_virt(pt[offset] & EPT_ADDR_MASK);
 	}
 	offset = ((unsigned long)guest_addr >> ((level-1) *
 			EPT_PGDIR_WIDTH + 12)) & EPT_PGDIR_MASK;
@@ -334,7 +334,7 @@ unsigned long get_ept_pte(unsigned long *pml4,
 			break;
 		if (l < 4 && (pte & EPT_LARGE_PAGE))
 			return pte;
-		pt = (unsigned long *)(pte & 0xffffffffff000ull);
+		pt = (unsigned long *)(pte & EPT_ADDR_MASK);
 	}
 	offset = (guest_addr >> (((l-1) * EPT_PGDIR_WIDTH) + 12))
 			& EPT_PGDIR_MASK;
@@ -378,7 +378,7 @@ int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
 			break;
 		if (!(pt[offset] & (EPT_PRESENT)))
 			return -1;
-		pt = (unsigned long *)(pt[offset] & 0xffffffffff000ull);
+		pt = (unsigned long *)(pt[offset] & EPT_ADDR_MASK);
 	}
 	offset = (guest_addr >> (((l-1) * EPT_PGDIR_WIDTH) + 12))
 			& EPT_PGDIR_MASK;
