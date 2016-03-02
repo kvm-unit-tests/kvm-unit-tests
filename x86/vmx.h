@@ -196,8 +196,8 @@ enum Encoding {
 	/* Natural-Width Control Fields */
 	CR0_MASK		= 0x6000ul,
 	CR4_MASK		= 0x6002ul,
-	CR0_READ_SHADOW	= 0x6004ul,
-	CR4_READ_SHADOW	= 0x6006ul,
+	CR0_READ_SHADOW		= 0x6004ul,
+	CR4_READ_SHADOW		= 0x6006ul,
 	CR3_TARGET_0		= 0x6008ul,
 	CR3_TARGET_1		= 0x600aul,
 	CR3_TARGET_2		= 0x600cul,
@@ -304,27 +304,27 @@ enum Reason {
 
 enum Ctrl_exi {
 	EXI_SAVE_DBGCTLS	= 1UL << 2,
-	EXI_HOST_64             = 1UL << 9,
+	EXI_HOST_64		= 1UL << 9,
 	EXI_LOAD_PERF		= 1UL << 12,
-	EXI_INTA                = 1UL << 15,
+	EXI_INTA		= 1UL << 15,
 	EXI_SAVE_PAT		= 1UL << 18,
 	EXI_LOAD_PAT		= 1UL << 19,
 	EXI_SAVE_EFER		= 1UL << 20,
-	EXI_LOAD_EFER           = 1UL << 21,
+	EXI_LOAD_EFER		= 1UL << 21,
 	EXI_SAVE_PREEMPT	= 1UL << 22,
 };
 
 enum Ctrl_ent {
 	ENT_LOAD_DBGCTLS	= 1UL << 2,
-	ENT_GUEST_64            = 1UL << 9,
+	ENT_GUEST_64		= 1UL << 9,
 	ENT_LOAD_PAT		= 1UL << 14,
-	ENT_LOAD_EFER           = 1UL << 15,
+	ENT_LOAD_EFER		= 1UL << 15,
 };
 
 enum Ctrl_pin {
-	PIN_EXTINT              = 1ul << 0,
-	PIN_NMI                 = 1ul << 3,
-	PIN_VIRT_NMI            = 1ul << 5,
+	PIN_EXTINT		= 1ul << 0,
+	PIN_NMI			= 1ul << 3,
+	PIN_VIRT_NMI		= 1ul << 5,
 	PIN_PREEMPT		= 1ul << 6,
 };
 
@@ -396,85 +396,85 @@ enum Ctrl1 {
 #define LOAD_GPR_C	SAVE_GPR_C
 
 #define SAVE_RFLAGS		\
-	"pushf\n\t"			\
+	"pushf\n\t"		\
 	"pop host_rflags\n\t"
 
 #define LOAD_RFLAGS		\
 	"push host_rflags\n\t"	\
 	"popf\n\t"
 
-#define VMX_IO_SIZE_MASK		0x7
-#define _VMX_IO_BYTE			0
-#define _VMX_IO_WORD			1
-#define _VMX_IO_LONG			3
-#define VMX_IO_DIRECTION_MASK		(1ul << 3)
-#define VMX_IO_IN			(1ul << 3)
-#define VMX_IO_OUT			0
-#define VMX_IO_STRING			(1ul << 4)
-#define VMX_IO_REP			(1ul << 5)
-#define VMX_IO_OPRAND_IMM		(1ul << 6)
-#define VMX_IO_PORT_MASK		0xFFFF0000
-#define VMX_IO_PORT_SHIFT		16
+#define VMX_IO_SIZE_MASK	0x7
+#define _VMX_IO_BYTE		0
+#define _VMX_IO_WORD		1
+#define _VMX_IO_LONG		3
+#define VMX_IO_DIRECTION_MASK	(1ul << 3)
+#define VMX_IO_IN		(1ul << 3)
+#define VMX_IO_OUT		0
+#define VMX_IO_STRING		(1ul << 4)
+#define VMX_IO_REP		(1ul << 5)
+#define VMX_IO_OPRAND_IMM	(1ul << 6)
+#define VMX_IO_PORT_MASK	0xFFFF0000
+#define VMX_IO_PORT_SHIFT	16
 
-#define VMX_TEST_START			0
-#define VMX_TEST_VMEXIT			1
-#define VMX_TEST_EXIT			2
-#define VMX_TEST_RESUME			3
-#define VMX_TEST_LAUNCH_ERR		4
-#define VMX_TEST_RESUME_ERR		5
+#define VMX_TEST_START		0
+#define VMX_TEST_VMEXIT		1
+#define VMX_TEST_EXIT		2
+#define VMX_TEST_RESUME		3
+#define VMX_TEST_LAUNCH_ERR	4
+#define VMX_TEST_RESUME_ERR	5
 
 #define HYPERCALL_BIT		(1ul << 12)
 #define HYPERCALL_MASK		0xFFF
 #define HYPERCALL_VMEXIT	0x1
 
 #define EPTP_PG_WALK_LEN_SHIFT	3ul
-#define EPTP_AD_FLAG			(1ul << 6)
+#define EPTP_AD_FLAG		(1ul << 6)
 
-#define EPT_MEM_TYPE_UC	0ul
-#define EPT_MEM_TYPE_WC	1ul
-#define EPT_MEM_TYPE_WT	4ul
-#define EPT_MEM_TYPE_WP	5ul
-#define EPT_MEM_TYPE_WB	6ul
+#define EPT_MEM_TYPE_UC		0ul
+#define EPT_MEM_TYPE_WC		1ul
+#define EPT_MEM_TYPE_WT		4ul
+#define EPT_MEM_TYPE_WP		5ul
+#define EPT_MEM_TYPE_WB		6ul
 
 #define EPT_RA			1ul
 #define EPT_WA			2ul
 #define EPT_EA			4ul
-#define EPT_PRESENT		(EPT_RA | EPT_WA | EPT_EA)	
-#define EPT_ACCESS_FLAG	(1ul << 8)
+#define EPT_PRESENT		(EPT_RA | EPT_WA | EPT_EA)
+#define EPT_ACCESS_FLAG		(1ul << 8)
 #define EPT_DIRTY_FLAG		(1ul << 9)
 #define EPT_LARGE_PAGE		(1ul << 7)
 #define EPT_MEM_TYPE_SHIFT	3ul
 #define EPT_IGNORE_PAT		(1ul << 6)
-#define EPT_SUPPRESS_VE	(1ull << 63)
+#define EPT_SUPPRESS_VE		(1ull << 63)
 
 #define EPT_CAP_WT		1ull
 #define EPT_CAP_PWL4		(1ull << 6)
 #define EPT_CAP_UC		(1ull << 8)
 #define EPT_CAP_WB		(1ull << 14)
-#define EPT_CAP_2M_PAGE	(1ull << 16)
-#define EPT_CAP_1G_PAGE	(1ull << 17)
+#define EPT_CAP_2M_PAGE		(1ull << 16)
+#define EPT_CAP_1G_PAGE		(1ull << 17)
 #define EPT_CAP_INVEPT		(1ull << 20)
 #define EPT_CAP_INVEPT_SINGLE	(1ull << 25)
 #define EPT_CAP_INVEPT_ALL	(1ull << 26)
-#define EPT_CAP_AD_FLAG	(1ull << 21)
-#define VPID_CAP_INVVPID (1ull << 32)
-#define VPID_CAP_INVVPID_SINGLE  (1ull << 41)
-#define VPID_CAP_INVVPID_ALL  (1ull << 42)
+#define EPT_CAP_AD_FLAG		(1ull << 21)
+#define VPID_CAP_INVVPID	(1ull << 32)
+#define VPID_CAP_INVVPID_SINGLE	(1ull << 41)
+#define VPID_CAP_INVVPID_ALL	(1ull << 42)
 
 #define PAGE_SIZE_2M		(512 * PAGE_SIZE)
 #define PAGE_SIZE_1G		(512 * PAGE_SIZE_2M)
-#define	EPT_PAGE_LEVEL	4
-#define	EPT_PGDIR_WIDTH	9
-#define	EPT_PGDIR_MASK	511
+#define EPT_PAGE_LEVEL		4
+#define EPT_PGDIR_WIDTH		9
+#define EPT_PGDIR_MASK		511
 #define PAGE_MASK		(~(PAGE_SIZE-1))
 #define PAGE_MASK_2M		(~(PAGE_SIZE_2M-1))
 
 #define EPT_VLT_RD		1
 #define EPT_VLT_WR		(1 << 1)
 #define EPT_VLT_FETCH		(1 << 2)
-#define EPT_VLT_PERM_RD	(1 << 3)
-#define EPT_VLT_PERM_WR	(1 << 4)
-#define EPT_VLT_PERM_EX	(1 << 5)
+#define EPT_VLT_PERM_RD		(1 << 3)
+#define EPT_VLT_PERM_WR		(1 << 4)
+#define EPT_VLT_PERM_EX		(1 << 5)
 #define EPT_VLT_LADDR_VLD	(1 << 7)
 #define EPT_VLT_PADDR		(1 << 8)
 
@@ -485,8 +485,8 @@ enum Ctrl1 {
 #define INVEPT_SINGLE		1
 #define INVEPT_GLOBAL		2
 
-#define INVVPID_SINGLE      1
-#define INVVPID_ALL         2
+#define INVVPID_SINGLE		1
+#define INVVPID_ALL		2
 
 #define ACTV_ACTIVE		0
 #define ACTV_HLT		1
@@ -577,4 +577,3 @@ int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
 		int level, u64 pte_val);
 
 #endif
-
