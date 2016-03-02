@@ -215,6 +215,44 @@ asm(
 );
 
 /* EPT paging structure related functions */
+/* split_large_ept_entry: Split a 2M/1G large page into 512 smaller PTEs.
+		@ptep : large page table entry to split
+		@level : level of ptep (2 or 3)
+ */
+static void split_large_ept_entry(unsigned long *ptep, int level)
+{
+	unsigned long *new_pt;
+	unsigned long gpa;
+	unsigned long pte;
+	unsigned long prototype;
+	int i;
+
+	pte = *ptep;
+	assert(pte & EPT_PRESENT);
+	assert(pte & EPT_LARGE_PAGE);
+	assert(level == 2 || level == 3);
+
+	new_pt = alloc_page();
+	assert(new_pt);
+	memset(new_pt, 0, PAGE_SIZE);
+
+	prototype = pte & ~EPT_ADDR_MASK;
+	if (level == 2)
+		prototype &= ~EPT_LARGE_PAGE;
+
+	gpa = pte & EPT_ADDR_MASK;
+	for (i = 0; i < EPT_PGDIR_ENTRIES; i++) {
+		new_pt[i] = prototype | gpa;
+		gpa += 1ul << EPT_LEVEL_SHIFT(level - 1);
+	}
+
+	pte &= ~EPT_LARGE_PAGE;
+	pte &= ~EPT_ADDR_MASK;
+	pte |= virt_to_phys(new_pt);
+
+	*ptep = pte;
+}
+
 /* install_ept_entry : Install a page to a given level in EPT
 		@pml4 : addr of pml4 table
 		@pte_level : level of PTE to set
@@ -244,8 +282,8 @@ void install_ept_entry(unsigned long *pml4,
 			memset(new_pt, 0, PAGE_SIZE);
 			pt[offset] = virt_to_phys(new_pt)
 					| EPT_RA | EPT_WA | EPT_EA;
-		} else
-			pt[offset] &= ~EPT_LARGE_PAGE;
+		} else if (pt[offset] & EPT_LARGE_PAGE)
+			split_large_ept_entry(&pt[offset], level);
 		pt = phys_to_virt(pt[offset] & EPT_ADDR_MASK);
 	}
 	offset = (guest_addr >> EPT_LEVEL_SHIFT(level)) & EPT_PGDIR_MASK;
