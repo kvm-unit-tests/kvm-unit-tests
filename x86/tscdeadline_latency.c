@@ -98,8 +98,8 @@ static void test_tsc_deadline_timer(void)
     if(enable_tsc_deadline_timer()) {
         printf("tsc deadline timer enabled\n");
     } else {
-        printf("tsc deadline timer not detected\n");
-        exit(1);
+        printf("tsc deadline timer not detected, aborting\n");
+        abort();
     }
 }
 

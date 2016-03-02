@@ -99,8 +99,7 @@ static void process_stimer_msg(struct svcpu *svcpu,
         msg->header.message_type != HVMSG_NONE) {
         report("invalid Hyper-V SynIC msg type", false);
         report_summary();
-        exit(-1);
-        return;
+        abort();
     }
 
     if (msg->header.message_type == HVMSG_NONE) {
@@ -110,8 +109,7 @@ static void process_stimer_msg(struct svcpu *svcpu,
     if (msg->header.payload_size < sizeof(*payload)) {
         report("invalid Hyper-V SynIC msg payload size", false);
         report_summary();
-        exit(-1);
-        return;
+        abort();
     }
 
     /* Now process timer expiration message */
@@ -119,8 +117,7 @@ static void process_stimer_msg(struct svcpu *svcpu,
     if (payload->timer_index >= ARRAY_SIZE(svcpu->timer)) {
         report("invalid Hyper-V SynIC timer index", false);
         report_summary();
-        exit(-1);
-        return;
+        abort();
     }
     timer = &svcpu->timer[payload->timer_index];
     process_stimer_expired(svcpu, timer, payload->expiration_time,

@@ -54,7 +54,7 @@ static void check_exception_table(struct ex_regs *regs)
         }
     }
     printf("unhandled exception %d\n", regs->vector);
-    exit(7);
+    abort();
 }
 
 static void (*exception_handlers[32])(struct ex_regs *regs);
@@ -78,7 +78,7 @@ void do_handle_exception(struct ex_regs *regs)
 	printf("unhandled cpu exception %d\n", regs->vector);
 	if (regs->vector == 14)
 		printf("PF at %p addr %p\n", regs->rip, read_cr2());
-	exit(7);
+	abort();
 }
 
 #define EX(NAME, N) extern char NAME##_fault;	\

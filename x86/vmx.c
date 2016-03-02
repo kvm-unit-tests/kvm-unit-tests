@@ -902,7 +902,7 @@ static int exit_handler()
 			, ret);
 	}
 	print_vmexit_info();
-	exit(-1);
+	abort();
 	return 0;
 }
 

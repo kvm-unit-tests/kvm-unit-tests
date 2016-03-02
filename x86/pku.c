@@ -90,8 +90,8 @@ int main(int ac, char **av)
     unsigned int pkru_wd = 0x20;
 
     if (!(cpuid_indexed(7, 0).c & (1 << X86_FEATURE_PKU))) {
-        printf("PKU not enabled, exiting\n");
-        exit(1);
+        printf("PKU not enabled, aborting\n");
+        abort();
     }
 
     setup_vm();
