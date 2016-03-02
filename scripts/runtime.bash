@@ -1,6 +1,6 @@
 : "${RUNTIME_arch_run?}"
-
-qemu=${QEMU:-qemu-system-$ARCH}
+: ${MAX_SMP:=$(getconf _NPROCESSORS_CONF)}
+: ${TIMEOUT:=90s}
 
 function run()
 {
@@ -12,6 +12,7 @@ function run()
     local arch="$6"
     local check="${CHECK:-$7}"
     local accel="${ACCEL:-$8}"
+    local timeout="${9:-$TIMEOUT}" # unittests.cfg overrides the default
 
     if [ -z "$testname" ]; then
         return
@@ -38,7 +39,7 @@ function run()
         fi
     done
 
-    cmdline="TESTNAME=$testname ACCEL=$accel $RUNTIME_arch_run $kernel -smp $smp $opts"
+    cmdline="TESTNAME=$testname TIMEOUT=$timeout ACCEL=$accel $RUNTIME_arch_run $kernel -smp $smp $opts"
     if [ "$verbose" = "yes" ]; then
         echo $cmdline
     fi
@@ -50,6 +51,8 @@ function run()
 
     if [ $ret -eq 0 ]; then
         echo -e "\e[32mPASS\e[0m $1"
+    elif [ $ret -eq 124 ]; then
+        echo -e "\e[31mFAIL\e[0m $1 (timeout; duration=$timeout)"
     else
         echo -e "\e[31mFAIL\e[0m $1"
     fi
@@ -57,7 +60,6 @@ function run()
     return $ret
 }
 
-: ${MAX_SMP:=$(getconf _NPROCESSORS_CONF)}
 #
 # Probe for MAX_SMP, in case it's less than the number of host cpus.
 #

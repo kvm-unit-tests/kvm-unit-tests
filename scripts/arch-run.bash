@@ -19,6 +19,7 @@
 # 1      - most likely QEMU failed
 # 2      - most likely a run script failed
 # 3      - most likely the unittest failed
+# 124    - most likely the unittest timed out
 # 127    - most likely the unittest called abort()
 # 1..127 - FAILURE (could be QEMU, a run script, or the unittest)
 # >= 128 - Signal (signum = status - 128)
@@ -60,4 +61,11 @@ run_qemu ()
 	fi
 
 	return $ret
+}
+
+timeout_cmd ()
+{
+	if [ "$TIMEOUT" ] && [ "$TIMEOUT" != "0" ]; then
+		echo "timeout -k 1s --foreground $TIMEOUT"
+	fi
 }

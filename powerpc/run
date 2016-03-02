@@ -45,6 +45,7 @@ M='-machine pseries'
 M+=",accel=$ACCEL"
 command="$qemu $M -bios $FIRMWARE"
 command+=" -display none -serial stdio -kernel"
+command="$(timeout_cmd) $command"
 echo $command "$@"
 
 # powerpc tests currently exit with rtas-poweroff, which exits with 0.

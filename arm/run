@@ -70,6 +70,7 @@ chr_testdev+=' -device virtconsole,chardev=ctd -chardev testdev,id=ctd'
 M+=",accel=$ACCEL"
 command="$qemu $M -cpu $processor $chr_testdev"
 command+=" -display none -serial stdio -kernel"
+command="$(timeout_cmd) $command"
 echo $command "$@"
 
 run_qemu $command "$@"

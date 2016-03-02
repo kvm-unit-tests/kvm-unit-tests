@@ -43,6 +43,7 @@ else
 fi
 
 command="${qemu} -enable-kvm $pc_testdev -vnc none -serial stdio $pci_testdev $hyperv_testdev -kernel"
+command="$(timeout_cmd) $command"
 echo ${command} "$@"
 
 run_qemu ${command} "$@"
