@@ -15,8 +15,11 @@
 #define H_PRIVILEGE		-3
 #define H_PARAMETER		-4
 
+#define H_SET_SPRG0		0x24
 #define H_SET_DABR		0x28
+#define H_PAGE_INIT		0x2c
 #define H_PUT_TERM_CHAR		0x58
+#define H_RANDOM		0x300
 
 #ifndef __ASSEMBLY__
 /*
