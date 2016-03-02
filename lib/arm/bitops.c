@@ -6,7 +6,7 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include <asm/bitops.h>
+#include <bitops.h>
 #include <asm/barrier.h>
 #include <asm/mmu.h>
 

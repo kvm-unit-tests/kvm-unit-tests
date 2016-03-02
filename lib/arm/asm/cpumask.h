@@ -8,7 +8,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <asm/setup.h>
-#include <asm/bitops.h>
+#include <bitops.h>
 
 #define CPUMASK_NR_LONGS ((NR_CPUS + BITS_PER_LONG - 1) / BITS_PER_LONG)
 
