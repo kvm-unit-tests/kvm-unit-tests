@@ -96,7 +96,9 @@ static int h_random(uint64_t *val)
 	register uint64_t r3 asm("r3") = H_RANDOM;
 	register uint64_t r4 asm("r4");
 
-	asm volatile (" sc 1 " : "+r"(r3), "=r"(r4) : "r"(r3));
+	asm volatile (" sc 1 "	: "+r"(r3), "=r"(r4) :
+				: "r0", "r5", "r6", "r7", "r8", "r9", "r10",
+				  "r11", "r12", "xer", "ctr", "cc");
 	*val = r4;
 
 	return r3;
