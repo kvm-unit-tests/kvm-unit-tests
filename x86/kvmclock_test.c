@@ -67,7 +67,7 @@ static void kvm_clock_test(void *data)
                         ++hv_test_info->warps;
                         if (delta < hv_test_info->worst){
                                 hv_test_info->worst = delta;
-                                printf("Worst warp %lld %\n", hv_test_info->worst);
+                                printf("Worst warp %lld\n", hv_test_info->worst);
                         }
                         spin_unlock(&hv_test_info->lock);
                 }
@@ -102,8 +102,8 @@ static int cycle_test(int ncpus, int check, struct test_info *ti)
         printf("Total vcpus: %d\n", ncpus);
         printf("Test  loops: %ld\n", loops);
         if (check == 1) {
-                printf("Total warps:  %lld\n", ti->warps);
-                printf("Total stalls: %lld\n", ti->stalls);
+                printf("Total warps:  %" PRId64 "\n", ti->warps);
+                printf("Total stalls: %" PRId64 "\n", ti->stalls);
                 printf("Worst warp:   %lld\n", ti->worst);
         } else
                 printf("TSC cycles:  %lld\n", end - begin);

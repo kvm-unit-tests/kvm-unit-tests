@@ -90,7 +90,7 @@ static void of_isr(struct ex_regs *r)
 
 static void np_isr(struct ex_regs *r)
 {
-	printf("NP isr running %x err=%x\n", r->rip, r->error_code);
+	printf("NP isr running %lx err=%lx\n", r->rip, r->error_code);
 	set_idt_sel(33, read_cs());
 	test_count++;
 }
@@ -109,14 +109,14 @@ static void bp_isr(struct ex_regs *r)
 
 static void nested_nmi_isr(struct ex_regs *r)
 {
-	printf("Nested NMI isr running rip=%x\n", r->rip);
+	printf("Nested NMI isr running rip=%lx\n", r->rip);
 
 	if (r->rip != (ulong)&isr_iret_ip)
 		test_count++;
 }
 static void nmi_isr(struct ex_regs *r)
 {
-	printf("NMI isr running %x\n", &isr_iret_ip);
+	printf("NMI isr running %p\n", &isr_iret_ip);
 	test_count++;
 	handle_exception(2, nested_nmi_isr);
 	printf("Sending nested NMI to self\n");
@@ -129,7 +129,7 @@ unsigned long *iret_stack;
 
 static void nested_nmi_iret_isr(struct ex_regs *r)
 {
-	printf("Nested NMI isr running rip=%x\n", r->rip);
+	printf("Nested NMI isr running rip=%lx\n", r->rip);
 
 	if (r->rip == iret_stack[-3])
 		test_count++;

@@ -16,7 +16,7 @@ static __attribute__((used, regparm(1))) void
 fault_handler(unsigned long error_code)
 {
 	print_current_tss_info();
-	printf("error code %x\n", error_code);
+	printf("error code %lx\n", error_code);
 
 	tss.eip += 2;
 

@@ -161,9 +161,9 @@ static void setup_mmu(unsigned long len)
     write_cr0(X86_CR0_PG |X86_CR0_PE | X86_CR0_WP);
 
     printf("paging enabled\n");
-    printf("cr0 = %x\n", read_cr0());
-    printf("cr3 = %x\n", read_cr3());
-    printf("cr4 = %x\n", read_cr4());
+    printf("cr0 = %lx\n", read_cr0());
+    printf("cr3 = %lx\n", read_cr3());
+    printf("cr4 = %lx\n", read_cr4());
 }
 
 void setup_vm()

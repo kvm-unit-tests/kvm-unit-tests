@@ -88,7 +88,8 @@ static void test_msr_rw(int msr_index, unsigned long long input, unsigned long l
     wrmsr(msr_index, input);
     r = rdmsr(msr_index);
     if (expected != r) {
-        printf("testing %s: output = 0x%x:0x%x expected = 0x%x:0x%x\n", sptr, r >> 32, r, expected >> 32, expected);
+        printf("testing %s: output = 0x%x:0x%x expected = 0x%x:0x%x\n", sptr,
+               (u32)(r >> 32), (u32)r, (u32)(expected >> 32), (u32)expected);
     }
     report(sptr, expected == r);
 }

@@ -14,7 +14,7 @@ void test_wrtsc(u64 t1)
 
 	wrtsc(t1);
 	t2 = rdtsc();
-	printf("rdtsc after wrtsc(%lld): %lld\n", t1, t2);
+	printf("rdtsc after wrtsc(%" PRId64 "): %" PRId64 "\n", t1, t2);
 }
 
 void test_rdtscp(u64 aux)
@@ -32,7 +32,7 @@ int main()
 
 	t1 = rdtsc();
 	t2 = rdtsc();
-	printf("rdtsc latency %lld\n", (unsigned)(t2 - t1));
+	printf("rdtsc latency %u\n", (unsigned)(t2 - t1));
 
 	test_wrtsc(0);
 	test_wrtsc(100000000000ull);

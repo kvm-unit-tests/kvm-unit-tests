@@ -6,7 +6,7 @@ u32* find_resume_vector_addr(void)
     struct facs_descriptor_rev1 *facs = find_acpi_table_addr(FACS_SIGNATURE);
     if (!facs)
         return 0;
-    printf("FACS is at %x\n", facs);
+    printf("FACS is at %p\n", facs);
     return &facs->firmware_waking_vector;
 }
 
@@ -46,10 +46,10 @@ int main(int argc, char **argv)
 
 	*resume_vector_ptr = (u32)(ulong)resume_vec;
 
-	printf("resume vector addr is %x\n", resume_vector_ptr);
+	printf("resume vector addr is %p\n", resume_vector_ptr);
 	for (addr = &resume_start; addr < &resume_end; addr++)
 		*resume_vec++ = *addr;
-	printf("copy resume code from %x\n", &resume_start);
+	printf("copy resume code from %p\n", &resume_start);
 
 	/* Setup RTC alarm to wake up on the next second.  */
 	while ((rtc_in(RTC_REG_A) & REG_A_UIP) == 0);

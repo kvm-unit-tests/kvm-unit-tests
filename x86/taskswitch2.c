@@ -62,9 +62,9 @@ start:
 
 void do_pf_tss(ulong *error_code)
 {
-	printf("PF task is running %x %x\n", error_code, *(ulong*)error_code);
+	printf("PF task is running %p %lx\n", error_code, *error_code);
 	print_current_tss_info();
-	if (*(ulong*)error_code == 0x2) /* write access, not present */
+	if (*error_code == 0x2) /* write access, not present */
 		test_count++;
 	install_pte(phys_to_virt(read_cr3()), 1, fault_addr,
 		    fault_phys | PTE_PRESENT | PTE_WRITE, 0);

@@ -228,7 +228,7 @@ void kvm_clock_init(void *data)
         int index = smp_id();
         struct pvclock_vcpu_time_info *hvc = &hv_clock[index];
 
-        printf("kvm-clock: cpu %d, msr 0x:%lx \n", index, hvc);
+        printf("kvm-clock: cpu %d, msr %p\n", index, hvc);
         wrmsr(MSR_KVM_SYSTEM_TIME, (unsigned long)hvc | 1);
 }
 

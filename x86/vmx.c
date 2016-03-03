@@ -144,17 +144,17 @@ void print_vmexit_info()
 	guest_rip = vmcs_read(GUEST_RIP);
 	guest_rsp = vmcs_read(GUEST_RSP);
 	printf("VMEXIT info:\n");
-	printf("\tvmexit reason = %d\n", reason);
-	printf("\texit qualification = 0x%x\n", exit_qual);
-	printf("\tBit 31 of reason = %x\n", (vmcs_read(EXI_REASON) >> 31) & 1);
-	printf("\tguest_rip = 0x%llx\n", guest_rip);
-	printf("\tRAX=0x%llx    RBX=0x%llx    RCX=0x%llx    RDX=0x%llx\n",
+	printf("\tvmexit reason = %ld\n", reason);
+	printf("\texit qualification = 0x%lx\n", exit_qual);
+	printf("\tBit 31 of reason = %lx\n", (vmcs_read(EXI_REASON) >> 31) & 1);
+	printf("\tguest_rip = 0x%lx\n", guest_rip);
+	printf("\tRAX=0x%lx    RBX=0x%lx    RCX=0x%lx    RDX=0x%lx\n",
 		regs.rax, regs.rbx, regs.rcx, regs.rdx);
-	printf("\tRSP=0x%llx    RBP=0x%llx    RSI=0x%llx    RDI=0x%llx\n",
+	printf("\tRSP=0x%lx    RBP=0x%lx    RSI=0x%lx    RDI=0x%lx\n",
 		guest_rsp, regs.rbp, regs.rsi, regs.rdi);
-	printf("\tR8 =0x%llx    R9 =0x%llx    R10=0x%llx    R11=0x%llx\n",
+	printf("\tR8 =0x%lx    R9 =0x%lx    R10=0x%lx    R11=0x%lx\n",
 		regs.r8, regs.r9, regs.r10, regs.r11);
-	printf("\tR12=0x%llx    R13=0x%llx    R14=0x%llx    R15=0x%llx\n",
+	printf("\tR12=0x%lx    R13=0x%lx    R14=0x%lx    R15=0x%lx\n",
 		regs.r12, regs.r13, regs.r14, regs.r15);
 }
 
@@ -875,7 +875,7 @@ static int handle_hypercall()
 	case HYPERCALL_VMEXIT:
 		return VMX_TEST_VMEXIT;
 	default:
-		printf("ERROR : Invalid hypercall number : %d\n", hypercall_no);
+		printf("ERROR : Invalid hypercall number : %ld\n", hypercall_no);
 	}
 	return VMX_TEST_EXIT;
 }

@@ -211,7 +211,7 @@ int preemption_timer_exit_handler()
 		}
 		break;
 	default:
-		printf("Unknown exit reason, %d\n", reason);
+		printf("Unknown exit reason, %ld\n", reason);
 		print_vmexit_info();
 	}
 	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_PREEMPT);
@@ -301,7 +301,7 @@ static int test_ctrl_pat_exit_handler()
 		vmcs_write(GUEST_RIP, guest_rip + 3);
 		return VMX_TEST_RESUME;
 	default:
-		printf("ERROR : Undefined exit reason, reason = %d.\n", reason);
+		printf("ERROR : Undefined exit reason, reason = %ld.\n", reason);
 		break;
 	}
 	return VMX_TEST_VMEXIT;
@@ -370,7 +370,7 @@ static int test_ctrl_efer_exit_handler()
 		vmcs_write(GUEST_RIP, guest_rip + 3);
 		return VMX_TEST_RESUME;
 	default:
-		printf("ERROR : Undefined exit reason, reason = %d.\n", reason);
+		printf("ERROR : Undefined exit reason, reason = %ld.\n", reason);
 		break;
 	}
 	return VMX_TEST_VMEXIT;
@@ -555,7 +555,7 @@ static int cr_shadowing_exit_handler()
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %d\n", reason);
+		printf("Unknown exit reason, %ld\n", reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -715,8 +715,8 @@ static int iobmp_exit_handler()
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		printf("guest_rip = 0x%llx\n", guest_rip);
-		printf("\tERROR : Undefined exit reason, reason = %d.\n", reason);
+		printf("guest_rip = 0x%lx\n", guest_rip);
+		printf("\tERROR : Undefined exit reason, reason = %ld.\n", reason);
 		break;
 	}
 	return VMX_TEST_VMEXIT;
@@ -1137,7 +1137,7 @@ static int ept_exit_handler()
 		}
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %d\n", reason);
+		printf("Unknown exit reason, %ld\n", reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1199,7 +1199,7 @@ static int vpid_exit_handler()
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %d\n", reason);
+		printf("Unknown exit reason, %ld\n", reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1356,7 +1356,7 @@ static int interrupt_exit_handler(void)
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %d\n", reason);
+		printf("Unknown exit reason, %ld\n", reason);
 		print_vmexit_info();
 	}
 
@@ -1578,7 +1578,7 @@ static int vmmcall_exit_handler()
 		       (vmcs_read(EXI_INTR_INFO) & 0xff) == UD_VECTOR);
 		break;
 	default:
-		printf("Unknown exit reason, %d\n", reason);
+		printf("Unknown exit reason, %ld\n", reason);
 		print_vmexit_info();
 	}
 

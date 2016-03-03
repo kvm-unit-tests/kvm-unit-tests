@@ -455,13 +455,13 @@ static void dump_mapping(ac_test_t *at)
 	unsigned long root = read_cr3();
 	int i;
 
-	printf("Dump mapping: address: %llx\n", at->virt);
+	printf("Dump mapping: address: %p\n", at->virt);
 	for (i = 4; i >= 1 && (i >= 2 || !at->flags[AC_PDE_PSE]); --i) {
 		pt_element_t *vroot = va(root & PT_BASE_ADDR_MASK);
 		unsigned index = PT_INDEX((unsigned long)at->virt, i);
 		pt_element_t pte = vroot[index];
 
-		printf("------L%d: %llx\n", i, pte);
+		printf("------L%d: %lx\n", i, pte);
 		root = vroot[index];
 	}
 }

@@ -934,9 +934,9 @@ static bool latency_finished(struct test *test)
 
 static bool latency_check(struct test *test)
 {
-    printf("    Latency VMRUN : max: %d min: %d avg: %d\n", latvmrun_max,
+    printf("    Latency VMRUN : max: %ld min: %ld avg: %ld\n", latvmrun_max,
             latvmrun_min, vmrun_sum / LATENCY_RUNS);
-    printf("    Latency VMEXIT: max: %d min: %d avg: %d\n", latvmexit_max,
+    printf("    Latency VMEXIT: max: %ld min: %ld avg: %ld\n", latvmexit_max,
             latvmexit_min, vmexit_sum / LATENCY_RUNS);
     return true;
 }
@@ -998,13 +998,13 @@ static bool lat_svm_insn_finished(struct test *test)
 
 static bool lat_svm_insn_check(struct test *test)
 {
-    printf("    Latency VMLOAD: max: %d min: %d avg: %d\n", latvmload_max,
+    printf("    Latency VMLOAD: max: %ld min: %ld avg: %ld\n", latvmload_max,
             latvmload_min, vmload_sum / LATENCY_RUNS);
-    printf("    Latency VMSAVE: max: %d min: %d avg: %d\n", latvmsave_max,
+    printf("    Latency VMSAVE: max: %ld min: %ld avg: %ld\n", latvmsave_max,
             latvmsave_min, vmsave_sum / LATENCY_RUNS);
-    printf("    Latency STGI:   max: %d min: %d avg: %d\n", latstgi_max,
+    printf("    Latency STGI:   max: %ld min: %ld avg: %ld\n", latstgi_max,
             latstgi_min, stgi_sum / LATENCY_RUNS);
-    printf("    Latency CLGI:   max: %d min: %d avg: %d\n", latclgi_max,
+    printf("    Latency CLGI:   max: %ld min: %ld avg: %ld\n", latclgi_max,
             latclgi_min, clgi_sum / LATENCY_RUNS);
     return true;
 }
