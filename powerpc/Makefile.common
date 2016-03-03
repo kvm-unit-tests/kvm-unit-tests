@@ -6,7 +6,8 @@
 
 tests-common = \
 	$(TEST_DIR)/selftest.elf \
-	$(TEST_DIR)/spapr_hcall.elf
+	$(TEST_DIR)/spapr_hcall.elf \
+	$(TEST_DIR)/rtas.elf
 
 all: $(TEST_DIR)/boot_rom.bin test_cases
 
@@ -66,3 +67,5 @@ test_cases: $(generated_files) $(tests-common) $(tests)
 $(TEST_DIR)/selftest.elf: $(cstart.o) $(reloc.o) $(TEST_DIR)/selftest.o
 
 $(TEST_DIR)/spapr_hcall.elf: $(cstart.o) $(reloc.o) $(TEST_DIR)/spapr_hcall.o
+
+$(TEST_DIR)/rtas.elf: $(cstart.o) $(reloc.o) $(TEST_DIR)/rtas.o
