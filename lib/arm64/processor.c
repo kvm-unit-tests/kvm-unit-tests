@@ -66,12 +66,12 @@ void show_regs(struct pt_regs *regs)
 {
 	int i;
 
-	printf("pc : [<%016llx>] lr : [<%016llx>] pstate: %08llx\n",
+	printf("pc : [<%016lx>] lr : [<%016lx>] pstate: %08lx\n",
 			regs->pc, regs->regs[30], regs->pstate);
-	printf("sp : %016llx\n", regs->sp);
+	printf("sp : %016lx\n", regs->sp);
 
 	for (i = 29; i >= 0; --i) {
-		printf("x%-2d: %016llx ", i, regs->regs[i]);
+		printf("x%-2d: %016lx ", i, regs->regs[i]);
 		if (i % 2 == 0)
 			printf("\n");
 	}
@@ -121,7 +121,7 @@ static void bad_exception(enum vector v, struct pt_regs *regs,
 	}
 
 	printf("Vector: %d (%s)\n", v, vector_names[v]);
-	printf("ESR_EL1: %8s%08lx, ec=0x%x (%s)\n", "", esr, ec, ec_names[ec]);
+	printf("ESR_EL1: %8s%08x, ec=0x%x (%s)\n", "", esr, ec, ec_names[ec]);
 	printf("FAR_EL1: %016lx (%svalid)\n", far, far_valid ? "" : "not ");
 	printf("Exception frame registers:\n");
 	show_regs(regs);
