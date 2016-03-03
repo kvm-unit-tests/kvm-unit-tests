@@ -260,24 +260,30 @@ void test_pop(void *mem)
 	report("ret", 1);
 
 	stack_top[-1] = 0x778899;
-	asm volatile("mov %%rsp, %[tmp] \n\t"
-		     "mov %%rbp, %[tmp3] \n\t"
-		     "mov %[stack_top], %%rbp \n\t"
+	asm volatile("mov %[stack_top], %%r8 \n\t"
+		     "mov %%rsp, %%r9 \n\t"
+		     "xchg %%rbp, %%r8 \n\t"
 		     "leave \n\t"
-		     "xchg %%rsp, %[tmp] \n\t"
-		     "xchg %%rbp, %[tmp3]"
+		     "xchg %%rsp, %%r9 \n\t"
+		     "xchg %%rbp, %%r8 \n\t"
+		     "mov %%r9, %[tmp] \n\t"
+		     "mov %%r8, %[tmp3]"
 		     : [tmp]"=&r"(tmp), [tmp3]"=&r"(tmp3) : [stack_top]"r"(stack_top-1)
-		     : "memory");
+		     : "memory", "r8", "r9");
 	report("leave", tmp == (ulong)stack_top && tmp3 == 0x778899);
 
 	rbp = 0xaa55aa55bb66bb66ULL;
 	rsp = (unsigned long)stack_top;
-	asm volatile("xchg %%rsp, %[rsp] \n\t"
-		     "xchg %%rbp, %[rbp] \n\t"
+	asm volatile("mov %[rsp], %%r8 \n\t"
+		     "mov %[rbp], %%r9 \n\t"
+		     "xchg %%rsp, %%r8 \n\t"
+		     "xchg %%rbp, %%r9 \n\t"
 		     "enter $0x1238, $0 \n\t"
-		     "xchg %%rsp, %[rsp] \n\t"
-		     "xchg %%rbp, %[rbp]"
-		     : [rsp]"+a"(rsp), [rbp]"+b"(rbp) : : "memory");
+		     "xchg %%rsp, %%r8 \n\t"
+		     "xchg %%rbp, %%r9 \n\t"
+		     "xchg %%r8, %[rsp] \n\t"
+		     "xchg %%r9, %[rbp]"
+		     : [rsp]"+a"(rsp), [rbp]"+b"(rbp) : : "memory", "r8", "r9");
 	report("enter",
 	       rsp == (unsigned long)stack_top - 8 - 0x1238
 	       && rbp == (unsigned long)stack_top - 8
@@ -405,7 +411,7 @@ void test_xchg(void *mem)
 		     "mov %%rax, %[rax]\n\t"
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
-		     : "memory");
+		     : "memory", "rax");
 	report("xchg reg, r/m (1)",
 	       rax == 0xfedcba98765432ef && *memq == 0x123456789abcd10);
 
@@ -416,7 +422,7 @@ void test_xchg(void *mem)
 		     "mov %%rax, %[rax]\n\t"
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
-		     : "memory");
+		     : "memory", "rax");
 	report("xchg reg, r/m (2)",
 	       rax == 0xfedcba987654cdef && *memq == 0x123456789ab3210);
 
@@ -427,7 +433,7 @@ void test_xchg(void *mem)
 		     "mov %%rax, %[rax]\n\t"
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
-		     : "memory");
+		     : "memory", "rax");
 	report("xchg reg, r/m (3)",
 	       rax == 0x89abcdef && *memq == 0x123456776543210);
 
@@ -438,7 +444,7 @@ void test_xchg(void *mem)
 		     "mov %%rax, %[rax]\n\t"
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
-		     : "memory");
+		     : "memory", "rax");
 	report("xchg reg, r/m (4)",
 	       rax == 0x123456789abcdef && *memq == 0xfedcba9876543210);
 }
@@ -455,7 +461,7 @@ void test_xadd(void *mem)
 		     "mov %%rax, %[rax]\n\t"
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
-		     : "memory");
+		     : "memory", "rax");
 	report("xadd reg, r/m (1)",
 	       rax == 0xfedcba98765432ef && *memq == 0x123456789abcdff);
 
@@ -466,7 +472,7 @@ void test_xadd(void *mem)
 		     "mov %%rax, %[rax]\n\t"
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
-		     : "memory");
+		     : "memory", "rax");
 	report("xadd reg, r/m (2)",
 	       rax == 0xfedcba987654cdef && *memq == 0x123456789abffff);
 
@@ -477,7 +483,7 @@ void test_xadd(void *mem)
 		     "mov %%rax, %[rax]\n\t"
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
-		     : "memory");
+		     : "memory", "rax");
 	report("xadd reg, r/m (3)",
 	       rax == 0x89abcdef && *memq == 0x1234567ffffffff);
 
@@ -488,7 +494,7 @@ void test_xadd(void *mem)
 		     "mov %%rax, %[rax]\n\t"
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
-		     : "memory");
+		     : "memory", "rax");
 	report("xadd reg, r/m (4)",
 	       rax == 0x123456789abcdef && *memq == 0xffffffffffffffff);
 }
@@ -804,10 +810,12 @@ static void trap_emulator(uint64_t *mem, void *alt_insn_page,
 	outregs = save;
 }
 
-static void advance_rip_by_3_and_note_exception(struct ex_regs *regs)
+static unsigned long rip_advance;
+
+static void advance_rip_and_note_exception(struct ex_regs *regs)
 {
     ++exceptions;
-    regs->rip += 3;
+    regs->rip += rip_advance;
 }
 
 static void test_mmx_movq_mf(uint64_t *mem, uint8_t *insn_page,
@@ -819,11 +827,12 @@ static void test_mmx_movq_mf(uint64_t *mem, uint8_t *insn_page,
 
     write_cr0(read_cr0() & ~6);  /* TS, EM */
     exceptions = 0;
-    handle_exception(MF_VECTOR, advance_rip_by_3_and_note_exception);
+    handle_exception(MF_VECTOR, advance_rip_and_note_exception);
     asm volatile("fninit; fldcw %0" : : "m"(fcw));
     asm volatile("fldz; fldz; fdivp"); /* generate exception */
 
     MK_INSN(mmx_movq_mf, "movq %mm0, (%rax) \n\t");
+    rip_advance = insn_mmx_movq_mf.len;
     inregs = (struct regs){ .rsp=(u64)stack+1024 };
     trap_emulator(mem, alt_insn_page, &insn_mmx_movq_mf);
     /* exit MMX mode */
@@ -834,11 +843,14 @@ static void test_mmx_movq_mf(uint64_t *mem, uint8_t *insn_page,
 
 static void test_jmp_noncanonical(uint64_t *mem)
 {
+	extern char nc_jmp_start, nc_jmp_end;
+
 	*mem = 0x1111111111111111ul;
 
 	exceptions = 0;
-	handle_exception(GP_VECTOR, advance_rip_by_3_and_note_exception);
-	asm volatile ("jmp *%0" : : "m"(*mem));
+	rip_advance = &nc_jmp_end - &nc_jmp_start;
+	handle_exception(GP_VECTOR, advance_rip_and_note_exception);
+	asm volatile ("nc_jmp_start: jmp *%0; nc_jmp_end:" : : "m"(*mem));
 	report("jump to non-canonical address", exceptions == 1);
 	handle_exception(GP_VECTOR, 0);
 }
