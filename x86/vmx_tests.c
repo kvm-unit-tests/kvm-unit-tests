@@ -733,7 +733,7 @@ asm(
 	"insn_hlt: hlt;ret\n\t"
 	"insn_invlpg: invlpg 0x12345678;ret\n\t"
 	"insn_mwait: mwait;ret\n\t"
-	"insn_rdpmc: rdpmc;ret\n\t"
+	"insn_rdpmc: xor %ecx, %ecx; rdpmc;ret\n\t"
 	"insn_rdtsc: rdtsc;ret\n\t"
 	"insn_cr3_load: mov cr3,%rax; mov %rax,%cr3;ret\n\t"
 	"insn_cr3_store: mov %cr3,%rax;ret\n\t"
