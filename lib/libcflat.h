@@ -51,12 +51,16 @@ typedef _Bool		bool;
 extern void puts(const char *s);
 extern void exit(int code);
 extern void abort(void);
-
-extern int printf(const char *fmt, ...);
-extern int snprintf(char *buf, int size, const char *fmt, ...);
-extern int vsnprintf(char *buf, int size, const char *fmt, va_list va);
-extern int vprintf(const char *fmt, va_list va);
 extern long atol(const char *ptr);
+
+extern int printf(const char *fmt, ...)
+					__attribute__((format(printf, 1, 2)));
+extern int snprintf(char *buf, int size, const char *fmt, ...)
+					__attribute__((format(printf, 3, 4)));
+extern int vsnprintf(char *buf, int size, const char *fmt, va_list va)
+					__attribute__((format(printf, 3, 0)));
+extern int vprintf(const char *fmt, va_list va)
+					__attribute__((format(printf, 1, 0)));
 
 extern void report_prefix_push(const char *prefix);
 extern void report_prefix_pop(void);
