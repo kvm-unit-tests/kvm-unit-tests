@@ -66,6 +66,8 @@ $(LIBFDT_archive): $(addprefix $(LIBFDT_objdir)/,$(LIBFDT_OBJS))
 
 -include */.*.d */*/.*.d
 
+all: $(shell git rev-parse --verify --short=8 HEAD >build-head 2>/dev/null)
+
 standalone: all
 	@scripts/mkstandalone.sh
 

@@ -45,6 +45,8 @@ generate_test ()
 	config_export ARCH_NAME
 	config_export PROCESSOR
 
+	echo "echo BUILD_HEAD=$(cat build-head)"
+
 	if [ ! -f $kernel ]; then
 		echo 'echo "skip '"$testname"' (test kernel not present)"'
 		echo 'exit 2'

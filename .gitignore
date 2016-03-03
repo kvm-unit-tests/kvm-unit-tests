@@ -15,3 +15,4 @@ cscope.*
 /test.log
 /msr.out
 /tests
+/build-head

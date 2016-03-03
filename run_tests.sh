@@ -49,5 +49,5 @@ done
 RUNTIME_arch_run="./$TEST_DIR/run >> test.log"
 config=$TEST_DIR/unittests.cfg
 rm -f test.log
-echo > test.log
+printf "BUILD_HEAD=$(cat build-head)\n\n" > test.log
 for_each_unittest $config run
