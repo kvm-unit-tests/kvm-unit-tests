@@ -48,6 +48,18 @@ typedef _Bool		bool;
 #define false 0
 #define true  1
 
+#if __SIZEOF_LONG__ == 8
+#  define __PRI64_PREFIX	"l"
+#  define __PRIPTR_PREFIX	"l"
+#else
+#  define __PRI64_PREFIX	"ll"
+#  define __PRIPTR_PREFIX
+#endif
+#define PRId64  __PRI64_PREFIX	"d"
+#define PRIu64  __PRI64_PREFIX	"u"
+#define PRIx64  __PRI64_PREFIX	"x"
+#define PRIxPTR __PRIPTR_PREFIX	"x"
+
 extern void puts(const char *s);
 extern void exit(int code);
 extern void abort(void);
