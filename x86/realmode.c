@@ -116,16 +116,18 @@ struct regs {
 	u32 eip, eflags;
 };
 
+struct table_descr {
+	u16 limit;
+	void *base;
+} __attribute__((packed));
+
 static u64 gdt[] = {
 	0,
 	0x00cf9b000000ffffull, // flat 32-bit code segment
 	0x00cf93000000ffffull, // flat 32-bit data segment
 };
 
-static struct {
-	u16 limit;
-	void *base;
-} __attribute__((packed)) gdt_descr = {
+static struct table_descr gdt_descr = {
 	sizeof(gdt) - 1,
 	gdt,
 };
@@ -1417,21 +1419,23 @@ static void test_ss_base_for_esp_ebp(void)
     report("ss relative addressing (2)", R_AX | R_BX, outregs.ebx == 0x87654321);
 }
 
+extern unsigned long long r_gdt[];
+
 static void test_sgdt_sidt(void)
 {
     MK_INSN(sgdt, "sgdtw (%eax)");
     MK_INSN(sidt, "sidtw (%eax)");
-    unsigned x, y;
+    struct table_descr x, y;
 
     inregs.eax = (unsigned)&y;
     asm volatile("sgdtw %0" : "=m"(x));
     exec_in_big_real_mode(&insn_sgdt);
-    report("sgdt", 0, x == y);
+    report("sgdt", 0, x.limit == y.limit && x.base == y.base);
 
     inregs.eax = (unsigned)&y;
     asm volatile("sidtw %0" : "=m"(x));
     exec_in_big_real_mode(&insn_sidt);
-    report("sidt", 0, x == y);
+    report("sidt", 0, x.limit == y.limit && x.base == y.base);
 }
 
 static void test_sahf(void)
@@ -1734,10 +1738,7 @@ void realmode_start(void)
 
 unsigned long long r_gdt[] = { 0, 0x9b000000ffff, 0x93000000ffff };
 
-struct __attribute__((packed)) {
-	unsigned short limit;
-	void *base;
-} r_gdt_descr = { sizeof(r_gdt) - 1, &r_gdt };
+struct table_descr r_gdt_descr = { sizeof(r_gdt) - 1, &r_gdt };
 
 asm(
 	".section .init \n\t"
