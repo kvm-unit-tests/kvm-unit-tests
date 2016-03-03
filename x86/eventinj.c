@@ -296,8 +296,7 @@ int main()
 	apic_self_ipi(32);
 	flush_stack();
 	io_delay();
-	irq_enable();
-	asm volatile ("int $33");
+	asm volatile ("sti; int $33");
 	irq_disable();
 	printf("After vec 32 and int $33\n");
 	report("vec 32/int $33", test_count == 2);

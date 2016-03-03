@@ -379,6 +379,10 @@ static inline void irq_disable(void)
     asm volatile("cli");
 }
 
+/* Note that irq_enable() does not ensure an interrupt shadow due
+ * to the vagaries of compiler optimizations.  If you need the
+ * shadow, use a single asm with "sti" and the instruction after it.
+ */
 static inline void irq_enable(void)
 {
     asm volatile("sti");
