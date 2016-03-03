@@ -1174,12 +1174,10 @@ static int vpid_exit_handler()
 	u64 guest_rip;
 	ulong reason;
 	u32 insn_len;
-	u32 exit_qual;
 
 	guest_rip = vmcs_read(GUEST_RIP);
 	reason = vmcs_read(EXI_REASON) & 0xff;
 	insn_len = vmcs_read(EXI_INST_LEN);
-	exit_qual = vmcs_read(EXI_QUALIFICATION);
 
 	switch (reason) {
 	case VMX_VMCALL:
@@ -1392,6 +1390,7 @@ static void dbgctls_main(void)
 	asm volatile("mov %%dr7,%0" : "=r" (dr7));
 	debugctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	/* Commented out: KVM does not support DEBUGCTL so far */
+	(void)debugctl;
 	report("Load debug controls", dr7 == 0x404 /* && debugctl == 0x2 */);
 
 	dr7 = 0x408;
@@ -1413,6 +1412,7 @@ static void dbgctls_main(void)
 	asm volatile("mov %%dr7,%0" : "=r" (dr7));
 	debugctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	/* Commented out: KVM does not support DEBUGCTL so far */
+	(void)debugctl;
 	report("Guest=host debug controls", dr7 == 0x402 /* && debugctl == 0x1 */);
 
 	dr7 = 0x408;

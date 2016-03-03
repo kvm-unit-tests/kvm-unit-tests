@@ -34,7 +34,6 @@ asm ("gp_tss: \n\t"
 	"iretq\n\t"
 	"jmp gp_tss\n\t"
     );
-#endif
 
 static inline int
 test_edge(void)
@@ -47,6 +46,7 @@ test_edge(void)
 	printf("Return from int 13, test_rip = %lx\n", test_rip);
 	return test_rip == (1ul << 47);
 }
+#endif
 
 int main(int ac, char **av)
 {
