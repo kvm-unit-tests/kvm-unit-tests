@@ -48,7 +48,9 @@ FLATLIBS = $(libcflat) $(LIBFDT_archive)
 
 $(TEST_DIR)/boot_rom.bin: $(TEST_DIR)/boot_rom.elf
 	dd if=/dev/zero of=$@ bs=256 count=1
-	$(OBJCOPY) -O binary $^ >(cat - >>$@)
+	$(OBJCOPY) -O binary $^ $@.tmp
+	cat $@.tmp >> $@
+	$(RM) $@.tmp
 
 $(TEST_DIR)/boot_rom.elf: CFLAGS = -mbig-endian
 $(TEST_DIR)/boot_rom.elf: $(TEST_DIR)/boot_rom.o
