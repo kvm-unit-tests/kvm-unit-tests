@@ -229,12 +229,12 @@ void kvm_clock_init(void *data)
         struct pvclock_vcpu_time_info *hvc = &hv_clock[index];
 
         printf("kvm-clock: cpu %d, msr %p\n", index, hvc);
-        wrmsr(MSR_KVM_SYSTEM_TIME, (unsigned long)hvc | 1);
+        wrmsr(MSR_KVM_SYSTEM_TIME_NEW, (unsigned long)hvc | 1);
 }
 
 void kvm_clock_clear(void *data)
 {
-        wrmsr(MSR_KVM_SYSTEM_TIME, 0LL);
+        wrmsr(MSR_KVM_SYSTEM_TIME_NEW, 0LL);
 }
 
 void pvclock_read_wallclock(struct pvclock_wall_clock *wall_clock,
@@ -268,7 +268,7 @@ void kvm_get_wallclock(struct timespec *ts)
         struct pvclock_vcpu_time_info *vcpu_time;
         int index = smp_id();
 
-        wrmsr(MSR_KVM_WALL_CLOCK, (unsigned long)&wall_clock);
+        wrmsr(MSR_KVM_WALL_CLOCK_NEW, (unsigned long)&wall_clock);
         vcpu_time = &hv_clock[index];
         pvclock_read_wallclock(&wall_clock, vcpu_time, ts);
 }

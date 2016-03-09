@@ -1,8 +1,8 @@
 #ifndef KVMCLOCK_H
 #define KVMCLOCK_H
 
-#define MSR_KVM_WALL_CLOCK  0x11
-#define MSR_KVM_SYSTEM_TIME 0x12
+#define MSR_KVM_WALL_CLOCK_NEW  0x4b564d00
+#define MSR_KVM_SYSTEM_TIME_NEW 0x4b564d01
 
 #define MAX_CPU 64
 
