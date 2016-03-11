@@ -11,6 +11,7 @@
 static _Bool verbose = false;
 
 typedef unsigned long pt_element_t;
+static int cpuid_7_ebx;
 
 #define PAGE_SIZE ((pt_element_t)4096)
 #define PAGE_MASK (~(PAGE_SIZE-1))
@@ -516,7 +517,7 @@ int ac_test_do_access(ac_test_t *at)
     unsigned r = unique;
     set_cr0_wp(at->flags[AC_CPU_CR0_WP]);
     set_efer_nx(at->flags[AC_CPU_EFER_NX]);
-    if (at->flags[AC_CPU_CR4_SMEP] && !(cpuid(7).b & (1 << 7))) {
+    if (at->flags[AC_CPU_CR4_SMEP] && !(cpuid_7_ebx & (1 << 7))) {
 	unsigned long cr4 = read_cr4();
 	if (write_cr4_checking(cr4 | CR4_SMEP_MASK) == GP_VECTOR)
 		goto done;
@@ -868,6 +869,7 @@ int main()
 {
     int r;
 
+    cpuid_7_ebx = cpuid(7).b;
     printf("starting test\n\n");
     r = ac_test_run();
     return r ? 0 : 1;
