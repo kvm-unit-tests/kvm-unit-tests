@@ -24,29 +24,6 @@ void set_cr0_wp(int wp)
     write_cr0(cr0);
 }
 
-static inline u32 read_pkru(void)
-{
-    unsigned int eax, edx;
-    unsigned int ecx = 0;
-    unsigned int pkru;
-
-    asm volatile(".byte 0x0f,0x01,0xee\n\t"
-                 : "=a" (eax), "=d" (edx)
-                 : "c" (ecx));
-    pkru = eax;
-    return pkru;
-}
-
-static void write_pkru(u32 pkru)
-{
-    unsigned int eax = pkru;
-    unsigned int ecx = 0;
-    unsigned int edx = 0;
-
-    asm volatile(".byte 0x0f,0x01,0xef\n\t"
-        : : "a" (eax), "c" (ecx), "d" (edx));
-}
-
 void do_pf_tss(unsigned long error_code)
 {
     pf_count++;

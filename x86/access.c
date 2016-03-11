@@ -12,6 +12,7 @@ static _Bool verbose = false;
 
 typedef unsigned long pt_element_t;
 static int cpuid_7_ebx;
+static int cpuid_7_ecx;
 
 #define PAGE_SIZE ((pt_element_t)4096)
 #define PAGE_MASK (~(PAGE_SIZE-1))
@@ -35,6 +36,7 @@ static int cpuid_7_ebx;
 #define PFERR_USER_MASK (1U << 2)
 #define PFERR_RESERVED_MASK (1U << 3)
 #define PFERR_FETCH_MASK (1U << 4)
+#define PFERR_PK_MASK (1U << 5)
 
 #define MSR_EFER 0xc0000080
 #define EFER_NX_MASK		(1ull << 11)
@@ -65,15 +67,19 @@ enum {
     AC_PDE_BIT51,
     AC_PDE_BIT13,
 
+    AC_PKU_AD,
+    AC_PKU_WD,
+    AC_PKU_PKEY,
+
     AC_ACCESS_USER,
     AC_ACCESS_WRITE,
     AC_ACCESS_FETCH,
     AC_ACCESS_TWICE,
-    // AC_ACCESS_PTE,
 
     AC_CPU_EFER_NX,
     AC_CPU_CR0_WP,
     AC_CPU_CR4_SMEP,
+    AC_CPU_CR4_PKE,
 
     NR_AC_FLAGS
 };
@@ -95,6 +101,9 @@ const char *ac_names[] = {
     [AC_PDE_NX] = "pde.nx",
     [AC_PDE_BIT51] = "pde.51",
     [AC_PDE_BIT13] = "pde.13",
+    [AC_PKU_AD] = "pkru.ad",
+    [AC_PKU_WD] = "pkru.wd",
+    [AC_PKU_PKEY] = "pkey=1",
     [AC_ACCESS_WRITE] = "write",
     [AC_ACCESS_USER] = "user",
     [AC_ACCESS_FETCH] = "fetch",
@@ -102,6 +111,7 @@ const char *ac_names[] = {
     [AC_CPU_EFER_NX] = "efer.nx",
     [AC_CPU_CR0_WP] = "cr0.wp",
     [AC_CPU_CR4_SMEP] = "cr4.smep",
+    [AC_CPU_CR4_PKE] = "cr4.pke",
 };
 
 static inline void *va(pt_element_t phys)
@@ -164,6 +174,21 @@ void set_cr4_smep(int smep)
     write_cr4(cr4);
 }
 
+void set_cr4_pke(int pke)
+{
+    unsigned long cr4 = read_cr4();
+
+    /* Check that protection keys do not affect accesses when CR4.PKE=0.  */
+    if ((read_cr4() & X86_CR4_PKE) && !pke) {
+        write_pkru(0xffffffff);
+    }
+
+    cr4 &= ~X86_CR4_PKE;
+    if (pke)
+	cr4 |= X86_CR4_PKE;
+    write_cr4(cr4);
+}
+
 void set_efer_nx(int nx)
 {
     unsigned long long efer;
@@ -222,6 +247,14 @@ _Bool ac_test_legal(ac_test_t *at)
 	return false;
 
     /*
+     * Only test protection key faults if CR4.PKE=1.
+     */
+    if (!at->flags[AC_CPU_CR4_PKE] &&
+        (at->flags[AC_PKU_AD] || at->flags[AC_PKU_WD])) {
+	return false;
+    }
+
+    /*
      * pde.bit13 checks handling of reserved bits in largepage PDEs.  It is
      * meaningless if there is a PTE.
      */
@@ -278,13 +311,6 @@ void ac_set_expected_status(ac_test_t *at)
         && at->flags[AC_PTE_PRESENT]
         && !at->flags[AC_PTE_BIT51]
         && !(at->flags[AC_PTE_NX] && !at->flags[AC_CPU_EFER_NX]);
-    if (at->flags[AC_ACCESS_TWICE]) {
-	if (pde_valid) {
-	    at->expected_pde |= PT_ACCESSED_MASK;
-	    if (pte_valid)
-		at->expected_pte |= PT_ACCESSED_MASK;
-	}
-    }
 
     if (at->flags[AC_ACCESS_USER])
 	at->expected_error |= PFERR_USER_MASK;
@@ -324,11 +350,32 @@ void ac_set_expected_status(ac_test_t *at)
         at->expected_pde |= PT_ACCESSED_MASK;
 
     if (at->flags[AC_PDE_PSE]) {
-	if (at->flags[AC_ACCESS_WRITE] && !at->expected_fault)
-	    at->expected_pde |= PT_DIRTY_MASK;
+        /* Even for "twice" accesses, PKEY might cause pde.a=0.  */
+        if (at->flags[AC_PDE_USER] && at->flags[AC_ACCESS_TWICE] &&
+            at->flags[AC_PKU_PKEY] && at->flags[AC_CPU_CR4_PKE] &&
+            at->flags[AC_PKU_AD]) {
+            pde_valid = false;
+        }
+
 	if (at->flags[AC_ACCESS_FETCH] && at->flags[AC_PDE_USER]
 	    && at->flags[AC_CPU_CR4_SMEP])
 	    at->expected_fault = 1;
+
+        if (at->flags[AC_PDE_USER] && !at->flags[AC_ACCESS_FETCH] &&
+	    at->flags[AC_PKU_PKEY] && at->flags[AC_CPU_CR4_PKE] &&
+	    !at->expected_fault) {
+            if (at->flags[AC_PKU_AD]) {
+                at->expected_fault = 1;
+                at->expected_error |= PFERR_PK_MASK;
+            } else if (at->flags[AC_ACCESS_WRITE] && at->flags[AC_PKU_WD] &&
+                       (at->flags[AC_CPU_CR0_WP] || at->flags[AC_ACCESS_USER])) {
+                at->expected_fault = 1;
+                at->expected_error |= PFERR_PK_MASK;
+            }
+        }
+	if (at->flags[AC_ACCESS_WRITE] && !at->expected_fault)
+	    at->expected_pde |= PT_DIRTY_MASK;
+
 	goto no_pte;
     }
 
@@ -343,6 +390,16 @@ void ac_set_expected_status(ac_test_t *at)
     if (at->flags[AC_ACCESS_USER] && !at->flags[AC_PTE_USER])
 	at->expected_fault = 1;
 
+    if (!pte_valid)
+        goto fault;
+
+    /* Even for "twice" accesses, PKEY might cause pte.a=0.  */
+    if (at->flags[AC_PDE_USER] && at->flags[AC_PTE_USER] && at->flags[AC_ACCESS_TWICE] &&
+        at->flags[AC_PKU_PKEY] && at->flags[AC_CPU_CR4_PKE] &&
+	at->flags[AC_PKU_AD]) {
+        pte_valid = false;
+    }
+
     if (at->flags[AC_ACCESS_WRITE]
 	&& !at->flags[AC_PTE_WRITABLE]
 	&& (at->flags[AC_CPU_CR0_WP] || at->flags[AC_ACCESS_USER]))
@@ -355,6 +412,19 @@ void ac_set_expected_status(ac_test_t *at)
 		&& at->flags[AC_PTE_USER])))
 	at->expected_fault = 1;
 
+    if (at->flags[AC_PDE_USER] && at->flags[AC_PTE_USER] && !at->flags[AC_ACCESS_FETCH] &&
+        at->flags[AC_PKU_PKEY] && at->flags[AC_CPU_CR4_PKE] &&
+	!at->expected_fault) {
+        if (at->flags[AC_PKU_AD]) {
+            at->expected_fault = 1;
+            at->expected_error |= PFERR_PK_MASK;
+        } else if (at->flags[AC_ACCESS_WRITE] && at->flags[AC_PKU_WD] &&
+                   (at->flags[AC_CPU_CR0_WP] || at->flags[AC_ACCESS_USER])) {
+            at->expected_fault = 1;
+            at->expected_error |= PFERR_PK_MASK;
+        }
+    }
+
     if (at->expected_fault)
 	goto fault;
 
@@ -364,6 +434,13 @@ void ac_set_expected_status(ac_test_t *at)
 
 no_pte:
 fault:
+    if (at->flags[AC_ACCESS_TWICE]) {
+	if (pde_valid) {
+	    at->expected_pde |= PT_ACCESSED_MASK;
+	    if (pte_valid)
+		at->expected_pte |= PT_ACCESSED_MASK;
+	}
+    }
     if (!at->expected_fault)
         at->ignore_pde = 0;
     if (!at->flags[AC_CPU_EFER_NX] && !at->flags[AC_CPU_CR4_SMEP])
@@ -391,11 +468,16 @@ void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
 	    pte |= PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_USER_MASK;
 	    break;
 	case 2:
-	    if (!at->flags[AC_PDE_PSE])
+	    if (!at->flags[AC_PDE_PSE]) {
 		pte = pt_page ? pt_page : ac_test_alloc_pt(pool);
-	    else {
+		/* The protection key is ignored on non-leaf entries.  */
+                if (at->flags[AC_PKU_PKEY])
+                    pte |= 2ull << 59;
+	    } else {
 		pte = at->phys & PT_PSE_BASE_ADDR_MASK;
 		pte |= PT_PSE_MASK;
+                if (at->flags[AC_PKU_PKEY])
+                    pte |= 1ull << 59;
 	    }
 	    if (at->flags[AC_PDE_PRESENT])
 		pte |= PT_PRESENT_MASK;
@@ -417,6 +499,8 @@ void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
 	    break;
 	case 1:
 	    pte = at->phys & PT_BASE_ADDR_MASK;
+	    if (at->flags[AC_PKU_PKEY])
+		pte |= 1ull << 59;
 	    if (at->flags[AC_PTE_PRESENT])
 		pte |= PT_PRESENT_MASK;
 	    if (at->flags[AC_PTE_WRITABLE])
@@ -517,6 +601,13 @@ int ac_test_do_access(ac_test_t *at)
     unsigned r = unique;
     set_cr0_wp(at->flags[AC_CPU_CR0_WP]);
     set_efer_nx(at->flags[AC_CPU_EFER_NX]);
+    if (at->flags[AC_CPU_CR4_PKE] && !(cpuid_7_ecx & (1 << 3))) {
+	unsigned long cr4 = read_cr4();
+	if (write_cr4_checking(cr4 | X86_CR4_PKE) == GP_VECTOR)
+		goto done;
+	printf("Set PKE in CR4 - expect #GP: FAIL!\n");
+	return 0;
+    }
     if (at->flags[AC_CPU_CR4_SMEP] && !(cpuid_7_ebx & (1 << 7))) {
 	unsigned long cr4 = read_cr4();
 	if (write_cr4_checking(cr4 | CR4_SMEP_MASK) == GP_VECTOR)
@@ -524,6 +615,14 @@ int ac_test_do_access(ac_test_t *at)
 	printf("Set SMEP in CR4 - expect #GP: FAIL!\n");
 	return 0;
     }
+
+    set_cr4_pke(at->flags[AC_CPU_CR4_PKE]);
+    if (at->flags[AC_CPU_CR4_PKE]) {
+        /* WD2=AD2=1, WD1=at->flags[AC_PKU_WD], AD1=at->flags[AC_PKU_AD] */
+        write_pkru(0x30 | (at->flags[AC_PKU_WD] ? 8 : 0) |
+                   (at->flags[AC_PKU_AD] ? 4 : 0));
+    }
+
     set_cr4_smep(at->flags[AC_CPU_CR4_SMEP]);
 
     if (at->flags[AC_ACCESS_TWICE]) {
@@ -870,6 +969,14 @@ int main()
     int r;
 
     cpuid_7_ebx = cpuid(7).b;
+    cpuid_7_ecx = cpuid(7).c;
+
+    if (cpuid_7_ecx & (1 << 3)) {
+        set_cr4_pke(1);
+        set_cr4_pke(0);
+        /* Now PKRU = 0xFFFFFFFF.  */
+    }
+
     printf("starting test\n\n");
     r = ac_test_run();
     return r ? 0 : 1;
