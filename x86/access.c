@@ -13,6 +13,7 @@ static _Bool verbose = false;
 typedef unsigned long pt_element_t;
 static int cpuid_7_ebx;
 static int cpuid_7_ecx;
+static int invalid_mask;
 
 #define PAGE_SIZE ((pt_element_t)4096)
 #define PAGE_MASK (~(PAGE_SIZE-1))
@@ -249,8 +250,6 @@ void set_efer_nx(int nx)
 
 static void ac_env_int(ac_pool_t *pool)
 {
-    setup_idt();
-
     extern char page_fault, kernel_entry;
     set_idt_entry(14, &page_fault, 0);
     set_idt_entry(0x20, &kernel_entry, 3);
@@ -271,7 +270,7 @@ void ac_test_init(ac_test_t *at, void *virt)
 
 int ac_test_bump_one(ac_test_t *at)
 {
-    at->flags++;
+    at->flags = ((at->flags | invalid_mask) + 1) & ~invalid_mask;
     return at->flags < (1 << NR_AC_FLAGS);
 }
 
@@ -626,21 +625,6 @@ int ac_test_do_access(ac_test_t *at)
     unsigned r = unique;
     set_cr0_wp(F(AC_CPU_CR0_WP));
     set_efer_nx(F(AC_CPU_EFER_NX));
-    if (F(AC_CPU_CR4_PKE) && !(cpuid_7_ecx & (1 << 3))) {
-	unsigned long cr4 = read_cr4();
-	if (write_cr4_checking(cr4 | X86_CR4_PKE) == GP_VECTOR)
-		goto done;
-	printf("Set PKE in CR4 - expect #GP: FAIL!\n");
-	return 0;
-    }
-    if (F(AC_CPU_CR4_SMEP) && !(cpuid_7_ebx & (1 << 7))) {
-	unsigned long cr4 = read_cr4();
-	if (write_cr4_checking(cr4 | CR4_SMEP_MASK) == GP_VECTOR)
-		goto done;
-	printf("Set SMEP in CR4 - expect #GP: FAIL!\n");
-	return 0;
-    }
-
     set_cr4_pke(F(AC_CPU_CR4_PKE));
     if (F(AC_CPU_CR4_PKE)) {
         /* WD2=AD2=1, WD1=F(AC_PKU_WD), AD1=F(AC_PKU_AD) */
@@ -724,7 +708,6 @@ int ac_test_do_access(ac_test_t *at)
                   !pt_match(*at->pdep, at->expected_pde, at->ignore_pde),
                   "pde %x expected %x", *at->pdep, at->expected_pde);
 
-done:
     if (success && verbose) {
         printf("PASS\n");
     }
@@ -872,6 +855,10 @@ static int check_smep_andnot_wp(ac_pool_t *pool)
 	ac_test_t at1;
 	int err_prepare_andnot_wp, err_smep_andnot_wp;
 
+	if (!(cpuid_7_ebx & (1 << 7))) {
+	    return 1;
+	}
+
 	ac_test_init(&at1, (void *)(0x123406001000));
 
 	at1.flags = AC_PDE_PRESENT_MASK | AC_PTE_PRESENT_MASK |
@@ -942,14 +929,46 @@ int ac_test_run(void)
 
     printf("run\n");
     tests = successes = 0;
+
+    if (cpuid_7_ecx & (1 << 3)) {
+        set_cr4_pke(1);
+        set_cr4_pke(0);
+        /* Now PKRU = 0xFFFFFFFF.  */
+    } else {
+	unsigned long cr4 = read_cr4();
+	tests++;
+	if (write_cr4_checking(cr4 | X86_CR4_PKE) == GP_VECTOR) {
+            successes++;
+            invalid_mask |= AC_PKU_AD_MASK;
+            invalid_mask |= AC_PKU_WD_MASK;
+            invalid_mask |= AC_PKU_PKEY_MASK;
+            invalid_mask |= AC_CPU_CR4_PKE_MASK;
+            printf("CR4.PKE not available, disabling PKE tests\n");
+	} else {
+            printf("Set PKE in CR4 - expect #GP: FAIL!\n");
+            set_cr4_pke(0);
+	}
+    }
+
+    if (!(cpuid_7_ebx & (1 << 7))) {
+	unsigned long cr4 = read_cr4();
+	tests++;
+	if (write_cr4_checking(cr4 | CR4_SMEP_MASK) == GP_VECTOR) {
+            successes++;
+            invalid_mask |= AC_CPU_CR4_SMEP_MASK;
+            printf("CR4.SMEP not available, disabling SMEP tests\n");
+	} else {
+            printf("Set SMEP in CR4 - expect #GP: FAIL!\n");
+            set_cr4_smep(0);
+	}
+    }
+
     ac_env_int(&pool);
     ac_test_init(&at, (void *)(0x123400000000 + 16 * smp_id()));
     do {
 	++tests;
 	successes += ac_test_exec(&at, &pool);
     } while (ac_test_bump(&at));
-
-    set_cr4_smep(0);
 
     for (i = 0; i < ARRAY_SIZE(ac_test_cases); i++) {
 	++tests;
@@ -965,14 +984,10 @@ int main()
 {
     int r;
 
+    setup_idt();
+
     cpuid_7_ebx = cpuid(7).b;
     cpuid_7_ecx = cpuid(7).c;
-
-    if (cpuid_7_ecx & (1 << 3)) {
-        set_cr4_pke(1);
-        set_cr4_pke(0);
-        /* Now PKRU = 0xFFFFFFFF.  */
-    }
 
     printf("starting test\n\n");
     r = ac_test_run();
