@@ -49,69 +49,101 @@ static int cpuid_7_ecx;
  */
 
 enum {
-    AC_PTE_PRESENT,
-    AC_PTE_WRITABLE,
-    AC_PTE_USER,
-    AC_PTE_ACCESSED,
-    AC_PTE_DIRTY,
-    AC_PTE_NX,
-    AC_PTE_BIT51,
+    AC_PTE_PRESENT_BIT,
+    AC_PTE_WRITABLE_BIT,
+    AC_PTE_USER_BIT,
+    AC_PTE_ACCESSED_BIT,
+    AC_PTE_DIRTY_BIT,
+    AC_PTE_NX_BIT,
+    AC_PTE_BIT51_BIT,
 
-    AC_PDE_PRESENT,
-    AC_PDE_WRITABLE,
-    AC_PDE_USER,
-    AC_PDE_ACCESSED,
-    AC_PDE_DIRTY,
-    AC_PDE_PSE,
-    AC_PDE_NX,
-    AC_PDE_BIT51,
-    AC_PDE_BIT13,
+    AC_PDE_PRESENT_BIT,
+    AC_PDE_WRITABLE_BIT,
+    AC_PDE_USER_BIT,
+    AC_PDE_ACCESSED_BIT,
+    AC_PDE_DIRTY_BIT,
+    AC_PDE_PSE_BIT,
+    AC_PDE_NX_BIT,
+    AC_PDE_BIT51_BIT,
+    AC_PDE_BIT13_BIT,
 
-    AC_PKU_AD,
-    AC_PKU_WD,
-    AC_PKU_PKEY,
+    AC_PKU_AD_BIT,
+    AC_PKU_WD_BIT,
+    AC_PKU_PKEY_BIT,
 
-    AC_ACCESS_USER,
-    AC_ACCESS_WRITE,
-    AC_ACCESS_FETCH,
-    AC_ACCESS_TWICE,
+    AC_ACCESS_USER_BIT,
+    AC_ACCESS_WRITE_BIT,
+    AC_ACCESS_FETCH_BIT,
+    AC_ACCESS_TWICE_BIT,
 
-    AC_CPU_EFER_NX,
-    AC_CPU_CR0_WP,
-    AC_CPU_CR4_SMEP,
-    AC_CPU_CR4_PKE,
+    AC_CPU_EFER_NX_BIT,
+    AC_CPU_CR0_WP_BIT,
+    AC_CPU_CR4_SMEP_BIT,
+    AC_CPU_CR4_PKE_BIT,
 
     NR_AC_FLAGS
 };
 
+#define AC_PTE_PRESENT_MASK   (1 << AC_PTE_PRESENT_BIT)
+#define AC_PTE_WRITABLE_MASK  (1 << AC_PTE_WRITABLE_BIT)
+#define AC_PTE_USER_MASK      (1 << AC_PTE_USER_BIT)
+#define AC_PTE_ACCESSED_MASK  (1 << AC_PTE_ACCESSED_BIT)
+#define AC_PTE_DIRTY_MASK     (1 << AC_PTE_DIRTY_BIT)
+#define AC_PTE_NX_MASK        (1 << AC_PTE_NX_BIT)
+#define AC_PTE_BIT51_MASK     (1 << AC_PTE_BIT51_BIT)
+
+#define AC_PDE_PRESENT_MASK   (1 << AC_PDE_PRESENT_BIT)
+#define AC_PDE_WRITABLE_MASK  (1 << AC_PDE_WRITABLE_BIT)
+#define AC_PDE_USER_MASK      (1 << AC_PDE_USER_BIT)
+#define AC_PDE_ACCESSED_MASK  (1 << AC_PDE_ACCESSED_BIT)
+#define AC_PDE_DIRTY_MASK     (1 << AC_PDE_DIRTY_BIT)
+#define AC_PDE_PSE_MASK       (1 << AC_PDE_PSE_BIT)
+#define AC_PDE_NX_MASK        (1 << AC_PDE_NX_BIT)
+#define AC_PDE_BIT51_MASK     (1 << AC_PDE_BIT51_BIT)
+#define AC_PDE_BIT13_MASK     (1 << AC_PDE_BIT13_BIT)
+
+#define AC_PKU_AD_MASK        (1 << AC_PKU_AD_BIT)
+#define AC_PKU_WD_MASK        (1 << AC_PKU_WD_BIT)
+#define AC_PKU_PKEY_MASK      (1 << AC_PKU_PKEY_BIT)
+
+#define AC_ACCESS_USER_MASK   (1 << AC_ACCESS_USER_BIT)
+#define AC_ACCESS_WRITE_MASK  (1 << AC_ACCESS_WRITE_BIT)
+#define AC_ACCESS_FETCH_MASK  (1 << AC_ACCESS_FETCH_BIT)
+#define AC_ACCESS_TWICE_MASK  (1 << AC_ACCESS_TWICE_BIT)
+
+#define AC_CPU_EFER_NX_MASK   (1 << AC_CPU_EFER_NX_BIT)
+#define AC_CPU_CR0_WP_MASK    (1 << AC_CPU_CR0_WP_BIT)
+#define AC_CPU_CR4_SMEP_MASK  (1 << AC_CPU_CR4_SMEP_BIT)
+#define AC_CPU_CR4_PKE_MASK   (1 << AC_CPU_CR4_PKE_BIT)
+
 const char *ac_names[] = {
-    [AC_PTE_PRESENT] = "pte.p",
-    [AC_PTE_ACCESSED] = "pte.a",
-    [AC_PTE_WRITABLE] = "pte.rw",
-    [AC_PTE_USER] = "pte.user",
-    [AC_PTE_DIRTY] = "pte.d",
-    [AC_PTE_NX] = "pte.nx",
-    [AC_PTE_BIT51] = "pte.51",
-    [AC_PDE_PRESENT] = "pde.p",
-    [AC_PDE_ACCESSED] = "pde.a",
-    [AC_PDE_WRITABLE] = "pde.rw",
-    [AC_PDE_USER] = "pde.user",
-    [AC_PDE_DIRTY] = "pde.d",
-    [AC_PDE_PSE] = "pde.pse",
-    [AC_PDE_NX] = "pde.nx",
-    [AC_PDE_BIT51] = "pde.51",
-    [AC_PDE_BIT13] = "pde.13",
-    [AC_PKU_AD] = "pkru.ad",
-    [AC_PKU_WD] = "pkru.wd",
-    [AC_PKU_PKEY] = "pkey=1",
-    [AC_ACCESS_WRITE] = "write",
-    [AC_ACCESS_USER] = "user",
-    [AC_ACCESS_FETCH] = "fetch",
-    [AC_ACCESS_TWICE] = "twice",
-    [AC_CPU_EFER_NX] = "efer.nx",
-    [AC_CPU_CR0_WP] = "cr0.wp",
-    [AC_CPU_CR4_SMEP] = "cr4.smep",
-    [AC_CPU_CR4_PKE] = "cr4.pke",
+    [AC_PTE_PRESENT_BIT] = "pte.p",
+    [AC_PTE_ACCESSED_BIT] = "pte.a",
+    [AC_PTE_WRITABLE_BIT] = "pte.rw",
+    [AC_PTE_USER_BIT] = "pte.user",
+    [AC_PTE_DIRTY_BIT] = "pte.d",
+    [AC_PTE_NX_BIT] = "pte.nx",
+    [AC_PTE_BIT51_BIT] = "pte.51",
+    [AC_PDE_PRESENT_BIT] = "pde.p",
+    [AC_PDE_ACCESSED_BIT] = "pde.a",
+    [AC_PDE_WRITABLE_BIT] = "pde.rw",
+    [AC_PDE_USER_BIT] = "pde.user",
+    [AC_PDE_DIRTY_BIT] = "pde.d",
+    [AC_PDE_PSE_BIT] = "pde.pse",
+    [AC_PDE_NX_BIT] = "pde.nx",
+    [AC_PDE_BIT51_BIT] = "pde.51",
+    [AC_PDE_BIT13_BIT] = "pde.13",
+    [AC_PKU_AD_BIT] = "pkru.ad",
+    [AC_PKU_WD_BIT] = "pkru.wd",
+    [AC_PKU_PKEY_BIT] = "pkey=1",
+    [AC_ACCESS_WRITE_BIT] = "write",
+    [AC_ACCESS_USER_BIT] = "user",
+    [AC_ACCESS_FETCH_BIT] = "fetch",
+    [AC_ACCESS_TWICE_BIT] = "twice",
+    [AC_CPU_EFER_NX_BIT] = "efer.nx",
+    [AC_CPU_CR0_WP_BIT] = "cr0.wp",
+    [AC_CPU_CR4_SMEP_BIT] = "cr4.smep",
+    [AC_CPU_CR4_PKE_BIT] = "cr4.pke",
 };
 
 static inline void *va(pt_element_t phys)
@@ -126,7 +158,7 @@ typedef struct {
 } ac_pool_t;
 
 typedef struct {
-    unsigned flags[NR_AC_FLAGS];
+    unsigned flags;
     void *virt;
     pt_element_t phys;
     pt_element_t *ptep;
@@ -232,40 +264,36 @@ void ac_test_init(ac_test_t *at, void *virt)
 {
     wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX_MASK);
     set_cr0_wp(1);
-    for (int i = 0; i < NR_AC_FLAGS; ++i)
-	at->flags[i] = 0;
+    at->flags = 0;
     at->virt = virt;
     at->phys = 32 * 1024 * 1024;
 }
 
 int ac_test_bump_one(ac_test_t *at)
 {
-    for (int i = 0; i < NR_AC_FLAGS; ++i)
-	if (!at->flags[i]) {
-	    at->flags[i] = 1;
-	    return 1;
-	} else
-	    at->flags[i] = 0;
-    return 0;
+    at->flags++;
+    return at->flags < (1 << NR_AC_FLAGS);
 }
+
+#define F(x)  ((at->flags & x##_MASK) != 0)
 
 _Bool ac_test_legal(ac_test_t *at)
 {
-    if (at->flags[AC_ACCESS_FETCH] && at->flags[AC_ACCESS_WRITE])
+    if (F(AC_ACCESS_FETCH) && F(AC_ACCESS_WRITE))
 	return false;
 
     /*
      * Since we convert current page to kernel page when cr4.smep=1,
      * we can't switch to user mode.
      */
-    if (at->flags[AC_ACCESS_USER] && at->flags[AC_CPU_CR4_SMEP])
+    if (F(AC_ACCESS_USER) && F(AC_CPU_CR4_SMEP))
 	return false;
 
     /*
      * Only test protection key faults if CR4.PKE=1.
      */
-    if (!at->flags[AC_CPU_CR4_PKE] &&
-        (at->flags[AC_PKU_AD] || at->flags[AC_PKU_WD])) {
+    if (!F(AC_CPU_CR4_PKE) &&
+        (F(AC_PKU_AD) || F(AC_PKU_WD))) {
 	return false;
     }
 
@@ -273,7 +301,7 @@ _Bool ac_test_legal(ac_test_t *at)
      * pde.bit13 checks handling of reserved bits in largepage PDEs.  It is
      * meaningless if there is a PTE.
      */
-    if (!at->flags[AC_PDE_PSE] && at->flags[AC_PDE_BIT13])
+    if (!F(AC_PDE_PSE) && F(AC_PDE_BIT13))
         return false;
 
     return true;
@@ -319,24 +347,24 @@ void ac_set_expected_status(ac_test_t *at)
     at->expected_fault = 0;
     at->expected_error = PFERR_PRESENT_MASK;
 
-    pde_valid = at->flags[AC_PDE_PRESENT]
-        && !at->flags[AC_PDE_BIT51] && !at->flags[AC_PDE_BIT13]
-        && !(at->flags[AC_PDE_NX] && !at->flags[AC_CPU_EFER_NX]);
+    pde_valid = F(AC_PDE_PRESENT)
+        && !F(AC_PDE_BIT51) && !F(AC_PDE_BIT13)
+        && !(F(AC_PDE_NX) && !F(AC_CPU_EFER_NX));
     pte_valid = pde_valid
-        && at->flags[AC_PTE_PRESENT]
-        && !at->flags[AC_PTE_BIT51]
-        && !(at->flags[AC_PTE_NX] && !at->flags[AC_CPU_EFER_NX]);
+        && F(AC_PTE_PRESENT)
+        && !F(AC_PTE_BIT51)
+        && !(F(AC_PTE_NX) && !F(AC_CPU_EFER_NX));
 
-    if (at->flags[AC_ACCESS_USER])
+    if (F(AC_ACCESS_USER))
 	at->expected_error |= PFERR_USER_MASK;
 
-    if (at->flags[AC_ACCESS_WRITE])
+    if (F(AC_ACCESS_WRITE))
 	at->expected_error |= PFERR_WRITE_MASK;
 
-    if (at->flags[AC_ACCESS_FETCH])
+    if (F(AC_ACCESS_FETCH))
 	at->expected_error |= PFERR_FETCH_MASK;
 
-    if (!at->flags[AC_PDE_PRESENT]) {
+    if (!F(AC_PDE_PRESENT)) {
 	at->expected_fault = 1;
 	at->expected_error &= ~PFERR_PRESENT_MASK;
     } else if (!pde_valid) {
@@ -344,18 +372,18 @@ void ac_set_expected_status(ac_test_t *at)
         at->expected_error |= PFERR_RESERVED_MASK;
     }
 
-    if (at->flags[AC_ACCESS_USER] && !at->flags[AC_PDE_USER])
+    if (F(AC_ACCESS_USER) && !F(AC_PDE_USER))
 	at->expected_fault = 1;
 
-    if (at->flags[AC_ACCESS_WRITE]
-	&& !at->flags[AC_PDE_WRITABLE]
-	&& (at->flags[AC_CPU_CR0_WP] || at->flags[AC_ACCESS_USER]))
+    if (F(AC_ACCESS_WRITE)
+	&& !F(AC_PDE_WRITABLE)
+	&& (F(AC_CPU_CR0_WP) || F(AC_ACCESS_USER)))
 	at->expected_fault = 1;
 
-    if (at->flags[AC_ACCESS_FETCH] && at->flags[AC_PDE_NX])
+    if (F(AC_ACCESS_FETCH) && F(AC_PDE_NX))
 	at->expected_fault = 1;
 
-    if (!at->flags[AC_PDE_ACCESSED])
+    if (!F(AC_PDE_ACCESSED))
         at->ignore_pde = PT_ACCESSED_MASK;
 
     if (!pde_valid)
@@ -364,37 +392,37 @@ void ac_set_expected_status(ac_test_t *at)
     if (!at->expected_fault)
         at->expected_pde |= PT_ACCESSED_MASK;
 
-    if (at->flags[AC_PDE_PSE]) {
+    if (F(AC_PDE_PSE)) {
         /* Even for "twice" accesses, PKEY might cause pde.a=0.  */
-        if (at->flags[AC_PDE_USER] && at->flags[AC_ACCESS_TWICE] &&
-            at->flags[AC_PKU_PKEY] && at->flags[AC_CPU_CR4_PKE] &&
-            at->flags[AC_PKU_AD]) {
+        if (F(AC_PDE_USER) && F(AC_ACCESS_TWICE) &&
+            F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
+            F(AC_PKU_AD)) {
             pde_valid = false;
         }
 
-	if (at->flags[AC_ACCESS_FETCH] && at->flags[AC_PDE_USER]
-	    && at->flags[AC_CPU_CR4_SMEP])
+	if (F(AC_ACCESS_FETCH) && F(AC_PDE_USER)
+	    && F(AC_CPU_CR4_SMEP))
 	    at->expected_fault = 1;
 
-        if (at->flags[AC_PDE_USER] && !at->flags[AC_ACCESS_FETCH] &&
-	    at->flags[AC_PKU_PKEY] && at->flags[AC_CPU_CR4_PKE] &&
+        if (F(AC_PDE_USER) && !F(AC_ACCESS_FETCH) &&
+	    F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
 	    !at->expected_fault) {
-            if (at->flags[AC_PKU_AD]) {
+            if (F(AC_PKU_AD)) {
                 at->expected_fault = 1;
                 at->expected_error |= PFERR_PK_MASK;
-            } else if (at->flags[AC_ACCESS_WRITE] && at->flags[AC_PKU_WD] &&
-                       (at->flags[AC_CPU_CR0_WP] || at->flags[AC_ACCESS_USER])) {
+            } else if (F(AC_ACCESS_WRITE) && F(AC_PKU_WD) &&
+                       (F(AC_CPU_CR0_WP) || F(AC_ACCESS_USER))) {
                 at->expected_fault = 1;
                 at->expected_error |= PFERR_PK_MASK;
             }
         }
-	if (at->flags[AC_ACCESS_WRITE] && !at->expected_fault)
+	if (F(AC_ACCESS_WRITE) && !at->expected_fault)
 	    at->expected_pde |= PT_DIRTY_MASK;
 
 	goto no_pte;
     }
 
-    if (!at->flags[AC_PTE_PRESENT]) {
+    if (!F(AC_PTE_PRESENT)) {
 	at->expected_fault = 1;
 	at->expected_error &= ~PFERR_PRESENT_MASK;
     } else if (!pte_valid) {
@@ -402,39 +430,39 @@ void ac_set_expected_status(ac_test_t *at)
         at->expected_error |= PFERR_RESERVED_MASK;
     }
 
-    if (at->flags[AC_ACCESS_USER] && !at->flags[AC_PTE_USER])
+    if (F(AC_ACCESS_USER) && !F(AC_PTE_USER))
 	at->expected_fault = 1;
 
     if (!pte_valid)
         goto fault;
 
     /* Even for "twice" accesses, PKEY might cause pte.a=0.  */
-    if (at->flags[AC_PDE_USER] && at->flags[AC_PTE_USER] && at->flags[AC_ACCESS_TWICE] &&
-        at->flags[AC_PKU_PKEY] && at->flags[AC_CPU_CR4_PKE] &&
-	at->flags[AC_PKU_AD]) {
+    if (F(AC_PDE_USER) && F(AC_PTE_USER) && F(AC_ACCESS_TWICE) &&
+        F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
+	F(AC_PKU_AD)) {
         pte_valid = false;
     }
 
-    if (at->flags[AC_ACCESS_WRITE]
-	&& !at->flags[AC_PTE_WRITABLE]
-	&& (at->flags[AC_CPU_CR0_WP] || at->flags[AC_ACCESS_USER]))
+    if (F(AC_ACCESS_WRITE)
+	&& !F(AC_PTE_WRITABLE)
+	&& (F(AC_CPU_CR0_WP) || F(AC_ACCESS_USER)))
 	at->expected_fault = 1;
 
-    if (at->flags[AC_ACCESS_FETCH]
-	&& (at->flags[AC_PTE_NX]
-	    || (at->flags[AC_CPU_CR4_SMEP]
-		&& at->flags[AC_PDE_USER]
-		&& at->flags[AC_PTE_USER])))
+    if (F(AC_ACCESS_FETCH)
+	&& (F(AC_PTE_NX)
+	    || (F(AC_CPU_CR4_SMEP)
+		&& F(AC_PDE_USER)
+		&& F(AC_PTE_USER))))
 	at->expected_fault = 1;
 
-    if (at->flags[AC_PDE_USER] && at->flags[AC_PTE_USER] && !at->flags[AC_ACCESS_FETCH] &&
-        at->flags[AC_PKU_PKEY] && at->flags[AC_CPU_CR4_PKE] &&
+    if (F(AC_PDE_USER) && F(AC_PTE_USER) && !F(AC_ACCESS_FETCH) &&
+        F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
 	!at->expected_fault) {
-        if (at->flags[AC_PKU_AD]) {
+        if (F(AC_PKU_AD)) {
             at->expected_fault = 1;
             at->expected_error |= PFERR_PK_MASK;
-        } else if (at->flags[AC_ACCESS_WRITE] && at->flags[AC_PKU_WD] &&
-                   (at->flags[AC_CPU_CR0_WP] || at->flags[AC_ACCESS_USER])) {
+        } else if (F(AC_ACCESS_WRITE) && F(AC_PKU_WD) &&
+                   (F(AC_CPU_CR0_WP) || F(AC_ACCESS_USER))) {
             at->expected_fault = 1;
             at->expected_error |= PFERR_PK_MASK;
         }
@@ -444,12 +472,12 @@ void ac_set_expected_status(ac_test_t *at)
 	goto fault;
 
     at->expected_pte |= PT_ACCESSED_MASK;
-    if (at->flags[AC_ACCESS_WRITE])
+    if (F(AC_ACCESS_WRITE))
 	at->expected_pte |= PT_DIRTY_MASK;
 
 no_pte:
 fault:
-    if (at->flags[AC_ACCESS_TWICE]) {
+    if (F(AC_ACCESS_TWICE)) {
 	if (pde_valid) {
 	    at->expected_pde |= PT_ACCESSED_MASK;
 	    if (pte_valid)
@@ -458,7 +486,7 @@ fault:
     }
     if (!at->expected_fault)
         at->ignore_pde = 0;
-    if (!at->flags[AC_CPU_EFER_NX] && !at->flags[AC_CPU_CR4_SMEP])
+    if (!F(AC_CPU_EFER_NX) && !F(AC_CPU_CR4_SMEP))
         at->expected_error &= ~PFERR_FETCH_MASK;
 }
 
@@ -472,7 +500,7 @@ void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
 	ac_test_reset_pt_pool(pool);
 
     at->ptep = 0;
-    for (int i = 4; i >= 1 && (i >= 2 || !at->flags[AC_PDE_PSE]); --i) {
+    for (int i = 4; i >= 1 && (i >= 2 || !F(AC_PDE_PSE)); --i) {
 	pt_element_t *vroot = va(root & PT_BASE_ADDR_MASK);
 	unsigned index = PT_INDEX((unsigned long)at->virt, i);
 	pt_element_t pte = 0;
@@ -483,52 +511,52 @@ void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
 	    pte |= PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_USER_MASK;
 	    break;
 	case 2:
-	    if (!at->flags[AC_PDE_PSE]) {
+	    if (!F(AC_PDE_PSE)) {
 		pte = pt_page ? pt_page : ac_test_alloc_pt(pool);
 		/* The protection key is ignored on non-leaf entries.  */
-                if (at->flags[AC_PKU_PKEY])
+                if (F(AC_PKU_PKEY))
                     pte |= 2ull << 59;
 	    } else {
 		pte = at->phys & PT_PSE_BASE_ADDR_MASK;
 		pte |= PT_PSE_MASK;
-                if (at->flags[AC_PKU_PKEY])
+                if (F(AC_PKU_PKEY))
                     pte |= 1ull << 59;
 	    }
-	    if (at->flags[AC_PDE_PRESENT])
+	    if (F(AC_PDE_PRESENT))
 		pte |= PT_PRESENT_MASK;
-	    if (at->flags[AC_PDE_WRITABLE])
+	    if (F(AC_PDE_WRITABLE))
 		pte |= PT_WRITABLE_MASK;
-	    if (at->flags[AC_PDE_USER])
+	    if (F(AC_PDE_USER))
 		pte |= PT_USER_MASK;
-	    if (at->flags[AC_PDE_ACCESSED])
+	    if (F(AC_PDE_ACCESSED))
 		pte |= PT_ACCESSED_MASK;
-	    if (at->flags[AC_PDE_DIRTY])
+	    if (F(AC_PDE_DIRTY))
 		pte |= PT_DIRTY_MASK;
-	    if (at->flags[AC_PDE_NX])
+	    if (F(AC_PDE_NX))
 		pte |= PT_NX_MASK;
-	    if (at->flags[AC_PDE_BIT51])
+	    if (F(AC_PDE_BIT51))
 		pte |= 1ull << 51;
-	    if (at->flags[AC_PDE_BIT13])
+	    if (F(AC_PDE_BIT13))
 		pte |= 1ull << 13;
 	    at->pdep = &vroot[index];
 	    break;
 	case 1:
 	    pte = at->phys & PT_BASE_ADDR_MASK;
-	    if (at->flags[AC_PKU_PKEY])
+	    if (F(AC_PKU_PKEY))
 		pte |= 1ull << 59;
-	    if (at->flags[AC_PTE_PRESENT])
+	    if (F(AC_PTE_PRESENT))
 		pte |= PT_PRESENT_MASK;
-	    if (at->flags[AC_PTE_WRITABLE])
+	    if (F(AC_PTE_WRITABLE))
 		pte |= PT_WRITABLE_MASK;
-	    if (at->flags[AC_PTE_USER])
+	    if (F(AC_PTE_USER))
 		pte |= PT_USER_MASK;
-	    if (at->flags[AC_PTE_ACCESSED])
+	    if (F(AC_PTE_ACCESSED))
 		pte |= PT_ACCESSED_MASK;
-	    if (at->flags[AC_PTE_DIRTY])
+	    if (F(AC_PTE_DIRTY))
 		pte |= PT_DIRTY_MASK;
-	    if (at->flags[AC_PTE_NX])
+	    if (F(AC_PTE_NX))
 		pte |= PT_NX_MASK;
-	    if (at->flags[AC_PTE_BIT51])
+	    if (F(AC_PTE_BIT51))
 		pte |= 1ull << 51;
 	    at->ptep = &vroot[index];
 	    break;
@@ -556,7 +584,7 @@ static void dump_mapping(ac_test_t *at)
 	int i;
 
 	printf("Dump mapping: address: %p\n", at->virt);
-	for (i = 4; i >= 1 && (i >= 2 || !at->flags[AC_PDE_PSE]); --i) {
+	for (i = 4; i >= 1 && (i >= 2 || !F(AC_PDE_PSE)); --i) {
 		pt_element_t *vroot = va(root & PT_BASE_ADDR_MASK);
 		unsigned index = PT_INDEX((unsigned long)at->virt, i);
 		pt_element_t pte = vroot[index];
@@ -614,16 +642,16 @@ int ac_test_do_access(ac_test_t *at)
     *((unsigned char *)at->phys) = 0xc3; /* ret */
 
     unsigned r = unique;
-    set_cr0_wp(at->flags[AC_CPU_CR0_WP]);
-    set_efer_nx(at->flags[AC_CPU_EFER_NX]);
-    if (at->flags[AC_CPU_CR4_PKE] && !(cpuid_7_ecx & (1 << 3))) {
+    set_cr0_wp(F(AC_CPU_CR0_WP));
+    set_efer_nx(F(AC_CPU_EFER_NX));
+    if (F(AC_CPU_CR4_PKE) && !(cpuid_7_ecx & (1 << 3))) {
 	unsigned long cr4 = read_cr4();
 	if (write_cr4_checking(cr4 | X86_CR4_PKE) == GP_VECTOR)
 		goto done;
 	printf("Set PKE in CR4 - expect #GP: FAIL!\n");
 	return 0;
     }
-    if (at->flags[AC_CPU_CR4_SMEP] && !(cpuid_7_ebx & (1 << 7))) {
+    if (F(AC_CPU_CR4_SMEP) && !(cpuid_7_ebx & (1 << 7))) {
 	unsigned long cr4 = read_cr4();
 	if (write_cr4_checking(cr4 | CR4_SMEP_MASK) == GP_VECTOR)
 		goto done;
@@ -631,16 +659,16 @@ int ac_test_do_access(ac_test_t *at)
 	return 0;
     }
 
-    set_cr4_pke(at->flags[AC_CPU_CR4_PKE]);
-    if (at->flags[AC_CPU_CR4_PKE]) {
-        /* WD2=AD2=1, WD1=at->flags[AC_PKU_WD], AD1=at->flags[AC_PKU_AD] */
-        write_pkru(0x30 | (at->flags[AC_PKU_WD] ? 8 : 0) |
-                   (at->flags[AC_PKU_AD] ? 4 : 0));
+    set_cr4_pke(F(AC_CPU_CR4_PKE));
+    if (F(AC_CPU_CR4_PKE)) {
+        /* WD2=AD2=1, WD1=F(AC_PKU_WD), AD1=F(AC_PKU_AD) */
+        write_pkru(0x30 | (F(AC_PKU_WD) ? 8 : 0) |
+                   (F(AC_PKU_AD) ? 4 : 0));
     }
 
-    set_cr4_smep(at->flags[AC_CPU_CR4_SMEP]);
+    set_cr4_smep(F(AC_CPU_CR4_SMEP));
 
-    if (at->flags[AC_ACCESS_TWICE]) {
+    if (F(AC_ACCESS_TWICE)) {
 	asm volatile (
 	    "mov $fixed2, %%rsi \n\t"
 	    "mov (%[addr]), %[reg] \n\t"
@@ -679,9 +707,9 @@ int ac_test_do_access(ac_test_t *at)
 		  "back_to_kernel:"
 		  : [reg]"+r"(r), "+a"(fault), "=b"(e), "=&d"(rsp)
 		  : [addr]"r"(at->virt),
-		    [write]"r"(at->flags[AC_ACCESS_WRITE]),
-		    [user]"r"(at->flags[AC_ACCESS_USER]),
-		    [fetch]"r"(at->flags[AC_ACCESS_FETCH]),
+		    [write]"r"(F(AC_ACCESS_WRITE)),
+		    [user]"r"(F(AC_ACCESS_USER)),
+		    [fetch]"r"(F(AC_ACCESS_FETCH)),
 		    [user_ds]"i"(USER_DS),
 		    [user_cs]"i"(USER_CS),
 		    [user_stack_top]"r"(user_stack + sizeof user_stack),
@@ -728,7 +756,7 @@ static void ac_test_show(ac_test_t *at)
     *line = 0;
     strcat(line, "test");
     for (int i = 0; i < NR_AC_FLAGS; ++i)
-	if (at->flags[i]) {
+	if (at->flags & (1 << i)) {
 	    strcat(line, " ");
 	    strcat(line, ac_names[i]);
 	}
@@ -747,27 +775,22 @@ static int corrupt_hugepage_triger(ac_pool_t *pool)
     ac_test_init(&at1, (void *)(0x123400000000));
     ac_test_init(&at2, (void *)(0x666600000000));
 
-    at2.flags[AC_CPU_CR0_WP] = 1;
-    at2.flags[AC_PDE_PSE] = 1;
-    at2.flags[AC_PDE_PRESENT] = 1;
+    at2.flags = AC_CPU_CR0_WP_MASK | AC_PDE_PSE_MASK | AC_PDE_PRESENT_MASK;
     ac_test_setup_pte(&at2, pool);
     if (!ac_test_do_access(&at2))
         goto err;
 
-    at1.flags[AC_CPU_CR0_WP] = 1;
-    at1.flags[AC_PDE_PSE] = 1;
-    at1.flags[AC_PDE_WRITABLE] = 1;
-    at1.flags[AC_PDE_PRESENT] = 1;
+    at1.flags = at2.flags | AC_PDE_WRITABLE_MASK;
     ac_test_setup_pte(&at1, pool);
     if (!ac_test_do_access(&at1))
         goto err;
 
-    at1.flags[AC_ACCESS_WRITE] = 1;
+    at1.flags |= AC_ACCESS_WRITE_MASK;
     ac_set_expected_status(&at1);
     if (!ac_test_do_access(&at1))
         goto err;
 
-    at2.flags[AC_ACCESS_WRITE] = 1;
+    at2.flags |= AC_ACCESS_WRITE_MASK;
     ac_set_expected_status(&at2);
     if (!ac_test_do_access(&at2))
         goto err;
@@ -790,13 +813,10 @@ static int check_pfec_on_prefetch_pte(ac_pool_t *pool)
 	ac_test_init(&at1, (void *)(0x123406001000));
 	ac_test_init(&at2, (void *)(0x123406003000));
 
-	at1.flags[AC_PDE_PRESENT] = 1;
-	at1.flags[AC_PTE_PRESENT] = 1;
+	at1.flags = AC_PDE_PRESENT_MASK | AC_PTE_PRESENT_MASK;
 	ac_setup_specific_pages(&at1, pool, 30 * 1024 * 1024, 30 * 1024 * 1024);
 
-	at2.flags[AC_PDE_PRESENT] = 1;
-	at2.flags[AC_PTE_NX] = 1;
-	at2.flags[AC_PTE_PRESENT] = 1;
+        at2.flags = at1.flags | AC_PTE_NX_MASK;
 	ac_setup_specific_pages(&at2, pool, 30 * 1024 * 1024, 30 * 1024 * 1024);
 
 	if (!ac_test_do_access(&at1)) {
@@ -838,26 +858,21 @@ static int check_large_pte_dirty_for_nowp(ac_pool_t *pool)
 	ac_test_init(&at1, (void *)(0x123403000000));
 	ac_test_init(&at2, (void *)(0x666606000000));
 
-	at2.flags[AC_PDE_PRESENT] = 1;
-	at2.flags[AC_PDE_PSE] = 1;
-
+        at2.flags = AC_PDE_PRESENT_MASK | AC_PDE_PSE_MASK;
 	ac_test_setup_pte(&at2, pool);
 	if (!ac_test_do_access(&at2)) {
 		printf("%s: read on the first mapping fail.\n", __FUNCTION__);
 		goto err;
 	}
 
-	at1.flags[AC_PDE_PRESENT] = 1;
-	at1.flags[AC_PDE_PSE] = 1;
-	at1.flags[AC_ACCESS_WRITE] = 1;
-
+        at1.flags = at2.flags | AC_ACCESS_WRITE_MASK;
 	ac_test_setup_pte(&at1, pool);
 	if (!ac_test_do_access(&at1)) {
 		printf("%s: write on the second mapping fail.\n", __FUNCTION__);
 		goto err;
 	}
 
-	at2.flags[AC_ACCESS_WRITE] = 1;
+	at2.flags |= AC_ACCESS_WRITE_MASK;
 	ac_set_expected_status(&at2);
 	if (!ac_test_do_access(&at2)) {
 		printf("%s: write on the first mapping fail.\n", __FUNCTION__);
@@ -877,15 +892,12 @@ static int check_smep_andnot_wp(ac_pool_t *pool)
 
 	ac_test_init(&at1, (void *)(0x123406001000));
 
-	at1.flags[AC_PDE_PRESENT] = 1;
-	at1.flags[AC_PTE_PRESENT] = 1;
-	at1.flags[AC_PDE_USER] = 1;
-	at1.flags[AC_PTE_USER] = 1;
-	at1.flags[AC_PDE_ACCESSED] = 1;
-	at1.flags[AC_PTE_ACCESSED] = 1;
-	at1.flags[AC_CPU_CR4_SMEP] = 1;
-	at1.flags[AC_CPU_CR0_WP] = 0;
-	at1.flags[AC_ACCESS_WRITE] = 1;
+	at1.flags = AC_PDE_PRESENT_MASK | AC_PTE_PRESENT_MASK |
+            AC_PDE_USER_MASK | AC_PTE_USER_MASK |
+            AC_PDE_ACCESSED_MASK | AC_PTE_ACCESSED_MASK |
+            AC_CPU_CR4_SMEP_MASK |
+            AC_CPU_CR0_WP_MASK |
+            AC_ACCESS_WRITE_MASK;
 	ac_test_setup_pte(&at1, pool);
 
 	/*
@@ -899,10 +911,10 @@ static int check_smep_andnot_wp(ac_pool_t *pool)
 		goto clean_up;
 	}
 
-	at1.flags[AC_ACCESS_WRITE] = 0;
-	at1.flags[AC_ACCESS_FETCH] = 1;
-	ac_set_expected_status(&at1);
-	err_smep_andnot_wp = ac_test_do_access(&at1);
+        at1.flags &= ~AC_ACCESS_WRITE_MASK;
+        at1.flags |= AC_ACCESS_FETCH_MASK;
+        ac_set_expected_status(&at1);
+        err_smep_andnot_wp = ac_test_do_access(&at1);
 
 clean_up:
 	set_cr4_smep(0);
