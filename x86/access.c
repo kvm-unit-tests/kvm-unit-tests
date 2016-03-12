@@ -351,11 +351,8 @@ pt_element_t ac_test_permissions(ac_test_t *at, unsigned flags, bool writable,
     if (F(AC_ACCESS_FETCH) && !executable)
 	at->expected_fault = 1;
 
-    if (!at->expected_fault)
-        expected |= PT_ACCESSED_MASK;
-
     if (!leaf)
-        return expected;
+        goto done;
 
     if (F(AC_ACCESS_FETCH) && user && F(AC_CPU_CR4_SMEP))
         at->expected_fault = 1;
@@ -374,6 +371,10 @@ pt_element_t ac_test_permissions(ac_test_t *at, unsigned flags, bool writable,
 
     if (F(AC_ACCESS_WRITE) && !at->expected_fault)
         expected |= PT_DIRTY_MASK;
+
+done:
+    if (!at->expected_fault)
+        expected |= PT_ACCESSED_MASK;
 
     return expected;
 }
