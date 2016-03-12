@@ -336,10 +336,52 @@ void ac_test_reset_pt_pool(ac_pool_t *pool)
     pool->pt_pool_current = 0;
 }
 
+pt_element_t ac_test_permissions(ac_test_t *at, unsigned flags, bool writable,
+                                 bool user, bool executable, bool leaf)
+{
+    bool kwritable = !F(AC_CPU_CR0_WP) && !F(AC_ACCESS_USER);
+    pt_element_t expected = 0;
+
+    if (F(AC_ACCESS_USER) && !user)
+	at->expected_fault = 1;
+
+    if (F(AC_ACCESS_WRITE) && !writable && !kwritable)
+	at->expected_fault = 1;
+
+    if (F(AC_ACCESS_FETCH) && !executable)
+	at->expected_fault = 1;
+
+    if (!at->expected_fault)
+        expected |= PT_ACCESSED_MASK;
+
+    if (!leaf)
+        return expected;
+
+    if (F(AC_ACCESS_FETCH) && user && F(AC_CPU_CR4_SMEP))
+        at->expected_fault = 1;
+
+    if (user && !F(AC_ACCESS_FETCH) &&
+        F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
+        !at->expected_fault) {
+        if (F(AC_PKU_AD)) {
+            at->expected_fault = 1;
+            at->expected_error |= PFERR_PK_MASK;
+        } else if (F(AC_ACCESS_WRITE) && F(AC_PKU_WD) && !kwritable) {
+            at->expected_fault = 1;
+            at->expected_error |= PFERR_PK_MASK;
+        }
+    }
+
+    if (F(AC_ACCESS_WRITE) && !at->expected_fault)
+        expected |= PT_DIRTY_MASK;
+
+    return expected;
+}
+
 void ac_emulate_access(ac_test_t *at, unsigned flags)
 {
     bool pde_valid, pte_valid;
-    bool user, writable, kwritable, executable;
+    bool user, writable, executable;
 
     if (F(AC_ACCESS_USER))
 	at->expected_error |= PFERR_USER_MASK;
@@ -367,41 +409,13 @@ void ac_emulate_access(ac_test_t *at, unsigned flags)
 	goto fault;
     }
 
-    kwritable = !F(AC_CPU_CR0_WP) && !F(AC_ACCESS_USER);
     writable = F(AC_PDE_WRITABLE);
     user = F(AC_PDE_USER);
     executable = !F(AC_PDE_NX);
 
-    if (F(AC_ACCESS_USER) && !user)
-	at->expected_fault = 1;
-
-    if (F(AC_ACCESS_WRITE) && !writable && !kwritable)
-	at->expected_fault = 1;
-
-    if (F(AC_ACCESS_FETCH) && !executable)
-	at->expected_fault = 1;
-
-    if (!at->expected_fault)
-        at->expected_pde |= PT_ACCESSED_MASK;
-
+    at->expected_pde |= ac_test_permissions(at, flags, writable, user,
+                                            executable, F(AC_PDE_PSE));
     if (F(AC_PDE_PSE)) {
-	if (F(AC_ACCESS_FETCH) && user && F(AC_CPU_CR4_SMEP))
-	    at->expected_fault = 1;
-
-        if (user && !F(AC_ACCESS_FETCH) &&
-	    F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
-	    !at->expected_fault) {
-            if (F(AC_PKU_AD)) {
-                at->expected_fault = 1;
-                at->expected_error |= PFERR_PK_MASK;
-            } else if (F(AC_ACCESS_WRITE) && F(AC_PKU_WD) && !kwritable) {
-                at->expected_fault = 1;
-                at->expected_error |= PFERR_PK_MASK;
-            }
-        }
-	if (F(AC_ACCESS_WRITE) && !at->expected_fault)
-	    at->expected_pde |= PT_DIRTY_MASK;
-
 	goto no_pte;
     }
 
@@ -423,34 +437,8 @@ void ac_emulate_access(ac_test_t *at, unsigned flags)
     user &= F(AC_PTE_USER);
     executable &= !F(AC_PTE_NX);
 
-    if (F(AC_ACCESS_USER) && !user)
-	at->expected_fault = 1;
-
-    if (F(AC_ACCESS_WRITE) && !writable && !kwritable)
-	at->expected_fault = 1;
-
-    if (F(AC_ACCESS_FETCH)
-	&& (!executable || (F(AC_CPU_CR4_SMEP) && user)))
-	at->expected_fault = 1;
-
-    if (user && !F(AC_ACCESS_FETCH) &&
-        F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
-	!at->expected_fault) {
-        if (F(AC_PKU_AD)) {
-            at->expected_fault = 1;
-            at->expected_error |= PFERR_PK_MASK;
-        } else if (F(AC_ACCESS_WRITE) && F(AC_PKU_WD) && !kwritable) {
-            at->expected_fault = 1;
-            at->expected_error |= PFERR_PK_MASK;
-        }
-    }
-
-    if (at->expected_fault)
-	goto fault;
-
-    at->expected_pte |= PT_ACCESSED_MASK;
-    if (F(AC_ACCESS_WRITE))
-	at->expected_pte |= PT_DIRTY_MASK;
+    at->expected_pte |= ac_test_permissions(at, flags, writable, user,
+                                            executable, true);
 
 no_pte:
 fault:
