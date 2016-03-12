@@ -338,16 +338,8 @@ void ac_test_reset_pt_pool(ac_pool_t *pool)
 
 void ac_emulate_access(ac_test_t *at, unsigned flags)
 {
-    int pde_valid, pte_valid;
+    bool pde_valid, pte_valid;
     bool user, writable, kwritable, executable;
-
-    pde_valid = F(AC_PDE_PRESENT)
-        && !F(AC_PDE_BIT51) && !F(AC_PDE_BIT13)
-        && !(F(AC_PDE_NX) && !F(AC_CPU_EFER_NX));
-    pte_valid = pde_valid
-        && F(AC_PTE_PRESENT)
-        && !F(AC_PTE_BIT51)
-        && !(F(AC_PTE_NX) && !F(AC_CPU_EFER_NX));
 
     if (F(AC_ACCESS_USER))
 	at->expected_error |= PFERR_USER_MASK;
@@ -358,19 +350,22 @@ void ac_emulate_access(ac_test_t *at, unsigned flags)
     if (F(AC_ACCESS_FETCH))
 	at->expected_error |= PFERR_FETCH_MASK;
 
-    if (!F(AC_PDE_PRESENT)) {
-	at->expected_fault = 1;
-	at->expected_error &= ~PFERR_PRESENT_MASK;
-    } else if (!pde_valid) {
-        at->expected_fault = 1;
-        at->expected_error |= PFERR_RESERVED_MASK;
-    }
-
     if (!F(AC_PDE_ACCESSED))
         at->ignore_pde = PT_ACCESSED_MASK;
 
-    if (!pde_valid)
+    pde_valid = F(AC_PDE_PRESENT)
+        && !F(AC_PDE_BIT51) && !F(AC_PDE_BIT13)
+        && !(F(AC_PDE_NX) && !F(AC_CPU_EFER_NX));
+
+    if (!pde_valid) {
+        at->expected_fault = 1;
+	if (F(AC_PDE_PRESENT)) {
+            at->expected_error |= PFERR_RESERVED_MASK;
+        } else {
+            at->expected_error &= ~PFERR_PRESENT_MASK;
+        }
 	goto fault;
+    }
 
     kwritable = !F(AC_CPU_CR0_WP) && !F(AC_ACCESS_USER);
     writable = F(AC_PDE_WRITABLE);
@@ -410,16 +405,19 @@ void ac_emulate_access(ac_test_t *at, unsigned flags)
 	goto no_pte;
     }
 
-    if (!F(AC_PTE_PRESENT)) {
-	at->expected_fault = 1;
-	at->expected_error &= ~PFERR_PRESENT_MASK;
-    } else if (!pte_valid) {
-        at->expected_fault = 1;
-        at->expected_error |= PFERR_RESERVED_MASK;
-    }
+    pte_valid = F(AC_PTE_PRESENT)
+        && !F(AC_PTE_BIT51)
+        && !(F(AC_PTE_NX) && !F(AC_CPU_EFER_NX));
 
-    if (!pte_valid)
-        goto fault;
+    if (!pte_valid) {
+        at->expected_fault = 1;
+	if (F(AC_PTE_PRESENT)) {
+            at->expected_error |= PFERR_RESERVED_MASK;
+        } else {
+            at->expected_error &= ~PFERR_PRESENT_MASK;
+        }
+	goto fault;
+    }
 
     writable &= F(AC_PTE_WRITABLE);
     user &= F(AC_PTE_USER);
