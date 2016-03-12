@@ -167,11 +167,16 @@ void set_cr0_wp(int wp)
 void set_cr4_smep(int smep)
 {
     unsigned long cr4 = read_cr4();
+    extern u64 ptl2[];
 
+    if (smep)
+        ptl2[2] &= ~PT_USER_MASK;
     cr4 &= ~CR4_SMEP_MASK;
     if (smep)
 	cr4 |= CR4_SMEP_MASK;
     write_cr4(cr4);
+    if (!smep)
+        ptl2[2] |= PT_USER_MASK;
 }
 
 void set_cr4_pke(int pke)
@@ -859,7 +864,6 @@ static int check_smep_andnot_wp(ac_pool_t *pool)
 {
 	ac_test_t at1;
 	int err_prepare_andnot_wp, err_smep_andnot_wp;
-	extern u64 ptl2[];
 
 	ac_test_init(&at1, (void *)(0x123406001000));
 
@@ -873,7 +877,6 @@ static int check_smep_andnot_wp(ac_pool_t *pool)
 	at1.flags[AC_CPU_CR0_WP] = 0;
 	at1.flags[AC_ACCESS_WRITE] = 1;
 	ac_test_setup_pte(&at1, pool);
-	ptl2[2] -= 0x4;
 
 	/*
 	 * Here we write the ro user page when
@@ -893,7 +896,6 @@ static int check_smep_andnot_wp(ac_pool_t *pool)
 
 clean_up:
 	set_cr4_smep(0);
-	ptl2[2] += 0x4;
 
 	if (!err_prepare_andnot_wp)
 		goto err;
@@ -933,26 +935,17 @@ int ac_test_run(void)
     ac_test_t at;
     ac_pool_t pool;
     int i, tests, successes;
-    extern u64 ptl2[];
 
     printf("run\n");
     tests = successes = 0;
     ac_env_int(&pool);
     ac_test_init(&at, (void *)(0x123400000000 + 16 * smp_id()));
     do {
-	if (at.flags[AC_CPU_CR4_SMEP] && (ptl2[2] & 0x4))
-		ptl2[2] -= 0x4;
-	if (!at.flags[AC_CPU_CR4_SMEP] && !(ptl2[2] & 0x4)) {
-		set_cr4_smep(0);
-		ptl2[2] += 0x4;
-	}
-
 	++tests;
 	successes += ac_test_exec(&at, &pool);
     } while (ac_test_bump(&at));
 
     set_cr4_smep(0);
-    ptl2[2] += 0x4;
 
     for (i = 0; i < ARRAY_SIZE(ac_test_cases); i++) {
 	++tests;
