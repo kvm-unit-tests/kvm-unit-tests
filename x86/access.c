@@ -275,10 +275,12 @@ int ac_test_bump_one(ac_test_t *at)
     return at->flags < (1 << NR_AC_FLAGS);
 }
 
-#define F(x)  ((at->flags & x##_MASK) != 0)
+#define F(x)  ((flags & x##_MASK) != 0)
 
 _Bool ac_test_legal(ac_test_t *at)
 {
+    int flags = at->flags;
+
     if (F(AC_ACCESS_FETCH) && F(AC_ACCESS_WRITE))
 	return false;
 
@@ -337,6 +339,7 @@ void ac_test_reset_pt_pool(ac_pool_t *pool)
 void ac_set_expected_status(ac_test_t *at)
 {
     int pde_valid, pte_valid;
+    int flags = at->flags;
 
     invlpg(at->virt);
 
@@ -495,6 +498,7 @@ void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
 
 {
     unsigned long root = read_cr3();
+    int flags = at->flags;
 
     if (!ac_test_enough_room(pool))
 	ac_test_reset_pt_pool(pool);
@@ -581,6 +585,7 @@ static void ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool,
 static void dump_mapping(ac_test_t *at)
 {
 	unsigned long root = read_cr3();
+        int flags = at->flags;
 	int i;
 
 	printf("Dump mapping: address: %p\n", at->virt);
@@ -636,6 +641,7 @@ int ac_test_do_access(ac_test_t *at)
     static unsigned char user_stack[4096];
     unsigned long rsp;
     _Bool success = true;
+    int flags = at->flags;
 
     ++unique;
 
