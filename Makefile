@@ -42,9 +42,13 @@ cc-option = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null \
 
 CFLAGS += -g
 CFLAGS += $(autodepend-flags) -Wall -Werror
-CFLAGS += $(call cc-option, -fomit-frame-pointer, "")
-CFLAGS += $(call cc-option, -fno-stack-protector, "")
-CFLAGS += $(call cc-option, -fno-stack-protector-all, "")
+
+fomit_frame_pointer := $(call cc-option, -fomit-frame-pointer, "")
+fnostack_protector := $(call cc-option, -fno-stack-protector, "")
+fnostack_protector_all := $(call cc-option, -fno-stack-protector-all, "")
+CFLAGS += $(fomit_frame_pointer)
+CFLAGS += $(fno_stack_protector)
+CFLAGS += $(fno_stack_protector_all)
 
 CXXFLAGS += $(CFLAGS)
 
