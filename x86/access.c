@@ -336,20 +336,10 @@ void ac_test_reset_pt_pool(ac_pool_t *pool)
     pool->pt_pool_current = 0;
 }
 
-void ac_set_expected_status(ac_test_t *at)
+void ac_emulate_access(ac_test_t *at, unsigned flags)
 {
     int pde_valid, pte_valid;
-    int flags = at->flags;
     bool user, writable, kwritable, executable;
-
-    invlpg(at->virt);
-
-    if (at->ptep)
-	at->expected_pte = *at->ptep;
-    at->expected_pde = *at->pdep;
-    at->ignore_pde = 0;
-    at->expected_fault = 0;
-    at->expected_error = PFERR_PRESENT_MASK;
 
     pde_valid = F(AC_PDE_PRESENT)
         && !F(AC_PDE_BIT51) && !F(AC_PDE_BIT13)
@@ -400,13 +390,6 @@ void ac_set_expected_status(ac_test_t *at)
         at->expected_pde |= PT_ACCESSED_MASK;
 
     if (F(AC_PDE_PSE)) {
-        /* Even for "twice" accesses, PKEY might cause pde.a=0.  */
-        if (user && F(AC_ACCESS_TWICE) &&
-            F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
-            F(AC_PKU_AD)) {
-            pde_valid = false;
-        }
-
 	if (F(AC_ACCESS_FETCH) && user && F(AC_CPU_CR4_SMEP))
 	    at->expected_fault = 1;
 
@@ -442,13 +425,6 @@ void ac_set_expected_status(ac_test_t *at)
     user &= F(AC_PTE_USER);
     executable &= !F(AC_PTE_NX);
 
-    /* Even for "twice" accesses, PKEY might cause pte.a=0.  */
-    if (user && F(AC_ACCESS_TWICE) &&
-        F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
-	F(AC_PKU_AD)) {
-        pte_valid = false;
-    }
-
     if (F(AC_ACCESS_USER) && !user)
 	at->expected_fault = 1;
 
@@ -480,17 +456,32 @@ void ac_set_expected_status(ac_test_t *at)
 
 no_pte:
 fault:
-    if (F(AC_ACCESS_TWICE)) {
-	if (pde_valid) {
-	    at->expected_pde |= PT_ACCESSED_MASK;
-	    if (pte_valid)
-		at->expected_pte |= PT_ACCESSED_MASK;
-	}
-    }
     if (!at->expected_fault)
         at->ignore_pde = 0;
     if (!F(AC_CPU_EFER_NX) && !F(AC_CPU_CR4_SMEP))
         at->expected_error &= ~PFERR_FETCH_MASK;
+}
+
+void ac_set_expected_status(ac_test_t *at)
+{
+    invlpg(at->virt);
+
+    if (at->ptep)
+	at->expected_pte = *at->ptep;
+    at->expected_pde = *at->pdep;
+    at->ignore_pde = 0;
+    at->expected_fault = 0;
+    at->expected_error = PFERR_PRESENT_MASK;
+
+    if (at->flags & AC_ACCESS_TWICE_MASK) {
+        ac_emulate_access(at, at->flags & ~AC_ACCESS_WRITE_MASK
+                          & ~AC_ACCESS_FETCH_MASK & ~AC_ACCESS_USER_MASK);
+        at->expected_fault = 0;
+	at->expected_error = PFERR_PRESENT_MASK;
+        at->ignore_pde = 0;
+    }
+
+    ac_emulate_access(at, at->flags);
 }
 
 void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
