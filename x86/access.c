@@ -340,6 +340,7 @@ void ac_set_expected_status(ac_test_t *at)
 {
     int pde_valid, pte_valid;
     int flags = at->flags;
+    bool user, writable, kwritable, executable;
 
     invlpg(at->virt);
 
@@ -381,15 +382,18 @@ void ac_set_expected_status(ac_test_t *at)
     if (!pde_valid)
 	goto fault;
 
-    if (F(AC_ACCESS_USER) && !F(AC_PDE_USER))
+    kwritable = !F(AC_CPU_CR0_WP) && !F(AC_ACCESS_USER);
+    writable = F(AC_PDE_WRITABLE);
+    user = F(AC_PDE_USER);
+    executable = !F(AC_PDE_NX);
+
+    if (F(AC_ACCESS_USER) && !user)
 	at->expected_fault = 1;
 
-    if (F(AC_ACCESS_WRITE)
-	&& !F(AC_PDE_WRITABLE)
-	&& (F(AC_CPU_CR0_WP) || F(AC_ACCESS_USER)))
+    if (F(AC_ACCESS_WRITE) && !writable && !kwritable)
 	at->expected_fault = 1;
 
-    if (F(AC_ACCESS_FETCH) && F(AC_PDE_NX))
+    if (F(AC_ACCESS_FETCH) && !executable)
 	at->expected_fault = 1;
 
     if (!at->expected_fault)
@@ -397,24 +401,22 @@ void ac_set_expected_status(ac_test_t *at)
 
     if (F(AC_PDE_PSE)) {
         /* Even for "twice" accesses, PKEY might cause pde.a=0.  */
-        if (F(AC_PDE_USER) && F(AC_ACCESS_TWICE) &&
+        if (user && F(AC_ACCESS_TWICE) &&
             F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
             F(AC_PKU_AD)) {
             pde_valid = false;
         }
 
-	if (F(AC_ACCESS_FETCH) && F(AC_PDE_USER)
-	    && F(AC_CPU_CR4_SMEP))
+	if (F(AC_ACCESS_FETCH) && user && F(AC_CPU_CR4_SMEP))
 	    at->expected_fault = 1;
 
-        if (F(AC_PDE_USER) && !F(AC_ACCESS_FETCH) &&
+        if (user && !F(AC_ACCESS_FETCH) &&
 	    F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
 	    !at->expected_fault) {
             if (F(AC_PKU_AD)) {
                 at->expected_fault = 1;
                 at->expected_error |= PFERR_PK_MASK;
-            } else if (F(AC_ACCESS_WRITE) && F(AC_PKU_WD) &&
-                       (F(AC_CPU_CR0_WP) || F(AC_ACCESS_USER))) {
+            } else if (F(AC_ACCESS_WRITE) && F(AC_PKU_WD) && !kwritable) {
                 at->expected_fault = 1;
                 at->expected_error |= PFERR_PK_MASK;
             }
@@ -436,36 +438,34 @@ void ac_set_expected_status(ac_test_t *at)
     if (!pte_valid)
         goto fault;
 
+    writable &= F(AC_PTE_WRITABLE);
+    user &= F(AC_PTE_USER);
+    executable &= !F(AC_PTE_NX);
+
     /* Even for "twice" accesses, PKEY might cause pte.a=0.  */
-    if (F(AC_PDE_USER) && F(AC_PTE_USER) && F(AC_ACCESS_TWICE) &&
+    if (user && F(AC_ACCESS_TWICE) &&
         F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
 	F(AC_PKU_AD)) {
         pte_valid = false;
     }
 
-    if (F(AC_ACCESS_USER) && !F(AC_PTE_USER))
+    if (F(AC_ACCESS_USER) && !user)
 	at->expected_fault = 1;
 
-    if (F(AC_ACCESS_WRITE)
-	&& !F(AC_PTE_WRITABLE)
-	&& (F(AC_CPU_CR0_WP) || F(AC_ACCESS_USER)))
+    if (F(AC_ACCESS_WRITE) && !writable && !kwritable)
 	at->expected_fault = 1;
 
     if (F(AC_ACCESS_FETCH)
-	&& (F(AC_PTE_NX)
-	    || (F(AC_CPU_CR4_SMEP)
-		&& F(AC_PDE_USER)
-		&& F(AC_PTE_USER))))
+	&& (!executable || (F(AC_CPU_CR4_SMEP) && user)))
 	at->expected_fault = 1;
 
-    if (F(AC_PDE_USER) && F(AC_PTE_USER) && !F(AC_ACCESS_FETCH) &&
+    if (user && !F(AC_ACCESS_FETCH) &&
         F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
 	!at->expected_fault) {
         if (F(AC_PKU_AD)) {
             at->expected_fault = 1;
             at->expected_error |= PFERR_PK_MASK;
-        } else if (F(AC_ACCESS_WRITE) && F(AC_PKU_WD) &&
-                   (F(AC_CPU_CR0_WP) || F(AC_ACCESS_USER))) {
+        } else if (F(AC_ACCESS_WRITE) && F(AC_PKU_WD) && !kwritable) {
             at->expected_fault = 1;
             at->expected_error |= PFERR_PK_MASK;
         }
