@@ -375,6 +375,12 @@ void ac_set_expected_status(ac_test_t *at)
         at->expected_error |= PFERR_RESERVED_MASK;
     }
 
+    if (!F(AC_PDE_ACCESSED))
+        at->ignore_pde = PT_ACCESSED_MASK;
+
+    if (!pde_valid)
+	goto fault;
+
     if (F(AC_ACCESS_USER) && !F(AC_PDE_USER))
 	at->expected_fault = 1;
 
@@ -385,12 +391,6 @@ void ac_set_expected_status(ac_test_t *at)
 
     if (F(AC_ACCESS_FETCH) && F(AC_PDE_NX))
 	at->expected_fault = 1;
-
-    if (!F(AC_PDE_ACCESSED))
-        at->ignore_pde = PT_ACCESSED_MASK;
-
-    if (!pde_valid)
-	goto fault;
 
     if (!at->expected_fault)
         at->expected_pde |= PT_ACCESSED_MASK;
@@ -433,9 +433,6 @@ void ac_set_expected_status(ac_test_t *at)
         at->expected_error |= PFERR_RESERVED_MASK;
     }
 
-    if (F(AC_ACCESS_USER) && !F(AC_PTE_USER))
-	at->expected_fault = 1;
-
     if (!pte_valid)
         goto fault;
 
@@ -445,6 +442,9 @@ void ac_set_expected_status(ac_test_t *at)
 	F(AC_PKU_AD)) {
         pte_valid = false;
     }
+
+    if (F(AC_ACCESS_USER) && !F(AC_PTE_USER))
+	at->expected_fault = 1;
 
     if (F(AC_ACCESS_WRITE)
 	&& !F(AC_PTE_WRITABLE)
