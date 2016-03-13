@@ -157,23 +157,29 @@ int write_cr4_checking(unsigned long val)
 void set_cr0_wp(int wp)
 {
     unsigned long cr0 = read_cr0();
+    unsigned long old_cr0 = cr0;
 
     cr0 &= ~CR0_WP_MASK;
     if (wp)
 	cr0 |= CR0_WP_MASK;
-    write_cr0(cr0);
+    if (old_cr0 != cr0)
+        write_cr0(cr0);
 }
 
 void set_cr4_smep(int smep)
 {
     unsigned long cr4 = read_cr4();
+    unsigned long old_cr4 = cr4;
     extern u64 ptl2[];
 
-    if (smep)
-        ptl2[2] &= ~PT_USER_MASK;
     cr4 &= ~CR4_SMEP_MASK;
     if (smep)
 	cr4 |= CR4_SMEP_MASK;
+    if (old_cr4 == cr4)
+        return;
+
+    if (smep)
+        ptl2[2] &= ~PT_USER_MASK;
     write_cr4(cr4);
     if (!smep)
         ptl2[2] |= PT_USER_MASK;
@@ -182,27 +188,31 @@ void set_cr4_smep(int smep)
 void set_cr4_pke(int pke)
 {
     unsigned long cr4 = read_cr4();
+    unsigned long old_cr4 = cr4;
+
+    cr4 &= ~X86_CR4_PKE;
+    if (pke)
+	cr4 |= X86_CR4_PKE;
+    if (old_cr4 == cr4)
+        return;
 
     /* Check that protection keys do not affect accesses when CR4.PKE=0.  */
     if ((read_cr4() & X86_CR4_PKE) && !pke) {
         write_pkru(0xfffffffc);
     }
-
-    cr4 &= ~X86_CR4_PKE;
-    if (pke)
-	cr4 |= X86_CR4_PKE;
     write_cr4(cr4);
 }
 
 void set_efer_nx(int nx)
 {
-    unsigned long long efer;
+    unsigned long long efer = rdmsr(MSR_EFER);
+    unsigned long long old_efer = efer;
 
-    efer = rdmsr(MSR_EFER);
     efer &= ~EFER_NX_MASK;
     if (nx)
 	efer |= EFER_NX_MASK;
-    wrmsr(MSR_EFER, efer);
+    if (old_efer != efer)
+        wrmsr(MSR_EFER, efer);
 }
 
 static void ac_env_int(ac_pool_t *pool)
