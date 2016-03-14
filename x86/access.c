@@ -591,6 +591,7 @@ static void ac_test_check(ac_test_t *at, _Bool *success_ret, _Bool cond,
     *success_ret = false;
 
     if (!verbose) {
+        puts("\n");
         ac_test_show(at);
     }
 
@@ -619,6 +620,9 @@ int ac_test_do_access(ac_test_t *at)
     int flags = at->flags;
 
     ++unique;
+    if (!(unique & 65535)) {
+        puts(".");
+    }
 
     *((unsigned char *)at->phys) = 0xc3; /* ret */
 
