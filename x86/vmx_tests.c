@@ -1523,24 +1523,35 @@ static int msr_switch_exit_handler()
 	ulong reason;
 
 	reason = vmcs_read(EXI_REASON);
-	switch (reason) {
-	case 0x80000000 | VMX_FAIL_MSR:
-		if (vmx_get_test_stage() == 3) {
-			report("VM entry MSR load: try to load FS_BASE",
-				vmcs_read(EXI_QUALIFICATION) == 1);
-			return VMX_TEST_VMEXIT;
-		}
-		break;
-	case VMX_VMCALL:
-		if (vmx_get_test_stage() == 2) {
-			report("VM exit MSR store",
-				exit_msr_store[0].value == MSR_MAGIC + 1);
-			report("VM exit MSR load",
-				rdmsr(MSR_KERNEL_GS_BASE) == MSR_MAGIC + 2);
-			vmx_set_test_stage(3);
-			entry_msr_load[0].index = MSR_FS_BASE;
-			return VMX_TEST_RESUME;
-		}
+	if (reason == VMX_VMCALL && vmx_get_test_stage() == 2) {
+		report("VM exit MSR store",
+			exit_msr_store[0].value == MSR_MAGIC + 1);
+		report("VM exit MSR load",
+			rdmsr(MSR_KERNEL_GS_BASE) == MSR_MAGIC + 2);
+		vmx_set_test_stage(3);
+		entry_msr_load[0].index = MSR_FS_BASE;
+		return VMX_TEST_RESUME;
+	}
+	printf("ERROR %s: unexpected stage=%u or reason=%lu\n",
+		__func__, vmx_get_test_stage(), reason);
+	return VMX_TEST_EXIT;
+}
+
+static int msr_switch_entry_failure(struct vmentry_failure *failure)
+{
+	ulong reason;
+
+	if (failure->early) {
+		printf("ERROR %s: early exit\n", __func__);
+		return VMX_TEST_EXIT;
+	}
+
+	reason = vmcs_read(EXI_REASON);
+	if (reason == (VMX_ENTRY_FAILURE | VMX_FAIL_MSR) &&
+	    vmx_get_test_stage() == 3) {
+		report("VM entry MSR load: try to load FS_BASE",
+			vmcs_read(EXI_QUALIFICATION) == 1);
+		return VMX_TEST_VMEXIT;
 	}
 	printf("ERROR %s: unexpected stage=%u or reason=%lu\n",
 		__func__, vmx_get_test_stage(), reason);
@@ -1608,7 +1619,7 @@ struct vmx_test vmx_tests[] = {
 	{ "debug controls", dbgctls_init, dbgctls_main, dbgctls_exit_handler,
 		NULL, {0} },
 	{ "MSR switch", msr_switch_init, msr_switch_main,
-		msr_switch_exit_handler, NULL, {0} },
+		msr_switch_exit_handler, NULL, {0}, msr_switch_entry_failure },
 	{ "vmmcall", vmmcall_init, vmmcall_main, vmmcall_exit_handler, NULL, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };

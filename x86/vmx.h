@@ -32,6 +32,17 @@ struct regs {
 	u64 rflags;
 };
 
+struct vmentry_failure {
+	/* Did a vmlaunch or vmresume fail? */
+	bool vmlaunch;
+	/* Instruction mnemonic (for convenience). */
+	const char *instr;
+	/* Did the instruction return right away, or did we jump to HOST_RIP? */
+	bool early;
+	/* Contents of [re]flags after failed entry. */
+	unsigned long flags;
+};
+
 struct vmx_test {
 	const char *name;
 	int (*init)(struct vmcs *vmcs);
@@ -39,6 +50,7 @@ struct vmx_test {
 	int (*exit_handler)();
 	void (*syscall_handler)(u64 syscall_no);
 	struct regs guest_regs;
+	int (*entry_failure_handler)(struct vmentry_failure *failure);
 	struct vmcs *vmcs;
 	int exits;
 };
@@ -249,6 +261,10 @@ enum Encoding {
 	HOST_RIP		= 0x6c16ul
 };
 
+#define VMX_ENTRY_FAILURE	(1ul << 31)
+#define VMX_ENTRY_FLAGS		(X86_EFLAGS_CF | X86_EFLAGS_PF | X86_EFLAGS_AF | \
+				 X86_EFLAGS_ZF | X86_EFLAGS_SF | X86_EFLAGS_OF)
+
 enum Reason {
 	VMX_EXC_NMI		= 0,
 	VMX_EXTINT		= 1,
@@ -413,8 +429,6 @@ enum Ctrl1 {
 #define VMX_TEST_VMEXIT		1
 #define VMX_TEST_EXIT		2
 #define VMX_TEST_RESUME		3
-#define VMX_TEST_LAUNCH_ERR	4
-#define VMX_TEST_RESUME_ERR	5
 
 #define HYPERCALL_BIT		(1ul << 12)
 #define HYPERCALL_MASK		0xFFF
@@ -554,6 +568,7 @@ static inline void invvpid(unsigned long type, u16 vpid, u64 gva)
 }
 
 void print_vmexit_info();
+void print_vmentry_failure_info(struct vmentry_failure *failure);
 void ept_sync(int type, u64 eptp);
 void vpid_sync(int type, u16 vpid);
 void install_ept_entry(unsigned long *pml4, int pte_level,

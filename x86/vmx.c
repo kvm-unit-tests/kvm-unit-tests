@@ -157,6 +157,52 @@ void print_vmexit_info()
 		regs.r12, regs.r13, regs.r14, regs.r15);
 }
 
+void
+print_vmentry_failure_info(struct vmentry_failure *failure) {
+	if (failure->early) {
+		printf("Early %s failure: ", failure->instr);
+		switch (failure->flags & VMX_ENTRY_FLAGS) {
+		case X86_EFLAGS_ZF:
+			printf("current-VMCS pointer is not valid.\n");
+			break;
+		case X86_EFLAGS_CF:
+			printf("error number is %ld. See Intel 30.4.\n",
+			       vmcs_read(VMX_INST_ERROR));
+			break;
+		default:
+			printf("unexpected flags %lx!\n", failure->flags);
+		}
+	} else {
+		u64 reason = vmcs_read(EXI_REASON);
+		u64 qual = vmcs_read(EXI_QUALIFICATION);
+
+		printf("Non-early %s failure (reason=0x%lx, qual=0x%lx): ",
+			failure->instr, reason, qual);
+
+		switch (reason & 0xff) {
+		case VMX_FAIL_STATE:
+			printf("invalid guest state\n");
+			break;
+		case VMX_FAIL_MSR:
+			printf("MSR loading\n");
+			break;
+		case VMX_FAIL_MCHECK:
+			printf("machine-check event\n");
+			break;
+		default:
+			printf("unexpected basic exit reason %ld\n",
+			       reason & 0xff);
+		}
+
+		if (!(reason & VMX_ENTRY_FAILURE))
+			printf("\tVMX_ENTRY_FAILURE BIT NOT SET!\n");
+
+		if (reason & 0x7fff0000)
+			printf("\tRESERVED BITS SET!\n");
+	}
+}
+
+
 static void test_vmclear(void)
 {
 	struct vmcs *tmp_root;
@@ -890,27 +936,34 @@ static int exit_handler()
 	else
 		ret = current->exit_handler();
 	vmcs_write(GUEST_RFLAGS, regs.rflags);
-	switch (ret) {
-	case VMX_TEST_VMEXIT:
-	case VMX_TEST_RESUME:
-		return ret;
-	case VMX_TEST_EXIT:
-		break;
-	default:
-		printf("ERROR : Invalid exit_handler return val %d.\n"
-			, ret);
-	}
-	print_vmexit_info();
-	abort();
-	return 0;
+
+	return ret;
+}
+
+/*
+ * Called if vmlaunch or vmresume fails.
+ *	@early    - failure due to "VMX controls and host-state area" (26.2)
+ *	@vmlaunch - was this a vmlaunch or vmresume
+ *	@rflags   - host rflags
+ */
+static int
+entry_failure_handler(struct vmentry_failure *failure)
+{
+	if (current->entry_failure_handler)
+		return current->entry_failure_handler(failure);
+	else
+		return VMX_TEST_EXIT;
 }
 
 static int vmx_run()
 {
-	u32 ret = 0, fail = 0;
 	unsigned long host_rflags;
 
 	while (1) {
+		u32 ret;
+		u32 fail = 0;
+		bool entered;
+		struct vmentry_failure failure;
 
 		asm volatile (
 			"mov %[HOST_RSP], %%rdi\n\t"
@@ -937,39 +990,44 @@ static int vmx_run()
 			: "rdi", "memory", "cc"
 
 		);
-		if (fail)
-			ret = launched ? VMX_TEST_RESUME_ERR :
-				VMX_TEST_LAUNCH_ERR;
-		else {
+
+		entered = !fail && !(vmcs_read(EXI_REASON) & VMX_ENTRY_FAILURE);
+
+		if (entered) {
+			/*
+			 * VMCS isn't in "launched" state if there's been any
+			 * entry failure (early or otherwise).
+			 */
 			launched = 1;
 			ret = exit_handler();
+		} else {
+			failure.flags = host_rflags;
+			failure.vmlaunch = !launched;
+			failure.instr = launched ? "vmresume" : "vmlaunch";
+			failure.early = fail;
+			ret = entry_failure_handler(&failure);
 		}
-		if (ret != VMX_TEST_RESUME)
+
+		switch (ret) {
+		case VMX_TEST_RESUME:
+			continue;
+		case VMX_TEST_VMEXIT:
+			return 0;
+		case VMX_TEST_EXIT:
 			break;
+		default:
+			printf("ERROR : Invalid %s_handler return val %d.\n",
+			       entered ? "exit" : "entry_failure",
+			       ret);
+			break;
+		}
+
+		if (entered)
+			print_vmexit_info();
+		else
+			print_vmentry_failure_info(&failure);
+		abort();
 	}
-	launched = 0;
-	switch (ret) {
-	case VMX_TEST_VMEXIT:
-		return 0;
-	case VMX_TEST_LAUNCH_ERR:
-		printf("%s : vmlaunch failed.\n", __func__);
-		if ((!(host_rflags & X86_EFLAGS_CF) && !(host_rflags & X86_EFLAGS_ZF))
-			|| ((host_rflags & X86_EFLAGS_CF) && (host_rflags & X86_EFLAGS_ZF)))
-			printf("\tvmlaunch set wrong flags\n");
-		report("test vmlaunch", 0);
-		break;
-	case VMX_TEST_RESUME_ERR:
-		printf("%s : vmresume failed.\n", __func__);
-		if ((!(host_rflags & X86_EFLAGS_CF) && !(host_rflags & X86_EFLAGS_ZF))
-			|| ((host_rflags & X86_EFLAGS_CF) && (host_rflags & X86_EFLAGS_ZF)))
-			printf("\tvmresume set wrong flags\n");
-		report("test vmresume", 0);
-		break;
-	default:
-		printf("%s : unhandled ret from exit_handler, ret=%d.\n", __func__, ret);
-		break;
-	}
-	return 1;
 }
 
 static int test_run(struct vmx_test *test)
