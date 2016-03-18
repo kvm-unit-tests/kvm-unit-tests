@@ -925,11 +925,14 @@ static int vmx_run()
 			"1: "
 			"vmresume\n\t"
 			"2: "
+			SAVE_GPR_C
 			"setbe %0\n\t"
+			"jmp 3f\n\t"
 			"vmx_return:\n\t"
 			SAVE_GPR_C
+			"3: \n\t"
 			SAVE_RFLAGS
-			: "=m"(fail)
+			: "+m"(fail)
 			: "m"(launched), "i"(HOST_RSP)
 			: "rdi", "rsi", "memory", "cc"
 
