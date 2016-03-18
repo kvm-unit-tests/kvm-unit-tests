@@ -396,14 +396,6 @@ enum Ctrl1 {
 
 #define LOAD_GPR_C	SAVE_GPR_C
 
-#define SAVE_RFLAGS		\
-	"pushf\n\t"		\
-	"pop host_rflags\n\t"
-
-#define LOAD_RFLAGS		\
-	"push host_rflags\n\t"	\
-	"popf\n\t"
-
 #define VMX_IO_SIZE_MASK	0x7
 #define _VMX_IO_BYTE		0
 #define _VMX_IO_WORD		1

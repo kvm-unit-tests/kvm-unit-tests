@@ -46,7 +46,6 @@ struct regs regs;
 struct vmx_test *current;
 u64 hypercall_field;
 bool launched;
-u64 host_rflags;
 
 union vmx_basic basic;
 union vmx_ctrl_msr ctrl_pin_rev;
@@ -909,33 +908,33 @@ static int exit_handler()
 static int vmx_run()
 {
 	u32 ret = 0, fail = 0;
+	unsigned long host_rflags;
 
 	while (1) {
 
 		asm volatile (
-			"mov %%rsp, %%rsi\n\t"
-			"mov %2, %%rdi\n\t"
-			"vmwrite %%rsi, %%rdi\n\t"
-
+			"mov %[HOST_RSP], %%rdi\n\t"
+			"vmwrite %%rsp, %%rdi\n\t"
 			LOAD_GPR_C
-			"cmpl $0, %1\n\t"
+			"cmpl $0, %[launched]\n\t"
 			"jne 1f\n\t"
-			LOAD_RFLAGS
 			"vmlaunch\n\t"
 			"jmp 2f\n\t"
 			"1: "
 			"vmresume\n\t"
 			"2: "
 			SAVE_GPR_C
-			"movl $1, %0\n\t"
+			"pushf\n\t"
+			"pop %%rdi\n\t"
+			"mov %%rdi, %[host_rflags]\n\t"
+			"movl $1, %[fail]\n\t"
 			"jmp 3f\n\t"
 			"vmx_return:\n\t"
 			SAVE_GPR_C
 			"3: \n\t"
-			SAVE_RFLAGS
-			: "+m"(fail)
-			: "m"(launched), "i"(HOST_RSP)
-			: "rdi", "rsi", "memory", "cc"
+			: [fail]"+m"(fail), [host_rflags]"=m"(host_rflags)
+			: [launched]"m"(launched), [HOST_RSP]"i"(HOST_RSP)
+			: "rdi", "memory", "cc"
 
 		);
 		if (fail)
