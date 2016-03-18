@@ -911,6 +911,7 @@ static int vmx_run()
 	u32 ret = 0, fail = 0;
 
 	while (1) {
+
 		asm volatile (
 			"mov %%rsp, %%rsi\n\t"
 			"mov %2, %%rdi\n\t"
@@ -926,7 +927,7 @@ static int vmx_run()
 			"vmresume\n\t"
 			"2: "
 			SAVE_GPR_C
-			"setbe %0\n\t"
+			"movl $1, %0\n\t"
 			"jmp 3f\n\t"
 			"vmx_return:\n\t"
 			SAVE_GPR_C
