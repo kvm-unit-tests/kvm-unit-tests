@@ -180,7 +180,7 @@ void set_cr4_pke(int pke)
 
     /* Check that protection keys do not affect accesses when CR4.PKE=0.  */
     if ((read_cr4() & X86_CR4_PKE) && !pke) {
-        write_pkru(0xffffffff);
+        write_pkru(0xfffffffc);
     }
 
     cr4 &= ~X86_CR4_PKE;
