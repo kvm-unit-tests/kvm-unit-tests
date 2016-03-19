@@ -1169,6 +1169,24 @@ static int ept_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
+bool invvpid_test(int type, u16 vpid)
+{
+	bool ret, supported;
+
+	supported = ept_vpid.val & (VPID_CAP_INVVPID_SINGLE >> INVVPID_SINGLE << type);
+	ret = invvpid(type, vpid, 0);
+
+	if (ret == !supported)
+		return false;
+
+	if (!supported)
+		printf("WARNING: unsupported invvpid passed!\n");
+	else
+		printf("WARNING: invvpid failed!\n");
+
+	return true;
+}
+
 static int vpid_init()
 {
 	u32 ctrl_cpu1;
@@ -1189,10 +1207,13 @@ static void vpid_main()
 {
 	vmx_set_test_stage(0);
 	vmcall();
-	report("INVVPID SINGLE", vmx_get_test_stage() == 0);
-	vmx_set_test_stage(1);
+	report("INVVPID SINGLE ADDRESS", vmx_get_test_stage() == 1);
+	vmx_set_test_stage(2);
 	vmcall();
-	report("INVVPID ALL", vmx_get_test_stage() == 1);
+	report("INVVPID SINGLE", vmx_get_test_stage() == 3);
+	vmx_set_test_stage(4);
+	vmcall();
+	report("INVVPID ALL", vmx_get_test_stage() == 5);
 }
 
 static int vpid_exit_handler()
@@ -1209,10 +1230,16 @@ static int vpid_exit_handler()
 	case VMX_VMCALL:
 		switch(vmx_get_test_stage()) {
 		case 0:
-			vpid_sync(INVVPID_SINGLE, 1);
+			if (!invvpid_test(INVVPID_SINGLE_ADDRESS, 1))
+				vmx_inc_test_stage();
 			break;
-		case 1:
-			vpid_sync(INVVPID_ALL, 1);
+		case 2:
+			if (!invvpid_test(INVVPID_SINGLE, 1))
+				vmx_inc_test_stage();
+			break;
+		case 4:
+			if (!invvpid_test(INVVPID_ALL, 1))
+				vmx_inc_test_stage();
 			break;
 		default:
 			printf("ERROR: unexpected stage, %d\n",

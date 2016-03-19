@@ -495,6 +495,7 @@ enum Ctrl1 {
 #define INVEPT_SINGLE		1
 #define INVEPT_GLOBAL		2
 
+#define INVVPID_SINGLE_ADDRESS	0
 #define INVVPID_SINGLE		1
 #define INVVPID_ALL		2
 
@@ -562,14 +563,19 @@ static inline bool invept(unsigned long type, u64 eptp)
 	return ret;
 }
 
-static inline void invvpid(unsigned long type, u16 vpid, u64 gva)
+static inline bool invvpid(unsigned long type, u16 vpid, u64 gva)
 {
+	bool ret;
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+
 	struct {
 		u64 vpid : 16;
 		u64 rsvd : 48;
 		u64 gva;
 	} operand = {vpid, 0, gva};
-	asm volatile("invvpid %0, %1\n" ::"m"(operand),"r"(type));
+	asm volatile("push %1; popf; invvpid %2, %3; setbe %0"
+		     : "=q" (ret) : "r" (rflags), "m"(operand),"r"(type) : "cc");
+	return ret;
 }
 
 void print_vmexit_info();
