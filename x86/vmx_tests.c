@@ -1029,6 +1029,28 @@ t1:
 	// Test EPT access to L1 MMIO
 	vmx_set_test_stage(6);
 	report("EPT - MMIO access", *((u32 *)0xfee00030UL) == apic_version);
+
+	// Test invalid operand for INVEPT
+	vmcall();
+	report("EPT - unsupported INVEPT", vmx_get_test_stage() == 7);
+}
+
+bool invept_test(int type, u64 eptp)
+{
+	bool ret, supported;
+
+	supported = ept_vpid.val & (EPT_CAP_INVEPT_SINGLE >> INVEPT_SINGLE << type);
+	ret = invept(type, eptp);
+
+	if (ret == !supported)
+		return false;
+
+	if (!supported)
+		printf("WARNING: unsupported invept passed!\n");
+	else
+		printf("WARNING: invept failed!\n");
+
+	return true;
 }
 
 static int ept_exit_handler()
@@ -1083,6 +1105,10 @@ static int ept_exit_handler()
 			set_ept_pte(pml4, data_page1_pte, 2,
 				data_page1_pte_pte & (~EPT_PRESENT));
 			ept_sync(INVEPT_SINGLE, eptp);
+			break;
+		case 6:
+			if (!invept_test(0, eptp))
+				vmx_inc_test_stage();
 			break;
 		// Should not reach here
 		default:

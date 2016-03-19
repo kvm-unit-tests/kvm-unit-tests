@@ -549,12 +549,17 @@ static inline int vmcs_save(struct vmcs **vmcs)
 	return ret;
 }
 
-static inline void invept(unsigned long type, u64 eptp)
+static inline bool invept(unsigned long type, u64 eptp)
 {
+	bool ret;
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+
 	struct {
 		u64 eptp, gpa;
 	} operand = {eptp, 0};
-	asm volatile("invept %0, %1\n" ::"m"(operand),"r"(type));
+	asm volatile("push %1; popf; invept %2, %3; setbe %0"
+		     : "=q" (ret) : "r" (rflags), "m"(operand),"r"(type) : "cc");
+	return ret;
 }
 
 static inline void invvpid(unsigned long type, u16 vpid, u64 gva)
