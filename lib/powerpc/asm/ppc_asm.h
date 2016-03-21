@@ -1,6 +1,11 @@
 #ifndef _ASMPOWERPC_PPC_ASM_H
 #define _ASMPOWERPC_PPC_ASM_H
 
+#include <asm/asm-offsets.h>
+
+#define SAVE_GPR(n, base)	std	n,GPR0+8*(n)(base)
+#define REST_GPR(n, base)	ld	n,GPR0+8*(n)(base)
+
 #define LOAD_REG_IMMEDIATE(reg,expr)		\
 	lis	reg,(expr)@highest;		\
 	ori	reg,reg,(expr)@higher;		\

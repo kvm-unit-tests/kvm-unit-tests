@@ -9,6 +9,7 @@
 #include <asm/hcall.h>
 #include <asm/ppc_asm.h>
 #include <asm/rtas.h>
+#include <asm/ptrace.h>
 
 .section .init
 
@@ -44,6 +45,34 @@ start:
 	ld	r4, (p_dyn - start)(r31)
 	add	r4, r4, r31
 	bl	relocate
+
+	/* relocate vector table to base address 0x0 (MSR_IP = 0) */
+
+	/* source: r4, dest end: r5, destination: r6 */
+
+	LOAD_REG_ADDR(r4, __start_interrupts)
+	LOAD_REG_ADDR(r5, __end_interrupts)
+	sub	r5,r5,r4
+	li	r6,0x100
+
+	sub	r4,r4,r6
+	add	r5,r5,r6
+	addi	r6,r6,-8
+2:	li	r0,8
+	mtctr	r0
+	/* copy a cache line size */
+3:	addi	r6,r6,8
+	ldx	r0,r6,r4
+	stdx	r0,0,r6
+	bdnz	3b
+	dcbst	0,r6
+	/* flush icache */
+	sync
+	icbi	0,r6
+	cmpld	0,r6,r5
+	blt	2b
+	sync
+	isync
 
 	/* patch sc1 if needed */
 	bl	hcall_have_broken_sc1
@@ -105,3 +134,114 @@ rtas_return_loc:
 	ld	r0, 16(r1)
 	mtlr	r0
 	blr
+
+call_handler:
+	/* save context */
+
+	/* GPRs */
+
+	.irp i, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 \
+	        17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
+		SAVE_GPR(\i, r1)
+	.endr
+	mfsprg1	r0
+	std	r0,GPR1(r1)
+
+	/* lr, xer, ccr */
+
+	mflr	r0
+	std	r0,_LINK(r1)
+
+	mfxer	r0
+	std	r0,_XER(r1)
+
+	mfcr	r0
+	std	r0,_CCR(r1)
+
+	/* nip and msr */
+
+	mfsrr0	r0
+	std	r0, _NIP(r1)
+
+	mfsrr1	r0
+	std	r0, _MSR(r1)
+
+	/* FIXME: build stack frame */
+
+	/* call generic handler */
+
+	addi	r3,r1,STACK_FRAME_OVERHEAD
+	bl	do_handle_exception
+
+	/* restore context */
+
+	ld	r0,_CTR(r1)
+	mtctr	r0
+
+	ld	r0,_LINK(r1)
+	mtlr	r0
+
+	ld	r0,_XER(r1)
+	mtxer	r0
+
+	ld	r0,_CCR(r1)
+	mtcr	r0
+
+	ld	r0, _NIP(r1)
+	mtsrr0	r0
+
+	ld	r0, _MSR(r1)
+	mtsrr1	r0
+
+	.irp i, 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 \
+	        17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
+		REST_GPR(\i, r1)
+	.endr
+
+	/* restore r1, as we don't need it anymore */
+
+	REST_GPR(1,r1)
+
+	rfid
+	b .
+
+.section .text.ex
+
+.macro VECTOR vec
+	. = \vec
+
+	mtsprg1	r1	/* save r1 */
+	mfsprg0	r1	/* get exception stack address */
+	subi	r1,r1, INT_FRAME_SIZE
+
+	/* save r0 and ctr to call generic handler */
+
+	SAVE_GPR(0,r1)
+
+	mfctr	r0
+	std	r0,_CTR(r1)
+
+	LOAD_REG_ADDR(r0, call_handler)
+	mtctr	r0
+
+	li	r0,\vec
+	std	r0,_TRAP(r1)
+
+	bctr
+.endm
+
+	. = 0x100
+	.globl __start_interrupts
+__start_interrupts:
+
+VECTOR(0x300)
+VECTOR(0x400)
+VECTOR(0x500)
+VECTOR(0x600)
+VECTOR(0x700)
+VECTOR(0x800)
+VECTOR(0x900)
+
+	.align 7
+	.globl __end_interrupts
+__end_interrupts:

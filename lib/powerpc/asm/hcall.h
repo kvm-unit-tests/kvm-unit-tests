@@ -20,6 +20,7 @@
 #define H_PAGE_INIT		0x2c
 #define H_PUT_TERM_CHAR		0x58
 #define H_RANDOM		0x300
+#define H_SET_MODE		0x31C
 
 #ifndef __ASSEMBLY__
 /*

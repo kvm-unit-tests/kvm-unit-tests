@@ -16,6 +16,8 @@
 #include <alloc.h>
 #include <asm/setup.h>
 #include <asm/page.h>
+#include <asm/ppc_asm.h>
+#include <asm/hcall.h>
 
 extern unsigned long stacktop;
 extern void io_init(void);
@@ -33,6 +35,10 @@ struct cpu_set_params {
 	unsigned dcache_bytes;
 };
 
+#define EXCEPTION_STACK_SIZE	(32*1024) /* 32kB */
+
+static char exception_stack[NR_CPUS][EXCEPTION_STACK_SIZE];
+
 static void cpu_set(int fdtnode, u32 regval, void *info)
 {
 	static bool read_common_info = false;
@@ -45,6 +51,11 @@ static void cpu_set(int fdtnode, u32 regval, void *info)
 		assert(0);
 	}
 	cpus[cpu] = regval;
+
+	/* set exception stack address for this CPU (in SPGR0) */
+
+	asm volatile ("mtsprg0 %[addr]" ::
+		      [addr] "r" (exception_stack[cpu + 1]));
 
 	if (!read_common_info) {
 		const struct fdt_property *prop;
@@ -76,6 +87,14 @@ static void cpu_init(void)
 	assert(ret == 0);
 	__icache_bytes = params.icache_bytes;
 	__dcache_bytes = params.dcache_bytes;
+
+	/* Interrupt Endianness */
+
+#if  __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        hcall(H_SET_MODE, 1, 4, 0, 0);
+#else
+        hcall(H_SET_MODE, 0, 4, 0, 0);
+#endif
 }
 
 static void mem_init(phys_addr_t freemem_start)
