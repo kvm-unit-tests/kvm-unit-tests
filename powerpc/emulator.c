@@ -43,6 +43,19 @@ static void test_illegal(void)
 	report_prefix_pop();
 }
 
+static void test_64bit(void)
+{
+	uint64_t msr;
+
+	report_prefix_push("64bit");
+
+	asm("mfmsr %[msr]": [msr] "=r" (msr));
+
+	report("detected", msr & 0x8000000000000000UL);
+
+	report_prefix_pop();
+}
+
 int main(int argc, char **argv)
 {
 	int i;
@@ -57,6 +70,7 @@ int main(int argc, char **argv)
 
 	report_prefix_push("emulator");
 
+	test_64bit();
 	test_illegal();
 
 	report_prefix_pop();
