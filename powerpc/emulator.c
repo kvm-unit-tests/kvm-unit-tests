@@ -7,6 +7,7 @@
 
 static int verbose;
 static int volatile is_invalid;
+static int volatile alignment;
 
 static void program_check_handler(struct pt_regs *regs, void *opaque)
 {
@@ -26,6 +27,18 @@ static void program_check_handler(struct pt_regs *regs, void *opaque)
 	 */
 
 	*data = regs->msr >> 16;
+
+	regs->nip += 4;
+}
+
+static void alignment_handler(struct pt_regs *regs, void *opaque)
+{
+	int *data = opaque;
+
+	printf("Detected alignment exception 0x%016lx: %08x\n",
+	       regs->nip, *(uint32_t*)regs->nip);
+
+	*data = 1;
 
 	regs->nip += 4;
 }
@@ -73,6 +86,8 @@ static void test_64bit(void)
  * - RT <= RA or RB < RT + (n + 4) is invalid or result is undefined
  * - RT == RA == 0 is invalid
  *
+ * For lswx in little-endian mode, an alignment interrupt always occurs.
+ *
  */
 
 static void test_lswx(void)
@@ -90,6 +105,7 @@ static void test_lswx(void)
 
 	/* check incomplete register filling */
 
+	alignment = 0;
 	asm volatile ("mtxer %[len];"
 		      "li r12,-1;"
 		      "mr r11, r12;"
@@ -103,7 +119,12 @@ static void test_lswx(void)
 		      :
 		      "xer", "r11", "r12", "memory");
 
+#if  __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	report("alignment", alignment);
+	return;
+#else
 	report("partial", regs[0] == 0x01020300 && regs[1] == (uint64_t)-1);
+#endif
 
 	/* check an old know bug: the number of bytes is used as
 	 * the number of registers, so try 32 bytes.
@@ -199,6 +220,7 @@ int main(int argc, char **argv)
 	int i;
 
 	handle_exception(0x700, program_check_handler, (void *)&is_invalid);
+	handle_exception(0x600, alignment_handler, (void *)&alignment);
 
 	for (i = 0; i < argc; i++) {
 		if (strcmp(argv[i], "-v") == 0) {
