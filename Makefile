@@ -22,7 +22,8 @@ cflatobjs := \
 	lib/printf.o \
 	lib/string.o \
 	lib/abort.o \
-	lib/report.o
+	lib/report.o \
+	lib/stack.o
 
 # libfdt paths
 LIBFDT_objdir = lib/libfdt
@@ -42,8 +43,8 @@ cc-option = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null \
 
 CFLAGS += -g
 CFLAGS += $(autodepend-flags) -Wall -Werror
-
-fomit_frame_pointer := $(call cc-option, -fomit-frame-pointer, "")
+frame-pointer-flag=-f$(if $(KEEP_FRAME_POINTER),no-,)omit-frame-pointer
+fomit_frame_pointer := $(call cc-option, $(frame-pointer-flag), "")
 fnostack_protector := $(call cc-option, -fno-stack-protector, "")
 fnostack_protector_all := $(call cc-option, -fno-stack-protector-all, "")
 CFLAGS += $(fomit_frame_pointer)

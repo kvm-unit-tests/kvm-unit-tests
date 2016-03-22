@@ -81,6 +81,9 @@ extern void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...);
 extern void report_abort(const char *msg_fmt, ...);
 extern int report_summary(void);
 
+extern void dump_stack(void);
+extern void dump_frame_stack(const void *instruction, const void *frame);
+
 #define ARRAY_SIZE(_a) (sizeof(_a)/sizeof((_a)[0]))
 
 #define container_of(ptr, type, member) ({				\
