@@ -38,6 +38,67 @@ struct ex_record {
 
 extern struct ex_record exception_table_start, exception_table_end;
 
+static const char* exception_mnemonic(int vector)
+{
+	switch(vector) {
+	case 0: return "#DE";
+	case 1: return "#DB";
+	case 2: return "#NMI";
+	case 3: return "#BP";
+	case 4: return "#OF";
+	case 5: return "#BR";
+	case 6: return "#UD";
+	case 7: return "#NM";
+	case 8: return "#DF";
+	case 10: return "#TS";
+	case 11: return "#NP";
+	case 12: return "#SS";
+	case 13: return "#GP";
+	case 14: return "#PF";
+	case 16: return "#MF";
+	case 17: return "#AC";
+	case 18: return "#MC";
+	case 19: return "#XM";
+	default: return "#??";
+	}
+}
+
+static void unhandled_exception(struct ex_regs *regs, bool cpu)
+{
+	printf("Unhandled %sexception %ld %s at ip %016lx\n",
+	       cpu ? "cpu " : "", regs->vector,
+	       exception_mnemonic(regs->vector), regs->rip);
+	if (regs->vector == 14)
+		printf("PF at 0x%lx addr 0x%lx\n", regs->rip, read_cr2());
+
+	printf("error_code=%04lx      rflags=%08lx      cs=%08lx\n"
+	       "rax=%016lx rcx=%016lx rdx=%016lx rbx=%016lx\n"
+	       "rbp=%016lx rsi=%016lx rdi=%016lx\n"
+#ifdef __x86_64__
+	       " r8=%016lx  r9=%016lx r10=%016lx r11=%016lx\n"
+	       "r12=%016lx r13=%016lx r14=%016lx r15=%016lx\n"
+#endif
+	       "cr0=%016lx cr2=%016lx cr3=%016lx cr4=%016lx\n"
+#ifdef __x86_64__
+	       "cr8=%016lx\n"
+#endif
+	       ,
+	       regs->error_code, regs->rflags, regs->cs,
+	       regs->rax, regs->rcx, regs->rdx, regs->rbx,
+	       regs->rbp, regs->rsi, regs->rdi,
+#ifdef __x86_64__
+	       regs->r8, regs->r9, regs->r10, regs->r11,
+	       regs->r12, regs->r13, regs->r14, regs->r15,
+#endif
+	       read_cr0(), read_cr2(), read_cr3(), read_cr4()
+#ifdef __x86_64__
+	       , read_cr8()
+#endif
+	);
+	dump_frame_stack((void*) regs->rip, (void*) regs->rbp);
+	exit(7);
+}
+
 static void check_exception_table(struct ex_regs *regs)
 {
     struct ex_record *ex;
@@ -53,8 +114,7 @@ static void check_exception_table(struct ex_regs *regs)
             return;
         }
     }
-    printf("unhandled exception %lu\n", regs->vector);
-    abort();
+    unhandled_exception(regs, false);
 }
 
 static void (*exception_handlers[32])(struct ex_regs *regs);
@@ -75,10 +135,7 @@ void do_handle_exception(struct ex_regs *regs)
 		exception_handlers[regs->vector](regs);
 		return;
 	}
-	printf("unhandled cpu exception %lu\n", regs->vector);
-	if (regs->vector == 14)
-		printf("PF at 0x%lx addr 0x%lx\n", regs->rip, read_cr2());
-	abort();
+	unhandled_exception(regs, true);
 }
 
 #define EX(NAME, N) extern char NAME##_fault;	\
