@@ -41,6 +41,8 @@ generate_test ()
 	echo "#!/bin/bash"
 	echo "export STANDALONE=yes"
 	echo "export HOST=\$(uname -m | sed -e s/i.86/i386/ | sed -e 's/arm.*/arm/')"
+	echo "export PRETTY_PRINT_STACKS=no"
+
 	config_export ARCH
 	config_export ARCH_NAME
 	config_export PROCESSOR

@@ -11,6 +11,7 @@ arch=`uname -m | sed -e 's/i.86/i386/;s/arm.*/arm/;s/ppc64.*/ppc64/'`
 host=$arch
 cross_prefix=
 endian=""
+pretty_print_stacks=yes
 
 usage() {
     cat <<-EOF
@@ -25,6 +26,8 @@ usage() {
 	    --prefix=PREFIX        where to install things ($prefix)
 	    --kerneldir=DIR        kernel build directory for kvm.h ($kerneldir)
 	    --endian=ENDIAN        endianness to compile for (little or big, ppc64 only)
+	    --[enable|disable]-pretty-print-stacks
+	                           enable or disable pretty stack printing (enabled by default)
 EOF
     exit 1
 }
@@ -60,6 +63,12 @@ while [[ "$1" = -* ]]; do
 	    ;;
 	--ld)
 	    ld="$arg"
+	    ;;
+	--enable-pretty-print-stacks)
+	    pretty_print_stacks=yes
+	    ;;
+	--disable-pretty-print-stacks)
+	    pretty_print_stacks=no
 	    ;;
 	--help)
 	    usage
@@ -149,4 +158,5 @@ API=$api
 TEST_DIR=$testdir
 FIRMWARE=$firmware
 ENDIAN=$endian
+PRETTY_PRINT_STACKS=$pretty_print_stacks
 EOF

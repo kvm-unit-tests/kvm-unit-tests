@@ -46,7 +46,13 @@ while getopts "g:hv" opt; do
     esac
 done
 
-RUNTIME_arch_run="./$TEST_DIR/run >> test.log"
+if [ "$PRETTY_PRINT_STACKS" = "yes" ]; then
+	log_redir="> >(./scripts/pretty_print_stacks.py \$kernel >> test.log)"
+else
+	log_redir=">> test.log"
+fi
+
+RUNTIME_arch_run="./$TEST_DIR/run $log_redir"
 config=$TEST_DIR/unittests.cfg
 rm -f test.log
 printf "BUILD_HEAD=$(cat build-head)\n\n" > test.log
