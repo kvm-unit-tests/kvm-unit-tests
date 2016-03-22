@@ -92,10 +92,12 @@ extern void dump_frame_stack(const void *instruction, const void *frame);
 
 #define assert(cond)							\
 do {									\
-	if (!(cond))							\
+	if (!(cond)) {							\
 		printf("%s:%d: assert failed: %s\n",			\
-		       __FILE__, __LINE__, #cond),			\
+		       __FILE__, __LINE__, #cond);			\
+		dump_stack();						\
 		abort();						\
+	}								\
 } while (0)
 
 #endif
