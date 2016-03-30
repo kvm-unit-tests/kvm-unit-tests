@@ -35,8 +35,10 @@ static void alignment_handler(struct pt_regs *regs, void *opaque)
 {
 	int *data = opaque;
 
-	printf("Detected alignment exception 0x%016lx: %08x\n",
-	       regs->nip, *(uint32_t*)regs->nip);
+	if (verbose) {
+		printf("Detected alignment exception 0x%016lx: %08x\n",
+		       regs->nip, *(uint32_t*)regs->nip);
+	}
 
 	*data = 1;
 
