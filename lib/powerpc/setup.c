@@ -16,7 +16,6 @@
 #include <alloc.h>
 #include <asm/setup.h>
 #include <asm/page.h>
-#include <asm/ppc_asm.h>
 #include <asm/hcall.h>
 
 extern unsigned long stacktop;
