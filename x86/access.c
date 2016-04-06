@@ -353,9 +353,7 @@ pt_element_t ac_test_permissions(ac_test_t *at, unsigned flags, bool writable,
     if (F(AC_ACCESS_FETCH) && user && F(AC_CPU_CR4_SMEP))
         at->expected_fault = 1;
 
-    if (user && !F(AC_ACCESS_FETCH) &&
-        F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE) &&
-        !at->expected_fault) {
+    if (user && !F(AC_ACCESS_FETCH) && F(AC_PKU_PKEY) && F(AC_CPU_CR4_PKE)) {
         if (F(AC_PKU_AD)) {
             at->expected_fault = 1;
             at->expected_error |= PFERR_PK_MASK;
