@@ -711,7 +711,11 @@ int ac_test_do_access(ac_test_t *at)
                   "pde %x expected %x", *at->pdep, at->expected_pde);
 
     if (success && verbose) {
-        printf("PASS\n");
+	if (at->expected_fault) {
+            printf("PASS (%x)\n", at->expected_error);
+	} else {
+            printf("PASS\n");
+	}
     }
     return success;
 }
