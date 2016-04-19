@@ -96,7 +96,7 @@ static void unhandled_exception(struct ex_regs *regs, bool cpu)
 #endif
 	);
 	dump_frame_stack((void*) regs->rip, (void*) regs->rbp);
-	exit(7);
+	abort();
 }
 
 static void check_exception_table(struct ex_regs *regs)
