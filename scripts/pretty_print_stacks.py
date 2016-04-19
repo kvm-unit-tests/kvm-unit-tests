@@ -67,8 +67,9 @@ def main():
             if line == '':
                 break
 
+            puts(line)
+
             if not line.strip().startswith('STACK:'):
-                puts(line)
                 continue
 
             try:
