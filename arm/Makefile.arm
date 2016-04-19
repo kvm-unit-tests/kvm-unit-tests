@@ -8,12 +8,16 @@ ldarch = elf32-littlearm
 kernel_offset = 0x10000
 machine = -marm
 
+# stack.o relies on frame pointers.
+KEEP_FRAME_POINTER := y
+
 CFLAGS += $(machine)
 CFLAGS += -mcpu=$(PROCESSOR)
 
 cstart.o = $(TEST_DIR)/cstart.o
 cflatobjs += lib/arm/spinlock.o
 cflatobjs += lib/arm/processor.o
+cflatobjs += lib/arm/stack.o
 
 # arm specific tests
 tests =

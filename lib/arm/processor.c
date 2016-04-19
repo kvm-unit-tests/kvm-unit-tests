@@ -108,6 +108,7 @@ void do_handle_exception(enum vector v, struct pt_regs *regs)
 		asm volatile("mrc p15, 0, %0, c5, c0, 1": "=r" (fsr));
 		printf("IFAR: %08lx    IFSR: %08lx\n", far, fsr);
 	}
+	dump_frame_stack((void *)regs->ARM_pc, (void *)regs->ARM_fp);
 	abort();
 }
 
