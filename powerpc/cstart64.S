@@ -11,6 +11,8 @@
 #include <asm/rtas.h>
 #include <asm/ptrace.h>
 
+#include "spapr.h"
+
 .section .init
 
 /*
@@ -25,9 +27,7 @@ start:
 	 * so we just linked at zero. This means the first thing to do is
 	 * to find our stack and toc, and then do a relocate.
 	 */
-	bl	0f
-0:	mflr	r31
-	subi	r31, r31, 0b - start    /* QEMU's kernel load address */
+	LOAD_REG_IMMEDIATE(r31, SPAPR_KERNEL_LOAD_ADDR)
 	ld	r1, (p_stack - start)(r31)
 	ld	r2, (p_toc - start)(r31)
 	add	r1, r1, r31
