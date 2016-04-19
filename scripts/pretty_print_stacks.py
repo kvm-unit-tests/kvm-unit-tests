@@ -5,6 +5,8 @@ import subprocess
 import sys
 import traceback
 
+config = {}
+
 # Subvert output buffering.
 def puts(string):
     sys.stdout.write(string)
@@ -25,7 +27,7 @@ def pretty_print_stack(binary, line):
     # Output like this:
     #        0x004002be: start64 at path/to/kvm-unit-tests/x86/cstart64.S:208
     #         (inlined by) test_ept_violation at path/to/kvm-unit-tests/x86/vmx_tests.c:1719 (discriminator 1)
-    cmd = ['addr2line', '-e', binary, '-i', '-f', '--pretty', '--address']
+    cmd = [config.get('ADDR2LINE', 'addr2line'), '-e', binary, '-i', '-f', '--pretty', '--address']
     cmd.extend(addrs)
 
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
@@ -59,6 +61,11 @@ def main():
         sys.exit(1)
 
     binary = sys.argv[1].replace(".flat", ".elf")
+
+    with open("config.mak") as config_file:
+        for line in config_file:
+            name, val = line.partition("=")[::2]
+            config[name.strip()] = val.strip()
 
     try:
         while True:
