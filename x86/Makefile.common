@@ -20,7 +20,7 @@ $(libcflat): CFLAGS += -ffreestanding -I lib
 CFLAGS += -m$(bits)
 CFLAGS += -O1
 
-# dump_stack.o relies on frame pointers.
+# stack.o relies on frame pointers.
 KEEP_FRAME_POINTER := y
 
 libgcc := $(shell $(CC) -m$(bits) --print-libgcc-file-name)
