@@ -245,11 +245,18 @@ static void test_lswx(void)
 		      "xer", "r11", "r12", "memory");
 
 #if  __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	report("alignment", alignment);
-	return;
-#else
-	report("partial", regs[0] == 0x01020300 && regs[1] == (uint64_t)-1);
+	/*
+	 * lswx is supposed to cause an alignment exception in little endian
+	 * mode, but QEMU does not support it. So in case we do not get an
+	 * exception, this is an expected failure and we run the other tests
+	 */
+	report_xfail("alignment", !alignment, alignment);
+	if (alignment) {
+		report_prefix_pop();
+		return;
+	}
 #endif
+	report("partial", regs[0] == 0x01020300 && regs[1] == (uint64_t)-1);
 
 	/* check an old know bug: the number of bytes is used as
 	 * the number of registers, so try 32 bytes.
