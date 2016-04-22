@@ -13,6 +13,8 @@
 
 #include "spapr.h"
 
+#define P_HANDLER	0x2ff8
+
 .section .init
 
 /*
@@ -45,6 +47,11 @@ start:
 	ld	r4, (p_dyn - start)(r31)
 	add	r4, r4, r31
 	bl	relocate
+
+	/* compute address of call_handler */
+
+	LOAD_REG_ADDR(r4, call_handler)
+	std	r4, P_HANDLER(0)
 
 	/* relocate vector table to base address 0x0 (MSR_IP = 0) */
 
@@ -166,6 +173,11 @@ call_handler:
 	mfsrr1	r0
 	std	r0, _MSR(r1)
 
+	/* restore TOC pointer */
+
+	LOAD_REG_IMMEDIATE(r31, SPAPR_KERNEL_LOAD_ADDR)
+	ld	r2, (p_toc - start)(r31)
+
 	/* FIXME: build stack frame */
 
 	/* call generic handler */
@@ -221,7 +233,7 @@ call_handler:
 	mfctr	r0
 	std	r0,_CTR(r1)
 
-	LOAD_REG_ADDR(r0, call_handler)
+	ld	r0, P_HANDLER(0)
 	mtctr	r0
 
 	li	r0,\vec
@@ -245,3 +257,5 @@ VECTOR(0x900)
 	.align 7
 	.globl __end_interrupts
 __end_interrupts:
+	.org	P_HANDLER
+	.llong	0
