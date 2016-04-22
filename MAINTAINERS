@@ -67,6 +67,15 @@ F: arm/*
 F: lib/arm/*
 F: lib/arm64/*
 
+POWERPC
+M: Laurent Vivier <lvivier@redhat.com>
+M: Thomas Huth <thuth@redhat.com>
+L: kvm@vger.kernel.org
+L: kvm-ppc@vger.kernel.org
+F: powerpc/*
+F: lib/powerpc/*
+F: lib/ppc64/*
+
 x86
 M: Paolo Bonzini <pbonzini@redhat.com>
 M: Marcelo Tosatti <mtosatti@redhat.com>
