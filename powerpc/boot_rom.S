@@ -1,4 +1,5 @@
-#define SPAPR_KERNEL_LOAD_ADDR 0x400000
+#include "spapr.h"
+
 .text
 .globl start
 start:
