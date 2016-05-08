@@ -25,8 +25,11 @@ KEEP_FRAME_POINTER := y
 
 libgcc := $(shell $(CC) -m$(bits) --print-libgcc-file-name)
 
+# We want to keep intermediate file: %.elf and %.o 
+.PRECIOUS: %.elf %.o
+
 FLATLIBS = lib/libcflat.a $(libgcc)
-%.elf: %.o $(FLATLIBS) x86/flat.lds
+%.elf: %.o $(FLATLIBS) x86/flat.lds $(cstart.o)
 	$(CC) $(CFLAGS) -nostdlib -o $@ -Wl,-T,x86/flat.lds \
 		$(filter %.o, $^) $(FLATLIBS)
 
@@ -53,77 +56,16 @@ test_cases: $(tests-common) $(tests)
 
 $(TEST_DIR)/%.o: CFLAGS += -std=gnu99 -ffreestanding -I lib -I lib/x86
 
-$(TEST_DIR)/access.elf: $(cstart.o) $(TEST_DIR)/access.o
-
-$(TEST_DIR)/hypercall.elf: $(cstart.o) $(TEST_DIR)/hypercall.o
-
-$(TEST_DIR)/sieve.elf: $(cstart.o) $(TEST_DIR)/sieve.o
-
-$(TEST_DIR)/vmexit.elf: $(cstart.o) $(TEST_DIR)/vmexit.o
-
-$(TEST_DIR)/smptest.elf: $(cstart.o) $(TEST_DIR)/smptest.o
-
-$(TEST_DIR)/emulator.elf: $(cstart.o) $(TEST_DIR)/emulator.o
-
-$(TEST_DIR)/port80.elf: $(cstart.o) $(TEST_DIR)/port80.o
-
-$(TEST_DIR)/tsc.elf: $(cstart.o) $(TEST_DIR)/tsc.o
-
-$(TEST_DIR)/tsc_adjust.elf: $(cstart.o) $(TEST_DIR)/tsc_adjust.o
-
-$(TEST_DIR)/apic.elf: $(cstart.o) $(TEST_DIR)/apic.o
-
-$(TEST_DIR)/ioapic.elf: $(cstart.o) $(TEST_DIR)/ioapic.o
-
-$(TEST_DIR)/tscdeadline_latency.elf: $(cstart.o) $(TEST_DIR)/tscdeadline_latency.o
-
-$(TEST_DIR)/init.elf: $(cstart.o) $(TEST_DIR)/init.o
-
 $(TEST_DIR)/realmode.elf: $(TEST_DIR)/realmode.o
 	$(CC) -m32 -nostdlib -o $@ -Wl,-T,$(TEST_DIR)/realmode.lds $^
 
 $(TEST_DIR)/realmode.o: bits = 32
 
-$(TEST_DIR)/msr.elf: $(cstart.o) $(TEST_DIR)/msr.o
+$(TEST_DIR)/kvmclock_test.elf: $(TEST_DIR)/kvmclock.o
 
-$(TEST_DIR)/idt_test.elf: $(cstart.o) $(TEST_DIR)/idt_test.o
+$(TEST_DIR)/hyperv_synic.elf: $(TEST_DIR)/hyperv.o
 
-$(TEST_DIR)/xsave.elf: $(cstart.o) $(TEST_DIR)/xsave.o
-
-$(TEST_DIR)/rmap_chain.elf: $(cstart.o) $(TEST_DIR)/rmap_chain.o
-
-$(TEST_DIR)/svm.elf: $(cstart.o) $(TEST_DIR)/svm.o
-
-$(TEST_DIR)/kvmclock_test.elf: $(cstart.o) $(TEST_DIR)/kvmclock.o \
-                                $(TEST_DIR)/kvmclock_test.o
-
-$(TEST_DIR)/eventinj.elf: $(cstart.o) $(TEST_DIR)/eventinj.o
-
-$(TEST_DIR)/s3.elf: $(cstart.o) $(TEST_DIR)/s3.o
-
-$(TEST_DIR)/pmu.elf: $(cstart.o) $(TEST_DIR)/pmu.o
-
-$(TEST_DIR)/asyncpf.elf: $(cstart.o) $(TEST_DIR)/asyncpf.o
-
-$(TEST_DIR)/pcid.elf: $(cstart.o) $(TEST_DIR)/pcid.o
-
-$(TEST_DIR)/smap.elf: $(cstart.o) $(TEST_DIR)/smap.o
-
-$(TEST_DIR)/pku.elf: $(cstart.o) $(TEST_DIR)/pku.o
-
-$(TEST_DIR)/vmx.elf: $(cstart.o) $(TEST_DIR)/vmx.o $(TEST_DIR)/vmx_tests.o
-
-$(TEST_DIR)/debug.elf: $(cstart.o) $(TEST_DIR)/debug.o
-
-$(TEST_DIR)/memory.elf: $(cstart.o) $(TEST_DIR)/memory.o
-
-$(TEST_DIR)/hyperv_synic.elf: $(cstart.o) $(TEST_DIR)/hyperv.o \
-                              $(TEST_DIR)/hyperv_synic.o
-
-$(TEST_DIR)/hyperv_stimer.elf: $(cstart.o) $(TEST_DIR)/hyperv.o \
-                               $(TEST_DIR)/hyperv_stimer.o
-
-$(TEST_DIR)/setjmp.elf: $(cstart.o) $(TEST_DIR)/setjmp.o
+$(TEST_DIR)/hyperv_stimer.elf: $(TEST_DIR)/hyperv.o
 
 arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \

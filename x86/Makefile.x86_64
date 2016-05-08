@@ -16,3 +16,5 @@ tests += $(TEST_DIR)/vmx.flat
 tests += $(TEST_DIR)/tscdeadline_latency.flat
 
 include $(TEST_DIR)/Makefile.common
+
+$(TEST_DIR)/vmx.elf: $(TEST_DIR)/vmx_tests.o
