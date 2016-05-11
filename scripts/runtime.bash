@@ -51,6 +51,8 @@ function run()
 
     if [ $ret -eq 0 ]; then
         echo -e "\e[32mPASS\e[0m $1"
+    elif [ $ret -eq 77 ]; then
+        echo -e "\e[33mSKIP\e[0m $1"
     elif [ $ret -eq 124 ]; then
         echo -e "\e[31mFAIL\e[0m $1 (timeout; duration=$timeout)"
     else

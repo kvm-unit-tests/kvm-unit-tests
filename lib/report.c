@@ -13,7 +13,7 @@
 #include "libcflat.h"
 #include "asm/spinlock.h"
 
-static unsigned int tests, failures, xfailures;
+static unsigned int tests, failures, xfailures, skipped;
 static char prefixes[256];
 static struct spinlock lock;
 
@@ -43,23 +43,25 @@ void report_prefix_pop(void)
 	spin_unlock(&lock);
 }
 
-void va_report_xfail(const char *msg_fmt, bool xfail, bool cond, va_list va)
+static void va_report(const char *msg_fmt,
+		bool pass, bool xfail, bool skip, va_list va)
 {
-	char *pass = xfail ? "XPASS" : "PASS";
-	char *fail = xfail ? "XFAIL" : "FAIL";
+	char *prefix = skip ? "SKIP"
+	                    : xfail ? (pass ? "XPASS" : "XFAIL")
+	                            : (pass ? "PASS"  : "FAIL");
 
 	spin_lock(&lock);
 
 	tests++;
-	printf("%s: ", cond ? pass : fail);
+	printf("%s: ", prefix);
 	puts(prefixes);
 	vprintf(msg_fmt, va);
 	puts("\n");
-	if (xfail && cond)
-		failures++;
-	else if (xfail)
+	if (skip)
+		skipped++;
+	else if (xfail && !pass)
 		xfailures++;
-	else if (!cond)
+	else if (xfail || !pass)
 		failures++;
 
 	spin_unlock(&lock);
@@ -69,7 +71,7 @@ void report(const char *msg_fmt, bool pass, ...)
 {
 	va_list va;
 	va_start(va, pass);
-	va_report_xfail(msg_fmt, false, pass, va);
+	va_report(msg_fmt, pass, false, false, va);
 	va_end(va);
 }
 
@@ -77,7 +79,15 @@ void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...)
 {
 	va_list va;
 	va_start(va, pass);
-	va_report_xfail(msg_fmt, xfail, pass, va);
+	va_report(msg_fmt, pass, xfail, false, va);
+	va_end(va);
+}
+
+void report_skip(const char *msg_fmt, ...)
+{
+	va_list va;
+	va_start(va, msg_fmt);
+	va_report(msg_fmt, false, false, true, va);
 	va_end(va);
 }
 
@@ -87,9 +97,16 @@ int report_summary(void)
 
 	printf("\nSUMMARY: %d tests, %d unexpected failures", tests, failures);
 	if (xfailures)
-		printf(", %d expected failures\n", xfailures);
-	else
-		printf("\n");
+		printf(", %d expected failures", xfailures);
+	if (skipped)
+		printf(", %d skipped", skipped);
+	printf("\n");
+
+	if (tests == skipped)
+		/* Blame AUTOTOOLS for using 77 for skipped test and QEMU for
+		 * mangling error codes in a way that gets 77 if we ... */
+		return 77 >> 1;
+
 	return failures > 0 ? 1 : 0;
 
 	spin_unlock(&lock);
