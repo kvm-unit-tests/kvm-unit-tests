@@ -68,6 +68,9 @@ generate_test ()
 	(echo "#!/bin/bash"
 	 cat scripts/arch-run.bash "$TEST_DIR/run") | temp_file RUNTIME_arch_run
 
+	echo "exec {stdout}>&1"
+	echo "RUNTIME_log_stdout () { cat >&\$stdout; }"
+
 	cat scripts/runtime.bash
 
 	echo "run ${args[@]}"

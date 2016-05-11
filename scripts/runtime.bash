@@ -6,6 +6,11 @@ PASS() { echo -ne "\e[32mPASS\e[0m"; }
 SKIP() { echo -ne "\e[33mSKIP\e[0m"; }
 FAIL() { echo -ne "\e[31mFAIL\e[0m"; }
 
+extract_summary()
+{
+    tail -1 | grep '^SUMMARY: ' | sed 's/^SUMMARY: /(/;s/$/)/'
+}
+
 function run()
 {
     local testname="$1"
@@ -49,18 +54,19 @@ function run()
     fi
 
     # extra_params in the config file may contain backticks that need to be
-    # expanded, so use eval to start qemu
-    eval $cmdline
+    # expanded, so use eval to start qemu.  Use "> >(foo)" instead of a pipe to
+    # preserve the exit status.
+    summary=$(eval $cmdline > >(tee >(RUNTIME_log_stdout $kernel) | extract_summary))
     ret=$?
 
     if [ $ret -eq 0 ]; then
-        echo "`PASS` $1"
+        echo "`PASS` $1 $summary"
     elif [ $ret -eq 77 ]; then
-        echo "`SKIP` $1"
+        echo "`SKIP` $1 $summary"
     elif [ $ret -eq 124 ]; then
         echo "`FAIL` $1 (timeout; duration=$timeout)"
     else
-        echo "`FAIL` $1"
+        echo "`FAIL` $1 $summary"
     fi
 
     return $ret
