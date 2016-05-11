@@ -70,6 +70,7 @@ generate_test ()
 
 	echo "exec {stdout}>&1"
 	echo "RUNTIME_log_stdout () { cat >&\$stdout; }"
+	echo "RUNTIME_log_stderr () { cat >&2; }"
 
 	cat scripts/runtime.bash
 

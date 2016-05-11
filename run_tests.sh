@@ -46,6 +46,7 @@ while getopts "g:hv" opt; do
     esac
 done
 
+RUNTIME_log_stderr () { cat >> test.log; }
 RUNTIME_log_stdout () {
     if [ "$PRETTY_PRINT_STACKS" = "yes" ]; then
         ./scripts/pretty_print_stacks.py $1 >> test.log
