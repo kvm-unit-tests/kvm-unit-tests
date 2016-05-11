@@ -23,21 +23,24 @@ int dt_get_nr_cells(int fdtnode, u32 *nr_address_cells, u32 *nr_size_cells)
 {
 	const struct fdt_property *prop;
 	u32 *nr_cells;
-	int len;
+	int len, nac, nsc;
 
 	prop = fdt_get_property(fdt, fdtnode, "#address-cells", &len);
 	if (prop == NULL)
 		return len;
 
 	nr_cells = (u32 *)prop->data;
-	*nr_address_cells = fdt32_to_cpu(*nr_cells);
+	nac = fdt32_to_cpu(*nr_cells);
 
 	prop = fdt_get_property(fdt, fdtnode, "#size-cells", &len);
 	if (prop == NULL)
 		return len;
 
 	nr_cells = (u32 *)prop->data;
-	*nr_size_cells = fdt32_to_cpu(*nr_cells);
+	nsc = fdt32_to_cpu(*nr_cells);
+
+	*nr_address_cells = nac;
+	*nr_size_cells = nsc;
 
 	return 0;
 }
