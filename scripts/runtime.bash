@@ -11,6 +11,27 @@ extract_summary()
     tail -1 | grep '^SUMMARY: ' | sed 's/^SUMMARY: /(/;s/$/)/'
 }
 
+# We assume that QEMU is going to work if it tried to load the kernel
+premature_failure()
+{
+    local log="$(eval $(get_cmdline _NO_FILE_4Uhere_) 2>&1)"
+    local last_line=$(tail -1 <<< "$log")
+
+    echo "$last_line" | grep -qi "could not load kernel" &&
+        return 1
+
+    RUNTIME_log_stderr <<< "$log"
+
+    echo "$last_line"
+    return 0
+}
+
+get_cmdline()
+{
+    local kernel=$1
+    echo "TESTNAME=$testname TIMEOUT=$timeout ACCEL=$accel $RUNTIME_arch_run $kernel -smp $smp $opts"
+}
+
 function run()
 {
     local testname="$1"
@@ -48,7 +69,12 @@ function run()
         fi
     done
 
-    cmdline="TESTNAME=$testname TIMEOUT=$timeout ACCEL=$accel $RUNTIME_arch_run $kernel -smp $smp $opts"
+    last_line=$(premature_failure) && {
+        echo "`SKIP` $1 ($last_line)"
+        return 77
+    }
+
+    cmdline=$(get_cmdline $kernel)
     if [ "$verbose" = "yes" ]; then
         echo $cmdline
     fi

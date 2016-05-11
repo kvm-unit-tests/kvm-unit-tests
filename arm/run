@@ -19,7 +19,7 @@ if [ -c /dev/kvm ]; then
 fi
 
 if [ "$ACCEL" = "kvm" ] && [ "$kvm_available" != "yes" ]; then
-	echo "skip $TESTNAME (kvm only)"
+	echo "KVM is needed, but not available on this host"
 	exit 2
 fi
 
