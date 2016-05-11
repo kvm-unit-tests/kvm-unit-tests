@@ -202,7 +202,7 @@ int main(int ac, char **av)
 
         report("Hyper-V SynIC test", ok);
     } else {
-        report("Hyper-V SynIC is not supported", true);
+        printf("Hyper-V SynIC is not supported");
     }
 
     return report_summary();

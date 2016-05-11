@@ -92,8 +92,8 @@ int main(int ac, char **av)
 	unsigned long i;
 
 	if (!(cpuid_indexed(7, 0).b & (1 << X86_FEATURE_SMAP))) {
-		printf("SMAP not enabled, aborting\n");
-		abort();
+		printf("SMAP not enabled\n");
+		return report_summary();
 	}
 
 	setup_vm();

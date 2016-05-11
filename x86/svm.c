@@ -1064,7 +1064,7 @@ int main(int ac, char **av)
 
     if (!(cpuid(0x80000001).c & 4)) {
         printf("SVM not availble\n");
-        return 0;
+        return report_summary();
     }
 
     setup_svm();

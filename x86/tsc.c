@@ -43,5 +43,5 @@ int main()
 		test_rdtscp(0x100);
 	} else
 		printf("rdtscp not supported\n");
-	return 0;
+	return report_summary();
 }

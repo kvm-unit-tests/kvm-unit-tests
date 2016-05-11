@@ -27,7 +27,7 @@ static void tsc_deadline_timer_isr(isr_regs_t *regs)
     ++tdt_count;
 }
 
-static void start_tsc_deadline_timer(void)
+static void __test_tsc_deadline_timer(void)
 {
     handle_irq(TSC_DEADLINE_TIMER_VECTOR, tsc_deadline_timer_isr);
     irq_enable();
@@ -45,7 +45,6 @@ static int enable_tsc_deadline_timer(void)
     if (cpuid(1).c & (1 << 24)) {
         lvtt = TSC_DEADLINE_TIMER_MODE | TSC_DEADLINE_TIMER_VECTOR;
         apic_write(APIC_LVTT, lvtt);
-        start_tsc_deadline_timer();
         return 1;
     } else {
         return 0;
@@ -55,9 +54,9 @@ static int enable_tsc_deadline_timer(void)
 static void test_tsc_deadline_timer(void)
 {
     if(enable_tsc_deadline_timer()) {
-        printf("tsc deadline timer enabled\n");
+        __test_tsc_deadline_timer();
     } else {
-        printf("tsc deadline timer not detected\n");
+        report_skip("tsc deadline timer not detected");
     }
 }
 

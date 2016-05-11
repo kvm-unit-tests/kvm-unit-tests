@@ -1082,7 +1082,7 @@ static void illegal_movbe_handler(struct ex_regs *regs)
 static void test_illegal_movbe(void)
 {
 	if (!(cpuid(1).c & (1 << 22))) {
-		printf("SKIP: illegal movbe\n");
+		report_skip("illegal movbe");
 		return;
 	}
 

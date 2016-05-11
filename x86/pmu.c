@@ -387,7 +387,7 @@ int main(int ac, char **av)
 
 	if (!eax.split.version_id) {
 		printf("No pmu is detected!\n");
-		return 1;
+		return report_summary();
 	}
 	printf("PMU version:         %d\n", eax.split.version_id);
 	printf("GP counters:         %d\n", eax.split.num_counters);
