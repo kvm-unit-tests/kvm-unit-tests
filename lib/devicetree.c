@@ -8,7 +8,6 @@
 #include "devicetree.h"
 
 static const void *fdt;
-static u32 root_nr_address_cells, root_nr_size_cells;
 
 const void *dt_fdt(void)
 {
@@ -278,21 +277,17 @@ int dt_get_default_console_node(void)
 
 int dt_init(const void *fdt_ptr)
 {
-	int root, ret;
+	int ret;
 
 	ret = fdt_check_header(fdt_ptr);
 	if (ret < 0)
 		return ret;
-	fdt = fdt_ptr;
 
-	root = fdt_path_offset(fdt, "/");
-	if (root < 0)
-		return root;
-
-	ret = dt_get_nr_cells(root, &root_nr_address_cells,
-				    &root_nr_size_cells);
+	/* Sanity check the path.  */
+	ret = fdt_path_offset(fdt_ptr, "/");
 	if (ret < 0)
 		return ret;
 
+	fdt = fdt_ptr;
 	return 0;
 }
