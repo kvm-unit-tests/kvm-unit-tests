@@ -278,7 +278,6 @@ int dt_get_default_console_node(void)
 
 int dt_init(const void *fdt_ptr)
 {
-	struct dt_bus *defbus = (struct dt_bus *)&dt_default_bus;
 	int root, ret;
 
 	ret = fdt_check_header(fdt_ptr);
@@ -294,9 +293,6 @@ int dt_init(const void *fdt_ptr)
 				    &root_nr_size_cells);
 	if (ret < 0)
 		return ret;
-
-	defbus->nr_address_cells = root_nr_address_cells;
-	defbus->nr_size_cells = root_nr_size_cells;
 
 	return 0;
 }

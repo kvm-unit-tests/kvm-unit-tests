@@ -66,9 +66,6 @@ struct dt_bus {
 	 *  - a negative FDT_ERR_* value on failure
 	 */
 	int (*translate)(const struct dt_device *dev, int regidx, void *reg);
-
-	/* the bus #address-cells and #size-cells properties */
-	u32 nr_address_cells, nr_size_cells;
 };
 
 /* dt_bus_match_any matches any fdt node, i.e. it always returns true */
@@ -125,8 +122,6 @@ static inline int dt_pbus_get_base(const struct dt_device *dev,
  * dt_bus_init_defaults initializes @bus with
  *  match		<- dt_bus_match_any
  *  translate		<- dt_pbus_translate
- *  nr_address_cells	<- #address-cells of the root node
- *  nr_size_cells	<- #size-cells of the root node
  */
 extern void dt_bus_init_defaults(struct dt_bus *bus);
 
