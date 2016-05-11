@@ -82,9 +82,18 @@ int dt_pbus_translate_node(int fdtnode, int regidx,
 			   struct dt_pbus_reg *pbus_reg)
 {
 	struct dt_reg raw_reg;
-	int ret;
+	u32 nac, nsc;
+	int parent, ret;
 
-	dt_reg_init(&raw_reg, root_nr_address_cells, root_nr_size_cells);
+	parent = fdt_parent_offset(fdt, fdtnode);
+	if (parent < 0)
+		return parent;
+
+	ret = dt_get_nr_cells(parent, &nac, &nsc);
+	if (ret != 0)
+		return ret;
+
+	dt_reg_init(&raw_reg, nac, nsc);
 
 	ret = dt_get_reg(fdtnode, regidx, &raw_reg);
 	if (ret < 0)

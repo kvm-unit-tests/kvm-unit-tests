@@ -92,8 +92,8 @@ static inline dt_pbus_addr_t dt_pbus_read_cells(u32 nr_cells, u32 *cells)
 
 /*
  * dt_pbus_translate translates device node regs for the
- * processor bus using the root node's #address-cells and
- * #size-cells and dt_pbus_read_cells()
+ * processor bus using the parent node's #address-cells
+ * and #size-cells and dt_pbus_read_cells()
  * returns
  *  - zero on success
  *  - a negative FDT_ERR_* value on failure
