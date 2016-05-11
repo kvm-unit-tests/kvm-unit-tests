@@ -55,7 +55,7 @@ run_qemu ()
 		# Even when ret==1 (unittest success) if we also got stderr
 		# logs, then we assume a QEMU failure. Otherwise we translate
 		# status of 1 to 0 (SUCCESS)
-		if [ -z "$errors" ]; then
+		if [ -z "$(echo "$errors" | grep -vi warning)" ]; then
 			ret=0
 		fi
 	fi
