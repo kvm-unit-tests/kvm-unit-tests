@@ -2,6 +2,10 @@
 : ${MAX_SMP:=$(getconf _NPROCESSORS_CONF)}
 : ${TIMEOUT:=90s}
 
+PASS() { echo -ne "\e[32mPASS\e[0m"; }
+SKIP() { echo -ne "\e[33mSKIP\e[0m"; }
+FAIL() { echo -ne "\e[31mFAIL\e[0m"; }
+
 function run()
 {
     local testname="$1"
@@ -23,7 +27,7 @@ function run()
     fi
 
     if [ -n "$arch" ] && [ "$arch" != "$ARCH" ]; then
-        echo "skip $1 ($arch only)"
+        echo "`SKIP` $1 ($arch only)"
         return 2
     fi
 
@@ -34,7 +38,7 @@ function run()
         path=${check_param%%=*}
         value=${check_param#*=}
         if [ "$path" ] && [ "$(cat $path)" != "$value" ]; then
-            echo "skip $1 ($path not equal to $value)"
+            echo "`SKIP` $1 ($path not equal to $value)"
             return 2
         fi
     done
@@ -50,13 +54,13 @@ function run()
     ret=$?
 
     if [ $ret -eq 0 ]; then
-        echo -e "\e[32mPASS\e[0m $1"
+        echo "`PASS` $1"
     elif [ $ret -eq 77 ]; then
-        echo -e "\e[33mSKIP\e[0m $1"
+        echo "`SKIP` $1"
     elif [ $ret -eq 124 ]; then
-        echo -e "\e[31mFAIL\e[0m $1 (timeout; duration=$timeout)"
+        echo "`FAIL` $1 (timeout; duration=$timeout)"
     else
-        echo -e "\e[31mFAIL\e[0m $1"
+        echo "`FAIL` $1"
     fi
 
     return $ret
