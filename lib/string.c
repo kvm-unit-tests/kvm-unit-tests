@@ -26,15 +26,18 @@ char *strcpy(char *dest, const char *src)
     return strcat(dest, src);
 }
 
+int strncmp(const char *a, const char *b, size_t n)
+{
+    for (; n--; ++a, ++b)
+        if (*a != *b || *a == '\0')
+            return *a - *b;
+
+    return 0;
+}
+
 int strcmp(const char *a, const char *b)
 {
-    while (*a == *b) {
-	if (*a == '\0') {
-	    break;
-	}
-	++a, ++b;
-    }
-    return *a - *b;
+    return strncmp(a, b, SIZE_MAX);
 }
 
 char *strchr(const char *s, int c)

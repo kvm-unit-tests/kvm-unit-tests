@@ -5,6 +5,7 @@ extern unsigned long strlen(const char *buf);
 extern char *strcat(char *dest, const char *src);
 extern char *strcpy(char *dest, const char *src);
 extern int strcmp(const char *a, const char *b);
+extern int strncmp(const char *a, const char *b, size_t n);
 extern char *strchr(const char *s, int c);
 extern char *strstr(const char *haystack, const char *needle);
 extern void *memset(void *s, int c, size_t n);
