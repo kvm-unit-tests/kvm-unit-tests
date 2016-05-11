@@ -95,7 +95,9 @@ int report_summary(void)
 {
 	spin_lock(&lock);
 
-	printf("\nSUMMARY: %d tests, %d unexpected failures", tests, failures);
+	printf("\nSUMMARY: %d tests", tests);
+	if (failures)
+		printf(", %d unexpected failures", failures);
 	if (xfailures)
 		printf(", %d expected failures", xfailures);
 	if (skipped)
