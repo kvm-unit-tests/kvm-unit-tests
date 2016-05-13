@@ -32,6 +32,7 @@
 #include <asm/gic-v3.h>
 
 #ifndef __ASSEMBLY__
+#include <asm/cpumask.h>
 
 /*
  * gic_init will try to find all known gics, and then
@@ -41,6 +42,24 @@
  *  > 0 : the gic version of the gic found
  */
 extern int gic_init(void);
+
+/*
+ * gic_enable_defaults enables the gic with basic but useful
+ * settings. gic_enable_defaults will call gic_init if it has
+ * not yet been invoked.
+ */
+extern void gic_enable_defaults(void);
+
+/*
+ * After enabling the gic with gic_enable_defaults the functions
+ * below will work with any supported gic version.
+ */
+extern int gic_version(void);
+extern u32 gic_read_iar(void);
+extern u32 gic_iar_irqnr(u32 iar);
+extern void gic_write_eoir(u32 irqstat);
+extern void gic_ipi_send_single(int irq, int cpu);
+extern void gic_ipi_send_mask(int irq, const cpumask_t *dest);
 
 #endif /* !__ASSEMBLY__ */
 #endif /* _ASMARM_GIC_H_ */

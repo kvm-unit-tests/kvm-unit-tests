@@ -3,6 +3,8 @@
  *
  * GICv2
  *   + test sending/receiving IPIs
+ * GICv3
+ *   + test sending/receiving IPIs
  *
  * Copyright (C) 2016, Red Hat Inc, Andrew Jones <drjones@redhat.com>
  *
@@ -17,7 +19,14 @@
 #include <asm/barrier.h>
 #include <asm/io.h>
 
-static int gic_version;
+struct gic {
+	struct {
+		void (*send_self)(void);
+		void (*send_broadcast)(void);
+	} ipi;
+};
+
+static struct gic *gic;
 static int acked[NR_CPUS], spurious[NR_CPUS];
 static cpumask_t ready;
 
@@ -84,11 +93,11 @@ static void check_spurious(void)
 
 static void ipi_handler(struct pt_regs *regs __unused)
 {
-	u32 irqstat = readl(gicv2_cpu_base() + GICC_IAR);
-	u32 irqnr = irqstat & GICC_IAR_INT_ID_MASK;
+	u32 irqstat = gic_read_iar();
+	u32 irqnr = gic_iar_irqnr(irqstat);
 
 	if (irqnr != GICC_INT_SPURIOUS) {
-		writel(irqstat, gicv2_cpu_base() + GICC_EOIR);
+		gic_write_eoir(irqstat);
 		smp_rmb(); /* pairs with wmb in ipi_test functions */
 		++acked[smp_processor_id()];
 		smp_wmb(); /* pairs with rmb in check_acked */
@@ -96,6 +105,27 @@ static void ipi_handler(struct pt_regs *regs __unused)
 		++spurious[smp_processor_id()];
 		smp_wmb();
 	}
+}
+
+static void gicv2_ipi_send_self(void)
+{
+	writel(2 << 24, gicv2_dist_base() + GICD_SGIR);
+}
+
+static void gicv2_ipi_send_broadcast(void)
+{
+	writel(1 << 24, gicv2_dist_base() + GICD_SGIR);
+}
+
+static void gicv3_ipi_send_self(void)
+{
+	gic_ipi_send_single(0, smp_processor_id());
+}
+
+static void gicv3_ipi_send_broadcast(void)
+{
+	gicv3_write_sgi1r(1ULL << 40);
+	isb();
 }
 
 static void ipi_test_self(void)
@@ -107,7 +137,7 @@ static void ipi_test_self(void)
 	smp_wmb();
 	cpumask_clear(&mask);
 	cpumask_set_cpu(0, &mask);
-	writel(2 << 24, gicv2_dist_base() + GICD_SGIR);
+	gic->ipi.send_self();
 	check_acked(&mask);
 	report_prefix_pop();
 }
@@ -115,14 +145,15 @@ static void ipi_test_self(void)
 static void ipi_test_smp(void)
 {
 	cpumask_t mask;
-	unsigned long tlist;
+	int i;
 
 	report_prefix_push("target-list");
 	memset(acked, 0, sizeof(acked));
 	smp_wmb();
-	tlist = cpumask_bits(&cpu_present_mask)[0] & 0xaa;
-	cpumask_bits(&mask)[0] = tlist;
-	writel((u8)tlist << 16, gicv2_dist_base() + GICD_SGIR);
+	cpumask_copy(&mask, &cpu_present_mask);
+	for (i = 0; i < nr_cpus; i += 2)
+		cpumask_clear_cpu(i, &mask);
+	gic_ipi_send_mask(0, &mask);
 	check_acked(&mask);
 	report_prefix_pop();
 
@@ -131,14 +162,14 @@ static void ipi_test_smp(void)
 	smp_wmb();
 	cpumask_copy(&mask, &cpu_present_mask);
 	cpumask_clear_cpu(0, &mask);
-	writel(1 << 24, gicv2_dist_base() + GICD_SGIR);
+	gic->ipi.send_broadcast();
 	check_acked(&mask);
 	report_prefix_pop();
 }
 
 static void ipi_enable(void)
 {
-	gicv2_enable_defaults();
+	gic_enable_defaults();
 #ifdef __arm__
 	install_exception_handler(EXCPTN_IRQ, ipi_handler);
 #else
@@ -155,19 +186,41 @@ static void ipi_recv(void)
 		wfi();
 }
 
+static struct gic gicv2 = {
+	.ipi = {
+		.send_self = gicv2_ipi_send_self,
+		.send_broadcast = gicv2_ipi_send_broadcast,
+	},
+};
+
+static struct gic gicv3 = {
+	.ipi = {
+		.send_self = gicv3_ipi_send_self,
+		.send_broadcast = gicv3_ipi_send_broadcast,
+	},
+};
+
 int main(int argc, char **argv)
 {
 	char pfx[8];
 	int cpu;
 
-	gic_version = gic_init();
-	if (!gic_version) {
+	if (!gic_init()) {
 		printf("No supported gic present, skipping tests...\n");
 		return report_summary();
 	}
 
-	snprintf(pfx, sizeof(pfx), "gicv%d", gic_version);
+	snprintf(pfx, sizeof(pfx), "gicv%d", gic_version());
 	report_prefix_push(pfx);
+
+	switch (gic_version()) {
+	case 2:
+		gic = &gicv2;
+		break;
+	case 3:
+		gic = &gicv3;
+		break;
+	}
 
 	if (argc < 2)
 		report_abort("no test specified");

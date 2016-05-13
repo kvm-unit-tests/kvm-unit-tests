@@ -33,12 +33,19 @@
 #define GICR_ISENABLER0			GICD_ISENABLER
 #define GICR_IPRIORITYR0		GICD_IPRIORITYR
 
+#define ICC_SGI1R_AFFINITY_1_SHIFT	16
+#define ICC_SGI1R_AFFINITY_2_SHIFT	32
+#define ICC_SGI1R_AFFINITY_3_SHIFT	48
+#define MPIDR_TO_SGI_AFFINITY(cluster_id, level) \
+	(MPIDR_AFFINITY_LEVEL(cluster_id, level) << ICC_SGI1R_AFFINITY_## level ## _SHIFT)
+
 #include <asm/arch_gicv3.h>
 
 #ifndef __ASSEMBLY__
 #include <asm/setup.h>
 #include <asm/processor.h>
 #include <asm/delay.h>
+#include <asm/cpumask.h>
 #include <asm/smp.h>
 #include <asm/io.h>
 
@@ -55,6 +62,11 @@ extern struct gicv3_data gicv3_data;
 
 extern int gicv3_init(void);
 extern void gicv3_enable_defaults(void);
+extern u32 gicv3_read_iar(void);
+extern u32 gicv3_iar_irqnr(u32 iar);
+extern void gicv3_write_eoir(u32 irqstat);
+extern void gicv3_ipi_send_single(int irq, int cpu);
+extern void gicv3_ipi_send_mask(int irq, const cpumask_t *dest);
 extern void gicv3_set_redist_base(size_t stride);
 
 static inline void gicv3_do_wait_for_rwp(void *base)
