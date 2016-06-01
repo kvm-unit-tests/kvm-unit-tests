@@ -15,14 +15,14 @@ extract_summary()
 premature_failure()
 {
     local log="$(eval $(get_cmdline _NO_FILE_4Uhere_) 2>&1)"
-    local last_line=$(tail -1 <<< "$log")
 
-    echo "$last_line" | grep -qi "could not load kernel" &&
+    echo "$log" | grep "_NO_FILE_4Uhere_" |
+        grep -q -e "could not load kernel" -e "error loading" &&
         return 1
 
     RUNTIME_log_stderr <<< "$log"
 
-    echo "$last_line"
+    echo "$log"
     return 0
 }
 
