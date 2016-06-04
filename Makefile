@@ -7,6 +7,9 @@ endif
 
 include config.mak
 
+libdirs-get = $(shell [ -d "lib/$(1)" ] && echo "lib/$(1) lib/$(1)/asm")
+ARCH_LIBDIRS := $(call libdirs-get,$(ARCH)) $(call libdirs-get,$(TEST_DIR))
+
 DESTDIR := $(PREFIX)/share/kvm-unit-tests/
 
 .PHONY: arch_clean clean distclean cscope
@@ -92,9 +95,7 @@ distclean: clean libfdt_clean
 	$(RM) lib/asm config.mak $(TEST_DIR)-run test.log msr.out cscope.*
 	$(RM) -r tests
 
-cscope: cscope_dirs = lib lib/libfdt lib/linux
-cscope: cscope_dirs += lib/$(ARCH)/asm lib/$(TEST_DIR)/asm lib/asm-generic
-cscope: cscope_dirs += $(TEST_DIR) lib/$(TEST_DIR) lib/$(ARCH)
+cscope: cscope_dirs = lib lib/libfdt lib/linux $(TEST_DIR) $(ARCH_LIBDIRS) lib/asm-generic
 cscope:
 	$(RM) ./cscope.*
 	find -L $(cscope_dirs) -maxdepth 1 \
