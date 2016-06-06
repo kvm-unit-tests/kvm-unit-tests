@@ -1,6 +1,8 @@
 #include "libcflat.h"
+#include "vm.h"
 #include "smp.h"
 #include "asm/io.h"
+#include "asm/page.h"
 #ifndef USE_SERIAL
 #define USE_SERIAL
 #endif
@@ -80,4 +82,18 @@ void exit(int code)
 #else
         asm volatile("out %0, %1" : : "a"(code), "d"((short)0xf4));
 #endif
+}
+
+void __iomem *ioremap(phys_addr_t phys_addr, size_t size)
+{
+	phys_addr_t base = phys_addr & PAGE_MASK;
+	phys_addr_t offset = phys_addr - base;
+
+	/*
+	 * The kernel sets PTEs for an ioremap() with page cache disabled,
+	 * but we do not do that right now. It would make sense that I/O
+	 * mappings would be uncached - and may help us find bugs when we
+	 * properly map that way.
+	 */
+	return vmap(phys_addr, size) + offset;
 }

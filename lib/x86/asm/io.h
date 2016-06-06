@@ -49,4 +49,6 @@ static inline void *phys_to_virt(unsigned long phys)
     return (void *)phys;
 }
 
+void __iomem *ioremap(phys_addr_t phys_addr, size_t size);
+
 #endif

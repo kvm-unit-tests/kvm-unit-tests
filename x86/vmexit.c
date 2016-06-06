@@ -371,8 +371,7 @@ int main(int ac, char **av)
 {
 	struct fadt_descriptor_rev1 *fadt;
 	int i;
-	unsigned long membar = 0, base, offset;
-	void *m;
+	unsigned long membar = 0;
 	pcidevaddr_t pcidev;
 
 	smp_init();
@@ -394,12 +393,7 @@ int main(int ac, char **av)
 			}
 			if (pci_bar_is_memory(pcidev, i)) {
 				membar = pci_bar_addr(pcidev, i);
-				base = membar & ~4095;
-				offset = membar - base;
-				m = alloc_vpages(1);
-				
-				install_page((void *)read_cr3(), base, m);
-				pci_test.memaddr = m + offset;
+				pci_test.memaddr = ioremap(membar, PAGE_SIZE);
 			} else {
 				pci_test.iobar = pci_bar_addr(pcidev, i);
 			}
