@@ -7,7 +7,14 @@
  */
 
 
-#define PAGE_SIZE	4096ul
+#include <linux/const.h>
+
+#define PAGE_SHIFT	12
+#define PAGE_SIZE	(_AC(1,UL) << PAGE_SHIFT)
+#define PAGE_MASK	(~(PAGE_SIZE-1))
+
+#ifndef __ASSEMBLY__
+
 #ifdef __x86_64__
 #define LARGE_PAGE_SIZE	(512 * PAGE_SIZE)
 #else
@@ -30,4 +37,5 @@
 #define	PGDIR_MASK	1023
 #endif
 
+#endif /* !__ASSEMBLY__ */
 #endif

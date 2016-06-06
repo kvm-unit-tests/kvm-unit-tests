@@ -2,6 +2,7 @@
 #include "libcflat.h"
 #include "desc.h"
 #include "processor.h"
+#include "asm/page.h"
 
 #define smp_id() 0
 
@@ -14,9 +15,6 @@ typedef unsigned long pt_element_t;
 static int cpuid_7_ebx;
 static int cpuid_7_ecx;
 static int invalid_mask;
-
-#define PAGE_SIZE ((pt_element_t)4096)
-#define PAGE_MASK (~(PAGE_SIZE-1))
 
 #define PT_BASE_ADDR_MASK ((pt_element_t)((((pt_element_t)1 << 40) - 1) & PAGE_MASK))
 #define PT_PSE_BASE_ADDR_MASK (PT_BASE_ADDR_MASK & ~(1ull << 21))
