@@ -1,6 +1,8 @@
 #ifndef _ASM_X86_IO_H_
 #define _ASM_X86_IO_H_
 
+#define __iomem
+
 static inline unsigned char inb(unsigned short port)
 {
     unsigned char value;

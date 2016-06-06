@@ -156,10 +156,10 @@ static inline u64 __bswap64(u64 x)
 	({ wmb(); __raw_writeq(cpu_to_le64(b), addr); })
 
 #ifndef ioremap
-static inline void *ioremap(u64 phys_addr, size_t size __unused)
+static inline void __iomem *ioremap(phys_addr_t phys_addr, size_t size __unused)
 {
 	assert(sizeof(long) == 8 || !(phys_addr >> 32));
-	return (void *)(unsigned long)phys_addr;
+	return (void __iomem *)(unsigned long)phys_addr;
 }
 #endif
 

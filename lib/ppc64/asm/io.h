@@ -9,5 +9,7 @@
 #error Undefined byte order
 #endif
 
+#define __iomem
+
 #include <asm-generic/io.h>
 #endif
