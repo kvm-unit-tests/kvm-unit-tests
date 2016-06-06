@@ -165,7 +165,9 @@ static inline unsigned long virt_to_phys(volatile void *address)
 {
 	return __pa((unsigned long)address);
 }
+#endif
 
+#ifndef phys_to_virt
 static inline void *phys_to_virt(unsigned long address)
 {
 	return __va(address);
