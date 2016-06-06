@@ -65,7 +65,7 @@ int main(int ac, char **av)
 	u8 *topmost = (void *) ((1ul << 47) - PAGE_SIZE);
 
 	install_pte(phys_to_virt(read_cr3()), 1, topmost,
-		    virt_to_phys(data1) | PTE_PRESENT | PTE_WRITE, 0);
+		    virt_to_phys(data1) | PT_PRESENT_MASK | PT_WRITABLE_MASK, 0);
 	memset(topmost, 0xcc, PAGE_SIZE);
 	topmost[4093] = 0x0f;
 	topmost[4094] = 0x01;

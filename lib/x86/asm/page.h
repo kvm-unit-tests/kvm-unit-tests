@@ -8,6 +8,7 @@
 
 
 #include <linux/const.h>
+#include <bitops.h>
 
 #define PAGE_SHIFT	12
 #define PAGE_SIZE	(_AC(1,UL) << PAGE_SHIFT)
@@ -21,11 +22,14 @@
 #define LARGE_PAGE_SIZE	(1024 * PAGE_SIZE)
 #endif
 
-#define PTE_PRESENT	(1ull << 0)
-#define PTE_WRITE	(1ull << 1)
-#define PTE_USER	(1ull << 2)
-#define PTE_PSE		(1ull << 7)
-#define PTE_ADDR	(0xffffffffff000ull)
+#define PT_PRESENT_MASK		(1ull << 0)
+#define PT_WRITABLE_MASK	(1ull << 1)
+#define PT_USER_MASK		(1ull << 2)
+#define PT_ACCESSED_MASK	(1ull << 5)
+#define PT_DIRTY_MASK		(1ull << 6)
+#define PT_PAGE_SIZE_MASK	(1ull << 7)
+#define PT64_NX_MASK		(1ull << 63)
+#define PT_ADDR_MASK		GENMASK_ULL(51, 12)
 
 #ifdef __x86_64__
 #define	PAGE_LEVEL	4

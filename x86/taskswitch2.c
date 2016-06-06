@@ -67,7 +67,7 @@ void do_pf_tss(ulong *error_code)
 	if (*error_code == 0x2) /* write access, not present */
 		test_count++;
 	install_pte(phys_to_virt(read_cr3()), 1, fault_addr,
-		    fault_phys | PTE_PRESENT | PTE_WRITE, 0);
+		    fault_phys | PT_PRESENT_MASK | PT_WRITABLE_MASK, 0);
 }
 
 extern void pf_tss(void);

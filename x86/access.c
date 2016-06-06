@@ -19,14 +19,6 @@ static int invalid_mask;
 #define PT_BASE_ADDR_MASK ((pt_element_t)((((pt_element_t)1 << 40) - 1) & PAGE_MASK))
 #define PT_PSE_BASE_ADDR_MASK (PT_BASE_ADDR_MASK & ~(1ull << 21))
 
-#define PT_PRESENT_MASK    ((pt_element_t)1 << 0)
-#define PT_WRITABLE_MASK   ((pt_element_t)1 << 1)
-#define PT_USER_MASK       ((pt_element_t)1 << 2)
-#define PT_ACCESSED_MASK   ((pt_element_t)1 << 5)
-#define PT_DIRTY_MASK      ((pt_element_t)1 << 6)
-#define PT_PSE_MASK        ((pt_element_t)1 << 7)
-#define PT_NX_MASK         ((pt_element_t)1 << 63)
-
 #define CR0_WP_MASK (1UL << 16)
 #define CR4_SMEP_MASK (1UL << 20)
 
@@ -493,7 +485,7 @@ void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
                     pte |= 2ull << 59;
 	    } else {
 		pte = at->phys & PT_PSE_BASE_ADDR_MASK;
-		pte |= PT_PSE_MASK;
+		pte |= PT_PAGE_SIZE_MASK;
                 if (F(AC_PKU_PKEY))
                     pte |= 1ull << 59;
 	    }
@@ -508,7 +500,7 @@ void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
 	    if (F(AC_PDE_DIRTY))
 		pte |= PT_DIRTY_MASK;
 	    if (F(AC_PDE_NX))
-		pte |= PT_NX_MASK;
+		pte |= PT64_NX_MASK;
 	    if (F(AC_PDE_BIT51))
 		pte |= 1ull << 51;
 	    if (F(AC_PDE_BIT13))
@@ -530,7 +522,7 @@ void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
 	    if (F(AC_PTE_DIRTY))
 		pte |= PT_DIRTY_MASK;
 	    if (F(AC_PTE_NX))
-		pte |= PT_NX_MASK;
+		pte |= PT64_NX_MASK;
 	    if (F(AC_PTE_BIT51))
 		pte |= 1ull << 51;
 	    at->ptep = &vroot[index];

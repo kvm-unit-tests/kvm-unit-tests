@@ -36,7 +36,7 @@ int main (void)
 
     virt_addr += PAGE_SIZE;
     install_pte(phys_to_virt(read_cr3()), 1, virt_addr,
-                0 | PTE_PRESENT | PTE_WRITE, target_page);
+                0 | PT_PRESENT_MASK | PT_WRITABLE_MASK, target_page);
 
     *(unsigned long *)virt_addr = 0;
     printf("PASS\n");

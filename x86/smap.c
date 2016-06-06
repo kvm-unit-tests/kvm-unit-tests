@@ -62,7 +62,7 @@ static void check_smap_nowp(void)
 {
 	test = 0x99;
 
-	*get_pte(phys_to_virt(read_cr3()), USER_ADDR(test)) &= ~PTE_WRITE;
+	*get_pte(phys_to_virt(read_cr3()), USER_ADDR(test)) &= ~PT_WRITABLE_MASK;
 
 	write_cr4(read_cr4() & ~X86_CR4_SMAP);
 	write_cr0(read_cr0() & ~X86_CR0_WP);
@@ -81,7 +81,7 @@ static void check_smap_nowp(void)
 	report("read from user page with SMAP=1, AC=0, WP=0, PTE.U=1 && PTE.W=0", pf_count == 1 && save == 0x99);
 
 	/* Undo changes */
-	*get_pte(phys_to_virt(read_cr3()), USER_ADDR(test)) |= PTE_WRITE;
+	*get_pte(phys_to_virt(read_cr3()), USER_ADDR(test)) |= PT_WRITABLE_MASK;
 
 	write_cr0(read_cr0() | X86_CR0_WP);
 	write_cr3(read_cr3());
@@ -102,7 +102,7 @@ int main(int ac, char **av)
 
 	// Map first 16MB as supervisor pages
 	for (i = 0; i < USER_BASE; i += PAGE_SIZE) {
-		*get_pte(phys_to_virt(read_cr3()), phys_to_virt(i)) &= ~PTE_USER;
+		*get_pte(phys_to_virt(read_cr3()), phys_to_virt(i)) &= ~PT_USER_MASK;
 		invlpg((void *)i);
 	}
 

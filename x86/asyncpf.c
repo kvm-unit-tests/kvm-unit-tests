@@ -69,7 +69,7 @@ static void pf_isr(struct ex_regs *r)
 			report("Got present #PF token %x\n", true, read_cr2());
 			if ((uint32_t)read_cr2() == ~0)
 				break;
-			install_pte(phys_to_virt(read_cr3()), 1, virt, phys | PTE_PRESENT | PTE_WRITE, 0);
+			install_pte(phys_to_virt(read_cr3()), 1, virt, phys | PT_PRESENT_MASK | PT_WRITABLE_MASK, 0);
 			write_cr3(read_cr3());
 			phys = 0;
 			break;

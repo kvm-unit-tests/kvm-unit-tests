@@ -49,16 +49,16 @@ unsigned long *install_pte(unsigned long *cr3,
 
     for (level = PAGE_LEVEL; level > pte_level; --level) {
 	offset = ((unsigned long)virt >> ((level-1) * PGDIR_WIDTH + 12)) & PGDIR_MASK;
-	if (!(pt[offset] & PTE_PRESENT)) {
+	if (!(pt[offset] & PT_PRESENT_MASK)) {
 	    unsigned long *new_pt = pt_page;
             if (!new_pt)
                 new_pt = alloc_page();
             else
                 pt_page = 0;
 	    memset(new_pt, 0, PAGE_SIZE);
-	    pt[offset] = virt_to_phys(new_pt) | PTE_PRESENT | PTE_WRITE | PTE_USER;
+	    pt[offset] = virt_to_phys(new_pt) | PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_USER_MASK;
 	}
-	pt = phys_to_virt(pt[offset] & 0xffffffffff000ull);
+	pt = phys_to_virt(pt[offset] & PT_ADDR_MASK);
     }
     offset = ((unsigned long)virt >> ((level-1) * PGDIR_WIDTH + 12)) & PGDIR_MASK;
     pt[offset] = pte;
@@ -74,11 +74,11 @@ unsigned long *get_pte(unsigned long *cr3, void *virt)
     for (level = PAGE_LEVEL; level > 1; --level) {
 	offset = ((unsigned long)virt >> (((level-1) * PGDIR_WIDTH) + 12)) & PGDIR_MASK;
 	pte = pt[offset];
-	if (!(pte & PTE_PRESENT))
+	if (!(pte & PT_PRESENT_MASK))
 	    return NULL;
-	if (level == 2 && (pte & PTE_PSE))
+	if (level == 2 && (pte & PT_PAGE_SIZE_MASK))
 	    return &pt[offset];
-	pt = phys_to_virt(pte & 0xffffffffff000ull);
+	pt = phys_to_virt(pte & PT_ADDR_MASK);
     }
     offset = ((unsigned long)virt >> (((level-1) * PGDIR_WIDTH) + 12)) & PGDIR_MASK;
     return &pt[offset];
@@ -89,14 +89,14 @@ unsigned long *install_large_page(unsigned long *cr3,
 				  void *virt)
 {
     return install_pte(cr3, 2, virt,
-		       phys | PTE_PRESENT | PTE_WRITE | PTE_USER | PTE_PSE, 0);
+		       phys | PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_USER_MASK | PT_PAGE_SIZE_MASK, 0);
 }
 
 unsigned long *install_page(unsigned long *cr3,
 			    unsigned long phys,
 			    void *virt)
 {
-    return install_pte(cr3, 1, virt, phys | PTE_PRESENT | PTE_WRITE | PTE_USER, 0);
+    return install_pte(cr3, 1, virt, phys | PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_USER_MASK, 0);
 }
 
 
@@ -178,7 +178,7 @@ void *vmalloc(unsigned long size)
 
 uint64_t virt_to_phys_cr3(void *mem)
 {
-    return (*get_pte(phys_to_virt(read_cr3()), mem) & PTE_ADDR) + ((ulong)mem & (PAGE_SIZE - 1));
+    return (*get_pte(phys_to_virt(read_cr3()), mem) & PT_ADDR_MASK) + ((ulong)mem & (PAGE_SIZE - 1));
 }
 
 void vfree(void *mem)
@@ -186,7 +186,7 @@ void vfree(void *mem)
     unsigned long size = ((unsigned long *)mem)[-1];
 
     while (size) {
-	free_page(phys_to_virt(*get_pte(phys_to_virt(read_cr3()), mem) & PTE_ADDR));
+	free_page(phys_to_virt(*get_pte(phys_to_virt(read_cr3()), mem) & PT_ADDR_MASK));
 	mem += PAGE_SIZE;
 	size -= PAGE_SIZE;
     }

@@ -77,7 +77,7 @@ int main(int ac, char **av)
     wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_LMA);
 
     for (i = 0; i < USER_BASE; i += PAGE_SIZE) {
-        *get_pte(phys_to_virt(read_cr3()), phys_to_virt(i)) &= ~PTE_USER;
+        *get_pte(phys_to_virt(read_cr3()), phys_to_virt(i)) &= ~PT_USER_MASK;
         *get_pte(phys_to_virt(read_cr3()), phys_to_virt(i)) |= ((unsigned long)pkey << PTE_PKEY_BIT);
         invlpg((void *)i);
     }
