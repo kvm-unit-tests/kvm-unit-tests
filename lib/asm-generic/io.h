@@ -127,11 +127,14 @@ static inline u64 __bswap64(u64 x)
 	({ u64 __r = !__cpu_is_be() ? __bswap64(x) : ((u64)x); __r; })
 #define cpu_to_be64 be64_to_cpu
 
+#ifndef mb
+#define mb()	asm volatile("":::"memory")
+#endif
 #ifndef rmb
-#define rmb() do { } while (0)
+#define rmb()	asm volatile("":::"memory")
 #endif
 #ifndef wmb
-#define wmb() do { } while (0)
+#define wmb()	asm volatile("":::"memory")
 #endif
 
 #define readb(addr) \
