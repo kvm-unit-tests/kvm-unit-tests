@@ -2,13 +2,6 @@
 #include "vm.h"
 #include "libcflat.h"
 
-#define PAGE_SIZE 4096ul
-#ifdef __x86_64__
-#define LARGE_PAGE_SIZE (512 * PAGE_SIZE)
-#else
-#define LARGE_PAGE_SIZE (1024 * PAGE_SIZE)
-#endif
-
 static void *free = 0;
 static void *vfree_top = 0;
 
@@ -43,16 +36,6 @@ void free_page(void *page)
 
 extern char edata;
 static unsigned long end_of_memory;
-
-#ifdef __x86_64__
-#define	PAGE_LEVEL	4
-#define	PGDIR_WIDTH	9
-#define	PGDIR_MASK	511
-#else
-#define	PAGE_LEVEL	2
-#define	PGDIR_WIDTH	10
-#define	PGDIR_MASK	1023
-#endif
 
 unsigned long *install_pte(unsigned long *cr3,
 			   int pte_level,

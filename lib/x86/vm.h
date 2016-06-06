@@ -2,19 +2,7 @@
 #define VM_H
 
 #include "processor.h"
-
-#define PAGE_SIZE 4096ul
-#ifdef __x86_64__
-#define LARGE_PAGE_SIZE (512 * PAGE_SIZE)
-#else
-#define LARGE_PAGE_SIZE (1024 * PAGE_SIZE)
-#endif
-
-#define PTE_PRESENT (1ull << 0)
-#define PTE_PSE     (1ull << 7)
-#define PTE_WRITE   (1ull << 1)
-#define PTE_USER    (1ull << 2)
-#define PTE_ADDR    (0xffffffffff000ull)
+#include "asm/page.h"
 
 void setup_vm();
 
