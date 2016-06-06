@@ -58,7 +58,6 @@ static inline void *memalign(size_t alignment, size_t size)
 	return alloc_ops->memalign(alignment, size);
 }
 
-typedef u64 phys_addr_t;
 #define INVALID_PHYS_ADDR (~(phys_addr_t)0)
 
 /*

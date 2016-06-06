@@ -60,6 +60,8 @@ typedef _Bool		bool;
 #define PRIx64  __PRI64_PREFIX	"x"
 #define PRIxPTR __PRIPTR_PREFIX	"x"
 
+typedef u64			phys_addr_t;
+
 extern void puts(const char *s);
 extern void exit(int code);
 extern void abort(void);

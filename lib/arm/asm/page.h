@@ -16,8 +16,6 @@
 
 #define PAGE_ALIGN(addr)	ALIGN(addr, PAGE_SIZE)
 
-#include <alloc.h>
-
 typedef u64 pteval_t;
 typedef u64 pmdval_t;
 typedef u64 pgdval_t;

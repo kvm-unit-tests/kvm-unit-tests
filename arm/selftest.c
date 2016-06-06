@@ -7,7 +7,6 @@
  */
 #include <libcflat.h>
 #include <util.h>
-#include <alloc.h>
 #include <devicetree.h>
 #include <asm/setup.h>
 #include <asm/ptrace.h>
