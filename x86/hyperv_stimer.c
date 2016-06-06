@@ -8,6 +8,7 @@
 #include "smp.h"
 #include "atomic.h"
 #include "hyperv.h"
+#include "asm/barrier.h"
 
 #define MAX_CPUS 4
 

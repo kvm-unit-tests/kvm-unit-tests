@@ -2,10 +2,6 @@
 #define __SMP_H
 #include <asm/spinlock.h>
 
-#define mb() 	asm volatile("mfence":::"memory")
-#define rmb()	asm volatile("lfence":::"memory")
-#define wmb()	asm volatile("sfence" ::: "memory")
-
 void smp_init(void);
 
 int cpu_count(void);
