@@ -1,5 +1,5 @@
-#ifndef IO_H
-#define IO_H
+#ifndef _ASM_X86_IO_H_
+#define _ASM_X86_IO_H_
 
 static inline unsigned char inb(unsigned short port)
 {
@@ -35,6 +35,16 @@ static inline void outw(unsigned short value, unsigned short port)
 static inline void outl(unsigned int value, unsigned short port)
 {
     asm volatile("outl %0, %w1" : : "a"(value), "Nd"(port));
+}
+
+static inline unsigned long virt_to_phys(const void *virt)
+{
+    return (unsigned long)virt;
+}
+
+static inline void *phys_to_virt(unsigned long phys)
+{
+    return (void *)phys;
 }
 
 #endif

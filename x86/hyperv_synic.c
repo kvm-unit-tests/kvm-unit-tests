@@ -5,7 +5,6 @@
 #include "vm.h"
 #include "apic.h"
 #include "desc.h"
-#include "io.h"
 #include "smp.h"
 #include "atomic.h"
 #include "hyperv.h"

@@ -6,7 +6,6 @@
 #include "vm.h"
 #include "smp.h"
 #include "types.h"
-#include "io.h"
 
 /* for the nested page table*/
 u64 *pml4e;

@@ -1,6 +1,6 @@
 #include "libcflat.h"
 #include "apic.h"
-#include "io.h"
+#include "asm/io.h"
 
 #define KBD_CCMD_READ_OUTPORT   0xD0    /* read output port */
 #define KBD_CCMD_WRITE_OUTPORT  0xD1    /* write output port */

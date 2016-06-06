@@ -1,4 +1,5 @@
 #include "hyperv.h"
+#include "asm/io.h"
 
 static void synic_ctl(u8 ctl, u8 vcpu_id, u8 sint)
 {

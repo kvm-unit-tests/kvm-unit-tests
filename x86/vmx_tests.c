@@ -7,7 +7,6 @@
 #include "msr.h"
 #include "processor.h"
 #include "vm.h"
-#include "io.h"
 #include "fwcfg.h"
 #include "isr.h"
 #include "apic.h"

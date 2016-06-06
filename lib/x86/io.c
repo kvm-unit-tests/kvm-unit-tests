@@ -1,6 +1,6 @@
 #include "libcflat.h"
 #include "smp.h"
-#include "io.h"
+#include "asm/io.h"
 #ifndef USE_SERIAL
 #define USE_SERIAL
 #endif

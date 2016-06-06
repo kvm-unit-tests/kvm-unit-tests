@@ -6,7 +6,6 @@
 #include "x86/vm.h"
 #include "x86/desc.h"
 #include "x86/acpi.h"
-#include "x86/io.h"
 
 struct test {
 	void (*func)(void);

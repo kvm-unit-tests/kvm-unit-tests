@@ -3,7 +3,6 @@
 
 #include "libcflat.h"
 #include "processor.h"
-#include "io.h"
 
 #define HYPERV_CPUID_FEATURES                   0x40000003
 

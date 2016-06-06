@@ -35,7 +35,6 @@
 #include "vmx.h"
 #include "msr.h"
 #include "smp.h"
-#include "io.h"
 
 u64 *vmxon_region;
 struct vmcs *vmcs_root;

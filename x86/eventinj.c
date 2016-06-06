@@ -16,11 +16,6 @@ static inline void io_delay(void)
 {
 }
 
-static inline void outl(int addr, int val)
-{
-        asm volatile ("outl %1, %w0" : : "d" (addr), "a" (val));
-}
-
 void apic_self_ipi(u8 v)
 {
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED |
@@ -32,7 +27,7 @@ void apic_self_nmi(void)
 	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
 }
 
-#define flush_phys_addr(__s) outl(0xe4, __s)
+#define flush_phys_addr(__s) outl(__s, 0xe4)
 #define flush_stack() do {						\
 		int __l;						\
 		flush_phys_addr(virt_to_phys(&__l));			\

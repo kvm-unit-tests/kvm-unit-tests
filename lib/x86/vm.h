@@ -3,6 +3,7 @@
 
 #include "processor.h"
 #include "asm/page.h"
+#include "asm/io.h"
 
 void setup_vm();
 
@@ -26,15 +27,5 @@ void free_page(void *page);
 unsigned long *install_large_page(unsigned long *cr3,unsigned long phys,
                                   void *virt);
 unsigned long *install_page(unsigned long *cr3, unsigned long phys, void *virt);
-
-static inline unsigned long virt_to_phys(const void *virt)
-{
-    return (unsigned long)virt;
-}
-
-static inline void *phys_to_virt(unsigned long phys)
-{
-    return (void *)phys;
-}
 
 #endif

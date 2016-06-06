@@ -7,7 +7,7 @@
  */
 #include "libcflat.h"
 #include "pci.h"
-#include "x86/io.h"
+#include "x86/asm/io.h"
 
 static inline uint32_t pci_config_read(pcidevaddr_t dev, uint8_t reg)
 {
