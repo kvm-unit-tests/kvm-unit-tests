@@ -146,6 +146,48 @@ static inline u64 __bswap64(u64 x)
 #define writeq(b, addr) \
 	({ wmb(); __raw_writeq(cpu_to_le64(b), addr); })
 
+#ifndef inb
+static inline uint8_t inb(unsigned long port)
+{
+	return readb((const volatile void __iomem *)port);
+}
+#endif
+
+#ifndef inw
+static inline uint16_t inw(unsigned long port)
+{
+	return readw((const volatile void __iomem *)port);
+}
+#endif
+
+#ifndef inl
+static inline uint32_t inl(unsigned long port)
+{
+	return readl((const volatile void __iomem *)port);
+}
+#endif
+
+#ifndef outb
+static inline void outb(uint8_t value, unsigned long port)
+{
+	writeb(value, (volatile void __iomem *)port);
+}
+#endif
+
+#ifndef outw
+static inline void outw(uint16_t value, unsigned long port)
+{
+	writew(value, (volatile void __iomem *)port);
+}
+#endif
+
+#ifndef outl
+static inline void outl(uint32_t value, unsigned long port)
+{
+	writel(value, (volatile void __iomem *)port);
+}
+#endif
+
 #ifndef ioremap
 static inline void __iomem *ioremap(phys_addr_t phys_addr, size_t size __unused)
 {
