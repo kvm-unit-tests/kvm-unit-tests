@@ -11,6 +11,7 @@
  */
 #include "libcflat.h"
 #include "asm/page.h"
+#include "asm/barrier.h"
 
 #ifndef __raw_readb
 static inline u8 __raw_readb(const volatile void *addr)
@@ -126,16 +127,6 @@ static inline u64 __bswap64(u64 x)
 #define be64_to_cpu(x) \
 	({ u64 __r = !__cpu_is_be() ? __bswap64(x) : ((u64)x); __r; })
 #define cpu_to_be64 be64_to_cpu
-
-#ifndef mb
-#define mb()	asm volatile("":::"memory")
-#endif
-#ifndef rmb
-#define rmb()	asm volatile("":::"memory")
-#endif
-#ifndef wmb
-#define wmb()	asm volatile("":::"memory")
-#endif
 
 #define readb(addr) \
 	({ u8 __r = __raw_readb(addr); rmb(); __r; })

@@ -6,8 +6,6 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 
-#include <processor.h>
-
 #define mb()	asm volatile("mfence":::"memory")
 #define rmb()	asm volatile("lfence":::"memory")
 #define wmb()	asm volatile("sfence":::"memory")

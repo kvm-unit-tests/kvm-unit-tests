@@ -1,0 +1,21 @@
+#ifndef _ASM_BARRIER_H_
+#define _ASM_BARRIER_H_
+/*
+ * asm-generic/barrier.h
+ *
+ * Copyright (C) 2016, Red Hat Inc, Alexander Gordeev <agordeev@redhat.com>
+ *
+ * This work is licensed under the terms of the GNU LGPL, version 2.
+ */
+
+#ifndef mb
+#define mb()	asm volatile("":::"memory")
+#endif
+#ifndef rmb
+#define rmb()	asm volatile("":::"memory")
+#endif
+#ifndef wmb
+#define wmb()	asm volatile("":::"memory")
+#endif
+
+#endif /* _ASM_BARRIER_H_ */
