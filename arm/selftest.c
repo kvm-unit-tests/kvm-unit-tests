@@ -323,25 +323,25 @@ int main(int argc, char **argv)
 {
 	report_prefix_push("selftest");
 
-	if (!argc)
+	if (argc < 2)
 		report_abort("no test specified");
 
-	report_prefix_push(argv[0]);
+	report_prefix_push(argv[1]);
 
-	if (strcmp(argv[0], "setup") == 0) {
+	if (strcmp(argv[1], "setup") == 0) {
 
-		check_setup(argc-1, &argv[1]);
+		check_setup(argc-2, &argv[2]);
 
-	} else if (strcmp(argv[0], "vectors-kernel") == 0) {
+	} else if (strcmp(argv[1], "vectors-kernel") == 0) {
 
 		check_vectors(NULL);
 
-	} else if (strcmp(argv[0], "vectors-user") == 0) {
+	} else if (strcmp(argv[1], "vectors-user") == 0) {
 
 		start_usr(check_vectors, NULL,
 				(unsigned long)thread_stack_alloc());
 
-	} else if (strcmp(argv[0], "smp") == 0) {
+	} else if (strcmp(argv[1], "smp") == 0) {
 
 		int cpu;
 

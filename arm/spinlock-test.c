@@ -69,7 +69,7 @@ int main(int argc, char **argv)
 {
 	int cpu;
 
-	if (argc && strcmp(argv[0], "bad") != 0) {
+	if (argc > 1 && strcmp(argv[1], "bad") != 0) {
 		lock_ops.lock = gcc_builtin_lock;
 		lock_ops.unlock = gcc_builtin_unlock;
 	} else {

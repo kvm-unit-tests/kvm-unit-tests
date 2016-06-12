@@ -40,3 +40,18 @@ void setup_args(char *args)
     __args = args;
     __setup_args();
 }
+
+void setup_args_prognam(char *args)
+{
+    int i;
+
+    if (args) {
+        __args = args;
+        __setup_args();
+
+        for (i = __argc; i > 0; --i)
+            __argv[i] = __argv[i-1];
+    }
+    __argv[0] = NULL; // just reserve for now
+    ++__argc;
+}
