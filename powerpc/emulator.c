@@ -354,7 +354,7 @@ int main(int argc, char **argv)
 	handle_exception(0x700, program_check_handler, (void *)&is_invalid);
 	handle_exception(0x600, alignment_handler, (void *)&alignment);
 
-	for (i = 0; i < argc; i++) {
+	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-v") == 0) {
 			verbose = 1;
 		}

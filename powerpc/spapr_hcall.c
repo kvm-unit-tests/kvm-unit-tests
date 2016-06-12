@@ -154,13 +154,13 @@ int main(int argc, char **argv)
 
 	report_prefix_push("hypercall");
 
-	if (!argc || (argc == 1 && !strcmp(argv[0], "all")))
+	if (argc < 2 || (argc == 2 && !strcmp(argv[1], "all")))
 		all = 1;
 
 	for (i = 0; hctests[i].name != NULL; i++) {
 		report_prefix_push(hctests[i].name);
-		if (all || strcmp(argv[0], hctests[i].name) == 0) {
-			hctests[i].func(argc, argv);
+		if (all || strcmp(argv[1], hctests[i].name) == 0) {
+			hctests[i].func(argc-1, &argv[1]);
 		}
 		report_prefix_pop();
 	}

@@ -115,23 +115,23 @@ int main(int argc, char **argv)
 
 	report_prefix_push("rtas");
 
-	if (!argc)
+	if (argc < 2)
 		report_abort("no test specified");
 
-	report_prefix_push(argv[0]);
+	report_prefix_push(argv[1]);
 
-	if (strcmp(argv[0], "get-time-of-day") == 0) {
+	if (strcmp(argv[1], "get-time-of-day") == 0) {
 
-		len = parse_keyval(argv[1], &val);
+		len = parse_keyval(argv[2], &val);
 		if (len == -1) {
 			printf("Missing parameter \"date\"\n");
 			abort();
 		}
-		argv[1][len] = '\0';
+		argv[2][len] = '\0';
 
 		check_get_time_of_day(val);
 
-	} else if (strcmp(argv[0], "set-time-of-day") == 0) {
+	} else if (strcmp(argv[1], "set-time-of-day") == 0) {
 
 		check_set_time_of_day();
 
