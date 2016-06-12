@@ -54,7 +54,7 @@ FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libgcc) $(libeabi)
 %.elf: %.o $(FLATLIBS) arm/flat.lds $(cstart.o)
 	$(CC) $(LDFLAGS) -o $@ \
 		-Wl,-T,arm/flat.lds,--build-id=none,-Ttext=$(start_addr) \
-		$(filter %.o, $^) $(FLATLIBS)
+		$(filter %.o, $^) $(FLATLIBS) lib/auxinfo.c -DPROGNAME=\"$(*F)\"
 
 %.flat: %.elf
 	$(OBJCOPY) -O binary $^ $@

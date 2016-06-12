@@ -41,9 +41,10 @@ FLATLIBS = $(libcflat) $(LIBFDT_archive)
 %.elf: CFLAGS += $(arch_CFLAGS)
 %.elf: LDFLAGS = $(arch_LDFLAGS) -nostdlib -pie
 %.elf: %.o $(FLATLIBS) powerpc/flat.lds $(cstart.o) $(reloc.o)
-	$(LD) $(LDFLAGS) -o $@ \
-	      -T powerpc/flat.lds --build-id=none \
-		$(filter %.o, $^) $(FLATLIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ \
+	      -Wl,-T,powerpc/flat.lds -Wl,--build-id=none \
+		$(filter %.o, $^) $(FLATLIBS) \
+		lib/auxinfo.c -DPROGNAME=\"$*\"
 	@echo -n Checking $@ for unsupported reloc types...
 	@if $(OBJDUMP) -R $@ | grep R_ | grep -v R_PPC64_RELATIVE; then	\
 		false;							\

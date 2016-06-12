@@ -1,9 +1,12 @@
 #include "libcflat.h"
+#include "auxinfo.h"
 
 int __argc;
 char *__argv[100];
 char *__args;
-char __args_copy[1000];
+
+static char args_copy[1000];
+static char *copy_ptr = args_copy;
 
 static bool isblank(char p)
 {
@@ -20,14 +23,13 @@ static char *skip_blanks(char *p)
 void __setup_args(void)
 {
     char *args = __args;
-    char **argv = __argv;
-    char *p = __args_copy;
+    char **argv = __argv + __argc;
 
     while (*(args = skip_blanks(args)) != '\0') {
-        *argv++ = p;
+        *argv++ = copy_ptr;
         while (*args != '\0' && !isblank(*args))
-            *p++ = *args++;
-        *p++ = '\0';
+            *copy_ptr++ = *args++;
+        *copy_ptr++ = '\0';
     }
     __argc = argv - __argv;
 }
@@ -43,15 +45,12 @@ void setup_args(char *args)
 
 void setup_args_prognam(char *args)
 {
-    int i;
-
+    __argv[0] = copy_ptr;
+    strcpy(__argv[0], auxinfo.prognam);
+    copy_ptr += strlen(auxinfo.prognam) + 1;
+    ++__argc;
     if (args) {
         __args = args;
         __setup_args();
-
-        for (i = __argc; i > 0; --i)
-            __argv[i] = __argv[i-1];
     }
-    __argv[0] = NULL; // just reserve for now
-    ++__argc;
 }
