@@ -142,51 +142,59 @@ void set_normalized_timespec(struct timespec *ts, long sec, s64 nsec)
 	ts->tv_nsec = nsec;
 }
 
-static u64 pvclock_get_nsec_offset(struct pvclock_shadow_time *shadow)
+static inline
+unsigned pvclock_read_begin(const struct pvclock_vcpu_time_info *src)
 {
-	u64 delta = rdtsc() - shadow->tsc_timestamp;
-	return scale_delta(delta, shadow->tsc_to_nsec_mul, shadow->tsc_shift);
+	unsigned version = src->version & ~1;
+	/* Make sure that the version is read before the data. */
+	smp_rmb();
+	return version;
 }
 
-/*
- * Reads a consistent set of time-base values from hypervisor,
- * into a shadow data area.
- */
-static unsigned pvclock_get_time_values(struct pvclock_shadow_time *dst,
-					struct pvclock_vcpu_time_info *src)
+static inline
+bool pvclock_read_retry(const struct pvclock_vcpu_time_info *src,
+			unsigned version)
 {
-	do {
-		dst->version = src->version;
-		rmb();		/* fetch version before data */
-		dst->tsc_timestamp     = src->tsc_timestamp;
-		dst->system_timestamp  = src->system_time;
-		dst->tsc_to_nsec_mul   = src->tsc_to_system_mul;
-		dst->tsc_shift         = src->tsc_shift;
-		dst->flags             = src->flags;
-		rmb();		/* test version after fetching data */
-	} while ((src->version & 1) || (dst->version != src->version));
+	/* Make sure that the version is re-read after the data. */
+	smp_rmb();
+	return version != src->version;
+}
 
-	return dst->version;
+static inline u64 rdtsc_ordered()
+{
+	/*
+	 * FIXME: on Intel CPUs rmb() aka lfence is sufficient which brings up
+	 * to 2x speedup
+	 */
+	mb();
+	return rdtsc();
+}
+
+static inline
+cycle_t __pvclock_read_cycles(const struct pvclock_vcpu_time_info *src)
+{
+	u64 delta = rdtsc_ordered() - src->tsc_timestamp;
+	cycle_t offset = scale_delta(delta, src->tsc_to_system_mul,
+					     src->tsc_shift);
+	return src->system_time + offset;
 }
 
 cycle_t pvclock_clocksource_read(struct pvclock_vcpu_time_info *src)
 {
-	struct pvclock_shadow_time shadow;
 	unsigned version;
-	cycle_t ret, offset;
+	cycle_t ret;
 	u64 last;
+	u8 flags;
 
 	do {
-		version = pvclock_get_time_values(&shadow, src);
-		mb();
-		offset = pvclock_get_nsec_offset(&shadow);
-		ret = shadow.system_timestamp + offset;
-		mb();
-	} while (version != src->version);
+		version = pvclock_read_begin(src);
+		ret = __pvclock_read_cycles(src);
+		flags = src->flags;
+	} while (pvclock_read_retry(src, version));
 
 	if ((valid_flags & PVCLOCK_RAW_CYCLE_BIT) ||
             ((valid_flags & PVCLOCK_TSC_STABLE_BIT) &&
-             (shadow.flags & PVCLOCK_TSC_STABLE_BIT)))
+             (flags & PVCLOCK_TSC_STABLE_BIT)))
                 return ret;
 
 	/*

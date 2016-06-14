@@ -30,22 +30,6 @@ struct pvclock_wall_clock {
 	u32   nsec;
 } __attribute__((__packed__));
 
-/*
- * These are perodically updated
- *    xen: magic shared_info page
- *    kvm: gpa registered via msr
- * and then copied here.
- */
-struct pvclock_shadow_time {
-	u64 tsc_timestamp;     /* TSC at last update of time vals.  */
-	u64 system_timestamp;  /* Time, in nanosecs, since boot.    */
-	u32 tsc_to_nsec_mul;
-	int tsc_shift;
-	u32 version;
-	u8  flags;
-};
-
-
 struct timespec {
         long   tv_sec;
         long   tv_nsec;
