@@ -1,6 +1,7 @@
 #include "libcflat.h"
 #include "apic.h"
 #include "msr.h"
+#include "processor.h"
 
 static void *g_apic = (void *)0xfee00000;
 static void *g_ioapic = (void *)0xfec00000;
@@ -127,6 +128,14 @@ int enable_x2apic(void)
     } else {
         return 0;
     }
+}
+
+void reset_apic(void)
+{
+    u64 disabled = rdmsr(MSR_IA32_APICBASE) & ~(APIC_EN | APIC_EXTD);
+    wrmsr(MSR_IA32_APICBASE, disabled);
+    apic_ops = &xapic_ops;
+    wrmsr(MSR_IA32_APICBASE, disabled | APIC_EN);
 }
 
 u32 ioapic_read_reg(unsigned reg)

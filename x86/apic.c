@@ -136,6 +136,62 @@ static void test_apicbase(void)
     report_prefix_pop();
 }
 
+static void do_write_apic_id(void *id)
+{
+    apic_write(APIC_ID, *(u32 *)id);
+}
+
+static void __test_apic_id(void * unused)
+{
+    u32 id, newid;
+    u8  initial_xapic_id = cpuid(1).b >> 24;
+    u32 initial_x2apic_id = cpuid(0xb).d;
+    bool x2apic_mode = rdmsr(MSR_IA32_APICBASE) & APIC_EXTD;
+
+    if (x2apic_mode)
+        reset_apic();
+
+    id = apic_id();
+    report("xapic id matches cpuid", initial_xapic_id == id);
+
+    newid = (id + 1) << 24;
+    report("writeable xapic id",
+            !test_for_exception(GP_VECTOR, do_write_apic_id, &newid) &&
+            id + 1 == apic_id());
+
+    if (!enable_x2apic())
+        goto out;
+
+    report("non-writeable x2apic id",
+            test_for_exception(GP_VECTOR, do_write_apic_id, &newid));
+    report("sane x2apic id", initial_xapic_id == (apic_id() & 0xff));
+
+    /* old QEMUs do not set initial x2APIC ID */
+    report("x2apic id matches cpuid",
+           initial_xapic_id == (initial_x2apic_id & 0xff) &&
+           initial_x2apic_id == apic_id());
+
+out:
+    reset_apic();
+
+    report("correct xapic id after reset", initial_xapic_id == apic_id());
+
+    /* old KVMs do not reset xAPIC ID */
+    if (id != apic_id())
+        apic_write(APIC_ID, id << 24);
+
+    if (x2apic_mode)
+        enable_x2apic();
+}
+
+static void test_apic_id(void)
+{
+    if (cpu_count() < 2)
+        return;
+
+    on_cpu(1, __test_apic_id, NULL);
+}
+
 static int ipi_count;
 
 static void self_ipi_isr(isr_regs_t *regs)
@@ -303,6 +359,7 @@ int main()
     test_lapic_existence();
 
     mask_pic_interrupts();
+    test_apic_id();
     test_enable_x2apic();
     test_apicbase();
 
