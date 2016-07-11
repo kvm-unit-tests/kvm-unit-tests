@@ -10,7 +10,6 @@
 #define rmb()	asm volatile("lfence":::"memory")
 #define wmb()	asm volatile("sfence":::"memory")
 
-#define smp_mb()	mb()
 #define smp_rmb()	barrier()
 #define smp_wmb()	barrier()
 

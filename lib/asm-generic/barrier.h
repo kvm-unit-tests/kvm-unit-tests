@@ -18,4 +18,14 @@
 #define wmb()	asm volatile("":::"memory")
 #endif
 
+#ifndef smp_mb
+#define smp_mb()	mb()
+#endif
+#ifndef smp_rmb
+#define smp_rmb()	rmb()
+#endif
+#ifndef smp_wmb
+#define smp_wmb()	wmb()
+#endif
+
 #endif /* _ASM_BARRIER_H_ */
