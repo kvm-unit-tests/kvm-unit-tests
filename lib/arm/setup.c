@@ -22,7 +22,7 @@
 
 extern unsigned long stacktop;
 extern void io_init(void);
-extern void setup_args_prognam(const char *args);
+extern void setup_args_progname(const char *args);
 
 u32 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (~0U) };
 int nr_cpus;
@@ -124,5 +124,5 @@ void setup(const void *fdt)
 
 	ret = dt_get_bootargs(&bootargs);
 	assert(ret == 0);
-	setup_args_prognam(bootargs);
+	setup_args_progname(bootargs);
 }

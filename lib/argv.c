@@ -43,11 +43,11 @@ void setup_args(char *args)
     __setup_args();
 }
 
-void setup_args_prognam(char *args)
+void setup_args_progname(char *args)
 {
     __argv[0] = copy_ptr;
-    strcpy(__argv[0], auxinfo.prognam);
-    copy_ptr += strlen(auxinfo.prognam) + 1;
+    strcpy(__argv[0], auxinfo.progname);
+    copy_ptr += strlen(auxinfo.progname) + 1;
     ++__argc;
     if (args) {
         __args = args;
