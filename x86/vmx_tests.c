@@ -9,6 +9,7 @@
 #include "vm.h"
 #include "fwcfg.h"
 #include "isr.h"
+#include "desc.h"
 #include "apic.h"
 #include "types.h"
 
@@ -1648,6 +1649,77 @@ static int vmmcall_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
+static int disable_rdtscp_init(struct vmcs *vmcs)
+{
+	u32 ctrl_cpu1;
+
+	if (ctrl_cpu_rev[0].clr & CPU_SECONDARY) {
+		ctrl_cpu1 = vmcs_read(CPU_EXEC_CTRL1);
+		ctrl_cpu1 &= ~CPU_RDTSCP;
+		vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu1);
+	}
+
+	return VMX_TEST_START;
+}
+
+static void disable_rdtscp_ud_handler(struct ex_regs *regs)
+{
+	switch (vmx_get_test_stage()) {
+	case 0:
+		report("RDTSCP triggers #UD", true);
+		vmx_inc_test_stage();
+		regs->rip += 3;
+		break;
+	case 2:
+		report("RDPID triggers #UD", true);
+		vmx_inc_test_stage();
+		regs->rip += 4;
+		break;
+	}
+	return;
+
+}
+
+static void disable_rdtscp_main(void)
+{
+	/* Test that #UD is properly injected in L2.  */
+	handle_exception(UD_VECTOR, disable_rdtscp_ud_handler);
+
+	vmx_set_test_stage(0);
+	asm volatile("rdtscp" : : : "eax", "ecx", "edx");
+	vmcall();
+	asm volatile(".byte 0xf3, 0x0f, 0xc7, 0xf8" : : : "eax");
+	vmcall();
+}
+
+static int disable_rdtscp_exit_handler(void)
+{
+	unsigned int reason = vmcs_read(EXI_REASON) & 0xff;
+
+	switch (reason) {
+	case VMX_VMCALL:
+		switch (vmx_get_test_stage()) {
+		case 0:
+			report("RDTSCP triggers #UD", false);
+			vmx_inc_test_stage();
+			/* fallthrough */
+		case 1:
+			vmx_inc_test_stage();
+			vmcs_write(GUEST_RIP, vmcs_read(GUEST_RIP) + 3);
+			return VMX_TEST_RESUME;
+		case 2:
+			report("RDPID triggers #UD", false);
+			break;
+		}
+		break;
+
+	default:
+		printf("Unknown exit reason, %d\n", reason);
+		print_vmexit_info();
+	}
+	return VMX_TEST_VMEXIT;
+}
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
 struct vmx_test vmx_tests[] = {
 	{ "null", NULL, basic_guest_main, basic_exit_handler, NULL, {0} },
@@ -1673,5 +1745,7 @@ struct vmx_test vmx_tests[] = {
 	{ "MSR switch", msr_switch_init, msr_switch_main,
 		msr_switch_exit_handler, NULL, {0}, msr_switch_entry_failure },
 	{ "vmmcall", vmmcall_init, vmmcall_main, vmmcall_exit_handler, NULL, {0} },
+	{ "disable RDTSCP", disable_rdtscp_init, disable_rdtscp_main,
+		disable_rdtscp_exit_handler, NULL, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
