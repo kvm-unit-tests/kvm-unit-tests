@@ -1,7 +1,6 @@
 #!/bin/bash
 
 prefix=/usr/local
-kerneldir=/lib/modules/$(uname -r)/build
 cc=gcc
 ld=ld
 objcopy=objcopy
@@ -25,7 +24,6 @@ usage() {
 	    --cc=CC		   c compiler to use ($cc)
 	    --ld=LD		   ld linker to use ($ld)
 	    --prefix=PREFIX        where to install things ($prefix)
-	    --kerneldir=DIR        kernel build directory for kvm.h ($kerneldir)
 	    --endian=ENDIAN        endianness to compile for (little or big, ppc64 only)
 	    --[enable|disable]-pretty-print-stacks
 	                           enable or disable pretty stack printing (enabled by default)
@@ -43,9 +41,6 @@ while [[ "$1" = -* ]]; do
     case "$opt" in
 	--prefix)
 	    prefix="$arg"
-	    ;;
-	--kerneldir)
-	    kerneldir="$arg"
 	    ;;
         --arch)
 	    arch="$arg"
@@ -145,7 +140,6 @@ ln -s $asm lib/asm
 # create the config
 cat <<EOF > config.mak
 PREFIX=$prefix
-KERNELDIR=$(readlink -f $kerneldir)
 HOST=$host
 ARCH=$arch
 ARCH_NAME=$arch_name
