@@ -32,6 +32,23 @@ get_cmdline()
     echo "TESTNAME=$testname TIMEOUT=$timeout ACCEL=$accel $RUNTIME_arch_run $kernel -smp $smp $opts"
 }
 
+skip_nodefault()
+{
+    [ "$STANDALONE" != "yes" ] && return 0
+
+    while true; do
+        read -p "Test marked not to be run by default, are you sure (y/N)? " yn
+        case $yn in
+            "Y" | "y" | "Yes" | "yes")
+                return 1
+                ;;
+            "" | "N" | "n" | "No" | "no" | "q" | "quit" | "exit")
+                return 0
+                ;;
+        esac
+    done
+}
+
 function run()
 {
     local testname="$1"
@@ -48,8 +65,14 @@ function run()
         return
     fi
 
-    if [ -n "$only_group" ] && ! grep -q "$only_group" <<<$groups; then
+    if [ -n "$only_group" ] && ! grep -qw "$only_group" <<<$groups; then
         return
+    fi
+
+    if [ -z "$only_group" ] && grep -qw "nodefault" <<<$groups &&
+            skip_nodefault; then
+        echo -e "`SKIP` $testname (test marked as manual run only)"
+        return;
     fi
 
     if [ -n "$arch" ] && [ "$arch" != "$ARCH" ]; then
