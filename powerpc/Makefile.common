@@ -37,6 +37,7 @@ cflatobjs += lib/powerpc/setup.o
 cflatobjs += lib/powerpc/rtas.o
 cflatobjs += lib/powerpc/processor.o
 cflatobjs += lib/powerpc/handlers.o
+cflatobjs += lib/powerpc/smp.o
 
 FLATLIBS = $(libcflat) $(LIBFDT_archive)
 %.elf: CFLAGS += $(arch_CFLAGS)
