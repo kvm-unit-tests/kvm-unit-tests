@@ -11,6 +11,8 @@
 extern u32 cpus[NR_CPUS];
 extern int nr_cpus;
 
+extern uint64_t tb_hz;
+
 #define NR_MEM_REGIONS		8
 #define MR_F_PRIMARY		(1U << 0)
 struct mem_region {

@@ -24,6 +24,7 @@ extern void setup_args_progname(const char *args);
 
 u32 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (~0U) };
 int nr_cpus;
+uint64_t tb_hz;
 
 struct mem_region mem_regions[NR_MEM_REGIONS];
 phys_addr_t __physical_start, __physical_end;
@@ -32,6 +33,7 @@ unsigned __icache_bytes, __dcache_bytes;
 struct cpu_set_params {
 	unsigned icache_bytes;
 	unsigned dcache_bytes;
+	uint64_t tb_hz;
 };
 
 #define EXCEPTION_STACK_SIZE	(32*1024) /* 32kB */
@@ -72,6 +74,12 @@ static void cpu_set(int fdtnode, u32 regval, void *info)
 		data = (u32 *)prop->data;
 		params->dcache_bytes = fdt32_to_cpu(*data);
 
+		prop = fdt_get_property(dt_fdt(), fdtnode,
+					"timebase-frequency", NULL);
+		assert(prop != NULL);
+		data = (u32 *)prop->data;
+		params->tb_hz = fdt32_to_cpu(*data);
+
 		read_common_info = true;
 	}
 }
@@ -86,6 +94,7 @@ static void cpu_init(void)
 	assert(ret == 0);
 	__icache_bytes = params.icache_bytes;
 	__dcache_bytes = params.dcache_bytes;
+	tb_hz = params.tb_hz;
 
 	/* Interrupt Endianness */
 

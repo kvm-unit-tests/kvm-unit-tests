@@ -5,6 +5,8 @@
 #include <libcflat.h>
 #include <asm/processor.h>
 #include <asm/ptrace.h>
+#include <asm/setup.h>
+#include <asm/barrier.h>
 
 static struct {
 	void (*func)(struct pt_regs *, void *data);
@@ -35,4 +37,17 @@ void do_handle_exception(struct pt_regs *regs)
 
 	printf("unhandled cpu exception 0x%lx\n", regs->trap);
 	abort();
+}
+
+void delay(uint64_t cycles)
+{
+	uint64_t start = get_tb();
+
+	while ((get_tb() - start) < cycles)
+		cpu_relax();
+}
+
+void udelay(uint64_t us)
+{
+	delay((us * tb_hz) / 1000000);
 }

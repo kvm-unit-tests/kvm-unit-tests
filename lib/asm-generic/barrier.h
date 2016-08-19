@@ -28,4 +28,8 @@
 #define smp_wmb()	wmb()
 #endif
 
+#ifndef cpu_relax
+#define cpu_relax()	asm volatile ("":::"memory")
+#endif
+
 #endif /* _ASM_BARRIER_H_ */
