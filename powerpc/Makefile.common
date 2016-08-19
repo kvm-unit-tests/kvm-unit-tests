@@ -8,7 +8,8 @@ tests-common = \
 	$(TEST_DIR)/selftest.elf \
 	$(TEST_DIR)/spapr_hcall.elf \
 	$(TEST_DIR)/rtas.elf \
-	$(TEST_DIR)/emulator.elf
+	$(TEST_DIR)/emulator.elf \
+	$(TEST_DIR)/tm.elf
 
 all: $(TEST_DIR)/boot_rom.bin test_cases
 

@@ -18,6 +18,7 @@
 #define H_SET_SPRG0		0x24
 #define H_SET_DABR		0x28
 #define H_PAGE_INIT		0x2c
+#define H_CEDE			0xE0
 #define H_PUT_TERM_CHAR		0x58
 #define H_RANDOM		0x300
 #define H_SET_MODE		0x31C
