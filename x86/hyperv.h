@@ -11,6 +11,7 @@
 #define HV_X64_MSR_SYNTIMER_AVAILABLE           (1 << 3)
 
 #define HV_X64_MSR_TIME_REF_COUNT               0x40000020
+#define HV_X64_MSR_REFERENCE_TSC                0x40000021
 
 /* Define synthetic interrupt controller model specific registers. */
 #define HV_X64_MSR_SCONTROL                     0x40000080
@@ -178,5 +179,13 @@ static inline bool hv_time_ref_counter_supported(void)
 void synic_sint_create(int vcpu, int sint, int vec, bool auto_eoi);
 void synic_sint_set(int vcpu, int sint);
 void synic_sint_destroy(int vcpu, int sint);
+
+struct hv_reference_tsc_page {
+        uint32_t tsc_sequence;
+        uint32_t res1;
+        uint64_t tsc_scale;
+        int64_t tsc_offset;
+};
+
 
 #endif
