@@ -351,6 +351,48 @@ static void test_multiple_nmi(void)
     report("multiple nmi", ok);
 }
 
+static volatile int lvtt_counter = 0;
+
+static void lvtt_handler(isr_regs_t *regs)
+{
+    lvtt_counter++;
+    eoi();
+}
+
+static void test_apic_timer_one_shot(void)
+{
+    uint64_t tsc1, tsc2;
+    static const uint32_t interval = 0x10000;
+
+#define APIC_LVT_TIMER_VECTOR    (0xee)
+#define APIC_LVT_TIMER_ONE_SHOT  (0)
+
+    handle_irq(APIC_LVT_TIMER_VECTOR, lvtt_handler);
+    irq_enable();
+
+    /* One shot mode */
+    apic_write(APIC_LVTT, APIC_LVT_TIMER_ONE_SHOT |
+               APIC_LVT_TIMER_VECTOR);
+    /* Divider == 1 */
+    apic_write(APIC_TDCR, 0x0000000b);
+
+    tsc1 = rdtsc();
+    /* Set "Initial Counter Register", which starts the timer */
+    apic_write(APIC_TMICT, interval);
+    while (!lvtt_counter);
+    tsc2 = rdtsc();
+
+    /*
+     * For LVT Timer clock, SDM vol 3 10.5.4 says it should be
+     * derived from processor's bus clock (IIUC which is the same
+     * as TSC), however QEMU seems to be using nanosecond. In all
+     * cases, the following should satisfy on all modern
+     * processors.
+     */
+    report("APIC LVT timer one shot", (lvtt_counter == 1) &&
+           (tsc2 - tsc1 >= interval));
+}
+
 int main()
 {
     setup_vm();
@@ -369,6 +411,7 @@ int main()
     test_sti_nmi();
     test_multiple_nmi();
 
+    test_apic_timer_one_shot();
     test_tsc_deadline_timer();
 
     return report_summary();
