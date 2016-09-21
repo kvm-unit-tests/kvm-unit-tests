@@ -25,6 +25,7 @@ static int tdt_count;
 static void tsc_deadline_timer_isr(isr_regs_t *regs)
 {
     ++tdt_count;
+    eoi();
 }
 
 static void __test_tsc_deadline_timer(void)
