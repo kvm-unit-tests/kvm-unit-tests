@@ -37,10 +37,7 @@ static void test_lapic_existence(void)
     report("apic existence", (u16)lvr == 0x14);
 }
 
-#define TSC_DEADLINE_TIMER_MODE (2 << 17)
 #define TSC_DEADLINE_TIMER_VECTOR 0xef
-#define MSR_IA32_TSC            0x00000010
-#define MSR_IA32_TSCDEADLINE    0x000006e0
 
 static int tdt_count;
 u64 exptime;
@@ -84,7 +81,7 @@ static int enable_tsc_deadline_timer(void)
     uint32_t lvtt;
 
     if (cpuid(1).c & (1 << 24)) {
-        lvtt = TSC_DEADLINE_TIMER_MODE | TSC_DEADLINE_TIMER_VECTOR;
+        lvtt = APIC_LVT_TIMER_TSCDEADLINE | TSC_DEADLINE_TIMER_VECTOR;
         apic_write(APIC_LVTT, lvtt);
         start_tsc_deadline_timer();
         return 1;

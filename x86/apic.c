@@ -15,10 +15,7 @@ static void test_lapic_existence(void)
     report("apic existence", (u16)lvr == 0x14);
 }
 
-#define TSC_DEADLINE_TIMER_MODE (2 << 17)
 #define TSC_DEADLINE_TIMER_VECTOR 0xef
-#define MSR_IA32_TSC            0x00000010
-#define MSR_IA32_TSCDEADLINE    0x000006e0
 
 static int tdt_count;
 
@@ -44,7 +41,7 @@ static int enable_tsc_deadline_timer(void)
     uint32_t lvtt;
 
     if (cpuid(1).c & (1 << 24)) {
-        lvtt = TSC_DEADLINE_TIMER_MODE | TSC_DEADLINE_TIMER_VECTOR;
+        lvtt = APIC_LVT_TIMER_TSCDEADLINE | TSC_DEADLINE_TIMER_VECTOR;
         apic_write(APIC_LVTT, lvtt);
         return 1;
     } else {
@@ -365,13 +362,12 @@ static void test_apic_timer_one_shot(void)
     static const uint32_t interval = 0x10000;
 
 #define APIC_LVT_TIMER_VECTOR    (0xee)
-#define APIC_LVT_TIMER_ONE_SHOT  (0)
 
     handle_irq(APIC_LVT_TIMER_VECTOR, lvtt_handler);
     irq_enable();
 
     /* One shot mode */
-    apic_write(APIC_LVTT, APIC_LVT_TIMER_ONE_SHOT |
+    apic_write(APIC_LVTT, APIC_LVT_TIMER_ONESHOT |
                APIC_LVT_TIMER_VECTOR);
     /* Divider == 1 */
     apic_write(APIC_TDCR, 0x0000000b);
