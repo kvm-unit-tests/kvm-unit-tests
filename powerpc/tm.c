@@ -10,6 +10,41 @@
 #include <asm/processor.h>
 #include <asm/handlers.h>
 #include <asm/smp.h>
+#include <asm/setup.h>
+#include <devicetree.h>
+
+/* Check "ibm,pa-features" property of a CPU node for the TM flag */
+static void cpu_has_tm(int fdtnode, u32 regval __unused, void *ptr)
+{
+	const struct fdt_property *prop;
+	int plen;
+
+	prop = fdt_get_property(dt_fdt(), fdtnode, "ibm,pa-features", &plen);
+	if (!prop)	/* No features means TM is also not available */
+		return;
+	/* Sanity check for the property layout (first two bytes are header) */
+	assert(plen >= 8 && prop->data[1] == 0 && prop->data[0] <= plen - 2);
+
+	/*
+	 * The "Transactional Memory Category Support" flags are at byte
+	 * offset 22 and 23 of the attribute type 0, so when adding the
+	 * two bytes for the header, we've got to look at offset 24 for
+	 * the TM support bit.
+	 */
+	if (prop->data[0] >= 24 && (prop->data[24] & 0x80) != 0)
+		*(int *)ptr += 1;
+}
+
+/* Check whether all CPU nodes have the TM flag */
+static bool all_cpus_have_tm(void)
+{
+	int ret;
+	int available = 0;
+
+	ret = dt_for_each_cpu_node(cpu_has_tm, &available);
+
+	return ret == 0 && available == nr_cpus;
+}
 
 static int h_cede(void)
 {
@@ -101,10 +136,16 @@ struct {
 
 int main(int argc, char **argv)
 {
-	bool all;
+	bool all, has_tm;
 	int i;
 
 	report_prefix_push("tm");
+
+	has_tm = all_cpus_have_tm();
+	report_xfail("TM available in 'ibm,pa-features' property",
+		     !has_tm, has_tm);
+	if (!has_tm)
+		return report_summary();
 
 	all = argc == 1 || !strcmp(argv[1], "all");
 
