@@ -161,10 +161,10 @@ print_vmentry_failure_info(struct vmentry_failure *failure) {
 	if (failure->early) {
 		printf("Early %s failure: ", failure->instr);
 		switch (failure->flags & VMX_ENTRY_FLAGS) {
-		case X86_EFLAGS_ZF:
+		case X86_EFLAGS_CF:
 			printf("current-VMCS pointer is not valid.\n");
 			break;
-		case X86_EFLAGS_CF:
+		case X86_EFLAGS_ZF:
 			printf("error number is %ld. See Intel 30.4.\n",
 			       vmcs_read(VMX_INST_ERROR));
 			break;
