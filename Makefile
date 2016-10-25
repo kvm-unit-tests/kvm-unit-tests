@@ -45,14 +45,16 @@ cc-option = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null \
               > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi ;)
 
 CFLAGS += -g
-CFLAGS += $(autodepend-flags) -Wall -Werror -Wno-frame-address
+CFLAGS += $(autodepend-flags) -Wall -Werror
 frame-pointer-flag=-f$(if $(KEEP_FRAME_POINTER),no-,)omit-frame-pointer
 fomit_frame_pointer := $(call cc-option, $(frame-pointer-flag), "")
 fnostack_protector := $(call cc-option, -fno-stack-protector, "")
 fnostack_protector_all := $(call cc-option, -fno-stack-protector-all, "")
+wno_frame_address := $(call cc-option, -Wno-frame-address, "")
 CFLAGS += $(fomit_frame_pointer)
 CFLAGS += $(fno_stack_protector)
 CFLAGS += $(fno_stack_protector_all)
+CFLAGS += $(wno_frame_address)
 
 CXXFLAGS += $(CFLAGS)
 
