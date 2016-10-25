@@ -1,5 +1,6 @@
 #include "libcflat.h"
 #include "x86/acpi.h"
+#include "asm/io.h"
 
 u32* find_resume_vector_addr(void)
 {
@@ -24,16 +25,14 @@ u32* find_resume_vector_addr(void)
 
 static inline int rtc_in(u8 reg)
 {
-    u8 x = reg;
-    asm volatile("outb %b1, $0x70; inb $0x71, %b0"
-		 : "=a"(x) : "0"(x));
-    return x;
+    outb(reg, 0x70);
+    return inb(0x71);
 }
 
 static inline void rtc_out(u8 reg, u8 val)
 {
-    asm volatile("outb %b1, $0x70; mov %b2, %b1; outb %b1, $0x71"
-		 : "=a"(reg) : "0"(reg), "ri"(val));
+    outb(reg, 0x70);
+    outb(val, 0x71);
 }
 
 extern char resume_start, resume_end;
@@ -50,6 +49,9 @@ int main(int argc, char **argv)
 	for (addr = &resume_start; addr < &resume_end; addr++)
 		*resume_vec++ = *addr;
 	printf("copy resume code from %p\n", &resume_start);
+
+	printf("PM1a event registers at %x\n", fadt->pm1a_evt_blk);
+	outw(0x400, fadt->pm1a_evt_blk + 2);
 
 	/* Setup RTC alarm to wake up on the next second.  */
 	while ((rtc_in(RTC_REG_A) & REG_A_UIP) == 0);
