@@ -968,7 +968,7 @@ static int vmx_run()
 			"mov %[HOST_RSP], %%rdi\n\t"
 			"vmwrite %%rsp, %%rdi\n\t"
 			LOAD_GPR_C
-			"cmpl $0, %[launched]\n\t"
+			"cmpb $0, %[launched]\n\t"
 			"jne 1f\n\t"
 			"vmlaunch\n\t"
 			"jmp 2f\n\t"
