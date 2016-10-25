@@ -106,7 +106,6 @@ int main(int argc, char **argv)
 
     setup_vm();
     smp_init();
-    setup_idt();
 
     test_lapic_existence();
 

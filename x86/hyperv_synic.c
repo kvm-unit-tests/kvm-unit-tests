@@ -154,7 +154,6 @@ int main(int ac, char **av)
 
         setup_vm();
         smp_init();
-        setup_idt();
         enable_apic();
 
         synic_prepare_sint_vecs();

@@ -398,7 +398,6 @@ int main(void)
 {
 	setup_vm();
 	smp_init();
-	setup_idt();
 
 	mask_pic_interrupts();
 

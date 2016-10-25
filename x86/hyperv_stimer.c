@@ -330,7 +330,6 @@ static void stimer_test_all(void)
 
     setup_vm();
     smp_init();
-    setup_idt();
     enable_apic();
 
     handle_irq(SINT1_VEC, stimer_isr);
