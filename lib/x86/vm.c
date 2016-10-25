@@ -151,6 +151,7 @@ static void setup_mmu(unsigned long len)
 
 void setup_vm()
 {
+    assert(!end_of_memory);
     end_of_memory = fwcfg_get_u64(FW_CFG_RAM_SIZE);
     free_memory(&edata, end_of_memory - (unsigned long)&edata);
     setup_mmu(end_of_memory);
