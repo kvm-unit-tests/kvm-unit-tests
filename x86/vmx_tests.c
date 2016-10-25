@@ -746,6 +746,13 @@ asm(
 	"insn_wbinvd: wbinvd;ret\n\t"
 	"insn_cpuid: cpuid;ret\n\t"
 	"insn_invd: invd;ret\n\t"
+	"insn_sgdt: sgdt gdt64_desc;ret\n\t"
+	"insn_lgdt: lgdt gdt64_desc;ret\n\t"
+	"insn_sidt: sidt idt_descr;ret\n\t"
+	"insn_lidt: lidt idt_descr;ret\n\t"
+	"insn_sldt: sldt %ax;ret\n\t"
+	"insn_lldt: xor %eax, %eax; lldt %ax;ret\n\t"
+	"insn_str: str %ax;ret\n\t"
 );
 extern void insn_hlt();
 extern void insn_invlpg();
@@ -761,6 +768,13 @@ extern void insn_cr8_store();
 extern void insn_monitor();
 extern void insn_pause();
 extern void insn_wbinvd();
+extern void insn_sgdt();
+extern void insn_lgdt();
+extern void insn_sidt();
+extern void insn_lidt();
+extern void insn_sldt();
+extern void insn_lldt();
+extern void insn_str();
 extern void insn_cpuid();
 extern void insn_invd();
 
@@ -810,6 +824,14 @@ static struct insn_table insn_table[] = {
 	{"PAUSE", CPU_PAUSE, insn_pause, INSN_CPU0, 40, 0, 0, 0},
 	// Flags for Secondary Processor-Based VM-Execution Controls
 	{"WBINVD", CPU_WBINVD, insn_wbinvd, INSN_CPU1, 54, 0, 0, 0},
+	{"DESC_TABLE (SGDT)", CPU_DESC_TABLE, insn_sgdt, INSN_CPU1, 46, 0, 0, 0},
+	{"DESC_TABLE (LGDT)", CPU_DESC_TABLE, insn_lgdt, INSN_CPU1, 46, 0, 0, 0},
+	{"DESC_TABLE (SIDT)", CPU_DESC_TABLE, insn_sidt, INSN_CPU1, 46, 0, 0, 0},
+	{"DESC_TABLE (LIDT)", CPU_DESC_TABLE, insn_lidt, INSN_CPU1, 46, 0, 0, 0},
+	{"DESC_TABLE (SLDT)", CPU_DESC_TABLE, insn_sldt, INSN_CPU1, 47, 0, 0, 0},
+	{"DESC_TABLE (LLDT)", CPU_DESC_TABLE, insn_lldt, INSN_CPU1, 47, 0, 0, 0},
+	{"DESC_TABLE (STR)", CPU_DESC_TABLE, insn_str, INSN_CPU1, 47, 0, 0, 0},
+	/* LTR causes a #GP if done with a busy selector, so it is not tested.  */
 	// Instructions always trap
 	{"CPUID", 0, insn_cpuid, INSN_ALWAYS_TRAP, 10, 0, 0, 0},
 	{"INVD", 0, insn_invd, INSN_ALWAYS_TRAP, 13, 0, 0, 0},
