@@ -33,7 +33,7 @@ static void wallclock_test(void *data)
         ksec = ts.tv_sec;
 
         offset = ksec - sec;
-        printf("Raw nanoseconds value from kvmclock: %ld (cpu %d)\n", kvm_clock_read(), smp_id());
+        printf("Raw nanoseconds value from kvmclock: %" PRIu64 " (cpu %d)\n", kvm_clock_read(), smp_id());
         printf("Seconds get from kvmclock: %ld (cpu %d, offset: %ld)\n", ksec, smp_id(), offset);
 
         if (offset > threshold || offset < -threshold) {
