@@ -28,14 +28,13 @@ run_qemu ()
 {
 	local stdout errors ret sig
 
-	# stdout to {stdout}, stderr to $errors
+	# stdout to {stdout}, stderr to $errors and stderr
 	exec {stdout}>&1
-	errors=$("${@}" 2>&1 1>&${stdout})
+	errors=$("${@}" 2> >(tee /dev/stderr) > /dev/fd/$stdout)
 	ret=$?
 	exec {stdout}>&-
 
 	if [ "$errors" ]; then
-		printf "%s\n" "$errors" >&2
 		sig=$(grep 'terminating on signal' <<<"$errors")
 		if [ "$sig" ]; then
 			sig=$(sed 's/.*terminating on signal \([0-9][0-9]*\).*/\1/' <<<"$sig")
