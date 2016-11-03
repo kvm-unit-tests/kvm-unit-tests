@@ -13,7 +13,7 @@ int backtrace_frame(const void *frame, const void **return_addrs, int max_depth)
 	}
 	walking = 1;
 
-	for (depth = 0; depth < max_depth; depth++) {
+	for (depth = 0; bp && depth < max_depth; depth++) {
 		return_addrs[depth] = (void *) bp[1];
 		if (return_addrs[depth] == 0)
 			break;
