@@ -11,7 +11,8 @@ endif
 
 tests-common = \
 	$(TEST_DIR)/selftest.flat \
-	$(TEST_DIR)/spinlock-test.flat
+	$(TEST_DIR)/spinlock-test.flat \
+	$(TEST_DIR)/pci-test.flat
 
 all: test_cases
 
@@ -33,6 +34,9 @@ include scripts/asm-offsets.mak
 cflatobjs += lib/util.o
 cflatobjs += lib/alloc.o
 cflatobjs += lib/devicetree.o
+cflatobjs += lib/pci.o
+cflatobjs += lib/pci-host-generic.o
+cflatobjs += lib/pci-testdev.o
 cflatobjs += lib/virtio.o
 cflatobjs += lib/virtio-mmio.o
 cflatobjs += lib/chr-testdev.o

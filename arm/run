@@ -67,8 +67,13 @@ fi
 chr_testdev='-device virtio-serial-device'
 chr_testdev+=' -device virtconsole,chardev=ctd -chardev testdev,id=ctd'
 
+pci_testdev=
+if $qemu $M -device '?' 2>&1 | grep pci-testdev > /dev/null; then
+	pci_testdev="-device pci-testdev"
+fi
+
 M+=",accel=$ACCEL"
-command="$qemu $M -cpu $processor $chr_testdev"
+command="$qemu $M -cpu $processor $chr_testdev $pci_testdev"
 command+=" -display none -serial stdio -kernel"
 command="$(timeout_cmd) $command"
 echo $command "$@"
