@@ -15,6 +15,7 @@ enum {
 	PCIDEVADDR_INVALID = 0xffff,
 };
 
+extern bool pci_probe(void);
 extern void pci_print(void);
 extern bool pci_dev_exists(pcidevaddr_t dev);
 extern pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id);
@@ -34,9 +35,13 @@ extern pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id);
 extern phys_addr_t pci_bar_get_addr(pcidevaddr_t dev, int bar_num);
 extern void pci_bar_set_addr(pcidevaddr_t dev, int bar_num, phys_addr_t addr);
 extern phys_addr_t pci_bar_size(pcidevaddr_t dev, int bar_num);
+extern uint32_t pci_bar_get(pcidevaddr_t dev, int bar_num);
+extern uint32_t pci_bar_mask(uint32_t bar);
 extern bool pci_bar_is64(pcidevaddr_t dev, int bar_num);
 extern bool pci_bar_is_memory(pcidevaddr_t dev, int bar_num);
 extern bool pci_bar_is_valid(pcidevaddr_t dev, int bar_num);
+extern void pci_bar_print(pcidevaddr_t dev, int bar_num);
+extern void pci_dev_print_id(pcidevaddr_t dev);
 
 /*
  * pci-testdev is a driver for the pci-testdev qemu pci device. The

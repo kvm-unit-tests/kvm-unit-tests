@@ -27,13 +27,13 @@ pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id)
 	return PCIDEVADDR_INVALID;
 }
 
-static uint32_t pci_bar_mask(uint32_t bar)
+uint32_t pci_bar_mask(uint32_t bar)
 {
 	return (bar & PCI_BASE_ADDRESS_SPACE_IO) ?
 		PCI_BASE_ADDRESS_IO_MASK : PCI_BASE_ADDRESS_MEM_MASK;
 }
 
-static uint32_t pci_bar_get(pcidevaddr_t dev, int bar_num)
+uint32_t pci_bar_get(pcidevaddr_t dev, int bar_num)
 {
 	return pci_config_readl(dev, PCI_BASE_ADDRESS_0 + bar_num * 4);
 }
@@ -127,7 +127,7 @@ bool pci_bar_is64(pcidevaddr_t dev, int bar_num)
 		      PCI_BASE_ADDRESS_MEM_TYPE_64;
 }
 
-static void pci_bar_print(pcidevaddr_t dev, int bar_num)
+void pci_bar_print(pcidevaddr_t dev, int bar_num)
 {
 	phys_addr_t size, start, end;
 	uint32_t bar;
@@ -173,7 +173,7 @@ static void pci_bar_print(pcidevaddr_t dev, int bar_num)
 	printf("]");
 }
 
-static void pci_dev_print_id(pcidevaddr_t dev)
+void pci_dev_print_id(pcidevaddr_t dev)
 {
 	printf("00.%02x.%1x %04x:%04x", dev / 8, dev % 8,
 		pci_config_readw(dev, PCI_VENDOR_ID),
