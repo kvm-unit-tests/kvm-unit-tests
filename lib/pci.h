@@ -15,6 +15,7 @@ enum {
 	PCIDEVADDR_INVALID = 0xffff,
 };
 
+extern bool pci_dev_exists(pcidevaddr_t dev);
 extern pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id);
 
 /*

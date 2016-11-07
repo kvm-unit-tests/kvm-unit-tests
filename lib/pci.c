@@ -7,6 +7,12 @@
 #include "pci.h"
 #include "asm/pci.h"
 
+bool pci_dev_exists(pcidevaddr_t dev)
+{
+	return (pci_config_readw(dev, PCI_VENDOR_ID) != 0xffff &&
+		pci_config_readw(dev, PCI_DEVICE_ID) != 0xffff);
+}
+
 /* Scan bus look for a specific device. Only bus 0 scanned for now. */
 pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id)
 {
