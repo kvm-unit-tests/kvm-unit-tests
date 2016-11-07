@@ -50,4 +50,10 @@ static inline void pci_config_writel(pcidevaddr_t dev, uint8_t reg,
     outl(val, 0xCFC);
 }
 
+static inline
+phys_addr_t pci_translate_addr(pcidevaddr_t dev __unused, uint64_t addr)
+{
+    return addr;
+}
+
 #endif

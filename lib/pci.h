@@ -16,7 +16,22 @@ enum {
 };
 
 extern pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id);
-extern unsigned long pci_bar_addr(pcidevaddr_t dev, int bar_num);
+
+/*
+ * @bar_num in all BAR access functions below is the index of the 32-bit
+ * register starting from the PCI_BASE_ADDRESS_0 offset.
+ *
+ * In cases where the BAR size is 64-bit, a caller should still provide
+ * @bar_num in terms of 32-bit words. For example, if a device has a 64-bit
+ * BAR#0 and a 32-bit BAR#1, then caller should provide 2 to address BAR#1,
+ * not 1.
+ *
+ * It is expected the caller is aware of the device BAR layout and never
+ * tries to address the middle of a 64-bit register.
+ */
+extern phys_addr_t pci_bar_addr(pcidevaddr_t dev, int bar_num);
+extern phys_addr_t pci_bar_size(pcidevaddr_t dev, int bar_num);
+extern bool pci_bar_is64(pcidevaddr_t dev, int bar_num);
 extern bool pci_bar_is_memory(pcidevaddr_t dev, int bar_num);
 extern bool pci_bar_is_valid(pcidevaddr_t dev, int bar_num);
 
