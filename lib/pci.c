@@ -21,9 +21,14 @@ pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id)
 	return PCIDEVADDR_INVALID;
 }
 
+static uint32_t pci_bar_get(pcidevaddr_t dev, int bar_num)
+{
+	return pci_config_readl(dev, PCI_BASE_ADDRESS_0 + bar_num * 4);
+}
+
 unsigned long pci_bar_addr(pcidevaddr_t dev, int bar_num)
 {
-	uint32_t bar = pci_config_readl(dev, PCI_BASE_ADDRESS_0 + bar_num * 4);
+	uint32_t bar = pci_bar_get(dev, bar_num);
 
 	if (bar & PCI_BASE_ADDRESS_SPACE_IO)
 		return bar & PCI_BASE_ADDRESS_IO_MASK;
@@ -33,12 +38,12 @@ unsigned long pci_bar_addr(pcidevaddr_t dev, int bar_num)
 
 bool pci_bar_is_memory(pcidevaddr_t dev, int bar_num)
 {
-	uint32_t bar = pci_config_readl(dev, PCI_BASE_ADDRESS_0 + bar_num * 4);
+	uint32_t bar = pci_bar_get(dev, bar_num);
 
 	return !(bar & PCI_BASE_ADDRESS_SPACE_IO);
 }
 
 bool pci_bar_is_valid(pcidevaddr_t dev, int bar_num)
 {
-	return pci_config_readl(dev, PCI_BASE_ADDRESS_0 + bar_num * 4);
+	return pci_bar_get(dev, bar_num);
 }
