@@ -13,7 +13,7 @@ pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id)
 	pcidevaddr_t dev;
 
 	for (dev = 0; dev < 256; ++dev) {
-		uint32_t id = pci_config_read(dev, 0);
+		uint32_t id = pci_config_readl(dev, 0);
 
 		if ((id & 0xFFFF) == vendor_id && (id >> 16) == device_id)
 			return dev;
@@ -24,7 +24,7 @@ pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id)
 
 unsigned long pci_bar_addr(pcidevaddr_t dev, int bar_num)
 {
-	uint32_t bar = pci_config_read(dev, PCI_BASE_ADDRESS_0 + bar_num * 4);
+	uint32_t bar = pci_config_readl(dev, PCI_BASE_ADDRESS_0 + bar_num * 4);
 
 	if (bar & PCI_BASE_ADDRESS_SPACE_IO)
 		return bar & PCI_BASE_ADDRESS_IO_MASK;
@@ -34,12 +34,12 @@ unsigned long pci_bar_addr(pcidevaddr_t dev, int bar_num)
 
 bool pci_bar_is_memory(pcidevaddr_t dev, int bar_num)
 {
-	uint32_t bar = pci_config_read(dev, PCI_BASE_ADDRESS_0 + bar_num * 4);
+	uint32_t bar = pci_config_readl(dev, PCI_BASE_ADDRESS_0 + bar_num * 4);
 
 	return !(bar & PCI_BASE_ADDRESS_SPACE_IO);
 }
 
 bool pci_bar_is_valid(pcidevaddr_t dev, int bar_num)
 {
-	return pci_config_read(dev, PCI_BASE_ADDRESS_0 + bar_num * 4);
+	return pci_config_readl(dev, PCI_BASE_ADDRESS_0 + bar_num * 4);
 }

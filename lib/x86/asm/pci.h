@@ -9,7 +9,7 @@
 #include "pci.h"
 #include "x86/asm/io.h"
 
-static inline uint32_t pci_config_read(pcidevaddr_t dev, uint8_t reg)
+static inline uint32_t pci_config_readl(pcidevaddr_t dev, uint8_t reg)
 {
     uint32_t index = reg | (dev << 8) | (0x1 << 31);
     outl(index, 0xCF8);
