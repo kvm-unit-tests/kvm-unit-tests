@@ -32,7 +32,7 @@ static uint32_t pci_bar_get(pcidevaddr_t dev, int bar_num)
 	return pci_config_readl(dev, PCI_BASE_ADDRESS_0 + bar_num * 4);
 }
 
-phys_addr_t pci_bar_addr(pcidevaddr_t dev, int bar_num)
+phys_addr_t pci_bar_get_addr(pcidevaddr_t dev, int bar_num)
 {
 	uint32_t bar = pci_bar_get(dev, bar_num);
 	uint32_t mask = pci_bar_mask(bar);
@@ -42,6 +42,16 @@ phys_addr_t pci_bar_addr(pcidevaddr_t dev, int bar_num)
 		addr |= (uint64_t)pci_bar_get(dev, bar_num + 1) << 32;
 
 	return pci_translate_addr(dev, addr);
+}
+
+void pci_bar_set_addr(pcidevaddr_t dev, int bar_num, phys_addr_t addr)
+{
+	int off = PCI_BASE_ADDRESS_0 + bar_num * 4;
+
+	pci_config_writel(dev, off, (uint32_t)addr);
+
+	if (pci_bar_is64(dev, bar_num))
+		pci_config_writel(dev, off + 4, (uint32_t)(addr >> 32));
 }
 
 /*

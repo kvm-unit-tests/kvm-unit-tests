@@ -29,7 +29,8 @@ extern pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id);
  * It is expected the caller is aware of the device BAR layout and never
  * tries to address the middle of a 64-bit register.
  */
-extern phys_addr_t pci_bar_addr(pcidevaddr_t dev, int bar_num);
+extern phys_addr_t pci_bar_get_addr(pcidevaddr_t dev, int bar_num);
+extern void pci_bar_set_addr(pcidevaddr_t dev, int bar_num, phys_addr_t addr);
 extern phys_addr_t pci_bar_size(pcidevaddr_t dev, int bar_num);
 extern bool pci_bar_is64(pcidevaddr_t dev, int bar_num);
 extern bool pci_bar_is_memory(pcidevaddr_t dev, int bar_num);

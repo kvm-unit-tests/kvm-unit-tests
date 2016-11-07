@@ -392,10 +392,10 @@ int main(int ac, char **av)
 				continue;
 			}
 			if (pci_bar_is_memory(pcidev, i)) {
-				membar = pci_bar_addr(pcidev, i);
+				membar = pci_bar_get_addr(pcidev, i);
 				pci_test.memaddr = ioremap(membar, PAGE_SIZE);
 			} else {
-				pci_test.iobar = pci_bar_addr(pcidev, i);
+				pci_test.iobar = pci_bar_get_addr(pcidev, i);
 			}
 		}
 		printf("pci-testdev at 0x%x membar %lx iobar %x\n",
