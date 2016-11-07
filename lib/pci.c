@@ -13,9 +13,8 @@ pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id)
 	pcidevaddr_t dev;
 
 	for (dev = 0; dev < 256; ++dev) {
-		uint32_t id = pci_config_readl(dev, 0);
-
-		if ((id & 0xFFFF) == vendor_id && (id >> 16) == device_id)
+		if (pci_config_readw(dev, PCI_VENDOR_ID) == vendor_id &&
+		    pci_config_readw(dev, PCI_DEVICE_ID) == device_id)
 			return dev;
 	}
 
