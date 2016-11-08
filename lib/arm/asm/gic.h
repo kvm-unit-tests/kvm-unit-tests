@@ -6,11 +6,11 @@
 #ifndef _ASMARM_GIC_H_
 #define _ASMARM_GIC_H_
 
-#include <asm/gic-v2.h>
 
 /* Distributor registers */
 #define GICD_CTLR			0x0000
 #define GICD_TYPER			0x0004
+#define GICD_IGROUPR			0x0080
 #define GICD_ISENABLER			0x0100
 #define GICD_IPRIORITYR			0x0400
 #define GICD_SGIR			0x0f00
@@ -27,6 +27,9 @@
 
 #define GICC_INT_PRI_THRESHOLD		0xf0
 #define GICC_INT_SPURIOUS		0x3ff
+
+#include <asm/gic-v2.h>
+#include <asm/gic-v3.h>
 
 #ifndef __ASSEMBLY__
 
