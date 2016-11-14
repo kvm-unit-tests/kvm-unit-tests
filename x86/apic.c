@@ -104,6 +104,28 @@ void test_enable_x2apic(void)
     }
 }
 
+static void test_apic_disable(void)
+{
+    u64 orig_apicbase = rdmsr(MSR_IA32_APICBASE);
+
+    report_prefix_push("apic_disable");
+
+    report("Local apic enabled", orig_apicbase & APIC_EN);
+    report("CPUID.1H:EDX.APIC[bit 9] is set", cpuid(1).d & (1 << 9));
+
+    wrmsr(MSR_IA32_APICBASE, orig_apicbase & ~(APIC_EN | APIC_EXTD));
+    report("Local apic disabled", !(rdmsr(MSR_IA32_APICBASE) & APIC_EN));
+    report("CPUID.1H:EDX.APIC[bit 9] is clear", !(cpuid(1).d & (1 << 9)));
+
+    wrmsr(MSR_IA32_APICBASE, orig_apicbase & ~APIC_EXTD);
+    wrmsr(MSR_IA32_APICBASE, orig_apicbase);
+    apic_write(APIC_SPIV, 0x1ff);
+    report("Local apic enabled", rdmsr(MSR_IA32_APICBASE) & APIC_EN);
+    report("CPUID.1H:EDX.APIC[bit 9] is set", cpuid(1).d & (1 << 9));
+
+    report_prefix_pop();
+}
+
 #define ALTERNATE_APIC_BASE	0x42000000
 
 static void test_apicbase(void)
@@ -398,6 +420,7 @@ int main()
 
     mask_pic_interrupts();
     test_apic_id();
+    test_apic_disable();
     test_enable_x2apic();
     test_apicbase();
 
