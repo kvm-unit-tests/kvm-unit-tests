@@ -42,7 +42,7 @@ else
 	pc_testdev="-device testdev,chardev=testlog -chardev file,id=testlog,path=msr.out"
 fi
 
-command="${qemu} -enable-kvm $pc_testdev -vnc none -serial stdio $pci_testdev $hyperv_testdev -kernel"
+command="${qemu} -nodefaults -enable-kvm $pc_testdev -vnc none -serial stdio $pci_testdev $hyperv_testdev -kernel"
 command="$(timeout_cmd) $command"
 echo ${command} "$@"
 

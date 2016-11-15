@@ -43,7 +43,7 @@ fi
 
 M='-machine pseries'
 M+=",accel=$ACCEL"
-command="$qemu $M -bios $FIRMWARE"
+command="$qemu -nodefaults $M -bios $FIRMWARE"
 command+=" -display none -serial stdio -kernel"
 command="$(timeout_cmd) $command"
 echo $command "$@"
