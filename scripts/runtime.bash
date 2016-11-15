@@ -92,7 +92,7 @@ function run()
         fi
     done
 
-    last_line=$(premature_failure) && {
+    last_line=$(premature_failure > >(tail -1)) && {
         echo "`SKIP` $1 ($last_line)"
         return 77
     }
@@ -115,6 +115,8 @@ function run()
         echo "`SKIP` $1 $summary"
     elif [ $ret -eq 124 ]; then
         echo "`FAIL` $1 (timeout; duration=$timeout)"
+    elif [ $ret -gt 127 ]; then
+        echo "`FAIL` $1 (terminated on SIG$(kill -l $(($ret - 128))))"
     else
         echo "`FAIL` $1 $summary"
     fi
