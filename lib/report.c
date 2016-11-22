@@ -118,12 +118,14 @@ void report_abort(const char *msg_fmt, ...)
 {
 	va_list va;
 
+	spin_lock(&lock);
 	puts("ABORT: ");
 	puts(prefixes);
 	va_start(va, msg_fmt);
 	vprintf(msg_fmt, va);
 	va_end(va);
 	puts("\n");
+	spin_unlock(&lock);
 	report_summary();
 	abort();
 }
