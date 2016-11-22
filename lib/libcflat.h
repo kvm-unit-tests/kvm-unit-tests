@@ -82,6 +82,7 @@ extern void report(const char *msg_fmt, bool pass, ...);
 extern void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...);
 extern void report_abort(const char *msg_fmt, ...);
 extern void report_skip(const char *msg_fmt, ...);
+extern void report_info(const char *msg_fmt, ...);
 extern int report_summary(void);
 
 extern void dump_stack(void);

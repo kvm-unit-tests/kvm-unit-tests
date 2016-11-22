@@ -91,6 +91,20 @@ void report_skip(const char *msg_fmt, ...)
 	va_end(va);
 }
 
+void report_info(const char *msg_fmt, ...)
+{
+	va_list va;
+
+	spin_lock(&lock);
+	puts("INFO: ");
+	puts(prefixes);
+	va_start(va, msg_fmt);
+	vprintf(msg_fmt, va);
+	va_end(va);
+	puts("\n");
+	spin_unlock(&lock);
+}
+
 int report_summary(void)
 {
 	spin_lock(&lock);
