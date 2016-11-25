@@ -271,7 +271,7 @@ phys_addr_t pci_host_bridge_get_paddr(u64 pci_addr)
 		as++;
 	}
 
-	return 0;
+	return INVALID_PHYS_ADDR;
 }
 
 static void __iomem *pci_get_dev_conf(struct pci_host_bridge *host, int devfn)

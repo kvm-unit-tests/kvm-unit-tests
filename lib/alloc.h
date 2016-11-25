@@ -58,8 +58,6 @@ static inline void *memalign(size_t alignment, size_t size)
 	return alloc_ops->memalign(alignment, size);
 }
 
-#define INVALID_PHYS_ADDR (~(phys_addr_t)0)
-
 /*
  * phys_alloc is a very simple allocator which allows physical memory
  * to be partitioned into regions until all memory is allocated.

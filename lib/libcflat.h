@@ -61,6 +61,7 @@ typedef _Bool		bool;
 #define PRIxPTR __PRIPTR_PREFIX	"x"
 
 typedef u64			phys_addr_t;
+#define INVALID_PHYS_ADDR	(~(phys_addr_t)0)
 
 extern void puts(const char *s);
 extern void exit(int code);
