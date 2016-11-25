@@ -170,7 +170,7 @@ static bool pci_alloc_resource(pcidevaddr_t dev, int bar_num, u64 *addr)
 	struct pci_host_bridge *host = pci_host_bridge;
 	struct pci_addr_space *as = &host->addr_space[0];
 	u32 bar;
-	u64 size;
+	u64 size, pci_addr;
 	int type, i;
 
 	*addr = ~0;
@@ -199,8 +199,10 @@ static bool pci_alloc_resource(pcidevaddr_t dev, int bar_num, u64 *addr)
 		return false;
 	}
 
+	pci_addr = ALIGN(as->pci_start + as->allocated, size);
+	size += pci_addr - (as->pci_start + as->allocated);
 	assert(as->allocated + size <= as->size);
-	*addr = as->pci_start + as->allocated;
+	*addr = pci_addr;
 	as->allocated += size;
 
 	return true;
