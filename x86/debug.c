@@ -112,6 +112,37 @@ hw_bp2:
 	       bp_addr[1] == start+1+6+1 && dr6[1] == 0xffff4ff0 &&
 	       bp_addr[2] == start+1+6+1+1 && dr6[2] == 0xffff4ff0);
 
+	/*
+	 * cpuid and rdmsr (among others) trigger VM exits and are then
+	 * emulated. Test that single stepping works on emulated instructions.
+	 */
+	n = 0;
+	set_dr6(0);
+	asm volatile(
+		"pushf\n\t"
+		"pop %%rax\n\t"
+		"or $(1<<8),%%rax\n\t"
+		"push %%rax\n\t"
+		"lea (%%rip),%0\n\t"
+		"popf\n\t"
+		"and $~(1<<8),%%rax\n\t"
+		"push %%rax\n\t"
+		"xor %%rax,%%rax\n\t"
+		"cpuid\n\t"
+		"movl $0x1a0,%%ecx\n\t"
+		"rdmsr\n\t"
+		"popf\n\t"
+		: "=g" (start) : : "rax", "ebx", "ecx", "edx");
+	report("single step emulated instructions",
+	       n == 7 &&
+	       bp_addr[0] == start+1+6 && dr6[0] == 0xffff4ff0 &&
+	       bp_addr[1] == start+1+6+1 && dr6[1] == 0xffff4ff0 &&
+	       bp_addr[2] == start+1+6+1+3 && dr6[2] == 0xffff4ff0 &&
+	       bp_addr[3] == start+1+6+1+3+2 && dr6[3] == 0xffff4ff0 &&
+	       bp_addr[4] == start+1+6+1+3+2+5 && dr6[4] == 0xffff4ff0 &&
+	       bp_addr[5] == start+1+6+1+3+2+5+2 && dr6[5] == 0xffff4ff0 &&
+	       bp_addr[6] == start+1+6+1+3+2+5+2+1 && dr6[6] == 0xffff4ff0);
+
 	n = 0;
 	set_dr1((void *)&value);
 	set_dr7(0x00d0040a);
