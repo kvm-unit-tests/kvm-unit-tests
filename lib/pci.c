@@ -43,11 +43,15 @@ phys_addr_t pci_bar_get_addr(pcidevaddr_t dev, int bar_num)
 	uint32_t bar = pci_bar_get(dev, bar_num);
 	uint32_t mask = pci_bar_mask(bar);
 	uint64_t addr = bar & mask;
+	phys_addr_t phys_addr;
 
 	if (pci_bar_is64(dev, bar_num))
 		addr |= (uint64_t)pci_bar_get(dev, bar_num + 1) << 32;
 
-	return pci_translate_addr(dev, addr);
+	phys_addr = pci_translate_addr(dev, addr);
+	assert(phys_addr != INVALID_PHYS_ADDR);
+
+	return phys_addr;
 }
 
 void pci_bar_set_addr(pcidevaddr_t dev, int bar_num, phys_addr_t addr)
