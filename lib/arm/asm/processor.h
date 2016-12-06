@@ -6,6 +6,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <asm/ptrace.h>
+#include <asm/sysreg.h>
 
 enum vector {
 	EXCPTN_RST,
@@ -33,11 +34,10 @@ static inline unsigned long current_cpsr(void)
 
 #define current_mode() (current_cpsr() & MODE_MASK)
 
+#define MPIDR __ACCESS_CP15(c0, 0, c0, 5)
 static inline unsigned int get_mpidr(void)
 {
-	unsigned int mpidr;
-	asm volatile("mrc p15, 0, %0, c0, c0, 5" : "=r" (mpidr));
-	return mpidr;
+	return read_sysreg(MPIDR);
 }
 
 /* Only support Aff0 for now, up to 4 cpus */
