@@ -12,7 +12,8 @@ endif
 tests-common = \
 	$(TEST_DIR)/selftest.flat \
 	$(TEST_DIR)/spinlock-test.flat \
-	$(TEST_DIR)/pci-test.flat
+	$(TEST_DIR)/pci-test.flat \
+	$(TEST_DIR)/pmu.flat
 
 all: test_cases
 
