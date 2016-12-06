@@ -1,5 +1,5 @@
-#ifndef _ASMARM_CP15_H_
-#define _ASMARM_CP15_H_
+#ifndef _ASMARM_SYSREG_H_
+#define _ASMARM_SYSREG_H_
 /*
  * From the Linux kernel arch/arm/include/asm/cp15.h
  *
@@ -34,4 +34,4 @@
 #define CR_AFE	(1 << 29)	/* Access flag enable			*/
 #define CR_TE	(1 << 30)	/* Thumb exception enable		*/
 
-#endif /* _ASMARM_CP15_H_ */
+#endif /* _ASMARM_SYSREG_H_ */
