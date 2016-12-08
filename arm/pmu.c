@@ -28,15 +28,15 @@
 #define PMU_PMCR_IMP_SHIFT 24
 #define PMU_PMCR_IMP_MASK  0xff
 
-#define ID_DFR0_PERFMON_SHIFT 24
-#define ID_DFR0_PERFMON_MASK  0xf
-
-#define PMU_CYCLE_IDX         31
+#define PMU_CYCLE_IDX      31
 
 #define NR_SAMPLES 10
 
 static unsigned int pmu_version;
 #if defined(__arm__)
+#define ID_DFR0_PERFMON_SHIFT 24
+#define ID_DFR0_PERFMON_MASK  0xf
+
 #define PMCR         __ACCESS_CP15(c9, 0, c12, 0)
 #define ID_DFR0      __ACCESS_CP15(c0, 0, c1, 2)
 #define PMSELR       __ACCESS_CP15(c9, 0, c12, 5)
@@ -49,6 +49,11 @@ static inline uint32_t get_id_dfr0(void) { return read_sysreg(ID_DFR0); }
 static inline uint32_t get_pmcr(void) { return read_sysreg(PMCR); }
 static inline void set_pmcr(uint32_t v) { write_sysreg(v, PMCR); }
 static inline void set_pmcntenset(uint32_t v) { write_sysreg(v, PMCNTENSET); }
+
+static inline uint8_t get_pmu_version(void)
+{
+	return (get_id_dfr0() >> ID_DFR0_PERFMON_SHIFT) & ID_DFR0_PERFMON_MASK;
+}
 
 static inline uint64_t get_pmccntr(void)
 {
@@ -95,13 +100,22 @@ static inline void precise_instrs_loop(int loop, uint32_t pmcr)
 	: "cc");
 }
 #elif defined(__aarch64__)
-static inline uint32_t get_id_dfr0(void) { return read_sysreg(id_dfr0_el1); }
+#define ID_AA64DFR0_PERFMON_SHIFT 8
+#define ID_AA64DFR0_PERFMON_MASK  0xf
+
+static inline uint32_t get_id_aa64dfr0(void) { return read_sysreg(id_aa64dfr0_el1); }
 static inline uint32_t get_pmcr(void) { return read_sysreg(pmcr_el0); }
 static inline void set_pmcr(uint32_t v) { write_sysreg(v, pmcr_el0); }
 static inline uint64_t get_pmccntr(void) { return read_sysreg(pmccntr_el0); }
 static inline void set_pmccntr(uint64_t v) { write_sysreg(v, pmccntr_el0); }
 static inline void set_pmcntenset(uint32_t v) { write_sysreg(v, pmcntenset_el0); }
 static inline void set_pmccfiltr(uint32_t v) { write_sysreg(v, pmccfiltr_el0); }
+
+static inline uint8_t get_pmu_version(void)
+{
+	uint8_t ver = (get_id_aa64dfr0() >> ID_AA64DFR0_PERFMON_SHIFT) & ID_AA64DFR0_PERFMON_MASK;
+	return ver == 1 ? 3 : ver;
+}
 
 /*
  * Extra instructions inserted by the compiler would be difficult to compensate
@@ -256,16 +270,9 @@ static bool check_cpi(int cpi)
 /* Return FALSE if no PMU found, otherwise return TRUE */
 bool pmu_probe(void)
 {
-	uint32_t dfr0;
-
-	/* probe pmu version */
-	dfr0 = get_id_dfr0();
-	pmu_version = (dfr0 >> ID_DFR0_PERFMON_SHIFT) & ID_DFR0_PERFMON_MASK;
-
-	if (pmu_version)
-		report_info("PMU version: %d", pmu_version);
-
-	return pmu_version;
+	pmu_version = get_pmu_version();
+	report_info("PMU version: %d", pmu_version);
+	return pmu_version != 0 && pmu_version != 0xf;
 }
 
 int main(int argc, char *argv[])
