@@ -126,11 +126,16 @@ void setup(const void *fdt)
 	ret = dt_init(&stacktop);
 	assert(ret == 0);
 
-	mem_init(PAGE_ALIGN((unsigned long)&stacktop + fdt_size));
-	io_init();
 	cpu_init();
 
+	/* cpu_init must be called before thread_info_init */
 	thread_info_init(current_thread_info(), 0);
+
+	/* thread_info_init must be called before mem_init */
+	mem_init(PAGE_ALIGN((unsigned long)&stacktop + fdt_size));
+
+	/* mem_init must be called before io_init */
+	io_init();
 
 	ret = dt_get_bootargs(&bootargs);
 	assert(ret == 0);
