@@ -24,7 +24,7 @@ extern unsigned long stacktop;
 extern void io_init(void);
 extern void setup_args_progname(const char *args);
 
-u32 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (~0U) };
+u64 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (u64)~0 };
 int nr_cpus;
 
 struct mem_region mem_regions[NR_MEM_REGIONS];

@@ -46,7 +46,7 @@ static inline void local_irq_disable(void)
 }
 
 #define MPIDR __ACCESS_CP15(c0, 0, c0, 5)
-static inline unsigned int get_mpidr(void)
+static inline uint64_t get_mpidr(void)
 {
 	return read_sysreg(MPIDR);
 }

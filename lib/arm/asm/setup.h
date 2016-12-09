@@ -11,7 +11,7 @@
 #include <asm/pgtable-hwdef.h>
 
 #define NR_CPUS			255
-extern u32 cpus[NR_CPUS];	/* per-cpu IDs (MPIDRs) */
+extern u64 cpus[NR_CPUS];	/* per-cpu IDs (MPIDRs) */
 extern int nr_cpus;
 
 #define NR_MEM_REGIONS		8

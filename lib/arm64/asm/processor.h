@@ -78,7 +78,7 @@ static inline void local_irq_disable(void)
 	asm volatile("msr daifset, #2" : : : "memory");
 }
 
-static inline unsigned int get_mpidr(void)
+static inline uint64_t get_mpidr(void)
 {
 	return read_sysreg(mpidr_el1);
 }
