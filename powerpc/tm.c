@@ -14,7 +14,7 @@
 #include <devicetree.h>
 
 /* Check "ibm,pa-features" property of a CPU node for the TM flag */
-static void cpu_has_tm(int fdtnode, u32 regval __unused, void *ptr)
+static void cpu_has_tm(int fdtnode, u64 regval __unused, void *ptr)
 {
 	const struct fdt_property *prop;
 	int plen;

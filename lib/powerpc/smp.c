@@ -75,7 +75,7 @@ struct start_threads start_cpu(int cpu_node, secondary_entry_fn entry,
 	return (struct start_threads) { nr_threads, nr_started };
 }
 
-static void start_each_secondary(int fdtnode, u32 regval __unused, void *info)
+static void start_each_secondary(int fdtnode, u64 regval __unused, void *info)
 {
 	struct secondary_entry_data *datap = info;
 	struct start_threads ret = start_cpu(fdtnode, datap->entry, datap->r3);

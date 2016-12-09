@@ -202,13 +202,14 @@ int dt_get_memory_params(struct dt_pbus_reg *regs, int nr_regs)
 	return node != -FDT_ERR_NOTFOUND ? node : nr;
 }
 
-int dt_for_each_cpu_node(void (*func)(int fdtnode, u32 regval, void *info),
+int dt_for_each_cpu_node(void (*func)(int fdtnode, u64 regval, void *info),
 			 void *info)
 {
 	const struct fdt_property *prop;
 	int cpus, cpu, ret, len;
 	struct dt_reg raw_reg;
 	u32 nac, nsc;
+	u64 regval;
 
 	cpus = fdt_path_offset(fdt, "/cpus");
 	if (cpus < 0)
@@ -233,7 +234,11 @@ int dt_for_each_cpu_node(void (*func)(int fdtnode, u32 regval, void *info),
 		if (ret < 0)
 			return ret;
 
-		func(cpu, raw_reg.address_cells[0], info);
+		regval = raw_reg.address_cells[0];
+		if (nac == 2)
+			regval = (regval << 32) | raw_reg.address_cells[1];
+
+		func(cpu, regval, info);
 	}
 
 	return 0;

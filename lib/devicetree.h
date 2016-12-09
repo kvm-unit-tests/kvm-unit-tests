@@ -234,7 +234,7 @@ extern int dt_get_memory_params(struct dt_pbus_reg *regs, int nr_regs);
  *  - zero on success
  *  - a negative FDT_ERR_* value on failure
  */
-extern int dt_for_each_cpu_node(void (*func)(int fdtnode, u32 regval,
+extern int dt_for_each_cpu_node(void (*func)(int fdtnode, u64 regval,
 				void *info), void *info);
 
 #endif /* _DEVICETREE_H_ */
