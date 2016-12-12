@@ -4,6 +4,7 @@ ldarch = elf64-x86-64
 CFLAGS += -mno-red-zone
 
 cflatobjs += lib/x86/setjmp64.o
+cflatobjs += lib/x86/intel-iommu.o
 
 tests = $(TEST_DIR)/access.flat $(TEST_DIR)/apic.flat \
 	  $(TEST_DIR)/emulator.flat $(TEST_DIR)/idt_test.flat \
@@ -14,6 +15,7 @@ tests = $(TEST_DIR)/access.flat $(TEST_DIR)/apic.flat \
 tests += $(TEST_DIR)/svm.flat
 tests += $(TEST_DIR)/vmx.flat
 tests += $(TEST_DIR)/tscdeadline_latency.flat
+tests += $(TEST_DIR)/intel-iommu.flat
 
 include $(TEST_DIR)/Makefile.common
 
