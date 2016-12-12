@@ -79,3 +79,9 @@ You can add the following to .git/config to do this automatically for you:
     [format]
         subjectprefix = kvm-unit-tests PATCH
 
+Additionally it's helpful to have a common order of file types in patches.
+Our chosen order attempts to place the more declarative files before
+the code files. We also start with common code and finish with unit test
+code. git-diff's orderFile feature allows us to specify the order in a
+file. The orderFile we use is `scripts/git.difforder`. Adding the config
+with `git config diff.orderFile scripts/git.difforder` enables it.
