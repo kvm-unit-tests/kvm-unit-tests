@@ -141,5 +141,6 @@ static inline uint64_t vtd_readq(unsigned int reg)
 
 void vtd_init(void);
 void vtd_map_range(uint16_t sid, phys_addr_t iova, phys_addr_t pa, size_t size);
+bool vtd_setup_msi(struct pci_dev *dev, int vector, int dest_id);
 
 #endif

@@ -32,6 +32,7 @@
 #define EDU_REG_ALIVE               0x4
 #define EDU_REG_FACTORIAL           0x8
 #define EDU_REG_STATUS              0x20
+#define EDU_REG_INTR_RAISE          0x60
 #define EDU_REG_DMA_SRC             0x80
 #define EDU_REG_DMA_DST             0x88
 #define EDU_REG_DMA_COUNT           0x90

@@ -12,6 +12,7 @@
 
 #include "intel-iommu.h"
 #include "libcflat.h"
+#include "pci.h"
 
 /*
  * VT-d in QEMU currently only support 39 bits address width, which is
@@ -47,6 +48,26 @@ struct vtd_context_entry {
 	uint64_t __reserved_3:40;
 } __attribute__ ((packed));
 typedef struct vtd_context_entry vtd_ce_t;
+
+struct vtd_irte {
+	uint32_t present:1;
+	uint32_t fault_disable:1;    /* Fault Processing Disable */
+	uint32_t dest_mode:1;        /* Destination Mode */
+	uint32_t redir_hint:1;       /* Redirection Hint */
+	uint32_t trigger_mode:1;     /* Trigger Mode */
+	uint32_t delivery_mode:3;    /* Delivery Mode */
+	uint32_t __avail:4;          /* Available spaces for software */
+	uint32_t __reserved_0:3;     /* Reserved 0 */
+	uint32_t irte_mode:1;        /* IRTE Mode */
+	uint32_t vector:8;           /* Interrupt Vector */
+	uint32_t __reserved_1:8;     /* Reserved 1 */
+	uint32_t dest_id;            /* Destination ID */
+	uint16_t source_id:16;       /* Source-ID */
+	uint64_t sid_q:2;            /* Source-ID Qualifier */
+	uint64_t sid_vtype:2;        /* Source-ID Validation Type */
+	uint64_t __reserved_2:44;    /* Reserved 2 */
+} __attribute__ ((packed));
+typedef struct vtd_irte vtd_irte_t;
 
 #define VTD_RTA_MASK  (PAGE_MASK)
 #define VTD_IRTA_MASK (PAGE_MASK)
@@ -214,6 +235,79 @@ void vtd_map_range(uint16_t sid, iova_t iova, phys_addr_t pa, size_t size)
 		iova += VTD_PAGE_SIZE;
 		pa += VTD_PAGE_SIZE;
 	}
+}
+
+static uint16_t vtd_intr_index_alloc(void)
+{
+	static int index_ctr = 0;
+	assert(index_ctr < 65535);
+	return index_ctr++;
+}
+
+static void vtd_setup_irte(struct pci_dev *dev, vtd_irte_t *irte,
+			   int vector, int dest_id)
+{
+	assert(sizeof(vtd_irte_t) == 16);
+	memset(irte, 0, sizeof(*irte));
+	irte->fault_disable = 1;
+	irte->dest_mode = 0;	 /* physical */
+	irte->trigger_mode = 0;	 /* edge */
+	irte->delivery_mode = 0; /* fixed */
+	irte->irte_mode = 0;	 /* remapped */
+	irte->vector = vector;
+	irte->dest_id = dest_id;
+	irte->source_id = dev->bdf;
+	irte->sid_q = 0;
+	irte->sid_vtype = 1;     /* full-sid verify */
+	irte->present = 1;
+}
+
+struct vtd_msi_addr {
+	uint32_t __dont_care:2;
+	uint32_t handle_15:1;	 /* handle[15] */
+	uint32_t shv:1;
+	uint32_t interrupt_format:1;
+	uint32_t handle_0_14:15; /* handle[0:14] */
+	uint32_t head:12;	 /* 0xfee */
+	uint32_t addr_hi;	 /* not used except with x2apic */
+} __attribute__ ((packed));
+typedef struct vtd_msi_addr vtd_msi_addr_t;
+
+struct vtd_msi_data {
+	uint16_t __reserved;
+	uint16_t subhandle;
+} __attribute__ ((packed));
+typedef struct vtd_msi_data vtd_msi_data_t;
+
+/**
+ * vtd_setup_msi - setup MSI message for a device
+ *
+ * @dev: PCI device to setup MSI
+ * @vector: interrupt vector
+ * @dest_id: destination processor
+ */
+bool vtd_setup_msi(struct pci_dev *dev, int vector, int dest_id)
+{
+	vtd_msi_data_t msi_data = {};
+	vtd_msi_addr_t msi_addr = {};
+	vtd_irte_t *irte = phys_to_virt(vtd_ir_table());
+	uint16_t index = vtd_intr_index_alloc();
+
+	assert(sizeof(vtd_msi_addr_t) == 8);
+	assert(sizeof(vtd_msi_data_t) == 4);
+
+	printf("INTR: setup IRTE index %d\n", index);
+	vtd_setup_irte(dev, irte + index, vector, dest_id);
+
+	msi_addr.handle_15 = index >> 15 & 1;
+	msi_addr.shv = 0;
+	msi_addr.interrupt_format = 1;
+	msi_addr.handle_0_14 = index & 0x7fff;
+	msi_addr.head = 0xfee;
+	msi_data.subhandle = 0;
+
+	return pci_setup_msi(dev, *(uint64_t *)&msi_addr,
+			     *(uint32_t *)&msi_data);
 }
 
 void vtd_init(void)
