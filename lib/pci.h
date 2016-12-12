@@ -15,6 +15,14 @@ enum {
 	PCIDEVADDR_INVALID = 0xffff,
 };
 
+#define PCI_DEVFN_MAX                   256
+
+struct pci_dev {
+	uint16_t bdf;
+};
+
+extern void pci_dev_init(struct pci_dev *dev, pcidevaddr_t bdf);
+
 extern bool pci_probe(void);
 extern void pci_print(void);
 extern bool pci_dev_exists(pcidevaddr_t dev);
@@ -32,15 +40,15 @@ extern pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id);
  * It is expected the caller is aware of the device BAR layout and never
  * tries to address the middle of a 64-bit register.
  */
-extern phys_addr_t pci_bar_get_addr(pcidevaddr_t dev, int bar_num);
-extern void pci_bar_set_addr(pcidevaddr_t dev, int bar_num, phys_addr_t addr);
-extern phys_addr_t pci_bar_size(pcidevaddr_t dev, int bar_num);
-extern uint32_t pci_bar_get(pcidevaddr_t dev, int bar_num);
+extern phys_addr_t pci_bar_get_addr(struct pci_dev *dev, int bar_num);
+extern void pci_bar_set_addr(struct pci_dev *dev, int bar_num, phys_addr_t addr);
+extern phys_addr_t pci_bar_size(struct pci_dev *dev, int bar_num);
+extern uint32_t pci_bar_get(struct pci_dev *dev, int bar_num);
 extern uint32_t pci_bar_mask(uint32_t bar);
-extern bool pci_bar_is64(pcidevaddr_t dev, int bar_num);
-extern bool pci_bar_is_memory(pcidevaddr_t dev, int bar_num);
-extern bool pci_bar_is_valid(pcidevaddr_t dev, int bar_num);
-extern void pci_bar_print(pcidevaddr_t dev, int bar_num);
+extern bool pci_bar_is64(struct pci_dev *dev, int bar_num);
+extern bool pci_bar_is_memory(struct pci_dev *dev, int bar_num);
+extern bool pci_bar_is_valid(struct pci_dev *dev, int bar_num);
+extern void pci_bar_print(struct pci_dev *dev, int bar_num);
 extern void pci_dev_print_id(pcidevaddr_t dev);
 
 extern int pci_testdev(void);

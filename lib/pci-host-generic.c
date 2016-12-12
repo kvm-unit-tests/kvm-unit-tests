@@ -165,7 +165,7 @@ static struct pci_host_bridge *pci_dt_probe(void)
 	return host;
 }
 
-static bool pci_alloc_resource(pcidevaddr_t dev, int bar_num, u64 *addr)
+static bool pci_alloc_resource(struct pci_dev *dev, int bar_num, u64 *addr)
 {
 	struct pci_host_bridge *host = pci_host_bridge;
 	struct pci_addr_space *as = &host->addr_space[0];
@@ -192,7 +192,7 @@ static bool pci_alloc_resource(pcidevaddr_t dev, int bar_num, u64 *addr)
 
 	if (i >= host->nr_addr_spaces) {
 		printf("%s: warning: can't satisfy request for ", __func__);
-		pci_dev_print_id(dev);
+		pci_dev_print_id(dev->bdf);
 		printf(" ");
 		pci_bar_print(dev, bar_num);
 		printf("\n");
@@ -210,6 +210,7 @@ static bool pci_alloc_resource(pcidevaddr_t dev, int bar_num, u64 *addr)
 
 bool pci_probe(void)
 {
+	struct pci_dev pci_dev;
 	pcidevaddr_t dev;
 	u8 header;
 	u32 cmd;
@@ -220,9 +221,11 @@ bool pci_probe(void)
 	if (!pci_host_bridge)
 		return false;
 
-	for (dev = 0; dev < 256; dev++) {
+	for (dev = 0; dev < PCI_DEVFN_MAX; dev++) {
 		if (!pci_dev_exists(dev))
 			continue;
+
+		pci_dev_init(&pci_dev, dev);
 
 		/* We are only interested in normal PCI devices */
 		header = pci_config_readb(dev, PCI_HEADER_TYPE);
@@ -234,16 +237,16 @@ bool pci_probe(void)
 		for (i = 0; i < 6; i++) {
 			u64 addr;
 
-			if (pci_alloc_resource(dev, i, &addr)) {
-				pci_bar_set_addr(dev, i, addr);
+			if (pci_alloc_resource(&pci_dev, i, &addr)) {
+				pci_bar_set_addr(&pci_dev, i, addr);
 
-				if (pci_bar_is_memory(dev, i))
+				if (pci_bar_is_memory(&pci_dev, i))
 					cmd |= PCI_COMMAND_MEMORY;
 				else
 					cmd |= PCI_COMMAND_IO;
 			}
 
-			if (pci_bar_is64(dev, i))
+			if (pci_bar_is64(&pci_dev, i))
 				i++;
 		}
 

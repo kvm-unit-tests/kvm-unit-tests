@@ -500,7 +500,8 @@ int main(int ac, char **av)
 	struct fadt_descriptor_rev1 *fadt;
 	int i;
 	unsigned long membar = 0;
-	pcidevaddr_t pcidev;
+	struct pci_dev pcidev;
+	int ret;
 
 	smp_init();
 	setup_vm();
@@ -515,21 +516,22 @@ int main(int ac, char **av)
 	pm_tmr_blk = fadt->pm_tmr_blk;
 	printf("PM timer port is %x\n", pm_tmr_blk);
 
-	pcidev = pci_find_dev(PCI_VENDOR_ID_REDHAT, PCI_DEVICE_ID_REDHAT_TEST);
-	if (pcidev != PCIDEVADDR_INVALID) {
+	ret = pci_find_dev(PCI_VENDOR_ID_REDHAT, PCI_DEVICE_ID_REDHAT_TEST);
+	if (ret != PCIDEVADDR_INVALID) {
+		pci_dev_init(&pcidev, ret);
 		for (i = 0; i < PCI_TESTDEV_NUM_BARS; i++) {
-			if (!pci_bar_is_valid(pcidev, i)) {
+			if (!pci_bar_is_valid(&pcidev, i)) {
 				continue;
 			}
-			if (pci_bar_is_memory(pcidev, i)) {
-				membar = pci_bar_get_addr(pcidev, i);
+			if (pci_bar_is_memory(&pcidev, i)) {
+				membar = pci_bar_get_addr(&pcidev, i);
 				pci_test.memaddr = ioremap(membar, PAGE_SIZE);
 			} else {
-				pci_test.iobar = pci_bar_get_addr(pcidev, i);
+				pci_test.iobar = pci_bar_get_addr(&pcidev, i);
 			}
 		}
 		printf("pci-testdev at 0x%x membar %lx iobar %x\n",
-		       pcidev, membar, pci_test.iobar);
+		       pcidev.bdf, membar, pci_test.iobar);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(tests); ++i)
