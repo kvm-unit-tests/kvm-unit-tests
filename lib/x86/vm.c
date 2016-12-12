@@ -48,7 +48,7 @@ unsigned long *install_pte(unsigned long *cr3,
     unsigned offset;
 
     for (level = PAGE_LEVEL; level > pte_level; --level) {
-	offset = ((unsigned long)virt >> ((level-1) * PGDIR_WIDTH + 12)) & PGDIR_MASK;
+	offset = PGDIR_OFFSET((unsigned long)virt, level);
 	if (!(pt[offset] & PT_PRESENT_MASK)) {
 	    unsigned long *new_pt = pt_page;
             if (!new_pt)
@@ -60,7 +60,7 @@ unsigned long *install_pte(unsigned long *cr3,
 	}
 	pt = phys_to_virt(pt[offset] & PT_ADDR_MASK);
     }
-    offset = ((unsigned long)virt >> ((level-1) * PGDIR_WIDTH + 12)) & PGDIR_MASK;
+    offset = PGDIR_OFFSET((unsigned long)virt, level);
     pt[offset] = pte;
     return &pt[offset];
 }
