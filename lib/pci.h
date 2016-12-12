@@ -23,13 +23,17 @@ enum {
 
 struct pci_dev {
 	uint16_t bdf;
+	uint16_t msi_offset;
 	phys_addr_t resource[PCI_BAR_NUM];
 };
 
 extern void pci_dev_init(struct pci_dev *dev, pcidevaddr_t bdf);
 extern void pci_scan_bars(struct pci_dev *dev);
 extern void pci_cmd_set_clr(struct pci_dev *dev, uint16_t set, uint16_t clr);
+extern void pci_cap_walk(struct pci_dev *dev);
 extern void pci_enable_defaults(struct pci_dev *dev);
+extern bool pci_setup_msi(struct pci_dev *dev, uint64_t msi_addr,
+			  uint32_t msi_data);
 
 typedef phys_addr_t iova_t;
 
