@@ -7,6 +7,18 @@
 #include "pci.h"
 #include "asm/pci.h"
 
+void pci_cmd_set_clr(struct pci_dev *dev, uint16_t set, uint16_t clr)
+{
+	uint16_t val = pci_config_readw(dev->bdf, PCI_COMMAND);
+
+	/* No overlap is allowed */
+	assert((set & clr) == 0);
+	val |= set;
+	val &= ~clr;
+
+	pci_config_writew(dev->bdf, PCI_COMMAND, val);
+}
+
 bool pci_dev_exists(pcidevaddr_t dev)
 {
 	return (pci_config_readw(dev, PCI_VENDOR_ID) != 0xffff &&
@@ -245,4 +257,11 @@ void pci_scan_bars(struct pci_dev *dev)
 			dev->resource[i] = (phys_addr_t)0;
 		}
 	}
+}
+
+void pci_enable_defaults(struct pci_dev *dev)
+{
+	pci_scan_bars(dev);
+	/* Enable device DMA operations */
+	pci_cmd_set_clr(dev, PCI_COMMAND_MASTER, 0);
 }
