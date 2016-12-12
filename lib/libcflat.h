@@ -111,4 +111,9 @@ do {									\
 	}								\
 } while (0)
 
+static inline bool is_power_of_2(unsigned long n)
+{
+	return n && !(n & (n - 1));
+}
+
 #endif
