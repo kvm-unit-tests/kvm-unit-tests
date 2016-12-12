@@ -40,6 +40,9 @@
 #define SZ_2M			(1 << 21)
 #define SZ_1G			(1 << 30)
 
+#define MIN(a, b)		((a) < (b) ? (a) : (b))
+#define MAX(a, b)		((a) > (b) ? (a) : (b))
+
 typedef uint8_t		u8;
 typedef int8_t		s8;
 typedef uint16_t	u16;

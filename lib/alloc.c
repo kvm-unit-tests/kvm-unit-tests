@@ -7,9 +7,6 @@
 #include "asm/spinlock.h"
 #include "asm/io.h"
 
-#define MIN(a, b)		((a) < (b) ? (a) : (b))
-#define MAX(a, b)		((a) > (b) ? (a) : (b))
-
 #define PHYS_ALLOC_NR_REGIONS	256
 
 struct phys_alloc_region {
