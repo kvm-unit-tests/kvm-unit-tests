@@ -211,7 +211,7 @@ static void pci_dev_print(pcidevaddr_t dev)
 	if ((header & PCI_HEADER_TYPE_MASK) != PCI_HEADER_TYPE_NORMAL)
 		return;
 
-	for (i = 0; i < 6; i++) {
+	for (i = 0; i < PCI_BAR_NUM; i++) {
 		if (pci_bar_size(&pci_dev, i)) {
 			printf("\t");
 			pci_bar_print(&pci_dev, i);
@@ -229,5 +229,20 @@ void pci_print(void)
 	for (dev = 0; dev < PCI_DEVFN_MAX; ++dev) {
 		if (pci_dev_exists(dev))
 			pci_dev_print(dev);
+	}
+}
+
+void pci_scan_bars(struct pci_dev *dev)
+{
+	int i;
+
+	for (i = 0; i < PCI_BAR_NUM; i++) {
+		if (!pci_bar_is_valid(dev, i))
+			continue;
+		dev->resource[i] = pci_bar_get_addr(dev, i);
+		if (pci_bar_is64(dev, i)) {
+			i++;
+			dev->resource[i] = (phys_addr_t)0;
+		}
 	}
 }

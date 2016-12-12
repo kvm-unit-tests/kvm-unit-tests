@@ -234,7 +234,7 @@ bool pci_probe(void)
 
 		cmd = PCI_COMMAND_SERR | PCI_COMMAND_PARITY;
 
-		for (i = 0; i < 6; i++) {
+		for (i = 0; i < PCI_BAR_NUM; i++) {
 			u64 addr;
 
 			if (pci_alloc_resource(&pci_dev, i, &addr)) {

@@ -519,17 +519,12 @@ int main(int ac, char **av)
 	ret = pci_find_dev(PCI_VENDOR_ID_REDHAT, PCI_DEVICE_ID_REDHAT_TEST);
 	if (ret != PCIDEVADDR_INVALID) {
 		pci_dev_init(&pcidev, ret);
-		for (i = 0; i < PCI_TESTDEV_NUM_BARS; i++) {
-			if (!pci_bar_is_valid(&pcidev, i)) {
-				continue;
-			}
-			if (pci_bar_is_memory(&pcidev, i)) {
-				membar = pci_bar_get_addr(&pcidev, i);
-				pci_test.memaddr = ioremap(membar, PAGE_SIZE);
-			} else {
-				pci_test.iobar = pci_bar_get_addr(&pcidev, i);
-			}
-		}
+		pci_scan_bars(&pcidev);
+		assert(pci_bar_is_memory(&pcidev, PCI_TESTDEV_BAR_MEM));
+		assert(!pci_bar_is_memory(&pcidev, PCI_TESTDEV_BAR_IO));
+		membar = pcidev.resource[PCI_TESTDEV_BAR_MEM];
+		pci_test.memaddr = ioremap(membar, PAGE_SIZE);
+		pci_test.iobar = pcidev.resource[PCI_TESTDEV_BAR_IO];
 		printf("pci-testdev at 0x%x membar %lx iobar %x\n",
 		       pcidev.bdf, membar, pci_test.iobar);
 	}

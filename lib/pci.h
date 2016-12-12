@@ -15,13 +15,16 @@ enum {
 	PCIDEVADDR_INVALID = 0xffff,
 };
 
+#define PCI_BAR_NUM                     6
 #define PCI_DEVFN_MAX                   256
 
 struct pci_dev {
 	uint16_t bdf;
+	phys_addr_t resource[PCI_BAR_NUM];
 };
 
 extern void pci_dev_init(struct pci_dev *dev, pcidevaddr_t bdf);
+extern void pci_scan_bars(struct pci_dev *dev);
 
 extern bool pci_probe(void);
 extern void pci_print(void);
@@ -65,6 +68,8 @@ extern int pci_testdev(void);
  * pci-testdev supports at least three types of tests (via mmio and
  * portio BARs): no-eventfd, wildcard-eventfd and datamatch-eventfd
  */
+#define PCI_TESTDEV_BAR_MEM		0
+#define PCI_TESTDEV_BAR_IO		1
 #define PCI_TESTDEV_NUM_BARS		2
 #define PCI_TESTDEV_NUM_TESTS		3
 
