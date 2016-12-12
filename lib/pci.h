@@ -43,7 +43,7 @@ extern bool pci_bar_is_valid(pcidevaddr_t dev, int bar_num);
 extern void pci_bar_print(pcidevaddr_t dev, int bar_num);
 extern void pci_dev_print_id(pcidevaddr_t dev);
 
-int pci_testdev(void);
+extern int pci_testdev(void);
 
 /*
  * pci-testdev is a driver for the pci-testdev qemu pci device. The
