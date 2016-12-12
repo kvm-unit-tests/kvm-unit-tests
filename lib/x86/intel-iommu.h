@@ -20,9 +20,12 @@
 #include "isr.h"
 #include "smp.h"
 #include "desc.h"
+#include "pci.h"
 #include "asm/io.h"
 
 #define Q35_HOST_BRIDGE_IOMMU_ADDR  0xfed90000ULL
+#define VTD_PAGE_SHIFT              PAGE_SHIFT
+#define VTD_PAGE_SIZE               PAGE_SIZE
 
 /*
  * Intel IOMMU register specification
@@ -137,5 +140,6 @@ static inline uint64_t vtd_readq(unsigned int reg)
 }
 
 void vtd_init(void);
+void vtd_map_range(uint16_t sid, phys_addr_t iova, phys_addr_t pa, size_t size);
 
 #endif

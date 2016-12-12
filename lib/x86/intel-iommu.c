@@ -11,6 +11,42 @@
  */
 
 #include "intel-iommu.h"
+#include "libcflat.h"
+
+/*
+ * VT-d in QEMU currently only support 39 bits address width, which is
+ * 3-level translation.
+ */
+#define VTD_PAGE_LEVEL      3
+#define VTD_CE_AW_39BIT     0x1
+
+typedef uint64_t vtd_pte_t;
+
+struct vtd_root_entry {
+	/* Quad 1 */
+	uint64_t present:1;
+	uint64_t __reserved:11;
+	uint64_t context_table_p:52;
+	/* Quad 2 */
+	uint64_t __reserved_2;
+} __attribute__ ((packed));
+typedef struct vtd_root_entry vtd_re_t;
+
+struct vtd_context_entry {
+	/* Quad 1 */
+	uint64_t present:1;
+	uint64_t disable_fault_report:1;
+	uint64_t trans_type:2;
+	uint64_t __reserved:8;
+	uint64_t slptptr:52;
+	/* Quad 2 */
+	uint64_t addr_width:3;
+	uint64_t __ignore:4;
+	uint64_t __reserved_2:1;
+	uint64_t domain_id:16;
+	uint64_t __reserved_3:40;
+} __attribute__ ((packed));
+typedef struct vtd_context_entry vtd_ce_t;
 
 #define VTD_RTA_MASK  (PAGE_MASK)
 #define VTD_IRTA_MASK (PAGE_MASK)
@@ -81,6 +117,103 @@ static void vtd_setup_ir_table(void)
 	vtd_writeq(DMAR_IRTA_REG, virt_to_phys(root) | 0xf);
 	vtd_gcmd_or(VTD_GCMD_IR_TABLE);
 	printf("IR table address: 0x%016lx\n", vtd_ir_table());
+}
+
+static void vtd_install_pte(vtd_pte_t *root, iova_t iova,
+			    phys_addr_t pa, int level_target)
+{
+	int level;
+	unsigned int offset;
+	void *page;
+
+	for (level = VTD_PAGE_LEVEL; level > level_target; level--) {
+		offset = PGDIR_OFFSET(iova, level);
+		if (!(root[offset] & VTD_PTE_RW)) {
+			page = alloc_page();
+			memset(page, 0, PAGE_SIZE);
+			root[offset] = virt_to_phys(page) | VTD_PTE_RW;
+		}
+		root = (uint64_t *)(phys_to_virt(root[offset] &
+						 VTD_PTE_ADDR));
+	}
+
+	offset = PGDIR_OFFSET(iova, level);
+	root[offset] = pa | VTD_PTE_RW;
+	if (level != 1) {
+		/* This is huge page */
+		root[offset] |= VTD_PTE_HUGE;
+	}
+}
+
+#define  VTD_PHYS_TO_VIRT(x) \
+	((void *)(((uint64_t)phys_to_virt(x)) >> VTD_PAGE_SHIFT))
+
+/**
+ * vtd_map_range: setup IO address mapping for specific memory range
+ *
+ * @sid: source ID of the device to setup
+ * @iova: start IO virtual address
+ * @pa: start physical address
+ * @size: size of the mapping area
+ */
+void vtd_map_range(uint16_t sid, iova_t iova, phys_addr_t pa, size_t size)
+{
+	uint8_t bus_n, devfn;
+	void *slptptr;
+	vtd_ce_t *ce;
+	vtd_re_t *re = phys_to_virt(vtd_root_table());
+
+	assert(IS_ALIGNED(iova, SZ_4K));
+	assert(IS_ALIGNED(pa, SZ_4K));
+	assert(IS_ALIGNED(size, SZ_4K));
+
+	bus_n = PCI_BDF_GET_BUS(sid);
+	devfn = PCI_BDF_GET_DEVFN(sid);
+
+	/* Point to the correct root entry */
+	re += bus_n;
+
+	if (!re->present) {
+		ce = alloc_page();
+		memset(ce, 0, PAGE_SIZE);
+		memset(re, 0, sizeof(*re));
+		re->context_table_p = virt_to_phys(ce) >> VTD_PAGE_SHIFT;
+		re->present = 1;
+		printf("allocated vt-d root entry for PCI bus %d\n",
+		       bus_n);
+	} else
+		ce = VTD_PHYS_TO_VIRT(re->context_table_p);
+
+	/* Point to the correct context entry */
+	ce += devfn;
+
+	if (!ce->present) {
+		slptptr = alloc_page();
+		memset(slptptr, 0, PAGE_SIZE);
+		memset(ce, 0, sizeof(*ce));
+		/* To make it simple, domain ID is the same as SID */
+		ce->domain_id = sid;
+		/* We only test 39 bits width case (3-level paging) */
+		ce->addr_width = VTD_CE_AW_39BIT;
+		ce->slptptr = virt_to_phys(slptptr) >> VTD_PAGE_SHIFT;
+		ce->trans_type = VTD_CONTEXT_TT_MULTI_LEVEL;
+		ce->present = 1;
+		/* No error reporting yet */
+		ce->disable_fault_report = 1;
+		printf("allocated vt-d context entry for devfn 0x%x\n",
+		       devfn);
+	} else
+		slptptr = VTD_PHYS_TO_VIRT(ce->slptptr);
+
+	while (size) {
+		/* TODO: currently we only map 4K pages (level = 1) */
+		printf("map 4K page IOVA 0x%lx to 0x%lx (sid=0x%04x)\n",
+		       iova, pa, sid);
+		vtd_install_pte(slptptr, iova, pa, 1);
+		size -= VTD_PAGE_SIZE;
+		iova += VTD_PAGE_SIZE;
+		pa += VTD_PAGE_SIZE;
+	}
 }
 
 void vtd_init(void)
