@@ -377,6 +377,25 @@ enum Ctrl1 {
 	CPU_RDRAND		= 1ul << 11,
 };
 
+enum Intr_type {
+	VMX_INTR_TYPE_EXT_INTR = 0,
+	VMX_INTR_TYPE_NMI_INTR = 2,
+	VMX_INTR_TYPE_HARD_EXCEPTION = 3,
+	VMX_INTR_TYPE_SOFT_INTR = 4,
+	VMX_INTR_TYPE_SOFT_EXCEPTION = 6,
+};
+
+/*
+ * Interruption-information format
+ */
+#define INTR_INFO_VECTOR_MASK           0xff            /* 7:0 */
+#define INTR_INFO_INTR_TYPE_MASK        0x700           /* 10:8 */
+#define INTR_INFO_DELIVER_CODE_MASK     0x800           /* 11 */
+#define INTR_INFO_UNBLOCK_NMI_MASK      0x1000          /* 12 */
+#define INTR_INFO_VALID_MASK            0x80000000      /* 31 */
+
+#define INTR_INFO_INTR_TYPE_SHIFT       8
+
 #define SAVE_GPR				\
 	"xchg %rax, regs\n\t"			\
 	"xchg %rbx, regs+0x8\n\t"		\

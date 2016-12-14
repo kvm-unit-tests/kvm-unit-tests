@@ -1742,6 +1742,80 @@ static int disable_rdtscp_exit_handler(void)
 	return VMX_TEST_VMEXIT;
 }
 
+int int3_init()
+{
+	vmcs_write(EXC_BITMAP, ~0u);
+	return VMX_TEST_START;
+}
+
+void int3_guest_main()
+{
+	asm volatile ("int3");
+}
+
+int int3_exit_handler()
+{
+	u32 reason = vmcs_read(EXI_REASON);
+	u32 intr_info = vmcs_read(EXI_INTR_INFO);
+
+	report("L1 intercepts #BP", reason == VMX_EXC_NMI &&
+	       (intr_info & INTR_INFO_VALID_MASK) &&
+	       (intr_info & INTR_INFO_VECTOR_MASK) == BP_VECTOR &&
+	       ((intr_info & INTR_INFO_INTR_TYPE_MASK) >>
+		INTR_INFO_INTR_TYPE_SHIFT) == VMX_INTR_TYPE_SOFT_EXCEPTION);
+
+	return VMX_TEST_VMEXIT;
+}
+
+int into_init()
+{
+	vmcs_write(EXC_BITMAP, ~0u);
+	return VMX_TEST_START;
+}
+
+void into_guest_main()
+{
+	struct far_pointer32 fp = {
+		.offset = (uintptr_t)&&into,
+		.selector = KERNEL_CS32,
+	};
+	register uintptr_t rsp asm("rsp");
+
+	if (fp.offset != (uintptr_t)&&into) {
+		printf("Code address too high.\n");
+		return;
+	}
+	if ((u32)rsp != rsp) {
+		printf("Stack address too high.\n");
+		return;
+	}
+
+	asm goto ("lcall *%0" : : "m" (fp) : "rax" : into);
+	return;
+into:
+	asm volatile (".code32;"
+		      "movl $0x7fffffff, %eax;"
+		      "addl %eax, %eax;"
+		      "into;"
+		      "lret;"
+		      ".code64");
+	__builtin_unreachable();
+}
+
+int into_exit_handler()
+{
+	u32 reason = vmcs_read(EXI_REASON);
+	u32 intr_info = vmcs_read(EXI_INTR_INFO);
+
+	report("L1 intercepts #OF", reason == VMX_EXC_NMI &&
+	       (intr_info & INTR_INFO_VALID_MASK) &&
+	       (intr_info & INTR_INFO_VECTOR_MASK) == OF_VECTOR &&
+	       ((intr_info & INTR_INFO_INTR_TYPE_MASK) >>
+		INTR_INFO_INTR_TYPE_SHIFT) == VMX_INTR_TYPE_SOFT_EXCEPTION);
+
+	return VMX_TEST_VMEXIT;
+}
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
 struct vmx_test vmx_tests[] = {
 	{ "null", NULL, basic_guest_main, basic_exit_handler, NULL, {0} },
@@ -1769,5 +1843,7 @@ struct vmx_test vmx_tests[] = {
 	{ "vmmcall", vmmcall_init, vmmcall_main, vmmcall_exit_handler, NULL, {0} },
 	{ "disable RDTSCP", disable_rdtscp_init, disable_rdtscp_main,
 		disable_rdtscp_exit_handler, NULL, {0} },
+	{ "int3", int3_init, int3_guest_main, int3_exit_handler, NULL, {0} },
+	{ "into", into_init, into_guest_main, into_exit_handler, NULL, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };

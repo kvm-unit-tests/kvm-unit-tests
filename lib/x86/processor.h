@@ -41,6 +41,11 @@
 #define X86_IA32_EFER          0xc0000080
 #define X86_EFER_LMA           (1UL << 8)
 
+struct far_pointer32 {
+	u32 offset;
+	u16 selector;
+} __attribute__((packed));
+
 struct descriptor_table_ptr {
     u16 limit;
     ulong base;
