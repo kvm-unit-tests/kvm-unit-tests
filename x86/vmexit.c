@@ -6,6 +6,10 @@
 #include "x86/vm.h"
 #include "x86/desc.h"
 #include "x86/acpi.h"
+#include "x86/apic.h"
+#include "x86/isr.h"
+
+#define IPI_TEST_VECTOR	0xb0
 
 struct test {
 	void (*func)(void);
@@ -59,6 +63,120 @@ static int is_smp(void)
 
 static void nop(void *junk)
 {
+}
+
+volatile int x = 0;
+
+static void self_ipi_isr(isr_regs_t *regs)
+{
+	x++;
+	eoi();
+}
+
+static void x2apic_self_ipi(int vec)
+{
+	wrmsr(0x83f, vec);
+}
+
+static void apic_self_ipi(int vec)
+{
+        apic_icr_write(APIC_INT_ASSERT | APIC_DEST_SELF | APIC_DEST_PHYSICAL |
+		       APIC_DM_FIXED | IPI_TEST_VECTOR, vec);
+}
+
+static void self_ipi_sti_nop(void)
+{
+	x = 0;
+	irq_disable();
+	apic_self_ipi(IPI_TEST_VECTOR);
+	asm volatile("sti; nop");
+	if (x != 1) printf("%d", x);
+}
+
+static void self_ipi_sti_hlt(void)
+{
+	x = 0;
+	irq_disable();
+	apic_self_ipi(IPI_TEST_VECTOR);
+	asm volatile("sti; hlt");
+	if (x != 1) printf("%d", x);
+}
+
+static void self_ipi_tpr(void)
+{
+	x = 0;
+	apic_set_tpr(0x0f);
+	apic_self_ipi(IPI_TEST_VECTOR);
+	apic_set_tpr(0x00);
+	asm volatile("nop");
+	if (x != 1) printf("%d", x);
+}
+
+static void self_ipi_tpr_sti_nop(void)
+{
+	x = 0;
+	irq_disable();
+	apic_set_tpr(0x0f);
+	apic_self_ipi(IPI_TEST_VECTOR);
+	apic_set_tpr(0x00);
+	asm volatile("sti; nop");
+	if (x != 1) printf("%d", x);
+}
+
+static void self_ipi_tpr_sti_hlt(void)
+{
+	x = 0;
+	irq_disable();
+	apic_set_tpr(0x0f);
+	apic_self_ipi(IPI_TEST_VECTOR);
+	apic_set_tpr(0x00);
+	asm volatile("sti; hlt");
+	if (x != 1) printf("%d", x);
+}
+
+static int is_x2apic(void)
+{
+    return rdmsr(MSR_IA32_APICBASE) & APIC_EXTD;
+}
+
+static void x2apic_self_ipi_sti_nop(void)
+{
+	irq_disable();
+	x2apic_self_ipi(IPI_TEST_VECTOR);
+	asm volatile("sti; nop");
+}
+
+static void x2apic_self_ipi_sti_hlt(void)
+{
+	irq_disable();
+	x2apic_self_ipi(IPI_TEST_VECTOR);
+	asm volatile("sti; hlt");
+}
+
+static void x2apic_self_ipi_tpr(void)
+{
+	apic_set_tpr(0x0f);
+	x2apic_self_ipi(IPI_TEST_VECTOR);
+	apic_set_tpr(0x00);
+	asm volatile("nop");
+}
+
+static void x2apic_self_ipi_tpr_sti_nop(void)
+{
+	irq_disable();
+	apic_set_tpr(0x0f);
+	x2apic_self_ipi(IPI_TEST_VECTOR);
+	apic_set_tpr(0x00);
+	asm volatile("sti; nop");
+}
+
+static void x2apic_self_ipi_tpr_sti_hlt(void)
+{
+	irq_disable();
+	apic_set_tpr(0x0f);
+	x2apic_self_ipi(IPI_TEST_VECTOR);
+	apic_set_tpr(0x00);
+	asm volatile("sti; hlt");
 }
 
 static void ipi(void)
@@ -281,6 +399,16 @@ static struct test tests[] = {
 	{ inl_nop_kernel, "inl_from_kernel", .parallel = 1 },
 	{ outl_elcr_kernel, "outl_to_kernel", .parallel = 1 },
 	{ mov_dr, "mov_dr", .parallel = 1 },
+	{ self_ipi_sti_nop, "self_ipi_sti_nop", .parallel = 0, },
+	{ self_ipi_sti_hlt, "self_ipi_sti_hlt", .parallel = 0, },
+	{ self_ipi_tpr, "self_ipi_tpr", .parallel = 0, },
+	{ self_ipi_tpr_sti_nop, "self_ipi_tpr_sti_nop", .parallel = 0, },
+	{ self_ipi_tpr_sti_hlt, "self_ipi_tpr_sti_hlt", .parallel = 0, },
+	{ x2apic_self_ipi_sti_nop, "x2apic_self_ipi_sti_nop", is_x2apic, .parallel = 0, },
+	{ x2apic_self_ipi_sti_hlt, "x2apic_self_ipi_sti_hlt", is_x2apic, .parallel = 0, },
+	{ x2apic_self_ipi_tpr, "x2apic_self_ipi_tpr", is_x2apic, .parallel = 0, },
+	{ x2apic_self_ipi_tpr_sti_nop, "x2apic_self_ipi_tpr_sti_nop", is_x2apic, .parallel = 0, },
+	{ x2apic_self_ipi_tpr_sti_hlt, "x2apic_self_ipi_tpr_sti_hlt", is_x2apic, .parallel = 0, },
 	{ ipi, "ipi", is_smp, .parallel = 0, },
 	{ ipi_halt, "ipi+halt", is_smp, .parallel = 0, },
 	{ ple_round_robin, "ple-round-robin", .parallel = 1 },
@@ -376,8 +504,10 @@ int main(int ac, char **av)
 
 	smp_init();
 	setup_vm();
+	handle_irq(IPI_TEST_VECTOR, self_ipi_isr);
 	nr_cpus = cpu_count();
 
+	irq_enable();
 	for (i = cpu_count(); i > 0; i--)
 		on_cpu(i-1, enable_nx, 0);
 

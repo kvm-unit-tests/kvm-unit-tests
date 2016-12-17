@@ -21,6 +21,8 @@ typedef struct {
 void mask_pic_interrupts(void);
 
 void eoi(void);
+uint8_t apic_get_tpr(void);
+void apic_set_tpr(uint8_t tpr);
 
 void ioapic_write_redir(unsigned line, ioapic_redir_entry_t e);
 void ioapic_write_reg(unsigned reg, uint32_t value);

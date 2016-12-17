@@ -113,6 +113,27 @@ uint32_t apic_id(void)
     return apic_ops->id();
 }
 
+uint8_t apic_get_tpr(void)
+{
+	unsigned long tpr;
+
+#ifdef __x86_64__
+	asm volatile ("mov %%cr8, %0" : "=r"(tpr));
+#else
+	tpr = apic_read(APIC_TPR) >> 4;
+#endif	
+	return tpr;
+}
+
+void apic_set_tpr(uint8_t tpr)
+{
+#ifdef __x86_64__
+	asm volatile ("mov %0, %%cr8" : : "r"((unsigned long) tpr));
+#else
+	apic_write(APIC_TPR, tpr << 4);
+#endif	
+}
+
 int enable_x2apic(void)
 {
     unsigned a, b, c, d;
