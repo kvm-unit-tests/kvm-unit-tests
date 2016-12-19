@@ -52,13 +52,13 @@ static void pf_isr(struct ex_regs *r)
 
 	switch (reason) {
 		case 0:
-			report("unexpected #PF at %p\n", false, read_cr2());
+			report("unexpected #PF at %p", false, read_cr2());
 			break;
 		case KVM_PV_REASON_PAGE_NOT_PRESENT:
 			phys = virt_to_phys_cr3(virt);
 			install_pte(phys_to_virt(read_cr3()), 1, virt, phys, 0);
 			write_cr3(read_cr3());
-			report("Got not present #PF token %x virt addr %p phys addr %p\n",
+			report("Got not present #PF token %x virt addr %p phys addr %p",
 					true, read_cr2(), virt, phys);
 			while(phys) {
 				safe_halt(); /* enables irq */
@@ -66,7 +66,7 @@ static void pf_isr(struct ex_regs *r)
 			}
 			break;
 		case KVM_PV_REASON_PAGE_READY:
-			report("Got present #PF token %x\n", true, read_cr2());
+			report("Got present #PF token %x", true, read_cr2());
 			if ((uint32_t)read_cr2() == ~0)
 				break;
 			install_pte(phys_to_virt(read_cr3()), 1, virt, phys | PT_PRESENT_MASK | PT_WRITABLE_MASK, 0);
@@ -74,7 +74,7 @@ static void pf_isr(struct ex_regs *r)
 			phys = 0;
 			break;
 		default:
-			report("unexpected async pf reason %d\n", false, reason);
+			report("unexpected async pf reason %d", false, reason);
 			break;
 	}
 }

@@ -1098,7 +1098,7 @@ static int ept_exit_handler()
 						(unsigned long)data_page2,
 						EPT_RA | EPT_WA | EPT_EA);
 			} else
-				report("EPT basic framework - write\n", 0);
+				report("EPT basic framework - write", 0);
 			break;
 		case 1:
 			install_ept(pml4, (unsigned long)data_page1,

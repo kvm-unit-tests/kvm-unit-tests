@@ -603,7 +603,7 @@ static void test_ioio(struct test *test)
     return;
 
 fail:
-    report("stage %d\n", false, get_test_stage(test));
+    report("stage %d", false, get_test_stage(test));
     test->scratch = -1;
 }
 
@@ -678,7 +678,7 @@ static void sel_cr0_bug_test(struct test *test)
      * are not in guest-mode anymore so we can't trigger an intercept.
      * Trigger a tripple-fault for now.
      */
-    report("sel_cr0 test. Can not recover from this - exiting\n", false);
+    report("sel_cr0 test. Can not recover from this - exiting", false);
     exit(report_summary());
 }
 

@@ -58,7 +58,7 @@ static void test_spinlock(void)
 
 		lock_ops.unlock(&global_lock);
 	}
-	report("CPU%d: Done - Errors: %d\n", errors == 0, cpu, errors);
+	report("CPU%d: Done - Errors: %d", errors == 0, cpu, errors);
 
 	cpumask_set_cpu(cpu, &smp_test_complete);
 	if (cpu != 0)
