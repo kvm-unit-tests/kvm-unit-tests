@@ -108,6 +108,7 @@ function run()
     summary=$(eval $cmdline 2> >(RUNTIME_log_stderr) \
                              > >(tee >(RUNTIME_log_stdout $kernel) | extract_summary))
     ret=$?
+    [ "$STANDALONE" != "yes" ] && echo > >(RUNTIME_log_stdout $kernel)
 
     if [ $ret -eq 0 ]; then
         echo "`PASS` $1 $summary"

@@ -109,7 +109,7 @@ int report_summary(void)
 {
 	spin_lock(&lock);
 
-	printf("\nSUMMARY: %d tests", tests);
+	printf("SUMMARY: %d tests", tests);
 	if (failures)
 		printf(", %d unexpected failures", failures);
 	if (xfailures)
