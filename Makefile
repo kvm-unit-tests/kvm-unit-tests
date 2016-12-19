@@ -94,7 +94,8 @@ libfdt_clean:
 	$(LIBFDT_objdir)/.*.d
 
 distclean: clean libfdt_clean
-	$(RM) lib/asm config.mak $(TEST_DIR)-run test.log msr.out cscope.*
+	$(RM) lib/asm config.mak $(TEST_DIR)-run test.log msr.out cscope.* \
+	      build-head
 	$(RM) -r tests
 
 cscope: cscope_dirs = lib lib/libfdt lib/linux $(TEST_DIR) $(ARCH_LIBDIRS) lib/asm-generic
