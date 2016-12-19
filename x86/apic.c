@@ -5,6 +5,7 @@
 #include "desc.h"
 #include "isr.h"
 #include "msr.h"
+#include "atomic.h"
 
 static void test_lapic_existence(void)
 {
@@ -16,6 +17,7 @@ static void test_lapic_existence(void)
 }
 
 #define TSC_DEADLINE_TIMER_VECTOR 0xef
+#define BROADCAST_VECTOR 0xcf
 
 static int tdt_count;
 
@@ -411,6 +413,51 @@ static void test_apic_timer_one_shot(void)
            (tsc2 - tsc1 >= interval));
 }
 
+static atomic_t broadcast_counter;
+
+static void broadcast_handler(isr_regs_t *regs)
+{
+	atomic_inc(&broadcast_counter);
+	eoi();
+}
+
+static bool broadcast_received(unsigned ncpus)
+{
+	unsigned counter;
+	u64 start = rdtsc();
+
+	do {
+		counter = atomic_read(&broadcast_counter);
+		if (counter >= ncpus)
+			break;
+		pause();
+	} while (rdtsc() - start < 1000000000);
+
+	atomic_set(&broadcast_counter, 0);
+
+	return counter == ncpus;
+}
+
+static void test_physical_broadcast(void)
+{
+	unsigned ncpus = cpu_count();
+	unsigned long cr3 = read_cr3();
+	u32 broadcast_address = enable_x2apic() ? 0xffffffff : 0xff;
+
+	handle_irq(BROADCAST_VECTOR, broadcast_handler);
+	for (int c = 1; c < ncpus; c++)
+		on_cpu(c, update_cr3, (void *)cr3);
+
+	printf("starting broadcast (%s)\n", enable_x2apic() ? "x2apic" : "xapic");
+	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_FIXED | APIC_INT_ASSERT |
+			BROADCAST_VECTOR, broadcast_address);
+	report("APIC physical broadcast address", broadcast_received(ncpus));
+
+	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_FIXED | APIC_INT_ASSERT |
+			BROADCAST_VECTOR | APIC_DEST_ALLINC, 0);
+	report("APIC physical broadcast shorthand", broadcast_received(ncpus));
+}
+
 int main()
 {
     setup_vm();
@@ -425,6 +472,7 @@ int main()
     test_apicbase();
 
     test_self_ipi();
+    test_physical_broadcast();
 
     test_sti_nmi();
     test_multiple_nmi();
