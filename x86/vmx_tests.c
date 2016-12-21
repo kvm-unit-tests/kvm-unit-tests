@@ -744,7 +744,7 @@ asm(
 	"insn_monitor: monitor;ret\n\t"
 	"insn_pause: pause;ret\n\t"
 	"insn_wbinvd: wbinvd;ret\n\t"
-	"insn_cpuid: cpuid;ret\n\t"
+	"insn_cpuid: mov $10, %eax; cpuid;ret\n\t"
 	"insn_invd: invd;ret\n\t"
 	"insn_sgdt: sgdt gdt64_desc;ret\n\t"
 	"insn_lgdt: lgdt gdt64_desc;ret\n\t"
