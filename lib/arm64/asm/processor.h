@@ -19,6 +19,8 @@
 #ifndef __ASSEMBLY__
 #include <asm/ptrace.h>
 #include <asm/esr.h>
+#include <asm/sysreg.h>
+#include <asm/barrier.h>
 
 enum vector {
 	EL1T_SYNC,
@@ -66,20 +68,42 @@ static inline unsigned long current_level(void)
 	return el & 0xc;
 }
 
-#define DEFINE_GET_SYSREG32(reg)				\
-static inline unsigned int get_##reg(void)			\
-{								\
-	unsigned int reg;					\
-	asm volatile("mrs %0, " #reg "_el1" : "=r" (reg));	\
-	return reg;						\
+static inline void local_irq_enable(void)
+{
+	asm volatile("msr daifclr, #2" : : : "memory");
 }
-DEFINE_GET_SYSREG32(mpidr)
 
-/* Only support Aff0 for now, gicv2 only */
-#define mpidr_to_cpu(mpidr) ((int)((mpidr) & 0xff))
+static inline void local_irq_disable(void)
+{
+	asm volatile("msr daifset, #2" : : : "memory");
+}
+
+static inline uint64_t get_mpidr(void)
+{
+	return read_sysreg(mpidr_el1);
+}
+
+#define MPIDR_HWID_BITMASK 0xff00ffffff
+extern int mpidr_to_cpu(uint64_t mpidr);
+
+#define MPIDR_LEVEL_SHIFT(level) \
+	(((1 << level) >> 1) << 3)
+#define MPIDR_AFFINITY_LEVEL(mpidr, level) \
+	((mpidr >> MPIDR_LEVEL_SHIFT(level)) & 0xff)
 
 extern void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr);
 extern bool is_user(void);
+
+static inline u64 get_cntvct(void)
+{
+	isb();
+	return read_sysreg(cntvct_el0);
+}
+
+static inline u32 get_cntfrq(void)
+{
+	return read_sysreg(cntfrq_el0);
+}
 
 #endif /* !__ASSEMBLY__ */
 #endif /* _ASMARM64_PROCESSOR_H_ */

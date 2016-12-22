@@ -9,10 +9,11 @@ ifeq ($(LOADADDR),)
 	LOADADDR = 0x40000000
 endif
 
-tests-common = \
-	$(TEST_DIR)/selftest.flat \
-	$(TEST_DIR)/spinlock-test.flat \
-	$(TEST_DIR)/pci-test.flat
+tests-common  = $(TEST_DIR)/selftest.flat
+tests-common += $(TEST_DIR)/spinlock-test.flat
+tests-common += $(TEST_DIR)/pci-test.flat
+tests-common += $(TEST_DIR)/pmu.flat
+tests-common += $(TEST_DIR)/gic.flat
 
 all: test_cases
 
@@ -21,6 +22,7 @@ phys_base = $(LOADADDR)
 
 CFLAGS += -std=gnu99
 CFLAGS += -ffreestanding
+CFLAGS += -fno-pic
 CFLAGS += -Wextra
 CFLAGS += -O2
 CFLAGS += -I lib -I lib/libfdt
@@ -46,6 +48,8 @@ cflatobjs += lib/arm/mmu.o
 cflatobjs += lib/arm/bitops.o
 cflatobjs += lib/arm/psci.o
 cflatobjs += lib/arm/smp.o
+cflatobjs += lib/arm/delay.o
+cflatobjs += lib/arm/gic.o lib/arm/gic-v2.o lib/arm/gic-v3.o
 
 libeabi = lib/arm/libeabi.a
 eabiobjs = lib/arm/eabi_compat.o

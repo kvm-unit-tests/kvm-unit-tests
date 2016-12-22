@@ -1,5 +1,5 @@
-#ifndef _ASMARM_CP15_H_
-#define _ASMARM_CP15_H_
+#ifndef _ASMARM_SYSREG_H_
+#define _ASMARM_SYSREG_H_
 /*
  * From the Linux kernel arch/arm/include/asm/cp15.h
  *
@@ -34,4 +34,23 @@
 #define CR_AFE	(1 << 29)	/* Access flag enable			*/
 #define CR_TE	(1 << 30)	/* Thumb exception enable		*/
 
-#endif /* _ASMARM_CP15_H_ */
+#ifndef __ASSEMBLY__
+#include <libcflat.h>
+
+#define __ACCESS_CP15(CRn, Op1, CRm, Op2)			\
+	"mrc", "mcr", xstr(p15, Op1, %0, CRn, CRm, Op2), u32
+#define __ACCESS_CP15_64(Op1, CRm)					\
+	"mrrc", "mcrr", xstr(p15, Op1, %Q0, %R0, CRm), u64
+
+#define __read_sysreg(r, w, c, t) ({				\
+			t __val;				\
+			asm volatile(r " " c : "=r" (__val));	\
+			__val;					\
+		})
+#define read_sysreg(...)                 __read_sysreg(__VA_ARGS__)
+
+#define __write_sysreg(v, r, w, c, t)   asm volatile(w " " c : : "r" ((t)(v)))
+#define write_sysreg(v, ...)            __write_sysreg(v, __VA_ARGS__)
+#endif /* !__ASSEMBLY__ */
+
+#endif /* _ASMARM_SYSREG_H_ */

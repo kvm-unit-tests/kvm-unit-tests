@@ -169,8 +169,8 @@ static bool pci_alloc_resource(pcidevaddr_t dev, int bar_num, u64 *addr)
 {
 	struct pci_host_bridge *host = pci_host_bridge;
 	struct pci_addr_space *as = &host->addr_space[0];
-	u32 mask, bar;
-	u64 size;
+	u32 bar;
+	u64 size, pci_addr;
 	int type, i;
 
 	*addr = ~0;
@@ -199,11 +199,10 @@ static bool pci_alloc_resource(pcidevaddr_t dev, int bar_num, u64 *addr)
 		return false;
 	}
 
-	mask = pci_bar_mask(bar);
-	size = ALIGN(size, ~mask + 1);
+	pci_addr = ALIGN(as->pci_start + as->allocated, size);
+	size += pci_addr - (as->pci_start + as->allocated);
 	assert(as->allocated + size <= as->size);
-
-	*addr = as->pci_start + as->allocated;
+	*addr = pci_addr;
 	as->allocated += size;
 
 	return true;
@@ -272,7 +271,7 @@ phys_addr_t pci_host_bridge_get_paddr(u64 pci_addr)
 		as++;
 	}
 
-	return 0;
+	return INVALID_PHYS_ADDR;
 }
 
 static void __iomem *pci_get_dev_conf(struct pci_host_bridge *host, int devfn)

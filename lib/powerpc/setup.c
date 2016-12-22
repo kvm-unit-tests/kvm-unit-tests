@@ -40,7 +40,7 @@ struct cpu_set_params {
 
 static char exception_stack[NR_CPUS][EXCEPTION_STACK_SIZE];
 
-static void cpu_set(int fdtnode, u32 regval, void *info)
+static void cpu_set(int fdtnode, u64 regval, void *info)
 {
 	static bool read_common_info = false;
 	struct cpu_set_params *params = info;
@@ -168,7 +168,11 @@ void setup(const void *fdt)
 	assert(ret == 0);
 
 	cpu_init();
+
+	/* cpu_init must be called before mem_init */
 	mem_init(PAGE_ALIGN((unsigned long)&stacktop + fdt_size));
+
+	/* mem_init must be called before io_init */
 	io_init();
 
 	ret = dt_get_bootargs(&bootargs);

@@ -24,13 +24,23 @@ extern unsigned long stacktop;
 extern void io_init(void);
 extern void setup_args_progname(const char *args);
 
-u32 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (~0U) };
+u64 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (u64)~0 };
 int nr_cpus;
 
 struct mem_region mem_regions[NR_MEM_REGIONS];
 phys_addr_t __phys_offset, __phys_end;
 
-static void cpu_set(int fdtnode __unused, u32 regval, void *info __unused)
+int mpidr_to_cpu(uint64_t mpidr)
+{
+	int i;
+
+	for (i = 0; i < nr_cpus; ++i)
+		if (cpus[i] == (mpidr & MPIDR_HWID_BITMASK))
+			return i;
+	return -1;
+}
+
+static void cpu_set(int fdtnode __unused, u64 regval, void *info __unused)
 {
 	int cpu = nr_cpus++;
 
@@ -116,11 +126,16 @@ void setup(const void *fdt)
 	ret = dt_init(&stacktop);
 	assert(ret == 0);
 
-	mem_init(PAGE_ALIGN((unsigned long)&stacktop + fdt_size));
-	io_init();
 	cpu_init();
 
+	/* cpu_init must be called before thread_info_init */
 	thread_info_init(current_thread_info(), 0);
+
+	/* thread_info_init must be called before mem_init */
+	mem_init(PAGE_ALIGN((unsigned long)&stacktop + fdt_size));
+
+	/* mem_init must be called before io_init */
+	io_init();
 
 	ret = dt_get_bootargs(&bootargs);
 	assert(ret == 0);
