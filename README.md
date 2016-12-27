@@ -89,8 +89,13 @@ Currently there is a mix of indentation styles so any changes to
 existing files should be consistent with the existing style. For new
 files:
 
-  - C: please use standard linux-with-tabs
+  - C: please use standard linux-with-tabs, see Linux kernel
+    doc Documentation/process/coding-style.rst
   - Shell: use TABs for indentation
+
+Exceptions:
+
+  - While the kernel standard requires 80 columns, we allow up to 120.
 
 ## Patches
 
