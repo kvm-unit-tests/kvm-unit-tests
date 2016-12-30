@@ -21,6 +21,8 @@ void vtd_test_dmar(struct pci_edu_dev *dev)
 {
 	void *page = alloc_page();
 
+	report_prefix_push("vtd_dmar");
+
 #define DMA_TEST_WORD (0x12345678)
 	/* Modify the first 4 bytes of the page */
 	*(uint32_t *)page = DMA_TEST_WORD;
@@ -51,6 +53,8 @@ void vtd_test_dmar(struct pci_edu_dev *dev)
 	report(VTD_TEST_DMAR_4B, *((uint32_t *)page + 1) == DMA_TEST_WORD);
 
 	free_page(page);
+
+	report_prefix_pop();
 }
 
 static volatile bool edu_intr_recved;
@@ -64,6 +68,8 @@ static void edu_isr(isr_regs_t *regs)
 static void vtd_test_ir(struct pci_edu_dev *dev)
 {
 #define VTD_TEST_VECTOR (0xee)
+	report_prefix_push("vtd_ir");
+
 	/*
 	 * Setup EDU PCI device MSI, using interrupt remapping. By
 	 * default, EDU device is using INTx.
@@ -88,6 +94,8 @@ static void vtd_test_ir(struct pci_edu_dev *dev)
 
 	/* We are good as long as we reach here */
 	report(VTD_TEST_IR_MSI, true);
+
+	report_prefix_pop();
 }
 
 int main(int argc, char *argv[])
@@ -95,6 +103,8 @@ int main(int argc, char *argv[])
 	struct pci_edu_dev dev;
 
 	vtd_init();
+
+	report_prefix_push("vtd_init");
 
 	report("fault status check", vtd_readl(DMAR_FSTS_REG) == 0);
 	report("QI enablement", vtd_readl(DMAR_GSTS_REG) & VTD_GCMD_QI);
@@ -105,6 +115,8 @@ int main(int argc, char *argv[])
 	report("DMAR support 39 bits address width",
 	       vtd_readq(DMAR_CAP_REG) & VTD_CAP_SAGAW);
 	report("DMAR support huge pages", vtd_readq(DMAR_CAP_REG) & VTD_CAP_SLLPS);
+
+	report_prefix_pop();
 
 	if (!edu_init(&dev)) {
 		printf("Please specify \"-device edu\" to do "
