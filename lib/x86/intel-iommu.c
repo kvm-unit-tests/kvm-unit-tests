@@ -13,6 +13,7 @@
 #include "intel-iommu.h"
 #include "libcflat.h"
 #include "pci.h"
+#include "atomic.h"
 
 /*
  * VT-d in QEMU currently only support 39 bits address width, which is
@@ -239,9 +240,13 @@ void vtd_map_range(uint16_t sid, iova_t iova, phys_addr_t pa, size_t size)
 
 static uint16_t vtd_intr_index_alloc(void)
 {
-	static int index_ctr = 0;
+	static volatile int index_ctr = 0;
+	int ctr;
+
 	assert(index_ctr < 65535);
-	return index_ctr++;
+	ctr = atomic_inc_fetch(&index_ctr);
+	printf("INTR: alloc IRTE index %d\n", ctr);
+	return ctr;
 }
 
 static void vtd_setup_irte(struct pci_dev *dev, vtd_irte_t *irte,
@@ -296,7 +301,6 @@ bool vtd_setup_msi(struct pci_dev *dev, int vector, int dest_id)
 	assert(sizeof(vtd_msi_addr_t) == 8);
 	assert(sizeof(vtd_msi_data_t) == 4);
 
-	printf("INTR: setup IRTE index %d\n", index);
 	vtd_setup_irte(dev, irte + index, vector, dest_id);
 
 	msi_addr.handle_15 = index >> 15 & 1;
