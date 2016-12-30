@@ -18,6 +18,12 @@ typedef struct {
     uint8_t dest_id;
 } ioapic_redir_entry_t;
 
+typedef enum trigger_mode {
+	TRIGGER_EDGE = 0,
+	TRIGGER_LEVEL,
+	TRIGGER_MAX,
+} trigger_mode_t;
+
 void mask_pic_interrupts(void);
 
 void eoi(void);
