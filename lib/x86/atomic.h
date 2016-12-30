@@ -1,6 +1,8 @@
 #ifndef __ATOMIC_H
 #define __ATOMIC_H
 
+#include "asm-generic/atomic.h"
+
 typedef struct {
 	volatile int counter;
 } atomic_t;
