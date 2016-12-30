@@ -16,6 +16,7 @@
 
 #define VTD_TEST_DMAR_4B ("DMAR 4B memcpy test")
 #define VTD_TEST_IR_MSI ("IR MSI")
+#define VTD_TEST_IR_IOAPIC ("IR IOAPIC")
 
 void vtd_test_dmar(struct pci_edu_dev *dev)
 {
@@ -67,22 +68,22 @@ static void edu_isr(isr_regs_t *regs)
 
 static void vtd_test_ir(struct pci_edu_dev *dev)
 {
-#define VTD_TEST_VECTOR (0xee)
+#define VTD_TEST_VECTOR_IOAPIC (0xed)
+#define VTD_TEST_VECTOR_MSI (0xee)
+	struct pci_dev *pci_dev = &dev->pci_dev;
+
 	report_prefix_push("vtd_ir");
 
-	/*
-	 * Setup EDU PCI device MSI, using interrupt remapping. By
-	 * default, EDU device is using INTx.
-	 */
-	if (!vtd_setup_msi(&dev->pci_dev, VTD_TEST_VECTOR, 0)) {
-		printf("edu device does not support MSI, skip test\n");
-		report_skip(VTD_TEST_IR_MSI);
-		return;
-	}
-
-	handle_irq(VTD_TEST_VECTOR, edu_isr);
 	irq_enable();
 
+	/* This will enable INTx */
+	pci_msi_set_enable(pci_dev, false);
+	vtd_setup_ioapic_irq(pci_dev, VTD_TEST_VECTOR_IOAPIC,
+			     0, TRIGGER_EDGE);
+	handle_irq(VTD_TEST_VECTOR_IOAPIC, edu_isr);
+
+	edu_intr_recved = false;
+	wmb();
 	/* Manually trigger INTR */
 	edu_reg_writel(dev, EDU_REG_INTR_RAISE, 1);
 
@@ -93,7 +94,33 @@ static void vtd_test_ir(struct pci_edu_dev *dev)
 	edu_reg_writel(dev, EDU_REG_INTR_RAISE, 0);
 
 	/* We are good as long as we reach here */
-	report(VTD_TEST_IR_MSI, true);
+	report(VTD_TEST_IR_IOAPIC, edu_intr_recved == true);
+
+	/*
+	 * Setup EDU PCI device MSI, using interrupt remapping. By
+	 * default, EDU device is using INTx.
+	 */
+	if (!vtd_setup_msi(pci_dev, VTD_TEST_VECTOR_MSI, 0)) {
+		printf("edu device does not support MSI, skip test\n");
+		report_skip(VTD_TEST_IR_MSI);
+		return;
+	}
+
+	handle_irq(VTD_TEST_VECTOR_MSI, edu_isr);
+
+	edu_intr_recved = false;
+	wmb();
+	/* Manually trigger INTR */
+	edu_reg_writel(dev, EDU_REG_INTR_RAISE, 1);
+
+	while (!edu_intr_recved)
+		cpu_relax();
+
+	/* Clear INTR bits */
+	edu_reg_writel(dev, EDU_REG_INTR_RAISE, 0);
+
+	/* We are good as long as we reach here */
+	report(VTD_TEST_IR_MSI, edu_intr_recved == true);
 
 	report_prefix_pop();
 }
@@ -122,6 +149,7 @@ int main(int argc, char *argv[])
 		printf("Please specify \"-device edu\" to do "
 		       "further IOMMU tests.\n");
 		report_skip(VTD_TEST_DMAR_4B);
+		report_skip(VTD_TEST_IR_IOAPIC);
 		report_skip(VTD_TEST_IR_MSI);
 	} else {
 		vtd_test_dmar(&dev);

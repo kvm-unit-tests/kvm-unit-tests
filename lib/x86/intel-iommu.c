@@ -284,6 +284,21 @@ struct vtd_msi_data {
 } __attribute__ ((packed));
 typedef struct vtd_msi_data vtd_msi_data_t;
 
+struct vtd_ioapic_entry {
+	uint64_t vector:8;
+	uint64_t __zeros:3;
+	uint64_t index_15:1;
+	uint64_t delivery_status:1;
+	uint64_t polarity:1;
+	uint64_t remote_irr:1;
+	uint64_t trigger_mode:1;
+	uint64_t mask:1;
+	uint64_t __zeros_2:31;
+	uint64_t interrupt_format:1;
+	uint64_t index_0_14:15;
+} __attribute__ ((packed));
+typedef struct vtd_ioapic_entry vtd_ioapic_entry_t;
+
 /**
  * vtd_setup_msi - setup MSI message for a device
  *
@@ -314,6 +329,31 @@ bool vtd_setup_msi(struct pci_dev *dev, int vector, int dest_id)
 
 	return pci_setup_msi(dev, *(uint64_t *)&msi_addr,
 			     *(uint32_t *)&msi_data);
+}
+
+void vtd_setup_ioapic_irq(struct pci_dev *dev, int vector,
+			  int dest_id, trigger_mode_t trigger)
+{
+	vtd_ioapic_entry_t entry = {};
+	vtd_irte_t *irte = phys_to_virt(vtd_ir_table());
+	ioapic_redir_entry_t *entry_2 = (ioapic_redir_entry_t *)&entry;
+	uint16_t index = vtd_intr_index_alloc();
+	uint8_t line;
+
+	assert(dev);
+	assert(sizeof(vtd_ioapic_entry_t) == 8);
+
+	vtd_setup_irte(dev, irte + index, vector,
+		       dest_id, trigger);
+
+	entry.vector = vector;
+	entry.trigger_mode = trigger;
+	entry.index_15 = (index >> 15) & 1;
+	entry.interrupt_format = 1;
+	entry.index_0_14 = index & 0x7fff;
+
+	line = pci_intx_line(dev);
+	ioapic_write_redir(line, *entry_2);
 }
 
 void vtd_init(void)

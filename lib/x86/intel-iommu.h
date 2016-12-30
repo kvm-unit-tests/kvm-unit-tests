@@ -22,6 +22,7 @@
 #include "desc.h"
 #include "pci.h"
 #include "asm/io.h"
+#include "apic.h"
 
 #define Q35_HOST_BRIDGE_IOMMU_ADDR  0xfed90000ULL
 #define VTD_PAGE_SHIFT              PAGE_SHIFT
@@ -142,5 +143,7 @@ static inline uint64_t vtd_readq(unsigned int reg)
 void vtd_init(void);
 void vtd_map_range(uint16_t sid, phys_addr_t iova, phys_addr_t pa, size_t size);
 bool vtd_setup_msi(struct pci_dev *dev, int vector, int dest_id);
+void vtd_setup_ioapic_irq(struct pci_dev *dev, int vector,
+			  int dest_id, trigger_mode_t trigger);
 
 #endif
