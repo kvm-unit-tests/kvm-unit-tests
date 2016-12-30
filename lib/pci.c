@@ -39,6 +39,22 @@ void pci_cap_walk(struct pci_dev *dev)
 	}
 }
 
+void pci_msi_set_enable(struct pci_dev *dev, bool enabled)
+{
+	uint16_t msi_control;
+	uint16_t offset;
+
+	offset = dev->msi_offset;
+	msi_control = pci_config_readw(dev->bdf, offset + PCI_MSI_FLAGS);
+
+	if (enabled)
+		msi_control |= PCI_MSI_FLAGS_ENABLE;
+	else
+		msi_control &= ~PCI_MSI_FLAGS_ENABLE;
+
+	pci_config_writew(dev->bdf, offset + PCI_MSI_FLAGS, msi_control);
+}
+
 bool pci_setup_msi(struct pci_dev *dev, uint64_t msi_addr, uint32_t msi_data)
 {
 	uint16_t msi_control;
@@ -69,8 +85,7 @@ bool pci_setup_msi(struct pci_dev *dev, uint64_t msi_addr, uint32_t msi_data)
 	}
 	printf("addr=0x%lx, data=0x%x\n", msi_addr, msi_data);
 
-	msi_control |= PCI_MSI_FLAGS_ENABLE;
-	pci_config_writew(addr, offset + PCI_MSI_FLAGS, msi_control);
+	pci_msi_set_enable(dev, true);
 
 	return true;
 }
