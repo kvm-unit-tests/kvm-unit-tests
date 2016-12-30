@@ -250,13 +250,13 @@ static uint16_t vtd_intr_index_alloc(void)
 }
 
 static void vtd_setup_irte(struct pci_dev *dev, vtd_irte_t *irte,
-			   int vector, int dest_id)
+			   int vector, int dest_id, trigger_mode_t trigger)
 {
 	assert(sizeof(vtd_irte_t) == 16);
 	memset(irte, 0, sizeof(*irte));
 	irte->fault_disable = 1;
 	irte->dest_mode = 0;	 /* physical */
-	irte->trigger_mode = 0;	 /* edge */
+	irte->trigger_mode = trigger;
 	irte->delivery_mode = 0; /* fixed */
 	irte->irte_mode = 0;	 /* remapped */
 	irte->vector = vector;
@@ -301,7 +301,9 @@ bool vtd_setup_msi(struct pci_dev *dev, int vector, int dest_id)
 	assert(sizeof(vtd_msi_addr_t) == 8);
 	assert(sizeof(vtd_msi_data_t) == 4);
 
-	vtd_setup_irte(dev, irte + index, vector, dest_id);
+	/* Use edge irq as default */
+	vtd_setup_irte(dev, irte + index, vector,
+		       dest_id, TRIGGER_EDGE);
 
 	msi_addr.handle_15 = index >> 15 & 1;
 	msi_addr.shv = 0;
