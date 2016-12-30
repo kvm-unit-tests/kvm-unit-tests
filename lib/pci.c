@@ -327,6 +327,11 @@ void pci_scan_bars(struct pci_dev *dev)
 	}
 }
 
+uint8_t pci_intx_line(struct pci_dev *dev)
+{
+	return pci_config_readb(dev->bdf, PCI_INTERRUPT_LINE);
+}
+
 void pci_enable_defaults(struct pci_dev *dev)
 {
 	pci_scan_bars(dev);
