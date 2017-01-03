@@ -167,9 +167,6 @@ static void vtd_install_pte(vtd_pte_t *root, iova_t iova,
 	}
 }
 
-#define  VTD_PHYS_TO_VIRT(x) \
-	((void *)(((uint64_t)phys_to_virt(x)) >> VTD_PAGE_SHIFT))
-
 /**
  * vtd_map_range: setup IO address mapping for specific memory range
  *
@@ -204,7 +201,7 @@ void vtd_map_range(uint16_t sid, iova_t iova, phys_addr_t pa, size_t size)
 		printf("allocated vt-d root entry for PCI bus %d\n",
 		       bus_n);
 	} else
-		ce = VTD_PHYS_TO_VIRT(re->context_table_p);
+		ce = phys_to_virt(re->context_table_p << VTD_PAGE_SHIFT);
 
 	/* Point to the correct context entry */
 	ce += devfn;
@@ -225,7 +222,7 @@ void vtd_map_range(uint16_t sid, iova_t iova, phys_addr_t pa, size_t size)
 		printf("allocated vt-d context entry for devfn 0x%x\n",
 		       devfn);
 	} else
-		slptptr = VTD_PHYS_TO_VIRT(ce->slptptr);
+		slptptr = phys_to_virt(ce->slptptr << VTD_PAGE_SHIFT);
 
 	while (size) {
 		/* TODO: currently we only map 4K pages (level = 1) */
