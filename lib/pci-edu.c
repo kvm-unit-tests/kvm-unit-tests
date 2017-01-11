@@ -48,9 +48,9 @@ void edu_dma(struct pci_edu_dev *dev, iova_t iova,
 	assert(size <= EDU_DMA_SIZE_MAX);
 	assert(dev_offset < EDU_DMA_SIZE_MAX);
 
-	printf("edu device DMA start %s addr %p size 0x%lu off 0x%x\n",
+	printf("edu device DMA start %s addr 0x%" PRIx64 " size 0x%lu off 0x%x\n",
 	       from_device ? "FROM" : "TO",
-	       (void *)iova, size, dev_offset);
+	       iova, (ulong)size, dev_offset);
 
 	if (from_device) {
 		from = dev_offset + EDU_DMA_START;
