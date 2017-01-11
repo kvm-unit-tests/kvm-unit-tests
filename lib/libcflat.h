@@ -58,12 +58,21 @@ typedef _Bool		bool;
 #define true  1
 
 #if __SIZEOF_LONG__ == 8
+#  define __PRI32_PREFIX
 #  define __PRI64_PREFIX	"l"
 #  define __PRIPTR_PREFIX	"l"
 #else
+#if defined(__U32_LONG_FMT__)
+#  define __PRI32_PREFIX        "l"
+#else
+#  define __PRI32_PREFIX
+#endif
 #  define __PRI64_PREFIX	"ll"
 #  define __PRIPTR_PREFIX
 #endif
+#define PRId32  __PRI32_PREFIX	"d"
+#define PRIu32  __PRI32_PREFIX	"u"
+#define PRIx32  __PRI32_PREFIX	"x"
 #define PRId64  __PRI64_PREFIX	"d"
 #define PRIu64  __PRI64_PREFIX	"u"
 #define PRIx64  __PRI64_PREFIX	"x"

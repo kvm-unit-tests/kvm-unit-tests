@@ -55,6 +55,7 @@ CFLAGS += $(fomit_frame_pointer)
 CFLAGS += $(fno_stack_protector)
 CFLAGS += $(fno_stack_protector_all)
 CFLAGS += $(wno_frame_address)
+CFLAGS += $(if $(U32_LONG_FMT),-D__U32_LONG_FMT__,)
 
 CXXFLAGS += $(CFLAGS)
 
