@@ -26,15 +26,13 @@
 ##############################################################################
 run_qemu ()
 {
-	local stdout errors ret sig tty
+	local stdout errors ret sig
 
 	# stdout to {stdout}, stderr to $errors and stderr
-	tty=$(stty -g)
 	exec {stdout}>&1
-	errors=$("${@}" 2> >(tee /dev/stderr) > /dev/fd/$stdout)
+	errors=$("${@}" </dev/null 2> >(tee /dev/stderr) > /dev/fd/$stdout)
 	ret=$?
 	exec {stdout}>&-
-	stty "$tty"
 
 	[ $ret -eq 134 ] && echo "QEMU Aborted" >&2
 
