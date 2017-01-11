@@ -83,7 +83,7 @@ bool pci_setup_msi(struct pci_dev *dev, uint64_t msi_addr, uint32_t msi_data)
 		pci_config_writel(addr, offset + PCI_MSI_DATA_32, msi_data);
 		printf("MSI: dev 0x%x init 32bit address: ", addr);
 	}
-	printf("addr=0x%lx, data=0x%x\n", msi_addr, msi_data);
+	printf("addr=0x%" PRIx64 ", data=0x%x\n", msi_addr, msi_data);
 
 	pci_msi_set_enable(dev, true);
 
