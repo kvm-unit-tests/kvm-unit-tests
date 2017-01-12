@@ -41,7 +41,7 @@ while getopts "g:hv" opt; do
             verbose="yes"
             ;;
         *)
-            exit 1
+            exit 2
             ;;
     esac
 done
