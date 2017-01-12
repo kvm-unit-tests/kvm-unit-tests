@@ -12,7 +12,8 @@ cscope.*
 /lib/asm
 /config.mak
 /*-run
-/test.log
 /msr.out
 /tests
 /build-head
+/logs/
+/logs.old/

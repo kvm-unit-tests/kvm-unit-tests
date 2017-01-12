@@ -7,7 +7,7 @@ if [ ! -f config.mak ]; then
     exit 1
 fi
 source config.mak
-source scripts/functions.bash
+source scripts/common.bash
 
 function usage()
 {
@@ -46,17 +46,31 @@ while getopts "g:hv" opt; do
     esac
 done
 
-RUNTIME_log_stderr () { cat >> test.log; }
+# RUNTIME_log_file will be configured later
+RUNTIME_log_stderr () { cat >> $RUNTIME_log_file; }
 RUNTIME_log_stdout () {
     if [ "$PRETTY_PRINT_STACKS" = "yes" ]; then
-        ./scripts/pretty_print_stacks.py $1 >> test.log
+        ./scripts/pretty_print_stacks.py $1 >> $RUNTIME_log_file
     else
-        cat >> test.log
+        cat >> $RUNTIME_log_file
     fi
 }
 
+function run_task()
+{
+	local testname="$1"
 
+	RUNTIME_log_file="${unittest_log_dir}/${testname}.log"
+	run "$@"
+}
+
+: ${unittest_log_dir:=logs}
 config=$TEST_DIR/unittests.cfg
-rm -f test.log
-printf "BUILD_HEAD=$(cat build-head)\n\n" > test.log
-for_each_unittest $config run
+
+rm -rf $unittest_log_dir.old
+[ -d $unittest_log_dir ] && mv $unittest_log_dir $unittest_log_dir.old
+mkdir $unittest_log_dir || exit 2
+
+echo "BUILD_HEAD=$(cat build-head)" > $unittest_log_dir/SUMMARY
+
+for_each_unittest $config run_task

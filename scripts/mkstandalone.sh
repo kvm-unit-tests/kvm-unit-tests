@@ -5,7 +5,7 @@ if [ ! -f config.mak ]; then
 	exit 1
 fi
 source config.mak
-source scripts/functions.bash
+source scripts/common.bash
 
 escape ()
 {
