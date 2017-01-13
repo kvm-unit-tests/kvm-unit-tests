@@ -47,6 +47,30 @@ environment variable:
 
     QEMU=/tmp/qemu/x86_64-softmmu/qemu-system-x86_64 ./x86-run ./x86/msr.flat
 
+# Unit test inputs
+
+Unit tests use QEMU's '-append <args...>' parameter for command line
+inputs, i.e. all args will be available as argv strings in main().
+Additionally a file of the form
+
+KEY=VAL
+KEY2=VAL
+...
+
+may be passed with '-initrd <file>' to become the unit test's environ,
+which can then be accessed in the usual ways, e.g. VAL = getenv("KEY")
+Any key=val strings can be passed, but some have reserved meanings in
+the framework. The list of reserved environment variables is below
+
+ QEMU_ACCEL            ... either kvm or tcg
+ QEMU_VERSION_STRING   ... string of the form `qemu -h | head -1`
+ KERNEL_VERSION_STRING ... string of the form `uname -r`
+
+Additionally these self-explanatory variables are reserved
+
+ QEMU_MAJOR, QEMU_MINOR, QEMU_MICRO, KERNEL_VERSION, KERNEL_PATCHLEVEL,
+ KERNEL_SUBLEVEL, KERNEL_EXTRAVERSION
+
 # Contributing
 
 ## Directory structure
