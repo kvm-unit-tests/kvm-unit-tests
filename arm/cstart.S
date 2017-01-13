@@ -62,6 +62,7 @@ start:
 	ldr	r0, =__argc
 	ldr	r0, [r0]
 	ldr	r1, =__argv
+	ldr	r2, =__environ
 	bl	main
 	bl	exit
 	b	halt

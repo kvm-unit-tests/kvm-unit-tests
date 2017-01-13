@@ -23,6 +23,7 @@
 extern unsigned long stacktop;
 extern void io_init(void);
 extern void setup_args_progname(const char *args);
+extern void setup_env(char *env, int size);
 
 char *initrd;
 u32 initrd_size;
@@ -173,4 +174,11 @@ void setup(const void *fdt)
 	ret = dt_get_bootargs(&bootargs);
 	assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
 	setup_args_progname(bootargs);
+
+	if (initrd) {
+		/* environ is currently the only file in the initrd */
+		char *env = malloc(initrd_size);
+		memcpy(env, initrd, initrd_size);
+		setup_env(env, initrd_size);
+	}
 }

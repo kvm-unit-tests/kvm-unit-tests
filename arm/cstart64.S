@@ -43,6 +43,7 @@ start:
 	adr	x0, __argc
 	ldr	x0, [x0]
 	adr	x1, __argv
+	adr	x2, __environ
 	bl	main
 	bl	exit
 	b	halt

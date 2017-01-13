@@ -79,6 +79,7 @@ fi
 
 M+=",accel=$ACCEL"
 command="$qemu -nodefaults $M -cpu $processor $chr_testdev $pci_testdev"
+[ -f "$ENV" ] && command+=" -initrd $ENV"
 command+=" -display none -serial stdio -kernel"
 command="$(timeout_cmd) $command"
 echo $command "$@"
