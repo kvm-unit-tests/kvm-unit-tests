@@ -256,11 +256,10 @@ int dt_get_bootargs(const char **bootargs)
 		return node;
 
 	prop = fdt_get_property(fdt, node, "bootargs", &len);
-	if (prop)
-		*bootargs = prop->data;
-	else if (len < 0 && len != -FDT_ERR_NOTFOUND)
+	if (!prop)
 		return len;
 
+	*bootargs = prop->data;
 	return 0;
 }
 

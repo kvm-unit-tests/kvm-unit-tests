@@ -176,6 +176,6 @@ void setup(const void *fdt)
 	io_init();
 
 	ret = dt_get_bootargs(&bootargs);
-	assert(ret == 0);
+	assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
 	setup_args_progname(bootargs);
 }

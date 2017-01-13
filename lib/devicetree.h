@@ -202,10 +202,11 @@ extern int dt_get_reg(int fdtnode, int regidx, struct dt_reg *reg);
  **********************************************************************/
 
 /*
- * dt_get_bootargs gets a pointer to /chosen/bootargs
+ * dt_get_bootargs gets the string pointer from /chosen/bootargs
  * returns
  *  - zero on success
- *  - a negative FDT_ERR_* value on failure
+ *  - a negative FDT_ERR_* value on failure, and @bootargs
+ *    will be set to NULL
  */
 extern int dt_get_bootargs(const char **bootargs);
 
