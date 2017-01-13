@@ -44,6 +44,7 @@ fi
 M='-machine pseries'
 M+=",accel=$ACCEL"
 command="$qemu -nodefaults $M -bios $FIRMWARE"
+[ -f "$ENV" ] && command+=" -initrd $ENV"
 command+=" -display none -serial stdio -kernel"
 command="$(timeout_cmd) $command"
 echo $command "$@"

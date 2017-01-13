@@ -94,9 +94,10 @@ start:
 	bl	setup
 
 	/* run the test */
-	LOAD_REG_ADDR(r5, __argc)
+	LOAD_REG_ADDR(r3, __argc)
 	LOAD_REG_ADDR(r4, __argv)
-	lwz	r3, 0(r5)
+	LOAD_REG_ADDR(r5, __environ)
+	lwz	r3, 0(r3)
 	bl	main
 	bl	exit
 	b	halt
