@@ -8,49 +8,46 @@ char *__args;
 static char args_copy[1000];
 static char *copy_ptr = args_copy;
 
-static bool isblank(char p)
-{
-    return p == ' ' || p == '\t';
-}
+#define isblank(c) ((c) == ' ' || (c) == '\t')
 
 static char *skip_blanks(char *p)
 {
-    while (isblank(*p))
-        ++p;
-    return p;
+	while (isblank(*p))
+		++p;
+	return p;
 }
 
 void __setup_args(void)
 {
-    char *args = __args;
-    char **argv = __argv + __argc;
+	char *args = __args;
+	char **argv = __argv + __argc;
 
-    while (*(args = skip_blanks(args)) != '\0') {
-        *argv++ = copy_ptr;
-        while (*args != '\0' && !isblank(*args))
-            *copy_ptr++ = *args++;
-        *copy_ptr++ = '\0';
-    }
-    __argc = argv - __argv;
+	while (*(args = skip_blanks(args)) != '\0') {
+		*argv++ = copy_ptr;
+		while (*args != '\0' && !isblank(*args))
+			*copy_ptr++ = *args++;
+		*copy_ptr++ = '\0';
+	}
+	__argc = argv - __argv;
 }
 
 void setup_args(char *args)
 {
-    if (!args)
-        return;
+	if (!args)
+		return;
 
-    __args = args;
-    __setup_args();
+	__args = args;
+	__setup_args();
 }
 
 void setup_args_progname(char *args)
 {
-    __argv[0] = copy_ptr;
-    strcpy(__argv[0], auxinfo.progname);
-    copy_ptr += strlen(auxinfo.progname) + 1;
-    ++__argc;
-    if (args) {
-        __args = args;
-        __setup_args();
-    }
+	__argv[0] = copy_ptr;
+	strcpy(__argv[0], auxinfo.progname);
+	copy_ptr += strlen(auxinfo.progname) + 1;
+	++__argc;
+	if (args) {
+		__args = args;
+		__setup_args();
+	}
 }
