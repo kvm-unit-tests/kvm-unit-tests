@@ -22,6 +22,9 @@ extern unsigned long stacktop;
 extern void io_init(void);
 extern void setup_args_progname(const char *args);
 
+char *initrd;
+u32 initrd_size;
+
 u32 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (~0U) };
 int nr_cpus;
 uint64_t tb_hz;
@@ -154,18 +157,20 @@ static void mem_init(phys_addr_t freemem_start)
 void setup(const void *fdt)
 {
 	void *freemem = &stacktop;
-	const char *bootargs;
+	const char *bootargs, *tmp;
 	u32 fdt_size;
 	int ret;
 
 	/*
-	 * Before calling mem_init we need to move the fdt to a safe
-	 * location. We move it above the stack to construct the memory
+	 * Before calling mem_init we need to move the fdt and initrd
+	 * to safe locations. We move them to construct the memory
 	 * map illustrated below:
 	 *
 	 * +----------------------+   <-- top of physical memory
 	 * |                      |
 	 * ~                      ~
+	 * |                      |
+	 * +----------------------+   <-- top of initrd
 	 * |                      |
 	 * +----------------------+   <-- top of FDT
 	 * |                      |
@@ -184,6 +189,14 @@ void setup(const void *fdt)
 	ret = dt_init(freemem);
 	assert(ret == 0);
 	freemem += fdt_size;
+
+	ret = dt_get_initrd(&tmp, &initrd_size);
+	assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
+	if (ret == 0) {
+		initrd = freemem;
+		memmove(initrd, tmp, initrd_size);
+		freemem += initrd_size;
+	}
 
 	/* call init functions */
 	cpu_init();
