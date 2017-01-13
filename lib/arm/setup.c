@@ -112,31 +112,51 @@ static void mem_init(phys_addr_t freemem_start)
 
 void setup(const void *fdt)
 {
+	void *freemem = &stacktop;
 	const char *bootargs;
 	u32 fdt_size;
 	int ret;
 
 	/*
-	 * Move the fdt to just above the stack. The free memory
-	 * then starts just after the fdt.
+	 * Before calling mem_init we need to move the fdt to a safe
+	 * location. We move it above the stack to construct the memory
+	 * map illustrated below:
+	 *
+	 *    +----------------------+   <-- top of physical memory
+	 *    |                      |
+	 *    ~                      ~
+	 *    |                      |
+	 *    +----------------------+   <-- top of FDT
+	 *    |                      |
+	 *    +----------------------+   <-- top of cpu0's stack
+	 *    |                      |
+	 *    +----------------------+   <-- top of text/data/bss sections,
+	 *    |                      |       see arm/flat.lds
+	 *    |                      |
+	 *    +----------------------+   <-- load address
+	 *    |                      |
+	 *    +----------------------+
 	 */
 	fdt_size = fdt_totalsize(fdt);
-	ret = fdt_move(fdt, &stacktop, fdt_size);
+	ret = fdt_move(fdt, freemem, fdt_size);
 	assert(ret == 0);
-	ret = dt_init(&stacktop);
+	ret = dt_init(freemem);
 	assert(ret == 0);
+	freemem += fdt_size;
 
+	/* call init functions */
 	cpu_init();
 
 	/* cpu_init must be called before thread_info_init */
 	thread_info_init(current_thread_info(), 0);
 
 	/* thread_info_init must be called before mem_init */
-	mem_init(PAGE_ALIGN((unsigned long)&stacktop + fdt_size));
+	mem_init(PAGE_ALIGN((unsigned long)freemem));
 
 	/* mem_init must be called before io_init */
 	io_init();
 
+	/* finish setup */
 	ret = dt_get_bootargs(&bootargs);
 	assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
 	setup_args_progname(bootargs);
