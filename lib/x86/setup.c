@@ -12,8 +12,14 @@
 #define MB_MOD_START	 0
 #define MB_MOD_END	 4
 
+#define ENV_SIZE 16384
+
+extern void setup_env(char *env, int size);
+
 char *initrd;
 u32 initrd_size;
+
+static char env[ENV_SIZE];
 
 void setup_get_initrd(u8 *bootinfo)
 {
@@ -28,4 +34,14 @@ void setup_get_initrd(u8 *bootinfo)
 
 	initrd = (char *)(ulong)*mod_start;
 	initrd_size = *mod_end - *mod_start;
+}
+
+void setup_environ(void)
+{
+	if (initrd) {
+		/* environ is currently the only file in the initrd */
+		u32 size = MIN(initrd_size, ENV_SIZE);
+		memcpy(env, initrd, size);
+		setup_env(env, size);
+	}
 }

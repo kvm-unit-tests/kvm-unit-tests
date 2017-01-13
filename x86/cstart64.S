@@ -200,11 +200,13 @@ start64:
 	mov mb_boot_info(%rip), %rbx
 	mov %rbx, %rdi
 	call setup_get_initrd
+	call setup_environ
 	mov mb_cmdline(%rbx), %eax
 	mov %rax, __args(%rip)
 	call __setup_args
 	mov __argc(%rip), %edi
 	lea __argv(%rip), %rsi
+	lea __environ(%rip), %rdx
 	call main
 	mov %eax, %edi
 	call exit

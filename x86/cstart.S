@@ -96,6 +96,7 @@ MSR_GS_BASE = 0xc0000101
 start:
         push %ebx
         call setup_get_initrd
+        call setup_environ
         mov mb_cmdline(%ebx), %eax
         mov %eax, __args
         call __setup_args
@@ -149,6 +150,7 @@ start32:
 	call enable_apic
 	call smp_init
 	call enable_x2apic
+        push $__environ
         push $__argv
         push __argc
         call main
