@@ -198,7 +198,7 @@ start64:
 	call smp_init
 	call enable_x2apic
 	mov mb_boot_info(%rip), %rax
-	mov mb_cmdline(%rax), %rax
+	mov mb_cmdline(%rax), %eax
 	mov %rax, __args(%rip)
 	call __setup_args
 	mov __argc(%rip), %edi
