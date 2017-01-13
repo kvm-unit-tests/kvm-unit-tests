@@ -85,6 +85,7 @@ extern void puts(const char *s);
 extern void exit(int code);
 extern void abort(void);
 extern long atol(const char *ptr);
+extern char *getenv(const char *name);
 
 extern int printf(const char *fmt, ...)
 					__attribute__((format(printf, 1, 2)));

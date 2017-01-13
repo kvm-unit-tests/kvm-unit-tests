@@ -158,3 +158,18 @@ long atol(const char *ptr)
 
     return acc;
 }
+
+extern char **environ;
+
+char *getenv(const char *name)
+{
+    char **envp = environ, *delim;
+
+    while (*envp) {
+        delim = strchr(*envp, '=');
+        if (delim && strncmp(name, *envp, delim - *envp) == 0)
+            return delim + 1;
+        ++envp;
+    }
+    return NULL;
+}
