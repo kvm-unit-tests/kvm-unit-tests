@@ -282,6 +282,40 @@ int dt_get_default_console_node(void)
 	return fdt_path_offset(fdt, prop->data);
 }
 
+int dt_get_initrd(const char **initrd, u32 *size)
+{
+	const struct fdt_property *prop;
+	const char *start, *end;
+	int node, len;
+	u32 *data;
+
+	*initrd = NULL;
+	*size = 0;
+
+	node = fdt_path_offset(fdt, "/chosen");
+	if (node < 0)
+		return node;
+
+	prop = fdt_get_property(fdt, node, "linux,initrd-start", &len);
+	if (!prop)
+		return len;
+	data = (u32 *)prop->data;
+	start = (const char *)(unsigned long)fdt32_to_cpu(*data);
+
+	prop = fdt_get_property(fdt, node, "linux,initrd-end", &len);
+	if (!prop) {
+		assert(len != -FDT_ERR_NOTFOUND);
+		return len;
+	}
+	data = (u32 *)prop->data;
+	end = (const char *)(unsigned long)fdt32_to_cpu(*data);
+
+	*initrd = start;
+	*size = (unsigned long)end - (unsigned long)start;
+
+	return 0;
+}
+
 int dt_init(const void *fdt_ptr)
 {
 	int ret;

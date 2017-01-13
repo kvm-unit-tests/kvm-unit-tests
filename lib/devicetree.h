@@ -220,6 +220,16 @@ extern int dt_get_bootargs(const char **bootargs);
 extern int dt_get_default_console_node(void);
 
 /*
+ * dt_get_initrd gets the physical address of the initrd and its
+ * size from /chosen
+ * returns
+ *  - zero on success
+ *  - a negative FDT_ERR_* value on failure, and @initrd will be
+ *    set to NULL and @size set to zero
+ */
+extern int dt_get_initrd(const char **initrd, u32 *size);
+
+/*
  * dt_get_memory_params gets the memory parameters from the /memory node(s)
  * storing each memory region ("address size" tuple) in consecutive entries
  * of @regs, up to @nr_regs
