@@ -21,7 +21,6 @@ CFLAGS += -Wextra
 CFLAGS += -O2
 CFLAGS += -I lib -I lib/libfdt
 CFLAGS += -Wa,-mregnames
-CFLAGS += -fpie
 
 # We want to keep intermediate files
 .PRECIOUS: %.o
