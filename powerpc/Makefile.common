@@ -11,7 +11,8 @@ tests-common = \
 	$(TEST_DIR)/emulator.elf \
 	$(TEST_DIR)/tm.elf
 
-all: $(TEST_DIR)/boot_rom.bin test_cases
+tests-all = $(tests-common) $(tests)
+all: $(TEST_DIR)/boot_rom.bin $(tests-all)
 
 ##################################################################
 
@@ -69,10 +70,5 @@ powerpc_clean: libfdt_clean asm_offsets_clean
 	$(RM) $(TEST_DIR)/*.{o,elf} $(TEST_DIR)/boot_rom.bin \
 	      $(TEST_DIR)/.*.d lib/powerpc/.*.d
 
-##################################################################
-
-generated_files = $(asm-offsets)
-
-test_cases: $(generated_files) $(tests-common) $(tests)
-
-$(cstart.o): $(asm-offsets)
+generated-files = $(asm-offsets)
+$(tests-all:.elf=.o) $(cstart.o) $(cflatobjs): $(generated-files)
