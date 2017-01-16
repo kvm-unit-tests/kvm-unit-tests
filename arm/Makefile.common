@@ -15,7 +15,8 @@ tests-common += $(TEST_DIR)/pci-test.flat
 tests-common += $(TEST_DIR)/pmu.flat
 tests-common += $(TEST_DIR)/gic.flat
 
-all: test_cases
+tests-all = $(tests-common) $(tests)
+all: $(tests-all)
 
 ##################################################################
 phys_base = $(LOADADDR)
@@ -74,10 +75,5 @@ arm_clean: libfdt_clean asm_offsets_clean
 	$(RM) $(TEST_DIR)/*.{o,flat,elf} $(libeabi) $(eabiobjs) \
 	      $(TEST_DIR)/.*.d lib/arm/.*.d
 
-##################################################################
-
-generated_files = $(asm-offsets)
-
-test_cases: $(generated_files) $(tests-common) $(tests)
-
-$(TEST_DIR)/selftest.o $(cstart.o): $(asm-offsets)
+generated-files = $(asm-offsets)
+$(tests-all:.flat=.o) $(cstart.o) $(cflatobjs): $(generated-files)
