@@ -16,7 +16,6 @@ void pci_cap_walk(struct pci_dev *dev, pci_cap_handler_t handler)
 	cap_offset = pci_config_readb(dev->bdf, PCI_CAPABILITY_LIST);
 	while (cap_offset) {
 		cap_id = pci_config_readb(dev->bdf, cap_offset);
-		printf("PCI detected cap 0x%x\n", cap_id);
 		assert(cap_id < PCI_CAP_ID_MAX + 1);
 		handler(dev, cap_offset, cap_id);
 		cap_offset = pci_config_readb(dev->bdf, cap_offset + 1);
@@ -64,12 +63,9 @@ bool pci_setup_msi(struct pci_dev *dev, uint64_t msi_addr, uint32_t msi_data)
 		pci_config_writel(addr, offset + PCI_MSI_ADDRESS_HI,
 				  (uint32_t)(msi_addr >> 32));
 		pci_config_writel(addr, offset + PCI_MSI_DATA_64, msi_data);
-		printf("MSI: dev 0x%x init 64bit address: ", addr);
 	} else {
 		pci_config_writel(addr, offset + PCI_MSI_DATA_32, msi_data);
-		printf("MSI: dev 0x%x init 32bit address: ", addr);
 	}
-	printf("addr=0x%" PRIx64 ", data=0x%x\n", msi_addr, msi_data);
 
 	pci_msi_set_enable(dev, true);
 
@@ -274,6 +270,21 @@ void pci_dev_print_id(pcidevaddr_t dev)
 		pci_config_readw(dev, PCI_DEVICE_ID));
 }
 
+static void pci_cap_print(struct pci_dev *dev, int cap_offset, int cap_id)
+{
+	switch (cap_id) {
+	case PCI_CAP_ID_MSI: {
+		uint16_t control = pci_config_readw(dev->bdf, cap_offset + PCI_MSI_FLAGS);
+		printf("\tMSI,%s-bit capability ", control & PCI_MSI_FLAGS_64BIT ? "64" : "32");
+		break;
+	}
+	default:
+		printf("\tcapability 0x%02x ", cap_id);
+		break;
+	}
+	printf("at offset 0x%02x\n", cap_offset);
+}
+
 void pci_dev_print(pcidevaddr_t dev)
 {
 	uint8_t header = pci_config_readb(dev, PCI_HEADER_TYPE);
@@ -288,6 +299,8 @@ void pci_dev_print(pcidevaddr_t dev)
 	pci_dev_print_id(dev);
 	printf(" type %02x progif %02x class %02x subclass %02x\n",
 	       header, progif, class, subclass);
+
+	pci_cap_walk(&pci_dev, pci_cap_print);
 
 	if ((header & PCI_HEADER_TYPE_MASK) != PCI_HEADER_TYPE_NORMAL)
 		return;
@@ -337,8 +350,6 @@ static void pci_cap_setup(struct pci_dev *dev, int cap_offset, int cap_id)
 {
 	switch (cap_id) {
 	case PCI_CAP_ID_MSI:
-		printf("Detected MSI for device 0x%x offset 0x%x\n",
-			dev->bdf, cap_offset);
 		dev->msi_offset = cap_offset;
 		break;
 	}

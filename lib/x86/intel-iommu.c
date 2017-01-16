@@ -324,6 +324,9 @@ bool vtd_setup_msi(struct pci_dev *dev, int vector, int dest_id)
 	msi_addr.head = 0xfee;
 	msi_data.subhandle = 0;
 
+	printf("%s: msi_addr=0x%" PRIx64 ", msi_data=0x%x\n", __func__,
+		*(uint64_t *)&msi_addr, *(uint32_t *)&msi_data);
+
 	return pci_setup_msi(dev, *(uint64_t *)&msi_addr,
 			     *(uint32_t *)&msi_data);
 }
