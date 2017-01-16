@@ -7,20 +7,7 @@
 #include "pci.h"
 #include "asm/pci.h"
 
-typedef void (*pci_cap_handler)(struct pci_dev *dev, int cap_offset);
-
-static void pci_cap_msi_handler(struct pci_dev *dev, int cap_offset)
-{
-	printf("Detected MSI for device 0x%x offset 0x%x\n",
-	       dev->bdf, cap_offset);
-	dev->msi_offset = cap_offset;
-}
-
-static pci_cap_handler cap_handlers[PCI_CAP_ID_MAX + 1] = {
-	[PCI_CAP_ID_MSI] = pci_cap_msi_handler,
-};
-
-void pci_cap_walk(struct pci_dev *dev)
+void pci_cap_walk(struct pci_dev *dev, pci_cap_handler_t handler)
 {
 	uint8_t cap_offset;
 	uint8_t cap_id;
@@ -31,8 +18,7 @@ void pci_cap_walk(struct pci_dev *dev)
 		cap_id = pci_config_readb(dev->bdf, cap_offset);
 		printf("PCI detected cap 0x%x\n", cap_id);
 		assert(cap_id < PCI_CAP_ID_MAX + 1);
-		if (cap_handlers[cap_id])
-			cap_handlers[cap_id](dev, cap_offset);
+		handler(dev, cap_offset, cap_id);
 		cap_offset = pci_config_readb(dev->bdf, cap_offset + 1);
 		/* Avoid dead loop during cap walk */
 		assert(++count <= 255);
@@ -347,10 +333,21 @@ uint8_t pci_intx_line(struct pci_dev *dev)
 	return pci_config_readb(dev->bdf, PCI_INTERRUPT_LINE);
 }
 
+static void pci_cap_setup(struct pci_dev *dev, int cap_offset, int cap_id)
+{
+	switch (cap_id) {
+	case PCI_CAP_ID_MSI:
+		printf("Detected MSI for device 0x%x offset 0x%x\n",
+			dev->bdf, cap_offset);
+		dev->msi_offset = cap_offset;
+		break;
+	}
+}
+
 void pci_enable_defaults(struct pci_dev *dev)
 {
 	pci_scan_bars(dev);
 	/* Enable device DMA operations */
 	pci_cmd_set_clr(dev, PCI_COMMAND_MASTER, 0);
-	pci_cap_walk(dev);
+	pci_cap_walk(dev, pci_cap_setup);
 }
