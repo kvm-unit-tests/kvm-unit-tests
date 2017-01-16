@@ -67,6 +67,8 @@ static void edu_isr(isr_regs_t *regs)
 {
 	edu_intr_recved = true;
 	eoi();
+	edu_reg_writel(&edu_dev, EDU_REG_INTR_ACK,
+			edu_reg_readl(&edu_dev, EDU_REG_INTR_STATUS));
 }
 
 static void vtd_test_ir(void)
@@ -119,9 +121,6 @@ static void vtd_test_ir(void)
 
 	while (!edu_intr_recved)
 		cpu_relax();
-
-	/* Clear INTR bits */
-	edu_reg_writel(dev, EDU_REG_INTR_RAISE, 0);
 
 	/* We are good as long as we reach here */
 	report(VTD_TEST_IR_MSI, edu_intr_recved == true);
