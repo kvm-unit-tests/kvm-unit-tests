@@ -274,7 +274,7 @@ void pci_dev_print_id(pcidevaddr_t dev)
 		pci_config_readw(dev, PCI_DEVICE_ID));
 }
 
-static void pci_dev_print(pcidevaddr_t dev)
+void pci_dev_print(pcidevaddr_t dev)
 {
 	uint8_t header = pci_config_readb(dev, PCI_HEADER_TYPE);
 	uint8_t progif = pci_config_readb(dev, PCI_CLASS_PROG);
