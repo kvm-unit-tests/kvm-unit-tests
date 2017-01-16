@@ -18,8 +18,11 @@
 #define VTD_TEST_IR_MSI ("IR MSI")
 #define VTD_TEST_IR_IOAPIC ("IR IOAPIC")
 
-void vtd_test_dmar(struct pci_edu_dev *dev)
+static struct pci_edu_dev edu_dev;
+
+static void vtd_test_dmar(void)
 {
+	struct pci_edu_dev *dev = &edu_dev;
 	void *page = alloc_page();
 
 	report_prefix_push("vtd_dmar");
@@ -66,10 +69,11 @@ static void edu_isr(isr_regs_t *regs)
 	eoi();
 }
 
-static void vtd_test_ir(struct pci_edu_dev *dev)
+static void vtd_test_ir(void)
 {
 #define VTD_TEST_VECTOR_IOAPIC (0xed)
 #define VTD_TEST_VECTOR_MSI (0xee)
+	struct pci_edu_dev *dev = &edu_dev;
 	struct pci_dev *pci_dev = &dev->pci_dev;
 
 	report_prefix_push("vtd_ir");
@@ -127,8 +131,6 @@ static void vtd_test_ir(struct pci_edu_dev *dev)
 
 int main(int argc, char *argv[])
 {
-	struct pci_edu_dev dev;
-
 	vtd_init();
 
 	report_prefix_push("vtd_init");
@@ -145,15 +147,15 @@ int main(int argc, char *argv[])
 
 	report_prefix_pop();
 
-	if (!edu_init(&dev)) {
+	if (!edu_init(&edu_dev)) {
 		printf("Please specify \"-device edu\" to do "
 		       "further IOMMU tests.\n");
 		report_skip(VTD_TEST_DMAR_4B);
 		report_skip(VTD_TEST_IR_IOAPIC);
 		report_skip(VTD_TEST_IR_MSI);
 	} else {
-		vtd_test_dmar(&dev);
-		vtd_test_ir(&dev);
+		vtd_test_dmar();
+		vtd_test_ir();
 	}
 
 	return report_summary();
