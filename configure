@@ -12,6 +12,7 @@ host=$arch
 cross_prefix=
 endian=""
 pretty_print_stacks=yes
+u32_long=
 
 usage() {
     cat <<-EOF
@@ -110,16 +111,11 @@ if [ -f $testdir/run ]; then
 fi
 
 # check if uint32_t needs a long format modifier
-cat << EOF > lib_test.c
-#include <inttypes.h>
+cat << EOF > lib-test.c
+__UINT32_TYPE__
 EOF
-
-$cross_prefix$cc lib_test.c -E | grep "typedef" | grep "long" | grep "uint32_t" &> /dev/null
-exit=$?
-if [ $exit -eq 0 ]; then
-    u32_long=true
-fi
-rm -f lib_test.c
+u32_long=$($cross_prefix$cc -E lib-test.c | grep -v '^#' | grep -q long && echo yes)
+rm -f lib-test.c
 
 # check for dependent 32 bit libraries
 if [ "$arch" != "arm" ]; then
