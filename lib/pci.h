@@ -28,7 +28,6 @@ struct pci_dev {
 };
 
 extern void pci_dev_init(struct pci_dev *dev, pcidevaddr_t bdf);
-extern void pci_scan_bars(struct pci_dev *dev);
 extern void pci_cmd_set_clr(struct pci_dev *dev, uint16_t set, uint16_t clr);
 typedef void (*pci_cap_handler_t)(struct pci_dev *dev, int cap_offset, int cap_id);
 extern void pci_cap_walk(struct pci_dev *dev, pci_cap_handler_t handler);

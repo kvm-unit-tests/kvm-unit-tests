@@ -90,12 +90,6 @@ bool pci_dev_exists(pcidevaddr_t dev)
 		pci_config_readw(dev, PCI_DEVICE_ID) != 0xffff);
 }
 
-void pci_dev_init(struct pci_dev *dev, pcidevaddr_t bdf)
-{
-       memset(dev, 0, sizeof(*dev));
-       dev->bdf = bdf;
-}
-
 /* Scan bus look for a specific device. Only bus 0 scanned for now. */
 pcidevaddr_t pci_find_dev(uint16_t vendor_id, uint16_t device_id)
 {
@@ -122,7 +116,7 @@ uint32_t pci_bar_get(struct pci_dev *dev, int bar_num)
 				bar_num * 4);
 }
 
-phys_addr_t pci_bar_get_addr(struct pci_dev *dev, int bar_num)
+static phys_addr_t __pci_bar_get_addr(struct pci_dev *dev, int bar_num)
 {
 	uint32_t bar = pci_bar_get(dev, bar_num);
 	uint32_t mask = pci_bar_mask(bar);
@@ -138,15 +132,23 @@ phys_addr_t pci_bar_get_addr(struct pci_dev *dev, int bar_num)
 	return phys_addr;
 }
 
+phys_addr_t pci_bar_get_addr(struct pci_dev *dev, int bar_num)
+{
+	return dev->resource[bar_num];
+}
+
 void pci_bar_set_addr(struct pci_dev *dev, int bar_num, phys_addr_t addr)
 {
 	int off = PCI_BASE_ADDRESS_0 + bar_num * 4;
 
 	pci_config_writel(dev->bdf, off, (uint32_t)addr);
+	dev->resource[bar_num] = addr;
 
-	if (pci_bar_is64(dev, bar_num))
-		pci_config_writel(dev->bdf, off + 4,
-				  (uint32_t)(addr >> 32));
+	if (pci_bar_is64(dev, bar_num)) {
+		assert(bar_num + 1 < PCI_BAR_NUM);
+		pci_config_writel(dev->bdf, off + 4, (uint32_t)(addr >> 32));
+		dev->resource[bar_num + 1] = dev->resource[bar_num];
+	}
 }
 
 /*
@@ -326,13 +328,16 @@ void pci_print(void)
 	}
 }
 
-void pci_scan_bars(struct pci_dev *dev)
+void pci_dev_init(struct pci_dev *dev, pcidevaddr_t bdf)
 {
 	int i;
 
+	memset(dev, 0, sizeof(*dev));
+	dev->bdf = bdf;
+
 	for (i = 0; i < PCI_BAR_NUM; i++) {
 		if (pci_bar_size(dev, i)) {
-			dev->resource[i] = pci_bar_get_addr(dev, i);
+			dev->resource[i] = __pci_bar_get_addr(dev, i);
 			if (pci_bar_is64(dev, i)) {
 				assert(i + 1 < PCI_BAR_NUM);
 				dev->resource[i + 1] = dev->resource[i];
@@ -360,7 +365,6 @@ static void pci_cap_setup(struct pci_dev *dev, int cap_offset, int cap_id)
 
 void pci_enable_defaults(struct pci_dev *dev)
 {
-	pci_scan_bars(dev);
 	/* Enable device DMA operations */
 	pci_cmd_set_clr(dev, PCI_COMMAND_MASTER, 0);
 	pci_cap_walk(dev, pci_cap_setup);

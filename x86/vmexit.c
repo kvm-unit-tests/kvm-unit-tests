@@ -519,7 +519,6 @@ int main(int ac, char **av)
 	ret = pci_find_dev(PCI_VENDOR_ID_REDHAT, PCI_DEVICE_ID_REDHAT_TEST);
 	if (ret != PCIDEVADDR_INVALID) {
 		pci_dev_init(&pcidev, ret);
-		pci_scan_bars(&pcidev);
 		assert(pci_bar_is_memory(&pcidev, PCI_TESTDEV_BAR_MEM));
 		assert(!pci_bar_is_memory(&pcidev, PCI_TESTDEV_BAR_IO));
 		membar = pcidev.resource[PCI_TESTDEV_BAR_MEM];
