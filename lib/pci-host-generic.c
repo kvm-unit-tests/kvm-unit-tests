@@ -173,7 +173,7 @@ static bool pci_alloc_resource(struct pci_dev *dev, int bar_num, u64 *addr)
 	u64 size, pci_addr;
 	int type, i;
 
-	*addr = ~0;
+	*addr = INVALID_PHYS_ADDR;
 
 	size = pci_bar_size(dev, bar_num);
 	if (!size)
