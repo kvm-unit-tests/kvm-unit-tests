@@ -331,12 +331,15 @@ void pci_scan_bars(struct pci_dev *dev)
 	int i;
 
 	for (i = 0; i < PCI_BAR_NUM; i++) {
-		if (!pci_bar_is_valid(dev, i))
-			continue;
-		dev->resource[i] = pci_bar_get_addr(dev, i);
-		if (pci_bar_is64(dev, i)) {
-			i++;
-			dev->resource[i] = (phys_addr_t)0;
+		if (pci_bar_size(dev, i)) {
+			dev->resource[i] = pci_bar_get_addr(dev, i);
+			if (pci_bar_is64(dev, i)) {
+				assert(i + 1 < PCI_BAR_NUM);
+				dev->resource[i + 1] = dev->resource[i];
+				i++;
+			}
+		} else {
+			dev->resource[i] = INVALID_PHYS_ADDR;
 		}
 	}
 }
