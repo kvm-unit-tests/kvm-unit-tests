@@ -205,7 +205,7 @@ bool pci_bar_is_memory(struct pci_dev *dev, int bar_num)
 
 bool pci_bar_is_valid(struct pci_dev *dev, int bar_num)
 {
-	return pci_bar_get(dev, bar_num);
+	return dev->resource[bar_num] != INVALID_PHYS_ADDR;
 }
 
 bool pci_bar_is64(struct pci_dev *dev, int bar_num)
@@ -224,11 +224,11 @@ void pci_bar_print(struct pci_dev *dev, int bar_num)
 	phys_addr_t size, start, end;
 	uint32_t bar;
 
-	size = pci_bar_size(dev, bar_num);
-	if (!size)
+	if (!pci_bar_is_valid(dev, bar_num))
 		return;
 
 	bar = pci_bar_get(dev, bar_num);
+	size = pci_bar_size(dev, bar_num);
 	start = pci_bar_get_addr(dev, bar_num);
 	end = start + size - 1;
 
@@ -308,7 +308,7 @@ void pci_dev_print(pcidevaddr_t dev)
 		return;
 
 	for (i = 0; i < PCI_BAR_NUM; i++) {
-		if (pci_bar_size(&pci_dev, i)) {
+		if (pci_bar_is_valid(&pci_dev, i)) {
 			printf("\t");
 			pci_bar_print(&pci_dev, i);
 			printf("\n");
