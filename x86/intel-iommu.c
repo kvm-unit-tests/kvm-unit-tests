@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
 		report_skip(VTD_TEST_IR_MSI);
 	} else {
 		printf("Found EDU device:\n");
-		pci_dev_print(edu_dev.pci_dev.bdf);
+		pci_dev_print(&edu_dev.pci_dev);
 		vtd_test_dmar();
 		vtd_test_ir();
 	}

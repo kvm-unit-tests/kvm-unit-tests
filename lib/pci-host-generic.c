@@ -192,7 +192,7 @@ static bool pci_alloc_resource(struct pci_dev *dev, int bar_num, u64 *addr)
 
 	if (i >= host->nr_addr_spaces) {
 		printf("%s: warning: can't satisfy request for ", __func__);
-		pci_dev_print_id(dev->bdf);
+		pci_dev_print_id(dev);
 		printf(" ");
 		pci_bar_print(dev, bar_num);
 		printf("\n");

@@ -63,8 +63,8 @@ extern bool pci_bar_is64(struct pci_dev *dev, int bar_num);
 extern bool pci_bar_is_memory(struct pci_dev *dev, int bar_num);
 extern bool pci_bar_is_valid(struct pci_dev *dev, int bar_num);
 extern void pci_bar_print(struct pci_dev *dev, int bar_num);
-extern void pci_dev_print_id(pcidevaddr_t dev);
-extern void pci_dev_print(pcidevaddr_t dev);
+extern void pci_dev_print_id(struct pci_dev *dev);
+extern void pci_dev_print(struct pci_dev *dev);
 extern uint8_t pci_intx_line(struct pci_dev *dev);
 void pci_msi_set_enable(struct pci_dev *dev, bool enabled);
 

@@ -265,11 +265,13 @@ void pci_bar_print(struct pci_dev *dev, int bar_num)
 	printf("]");
 }
 
-void pci_dev_print_id(pcidevaddr_t dev)
+void pci_dev_print_id(struct pci_dev *dev)
 {
-	printf("00.%02x.%1x %04x:%04x", dev / 8, dev % 8,
-		pci_config_readw(dev, PCI_VENDOR_ID),
-		pci_config_readw(dev, PCI_DEVICE_ID));
+	pcidevaddr_t bdf = dev->bdf;
+
+	printf("00.%02x.%1x %04x:%04x", bdf / 8, bdf % 8,
+		pci_config_readw(bdf, PCI_VENDOR_ID),
+		pci_config_readw(bdf, PCI_DEVICE_ID));
 }
 
 static void pci_cap_print(struct pci_dev *dev, int cap_offset, int cap_id)
@@ -287,44 +289,45 @@ static void pci_cap_print(struct pci_dev *dev, int cap_offset, int cap_id)
 	printf("at offset 0x%02x\n", cap_offset);
 }
 
-void pci_dev_print(pcidevaddr_t dev)
+void pci_dev_print(struct pci_dev *dev)
 {
-	uint8_t header = pci_config_readb(dev, PCI_HEADER_TYPE);
-	uint8_t progif = pci_config_readb(dev, PCI_CLASS_PROG);
-	uint8_t subclass = pci_config_readb(dev, PCI_CLASS_DEVICE);
-	uint8_t class = pci_config_readb(dev, PCI_CLASS_DEVICE + 1);
-	struct pci_dev pci_dev;
+	pcidevaddr_t bdf = dev->bdf;
+	uint8_t header = pci_config_readb(bdf, PCI_HEADER_TYPE);
+	uint8_t progif = pci_config_readb(bdf, PCI_CLASS_PROG);
+	uint8_t subclass = pci_config_readb(bdf, PCI_CLASS_DEVICE);
+	uint8_t class = pci_config_readb(bdf, PCI_CLASS_DEVICE + 1);
 	int i;
-
-	pci_dev_init(&pci_dev, dev);
 
 	pci_dev_print_id(dev);
 	printf(" type %02x progif %02x class %02x subclass %02x\n",
 	       header, progif, class, subclass);
 
-	pci_cap_walk(&pci_dev, pci_cap_print);
+	pci_cap_walk(dev, pci_cap_print);
 
 	if ((header & PCI_HEADER_TYPE_MASK) != PCI_HEADER_TYPE_NORMAL)
 		return;
 
 	for (i = 0; i < PCI_BAR_NUM; i++) {
-		if (pci_bar_is_valid(&pci_dev, i)) {
+		if (pci_bar_is_valid(dev, i)) {
 			printf("\t");
-			pci_bar_print(&pci_dev, i);
+			pci_bar_print(dev, i);
 			printf("\n");
 		}
-		if (pci_bar_is64(&pci_dev, i))
+		if (pci_bar_is64(dev, i))
 			i++;
 	}
 }
 
 void pci_print(void)
 {
-	pcidevaddr_t dev;
+	pcidevaddr_t devfn;
+	struct pci_dev pci_dev;
 
-	for (dev = 0; dev < PCI_DEVFN_MAX; ++dev) {
-		if (pci_dev_exists(dev))
-			pci_dev_print(dev);
+	for (devfn = 0; devfn < PCI_DEVFN_MAX; ++devfn) {
+		if (pci_dev_exists(devfn)) {
+			pci_dev_init(&pci_dev, devfn);
+			pci_dev_print(&pci_dev);
+		}
 	}
 }
 
