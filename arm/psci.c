@@ -8,12 +8,44 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <libcflat.h>
+#include <asm/processor.h>
 #include <asm/smp.h>
 #include <asm/psci.h>
 
+static bool invalid_function_exception;
+
+#ifdef __arm__
+static void invalid_function_handler(struct pt_regs *regs __unused)
+{
+	invalid_function_exception = true;
+}
+#else
+static void invalid_function_handler(struct pt_regs *regs, unsigned int esr __unused)
+{
+	invalid_function_exception = true;
+	regs->pc += 4;
+}
+#endif
+
+static void install_invalid_function_handler(exception_fn handler)
+{
+#ifdef __arm__
+	install_exception_handler(EXCPTN_UND, handler);
+#else
+	install_exception_handler(EL1H_SYNC, ESR_EL1_EC_UNKNOWN, handler);
+#endif
+}
+
 static bool psci_invalid_function(void)
 {
-	return psci_invoke(1337, 0, 0, 0) == PSCI_RET_NOT_SUPPORTED;
+	bool pass;
+
+	install_invalid_function_handler(invalid_function_handler);
+
+	pass = psci_invoke(1337, 0, 0, 0) == PSCI_RET_NOT_SUPPORTED || invalid_function_exception;
+
+	install_invalid_function_handler(NULL);
+	return pass;
 }
 
 static int psci_affinity_info(unsigned long target_affinity, uint32_t lowest_affinity_level)
