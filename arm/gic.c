@@ -254,6 +254,47 @@ static struct gic gicv3 = {
 	},
 };
 
+static void ipi_clear_active_handler(struct pt_regs *regs __unused)
+{
+	u32 irqstat = gic_read_iar();
+	u32 irqnr = gic_iar_irqnr(irqstat);
+
+	if (irqnr != GICC_INT_SPURIOUS) {
+		void *base;
+		u32 val = 1 << IPI_IRQ;
+
+		if (gic_version() == 2)
+			base = gicv2_dist_base();
+		else
+			base = gicv3_redist_base();
+
+		writel(val, base + GICD_ICACTIVER);
+
+		smp_rmb(); /* pairs with wmb in stats_reset */
+		++acked[smp_processor_id()];
+		check_irqnr(irqnr);
+		smp_wmb(); /* pairs with rmb in check_acked */
+	} else {
+		++spurious[smp_processor_id()];
+		smp_wmb();
+	}
+}
+
+static void run_active_clear_test(void)
+{
+	report_prefix_push("active");
+	gic_enable_defaults();
+#ifdef __arm__
+	install_exception_handler(EXCPTN_IRQ, ipi_clear_active_handler);
+#else
+	install_irq_handler(EL1H_IRQ, ipi_clear_active_handler);
+#endif
+	local_irq_enable();
+
+	ipi_test_self();
+	report_prefix_pop();
+}
+
 int main(int argc, char **argv)
 {
 	char pfx[8];
@@ -290,6 +331,8 @@ int main(int argc, char **argv)
 				cpu == IPI_SENDER ? ipi_send : ipi_recv);
 		}
 		ipi_recv();
+	} else if (strcmp(argv[1], "active") == 0) {
+		run_active_clear_test();
 	} else {
 		report_abort("Unknown subtest '%s'", argv[1]);
 	}
