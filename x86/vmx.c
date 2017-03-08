@@ -886,7 +886,7 @@ static void test_vmx_caps(void)
 
 	val = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
 	report("MSR_IA32_VMX_EPT_VPID_CAP",
-	       (val & 0xfffff07ef9eebebeUll) == 0);
+	       (val & 0xfffff07ef98cbebeUll) == 0);
 }
 
 /* This function can only be called in guest */
