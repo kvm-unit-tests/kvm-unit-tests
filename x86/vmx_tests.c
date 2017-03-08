@@ -939,7 +939,7 @@ static int insn_intercept_exit_handler()
 }
 
 
-static int setup_ept()
+static int setup_ept(bool enable_ad)
 {
 	int support_2m;
 	unsigned long end_of_memory;
@@ -962,6 +962,8 @@ static int setup_ept()
 	pml4 = alloc_page();
 	memset(pml4, 0, PAGE_SIZE);
 	eptp |= virt_to_phys(pml4);
+	if (enable_ad)
+		eptp |= EPTP_AD_FLAG;
 	vmcs_write(EPTP, eptp);
 	support_2m = !!(ept_vpid.val & EPT_CAP_2M_PAGE);
 	end_of_memory = fwcfg_get_u64(FW_CFG_RAM_SIZE);
@@ -974,7 +976,7 @@ static int setup_ept()
 
 static int apic_version;
 
-static int ept_init()
+static int ept_init_common(bool have_ad)
 {
 	u32 ctrl_cpu[2];
 
@@ -992,7 +994,7 @@ static int ept_init()
 		& ctrl_cpu_rev[1].clr;
 	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu[0]);
 	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu[1]);
-	if (setup_ept())
+	if (setup_ept(have_ad))
 		return VMX_TEST_EXIT;
 	data_page1 = alloc_page();
 	data_page2 = alloc_page();
@@ -1007,7 +1009,12 @@ static int ept_init()
 	return VMX_TEST_START;
 }
 
-static void ept_main()
+static int ept_init()
+{
+	return ept_init_common(false);
+}
+
+static void ept_common()
 {
 	vmx_set_test_stage(0);
 	if (*((u32 *)data_page2) != MAGIC_VAL_1 ||
@@ -1047,6 +1054,11 @@ t1:
 	vmcall();
 	*((u32 *)data_page1) = MAGIC_VAL_2;
 	report("EPT violation - paging structure", vmx_get_test_stage() == 5);
+}
+
+static void ept_main()
+{
+	ept_common();
 
 	// Test EPT access to L1 MMIO
 	vmx_set_test_stage(6);
@@ -1075,7 +1087,7 @@ bool invept_test(int type, u64 eptp)
 	return true;
 }
 
-static int ept_exit_handler()
+static int ept_exit_handler_common(bool have_ad)
 {
 	u64 guest_rip;
 	ulong reason;
@@ -1170,7 +1182,9 @@ static int ept_exit_handler()
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 4:
-			if (exit_qual == (EPT_VLT_RD | EPT_VLT_LADDR_VLD))
+			if (exit_qual == (EPT_VLT_RD |
+					  (have_ad ? EPT_VLT_WR : 0) |
+					  EPT_VLT_LADDR_VLD))
 				vmx_inc_test_stage();
 			set_ept_pte(pml4, data_page1_pte, 2,
 				data_page1_pte_pte | (EPT_PRESENT));
@@ -1189,6 +1203,36 @@ static int ept_exit_handler()
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
+}
+
+static int ept_exit_handler()
+{
+	return ept_exit_handler_common(false);
+}
+
+static int eptad_init()
+{
+	int r = ept_init_common(true);
+
+	if (r == VMX_TEST_EXIT)
+		return r;
+
+	if ((rdmsr(MSR_IA32_VMX_EPT_VPID_CAP) & EPT_CAP_AD_FLAG) == 0) {
+		printf("\tEPT A/D bits are not supported");
+		return VMX_TEST_EXIT;
+	}
+
+	return r;
+}
+
+static void eptad_main()
+{
+	ept_common();
+}
+
+static int eptad_exit_handler()
+{
+	return ept_exit_handler_common(true);
 }
 
 bool invvpid_test(int type, u16 vpid)
@@ -1832,7 +1876,8 @@ struct vmx_test vmx_tests[] = {
 		NULL, {0} },
 	{ "instruction intercept", insn_intercept_init, insn_intercept_main,
 		insn_intercept_exit_handler, NULL, {0} },
-	{ "EPT framework", ept_init, ept_main, ept_exit_handler, NULL, {0} },
+	{ "EPT, A/D disabled", ept_init, ept_main, ept_exit_handler, NULL, {0} },
+	{ "EPT, A/D enabled", eptad_init, eptad_main, eptad_exit_handler, NULL, {0} },
 	{ "VPID", vpid_init, vpid_main, vpid_exit_handler, NULL, {0} },
 	{ "interrupt", interrupt_init, interrupt_main,
 		interrupt_exit_handler, NULL, {0} },
