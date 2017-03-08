@@ -618,5 +618,10 @@ unsigned long get_ept_pte(unsigned long *pml4,
 		unsigned long guest_addr, int level);
 int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
 		int level, u64 pte_val);
+void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
+		  unsigned long guest_addr, int expected_gpa_ad,
+		  int expected_pt_ad);
+void clear_ept_ad(unsigned long *pml4, u64 guest_cr3,
+		  unsigned long guest_addr);
 
 #endif

@@ -421,6 +421,105 @@ unsigned long get_ept_pte(unsigned long *pml4,
 	return pte;
 }
 
+static void clear_ept_ad_pte(unsigned long *pml4, unsigned long guest_addr)
+{
+	int l;
+	unsigned long *pt = pml4;
+	u64 pte;
+	unsigned offset;
+
+	for (l = EPT_PAGE_LEVEL; ; --l) {
+		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
+		pt[offset] &= ~(EPT_ACCESS_FLAG|EPT_DIRTY_FLAG);
+		pte = pt[offset];
+		if (l == 1 || (l < 4 && (pte & EPT_LARGE_PAGE)))
+			break;
+		pt = (unsigned long *)(pte & EPT_ADDR_MASK);
+	}
+}
+
+/* clear_ept_ad : Clear EPT A/D bits for the page table walk and the
+   final GPA of a guest address.  */
+void clear_ept_ad(unsigned long *pml4, u64 guest_cr3,
+		  unsigned long guest_addr)
+{
+	int l;
+	unsigned long *pt = (unsigned long *)guest_cr3, gpa;
+	u64 pte, offset_in_page;
+	unsigned offset;
+
+	for (l = EPT_PAGE_LEVEL; ; --l) {
+		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
+
+		clear_ept_ad_pte(pml4, (u64) &pt[offset]);
+		pte = pt[offset];
+		if (l == 1 || (l < 4 && (pte & PT_PAGE_SIZE_MASK)))
+			break;
+		if (!(pte & PT_PRESENT_MASK))
+			return;
+		pt = (unsigned long *)(pte & PT_ADDR_MASK);
+	}
+
+	offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
+	offset_in_page = guest_addr & ((1 << EPT_LEVEL_SHIFT(l)) - 1);
+	gpa = (pt[offset] & PT_ADDR_MASK) | (guest_addr & offset_in_page);
+	clear_ept_ad_pte(pml4, gpa);
+}
+
+/* check_ept_ad : Check the content of EPT A/D bits for the page table
+   walk and the final GPA of a guest address.  */
+void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
+		  unsigned long guest_addr, int expected_gpa_ad,
+		  int expected_pt_ad)
+{
+	int l;
+	unsigned long *pt = (unsigned long *)guest_cr3, gpa;
+	u64 ept_pte, pte, offset_in_page;
+	unsigned offset;
+	bool bad_pt_ad = false;
+
+	for (l = EPT_PAGE_LEVEL; ; --l) {
+		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
+
+		ept_pte = get_ept_pte(pml4, (u64) &pt[offset], 1);
+		if (ept_pte == 0)
+			return;
+
+		if (!bad_pt_ad) {
+			bad_pt_ad |= (ept_pte & (EPT_ACCESS_FLAG|EPT_DIRTY_FLAG)) != expected_pt_ad;
+			if (bad_pt_ad)
+				report("EPT - guest level %d page table A=%d/D=%d",
+				       false, l,
+				       !!(expected_pt_ad & EPT_ACCESS_FLAG),
+				       !!(expected_pt_ad & EPT_DIRTY_FLAG));
+		}
+
+		pte = pt[offset];
+		if (l == 1 || (l < 4 && (pte & PT_PAGE_SIZE_MASK)))
+			break;
+		if (!(pte & PT_PRESENT_MASK))
+			return;
+		pt = (unsigned long *)(pte & PT_ADDR_MASK);
+	}
+
+	if (!bad_pt_ad)
+		report("EPT - guest page table structures A=%d/D=%d",
+		       true,
+		       !!(expected_pt_ad & EPT_ACCESS_FLAG),
+		       !!(expected_pt_ad & EPT_DIRTY_FLAG));
+
+	offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
+	offset_in_page = guest_addr & ((1 << EPT_LEVEL_SHIFT(l)) - 1);
+	gpa = (pt[offset] & PT_ADDR_MASK) | (guest_addr & offset_in_page);
+
+	ept_pte = get_ept_pte(pml4, gpa, 1);
+	report("EPT - guest physical address A=%d/D=%d",
+	       (ept_pte & (EPT_ACCESS_FLAG|EPT_DIRTY_FLAG)) == expected_gpa_ad,
+	       !!(expected_gpa_ad & EPT_ACCESS_FLAG),
+	       !!(expected_gpa_ad & EPT_DIRTY_FLAG));
+}
+
+
 void ept_sync(int type, u64 eptp)
 {
 	switch (type) {

@@ -969,7 +969,11 @@ static int setup_ept(bool enable_ad)
 	end_of_memory = fwcfg_get_u64(FW_CFG_RAM_SIZE);
 	if (end_of_memory < (1ul << 32))
 		end_of_memory = (1ul << 32);
-	setup_ept_range(pml4, 0, end_of_memory, 0, support_2m,
+	/* Cannot use large EPT pages if we need to track EPT
+	 * accessed/dirty bits at 4K granularity.
+	 */
+	setup_ept_range(pml4, 0, end_of_memory,
+			0, !enable_ad && support_2m,
 			EPT_WA | EPT_RA | EPT_EA);
 	return 0;
 }
@@ -1090,12 +1094,14 @@ bool invept_test(int type, u64 eptp)
 static int ept_exit_handler_common(bool have_ad)
 {
 	u64 guest_rip;
+	u64 guest_cr3;
 	ulong reason;
 	u32 insn_len;
 	u32 exit_qual;
 	static unsigned long data_page1_pte, data_page1_pte_pte;
 
 	guest_rip = vmcs_read(GUEST_RIP);
+	guest_cr3 = vmcs_read(GUEST_CR3);
 	reason = vmcs_read(EXI_REASON) & 0xff;
 	insn_len = vmcs_read(EXI_INST_LEN);
 	exit_qual = vmcs_read(EXI_QUALIFICATION);
@@ -1103,6 +1109,18 @@ static int ept_exit_handler_common(bool have_ad)
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
+			check_ept_ad(pml4, guest_cr3,
+				     (unsigned long)data_page1,
+				     have_ad ? EPT_ACCESS_FLAG : 0,
+				     have_ad ? EPT_ACCESS_FLAG | EPT_DIRTY_FLAG : 0);
+			check_ept_ad(pml4, guest_cr3,
+				     (unsigned long)data_page2,
+				     have_ad ? EPT_ACCESS_FLAG | EPT_DIRTY_FLAG : 0,
+				     have_ad ? EPT_ACCESS_FLAG | EPT_DIRTY_FLAG : 0);
+			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page1);
+			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page2);
+			if (have_ad)
+				ept_sync(INVEPT_SINGLE, eptp);;
 			if (*((u32 *)data_page1) == MAGIC_VAL_3 &&
 					*((u32 *)data_page2) == MAGIC_VAL_2) {
 				vmx_inc_test_stage();
@@ -1125,10 +1143,11 @@ static int ept_exit_handler_common(bool have_ad)
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 3:
+			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page1);
 			data_page1_pte = get_ept_pte(pml4,
 				(unsigned long)data_page1, 1);
 			set_ept_pte(pml4, (unsigned long)data_page1, 
-				1, data_page1_pte & (~EPT_PRESENT));
+				1, data_page1_pte & ~EPT_PRESENT);
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 4:
@@ -1137,7 +1156,7 @@ static int ept_exit_handler_common(bool have_ad)
 			data_page1_pte &= PAGE_MASK;
 			data_page1_pte_pte = get_ept_pte(pml4, data_page1_pte, 2);
 			set_ept_pte(pml4, data_page1_pte, 2,
-				data_page1_pte_pte & (~EPT_PRESENT));
+				data_page1_pte_pte & ~EPT_PRESENT);
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 6:
@@ -1174,6 +1193,9 @@ static int ept_exit_handler_common(bool have_ad)
 	case VMX_EPT_VIOLATION:
 		switch(vmx_get_test_stage()) {
 		case 3:
+			check_ept_ad(pml4, guest_cr3, (unsigned long)data_page1, 0,
+				     have_ad ? EPT_ACCESS_FLAG | EPT_DIRTY_FLAG : 0);
+			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page1);
 			if (exit_qual == (EPT_VLT_WR | EPT_VLT_LADDR_VLD |
 					EPT_VLT_PADDR))
 				vmx_inc_test_stage();
@@ -1182,6 +1204,9 @@ static int ept_exit_handler_common(bool have_ad)
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 4:
+			check_ept_ad(pml4, guest_cr3, (unsigned long)data_page1, 0,
+				     have_ad ? EPT_ACCESS_FLAG | EPT_DIRTY_FLAG : 0);
+			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page1);
 			if (exit_qual == (EPT_VLT_RD |
 					  (have_ad ? EPT_VLT_WR : 0) |
 					  EPT_VLT_LADDR_VLD))
