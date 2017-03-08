@@ -34,6 +34,7 @@ get_cmdline()
 
 skip_nodefault()
 {
+    [ "$run_all_tests" = "yes" ] && return 1
     [ "$STANDALONE" != "yes" ] && return 0
 
     while true; do

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 verbose="no"
+run_all_tests="no" # don't run nodefault tests
 
 if [ ! -f config.mak ]; then
     echo "run ./configure && make first. See ./configure -h"
@@ -13,13 +14,13 @@ function usage()
 {
 cat <<EOF
 
-Usage: $0 [-g group] [-h] [-v]
-Usage: $0 [-g group] [-h] [-v] [-j NUM-TASKS]
+Usage: $0 [-h] [-v] [-a] [-g group] [-j NUM-TASKS]
 
-    -g: Only execute tests in the given group
     -h: Output this help text
-    -j: Execute tests in parallel
     -v: Enables verbose mode
+    -a: Run all tests, including those flagged as 'nodefault'
+    -g: Only execute tests in the given group
+    -j: Execute tests in parallel
 
 Set the environment variable QEMU=/path/to/qemu-system-ARCH to
 specify the appropriate qemu binary for ARCH-run.
@@ -30,8 +31,11 @@ EOF
 RUNTIME_arch_run="./$TEST_DIR/run"
 source scripts/runtime.bash
 
-while getopts "g:hj:v" opt; do
+while getopts "ag:hj:v" opt; do
     case $opt in
+        a)
+            run_all_tests="yes"
+            ;;
         g)
             only_group=$OPTARG
             ;;
