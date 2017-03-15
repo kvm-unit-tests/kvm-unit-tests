@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 verbose="no"
 run_all_tests="no" # don't run nodefault tests

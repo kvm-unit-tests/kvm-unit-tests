@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [ ! -f config.mak ]; then
 	echo "run ./configure && make first. See ./configure -h"
@@ -38,7 +38,7 @@ generate_test ()
 {
 	local args=( $(escape "${@}") )
 
-	echo "#!/bin/bash"
+	echo "#!/usr/bin/env bash"
 	echo "export STANDALONE=yes"
 	echo "export HOST=\$(uname -m | sed -e 's/i.86/i386/;s/arm.*/arm/;s/ppc64.*/ppc64/')"
 	echo "export PRETTY_PRINT_STACKS=no"
@@ -65,7 +65,7 @@ generate_test ()
 	temp_file bin "$kernel"
 	args[3]='$bin'
 
-	(echo "#!/bin/bash"
+	(echo "#!/usr/bin/env bash"
 	 cat scripts/arch-run.bash "$TEST_DIR/run") | temp_file RUNTIME_arch_run
 
 	echo "exec {stdout}>&1"

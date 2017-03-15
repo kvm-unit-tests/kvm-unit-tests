@@ -1,5 +1,5 @@
 
-SHELL := /bin/bash
+SHELL := /usr/bin/env bash
 
 ifeq ($(wildcard config.mak),)
 $(error run ./configure first. See ./configure -h)
