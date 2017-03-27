@@ -112,6 +112,8 @@ uint32_t pci_bar_mask(uint32_t bar)
 
 uint32_t pci_bar_get(struct pci_dev *dev, int bar_num)
 {
+	ASSERT_BAR_NUM(bar_num);
+
 	return pci_config_readl(dev->bdf, PCI_BASE_ADDRESS_0 +
 				bar_num * 4);
 }
@@ -134,6 +136,8 @@ static phys_addr_t __pci_bar_get_addr(struct pci_dev *dev, int bar_num)
 
 phys_addr_t pci_bar_get_addr(struct pci_dev *dev, int bar_num)
 {
+	ASSERT_BAR_NUM(bar_num);
+
 	return dev->resource[bar_num];
 }
 
@@ -141,11 +145,19 @@ void pci_bar_set_addr(struct pci_dev *dev, int bar_num, phys_addr_t addr)
 {
 	int off = PCI_BASE_ADDRESS_0 + bar_num * 4;
 
+	assert(addr != INVALID_PHYS_ADDR);
+	assert(dev->resource[bar_num] != INVALID_PHYS_ADDR);
+
+	ASSERT_BAR_NUM(bar_num);
+	if (pci_bar_is64(dev, bar_num))
+		ASSERT_BAR_NUM(bar_num + 1);
+	else
+		assert((addr >> 32) == 0);
+
 	pci_config_writel(dev->bdf, off, (uint32_t)addr);
 	dev->resource[bar_num] = addr;
 
 	if (pci_bar_is64(dev, bar_num)) {
-		assert(bar_num + 1 < PCI_BAR_NUM);
 		pci_config_writel(dev->bdf, off + 4, (uint32_t)(addr >> 32));
 		dev->resource[bar_num + 1] = dev->resource[bar_num];
 	}
