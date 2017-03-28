@@ -9,7 +9,8 @@ tests-common = \
 	$(TEST_DIR)/spapr_hcall.elf \
 	$(TEST_DIR)/rtas.elf \
 	$(TEST_DIR)/emulator.elf \
-	$(TEST_DIR)/tm.elf
+	$(TEST_DIR)/tm.elf \
+	$(TEST_DIR)/sprs.elf
 
 tests-all = $(tests-common) $(tests)
 all: $(TEST_DIR)/boot_rom.bin $(tests-all)
