@@ -247,6 +247,8 @@ call_handler:
 	.globl __start_interrupts
 __start_interrupts:
 
+VECTOR(0x100)
+VECTOR(0x200)
 VECTOR(0x300)
 VECTOR(0x400)
 VECTOR(0x500)

@@ -99,6 +99,9 @@ function run()
     }
 
     cmdline=$(get_cmdline $kernel)
+    if grep -qw "migration" <<<$groups ; then
+        cmdline="MIGRATION=yes $cmdline"
+    fi
     if [ "$verbose" = "yes" ]; then
         echo $cmdline
     fi

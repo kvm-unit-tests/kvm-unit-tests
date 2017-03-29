@@ -70,3 +70,66 @@ timeout_cmd ()
 		echo "timeout -k 1s --foreground $TIMEOUT"
 	fi
 }
+
+qmp ()
+{
+	echo '{ "execute": "qmp_capabilities" }{ "execute":' "$2" '}' | nc -U $1
+}
+
+run_migration ()
+{
+	if ! command -v nc >/dev/null 2>&1; then
+		echo "$FUNCNAME needs nc (netcat)" >&2
+		exit 2
+	fi
+
+	qemu=$1
+	shift
+
+	migsock=`mktemp -u -t mig-helper-socket.XXXXXXXXXX`
+	migout1=`mktemp -t mig-helper-stdout1.XXXXXXXXXX`
+	qmp1=`mktemp -u -t mig-helper-qmp1.XXXXXXXXXX`
+	qmp2=`mktemp -u -t mig-helper-qmp2.XXXXXXXXXX`
+	qmpout1=/dev/null
+	qmpout2=/dev/null
+
+	trap 'rm -f ${migout1} ${migsock} ${qmp1} ${qmp2}' EXIT
+
+	$qemu "$@" -chardev socket,id=mon1,path=${qmp1},server,nowait \
+		 -mon chardev=mon1,mode=control | tee ${migout1} &
+
+	$qemu "$@" -chardev socket,id=mon2,path=${qmp2},server,nowait \
+		 -mon chardev=mon2,mode=control -incoming unix:${migsock} &
+
+	# The test must prompt the user to migrate, so wait for the "migrate" keyword
+	while ! grep -q -i "migrate" < ${migout1} ; do
+		sleep 1
+	done
+
+	qmp ${qmp1} '"migrate", "arguments": { "uri": "unix:'${migsock}'" }' > ${qmpout1}
+
+	# Wait for the migration to complete
+	migstatus=`qmp ${qmp1} '"query-migrate"' | grep return`
+	while ! grep -q '"completed"' <<<"$migstatus" ; do
+		sleep 1
+		migstatus=`qmp ${qmp1} '"query-migrate"' | grep return`
+		if grep -q '"failed"' <<<"$migstatus" ; then
+			echo "ERROR: Migration failed." >&2
+			qmp ${qmp1} '"quit"'> ${qmpout1} 2>/dev/null
+			qmp ${qmp2} '"quit"'> ${qmpout2} 2>/dev/null
+			exit 2
+		fi
+	done
+	qmp ${qmp1} '"quit"'> ${qmpout1} 2>/dev/null
+
+	qmp ${qmp2} '"inject-nmi"'> ${qmpout2}
+
+	wait
+}
+
+migration_cmd ()
+{
+	if [ "$MIGRATION" = "yes" ]; then
+		echo "run_migration"
+	fi
+}
