@@ -1,3 +1,9 @@
+/*
+ * errata functions
+ *
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Library General Public License version 2.
+ */
 #ifndef _ERRATA_H_
 #define _ERRATA_H_
 

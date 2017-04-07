@@ -1,3 +1,10 @@
+/*
+ * libc string functions
+ *
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Library General Public License version 2.
+ */
+
 #include "libcflat.h"
 
 unsigned long strlen(const char *buf)
