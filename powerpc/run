@@ -28,16 +28,10 @@ if [ -z "$ACCEL" ]; then
 	fi
 fi
 
-qemu="${QEMU:-qemu-system-$ARCH_NAME}"
-qpath=$(which $qemu 2>/dev/null)
-
-if [ -z "$qpath" ]; then
-	echo $qemu not found.
-	exit 2
-fi
+qemu=$(search_qemu_binary)
 
 if ! $qemu -machine '?' 2>&1 | grep 'pseries' > /dev/null; then
-	echo "$qpath doesn't support pSeries ('-machine pseries'). Exiting."
+	echo "$qemu doesn't support pSeries ('-machine pseries'). Exiting."
 	exit 2
 fi
 
