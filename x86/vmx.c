@@ -45,6 +45,7 @@ struct regs regs;
 struct vmx_test *current;
 u64 hypercall_field;
 bool launched;
+static int matched;
 
 union vmx_basic basic;
 union vmx_ctrl_msr ctrl_pin_rev;
@@ -1171,55 +1172,86 @@ static bool test_name_wanted(const char *name, const char *wanted)
 	return *n == '\0' && *w == '\0';
 }
 
-static bool test_wanted(struct vmx_test *test, char *wanted[], int nwanted)
+static bool test_wanted(const char *name, char *wanted[], int nwanted)
 {
+	bool is_wanted = true;
 	int i;
 
 	if (!nwanted)
-		return true;
+		goto out;
 
 	for (i = 0; i < nwanted; ++i) {
-		if (test_name_wanted(test->name, wanted[i]))
-			return true;
+		if (test_name_wanted(name, wanted[i]))
+			goto out;
 	}
-	return false;
+
+	is_wanted = false;
+
+out:
+	if (is_wanted)
+		matched++;
+	return is_wanted;
 }
 
 int main(int argc, char *argv[])
 {
 	int i = 0;
-	int matched = 0;
 
 	setup_vm();
 	setup_idt();
 	hypercall_field = 0;
+
+	argv++;
+	argc--;
 
 	if (!(cpuid(1).c & (1 << 5))) {
 		printf("WARNING: vmx not supported, add '-cpu host'\n");
 		goto exit;
 	}
 	init_vmx();
-	if (test_vmx_feature_control() != 0)
-		goto exit;
+	if (test_wanted("test_vmx_feature_control", argv, argc)) {
+		/* Sets MSR_IA32_FEATURE_CONTROL to 0x5 */
+		if (test_vmx_feature_control() != 0)
+			goto exit;
+	} else {
+		if ((rdmsr(MSR_IA32_FEATURE_CONTROL) & 0x5) != 0x5)
+			wrmsr(MSR_IA32_FEATURE_CONTROL, 0x5);
+	}
+
 	/* Set basic test ctxt the same as "null" */
 	current = &vmx_tests[0];
-	if (test_vmxon() != 0)
-		goto exit;
-	test_vmptrld();
-	test_vmclear();
-	test_vmptrst();
+
+	if (test_wanted("test_vmxon", argv, argc)) {
+		/* Enables VMX */
+		if (test_vmxon() != 0)
+			goto exit;
+	} else {
+		if (vmx_on()) {
+			report("vmxon", 0);
+			goto exit;
+		}
+	}
+
+	if (test_wanted("test_vmptrld", argv, argc))
+		test_vmptrld();
+	if (test_wanted("test_vmclear", argv, argc))
+		test_vmclear();
+	if (test_wanted("test_vmptrst", argv, argc))
+		test_vmptrst();
 	init_vmcs(&vmcs_root);
 	if (vmx_run()) {
 		report("test vmlaunch", 0);
 		goto exit;
 	}
+
 	test_vmxoff();
-	test_vmx_caps();
+
+	if (test_wanted("test_vmx_caps", argv, argc))
+		test_vmx_caps();
 
 	while (vmx_tests[++i].name != NULL) {
-		if (!test_wanted(&vmx_tests[i], argv + 1, argc - 1))
+		if (!test_wanted(vmx_tests[i].name, argv, argc))
 			continue;
-		matched++;
 		if (test_run(&vmx_tests[i]))
 			goto exit;
 	}
