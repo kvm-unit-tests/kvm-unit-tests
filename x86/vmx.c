@@ -899,9 +899,12 @@ static void test_vmptrld(void)
 	       make_vmcs_current(tmp_root) == 1);
 
 	/* Pass VMXON region */
+	make_vmcs_current(vmcs);
 	tmp_root = (struct vmcs *)vmxon_region;
 	report("test vmptrld with vmxon region",
 	       make_vmcs_current(tmp_root) == 1);
+	report("test vmptrld with vmxon region vm-instruction error",
+	       vmcs_read(VMX_INST_ERROR) == VMXERR_VMPTRLD_VMXON_POINTER);
 
 	report("test vmptrld with valid vmcs region", make_vmcs_current(vmcs) == 0);
 }
