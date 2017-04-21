@@ -42,10 +42,26 @@ u32 vpid_cnt;
 void *guest_stack, *guest_syscall_stack;
 u32 ctrl_pin, ctrl_enter, ctrl_exit, ctrl_cpu[2];
 struct regs regs;
+
 struct vmx_test *current;
+
+#define MAX_TEST_TEARDOWN_STEPS 10
+
+struct test_teardown_step {
+	test_teardown_func func;
+	void *data;
+};
+
+static int teardown_count;
+static struct test_teardown_step teardown_steps[MAX_TEST_TEARDOWN_STEPS];
+
+static test_guest_func v2_guest_main;
+
 u64 hypercall_field;
 bool launched;
 static int matched;
+static int guest_finished;
+static int in_guest;
 
 union vmx_basic basic;
 union vmx_ctrl_msr ctrl_pin_rev;
@@ -62,6 +78,8 @@ extern void *entry_sysenter;
 extern void *guest_entry;
 
 static volatile u32 stage;
+
+static jmp_buf abort_target;
 
 struct vmcs_field {
 	u64 mask;
@@ -634,7 +652,10 @@ static void test_vmclear(void)
 
 static void __attribute__((__used__)) guest_main(void)
 {
-	current->guest_main();
+	if (current->v2)
+		v2_guest_main();
+	else
+		current->guest_main();
 }
 
 /* guest_entry */
@@ -1409,10 +1430,49 @@ static int handle_hypercall()
 	switch (hypercall_no) {
 	case HYPERCALL_VMEXIT:
 		return VMX_TEST_VMEXIT;
+	case HYPERCALL_VMABORT:
+		return VMX_TEST_VMABORT;
+	case HYPERCALL_VMSKIP:
+		return VMX_TEST_VMSKIP;
 	default:
 		printf("ERROR : Invalid hypercall number : %ld\n", hypercall_no);
 	}
 	return VMX_TEST_EXIT;
+}
+
+static void continue_abort(void)
+{
+	assert(!in_guest);
+	printf("Host was here when guest aborted:\n");
+	dump_stack();
+	longjmp(abort_target, 1);
+	abort();
+}
+
+void __abort_test(void)
+{
+	if (in_guest)
+		hypercall(HYPERCALL_VMABORT);
+	else
+		longjmp(abort_target, 1);
+	abort();
+}
+
+static void continue_skip(void)
+{
+	assert(!in_guest);
+	longjmp(abort_target, 1);
+	abort();
+}
+
+void test_skip(const char *msg)
+{
+	printf("%s skipping test: %s\n", in_guest ? "Guest" : "Host", msg);
+	if (in_guest)
+		hypercall(HYPERCALL_VMABORT);
+	else
+		longjmp(abort_target, 1);
+	abort();
 }
 
 static int exit_handler()
@@ -1453,6 +1513,7 @@ static bool vmx_enter_guest(struct vmentry_failure *failure)
 {
 	failure->early = 0;
 
+	in_guest = 1;
 	asm volatile (
 		"mov %[HOST_RSP], %%rdi\n\t"
 		"vmwrite %%rsp, %%rdi\n\t"
@@ -1478,6 +1539,7 @@ static bool vmx_enter_guest(struct vmentry_failure *failure)
 		: [launched]"m"(launched), [HOST_RSP]"i"(HOST_RSP)
 		: "rdi", "memory", "cc"
 	);
+	in_guest = 0;
 
 	failure->vmlaunch = !launched;
 	failure->instr = launched ? "vmresume" : "vmlaunch";
@@ -1509,6 +1571,7 @@ static int vmx_run()
 		case VMX_TEST_RESUME:
 			continue;
 		case VMX_TEST_VMEXIT:
+			guest_finished = 1;
 			return 0;
 		case VMX_TEST_EXIT:
 			break;
@@ -1527,32 +1590,144 @@ static int vmx_run()
 	}
 }
 
+static void run_teardown_step(struct test_teardown_step *step)
+{
+	step->func(step->data);
+}
+
 static int test_run(struct vmx_test *test)
 {
+	int r;
+
+	/* Validate V2 interface. */
+	if (test->v2) {
+		int ret = 0;
+		if (test->init || test->guest_main || test->exit_handler ||
+		    test->syscall_handler) {
+			report("V2 test cannot specify V1 callbacks.", 0);
+			ret = 1;
+		}
+		if (ret)
+			return ret;
+	}
+
 	if (test->name == NULL)
 		test->name = "(no name)";
 	if (vmx_on()) {
 		printf("%s : vmxon failed.\n", __func__);
 		return 1;
 	}
+
 	init_vmcs(&(test->vmcs));
 	/* Directly call test->init is ok here, init_vmcs has done
 	   vmcs init, vmclear and vmptrld*/
 	if (test->init && test->init(test->vmcs) != VMX_TEST_START)
 		goto out;
+	teardown_count = 0;
+	v2_guest_main = NULL;
 	test->exits = 0;
 	current = test;
 	regs = test->guest_regs;
 	vmcs_write(GUEST_RFLAGS, regs.rflags | 0x2);
 	launched = 0;
+	guest_finished = 0;
 	printf("\nTest suite: %s\n", test->name);
-	vmx_run();
+
+	r = setjmp(abort_target);
+	if (r) {
+		assert(!in_guest);
+		goto out;
+	}
+
+
+	if (test->v2)
+		test->v2();
+	else
+		vmx_run();
+
+	while (teardown_count > 0)
+		run_teardown_step(&teardown_steps[--teardown_count]);
+
+	if (launched && !guest_finished)
+		report("Guest didn't run to completion.", 0);
+
 out:
 	if (vmx_off()) {
 		printf("%s : vmxoff failed.\n", __func__);
 		return 1;
 	}
 	return 0;
+}
+
+/*
+ * Add a teardown step. Executed after the test's main function returns.
+ * Teardown steps executed in reverse order.
+ */
+void test_add_teardown(test_teardown_func func, void *data)
+{
+	struct test_teardown_step *step;
+
+	TEST_ASSERT_MSG(teardown_count < MAX_TEST_TEARDOWN_STEPS,
+			"There are already %d teardown steps.",
+			teardown_count);
+	step = &teardown_steps[teardown_count++];
+	step->func = func;
+	step->data = data;
+}
+
+/*
+ * Set the target of the first enter_guest call. Can only be called once per
+ * test. Must be called before first enter_guest call.
+ */
+void test_set_guest(test_guest_func func)
+{
+	assert(current->v2);
+	TEST_ASSERT_MSG(!v2_guest_main, "Already set guest func.");
+	v2_guest_main = func;
+}
+
+/*
+ * Enters the guest (or launches it for the first time). Error to call once the
+ * guest has returned (i.e., run past the end of its guest() function). Also
+ * aborts if guest entry fails.
+ */
+void enter_guest(void)
+{
+	struct vmentry_failure failure;
+
+	TEST_ASSERT_MSG(v2_guest_main,
+			"Never called test_set_guest_func!");
+
+	TEST_ASSERT_MSG(!guest_finished,
+			"Called enter_guest() after guest returned.");
+
+	if (!vmx_enter_guest(&failure)) {
+		print_vmentry_failure_info(&failure);
+		abort();
+	}
+
+	launched = 1;
+
+	if (is_hypercall()) {
+		int ret;
+
+		ret = handle_hypercall();
+		switch (ret) {
+		case VMX_TEST_VMEXIT:
+			guest_finished = 1;
+			break;
+		case VMX_TEST_VMABORT:
+			continue_abort();
+			break;
+		case VMX_TEST_VMSKIP:
+			continue_skip();
+			break;
+		default:
+			printf("ERROR : Invalid handle_hypercall return %d.\n",
+			       ret);
+			abort();
+		}
+	}
 }
 
 extern struct vmx_test vmx_tests[];

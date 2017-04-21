@@ -1897,6 +1897,95 @@ static int exit_monitor_from_l2_handler(void)
 	return VMX_TEST_EXIT;
 }
 
+static void assert_exit_reason(u64 expected)
+{
+	u64 actual = vmcs_read(EXI_REASON);
+
+	TEST_ASSERT_EQ_MSG(expected, actual, "Expected %s, got %s.",
+			   exit_reason_description(expected),
+			   exit_reason_description(actual));
+}
+
+static void skip_exit_vmcall()
+{
+	u64 guest_rip = vmcs_read(GUEST_RIP);
+	u32 insn_len = vmcs_read(EXI_INST_LEN);
+
+	assert_exit_reason(VMX_VMCALL);
+	vmcs_write(GUEST_RIP, guest_rip + insn_len);
+}
+
+static void v2_null_test_guest(void)
+{
+}
+
+static void v2_null_test(void)
+{
+	test_set_guest(v2_null_test_guest);
+	enter_guest();
+	report(__func__, 1);
+}
+
+static void v2_multiple_entries_test_guest(void)
+{
+	vmx_set_test_stage(1);
+	vmcall();
+	vmx_set_test_stage(2);
+}
+
+static void v2_multiple_entries_test(void)
+{
+	test_set_guest(v2_multiple_entries_test_guest);
+	enter_guest();
+	TEST_ASSERT_EQ(vmx_get_test_stage(), 1);
+	skip_exit_vmcall();
+	enter_guest();
+	TEST_ASSERT_EQ(vmx_get_test_stage(), 2);
+	report(__func__, 1);
+}
+
+static int fixture_test_data = 1;
+
+static void fixture_test_teardown(void *data)
+{
+	*((int *) data) = 1;
+}
+
+static void fixture_test_guest(void)
+{
+	fixture_test_data++;
+}
+
+
+static void fixture_test_setup(void)
+{
+	TEST_ASSERT_EQ_MSG(1, fixture_test_data,
+			   "fixture_test_teardown didn't run?!");
+	fixture_test_data = 2;
+	test_add_teardown(fixture_test_teardown, &fixture_test_data);
+	test_set_guest(fixture_test_guest);
+}
+
+static void fixture_test_case1(void)
+{
+	fixture_test_setup();
+	TEST_ASSERT_EQ(2, fixture_test_data);
+	enter_guest();
+	TEST_ASSERT_EQ(3, fixture_test_data);
+	report(__func__, 1);
+}
+
+static void fixture_test_case2(void)
+{
+	fixture_test_setup();
+	TEST_ASSERT_EQ(2, fixture_test_data);
+	enter_guest();
+	TEST_ASSERT_EQ(3, fixture_test_data);
+	report(__func__, 1);
+}
+
+#define TEST(name) { #name, .v2 = name }
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
 struct vmx_test vmx_tests[] = {
 	{ "null", NULL, basic_guest_main, basic_exit_handler, NULL, {0} },
@@ -1929,5 +2018,10 @@ struct vmx_test vmx_tests[] = {
 	{ "into", into_init, into_guest_main, into_exit_handler, NULL, {0} },
 	{ "exit_monitor_from_l2_test", NULL, exit_monitor_from_l2_main,
 		exit_monitor_from_l2_handler, NULL, {0} },
+	/* Basic V2 tests. */
+	TEST(v2_null_test),
+	TEST(v2_multiple_entries_test),
+	TEST(fixture_test_case1),
+	TEST(fixture_test_case2),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };

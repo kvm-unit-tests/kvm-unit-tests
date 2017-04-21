@@ -54,6 +54,8 @@ struct vmx_test {
 	int (*entry_failure_handler)(struct vmentry_failure *failure);
 	struct vmcs *vmcs;
 	int exits;
+	/* Alternative test interface. */
+	void (*v2)(void);
 };
 
 union vmx_basic {
@@ -490,10 +492,14 @@ enum vm_instruction_error_number {
 #define VMX_TEST_VMEXIT		1
 #define VMX_TEST_EXIT		2
 #define VMX_TEST_RESUME		3
+#define VMX_TEST_VMABORT	4
+#define VMX_TEST_VMSKIP		5
 
 #define HYPERCALL_BIT		(1ul << 12)
 #define HYPERCALL_MASK		0xFFF
 #define HYPERCALL_VMEXIT	0x1
+#define HYPERCALL_VMABORT	0x2
+#define HYPERCALL_VMSKIP	0x3
 
 #define EPTP_PG_WALK_LEN_SHIFT	3ul
 #define EPTP_AD_FLAG		(1ul << 6)
@@ -692,5 +698,65 @@ void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
 		  int expected_pt_ad);
 void clear_ept_ad(unsigned long *pml4, u64 guest_cr3,
 		  unsigned long guest_addr);
+
+void enter_guest(void);
+
+typedef void (*test_guest_func)(void);
+typedef void (*test_teardown_func)(void *data);
+void test_set_guest(test_guest_func func);
+void test_add_teardown(test_teardown_func func, void *data);
+void test_skip(const char *msg);
+
+void __abort_test(void);
+
+#define TEST_ASSERT(cond) \
+do { \
+	if (!(cond)) { \
+		report("%s:%d: Assertion failed: %s", 0, \
+		       __FILE__, __LINE__, #cond); \
+		dump_stack(); \
+		__abort_test(); \
+	} \
+} while (0)
+
+#define TEST_ASSERT_MSG(cond, fmt, args...) \
+do { \
+	if (!(cond)) { \
+		report("%s:%d: Assertion failed: %s\n" fmt, 0, \
+		       __FILE__, __LINE__, #cond, ##args); \
+		dump_stack(); \
+		__abort_test(); \
+	} \
+} while (0)
+
+#define __TEST_EQ(a, b, a_str, b_str, assertion, fmt, args...) \
+do { \
+	typeof(a) _a = a; \
+	typeof(b) _b = b; \
+	if (_a != _b) { \
+		char _bin_a[BINSTR_SZ]; \
+		char _bin_b[BINSTR_SZ]; \
+		binstr(_a, _bin_a); \
+		binstr(_b, _bin_b); \
+		report("%s:%d: %s failed: (%s) == (%s)\n" \
+		       "\tLHS: 0x%016lx - %s - %lu\n" \
+		       "\tRHS: 0x%016lx - %s - %lu%s" fmt, 0, \
+		       __FILE__, __LINE__, \
+		       assertion ? "Assertion" : "Expectation", a_str, b_str, \
+		       (unsigned long) _a, _bin_a, (unsigned long) _a, \
+		       (unsigned long) _b, _bin_b, (unsigned long) _b, \
+		       fmt[0] == '\0' ? "" : "\n", ## args); \
+		dump_stack(); \
+		if (assertion) \
+			__abort_test(); \
+	} \
+} while (0)
+
+#define TEST_ASSERT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 1, "")
+#define TEST_ASSERT_EQ_MSG(a, b, fmt, args...) \
+	__TEST_EQ(a, b, #a, #b, 1, fmt, ## args)
+#define TEST_EXPECT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 0, "")
+#define TEST_EXPECT_EQ_MSG(a, b, fmt, args...) \
+	__TEST_EQ(a, b, #a, #b, 0, fmt, ## args)
 
 #endif
