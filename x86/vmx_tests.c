@@ -2818,6 +2818,18 @@ static void ept_access_test_paddr_not_present_page_fault(void)
 	 */
 }
 
+static void ept_access_test_force_2m_page(void)
+{
+	ept_access_test_setup();
+
+	TEST_ASSERT_EQ(ept_2m_supported(), true);
+	ept_allowed_at_level_mkhuge(true, 2, 0, 0, OP_READ);
+	ept_violation_at_level_mkhuge(true, 2, EPT_PRESENT, EPT_RA, OP_WRITE,
+				      EPT_VLT_WR | EPT_VLT_PERM_RD |
+				      EPT_VLT_LADDR_VLD | EPT_VLT_PADDR);
+	ept_misconfig_at_level_mkhuge(true, 2, EPT_PRESENT, EPT_WA);
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -2877,5 +2889,6 @@ struct vmx_test vmx_tests[] = {
 	TEST(ept_access_test_paddr_read_execute_ad_disabled),
 	TEST(ept_access_test_paddr_read_execute_ad_enabled),
 	TEST(ept_access_test_paddr_not_present_page_fault),
+	TEST(ept_access_test_force_2m_page),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
