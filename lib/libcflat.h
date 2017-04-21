@@ -131,4 +131,11 @@ static inline bool is_power_of_2(unsigned long n)
 	return n && !(n & (n - 1));
 }
 
+/*
+ * One byte per bit, a ' between each group of 4 bits, and a null terminator.
+ */
+#define BINSTR_SZ (sizeof(unsigned long) * 8 + sizeof(unsigned long) * 2)
+void binstr(unsigned long x, char out[BINSTR_SZ]);
+void print_binstr(unsigned long x);
+
 #endif

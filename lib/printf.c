@@ -266,3 +266,33 @@ int printf(const char *fmt, ...)
     puts(buf);
     return r;
 }
+
+void binstr(unsigned long x, char out[BINSTR_SZ])
+{
+	int i;
+	char *c;
+	int n;
+
+	n = sizeof(unsigned long) * 8;
+	i = 0;
+	c = &out[0];
+	for (;;) {
+		*c++ = (x & (1ul << (n - i - 1))) ? '1' : '0';
+		i++;
+
+		if (i == n) {
+			*c = '\0';
+			break;
+		}
+		if (i % 4 == 0)
+			*c++ = '\'';
+	}
+	assert(c + 1 - &out[0] == BINSTR_SZ);
+}
+
+void print_binstr(unsigned long x)
+{
+	char out[BINSTR_SZ];
+	binstr(x, out);
+	printf("%s", out);
+}
