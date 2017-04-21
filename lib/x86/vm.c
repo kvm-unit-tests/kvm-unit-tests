@@ -139,23 +139,62 @@ unsigned long *install_pte(unsigned long *cr3,
     return &pt[offset];
 }
 
+/*
+ * Finds last PTE in the mapping of @virt that's at or above @lowest_level. The
+ * returned PTE isn't necessarily present, but its parent is.
+ */
+struct pte_search find_pte_level(unsigned long *cr3, void *virt,
+				 int lowest_level)
+{
+	unsigned long *pt = cr3, pte;
+	unsigned offset;
+	unsigned long shift;
+	struct pte_search r;
+
+	assert(lowest_level >= 1 && lowest_level <= PAGE_LEVEL);
+
+	for (r.level = PAGE_LEVEL;; --r.level) {
+		shift = (r.level - 1) * PGDIR_WIDTH + 12;
+		offset = ((unsigned long)virt >> shift) & PGDIR_MASK;
+		r.pte = &pt[offset];
+		pte = *r.pte;
+
+		if (!(pte & PT_PRESENT_MASK))
+			return r;
+
+		if ((r.level == 2 || r.level == 3) && (pte & PT_PAGE_SIZE_MASK))
+			return r;
+
+		if (r.level == lowest_level)
+			return r;
+
+		pt = phys_to_virt(pte & 0xffffffffff000ull);
+	}
+}
+
+/*
+ * Returns the leaf PTE in the mapping of @virt (i.e., 4K PTE or a present huge
+ * PTE). Returns NULL if no leaf PTE exists.
+ */
 unsigned long *get_pte(unsigned long *cr3, void *virt)
 {
-    int level;
-    unsigned long *pt = cr3, pte;
-    unsigned offset;
+	struct pte_search search;
 
-    for (level = PAGE_LEVEL; level > 1; --level) {
-	offset = ((unsigned long)virt >> (((level-1) * PGDIR_WIDTH) + 12)) & PGDIR_MASK;
-	pte = pt[offset];
-	if (!(pte & PT_PRESENT_MASK))
-	    return NULL;
-	if (level == 2 && (pte & PT_PAGE_SIZE_MASK))
-	    return &pt[offset];
-	pt = phys_to_virt(pte & PT_ADDR_MASK);
-    }
-    offset = ((unsigned long)virt >> (((level-1) * PGDIR_WIDTH) + 12)) & PGDIR_MASK;
-    return &pt[offset];
+	search = find_pte_level(cr3, virt, 1);
+	return found_leaf_pte(search) ? search.pte : NULL;
+}
+
+/*
+ * Returns the PTE in the mapping of @virt at the given level @pte_level.
+ * Returns NULL if the PT at @pte_level isn't present (i.e., the mapping at
+ * @pte_level - 1 isn't present).
+ */
+unsigned long *get_pte_level(unsigned long *cr3, void *virt, int pte_level)
+{
+	struct pte_search search;
+
+	search = find_pte_level(cr3, virt, pte_level);
+	return search.level == pte_level ? search.pte : NULL;
 }
 
 unsigned long *install_large_page(unsigned long *cr3,
@@ -173,6 +212,33 @@ unsigned long *install_page(unsigned long *cr3,
     return install_pte(cr3, 1, virt, phys | PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_USER_MASK, 0);
 }
 
+void install_pages(unsigned long *cr3, unsigned long phys, unsigned long len,
+		   void *virt)
+{
+	unsigned long max = (u64)len + (u64)phys;
+	assert(phys % PAGE_SIZE == 0);
+	assert((unsigned long) virt % PAGE_SIZE == 0);
+	assert(len % PAGE_SIZE == 0);
+
+	while (phys + PAGE_SIZE <= max) {
+		install_page(cr3, phys, virt);
+		phys += PAGE_SIZE;
+		virt = (char *) virt + PAGE_SIZE;
+	}
+}
+
+bool any_present_pages(unsigned long *cr3, void *virt, unsigned long len)
+{
+	unsigned long max = (unsigned long) virt + len;
+	unsigned long curr;
+
+	for (curr = (unsigned long) virt; curr < max; curr += PAGE_SIZE) {
+		unsigned long *ptep = get_pte(cr3, (void *) curr);
+		if (ptep && (*ptep & PT_PRESENT_MASK))
+			return true;
+	}
+	return false;
+}
 
 static void setup_mmu_range(unsigned long *cr3, unsigned long start,
 			    unsigned long len)
@@ -184,10 +250,7 @@ static void setup_mmu_range(unsigned long *cr3, unsigned long start,
 		install_large_page(cr3, phys, (void *)(ulong)phys);
 		phys += LARGE_PAGE_SIZE;
 	}
-	while (phys + PAGE_SIZE <= max) {
-		install_page(cr3, phys, (void *)(ulong)phys);
-		phys += PAGE_SIZE;
-	}
+	install_pages(cr3, phys, max - phys, (void *)(ulong)phys);
 }
 
 static void setup_mmu(unsigned long len)
