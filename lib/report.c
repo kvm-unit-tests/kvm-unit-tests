@@ -19,6 +19,13 @@ static struct spinlock lock;
 
 #define PREFIX_DELIMITER ": "
 
+void report_pass(void)
+{
+	spin_lock(&lock);
+	tests++;
+	spin_unlock(&lock);
+}
+
 void report_prefix_pushf(const char *prefix_fmt, ...)
 {
 	va_list va;

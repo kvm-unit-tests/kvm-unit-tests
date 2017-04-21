@@ -104,6 +104,7 @@ extern void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...);
 extern void report_abort(const char *msg_fmt, ...);
 extern void report_skip(const char *msg_fmt, ...);
 extern void report_info(const char *msg_fmt, ...);
+extern void report_pass(void);
 extern int report_summary(void);
 
 bool simple_glob(const char *text, const char *pattern);

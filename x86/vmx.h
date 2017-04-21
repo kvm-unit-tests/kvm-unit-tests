@@ -726,6 +726,7 @@ do { \
 		dump_stack(); \
 		__abort_test(); \
 	} \
+	report_pass(); \
 } while (0)
 
 #define TEST_ASSERT_MSG(cond, fmt, args...) \
@@ -736,6 +737,7 @@ do { \
 		dump_stack(); \
 		__abort_test(); \
 	} \
+	report_pass(); \
 } while (0)
 
 #define __TEST_EQ(a, b, a_str, b_str, assertion, fmt, args...) \
@@ -759,6 +761,7 @@ do { \
 		if (assertion) \
 			__abort_test(); \
 	} \
+	report_pass(); \
 } while (0)
 
 #define TEST_ASSERT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 1, "")
