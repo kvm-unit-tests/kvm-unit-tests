@@ -130,7 +130,7 @@ do {									\
 #define assert_msg(cond, fmt, args...)					\
 do {									\
 	if (!(cond)) {							\
-		printf("%s:%d: assert failed: %s: " fmt,		\
+		printf("%s:%d: assert failed: %s: " fmt "\n",		\
 		       __FILE__, __LINE__, #cond, ## args);		\
 		dump_stack();						\
 		abort();						\
