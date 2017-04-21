@@ -1884,6 +1884,18 @@ int into_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
+static void exit_monitor_from_l2_main(void)
+{
+	printf("Calling exit(0) from l2...\n");
+	exit(0);
+}
+
+static int exit_monitor_from_l2_handler(void)
+{
+	report("The guest should have killed the VMM", false);
+	return VMX_TEST_EXIT;
+}
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
 struct vmx_test vmx_tests[] = {
 	{ "null", NULL, basic_guest_main, basic_exit_handler, NULL, {0} },
@@ -1914,5 +1926,7 @@ struct vmx_test vmx_tests[] = {
 		disable_rdtscp_exit_handler, NULL, {0} },
 	{ "int3", int3_init, int3_guest_main, int3_exit_handler, NULL, {0} },
 	{ "into", into_init, into_guest_main, into_exit_handler, NULL, {0} },
+	{ "exit_monitor_from_l2_test", NULL, exit_monitor_from_l2_main,
+		exit_monitor_from_l2_handler, NULL, {0} },
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
