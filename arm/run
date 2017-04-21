@@ -31,16 +31,10 @@ if [ -z "$ACCEL" ]; then
 	fi
 fi
 
-qemu="${QEMU:-qemu-system-$ARCH_NAME}"
-qpath=$(which $qemu 2>/dev/null)
-
-if [ -z "$qpath" ]; then
-	echo $qemu not found.
-	exit 2
-fi
+qemu=$(search_qemu_binary)
 
 if ! $qemu -machine '?' 2>&1 | grep 'ARM Virtual Machine' > /dev/null; then
-	echo "$qpath doesn't support mach-virt ('-machine virt'). Exiting."
+	echo "$qemu doesn't support mach-virt ('-machine virt'). Exiting."
 	exit 2
 fi
 
@@ -59,13 +53,13 @@ if [ "$ACCEL" = "kvm" ]; then
 fi
 
 if ! $qemu $M -device '?' 2>&1 | grep virtconsole > /dev/null; then
-	echo "$qpath doesn't support virtio-console for chr-testdev. Exiting."
+	echo "$qemu doesn't support virtio-console for chr-testdev. Exiting."
 	exit 2
 fi
 
 if $qemu $M -chardev testdev,id=id -initrd . 2>&1 \
 		| grep backend > /dev/null; then
-	echo "$qpath doesn't support chr-testdev. Exiting."
+	echo "$qemu doesn't support chr-testdev. Exiting."
 	exit 2
 fi
 
