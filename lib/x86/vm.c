@@ -45,6 +45,63 @@ void *alloc_page()
     return p;
 }
 
+/*
+ * Allocates (1 << order) physically contiguous and naturally aligned pages.
+ * Returns NULL if there's no memory left.
+ */
+void *alloc_pages(unsigned long order)
+{
+	/* Generic list traversal. */
+	void *prev;
+	void *curr = NULL;
+	void *next = free;
+
+	/* Looking for a run of length (1 << order). */
+	unsigned long run = 0;
+	const unsigned long n = 1ul << order;
+	const unsigned long align_mask = (n << PAGE_SHIFT) - 1;
+	void *run_start = NULL;
+	void *run_prev = NULL;
+	unsigned long run_next_pa = 0;
+	unsigned long pa;
+
+	assert(order < sizeof(unsigned long) * 8);
+
+	for (;;) {
+		prev = curr;
+		curr = next;
+		next = curr ? *((void **) curr) : NULL;
+
+		if (!curr)
+			return 0;
+
+		pa = virt_to_phys(curr);
+
+		if (run == 0) {
+			if (!(pa & align_mask)) {
+				run_start = curr;
+				run_prev = prev;
+				run_next_pa = pa + PAGE_SIZE;
+				run = 1;
+			}
+		} else if (pa == run_next_pa) {
+			run_next_pa += PAGE_SIZE;
+			run += 1;
+		} else {
+			run = 0;
+		}
+
+		if (run == n) {
+			if (run_prev)
+				*((void **) run_prev) = next;
+			else
+				free = next;
+			return run_start;
+		}
+	}
+}
+
+
 void free_page(void *page)
 {
     *(void **)page = free;

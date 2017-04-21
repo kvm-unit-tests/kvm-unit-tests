@@ -22,6 +22,7 @@ unsigned long *install_pte(unsigned long *cr3,
                            unsigned long *pt_page);
 
 void *alloc_page();
+void *alloc_pages(unsigned long order);
 void free_page(void *page);
 
 unsigned long *install_large_page(unsigned long *cr3,unsigned long phys,
