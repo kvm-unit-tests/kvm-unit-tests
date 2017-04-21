@@ -257,7 +257,7 @@ static bool check_vmcs_field(struct vmcs_field *f, u8 cookie)
 	if (expected == actual)
 		return true;
 
-	printf("FAIL: VMWRITE/VMREAD %lx (expected: %lx, actual: %lx)",
+	printf("FAIL: VMWRITE/VMREAD %lx (expected: %lx, actual: %lx)\n",
 	       f->encoding, (unsigned long) expected, (unsigned long) actual);
 
 	return false;
@@ -348,6 +348,11 @@ void test_vmcs_lifecycle(void)
 
 	VMCLEAR(0);
 	report("current:VMCS1 active:[VCMS1]", check_all_vmcs_fields(1));
+
+	/* VMPTRLD should not erase VMWRITEs to the current VMCS */
+	set_all_vmcs_fields(2);
+	VMPTRLD(1);
+	report("current:VMCS1 active:[VCMS1]", check_all_vmcs_fields(2));
 
 	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
 		VMCLEAR(i);
