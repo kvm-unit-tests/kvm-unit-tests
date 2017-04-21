@@ -1158,9 +1158,37 @@ out:
 
 extern struct vmx_test vmx_tests[];
 
-int main(void)
+/* Match name with wanted allowing underscores in place of spaces. */
+static bool test_name_wanted(const char *name, const char *wanted)
+{
+	const char *n;
+	const char *w;
+
+	for (n = name, w = wanted; *n != '\0' && *w != '\0'; n++, w++) {
+		if (*n != *w && !(*n == ' ' && *w == '_'))
+			return false;
+	}
+	return *n == '\0' && *w == '\0';
+}
+
+static bool test_wanted(struct vmx_test *test, char *wanted[], int nwanted)
+{
+	int i;
+
+	if (!nwanted)
+		return true;
+
+	for (i = 0; i < nwanted; ++i) {
+		if (test_name_wanted(test->name, wanted[i]))
+			return true;
+	}
+	return false;
+}
+
+int main(int argc, char *argv[])
 {
 	int i = 0;
+	int matched = 0;
 
 	setup_vm();
 	setup_idt();
@@ -1188,9 +1216,16 @@ int main(void)
 	test_vmxoff();
 	test_vmx_caps();
 
-	while (vmx_tests[++i].name != NULL)
+	while (vmx_tests[++i].name != NULL) {
+		if (!test_wanted(&vmx_tests[i], argv + 1, argc - 1))
+			continue;
+		matched++;
 		if (test_run(&vmx_tests[i]))
 			goto exit;
+	}
+
+	if (!matched)
+		report("command line didn't match any tests!", matched);
 
 exit:
 	return report_summary();
