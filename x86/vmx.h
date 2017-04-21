@@ -691,7 +691,7 @@ void setup_ept_range(unsigned long *pml4, unsigned long start,
 		     unsigned long len, int map_1g, int map_2m, u64 perm);
 unsigned long get_ept_pte(unsigned long *pml4,
 		unsigned long guest_addr, int level);
-int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
+void set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
 		int level, u64 pte_val);
 void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
 		  unsigned long guest_addr, int expected_gpa_ad,

@@ -724,6 +724,9 @@ void install_ept_entry(unsigned long *pml4,
 	unsigned long *pt = pml4;
 	unsigned offset;
 
+	/* EPT only uses 48 bits of GPA. */
+	assert(guest_addr < (1ul << 48));
+
 	for (level = EPT_PAGE_LEVEL; level > pte_level; --level) {
 		offset = (guest_addr >> EPT_LEVEL_SHIFT(level))
 				& EPT_PGDIR_MASK;
@@ -813,17 +816,17 @@ unsigned long get_ept_pte(unsigned long *pml4,
 	unsigned long *pt = pml4, pte;
 	unsigned offset;
 
-	if (level < 1 || level > 3)
-		return -1;
+	assert(level >= 1 && level <= 4);
+
 	for (l = EPT_PAGE_LEVEL; ; --l) {
 		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
 		pte = pt[offset];
 		if (!(pte & (EPT_PRESENT)))
-			return 0;
+			return -1;
 		if (l == level)
 			break;
 		if (l < 4 && (pte & EPT_LARGE_PAGE))
-			return pte;
+			return -1;
 		pt = (unsigned long *)(pte & EPT_ADDR_MASK);
 	}
 	offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
@@ -950,26 +953,24 @@ void ept_sync(int type, u64 eptp)
 	}
 }
 
-int set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
-		int level, u64 pte_val)
+void set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
+		 int level, u64 pte_val)
 {
 	int l;
 	unsigned long *pt = pml4;
 	unsigned offset;
 
-	if (level < 1 || level > 3)
-		return -1;
+	assert(level >= 1 && level <= 4);
+
 	for (l = EPT_PAGE_LEVEL; ; --l) {
 		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
 		if (l == level)
 			break;
-		if (!(pt[offset] & (EPT_PRESENT)))
-			return -1;
+		assert(pt[offset] & EPT_PRESENT);
 		pt = (unsigned long *)(pt[offset] & EPT_ADDR_MASK);
 	}
 	offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
 	pt[offset] = pte_val;
-	return 0;
 }
 
 void vpid_sync(int type, u16 vpid)
