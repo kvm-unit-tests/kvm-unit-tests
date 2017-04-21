@@ -699,6 +699,12 @@ void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
 void clear_ept_ad(unsigned long *pml4, u64 guest_cr3,
 		  unsigned long guest_addr);
 
+bool ept_2m_supported(void);
+bool ept_1g_supported(void);
+bool ept_huge_pages_supported(int level);
+bool ept_execute_only_supported(void);
+bool ept_ad_bits_supported(void);
+
 void enter_guest(void);
 
 typedef void (*test_guest_func)(void);

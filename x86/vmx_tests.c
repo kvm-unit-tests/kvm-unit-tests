@@ -943,7 +943,6 @@ static int insn_intercept_exit_handler()
 /* Enables EPT and sets up the identity map. */
 static int setup_ept(bool enable_ad)
 {
-	int support_2m;
 	unsigned long end_of_memory;
 	u32 ctrl_cpu[2];
 
@@ -983,15 +982,14 @@ static int setup_ept(bool enable_ad)
 	if (enable_ad)
 		eptp |= EPTP_AD_FLAG;
 	vmcs_write(EPTP, eptp);
-	support_2m = !!(ept_vpid.val & EPT_CAP_2M_PAGE);
 	end_of_memory = fwcfg_get_u64(FW_CFG_RAM_SIZE);
 	if (end_of_memory < (1ul << 32))
 		end_of_memory = (1ul << 32);
 	/* Cannot use large EPT pages if we need to track EPT
 	 * accessed/dirty bits at 4K granularity.
 	 */
-	setup_ept_range(pml4, 0, end_of_memory,
-			0, !enable_ad && support_2m,
+	setup_ept_range(pml4, 0, end_of_memory, 0,
+			!enable_ad && ept_2m_supported(),
 			EPT_WA | EPT_RA | EPT_EA);
 	return 0;
 }
