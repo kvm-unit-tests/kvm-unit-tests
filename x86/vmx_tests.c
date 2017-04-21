@@ -29,6 +29,7 @@ static inline void vmcall()
 
 void basic_guest_main()
 {
+	report("Basic VMX test", 1);
 }
 
 int basic_exit_handler()

@@ -563,14 +563,6 @@ static void test_vmclear(void)
 	test_vmclear_flushing();
 }
 
-static void test_vmxoff(void)
-{
-	int ret;
-
-	ret = vmx_off();
-	report("test vmxoff", !ret);
-}
-
 static void __attribute__((__used__)) guest_main(void)
 {
 	current->guest_main();
@@ -1550,9 +1542,6 @@ int main(int argc, const char *argv[])
 			wrmsr(MSR_IA32_FEATURE_CONTROL, 0x5);
 	}
 
-	/* Set basic test ctxt the same as "null" */
-	current = &vmx_tests[0];
-
 	if (test_wanted("test_vmxon", argv, argc)) {
 		/* Enables VMX */
 		if (test_vmxon() != 0)
@@ -1574,19 +1563,13 @@ int main(int argc, const char *argv[])
 		test_vmwrite_vmread();
 	if (test_wanted("test_vmcs_lifecycle", argv, argc))
 		test_vmcs_lifecycle();
-
-	init_vmcs(&vmcs_root);
-	if (vmx_run()) {
-		report("test vmlaunch", 0);
-		goto exit;
-	}
-
-	test_vmxoff();
-
 	if (test_wanted("test_vmx_caps", argv, argc))
 		test_vmx_caps();
 
-	while (vmx_tests[++i].name != NULL) {
+	/* Balance vmxon from test_vmxon. */
+	vmx_off();
+
+	for (; vmx_tests[i].name != NULL; i++) {
 		if (!test_wanted(vmx_tests[i].name, argv, argc))
 			continue;
 		if (test_run(&vmx_tests[i]))
