@@ -63,6 +63,243 @@ extern void *guest_entry;
 
 static volatile u32 stage;
 
+struct vmcs_field {
+	u64 mask;
+	u64 encoding;
+};
+
+#define MASK(_bits) GENMASK_ULL((_bits) - 1, 0)
+#define MASK_NATURAL MASK(sizeof(unsigned long) * 8)
+
+static struct vmcs_field vmcs_fields[] = {
+	{ MASK(16), VPID },
+	{ MASK(16), PINV },
+	{ MASK(16), EPTP_IDX },
+
+	{ MASK(16), GUEST_SEL_ES },
+	{ MASK(16), GUEST_SEL_CS },
+	{ MASK(16), GUEST_SEL_SS },
+	{ MASK(16), GUEST_SEL_DS },
+	{ MASK(16), GUEST_SEL_FS },
+	{ MASK(16), GUEST_SEL_GS },
+	{ MASK(16), GUEST_SEL_LDTR },
+	{ MASK(16), GUEST_SEL_TR },
+	{ MASK(16), GUEST_INT_STATUS },
+
+	{ MASK(16), HOST_SEL_ES },
+	{ MASK(16), HOST_SEL_CS },
+	{ MASK(16), HOST_SEL_SS },
+	{ MASK(16), HOST_SEL_DS },
+	{ MASK(16), HOST_SEL_FS },
+	{ MASK(16), HOST_SEL_GS },
+	{ MASK(16), HOST_SEL_TR },
+
+	{ MASK(64), IO_BITMAP_A },
+	{ MASK(64), IO_BITMAP_B },
+	{ MASK(64), MSR_BITMAP },
+	{ MASK(64), EXIT_MSR_ST_ADDR },
+	{ MASK(64), EXIT_MSR_LD_ADDR },
+	{ MASK(64), ENTER_MSR_LD_ADDR },
+	{ MASK(64), VMCS_EXEC_PTR },
+	{ MASK(64), TSC_OFFSET },
+	{ MASK(64), APIC_VIRT_ADDR },
+	{ MASK(64), APIC_ACCS_ADDR },
+	{ MASK(64), EPTP },
+
+	{ 0 /* read-only */, INFO_PHYS_ADDR },
+
+	{ MASK(64), VMCS_LINK_PTR },
+	{ MASK(64), GUEST_DEBUGCTL },
+	{ MASK(64), GUEST_EFER },
+	{ MASK(64), GUEST_PAT },
+	{ MASK(64), GUEST_PERF_GLOBAL_CTRL },
+	{ MASK(64), GUEST_PDPTE },
+
+	{ MASK(64), HOST_PAT },
+	{ MASK(64), HOST_EFER },
+	{ MASK(64), HOST_PERF_GLOBAL_CTRL },
+
+	{ MASK(32), PIN_CONTROLS },
+	{ MASK(32), CPU_EXEC_CTRL0 },
+	{ MASK(32), EXC_BITMAP },
+	{ MASK(32), PF_ERROR_MASK },
+	{ MASK(32), PF_ERROR_MATCH },
+	{ MASK(32), CR3_TARGET_COUNT },
+	{ MASK(32), EXI_CONTROLS },
+	{ MASK(32), EXI_MSR_ST_CNT },
+	{ MASK(32), EXI_MSR_LD_CNT },
+	{ MASK(32), ENT_CONTROLS },
+	{ MASK(32), ENT_MSR_LD_CNT },
+	{ MASK(32), ENT_INTR_INFO },
+	{ MASK(32), ENT_INTR_ERROR },
+	{ MASK(32), ENT_INST_LEN },
+	{ MASK(32), TPR_THRESHOLD },
+	{ MASK(32), CPU_EXEC_CTRL1 },
+
+	{ 0 /* read-only */, VMX_INST_ERROR },
+	{ 0 /* read-only */, EXI_REASON },
+	{ 0 /* read-only */, EXI_INTR_INFO },
+	{ 0 /* read-only */, EXI_INTR_ERROR },
+	{ 0 /* read-only */, IDT_VECT_INFO },
+	{ 0 /* read-only */, IDT_VECT_ERROR },
+	{ 0 /* read-only */, EXI_INST_LEN },
+	{ 0 /* read-only */, EXI_INST_INFO },
+
+	{ MASK(32), GUEST_LIMIT_ES },
+	{ MASK(32), GUEST_LIMIT_CS },
+	{ MASK(32), GUEST_LIMIT_SS },
+	{ MASK(32), GUEST_LIMIT_DS },
+	{ MASK(32), GUEST_LIMIT_FS },
+	{ MASK(32), GUEST_LIMIT_GS },
+	{ MASK(32), GUEST_LIMIT_LDTR },
+	{ MASK(32), GUEST_LIMIT_TR },
+	{ MASK(32), GUEST_LIMIT_GDTR },
+	{ MASK(32), GUEST_LIMIT_IDTR },
+	{ 0x1d0ff, GUEST_AR_ES },
+	{ 0x1f0ff, GUEST_AR_CS },
+	{ 0x1d0ff, GUEST_AR_SS },
+	{ 0x1d0ff, GUEST_AR_DS },
+	{ 0x1d0ff, GUEST_AR_FS },
+	{ 0x1d0ff, GUEST_AR_GS },
+	{ 0x1d0ff, GUEST_AR_LDTR },
+	{ 0x1d0ff, GUEST_AR_TR },
+	{ MASK(32), GUEST_INTR_STATE },
+	{ MASK(32), GUEST_ACTV_STATE },
+	{ MASK(32), GUEST_SMBASE },
+	{ MASK(32), GUEST_SYSENTER_CS },
+	{ MASK(32), PREEMPT_TIMER_VALUE },
+
+	{ MASK(32), HOST_SYSENTER_CS },
+
+	{ MASK_NATURAL, CR0_MASK },
+	{ MASK_NATURAL, CR4_MASK },
+	{ MASK_NATURAL, CR0_READ_SHADOW },
+	{ MASK_NATURAL, CR4_READ_SHADOW },
+	{ MASK_NATURAL, CR3_TARGET_0 },
+	{ MASK_NATURAL, CR3_TARGET_1 },
+	{ MASK_NATURAL, CR3_TARGET_2 },
+	{ MASK_NATURAL, CR3_TARGET_3 },
+
+	{ 0 /* read-only */, EXI_QUALIFICATION },
+	{ 0 /* read-only */, IO_RCX },
+	{ 0 /* read-only */, IO_RSI },
+	{ 0 /* read-only */, IO_RDI },
+	{ 0 /* read-only */, IO_RIP },
+	{ 0 /* read-only */, GUEST_LINEAR_ADDRESS },
+
+	{ MASK_NATURAL, GUEST_CR0 },
+	{ MASK_NATURAL, GUEST_CR3 },
+	{ MASK_NATURAL, GUEST_CR4 },
+	{ MASK_NATURAL, GUEST_BASE_ES },
+	{ MASK_NATURAL, GUEST_BASE_CS },
+	{ MASK_NATURAL, GUEST_BASE_SS },
+	{ MASK_NATURAL, GUEST_BASE_DS },
+	{ MASK_NATURAL, GUEST_BASE_FS },
+	{ MASK_NATURAL, GUEST_BASE_GS },
+	{ MASK_NATURAL, GUEST_BASE_LDTR },
+	{ MASK_NATURAL, GUEST_BASE_TR },
+	{ MASK_NATURAL, GUEST_BASE_GDTR },
+	{ MASK_NATURAL, GUEST_BASE_IDTR },
+	{ MASK_NATURAL, GUEST_DR7 },
+	{ MASK_NATURAL, GUEST_RSP },
+	{ MASK_NATURAL, GUEST_RIP },
+	{ MASK_NATURAL, GUEST_RFLAGS },
+	{ MASK_NATURAL, GUEST_PENDING_DEBUG },
+	{ MASK_NATURAL, GUEST_SYSENTER_ESP },
+	{ MASK_NATURAL, GUEST_SYSENTER_EIP },
+
+	{ MASK_NATURAL, HOST_CR0 },
+	{ MASK_NATURAL, HOST_CR3 },
+	{ MASK_NATURAL, HOST_CR4 },
+	{ MASK_NATURAL, HOST_BASE_FS },
+	{ MASK_NATURAL, HOST_BASE_GS },
+	{ MASK_NATURAL, HOST_BASE_TR },
+	{ MASK_NATURAL, HOST_BASE_GDTR },
+	{ MASK_NATURAL, HOST_BASE_IDTR },
+	{ MASK_NATURAL, HOST_SYSENTER_ESP },
+	{ MASK_NATURAL, HOST_SYSENTER_EIP },
+	{ MASK_NATURAL, HOST_RSP },
+	{ MASK_NATURAL, HOST_RIP },
+};
+
+static inline u64 vmcs_field_value(struct vmcs_field *f, u8 cookie)
+{
+	u64 value;
+
+	/* Incorporate the cookie and the field encoding into the value. */
+	value = cookie;
+	value |= (f->encoding << 8);
+	value |= 0xdeadbeefull << 32;
+
+	return value & f->mask;
+}
+
+static void set_vmcs_field(struct vmcs_field *f, u8 cookie)
+{
+	vmcs_write(f->encoding, vmcs_field_value(f, cookie));
+}
+
+static bool check_vmcs_field(struct vmcs_field *f, u8 cookie)
+{
+	u64 expected;
+	u64 actual;
+	int ret;
+
+	ret = vmcs_read_checking(f->encoding, &actual);
+	assert(!(ret & X86_EFLAGS_CF));
+	/* Skip VMCS fields that aren't recognized by the CPU */
+	if (ret & X86_EFLAGS_ZF)
+		return true;
+
+	expected = vmcs_field_value(f, cookie);
+	actual &= f->mask;
+
+	if (expected == actual)
+		return true;
+
+	printf("FAIL: VMWRITE/VMREAD %lx (expected: %lx, actual: %lx)",
+	       f->encoding, (unsigned long) expected, (unsigned long) actual);
+
+	return false;
+}
+
+static void set_all_vmcs_fields(u8 cookie)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vmcs_fields); i++)
+		set_vmcs_field(&vmcs_fields[i], cookie);
+}
+
+static bool check_all_vmcs_fields(u8 cookie)
+{
+	bool pass = true;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vmcs_fields); i++) {
+		if (!check_vmcs_field(&vmcs_fields[i], cookie))
+			pass = false;
+	}
+
+	return pass;
+}
+
+void test_vmwrite_vmread(void)
+{
+	struct vmcs *vmcs = alloc_page();
+
+	memset(vmcs, 0, PAGE_SIZE);
+	vmcs->revision_id = basic.revision;
+	assert(!vmcs_clear(vmcs));
+	assert(!make_vmcs_current(vmcs));
+
+	set_all_vmcs_fields(0x42);
+	report("VMWRITE/VMREAD", check_all_vmcs_fields(0x42));
+
+	assert(!vmcs_clear(vmcs));
+	free_page(vmcs);
+}
+
 void vmx_set_test_stage(u32 s)
 {
 	barrier();
@@ -85,16 +322,6 @@ void vmx_inc_test_stage(void)
 	barrier();
 	stage++;
 	barrier();
-}
-
-static int make_vmcs_current(struct vmcs *vmcs)
-{
-	bool ret;
-	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
-
-	asm volatile ("push %1; popf; vmptrld %2; setbe %0"
-		      : "=q" (ret) : "q" (rflags), "m" (vmcs) : "cc");
-	return ret;
 }
 
 /* entry_sysenter */
@@ -1243,6 +1470,9 @@ int main(int argc, const char *argv[])
 		test_vmclear();
 	if (test_wanted("test_vmptrst", argv, argc))
 		test_vmptrst();
+	if (test_wanted("test_vmwrite_vmread", argv, argc))
+		test_vmwrite_vmread();
+
 	init_vmcs(&vmcs_root);
 	if (vmx_run()) {
 		report("test vmlaunch", 0);

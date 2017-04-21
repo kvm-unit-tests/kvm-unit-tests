@@ -567,6 +567,16 @@ void vmx_set_test_stage(u32 s);
 u32 vmx_get_test_stage(void);
 void vmx_inc_test_stage(void);
 
+static inline int make_vmcs_current(struct vmcs *vmcs)
+{
+	bool ret;
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+
+	asm volatile ("push %1; popf; vmptrld %2; setbe %0"
+		      : "=q" (ret) : "q" (rflags), "m" (vmcs) : "cc");
+	return ret;
+}
+
 static inline int vmcs_clear(struct vmcs *vmcs)
 {
 	bool ret;
@@ -582,6 +592,25 @@ static inline u64 vmcs_read(enum Encoding enc)
 	u64 val;
 	asm volatile ("vmread %1, %0" : "=rm" (val) : "r" ((u64)enc) : "cc");
 	return val;
+}
+
+static inline int vmcs_read_checking(enum Encoding enc, u64 *value)
+{
+	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+	u64 encoding = enc;
+	u64 val;
+
+	asm volatile ("shl $8, %%rax;"
+		      "sahf;"
+		      "vmread %[encoding], %[val];"
+		      "lahf;"
+		      "shr $8, %%rax"
+		      : /* output */ [val]"=rm"(val), "+a"(rflags)
+		      : /* input */ [encoding]"r"(encoding)
+		      : /* clobber */ "cc");
+
+	*value = val;
+	return rflags & (X86_EFLAGS_CF | X86_EFLAGS_ZF);
 }
 
 static inline int vmcs_write(enum Encoding enc, u64 val)
