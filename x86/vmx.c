@@ -425,6 +425,75 @@ static inline int vmx_off()
 	return ret;
 }
 
+static const char * const exit_reason_descriptions[] = {
+	[VMX_EXC_NMI]		= "VMX_EXC_NMI",
+	[VMX_EXTINT]		= "VMX_EXTINT",
+	[VMX_TRIPLE_FAULT]	= "VMX_TRIPLE_FAULT",
+	[VMX_INIT]		= "VMX_INIT",
+	[VMX_SIPI]		= "VMX_SIPI",
+	[VMX_SMI_IO]		= "VMX_SMI_IO",
+	[VMX_SMI_OTHER]		= "VMX_SMI_OTHER",
+	[VMX_INTR_WINDOW]	= "VMX_INTR_WINDOW",
+	[VMX_NMI_WINDOW]	= "VMX_NMI_WINDOW",
+	[VMX_TASK_SWITCH]	= "VMX_TASK_SWITCH",
+	[VMX_CPUID]		= "VMX_CPUID",
+	[VMX_GETSEC]		= "VMX_GETSEC",
+	[VMX_HLT]		= "VMX_HLT",
+	[VMX_INVD]		= "VMX_INVD",
+	[VMX_INVLPG]		= "VMX_INVLPG",
+	[VMX_RDPMC]		= "VMX_RDPMC",
+	[VMX_RDTSC]		= "VMX_RDTSC",
+	[VMX_RSM]		= "VMX_RSM",
+	[VMX_VMCALL]		= "VMX_VMCALL",
+	[VMX_VMCLEAR]		= "VMX_VMCLEAR",
+	[VMX_VMLAUNCH]		= "VMX_VMLAUNCH",
+	[VMX_VMPTRLD]		= "VMX_VMPTRLD",
+	[VMX_VMPTRST]		= "VMX_VMPTRST",
+	[VMX_VMREAD]		= "VMX_VMREAD",
+	[VMX_VMRESUME]		= "VMX_VMRESUME",
+	[VMX_VMWRITE]		= "VMX_VMWRITE",
+	[VMX_VMXOFF]		= "VMX_VMXOFF",
+	[VMX_VMXON]		= "VMX_VMXON",
+	[VMX_CR]		= "VMX_CR",
+	[VMX_DR]		= "VMX_DR",
+	[VMX_IO]		= "VMX_IO",
+	[VMX_RDMSR]		= "VMX_RDMSR",
+	[VMX_WRMSR]		= "VMX_WRMSR",
+	[VMX_FAIL_STATE]	= "VMX_FAIL_STATE",
+	[VMX_FAIL_MSR]		= "VMX_FAIL_MSR",
+	[VMX_MWAIT]		= "VMX_MWAIT",
+	[VMX_MTF]		= "VMX_MTF",
+	[VMX_MONITOR]		= "VMX_MONITOR",
+	[VMX_PAUSE]		= "VMX_PAUSE",
+	[VMX_FAIL_MCHECK]	= "VMX_FAIL_MCHECK",
+	[VMX_TPR_THRESHOLD]	= "VMX_TPR_THRESHOLD",
+	[VMX_APIC_ACCESS]	= "VMX_APIC_ACCESS",
+	[VMX_GDTR_IDTR]		= "VMX_GDTR_IDTR",
+	[VMX_LDTR_TR]		= "VMX_LDTR_TR",
+	[VMX_EPT_VIOLATION]	= "VMX_EPT_VIOLATION",
+	[VMX_EPT_MISCONFIG]	= "VMX_EPT_MISCONFIG",
+	[VMX_INVEPT]		= "VMX_INVEPT",
+	[VMX_PREEMPT]		= "VMX_PREEMPT",
+	[VMX_INVVPID]		= "VMX_INVVPID",
+	[VMX_WBINVD]		= "VMX_WBINVD",
+	[VMX_XSETBV]		= "VMX_XSETBV",
+	[VMX_APIC_WRITE]	= "VMX_APIC_WRITE",
+	[VMX_RDRAND]		= "VMX_RDRAND",
+	[VMX_INVPCID]		= "VMX_INVPCID",
+	[VMX_VMFUNC]		= "VMX_VMFUNC",
+	[VMX_RDSEED]		= "VMX_RDSEED",
+	[VMX_PML_FULL]		= "VMX_PML_FULL",
+	[VMX_XSAVES]		= "VMX_XSAVES",
+	[VMX_XRSTORS]		= "VMX_XRSTORS",
+};
+
+const char *exit_reason_description(u64 reason)
+{
+	if (reason >= ARRAY_SIZE(exit_reason_descriptions))
+		return "(unknown)";
+	return exit_reason_descriptions[reason] ? : "(unused)";
+}
+
 void print_vmexit_info()
 {
 	u64 guest_rip, guest_rsp;

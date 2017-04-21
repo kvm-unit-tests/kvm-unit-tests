@@ -317,7 +317,15 @@ enum Reason {
 	VMX_PREEMPT		= 52,
 	VMX_INVVPID		= 53,
 	VMX_WBINVD		= 54,
-	VMX_XSETBV		= 55
+	VMX_XSETBV		= 55,
+	VMX_APIC_WRITE		= 56,
+	VMX_RDRAND		= 57,
+	VMX_INVPCID		= 58,
+	VMX_VMFUNC		= 59,
+	VMX_RDSEED		= 61,
+	VMX_PML_FULL		= 62,
+	VMX_XSAVES		= 63,
+	VMX_XRSTORS		= 64,
 };
 
 enum Ctrl_exi {
@@ -659,6 +667,7 @@ static inline bool invvpid(unsigned long type, u16 vpid, u64 gva)
 	return ret;
 }
 
+const char *exit_reason_description(u64 reason);
 void print_vmexit_info();
 void print_vmentry_failure_info(struct vmentry_failure *failure);
 void ept_sync(int type, u64 eptp);
