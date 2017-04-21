@@ -17,12 +17,40 @@ static unsigned int tests, failures, xfailures, skipped;
 static char prefixes[256];
 static struct spinlock lock;
 
+#define PREFIX_DELIMITER ": "
+
+void report_prefix_pushf(const char *prefix_fmt, ...)
+{
+	va_list va;
+	int len;
+	int start;
+
+	spin_lock(&lock);
+
+	len = strlen(prefixes);
+	assert_msg(len < sizeof(prefixes), "%d >= %lu", len, sizeof(prefixes));
+	start = len;
+
+	va_start(va, prefix_fmt);
+	len += vsnprintf(&prefixes[len], sizeof(prefixes) - len, prefix_fmt,
+			 va);
+	va_end(va);
+	assert_msg(len < sizeof(prefixes), "%d >= %lu", len, sizeof(prefixes));
+
+	assert_msg(!strstr(&prefixes[start], PREFIX_DELIMITER),
+		   "Prefix \"%s\" contains delimiter \"" PREFIX_DELIMITER "\"",
+		   &prefixes[start]);
+
+	len += snprintf(&prefixes[len], sizeof(prefixes) - len,
+			PREFIX_DELIMITER);
+	assert_msg(len < sizeof(prefixes), "%d >= %lu", len, sizeof(prefixes));
+
+	spin_unlock(&lock);
+}
+
 void report_prefix_push(const char *prefix)
 {
-	spin_lock(&lock);
-	strcat(prefixes, prefix);
-	strcat(prefixes, ": ");
-	spin_unlock(&lock);
+	report_prefix_pushf("%s", prefix);
 }
 
 void report_prefix_pop(void)
@@ -34,9 +62,9 @@ void report_prefix_pop(void)
 	if (!*prefixes)
 		return;
 
-	for (p = prefixes, q = strstr(p, ": ") + 2;
+	for (p = prefixes, q = strstr(p, PREFIX_DELIMITER) + 2;
 			*q;
-			p = q, q = strstr(p, ": ") + 2)
+			p = q, q = strstr(p, PREFIX_DELIMITER) + 2)
 		;
 	*p = '\0';
 

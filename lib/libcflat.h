@@ -96,6 +96,7 @@ extern int vsnprintf(char *buf, int size, const char *fmt, va_list va)
 extern int vprintf(const char *fmt, va_list va)
 					__attribute__((format(printf, 1, 0)));
 
+void report_prefix_pushf(const char *prefix_fmt, ...);
 extern void report_prefix_push(const char *prefix);
 extern void report_prefix_pop(void);
 extern void report(const char *msg_fmt, bool pass, ...);
