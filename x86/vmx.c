@@ -487,6 +487,42 @@ print_vmentry_failure_info(struct vmentry_failure *failure) {
 	}
 }
 
+/*
+ * VMCLEAR should ensures all VMCS state is flushed to the VMCS
+ * region in memory.
+ */
+static void test_vmclear_flushing(void)
+{
+	struct vmcs *vmcs[3] = {};
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
+		vmcs[i] = alloc_page();
+		memset(vmcs[i], 0, PAGE_SIZE);
+	}
+
+	vmcs[0]->revision_id = basic.revision;
+	assert(!vmcs_clear(vmcs[0]));
+	assert(!make_vmcs_current(vmcs[0]));
+	set_all_vmcs_fields(0x86);
+
+	assert(!vmcs_clear(vmcs[0]));
+	memcpy(vmcs[1], vmcs[0], basic.size);
+	assert(!make_vmcs_current(vmcs[1]));
+	report("test vmclear flush (current VMCS)", check_all_vmcs_fields(0x86));
+
+	set_all_vmcs_fields(0x87);
+	assert(!make_vmcs_current(vmcs[0]));
+	assert(!vmcs_clear(vmcs[1]));
+	memcpy(vmcs[2], vmcs[1], basic.size);
+	assert(!make_vmcs_current(vmcs[2]));
+	report("test vmclear flush (!current VMCS)", check_all_vmcs_fields(0x87));
+
+	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
+		assert(!vmcs_clear(vmcs[i]));
+		free_page(vmcs[i]);
+	}
+}
 
 static void test_vmclear(void)
 {
@@ -519,6 +555,7 @@ static void test_vmclear(void)
 	/* Valid VMCS */
 	report("test vmclear with valid vmcs region", vmcs_clear(vmcs_root) == 0);
 
+	test_vmclear_flushing();
 }
 
 static void test_vmxoff(void)
