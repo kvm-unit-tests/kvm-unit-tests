@@ -551,12 +551,15 @@ enum vm_instruction_error_number {
 #define EPT_VLT_PERM_RD		(1 << 3)
 #define EPT_VLT_PERM_WR		(1 << 4)
 #define EPT_VLT_PERM_EX		(1 << 5)
+#define EPT_VLT_PERMS		(EPT_VLT_PERM_RD | EPT_VLT_PERM_WR | \
+				 EPT_VLT_PERM_EX)
 #define EPT_VLT_LADDR_VLD	(1 << 7)
 #define EPT_VLT_PADDR		(1 << 8)
 
 #define MAGIC_VAL_1		0x12345678ul
 #define MAGIC_VAL_2		0x87654321ul
 #define MAGIC_VAL_3		0xfffffffful
+#define MAGIC_VAL_4		0xdeadbeeful
 
 #define INVEPT_SINGLE		1
 #define INVEPT_GLOBAL		2

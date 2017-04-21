@@ -994,6 +994,25 @@ static int setup_ept(bool enable_ad)
 	return 0;
 }
 
+static void ept_enable_ad_bits(void)
+{
+	eptp |= EPTP_AD_FLAG;
+	vmcs_write(EPTP, eptp);
+}
+
+static void ept_disable_ad_bits(void)
+{
+	eptp &= ~EPTP_AD_FLAG;
+	vmcs_write(EPTP, eptp);
+}
+
+static void ept_enable_ad_bits_or_skip_test(void)
+{
+	if (!ept_ad_bits_supported())
+		test_skip("EPT AD bits not supported.");
+	ept_enable_ad_bits();
+}
+
 static int apic_version;
 
 static int ept_init_common(bool have_ad)
@@ -1984,6 +2003,821 @@ static void fixture_test_case2(void)
 	report(__func__, 1);
 }
 
+enum ept_access_op {
+	OP_READ,
+	OP_WRITE,
+	OP_EXEC,
+	OP_FLUSH_TLB,
+	OP_EXIT,
+};
+
+static struct ept_access_test_data {
+	unsigned long gpa;
+	unsigned long *gva;
+	unsigned long hpa;
+	unsigned long *hva;
+	enum ept_access_op op;
+} ept_access_test_data;
+
+extern unsigned char ret42_start;
+extern unsigned char ret42_end;
+
+/* Returns 42. */
+asm(
+	".align 64\n"
+	"ret42_start:\n"
+	"mov $42, %eax\n"
+	"ret\n"
+	"ret42_end:\n"
+);
+
+static void
+diagnose_ept_violation_qual(u64 expected, u64 actual)
+{
+
+#define DIAGNOSE(flag)							\
+do {									\
+	if ((expected & flag) != (actual & flag))			\
+		printf(#flag " %sexpected\n",				\
+		       (expected & flag) ? "" : "un");			\
+} while (0)
+
+	DIAGNOSE(EPT_VLT_RD);
+	DIAGNOSE(EPT_VLT_WR);
+	DIAGNOSE(EPT_VLT_FETCH);
+	DIAGNOSE(EPT_VLT_PERM_RD);
+	DIAGNOSE(EPT_VLT_PERM_WR);
+	DIAGNOSE(EPT_VLT_PERM_EX);
+	DIAGNOSE(EPT_VLT_LADDR_VLD);
+	DIAGNOSE(EPT_VLT_PADDR);
+
+#undef DIAGNOSE
+}
+
+static void do_ept_access_op(enum ept_access_op op)
+{
+	ept_access_test_data.op = op;
+	enter_guest();
+}
+
+/*
+ * Force the guest to flush its TLB (i.e., flush gva -> gpa mappings). Only
+ * needed by tests that modify guest PTEs.
+ */
+static void ept_access_test_guest_flush_tlb(void)
+{
+	do_ept_access_op(OP_FLUSH_TLB);
+	skip_exit_vmcall();
+}
+
+/*
+ * Modifies the EPT entry at @level in the mapping of @gpa. First clears the
+ * bits in @clear then sets the bits in @set. @mkhuge transforms the entry into
+ * a huge page.
+ */
+static unsigned long ept_twiddle(unsigned long gpa, bool mkhuge, int level,
+				 unsigned long clear, unsigned long set)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	unsigned long orig_pte;
+	unsigned long pte;
+
+	/* Screw with the mapping at the requested level. */
+	orig_pte = get_ept_pte(pml4, gpa, level);
+	TEST_ASSERT(orig_pte != -1);
+	pte = orig_pte;
+	if (mkhuge)
+		pte = (orig_pte & ~EPT_ADDR_MASK) | data->hpa | EPT_LARGE_PAGE;
+	else
+		pte = orig_pte;
+	pte = (pte & ~clear) | set;
+	set_ept_pte(pml4, gpa, level, pte);
+	ept_sync(INVEPT_SINGLE, eptp);
+
+	return orig_pte;
+}
+
+static void ept_untwiddle(unsigned long gpa, int level, unsigned long orig_pte)
+{
+	set_ept_pte(pml4, gpa, level, orig_pte);
+}
+
+static void do_ept_violation(bool leaf, enum ept_access_op op,
+			     u64 expected_qual, u64 expected_paddr)
+{
+	u64 qual;
+
+	/* Try the access and observe the violation. */
+	do_ept_access_op(op);
+
+	assert_exit_reason(VMX_EPT_VIOLATION);
+
+	qual = vmcs_read(EXI_QUALIFICATION);
+
+	diagnose_ept_violation_qual(expected_qual, qual);
+	TEST_EXPECT_EQ(expected_qual, qual);
+
+	#if 0
+	/* Disable for now otherwise every test will fail */
+	TEST_EXPECT_EQ(vmcs_read(GUEST_LINEAR_ADDRESS),
+		       (unsigned long) (
+			       op == OP_EXEC ? data->gva + 1 : data->gva));
+	#endif
+	/*
+	 * TODO: tests that probe expected_paddr in pages other than the one at
+	 * the beginning of the 1g region.
+	 */
+	TEST_EXPECT_EQ(vmcs_read(INFO_PHYS_ADDR), expected_paddr);
+}
+
+static void
+ept_violation_at_level_mkhuge(bool mkhuge, int level, unsigned long clear,
+			      unsigned long set, enum ept_access_op op,
+			      u64 expected_qual)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	unsigned long orig_pte;
+
+	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
+
+	do_ept_violation(level == 1 || mkhuge, op, expected_qual,
+			 op == OP_EXEC ? data->gpa + sizeof(unsigned long) :
+					 data->gpa);
+
+	/* Fix the violation and resume the op loop. */
+	ept_untwiddle(data->gpa, level, orig_pte);
+	enter_guest();
+	skip_exit_vmcall();
+}
+
+static void
+ept_violation_at_level(int level, unsigned long clear, unsigned long set,
+		       enum ept_access_op op, u64 expected_qual)
+{
+	ept_violation_at_level_mkhuge(false, level, clear, set, op,
+				      expected_qual);
+	if (ept_huge_pages_supported(level))
+		ept_violation_at_level_mkhuge(true, level, clear, set, op,
+					      expected_qual);
+}
+
+static void ept_violation(unsigned long clear, unsigned long set,
+			  enum ept_access_op op, u64 expected_qual)
+{
+	ept_violation_at_level(1, clear, set, op, expected_qual);
+	ept_violation_at_level(2, clear, set, op, expected_qual);
+	ept_violation_at_level(3, clear, set, op, expected_qual);
+	ept_violation_at_level(4, clear, set, op, expected_qual);
+}
+
+static void ept_access_violation(unsigned long access, enum ept_access_op op,
+				       u64 expected_qual)
+{
+	ept_violation(EPT_PRESENT, access, op,
+		      expected_qual | EPT_VLT_LADDR_VLD | EPT_VLT_PADDR);
+}
+
+/*
+ * For translations that don't involve a GVA, that is physical address (paddr)
+ * accesses, EPT violations don't set the flag EPT_VLT_PADDR.  For a typical
+ * guest memory access, the hardware does GVA -> GPA -> HPA.  However, certain
+ * translations don't involve GVAs, such as when the hardware does the guest
+ * page table walk. For example, in translating GVA_1 -> GPA_1, the guest MMU
+ * might try to set an A bit on a guest PTE. If the GPA_2 that the PTE resides
+ * on isn't present in the EPT, then the EPT violation will be for GPA_2 and
+ * the EPT_VLT_PADDR bit will be clear in the exit qualification.
+ *
+ * Note that paddr violations can also be triggered by loading PAE page tables
+ * with wonky addresses. We don't test that yet.
+ *
+ * This function modifies the EPT entry that maps the GPA that the guest page
+ * table entry mapping ept_access_data.gva resides on.
+ *
+ *	@ept_access	EPT permissions to set. Other permissions are cleared.
+ *
+ *	@pte_ad		Set the A/D bits on the guest PTE accordingly.
+ *
+ *	@op		Guest operation to perform with ept_access_data.gva.
+ *
+ *	@expect_violation
+ *			Is a violation expected during the paddr access?
+ *
+ *	@expected_qual	Expected qualification for the EPT violation.
+ *			EPT_VLT_PADDR should be clear.
+ */
+static void ept_access_paddr(unsigned long ept_access, unsigned long pte_ad,
+			     enum ept_access_op op, bool expect_violation,
+			     u64 expected_qual)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	unsigned long *ptep;
+	unsigned long gpa;
+	unsigned long orig_epte;
+
+	/* Modify the guest PTE mapping data->gva according to @pte_ad.  */
+	ptep = get_pte_level(current_page_table(), data->gva, /*level=*/1);
+	TEST_ASSERT(ptep);
+	TEST_ASSERT_EQ(*ptep & PT_ADDR_MASK, data->gpa);
+	*ptep = (*ptep & ~PT_AD_MASK) | pte_ad;
+	ept_access_test_guest_flush_tlb();
+
+	/*
+	 * Now modify the access bits on the EPT entry for the GPA that the
+	 * guest PTE resides on. Note that by modifying a single EPT entry,
+	 * we're potentially affecting 512 guest PTEs. However, we've carefully
+	 * constructed our test such that those other 511 PTEs aren't used by
+	 * the guest: data->gva is at the beginning of a 1G huge page, thus the
+	 * PTE we're modifying is at the beginning of a 4K page and the
+	 * following 511 entires are also under our control (and not touched by
+	 * the guest).
+	 */
+	gpa = virt_to_phys(ptep);
+	TEST_ASSERT_EQ(gpa & ~PAGE_MASK, 0);
+	/*
+	 * Make sure the guest page table page is mapped with a 4K EPT entry,
+	 * otherwise our level=1 twiddling below will fail. We use the
+	 * identity map (gpa = gpa) since page tables are shared with the host.
+	 */
+	install_ept(pml4, gpa, gpa, EPT_PRESENT);
+	orig_epte = ept_twiddle(gpa, /*mkhuge=*/0, /*level=*/1,
+				/*clear=*/EPT_PRESENT, /*set=*/ept_access);
+
+	if (expect_violation) {
+		do_ept_violation(/*leaf=*/true, op,
+				 expected_qual | EPT_VLT_LADDR_VLD, gpa);
+		ept_untwiddle(gpa, /*level=*/1, orig_epte);
+		do_ept_access_op(op);
+	} else {
+		do_ept_access_op(op);
+		ept_untwiddle(gpa, /*level=*/1, orig_epte);
+	}
+
+	TEST_ASSERT(*ptep & PT_ACCESSED_MASK);
+	if ((pte_ad & PT_DIRTY_MASK) || op == OP_WRITE)
+		TEST_ASSERT(*ptep & PT_DIRTY_MASK);
+
+	skip_exit_vmcall();
+}
+
+static void ept_access_allowed_paddr(unsigned long ept_access,
+				     unsigned long pte_ad,
+				     enum ept_access_op op)
+{
+	ept_access_paddr(ept_access, pte_ad, op, /*expect_violation=*/false,
+			 /*expected_qual=*/-1);
+}
+
+static void ept_access_violation_paddr(unsigned long ept_access,
+				       unsigned long pte_ad,
+				       enum ept_access_op op,
+				       u64 expected_qual)
+{
+	ept_access_paddr(ept_access, pte_ad, op, /*expect_violation=*/true,
+			 expected_qual);
+}
+
+
+static void ept_allowed_at_level_mkhuge(bool mkhuge, int level,
+					unsigned long clear,
+					unsigned long set,
+					enum ept_access_op op)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	unsigned long orig_pte;
+
+	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
+
+	/* No violation. Should proceed to vmcall. */
+	do_ept_access_op(op);
+	skip_exit_vmcall();
+
+	ept_untwiddle(data->gpa, level, orig_pte);
+}
+
+static void ept_allowed_at_level(int level, unsigned long clear,
+				 unsigned long set, enum ept_access_op op)
+{
+	ept_allowed_at_level_mkhuge(false, level, clear, set, op);
+	if (ept_huge_pages_supported(level))
+		ept_allowed_at_level_mkhuge(true, level, clear, set, op);
+}
+
+static void ept_allowed(unsigned long clear, unsigned long set,
+			enum ept_access_op op)
+{
+	ept_allowed_at_level(1, clear, set, op);
+	ept_allowed_at_level(2, clear, set, op);
+	ept_allowed_at_level(3, clear, set, op);
+	ept_allowed_at_level(4, clear, set, op);
+}
+
+static void ept_ignored_bit(int bit)
+{
+	/* Set the bit. */
+	ept_allowed(0, 1ul << bit, OP_READ);
+	ept_allowed(0, 1ul << bit, OP_WRITE);
+	ept_allowed(0, 1ul << bit, OP_EXEC);
+
+	/* Clear the bit. */
+	ept_allowed(1ul << bit, 0, OP_READ);
+	ept_allowed(1ul << bit, 0, OP_WRITE);
+	ept_allowed(1ul << bit, 0, OP_EXEC);
+}
+
+static void ept_access_allowed(unsigned long access, enum ept_access_op op)
+{
+	ept_allowed(EPT_PRESENT, access, op);
+}
+
+
+static void ept_misconfig_at_level_mkhuge_op(bool mkhuge, int level,
+					     unsigned long clear,
+					     unsigned long set,
+					     enum ept_access_op op)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	unsigned long orig_pte;
+
+	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
+
+	do_ept_access_op(op);
+	assert_exit_reason(VMX_EPT_MISCONFIG);
+
+	/* Intel 27.2.1, "For all other VM exits, this field is cleared." */
+	#if 0
+	/* broken: */
+	TEST_EXPECT_EQ_MSG(vmcs_read(EXI_QUALIFICATION), 0);
+	#endif
+	#if 0
+	/*
+	 * broken:
+	 * According to description of exit qual for EPT violation,
+	 * EPT_VLT_LADDR_VLD indicates if GUEST_LINEAR_ADDRESS is valid.
+	 * However, I can't find anything that says GUEST_LINEAR_ADDRESS ought
+	 * to be set for msiconfig.
+	 */
+	TEST_EXPECT_EQ(vmcs_read(GUEST_LINEAR_ADDRESS),
+		       (unsigned long) (
+			       op == OP_EXEC ? data->gva + 1 : data->gva));
+	#endif
+
+	/* Fix the violation and resume the op loop. */
+	ept_untwiddle(data->gpa, level, orig_pte);
+	enter_guest();
+	skip_exit_vmcall();
+}
+
+static void ept_misconfig_at_level_mkhuge(bool mkhuge, int level,
+					  unsigned long clear,
+					  unsigned long set)
+{
+	/* The op shouldn't matter (read, write, exec), so try them all! */
+	ept_misconfig_at_level_mkhuge_op(mkhuge, level, clear, set, OP_READ);
+	ept_misconfig_at_level_mkhuge_op(mkhuge, level, clear, set, OP_WRITE);
+	ept_misconfig_at_level_mkhuge_op(mkhuge, level, clear, set, OP_EXEC);
+}
+
+static void ept_misconfig_at_level(int level, unsigned long clear,
+				   unsigned long set)
+{
+	ept_misconfig_at_level_mkhuge(false, level, clear, set);
+	if (ept_huge_pages_supported(level))
+		ept_misconfig_at_level_mkhuge(true, level, clear, set);
+}
+
+static void ept_misconfig(unsigned long clear, unsigned long set)
+{
+	ept_misconfig_at_level(1, clear, set);
+	ept_misconfig_at_level(2, clear, set);
+	ept_misconfig_at_level(3, clear, set);
+	ept_misconfig_at_level(4, clear, set);
+}
+
+static void ept_access_misconfig(unsigned long access)
+{
+	ept_misconfig(EPT_PRESENT, access);
+}
+
+static void ept_reserved_bit_at_level_nohuge(int level, int bit)
+{
+	/* Setting the bit causes a misconfig. */
+	ept_misconfig_at_level_mkhuge(false, level, 0, 1ul << bit);
+
+	/* Making the entry non-present turns reserved bits into ignored. */
+	ept_violation_at_level(level, EPT_PRESENT, 1ul << bit, OP_READ,
+			       EPT_VLT_RD | EPT_VLT_LADDR_VLD | EPT_VLT_PADDR);
+}
+
+static void ept_reserved_bit_at_level_huge(int level, int bit)
+{
+	/* Setting the bit causes a misconfig. */
+	ept_misconfig_at_level_mkhuge(true, level, 0, 1ul << bit);
+
+	/* Making the entry non-present turns reserved bits into ignored. */
+	ept_violation_at_level(level, EPT_PRESENT, 1ul << bit, OP_READ,
+			       EPT_VLT_RD | EPT_VLT_LADDR_VLD | EPT_VLT_PADDR);
+}
+
+static void ept_reserved_bit_at_level(int level, int bit)
+{
+	/* Setting the bit causes a misconfig. */
+	ept_misconfig_at_level(level, 0, 1ul << bit);
+
+	/* Making the entry non-present turns reserved bits into ignored. */
+	ept_violation_at_level(level, EPT_PRESENT, 1ul << bit, OP_READ,
+			       EPT_VLT_RD | EPT_VLT_LADDR_VLD | EPT_VLT_PADDR);
+}
+
+static void ept_reserved_bit(int bit)
+{
+	ept_reserved_bit_at_level(1, bit);
+	ept_reserved_bit_at_level(2, bit);
+	ept_reserved_bit_at_level(3, bit);
+	ept_reserved_bit_at_level(4, bit);
+}
+
+#define PAGE_2M_ORDER 9
+#define PAGE_1G_ORDER 18
+
+static void *get_1g_page(void)
+{
+	static void *alloc;
+
+	if (!alloc)
+		alloc = alloc_pages(PAGE_1G_ORDER);
+	return alloc;
+}
+
+static void ept_access_test_teardown(void *unused)
+{
+	/* Exit the guest cleanly. */
+	do_ept_access_op(OP_EXIT);
+}
+
+static void ept_access_test_guest(void)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	int (*code)(void) = (int (*)(void)) &data->gva[1];
+
+	while (true) {
+		switch (data->op) {
+		case OP_READ:
+			TEST_ASSERT_EQ(*data->gva, MAGIC_VAL_1);
+			break;
+		case OP_WRITE:
+			*data->gva = MAGIC_VAL_2;
+			TEST_ASSERT_EQ(*data->gva, MAGIC_VAL_2);
+			*data->gva = MAGIC_VAL_1;
+			break;
+		case OP_EXEC:
+			TEST_ASSERT_EQ(42, code());
+			break;
+		case OP_FLUSH_TLB:
+			write_cr3(read_cr3());
+			break;
+		case OP_EXIT:
+			return;
+		default:
+			TEST_ASSERT_MSG(false, "Unknown op %d", data->op);
+		}
+		vmcall();
+	}
+}
+
+static void ept_access_test_setup(void)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	unsigned long npages = 1ul << PAGE_1G_ORDER;
+	unsigned long size = npages * PAGE_SIZE;
+	unsigned long *page_table = current_page_table();
+
+	if (setup_ept(false))
+		test_skip("EPT not supported");
+
+	test_set_guest(ept_access_test_guest);
+	test_add_teardown(ept_access_test_teardown, NULL);
+
+	data->hva = get_1g_page();
+	TEST_ASSERT(data->hva);
+	data->hpa = virt_to_phys(data->hva);
+
+	data->gpa = 1ul << 40;
+	data->gva = (void *) ALIGN((unsigned long) alloc_vpages(npages * 2),
+				   size);
+	TEST_ASSERT(!any_present_pages(page_table, data->gva, size));
+	install_pages(page_table, data->gpa, size, data->gva);
+
+	/*
+	 * Make sure nothing's mapped here so the tests that screw with the
+	 * pml4 entry don't inadvertently break something.
+	 */
+	TEST_ASSERT_EQ(get_ept_pte(pml4, data->gpa, 4), -1);
+	TEST_ASSERT_EQ(get_ept_pte(pml4, data->gpa + size - 1, 4), -1);
+	install_ept(pml4, data->hpa, data->gpa, EPT_PRESENT);
+
+	data->hva[0] = MAGIC_VAL_1;
+	memcpy(&data->hva[1], &ret42_start, &ret42_end - &ret42_start);
+}
+
+static void ept_access_test_not_present(void)
+{
+	ept_access_test_setup();
+	/* --- */
+	ept_access_violation(0, OP_READ, EPT_VLT_RD);
+	ept_access_violation(0, OP_WRITE, EPT_VLT_WR);
+	ept_access_violation(0, OP_EXEC, EPT_VLT_FETCH);
+}
+
+static void ept_access_test_read_only(void)
+{
+	ept_access_test_setup();
+
+	/* r-- */
+	ept_access_allowed(EPT_RA, OP_READ);
+	ept_access_violation(EPT_RA, OP_WRITE, EPT_VLT_WR | EPT_VLT_PERM_RD);
+	ept_access_violation(EPT_RA, OP_EXEC, EPT_VLT_FETCH | EPT_VLT_PERM_RD);
+}
+
+static void ept_access_test_write_only(void)
+{
+	ept_access_test_setup();
+	/* -w- */
+	ept_access_misconfig(EPT_WA);
+}
+
+static void ept_access_test_read_write(void)
+{
+	ept_access_test_setup();
+	/* rw- */
+	ept_access_allowed(EPT_RA | EPT_WA, OP_READ);
+	ept_access_allowed(EPT_RA | EPT_WA, OP_WRITE);
+	ept_access_violation(EPT_RA | EPT_WA, OP_EXEC,
+			   EPT_VLT_FETCH | EPT_VLT_PERM_RD | EPT_VLT_PERM_WR);
+}
+
+
+static void ept_access_test_execute_only(void)
+{
+	ept_access_test_setup();
+	/* --x */
+	if (ept_execute_only_supported()) {
+		ept_access_violation(EPT_EA, OP_READ,
+				     EPT_VLT_RD | EPT_VLT_PERM_EX);
+		ept_access_violation(EPT_EA, OP_WRITE,
+				     EPT_VLT_WR | EPT_VLT_PERM_EX);
+		ept_access_allowed(EPT_EA, OP_EXEC);
+	} else {
+		ept_access_misconfig(EPT_EA);
+	}
+}
+
+static void ept_access_test_read_execute(void)
+{
+	ept_access_test_setup();
+	/* r-x */
+	ept_access_allowed(EPT_RA | EPT_EA, OP_READ);
+	ept_access_violation(EPT_RA | EPT_EA, OP_WRITE,
+			   EPT_VLT_WR | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX);
+	ept_access_allowed(EPT_RA | EPT_EA, OP_EXEC);
+}
+
+static void ept_access_test_write_execute(void)
+{
+	ept_access_test_setup();
+	/* -wx */
+	ept_access_misconfig(EPT_WA | EPT_EA);
+}
+
+static void ept_access_test_read_write_execute(void)
+{
+	ept_access_test_setup();
+	/* rwx */
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_READ);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_WRITE);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_EXEC);
+}
+
+static void ept_access_test_reserved_bits(void)
+{
+	int i;
+	int maxphyaddr;
+
+	ept_access_test_setup();
+
+	/* Reserved bits above maxphyaddr. */
+	maxphyaddr = cpuid_maxphyaddr();
+	for (i = maxphyaddr; i <= 51; i++) {
+		report_prefix_pushf("reserved_bit=%d", i);
+		ept_reserved_bit(i);
+		report_prefix_pop();
+	}
+
+	/* Level-specific reserved bits. */
+	ept_reserved_bit_at_level_nohuge(2, 3);
+	ept_reserved_bit_at_level_nohuge(2, 4);
+	ept_reserved_bit_at_level_nohuge(2, 5);
+	ept_reserved_bit_at_level_nohuge(2, 6);
+	/* 2M alignment. */
+	for (i = 12; i < 20; i++) {
+		report_prefix_pushf("reserved_bit=%d", i);
+		ept_reserved_bit_at_level_huge(2, i);
+		report_prefix_pop();
+	}
+	ept_reserved_bit_at_level_nohuge(3, 3);
+	ept_reserved_bit_at_level_nohuge(3, 4);
+	ept_reserved_bit_at_level_nohuge(3, 5);
+	ept_reserved_bit_at_level_nohuge(3, 6);
+	/* 1G alignment. */
+	for (i = 12; i < 29; i++) {
+		report_prefix_pushf("reserved_bit=%d", i);
+		ept_reserved_bit_at_level_huge(3, i);
+		report_prefix_pop();
+	}
+	ept_reserved_bit_at_level(4, 3);
+	ept_reserved_bit_at_level(4, 4);
+	ept_reserved_bit_at_level(4, 5);
+	ept_reserved_bit_at_level(4, 6);
+	ept_reserved_bit_at_level(4, 7);
+}
+
+static void ept_access_test_ignored_bits(void)
+{
+	ept_access_test_setup();
+	/*
+	 * Bits ignored at every level. Bits 8 and 9 (A and D) are ignored as
+	 * far as translation is concerned even if AD bits are enabled in the
+	 * EPTP. Bit 63 is ignored because "EPT-violation #VE" VM-execution
+	 * control is 0.
+	 */
+	ept_ignored_bit(8);
+	ept_ignored_bit(9);
+	ept_ignored_bit(10);
+	ept_ignored_bit(11);
+	ept_ignored_bit(52);
+	ept_ignored_bit(53);
+	ept_ignored_bit(54);
+	ept_ignored_bit(55);
+	ept_ignored_bit(56);
+	ept_ignored_bit(57);
+	ept_ignored_bit(58);
+	ept_ignored_bit(59);
+	ept_ignored_bit(60);
+	ept_ignored_bit(61);
+	ept_ignored_bit(62);
+	ept_ignored_bit(63);
+}
+
+static void ept_access_test_paddr_not_present_ad_disabled(void)
+{
+	ept_access_test_setup();
+	ept_disable_ad_bits();
+
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_READ, EPT_VLT_RD);
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_WRITE, EPT_VLT_RD);
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC, EPT_VLT_RD);
+}
+
+static void ept_access_test_paddr_not_present_ad_enabled(void)
+{
+	u64 qual = EPT_VLT_RD | EPT_VLT_WR;
+
+	ept_access_test_setup();
+	ept_enable_ad_bits_or_skip_test();
+
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_READ, qual);
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_WRITE, qual);
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC, qual);
+}
+
+static void ept_access_test_paddr_read_only_ad_disabled(void)
+{
+	/*
+	 * When EPT AD bits are disabled, all accesses to guest paging
+	 * structures are reported separately as a read and (after
+	 * translation of the GPA to host physical address) a read+write
+	 * if the A/D bits have to be set.
+	 */
+	u64 qual = EPT_VLT_WR | EPT_VLT_RD | EPT_VLT_PERM_RD;
+
+	ept_access_test_setup();
+	ept_disable_ad_bits();
+
+	/* Can't update A bit, so all accesses fail. */
+	ept_access_violation_paddr(EPT_RA, 0, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA, 0, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA, 0, OP_EXEC, qual);
+	/* AD bits disabled, so only writes try to update the D bit. */
+	ept_access_allowed_paddr(EPT_RA, PT_ACCESSED_MASK, OP_READ);
+	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_WRITE, qual);
+	ept_access_allowed_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC);
+	/* Both A and D already set, so read-only is OK. */
+	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_READ);
+	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_WRITE);
+	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_EXEC);
+}
+
+static void ept_access_test_paddr_read_only_ad_enabled(void)
+{
+	/*
+	 * When EPT AD bits are enabled, all accesses to guest paging
+	 * structures are considered writes as far as EPT translation
+	 * is concerned.
+	 */
+	u64 qual = EPT_VLT_WR | EPT_VLT_RD | EPT_VLT_PERM_RD;
+
+	ept_access_test_setup();
+	ept_enable_ad_bits_or_skip_test();
+
+	ept_access_violation_paddr(EPT_RA, 0, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA, 0, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA, 0, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_EXEC, qual);
+}
+
+static void ept_access_test_paddr_read_write(void)
+{
+	ept_access_test_setup();
+	/* Read-write access to paging structure. */
+	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_READ);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_WRITE);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_EXEC);
+}
+
+static void ept_access_test_paddr_read_write_execute(void)
+{
+	ept_access_test_setup();
+	/* RWX access to paging structure. */
+	ept_access_allowed_paddr(EPT_PRESENT, 0, OP_READ);
+	ept_access_allowed_paddr(EPT_PRESENT, 0, OP_WRITE);
+	ept_access_allowed_paddr(EPT_PRESENT, 0, OP_EXEC);
+}
+
+static void ept_access_test_paddr_read_execute_ad_disabled(void)
+{
+  	/*
+	 * When EPT AD bits are disabled, all accesses to guest paging
+	 * structures are reported separately as a read and (after
+	 * translation of the GPA to host physical address) a read+write
+	 * if the A/D bits have to be set.
+	 */
+	u64 qual = EPT_VLT_WR | EPT_VLT_RD | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX;
+
+	ept_access_test_setup();
+	ept_disable_ad_bits();
+
+	/* Can't update A bit, so all accesses fail. */
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC, qual);
+	/* AD bits disabled, so only writes try to update the D bit. */
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_READ);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_WRITE, qual);
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_EXEC);
+	/* Both A and D already set, so read-only is OK. */
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_READ);
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_WRITE);
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC);
+}
+
+static void ept_access_test_paddr_read_execute_ad_enabled(void)
+{
+	/*
+	 * When EPT AD bits are enabled, all accesses to guest paging
+	 * structures are considered writes as far as EPT translation
+	 * is concerned.
+	 */
+	u64 qual = EPT_VLT_WR | EPT_VLT_RD | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX;
+
+	ept_access_test_setup();
+	ept_enable_ad_bits_or_skip_test();
+
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC, qual);
+}
+
+static void ept_access_test_paddr_not_present_page_fault(void)
+{
+	ept_access_test_setup();
+	/*
+	 * TODO: test no EPT violation as long as guest PF occurs. e.g., GPA is
+	 * page is read-only in EPT but GVA is also mapped read only in PT.
+	 * Thus guest page fault before host takes EPT violation for trying to
+	 * update A bit.
+	 */
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -2023,5 +2857,25 @@ struct vmx_test vmx_tests[] = {
 	TEST(v2_multiple_entries_test),
 	TEST(fixture_test_case1),
 	TEST(fixture_test_case2),
+	/* EPT access tests. */
+	TEST(ept_access_test_not_present),
+	TEST(ept_access_test_read_only),
+	TEST(ept_access_test_write_only),
+	TEST(ept_access_test_read_write),
+	TEST(ept_access_test_execute_only),
+	TEST(ept_access_test_read_execute),
+	TEST(ept_access_test_write_execute),
+	TEST(ept_access_test_read_write_execute),
+	TEST(ept_access_test_reserved_bits),
+	TEST(ept_access_test_ignored_bits),
+	TEST(ept_access_test_paddr_not_present_ad_disabled),
+	TEST(ept_access_test_paddr_not_present_ad_enabled),
+	TEST(ept_access_test_paddr_read_only_ad_disabled),
+	TEST(ept_access_test_paddr_read_only_ad_enabled),
+	TEST(ept_access_test_paddr_read_write),
+	TEST(ept_access_test_paddr_read_write_execute),
+	TEST(ept_access_test_paddr_read_execute_ad_disabled),
+	TEST(ept_access_test_paddr_read_execute_ad_enabled),
+	TEST(ept_access_test_paddr_not_present_page_fault),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
