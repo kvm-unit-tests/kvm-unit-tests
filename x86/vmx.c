@@ -300,6 +300,64 @@ void test_vmwrite_vmread(void)
 	free_page(vmcs);
 }
 
+void test_vmcs_lifecycle(void)
+{
+	struct vmcs *vmcs[2] = {};
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
+		vmcs[i] = alloc_page();
+		memset(vmcs[i], 0, PAGE_SIZE);
+		vmcs[i]->revision_id = basic.revision;
+	}
+
+#define VMPTRLD(_i) do { \
+	assert(_i < ARRAY_SIZE(vmcs)); \
+	assert(!make_vmcs_current(vmcs[_i])); \
+	printf("VMPTRLD VMCS%d\n", (_i)); \
+} while (0)
+
+#define VMCLEAR(_i) do { \
+	assert(_i < ARRAY_SIZE(vmcs)); \
+	assert(!vmcs_clear(vmcs[_i])); \
+	printf("VMCLEAR VMCS%d\n", (_i)); \
+} while (0)
+
+	VMCLEAR(0);
+	VMPTRLD(0);
+	set_all_vmcs_fields(0);
+	report("current:VMCS0 active:[VMCS0]", check_all_vmcs_fields(0));
+
+	VMCLEAR(0);
+	VMPTRLD(0);
+	report("current:VMCS0 active:[VMCS0]", check_all_vmcs_fields(0));
+
+	VMCLEAR(1);
+	report("current:VMCS0 active:[VMCS0]", check_all_vmcs_fields(0));
+
+	VMPTRLD(1);
+	set_all_vmcs_fields(1);
+	report("current:VMCS1 active:[VMCS0,VCMS1]", check_all_vmcs_fields(1));
+
+	VMPTRLD(0);
+	report("current:VMCS0 active:[VMCS0,VCMS1]", check_all_vmcs_fields(0));
+	VMPTRLD(1);
+	report("current:VMCS1 active:[VMCS0,VCMS1]", check_all_vmcs_fields(1));
+	VMPTRLD(1);
+	report("current:VMCS1 active:[VMCS0,VCMS1]", check_all_vmcs_fields(1));
+
+	VMCLEAR(0);
+	report("current:VMCS1 active:[VCMS1]", check_all_vmcs_fields(1));
+
+	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
+		VMCLEAR(i);
+		free_page(vmcs[i]);
+	}
+
+#undef VMPTRLD
+#undef VMCLEAR
+}
+
 void vmx_set_test_stage(u32 s)
 {
 	barrier();
@@ -1472,6 +1530,8 @@ int main(int argc, const char *argv[])
 		test_vmptrst();
 	if (test_wanted("test_vmwrite_vmread", argv, argc))
 		test_vmwrite_vmread();
+	if (test_wanted("test_vmcs_lifecycle", argv, argc))
+		test_vmcs_lifecycle();
 
 	init_vmcs(&vmcs_root);
 	if (vmx_run()) {
