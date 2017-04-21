@@ -1376,43 +1376,54 @@ entry_failure_handler(struct vmentry_failure *failure)
 		return VMX_TEST_EXIT;
 }
 
+/*
+ * Tries to enter the guest. Returns true iff entry succeeded. Otherwise,
+ * populates @failure.
+ */
+static bool vmx_enter_guest(struct vmentry_failure *failure)
+{
+	failure->early = 0;
+
+	asm volatile (
+		"mov %[HOST_RSP], %%rdi\n\t"
+		"vmwrite %%rsp, %%rdi\n\t"
+		LOAD_GPR_C
+		"cmpb $0, %[launched]\n\t"
+		"jne 1f\n\t"
+		"vmlaunch\n\t"
+		"jmp 2f\n\t"
+		"1: "
+		"vmresume\n\t"
+		"2: "
+		SAVE_GPR_C
+		"pushf\n\t"
+		"pop %%rdi\n\t"
+		"mov %%rdi, %[failure_flags]\n\t"
+		"movl $1, %[failure_flags]\n\t"
+		"jmp 3f\n\t"
+		"vmx_return:\n\t"
+		SAVE_GPR_C
+		"3: \n\t"
+		: [failure_early]"+m"(failure->early),
+		  [failure_flags]"=m"(failure->flags)
+		: [launched]"m"(launched), [HOST_RSP]"i"(HOST_RSP)
+		: "rdi", "memory", "cc"
+	);
+
+	failure->vmlaunch = !launched;
+	failure->instr = launched ? "vmresume" : "vmlaunch";
+
+	return !failure->early && !(vmcs_read(EXI_REASON) & VMX_ENTRY_FAILURE);
+}
+
 static int vmx_run()
 {
-	unsigned long host_rflags;
-
 	while (1) {
 		u32 ret;
-		u32 fail = 0;
 		bool entered;
 		struct vmentry_failure failure;
 
-		asm volatile (
-			"mov %[HOST_RSP], %%rdi\n\t"
-			"vmwrite %%rsp, %%rdi\n\t"
-			LOAD_GPR_C
-			"cmpb $0, %[launched]\n\t"
-			"jne 1f\n\t"
-			"vmlaunch\n\t"
-			"jmp 2f\n\t"
-			"1: "
-			"vmresume\n\t"
-			"2: "
-			SAVE_GPR_C
-			"pushf\n\t"
-			"pop %%rdi\n\t"
-			"mov %%rdi, %[host_rflags]\n\t"
-			"movl $1, %[fail]\n\t"
-			"jmp 3f\n\t"
-			"vmx_return:\n\t"
-			SAVE_GPR_C
-			"3: \n\t"
-			: [fail]"+m"(fail), [host_rflags]"=m"(host_rflags)
-			: [launched]"m"(launched), [HOST_RSP]"i"(HOST_RSP)
-			: "rdi", "memory", "cc"
-
-		);
-
-		entered = !fail && !(vmcs_read(EXI_REASON) & VMX_ENTRY_FAILURE);
+		entered = vmx_enter_guest(&failure);
 
 		if (entered) {
 			/*
@@ -1422,10 +1433,6 @@ static int vmx_run()
 			launched = 1;
 			ret = exit_handler();
 		} else {
-			failure.flags = host_rflags;
-			failure.vmlaunch = !launched;
-			failure.instr = launched ? "vmresume" : "vmlaunch";
-			failure.early = fail;
 			ret = entry_failure_handler(&failure);
 		}
 
