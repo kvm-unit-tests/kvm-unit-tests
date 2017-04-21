@@ -228,7 +228,6 @@ int vsnprintf(char *buf, int size, const char *fmt, va_list va)
 	}
     }
     *s.buffer = 0;
-    ++s.added;
     return s.added;
 }
 
