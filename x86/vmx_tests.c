@@ -940,11 +940,19 @@ static int insn_intercept_exit_handler()
 }
 
 
+/* Enables EPT and sets up the identity map. */
 static int setup_ept(bool enable_ad)
 {
 	int support_2m;
 	unsigned long end_of_memory;
 	u32 ctrl_cpu[2];
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
+	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
+		printf("\tEPT is not supported");
+		return 1;
+	}
+
 
 	if (!(ept_vpid.val & EPT_CAP_UC) &&
 			!(ept_vpid.val & EPT_CAP_WB)) {
@@ -992,12 +1000,6 @@ static int apic_version;
 
 static int ept_init_common(bool have_ad)
 {
-	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
-	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
-		printf("\tEPT is not supported");
-		return VMX_TEST_EXIT;
-	}
-
 	if (setup_ept(have_ad))
 		return VMX_TEST_EXIT;
 	data_page1 = alloc_page();
