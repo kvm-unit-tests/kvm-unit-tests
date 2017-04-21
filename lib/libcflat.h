@@ -126,6 +126,16 @@ do {									\
 	}								\
 } while (0)
 
+#define assert_msg(cond, fmt, args...)					\
+do {									\
+	if (!(cond)) {							\
+		printf("%s:%d: assert failed: %s: " fmt,		\
+		       __FILE__, __LINE__, #cond, ## args);		\
+		dump_stack();						\
+		abort();						\
+	}								\
+} while (0)
+
 static inline bool is_power_of_2(unsigned long n)
 {
 	return n && !(n & (n - 1));
