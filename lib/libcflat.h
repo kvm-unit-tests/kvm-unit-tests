@@ -105,6 +105,8 @@ extern void report_skip(const char *msg_fmt, ...);
 extern void report_info(const char *msg_fmt, ...);
 extern int report_summary(void);
 
+bool simple_glob(const char *text, const char *pattern);
+
 extern void dump_stack(void);
 extern void dump_frame_stack(const void *instruction, const void *frame);
 

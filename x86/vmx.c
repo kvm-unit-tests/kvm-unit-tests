@@ -1159,41 +1159,43 @@ out:
 
 extern struct vmx_test vmx_tests[];
 
-/* Match name with wanted allowing underscores in place of spaces. */
-static bool test_name_wanted(const char *name, const char *wanted)
+static bool
+test_wanted(const char *name, const char *filters[], int filter_count)
 {
-	const char *n;
-	const char *w;
-
-	for (n = name, w = wanted; *n != '\0' && *w != '\0'; n++, w++) {
-		if (*n != *w && !(*n == ' ' && *w == '_'))
-			return false;
-	}
-	return *n == '\0' && *w == '\0';
-}
-
-static bool test_wanted(const char *name, char *wanted[], int nwanted)
-{
-	bool is_wanted = true;
 	int i;
+	bool positive = false;
+	bool match = false;
+	char clean_name[strlen(name) + 1];
+	char *c;
+	const char *n;
 
-	if (!nwanted)
-		goto out;
+	/* Replace spaces with underscores. */
+	n = name;
+	c = &clean_name[0];
+	do *c++ = (*n == ' ') ? '_' : *n;
+	while (*n++);
 
-	for (i = 0; i < nwanted; ++i) {
-		if (test_name_wanted(name, wanted[i]))
-			goto out;
+	for (i = 0; i < filter_count; i++) {
+		const char *filter = filters[i];
+
+		if (filter[0] == '-') {
+			if (simple_glob(clean_name, filter + 1))
+				return false;
+		} else {
+			positive = true;
+			match |= simple_glob(clean_name, filter);
+		}
 	}
 
-	is_wanted = false;
-
-out:
-	if (is_wanted)
+	if (!positive || match) {
 		matched++;
-	return is_wanted;
+		return true;
+	} else {
+		return false;
+	}
 }
 
-int main(int argc, char *argv[])
+int main(int argc, const char *argv[])
 {
 	int i = 0;
 

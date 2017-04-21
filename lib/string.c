@@ -180,3 +180,44 @@ char *getenv(const char *name)
     }
     return NULL;
 }
+
+/* Very simple glob matching. Allows '*' at beginning and end of pattern. */
+bool simple_glob(const char *text, const char *pattern)
+{
+	bool star_start = false;
+	bool star_end = false;
+	size_t n = strlen(pattern);
+	char copy[n + 1];
+
+	if (pattern[0] == '*') {
+		pattern += 1;
+		n -= 1;
+		star_start = true;
+	}
+
+	strcpy(copy, pattern);
+
+	if (n > 0 && pattern[n - 1] == '*') {
+		n -= 1;
+		copy[n] = '\0';
+		star_end = true;
+	}
+
+	if (star_start && star_end)
+		return strstr(text, copy);
+
+	if (star_end)
+		return strstr(text, copy) == text;
+
+	if (star_start) {
+		size_t text_len = strlen(text);
+		const char *suffix;
+
+		if (n > text_len)
+			return false;
+		suffix = text + text_len - n;
+		return !strcmp(suffix, copy);
+	}
+
+	return !strcmp(text, copy);
+}
