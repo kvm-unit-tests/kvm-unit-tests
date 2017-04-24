@@ -134,27 +134,24 @@ migration_cmd ()
 	fi
 }
 
-# qemu binary search function for all arches
 search_qemu_binary ()
 {
-    local save_path=$PATH
-    local qemucmd QEMUFOUND qemu
-    export PATH=$PATH:/usr/libexec
-    for qemucmd in ${QEMU:-qemu-system-$ARCH_NAME qemu-kvm}
-    do
-        unset QEMUFOUND
-        unset qemu
-        if ! [ -z "${QEMUFOUND=$(${qemucmd} --help 2>/dev/null  | grep "QEMU")}" ]
-        then
-            qemu="${qemucmd}"
-            break
-        fi
-    done
+	local save_path=$PATH
+	local qemucmd qemu
 
-    if [ -z "${QEMUFOUND}" ]; then
-        echo "A QEMU binary was not found, You can set a custom location by using the QEMU=<path> environment variable"
-        exit 2
-    fi
-    which $qemu
-    export PATH=$save_path
+	export PATH=$PATH:/usr/libexec
+	for qemucmd in ${QEMU:-qemu-system-$ARCH_NAME qemu-kvm}; do
+		if $qemucmd --help 2>/dev/null | grep -q 'QEMU'; then
+			qemu="$qemucmd"
+			break
+		fi
+	done
+
+	if [ -z "$qemu" ]; then
+		echo "A QEMU binary was not found."
+		echo "You can set a custom location by using the QEMU=<path> environment variable."
+		exit 2
+	fi
+	command -v $qemu
+	export PATH=$save_path
 }
