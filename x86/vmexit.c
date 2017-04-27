@@ -65,22 +65,30 @@ static void nop(void *junk)
 }
 
 volatile int x = 0;
+volatile uint64_t tsc_eoi = 0;
+volatile uint64_t tsc_ipi = 0;
 
 static void self_ipi_isr(isr_regs_t *regs)
 {
 	x++;
+	uint64_t start = rdtsc();
 	eoi();
+	tsc_eoi += rdtsc() - start;
 }
 
 static void x2apic_self_ipi(int vec)
 {
+	uint64_t start = rdtsc();
 	wrmsr(0x83f, vec);
+	tsc_ipi += rdtsc() - start;
 }
 
 static void apic_self_ipi(int vec)
 {
+	uint64_t start = rdtsc();
         apic_icr_write(APIC_INT_ASSERT | APIC_DEST_SELF | APIC_DEST_PHYSICAL |
 		       APIC_DM_FIXED | IPI_TEST_VECTOR, vec);
+	tsc_ipi += rdtsc() - start;
 }
 
 static void self_ipi_sti_nop(void)
@@ -180,7 +188,9 @@ static void x2apic_self_ipi_tpr_sti_hlt(void)
 
 static void ipi(void)
 {
+	uint64_t start = rdtsc();
 	on_cpu(1, nop, 0);
+	tsc_ipi += rdtsc() - start;
 }
 
 static void ipi_halt(void)
@@ -511,6 +521,7 @@ static bool do_test(struct test *test)
 	}
 
 	do {
+		tsc_eoi = tsc_ipi = 0;
 		iterations *= 2;
 		t1 = rdtsc();
 
@@ -523,6 +534,11 @@ static bool do_test(struct test *test)
 		t2 = rdtsc();
 	} while ((t2 - t1) < GOAL);
 	printf("%s %d\n", test->name, (int)((t2 - t1) / iterations));
+	if (tsc_ipi)
+		printf("  ipi %s %d\n", test->name, (int)(tsc_ipi / iterations));
+	if (tsc_eoi)
+		printf("  eoi %s %d\n", test->name, (int)(tsc_eoi / iterations));
+
 	return test->next;
 }
 
