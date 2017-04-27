@@ -732,7 +732,7 @@ static int iobmp_exit_handler()
 asm(
 	"insn_hlt: hlt;ret\n\t"
 	"insn_invlpg: invlpg 0x12345678;ret\n\t"
-	"insn_mwait: mwait;ret\n\t"
+	"insn_mwait: xor %eax, %eax; xor %ecx, %ecx; mwait;ret\n\t"
 	"insn_rdpmc: xor %ecx, %ecx; rdpmc;ret\n\t"
 	"insn_rdtsc: rdtsc;ret\n\t"
 	"insn_cr3_load: mov cr3,%rax; mov %rax,%cr3;ret\n\t"
@@ -741,7 +741,7 @@ asm(
 	"insn_cr8_load: mov %rax,%cr8;ret\n\t"
 	"insn_cr8_store: mov %cr8,%rax;ret\n\t"
 #endif
-	"insn_monitor: monitor;ret\n\t"
+	"insn_monitor: xor %eax, %eax; xor %ecx, %ecx; xor %edx, %edx; monitor;ret\n\t"
 	"insn_pause: pause;ret\n\t"
 	"insn_wbinvd: wbinvd;ret\n\t"
 	"insn_cpuid: mov $10, %eax; cpuid;ret\n\t"
