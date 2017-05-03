@@ -1,3 +1,15 @@
+/*
+ * Spinlock test
+ *
+ * This code is based on code from the tcg_baremetal_tests.
+ *
+ * Copyright (C) 2015 Virtual Open Systems SAS
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
 #include <libcflat.h>
 #include <asm/smp.h>
 #include <asm/cpumask.h>
