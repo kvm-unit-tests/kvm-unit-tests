@@ -65,7 +65,6 @@ CXXFLAGS += $(CFLAGS)
 autodepend-flags = -MMD -MF $(dir $*).$(notdir $*).d
 
 LDFLAGS += $(CFLAGS)
-LDFLAGS += -pthread -lrt
 
 $(libcflat): $(cflatobjs)
 	$(AR) rcs $@ $^
