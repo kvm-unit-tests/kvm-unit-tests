@@ -110,6 +110,7 @@ enum Encoding {
 	GUEST_SEL_LDTR		= 0x080cul,
 	GUEST_SEL_TR		= 0x080eul,
 	GUEST_INT_STATUS	= 0x0810ul,
+	GUEST_PML_INDEX         = 0x0812ul,
 
 	/* 16-Bit Host State Fields */
 	HOST_SEL_ES		= 0x0c00ul,
@@ -134,6 +135,9 @@ enum Encoding {
 	APIC_ACCS_ADDR		= 0x2014ul,
 	EPTP			= 0x201aul,
 	EPTP_HI			= 0x201bul,
+	PMLADDR                 = 0x200eul,
+	PMLADDR_HI              = 0x200ful,
+
 
 	/* 64-Bit Readonly Data Field */
 	INFO_PHYS_ADDR		= 0x2400ul,
@@ -385,6 +389,7 @@ enum Ctrl1 {
 	CPU_URG			= 1ul << 7,
 	CPU_WBINVD		= 1ul << 6,
 	CPU_RDRAND		= 1ul << 11,
+	CPU_PML                 = 1ul << 17,
 };
 
 enum Intr_type {

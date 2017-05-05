@@ -22,6 +22,9 @@ unsigned long *pml4;
 u64 eptp;
 void *data_page1, *data_page2;
 
+void *pml_log;
+#define PML_INDEX 512
+
 static inline void vmcall()
 {
 	asm volatile("vmcall");
@@ -1110,6 +1113,52 @@ bool invept_test(int type, u64 eptp)
 	return true;
 }
 
+static int pml_exit_handler(void)
+{
+	u16 index, count;
+	ulong reason = vmcs_read(EXI_REASON) & 0xff;
+	u64 *pmlbuf = pml_log;
+	u64 guest_rip = vmcs_read(GUEST_RIP);;
+	u64 guest_cr3 = vmcs_read(GUEST_CR3);
+	u32 insn_len = vmcs_read(EXI_INST_LEN);
+
+	switch (reason) {
+	case VMX_VMCALL:
+		switch (vmx_get_test_stage()) {
+		case 0:
+			index = vmcs_read(GUEST_PML_INDEX);
+			for (count = index + 1; count < PML_INDEX; count++) {
+				if (pmlbuf[count] == (u64)data_page2) {
+					vmx_inc_test_stage();
+					clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page2);
+					break;
+				}
+			}
+			break;
+		case 1:
+			index = vmcs_read(GUEST_PML_INDEX);
+			/* Keep clearing the dirty bit till a overflow */
+			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page2);
+			break;
+		default:
+			printf("ERROR - unexpected stage, %d.\n",
+			       vmx_get_test_stage());
+			print_vmexit_info();
+			return VMX_TEST_VMEXIT;
+		}
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+		return VMX_TEST_RESUME;
+	case VMX_PML_FULL:
+		vmx_inc_test_stage();
+		vmcs_write(GUEST_PML_INDEX, PML_INDEX - 1);
+		return VMX_TEST_RESUME;
+	default:
+		printf("Unknown exit reason, %ld\n", reason);
+		print_vmexit_info();
+	}
+	return VMX_TEST_VMEXIT;
+}
+
 static int ept_exit_handler_common(bool have_ad)
 {
 	u64 guest_rip;
@@ -1267,6 +1316,49 @@ static int eptad_init()
 	}
 
 	return r;
+}
+
+static int pml_init()
+{
+	u32 ctrl_cpu;
+	int r = eptad_init();
+
+	if (r == VMX_TEST_EXIT)
+		return r;
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
+		!(ctrl_cpu_rev[1].clr & CPU_PML)) {
+		printf("\tPML is not supported");
+		return VMX_TEST_EXIT;
+	}
+
+	pml_log = alloc_page();
+	memset(pml_log, 0x0, PAGE_SIZE);
+	vmcs_write(PMLADDR, (u64)pml_log);
+	vmcs_write(GUEST_PML_INDEX, PML_INDEX - 1);
+
+	ctrl_cpu = vmcs_read(CPU_EXEC_CTRL1) | CPU_PML;
+	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu);
+
+	return VMX_TEST_START;
+}
+
+static void pml_main()
+{
+	int count = 0;
+
+	vmx_set_test_stage(0);
+	*((u32 *)data_page2) = 0x1;
+	vmcall();
+	report("PML - Dirty GPA Logging", vmx_get_test_stage() == 1);
+
+	while (vmx_get_test_stage() == 1) {
+		*((u32 *)data_page2) = 0x1;
+		if (count++ > PML_INDEX)
+			break;
+		vmcall();
+	}
+	report("PML Full Event", vmx_get_test_stage() == 2);
 }
 
 static void eptad_main()
@@ -2850,6 +2942,7 @@ struct vmx_test vmx_tests[] = {
 		insn_intercept_exit_handler, NULL, {0} },
 	{ "EPT A/D disabled", ept_init, ept_main, ept_exit_handler, NULL, {0} },
 	{ "EPT A/D enabled", eptad_init, eptad_main, eptad_exit_handler, NULL, {0} },
+	{ "PML", pml_init, pml_main, pml_exit_handler, NULL, {0} },
 	{ "VPID", vpid_init, vpid_main, vpid_exit_handler, NULL, {0} },
 	{ "interrupt", interrupt_init, interrupt_main,
 		interrupt_exit_handler, NULL, {0} },
