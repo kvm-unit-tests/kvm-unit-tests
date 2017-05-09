@@ -2,7 +2,6 @@
 #include "exception.hh"
 #include "memmap.hh"
 #include "identity.hh"
-#include <boost/thread/thread.hpp>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/time.h>
@@ -34,15 +33,12 @@ void write_mem(void* slot_head, int64_t nr_to_write, int64_t nr_pages)
     }
 }
 
-using boost::ref;
-using std::tr1::bind;
-
 // Let the guest update nr_to_write pages selected from nr_pages pages.
 void do_guest_write(kvm::vcpu& vcpu, void* slot_head,
                     int64_t nr_to_write, int64_t nr_pages)
 {
-    identity::vcpu guest_write_thread(vcpu, bind(write_mem, ref(slot_head),
-                                                 nr_to_write, nr_pages));
+    identity::vcpu guest_write_thread(vcpu, std::bind(write_mem, slot_head,
+                                                      nr_to_write, nr_pages));
     vcpu.run();
 }
 

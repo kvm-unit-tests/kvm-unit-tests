@@ -2,7 +2,7 @@
 #include "exception.hh"
 #include "memmap.hh"
 #include "identity.hh"
-#include <boost/thread/thread.hpp>
+#include <thread>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -46,9 +46,6 @@ void check_dirty_log(mem_slot& slot,
 
 }
 
-using boost::ref;
-using std::tr1::bind;
-
 int test_main(int ac, char **av)
 {
     kvm::system sys;
@@ -56,7 +53,7 @@ int test_main(int ac, char **av)
     mem_map memmap(vm);
     void* logged_slot_virt;
     posix_memalign(&logged_slot_virt, 4096, 4096);
-    int* shared_var = static_cast<int*>(logged_slot_virt);
+    volatile int* shared_var = static_cast<volatile int*>(logged_slot_virt);
     identity::hole hole(logged_slot_virt, 4096);
     identity::vm ident_vm(vm, memmap, hole);
     kvm::vcpu vcpu(vm, 0);
@@ -65,13 +62,13 @@ int test_main(int ac, char **av)
     mem_slot logged_slot(memmap,
                          reinterpret_cast<uintptr_t>(logged_slot_virt),
                          4096, logged_slot_virt);
-    boost::thread host_poll_thread(check_dirty_log, ref(logged_slot),
-                                   ref(running),
-                                   ref(shared_var), ref(nr_fail));
+    std::thread host_poll_thread(check_dirty_log, std::ref(logged_slot),
+                                   std::ref(running),
+                                   shared_var, std::ref(nr_fail));
     identity::vcpu guest_write_thread(vcpu,
-                                      bind(write_mem,
-                                           ref(running),
-                                           ref(shared_var)));
+                                      std::bind(write_mem,
+					       	std::ref(running),
+						shared_var));
     vcpu.run();
     host_poll_thread.join();
     printf("Dirty bitmap failures: %d\n", nr_fail);

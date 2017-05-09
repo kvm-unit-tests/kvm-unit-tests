@@ -73,9 +73,9 @@ arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
 	$(TEST_DIR)/.*.d lib/x86/.*.d
 
-api/%.o: CFLAGS += -m32
+api/%.o: CFLAGS += -m32 -std=gnu++11
 
-api/%: LDLIBS += -lstdc++ -lboost_thread -lpthread -lrt
+api/%: LDLIBS += -lstdc++ -lpthread -lrt
 api/%: LDFLAGS += -m32
 
 api/libapi.a: api/kvmxx.o api/identity.o api/exception.o api/memmap.o
