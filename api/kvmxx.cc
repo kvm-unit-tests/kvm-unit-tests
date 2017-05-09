@@ -176,6 +176,11 @@ void vm::set_tss_addr(uint32_t addr)
     _fd.ioctl(KVM_SET_TSS_ADDR, addr);
 }
 
+void vm::set_ept_identity_map_addr(uint64_t addr)
+{
+    _fd.ioctlp(KVM_SET_IDENTITY_MAP_ADDR, &addr);
+}
+
 system::system(std::string device_node)
     : _fd(device_node, O_RDWR)
 {

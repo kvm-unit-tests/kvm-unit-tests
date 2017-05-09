@@ -61,6 +61,7 @@ public:
                            uint32_t flags = 0);
     void get_dirty_log(int slot, void *log);
     void set_tss_addr(uint32_t addr);
+    void set_ept_identity_map_addr(uint64_t addr);
     system& sys() { return _system; }
 private:
     system& _system;

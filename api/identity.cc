@@ -20,7 +20,7 @@ hole::hole(void* address, size_t size)
 
 vm::vm(kvm::vm& vm, mem_map& mmap, hole h)
 {
-    posix_memalign(&tss, 4096, 3 * 4096);
+    posix_memalign(&tss, 4096, 4 * 4096);
     if (!tss) {
         throw errno_exception(errno);
     }
@@ -28,31 +28,27 @@ vm::vm(kvm::vm& vm, mem_map& mmap, hole h)
     uint64_t hole_gpa = reinterpret_cast<uintptr_t>(h.address);
     char* hole_hva = static_cast<char*>(h.address);
     uint64_t tss_addr = reinterpret_cast<uintptr_t>(tss);
-    uint64_t tss_end = tss_addr + 3 * 4096;
+    uint64_t tss_end = tss_addr + 4 * 4096;
     uint64_t hole_end = hole_gpa + h.size;
-    uint64_t top = 0xfe000000UL;
 
-    if (hole_end > top) {
-        puts("unlucky memory map :(");
-        throw std::exception();
-    }
     if (hole_gpa < tss_addr) {
         if (hole_gpa) {
             _slots.push_back(mem_slot_ptr(new mem_slot(mmap, 0, hole_gpa, NULL)));
         }
         _slots.push_back(mem_slot_ptr(new mem_slot(mmap, hole_end, tss_addr - hole_end,
 						   hole_hva + h.size)));
-        _slots.push_back(mem_slot_ptr(new mem_slot(mmap, tss_end, (uint32_t)top - tss_end,
-						   (char*)tss + 3 * 4096)));
+        _slots.push_back(mem_slot_ptr(new mem_slot(mmap, tss_end, (uint32_t)-tss_end,
+						   (char*)tss + 4 * 4096)));
     } else {
         _slots.push_back(mem_slot_ptr(new mem_slot(mmap, 0, tss_addr, NULL)));
         _slots.push_back(mem_slot_ptr(new mem_slot(mmap, tss_end, hole_gpa - tss_end,
-						   (char*)tss + 3 * 4096)));
-        _slots.push_back(mem_slot_ptr(new mem_slot(mmap, hole_end, (uint32_t)top - hole_end,
+						   (char*)tss + 4 * 4096)));
+        _slots.push_back(mem_slot_ptr(new mem_slot(mmap, hole_end, (uint32_t)-hole_end,
 						   hole_hva + h.size)));
     }
 
     vm.set_tss_addr(tss_addr);
+    vm.set_ept_identity_map_addr(tss_addr + 3 * 4096);
 }
 
 vm::~vm()
