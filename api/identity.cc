@@ -113,7 +113,7 @@ void vcpu::setup_regs()
     _vcpu.set_regs(regs);
 }
 
-vcpu::vcpu(kvm::vcpu& vcpu, std::tr1::function<void ()> guest_func,
+vcpu::vcpu(kvm::vcpu& vcpu, std::function<void ()> guest_func,
            unsigned long stack_size)
     : _vcpu(vcpu), _guest_func(guest_func), _stack(stack_size)
 {
