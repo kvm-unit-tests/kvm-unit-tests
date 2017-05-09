@@ -1,5 +1,6 @@
 
 #include "memmap.hh"
+#include <numeric>
 
 mem_slot::mem_slot(mem_map& map, uint64_t gpa, uint64_t size, void* hva)
     : _map(map)
@@ -60,9 +61,21 @@ bool mem_slot::dirty_logging() const
     return _dirty_log_enabled;
 }
 
-void mem_slot::update_dirty_log()
+static inline int hweight(uint64_t w)
+{
+    w -= (w >> 1) & 0x5555555555555555;
+    w =  (w & 0x3333333333333333) + ((w >> 2) & 0x3333333333333333);
+    w =  (w + (w >> 4)) & 0x0f0f0f0f0f0f0f0f;
+    return (w * 0x0101010101010101) >> 56;
+}
+
+int mem_slot::update_dirty_log()
 {
     _map._vm.get_dirty_log(_slot, &_log[0]);
+    return std::accumulate(_log.begin(), _log.end(), 0,
+                           [] (int prev, ulong elem) -> int {
+                               return prev + hweight(elem);
+                           });
 }
 
 bool mem_slot::is_dirty(uint64_t gpa) const

@@ -52,11 +52,11 @@ void check_dirty_log(kvm::vcpu& vcpu, mem_slot& slot, void* slot_head)
         do_guest_write(vcpu, slot_head, i, nr_slot_pages);
 
         uint64_t start_ns = time_ns();
-        slot.update_dirty_log();
+        int n = slot.update_dirty_log();
         uint64_t end_ns = time_ns();
 
-        printf("get dirty log: %10lld ns for %10lld dirty pages\n",
-               end_ns - start_ns, i);
+        printf("get dirty log: %10lld ns for %10d dirty pages (expected %lld)\n",
+               end_ns - start_ns, n, i);
     }
 
     slot.set_dirty_logging(false);

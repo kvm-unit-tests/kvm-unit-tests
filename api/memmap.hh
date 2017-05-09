@@ -15,7 +15,7 @@ public:
     ~mem_slot();
     void set_dirty_logging(bool enabled);
     bool dirty_logging() const;
-    void update_dirty_log();
+    int update_dirty_log();
     bool is_dirty(uint64_t gpa) const;
 private:
     void update();
