@@ -19,7 +19,7 @@ static inline u64 scale_delta(u64 delta, u64 mul_frac)
 	u64 product, unused;
 
 	__asm__ (
-		"mul %3"
+		"mulq %3"
 		: "=d" (product), "=a" (unused) : "1" (delta), "rm" ((u64)mul_frac) );
 
 	return product;
