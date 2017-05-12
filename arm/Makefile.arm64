@@ -11,6 +11,8 @@ cstart.o = $(TEST_DIR)/cstart64.o
 cflatobjs += lib/arm64/processor.o
 cflatobjs += lib/arm64/spinlock.o
 
+OBJDIRS += lib/arm64
+
 # arm64 specific tests
 tests =
 

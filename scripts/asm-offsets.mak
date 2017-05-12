@@ -33,7 +33,9 @@ $(asm-offsets:.h=.s): $(asm-offsets:.h=.c)
 
 $(asm-offsets): $(asm-offsets:.h=.s)
 	$(call make_asm_offsets)
-	cp -f $(asm-offsets) lib/generated
+	cp -f $(asm-offsets) lib/generated/
+
+OBJDIRS += lib/generated
 
 asm_offsets_clean:
 	$(RM) $(asm-offsets) $(asm-offsets:.h=.s) \
