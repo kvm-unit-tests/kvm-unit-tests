@@ -16,6 +16,8 @@ endif
 cstart.o = $(TEST_DIR)/cstart64.o
 reloc.o  = $(TEST_DIR)/reloc64.o
 
+OBJDIRS += lib/ppc64
+
 # ppc64 specific tests
 tests =
 

@@ -13,7 +13,7 @@ tests-common = \
 	$(TEST_DIR)/sprs.elf
 
 tests-all = $(tests-common) $(tests)
-all: $(TEST_DIR)/boot_rom.bin $(tests-all)
+all: directories $(TEST_DIR)/boot_rom.bin $(tests-all)
 
 ##################################################################
 
@@ -21,14 +21,14 @@ CFLAGS += -std=gnu99
 CFLAGS += -ffreestanding
 CFLAGS += -Wextra
 CFLAGS += -O2
-CFLAGS += -I lib -I lib/libfdt
+CFLAGS += -I $(SRCDIR)/lib -I $(SRCDIR)/lib/libfdt -I lib
 CFLAGS += -Wa,-mregnames
 
 # We want to keep intermediate files
 .PRECIOUS: %.o
 
 asm-offsets = lib/$(ARCH)/asm-offsets.h
-include scripts/asm-offsets.mak
+include $(SRCDIR)/scripts/asm-offsets.mak
 
 cflatobjs += lib/util.o
 cflatobjs += lib/alloc.o
@@ -41,13 +41,16 @@ cflatobjs += lib/powerpc/processor.o
 cflatobjs += lib/powerpc/handlers.o
 cflatobjs += lib/powerpc/smp.o
 
+OBJDIRS += lib/powerpc
+
 FLATLIBS = $(libcflat) $(LIBFDT_archive)
 %.elf: CFLAGS += $(arch_CFLAGS)
 %.elf: LDFLAGS = $(arch_LDFLAGS) -nostdlib -pie -n
-%.elf: %.o $(FLATLIBS) powerpc/flat.lds $(cstart.o) $(reloc.o)
-	$(CC) $(CFLAGS) -c -o $(@:.elf=.aux.o) lib/auxinfo.c -DPROGNAME=\"$@\"
+%.elf: %.o $(FLATLIBS) $(SRCDIR)/powerpc/flat.lds $(cstart.o) $(reloc.o)
+	$(CC) $(CFLAGS) -c -o $(@:.elf=.aux.o) $(SRCDIR)/lib/auxinfo.c \
+		-DPROGNAME=\"$@\"
 	$(LD) $(LDFLAGS) -o $@ \
-		-T powerpc/flat.lds --build-id=none \
+		-T $(SRCDIR)/powerpc/flat.lds --build-id=none \
 		$(filter %.o, $^) $(FLATLIBS) $(@:.elf=.aux.o)
 	$(RM) $(@:.elf=.aux.o)
 	@echo -n Checking $@ for unsupported reloc types...
