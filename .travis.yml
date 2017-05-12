@@ -1,0 +1,43 @@
+sudo: false
+dist: trusty
+language: c
+compiler:
+  - gcc
+cache: ccache
+addons:
+  apt:
+    packages:
+      # Cross Toolchains
+      - gcc-arm-linux-gnueabihf
+      - gcc-aarch64-linux-gnu
+      - gcc-powerpc64le-linux-gnu
+      # Run dependencies
+      - qemu-system
+git:
+  submodules: false
+env:
+  matrix:
+    - CONFIG=""
+      BUILD_DIR="."
+    - CONFIG=""
+      BUILD_DIR="x86-builddir"
+    - CONFIG="--arch=arm --cross-prefix=arm-linux-gnueabihf-"
+      BUILD_DIR="."
+    - CONFIG="--arch=arm --cross-prefix=arm-linux-gnueabihf-"
+      BUILD_DIR="arm-buildir"
+    - CONFIG="--arch=arm64 --cross-prefix=aarch64-linux-gnu-"
+      BUILD_DIR="."
+    - CONFIG="--arch=arm64 --cross-prefix=aarch64-linux-gnu-"
+      BUILD_DIR="arm64-buildir"
+    - CONFIG="--arch=ppc64 --endian=little --cross-prefix=powerpc64le-linux-gnu-"
+      BUILD_DIR="."
+    - CONFIG="--arch=ppc64 --endian=little --cross-prefix=powerpc64le-linux-gnu-"
+      BUILD_DIR="ppc64le-buildir"
+
+before_script:
+  - mkdir -p $BUILD_DIR && cd $BUILD_DIR
+  - if [ -e ./configure ]; then ./configure $CONFIG ; fi
+  - if [ -e ../configure ]; then ../configure $CONFIG ; fi
+script:
+  - make -j3
+  - ./run_tests.sh || true
