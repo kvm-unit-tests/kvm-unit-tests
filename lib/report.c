@@ -35,14 +35,14 @@ void report_prefix_pushf(const char *prefix_fmt, ...)
 	spin_lock(&lock);
 
 	len = strlen(prefixes);
-	assert_msg(len < sizeof(prefixes), "%d >= %lu", len, sizeof(prefixes));
+	assert_msg(len < sizeof(prefixes), "%d >= %zu", len, sizeof(prefixes));
 	start = len;
 
 	va_start(va, prefix_fmt);
 	len += vsnprintf(&prefixes[len], sizeof(prefixes) - len, prefix_fmt,
 			 va);
 	va_end(va);
-	assert_msg(len < sizeof(prefixes), "%d >= %lu", len, sizeof(prefixes));
+	assert_msg(len < sizeof(prefixes), "%d >= %zu", len, sizeof(prefixes));
 
 	assert_msg(!strstr(&prefixes[start], PREFIX_DELIMITER),
 		   "Prefix \"%s\" contains delimiter \"" PREFIX_DELIMITER "\"",
@@ -50,7 +50,7 @@ void report_prefix_pushf(const char *prefix_fmt, ...)
 
 	len += snprintf(&prefixes[len], sizeof(prefixes) - len,
 			PREFIX_DELIMITER);
-	assert_msg(len < sizeof(prefixes), "%d >= %lu", len, sizeof(prefixes));
+	assert_msg(len < sizeof(prefixes), "%d >= %zu", len, sizeof(prefixes));
 
 	spin_unlock(&lock);
 }
