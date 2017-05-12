@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+srcdir=$(cd "$(dirname "$0")"; pwd)
 prefix=/usr/local
 cc=gcc
 ld=ld
@@ -102,12 +103,12 @@ elif [ "$arch" = "ppc64" ]; then
 else
     testdir=$arch
 fi
-if [ ! -d $testdir ]; then
+if [ ! -d "$srcdir/$testdir" ]; then
     echo "$testdir does not exist!"
     exit 1
 fi
-if [ -f $testdir/run ]; then
-    ln -fs $testdir/run $testdir-run
+if [ -f "$srcdir/$testdir/run" ]; then
+    ln -fs "$srcdir/$testdir/run" $testdir-run
 fi
 
 # check if uint32_t needs a long format modifier
@@ -135,18 +136,37 @@ fi
 rm -f lib_test.c
 fi
 
+# Are we in a separate build tree? If so, link the Makefile
+# and shared stuff so that 'make' and run_tests.sh work.
+if test ! -e Makefile; then
+    echo "linking Makefile..."
+    ln -s "$srcdir/Makefile" .
+
+    echo "linking tests..."
+    mkdir -p $testdir
+    ln -sf "$srcdir/$testdir/run" $testdir/
+    ln -sf "$srcdir/$testdir/unittests.cfg" $testdir/
+    ln -sf "$srcdir/run_tests.sh"
+
+    echo "linking scripts..."
+    ln -sf "$srcdir/scripts"
+fi
+
 # link lib/asm for the architecture
 rm -f lib/asm
 asm=asm-generic
-if [ -d lib/$arch/asm ]; then
-	asm=$arch/asm
-elif [ -d lib/$testdir/asm ]; then
-	asm=$testdir/asm
+if [ -d "$srcdir/lib/$arch/asm" ]; then
+	asm="$srcdir/lib/$arch/asm"
+elif [ -d "$srcdir/lib/$testdir/asm" ]; then
+	asm="$srcdir/lib/$testdir/asm"
 fi
-ln -s $asm lib/asm
+mkdir -p lib
+ln -sf "$asm" lib/asm
+
 
 # create the config
 cat <<EOF > config.mak
+SRCDIR=$srcdir
 PREFIX=$prefix
 HOST=$host
 ARCH=$arch
