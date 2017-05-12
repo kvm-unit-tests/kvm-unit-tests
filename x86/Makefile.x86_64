@@ -17,7 +17,7 @@ tests += $(TEST_DIR)/vmx.flat
 tests += $(TEST_DIR)/tscdeadline_latency.flat
 tests += $(TEST_DIR)/intel-iommu.flat
 
-include $(TEST_DIR)/Makefile.common
+include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 
 $(TEST_DIR)/hyperv_clock.elf: $(TEST_DIR)/hyperv_clock.o
 

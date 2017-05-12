@@ -19,7 +19,7 @@ reloc.o  = $(TEST_DIR)/reloc64.o
 # ppc64 specific tests
 tests =
 
-include $(TEST_DIR)/Makefile.common
+include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 
 arch_clean: powerpc_clean
 	$(RM) lib/ppc64/.*.d

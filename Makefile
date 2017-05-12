@@ -33,13 +33,13 @@ cflatobjs := \
 
 # libfdt paths
 LIBFDT_objdir = lib/libfdt
-LIBFDT_srcdir = lib/libfdt
+LIBFDT_srcdir = $(SRCDIR)/lib/libfdt
 LIBFDT_archive = $(LIBFDT_objdir)/libfdt.a
 LIBFDT_include = $(addprefix $(LIBFDT_srcdir)/,$(LIBFDT_INCLUDES))
 LIBFDT_version = $(addprefix $(LIBFDT_srcdir)/,$(LIBFDT_VERSION))
 
-#include architecure specific make rules
-include $(TEST_DIR)/Makefile
+#include architecture specific make rules
+include $(SRCDIR)/$(TEST_DIR)/Makefile
 
 # cc-option
 # Usage: OP_CFLAGS+=$(call cc-option, -falign-functions=0, -malign-functions=0)

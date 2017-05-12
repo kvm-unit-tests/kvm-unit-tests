@@ -22,6 +22,6 @@ cflatobjs += lib/arm/stack.o
 # arm specific tests
 tests =
 
-include $(TEST_DIR)/Makefile.common
+include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 
 arch_clean: arm_clean

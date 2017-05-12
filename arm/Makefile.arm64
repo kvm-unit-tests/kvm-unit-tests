@@ -14,7 +14,7 @@ cflatobjs += lib/arm64/spinlock.o
 # arm64 specific tests
 tests =
 
-include $(TEST_DIR)/Makefile.common
+include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 
 arch_clean: arm_clean
 	$(RM) lib/arm64/.*.d
