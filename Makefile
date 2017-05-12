@@ -76,7 +76,7 @@ $(libcflat): $(cflatobjs)
 	$(AR) rcs $@ $^
 
 include $(LIBFDT_srcdir)/Makefile.libfdt
-$(LIBFDT_archive): CFLAGS += -ffreestanding -I lib -I lib/libfdt -Wno-sign-compare
+$(LIBFDT_archive): CFLAGS += -ffreestanding -I $(SRCDIR)/lib -I $(SRCDIR)/lib/libfdt -Wno-sign-compare
 $(LIBFDT_archive): $(addprefix $(LIBFDT_objdir)/,$(LIBFDT_OBJS))
 	$(AR) rcs $@ $^
 
