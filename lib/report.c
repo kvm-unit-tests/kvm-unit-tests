@@ -29,7 +29,7 @@ void report_pass(void)
 void report_prefix_pushf(const char *prefix_fmt, ...)
 {
 	va_list va;
-	int len;
+	unsigned int len;
 	int start;
 
 	spin_lock(&lock);
