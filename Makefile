@@ -12,6 +12,7 @@ VPATH = $(SRCDIR)
 
 libdirs-get = $(shell [ -d "lib/$(1)" ] && echo "lib/$(1) lib/$(1)/asm")
 ARCH_LIBDIRS := $(call libdirs-get,$(ARCH)) $(call libdirs-get,$(TEST_DIR))
+OBJDIRS := $(ARCH_LIBDIRS)
 
 DESTDIR := $(PREFIX)/share/kvm-unit-tests/
 
@@ -37,6 +38,8 @@ LIBFDT_srcdir = $(SRCDIR)/lib/libfdt
 LIBFDT_archive = $(LIBFDT_objdir)/libfdt.a
 LIBFDT_include = $(addprefix $(LIBFDT_srcdir)/,$(LIBFDT_INCLUDES))
 LIBFDT_version = $(addprefix $(LIBFDT_srcdir)/,$(LIBFDT_VERSION))
+
+OBJDIRS += $(LIBFDT_objdir)
 
 #include architecture specific make rules
 include $(SRCDIR)/$(TEST_DIR)/Makefile
@@ -77,12 +80,18 @@ $(LIBFDT_archive): CFLAGS += -ffreestanding -I lib -I lib/libfdt -Wno-sign-compa
 $(LIBFDT_archive): $(addprefix $(LIBFDT_objdir)/,$(LIBFDT_OBJS))
 	$(AR) rcs $@ $^
 
+
+# Build directory target
+.PHONY: directories
+directories:
+	@mkdir -p $(OBJDIRS)
+
 %.o: %.S
 	$(CC) $(CFLAGS) -c -nostdlib -o $@ $<
 
 -include */.*.d */*/.*.d
 
-all: $(shell git -C $(SRCDIR) rev-parse --verify --short=8 HEAD >build-head 2>/dev/null)
+all: directories $(shell git -C $(SRCDIR) rev-parse --verify --short=8 HEAD >build-head 2>/dev/null)
 
 standalone: all
 	@scripts/mkstandalone.sh
