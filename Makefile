@@ -7,6 +7,9 @@ endif
 
 include config.mak
 
+# Set search path for all sources
+VPATH = $(SRCDIR)
+
 libdirs-get = $(shell [ -d "lib/$(1)" ] && echo "lib/$(1) lib/$(1)/asm")
 ARCH_LIBDIRS := $(call libdirs-get,$(ARCH)) $(call libdirs-get,$(TEST_DIR))
 
