@@ -176,6 +176,15 @@ int vsnprintf(char *buf, int size, const char *fmt, va_list va)
 	case 'l':
 	    ++nlong;
 	    goto morefmt;
+	case 't':
+	case 'z':
+	    /* Here we only care that sizeof(size_t) == sizeof(long).
+	     * On a 32-bit platform it doesn't matter that size_t is
+	     * typedef'ed to int or long; va_arg will work either way.
+	     * Same for ptrdiff_t (%td).
+	     */
+	    nlong = 1;
+	    goto morefmt;
 	case 'd':
 	    switch (nlong) {
 	    case 0:
