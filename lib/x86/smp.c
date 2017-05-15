@@ -43,22 +43,6 @@ asm (
 #endif
      );
 
-void spin_lock(struct spinlock *lock)
-{
-    int v = 1;
-
-    do {
-	asm volatile ("xchg %1, %0" : "+m"(lock->v), "+r"(v));
-    } while (v);
-    asm volatile ("" : : : "memory");
-}
-
-void spin_unlock(struct spinlock *lock)
-{
-    asm volatile ("" : : : "memory");
-    lock->v = 0;
-}
-
 int cpu_count(void)
 {
     return _cpu_count;
