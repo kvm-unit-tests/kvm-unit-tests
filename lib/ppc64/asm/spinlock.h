@@ -1,11 +1,6 @@
 #ifndef _ASMPPC64_SPINLOCK_H_
 #define _ASMPPC64_SPINLOCK_H_
 
-struct spinlock {
-	int v;
-};
-
-extern void spin_lock(struct spinlock *lock);
-extern void spin_unlock(struct spinlock *lock);
+#include <asm-generic/spinlock.h>
 
 #endif /* _ASMPPC64_SPINLOCK_H_ */

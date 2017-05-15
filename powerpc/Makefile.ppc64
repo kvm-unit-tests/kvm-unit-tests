@@ -15,7 +15,6 @@ endif
 
 cstart.o = $(TEST_DIR)/cstart64.o
 reloc.o  = $(TEST_DIR)/reloc64.o
-cflatobjs += lib/ppc64/spinlock.o
 
 # ppc64 specific tests
 tests =
