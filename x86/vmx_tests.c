@@ -719,7 +719,7 @@ static int iobmp_exit_handler()
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		printf("guest_rip = 0x%lx\n", guest_rip);
+		printf("guest_rip = %#lx\n", guest_rip);
 		printf("\tERROR : Undefined exit reason, reason = %ld.\n", reason);
 		break;
 	}

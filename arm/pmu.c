@@ -153,7 +153,7 @@ static bool check_pmcr(void)
 
 	pmcr = get_pmcr();
 
-	report_info("PMU implementer/ID code/counters: 0x%x(\"%c\")/0x%x/%d",
+	report_info("PMU implementer/ID code/counters: %#x(\"%c\")/%#x/%d",
 		    (pmcr >> PMU_PMCR_IMP_SHIFT) & PMU_PMCR_IMP_MASK,
 		    ((pmcr >> PMU_PMCR_IMP_SHIFT) & PMU_PMCR_IMP_MASK) ? : ' ',
 		    (pmcr >> PMU_PMCR_ID_SHIFT) & PMU_PMCR_ID_MASK,

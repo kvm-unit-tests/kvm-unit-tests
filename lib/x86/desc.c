@@ -69,7 +69,7 @@ static void unhandled_exception(struct ex_regs *regs, bool cpu)
 	       cpu ? "cpu " : "", regs->vector,
 	       exception_mnemonic(regs->vector), regs->rip);
 	if (regs->vector == 14)
-		printf("PF at 0x%lx addr 0x%lx\n", regs->rip, read_cr2());
+		printf("PF at %#lx addr %#lx\n", regs->rip, read_cr2());
 
 	printf("error_code=%04lx      rflags=%08lx      cs=%08lx\n"
 	       "rax=%016lx rcx=%016lx rdx=%016lx rbx=%016lx\n"

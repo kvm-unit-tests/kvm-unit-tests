@@ -14,7 +14,7 @@ static void program_check_handler(struct pt_regs *regs, void *opaque)
 	int *data = opaque;
 
 	if (verbose) {
-		printf("Detected invalid instruction 0x%016lx: %08x\n",
+		printf("Detected invalid instruction %#018lx: %08x\n",
 		       regs->nip, *(uint32_t*)regs->nip);
 	}
 
@@ -36,7 +36,7 @@ static void alignment_handler(struct pt_regs *regs, void *opaque)
 	int *data = opaque;
 
 	if (verbose) {
-		printf("Detected alignment exception 0x%016lx: %08x\n",
+		printf("Detected alignment exception %#018lx: %08x\n",
 		       regs->nip, *(uint32_t*)regs->nip);
 	}
 

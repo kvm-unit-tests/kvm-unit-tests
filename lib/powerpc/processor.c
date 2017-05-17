@@ -38,7 +38,7 @@ void do_handle_exception(struct pt_regs *regs)
 		return;
 	}
 
-	printf("unhandled cpu exception 0x%lx\n", regs->trap);
+	printf("unhandled cpu exception %#lx\n", regs->trap);
 	abort();
 }
 

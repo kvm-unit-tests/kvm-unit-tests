@@ -49,7 +49,7 @@ bool pci_setup_msi(struct pci_dev *dev, uint64_t msi_addr, uint32_t msi_data)
 	assert(dev);
 
 	if (!dev->msi_offset) {
-		printf("MSI: dev 0x%x does not support MSI.\n", dev->bdf);
+		printf("MSI: dev %#x does not support MSI.\n", dev->bdf);
 		return false;
 	}
 
@@ -295,10 +295,10 @@ static void pci_cap_print(struct pci_dev *dev, int cap_offset, int cap_id)
 		break;
 	}
 	default:
-		printf("\tcapability 0x%02x ", cap_id);
+		printf("\tcapability %#04x ", cap_id);
 		break;
 	}
-	printf("at offset 0x%02x\n", cap_offset);
+	printf("at offset %#04x\n", cap_offset);
 }
 
 void pci_dev_print(struct pci_dev *dev)

@@ -114,14 +114,14 @@ static void bad_exception(enum vector v, struct pt_regs *regs,
 			printf("Got bad vector=%d\n", v);
 	} else if (esr_valid) {
 		if (ec_names[ec])
-			printf("Unhandled exception ec=0x%x (%s)\n", ec,
+			printf("Unhandled exception ec=%#x (%s)\n", ec,
 					ec_names[ec]);
 		else
-			printf("Got bad ec=0x%x\n", ec);
+			printf("Got bad ec=%#x\n", ec);
 	}
 
 	printf("Vector: %d (%s)\n", v, vector_names[v]);
-	printf("ESR_EL1: %8s%08x, ec=0x%x (%s)\n", "", esr, ec, ec_names[ec]);
+	printf("ESR_EL1: %8s%08x, ec=%#x (%s)\n", "", esr, ec, ec_names[ec]);
 	printf("FAR_EL1: %016lx (%svalid)\n", far, far_valid ? "" : "not ");
 	printf("Exception frame registers:\n");
 	show_regs(regs);

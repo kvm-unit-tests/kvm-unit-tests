@@ -82,13 +82,13 @@ static void test_msr_rw(int msr_index, unsigned long long input, unsigned long l
     if ((index = find_msr_info(msr_index)) != -1) {
         sptr = msr_info[index].name;
     } else {
-        printf("couldn't find name for msr # 0x%x, skipping\n", msr_index);
+        printf("couldn't find name for msr # %#x, skipping\n", msr_index);
         return;
     }
     wrmsr(msr_index, input);
     r = rdmsr(msr_index);
     if (expected != r) {
-        printf("testing %s: output = 0x%x:0x%x expected = 0x%x:0x%x\n", sptr,
+        printf("testing %s: output = %#x:%#x expected = %#x:%#x\n", sptr,
                (u32)(r >> 32), (u32)r, (u32)(expected >> 32), (u32)expected);
     }
     report(sptr, expected == r);

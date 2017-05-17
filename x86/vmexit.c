@@ -524,7 +524,7 @@ int main(int ac, char **av)
 		membar = pcidev.resource[PCI_TESTDEV_BAR_MEM];
 		pci_test.memaddr = ioremap(membar, PAGE_SIZE);
 		pci_test.iobar = pcidev.resource[PCI_TESTDEV_BAR_IO];
-		printf("pci-testdev at 0x%x membar %lx iobar %x\n",
+		printf("pci-testdev at %#x membar %lx iobar %x\n",
 		       pcidev.bdf, membar, pci_test.iobar);
 	}
 

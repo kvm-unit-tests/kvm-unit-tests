@@ -12,10 +12,10 @@ static void free_memory(void *mem, unsigned long size)
 	assert_msg((unsigned long) mem % PAGE_SIZE == 0,
 		   "mem not page aligned: %p", mem);
 
-	assert_msg(size % PAGE_SIZE == 0, "size not page aligned: 0x%lx", size);
+	assert_msg(size % PAGE_SIZE == 0, "size not page aligned: %#lx", size);
 
 	assert_msg(size == 0 || mem + size > mem,
-		   "mem + size overflow: %p + 0x%lx", mem, size);
+		   "mem + size overflow: %p + %#lx", mem, size);
 
 	if (size == 0) {
 		free = NULL;

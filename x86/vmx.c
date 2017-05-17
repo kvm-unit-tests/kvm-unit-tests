@@ -521,16 +521,16 @@ void print_vmexit_info()
 	guest_rsp = vmcs_read(GUEST_RSP);
 	printf("VMEXIT info:\n");
 	printf("\tvmexit reason = %ld\n", reason);
-	printf("\texit qualification = 0x%lx\n", exit_qual);
+	printf("\texit qualification = %#lx\n", exit_qual);
 	printf("\tBit 31 of reason = %lx\n", (vmcs_read(EXI_REASON) >> 31) & 1);
-	printf("\tguest_rip = 0x%lx\n", guest_rip);
-	printf("\tRAX=0x%lx    RBX=0x%lx    RCX=0x%lx    RDX=0x%lx\n",
+	printf("\tguest_rip = %#lx\n", guest_rip);
+	printf("\tRAX=%#lx    RBX=%#lx    RCX=%#lx    RDX=%#lx\n",
 		regs.rax, regs.rbx, regs.rcx, regs.rdx);
-	printf("\tRSP=0x%lx    RBP=0x%lx    RSI=0x%lx    RDI=0x%lx\n",
+	printf("\tRSP=%#lx    RBP=%#lx    RSI=%#lx    RDI=%#lx\n",
 		guest_rsp, regs.rbp, regs.rsi, regs.rdi);
-	printf("\tR8 =0x%lx    R9 =0x%lx    R10=0x%lx    R11=0x%lx\n",
+	printf("\tR8 =%#lx    R9 =%#lx    R10=%#lx    R11=%#lx\n",
 		regs.r8, regs.r9, regs.r10, regs.r11);
-	printf("\tR12=0x%lx    R13=0x%lx    R14=0x%lx    R15=0x%lx\n",
+	printf("\tR12=%#lx    R13=%#lx    R14=%#lx    R15=%#lx\n",
 		regs.r12, regs.r13, regs.r14, regs.r15);
 }
 
@@ -553,7 +553,7 @@ print_vmentry_failure_info(struct vmentry_failure *failure) {
 		u64 reason = vmcs_read(EXI_REASON);
 		u64 qual = vmcs_read(EXI_QUALIFICATION);
 
-		printf("Non-early %s failure (reason=0x%lx, qual=0x%lx): ",
+		printf("Non-early %s failure (reason=%#lx, qual=%#lx): ",
 			failure->instr, reason, qual);
 
 		switch (reason & 0xff) {

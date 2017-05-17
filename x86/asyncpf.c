@@ -52,13 +52,13 @@ static void pf_isr(struct ex_regs *r)
 
 	switch (reason) {
 		case 0:
-			report("unexpected #PF at 0x%lx", false, read_cr2());
+			report("unexpected #PF at %#lx", false, read_cr2());
 			break;
 		case KVM_PV_REASON_PAGE_NOT_PRESENT:
 			phys = virt_to_phys_cr3(virt);
 			install_pte(phys_to_virt(read_cr3()), 1, virt, phys, 0);
 			write_cr3(read_cr3());
-			report("Got not present #PF token %lx virt addr %p phys addr 0x%" PRIx64,
+			report("Got not present #PF token %lx virt addr %p phys addr %#" PRIx64,
 					true, read_cr2(), virt, phys);
 			while(phys) {
 				safe_halt(); /* enables irq */

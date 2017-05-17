@@ -755,8 +755,8 @@ do { \
 		binstr(_a, _bin_a); \
 		binstr(_b, _bin_b); \
 		report("%s:%d: %s failed: (%s) == (%s)\n" \
-		       "\tLHS: 0x%016lx - %s - %lu\n" \
-		       "\tRHS: 0x%016lx - %s - %lu%s" fmt, 0, \
+		       "\tLHS: %#018lx - %s - %lu\n" \
+		       "\tRHS: %#018lx - %s - %lu%s" fmt, 0, \
 		       __FILE__, __LINE__, \
 		       assertion ? "Assertion" : "Expectation", a_str, b_str, \
 		       (unsigned long) _a, _bin_a, (unsigned long) _a, \
