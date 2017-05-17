@@ -18,6 +18,7 @@ typedef struct pstream {
 typedef struct strprops {
     char pad;
     int npad;
+    bool alternate;
 } strprops_t;
 
 static void addchar(pstream_t *p, char c)
@@ -94,7 +95,7 @@ void print_int(pstream_t *ps, long long n, int base, strprops_t props)
 void print_unsigned(pstream_t *ps, unsigned long long n, int base,
 		    strprops_t props)
 {
-    char buf[sizeof(long) * 3 + 1], *p = buf;
+    char buf[sizeof(long) * 3 + 3], *p = buf;
     int i;
 
     while (n) {
@@ -104,6 +105,10 @@ void print_unsigned(pstream_t *ps, unsigned long long n, int base,
 
     if (p == buf)
 	*p++ = '0';
+    else if (props.alternate && base == 16) {
+	*p++ = 'x';
+	*p++ = '0';
+    }
 
     for (i = 0; i < (p - buf) / 2; ++i) {
 	char tmp;
@@ -225,7 +230,7 @@ int vsnprintf(char *buf, int size, const char *fmt, va_list va)
 	    }
 	    break;
 	case 'p':
-	    print_str(&s, "0x", props);
+	    props.alternate = true;
 	    print_unsigned(&s, (unsigned long)va_arg(va, void *), 16, props);
 	    break;
 	case 's':
