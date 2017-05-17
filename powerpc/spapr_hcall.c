@@ -49,7 +49,7 @@ static void test_h_set_sprg0(int argc, char **argv)
 
 	rc = hcall(H_SET_SPRG0, sprg0_orig);
 	sprg0 = mfspr(SPR_SPRG0);
-	report("sprg0 = 0x%llx",
+	report("sprg0 = 0x%" PRIx64,
 		rc == H_SUCCESS && sprg0 == sprg0_orig, sprg0_orig);
 }
 

@@ -37,7 +37,7 @@ static void check_setup(int argc, char **argv)
 			phys_addr_t memsize = PHYS_END - PHYS_OFFSET;
 			phys_addr_t expected = ((phys_addr_t)val)*1024*1024;
 
-			report("size = %d MB", memsize == expected,
+			report("size = %" PRIu64 " MB", memsize == expected,
 							memsize/1024/1024);
 			++nr_tests;
 
