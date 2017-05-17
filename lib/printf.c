@@ -106,8 +106,16 @@ void print_unsigned(pstream_t *ps, unsigned long long n, int base,
     if (p == buf)
 	*p++ = '0';
     else if (props.alternate && base == 16) {
-	*p++ = 'x';
-	*p++ = '0';
+	if (props.pad == '0') {
+	    addchar(ps, '0');
+	    addchar(ps, 'x');
+
+	    if (props.npad > 0)
+		props.npad = MAX(props.npad - 2, 0);
+	} else {
+	    *p++ = 'x';
+	    *p++ = '0';
+	}
     }
 
     for (i = 0; i < (p - buf) / 2; ++i) {
@@ -169,6 +177,9 @@ int vsnprintf(char *buf, int size, const char *fmt, va_list va)
 	case '\0':
 	    --fmt;
 	    break;
+	case '#':
+	    props.alternate = true;
+	    goto morefmt;
 	case '0':
 	    props.pad = '0';
 	    ++fmt;
