@@ -42,6 +42,11 @@
 #define __ACCESS_CP15_64(Op1, CRm)					\
 	"mrrc", "mcrr", xstr(p15, Op1, %Q0, %R0, CRm), u64
 
+#define __ACCESS_CP14(CRn, Op1, CRm, Op2)	\
+	"mrc", "mcr", xstr(p14, Op1, %0, CRn, CRm, Op2), u32
+#define __ACCESS_CP14_64(Op1, CRm)		\
+	"mrrc", "mcrr", xstr(p14, Op1, %Q0, %R0, CRm), u64
+
 #define __read_sysreg(r, w, c, t) ({				\
 			t __val;				\
 			asm volatile(r " " c : "=r" (__val));	\
