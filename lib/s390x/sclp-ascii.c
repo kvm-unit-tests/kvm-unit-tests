@@ -8,7 +8,9 @@
  * directory.
  */
 
-#include "s390-ccw.h"
+#include <libcflat.h>
+#include <string.h>
+#include <asm/page.h>
 #include "sclp.h"
 
 static char _sccb[PAGE_SIZE] __attribute__((__aligned__(4096)));
@@ -24,11 +26,10 @@ static int sclp_service_call(unsigned int command, void *sccb)
                 "       srl     %0,28"
                 : "=&d" (cc) : "d" (command), "a" (__pa(sccb))
                 : "cc", "memory");
-        consume_sclp_int();
         if (cc == 3)
-                return -EIO;
+                return -1;
         if (cc == 2)
-                return -EBUSY;
+                return -1;
         return 0;
 }
 
@@ -51,24 +52,9 @@ void sclp_setup(void)
     sclp_set_write_mask();
 }
 
-static int _strlen(const char *str)
-{
-    int i;
-    for (i = 0; *str; i++)
-        str++;
-    return i;
-}
-
-static void _memcpy(char *dest, const char *src, int len)
-{
-    int i;
-    for (i = 0; i < len; i++)
-        dest[i] = src[i];
-}
-
 void sclp_print(const char *str)
 {
-    int len = _strlen(str);
+    int len = strlen(str);
     WriteEventData *sccb = (void *)_sccb;
 
     sccb->h.length = sizeof(WriteEventData) + len;
@@ -76,7 +62,7 @@ void sclp_print(const char *str)
     sccb->ebh.length = sizeof(EventBufferHeader) + len;
     sccb->ebh.type = SCLP_EVENT_ASCII_CONSOLE_DATA;
     sccb->ebh.flags = 0;
-    _memcpy(sccb->data, str, len);
+    memcpy(sccb->data, str, len);
 
     sclp_service_call(SCLP_CMD_WRITE_EVENT_DATA, sccb);
 }

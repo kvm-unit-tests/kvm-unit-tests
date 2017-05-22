@@ -102,6 +102,4 @@ typedef struct ReadEventData {
     uint32_t mask;
 } __attribute__((packed)) ReadEventData;
 
-#define __pa(x) (x)
-
 #endif /* SCLP_H */

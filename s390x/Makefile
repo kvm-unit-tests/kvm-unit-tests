@@ -19,6 +19,7 @@ cflatobjs += lib/util.o
 cflatobjs += lib/alloc.o
 cflatobjs += lib/s390x/io.o
 cflatobjs += lib/s390x/stack.o
+cflatobjs += lib/s390x/sclp-ascii.o
 
 OBJDIRS += lib/s390x
 
