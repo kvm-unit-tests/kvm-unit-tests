@@ -305,15 +305,12 @@ static void run_active_clear_test(void)
 
 int main(int argc, char **argv)
 {
-	char pfx[8];
-
 	if (!gic_init()) {
 		printf("No supported gic present, skipping tests...\n");
 		return report_summary();
 	}
 
-	snprintf(pfx, sizeof(pfx), "gicv%d", gic_version());
-	report_prefix_push(pfx);
+	report_prefix_pushf("gicv%d", gic_version());
 
 	switch (gic_version()) {
 	case 2:
