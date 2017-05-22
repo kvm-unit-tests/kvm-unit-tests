@@ -11,6 +11,7 @@ addons:
       - gcc-arm-linux-gnueabihf
       - gcc-aarch64-linux-gnu
       - gcc-powerpc64le-linux-gnu
+      - gcc-s390x-linux-gnu
       # Run dependencies
       - qemu-system
 git:
@@ -33,6 +34,10 @@ env:
       BUILD_DIR="."
     - CONFIG="--arch=ppc64 --endian=little --cross-prefix=powerpc64le-linux-gnu-"
       BUILD_DIR="ppc64le-buildir"
+    - CONFIG="--arch=s390x --cross-prefix=s390x-linux-gnu-"
+      BUILD_DIR="."
+    - CONFIG="--arch=s390x --cross-prefix=s390x-linux-gnu-"
+      BUILD_DIR="s390x-builddir"
 
 before_script:
   - mkdir -p $BUILD_DIR && cd $BUILD_DIR
