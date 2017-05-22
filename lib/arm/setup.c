@@ -48,11 +48,8 @@ static void cpu_set(int fdtnode __unused, u64 regval, void *info __unused)
 {
 	int cpu = nr_cpus++;
 
-	if (cpu >= NR_CPUS) {
-		printf("Number cpus exceeds maximum supported (%d).\n",
-			NR_CPUS);
-		assert(0);
-	}
+	assert_msg(cpu < NR_CPUS, "Number cpus exceeds maximum supported (%d).", NR_CPUS);
+
 	cpus[cpu] = regval;
 	set_cpu_present(cpu, true);
 }

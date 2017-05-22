@@ -50,15 +50,11 @@ static void cpu_set(int fdtnode, u64 regval, void *info)
 	struct cpu_set_params *params = info;
 	int cpu = nr_cpus++;
 
-	if (cpu >= NR_CPUS) {
-		printf("Number cpus exceeds maximum supported (%d).\n",
-			NR_CPUS);
-		assert(0);
-	}
+	assert_msg(cpu < NR_CPUS, "Number cpus exceeds maximum supported (%d).", NR_CPUS);
+
 	cpus[cpu] = regval;
 
 	/* set exception stack address for this CPU (in SPGR0) */
-
 	asm volatile ("mtsprg0 %[addr]" ::
 		      [addr] "r" (exception_stack[cpu + 1]));
 
