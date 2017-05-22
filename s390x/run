@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+if [ -z "$STANDALONE" ]; then
+	if [ ! -f config.mak ]; then
+		echo "run ./configure && make first. See ./configure -h"
+		exit 2
+	fi
+	source config.mak
+	source scripts/arch-run.bash
+fi
+
+if [ -c /dev/kvm ]; then
+	if [ "$HOST" = "s390x" ] && [ "$ARCH" = "s390x" ]; then
+		kvm_available=yes
+	fi
+fi
+
+if [ "$ACCEL" = "kvm" ] && [ "$kvm_available" != "yes" ]; then
+	echo "KVM is needed, but not available on this host"
+	exit 2
+fi
+
+if [ -z "$ACCEL" ]; then
+	if [ "$kvm_available" = "yes" ]; then
+		ACCEL="kvm"
+	else
+		ACCEL="tcg"
+	fi
+fi
+
+qemu=$(search_qemu_binary)
+
+M='-machine s390-ccw-virtio'
+M+=",accel=$ACCEL"
+command="$qemu -nodefaults -nographic $M"
+command+=" -chardev stdio,id=con0 -device sclpconsole,chardev=con0"
+[ -f "$ENV" ] && command+=" -initrd $ENV"
+command+=" -kernel"
+command="$(timeout_cmd) $command"
+echo $command "$@"
+
+# We return the exit code via stdout, not via the QEMU return code
+lines=$(run_qemu $command "$@")
+ret=$?
+echo "$lines"
+if [ $ret -eq 1 ]; then
+	testret=$(grep '^EXIT: ' <<<"$lines" | sed 's/.*STATUS=\([0-9][0-9]*\).*/\1/')
+	if [ "$testret" ]; then
+		if [ $testret -eq 1 ]; then
+			ret=0
+		else
+			ret=$testret
+		fi
+	fi
+fi
+exit $ret
