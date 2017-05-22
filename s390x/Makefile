@@ -1,3 +1,5 @@
+tests = $(TEST_DIR)/selftest.elf
+
 all: directories test_cases
 
 test_cases: $(tests)
