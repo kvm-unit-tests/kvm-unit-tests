@@ -12,6 +12,7 @@
  */
 #include <libcflat.h>
 #include <asm/spinlock.h>
+#include "sclp.h"
 
 extern void setup_args_progname(const char *args);
 extern char ipl_args[];
@@ -21,8 +22,7 @@ static struct spinlock lock;
 void puts(const char *s)
 {
 	spin_lock(&lock);
-	/* FIXME */
-	(void)s;
+	sclp_print(s);
 	spin_unlock(&lock);
 }
 
@@ -39,6 +39,7 @@ static void sigp_stop()
 void setup()
 {
 	setup_args_progname(ipl_args);
+	sclp_setup();
 }
 
 void exit(int code)

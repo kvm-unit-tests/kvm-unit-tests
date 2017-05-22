@@ -102,4 +102,7 @@ typedef struct ReadEventData {
     uint32_t mask;
 } __attribute__((packed)) ReadEventData;
 
+void sclp_setup(void);
+void sclp_print(const char *str);
+
 #endif /* SCLP_H */
