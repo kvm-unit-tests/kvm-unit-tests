@@ -91,7 +91,7 @@ static void test_msr_rw(int msr_index, unsigned long long input, unsigned long l
         printf("testing %s: output = %#x:%#x expected = %#x:%#x\n", sptr,
                (u32)(r >> 32), (u32)r, (u32)(expected >> 32), (u32)expected);
     }
-    report(sptr, expected == r);
+    report("%s", expected == r, sptr);
 }
 
 static void test_syscall_lazy_load(void)

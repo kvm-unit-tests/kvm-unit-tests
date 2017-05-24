@@ -1409,7 +1409,7 @@ static void test_vmx_caps(void)
 			ok = ctrl.clr == true_ctrl.clr;
 			ok = ok && ctrl.set == (true_ctrl.set | default1);
 		}
-		report(vmx_ctl_msr[n].name, ok);
+		report("%s", ok, vmx_ctl_msr[n].name);
 	}
 
 	fixed0 = rdmsr(MSR_IA32_VMX_CR0_FIXED0);
