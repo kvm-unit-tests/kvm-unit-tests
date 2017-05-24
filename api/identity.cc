@@ -20,9 +20,9 @@ hole::hole(void* address, size_t size)
 
 vm::vm(kvm::vm& vm, mem_map& mmap, hole h)
 {
-    posix_memalign(&tss, 4096, 4 * 4096);
-    if (!tss) {
-        throw errno_exception(errno);
+    int ret = posix_memalign(&tss, 4096, 4 * 4096);
+    if (ret) {
+        throw errno_exception(ret);
     }
 
     uint64_t hole_gpa = reinterpret_cast<uintptr_t>(h.address);

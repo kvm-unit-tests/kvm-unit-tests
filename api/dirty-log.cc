@@ -52,7 +52,10 @@ int test_main(int ac, char **av)
     kvm::vm vm(sys);
     mem_map memmap(vm);
     void* logged_slot_virt;
-    posix_memalign(&logged_slot_virt, 4096, 4096);
+    int ret = posix_memalign(&logged_slot_virt, 4096, 4096);
+    if (ret) {
+        throw errno_exception(ret);
+    }
     volatile int* shared_var = static_cast<volatile int*>(logged_slot_virt);
     identity::hole hole(logged_slot_virt, 4096);
     identity::vm ident_vm(vm, memmap, hole);
