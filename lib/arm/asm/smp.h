@@ -14,6 +14,7 @@ extern void halt(void);
 
 extern cpumask_t cpu_present_mask;
 extern cpumask_t cpu_online_mask;
+extern cpumask_t cpu_halted_mask;
 #define cpu_present(cpu)		cpumask_test_cpu(cpu, &cpu_present_mask)
 #define cpu_online(cpu)			cpumask_test_cpu(cpu, &cpu_online_mask)
 #define for_each_present_cpu(cpu)	for_each_cpu(cpu, &cpu_present_mask)
@@ -45,5 +46,6 @@ struct secondary_data {
 extern struct secondary_data secondary_data;
 
 extern void smp_boot_secondary(int cpu, secondary_entry_fn entry);
+extern void smp_run(void (*func)(void));
 
 #endif /* _ASMARM_SMP_H_ */

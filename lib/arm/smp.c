@@ -15,6 +15,7 @@
 
 cpumask_t cpu_present_mask;
 cpumask_t cpu_online_mask;
+cpumask_t cpu_halted_mask;
 struct secondary_data secondary_data;
 
 secondary_entry_fn secondary_cinit(void)
@@ -52,4 +53,29 @@ void smp_boot_secondary(int cpu, secondary_entry_fn entry)
 
 	while (!cpu_online(cpu))
 		wfe();
+}
+
+void secondary_halt(void)
+{
+	struct thread_info *ti = current_thread_info();
+
+	cpumask_set_cpu(ti->cpu, &cpu_halted_mask);
+	halt();
+}
+
+void smp_run(void (*func)(void))
+{
+	int cpu;
+
+	for_each_present_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+		smp_boot_secondary(cpu, func);
+	}
+	func();
+
+	cpumask_set_cpu(0, &cpu_halted_mask);
+	while (!cpumask_full(&cpu_halted_mask))
+		cpu_relax();
+	cpumask_clear_cpu(0, &cpu_halted_mask);
 }

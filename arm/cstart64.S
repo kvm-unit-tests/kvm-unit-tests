@@ -79,7 +79,8 @@ secondary_entry:
 	bl	secondary_cinit
 
 	/* x0 is now the entry function, run it */
-	br	x0
+	blr	x0
+	b	secondary_halt
 
 .globl halt
 halt:
