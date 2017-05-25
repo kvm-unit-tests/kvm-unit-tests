@@ -240,6 +240,14 @@ static void ipi_recv(void)
 		wfi();
 }
 
+static void ipi_test(void)
+{
+	if (smp_processor_id() == IPI_SENDER)
+		ipi_send();
+	else
+		ipi_recv();
+}
+
 static struct gic gicv2 = {
 	.ipi = {
 		.send_self = gicv2_ipi_send_self,
@@ -298,7 +306,6 @@ static void run_active_clear_test(void)
 int main(int argc, char **argv)
 {
 	char pfx[8];
-	int cpu;
 
 	if (!gic_init()) {
 		printf("No supported gic present, skipping tests...\n");
@@ -323,14 +330,7 @@ int main(int argc, char **argv)
 	if (strcmp(argv[1], "ipi") == 0) {
 		report_prefix_push(argv[1]);
 		nr_cpu_check(2);
-
-		for_each_present_cpu(cpu) {
-			if (cpu == 0)
-				continue;
-			smp_boot_secondary(cpu,
-				cpu == IPI_SENDER ? ipi_send : ipi_recv);
-		}
-		ipi_recv();
+		smp_run(ipi_test);
 	} else if (strcmp(argv[1], "active") == 0) {
 		run_active_clear_test();
 	} else {
