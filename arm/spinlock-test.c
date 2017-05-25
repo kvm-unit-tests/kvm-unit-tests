@@ -12,7 +12,6 @@
 
 #include <libcflat.h>
 #include <asm/smp.h>
-#include <asm/cpumask.h>
 #include <asm/barrier.h>
 
 #define LOOP_SIZE 10000000
@@ -44,8 +43,6 @@ static void none_unlock(int *lock_var)
 static int global_a, global_b;
 static int global_lock;
 
-static cpumask_t smp_test_complete;
-
 static void test_spinlock(void)
 {
 	int i, errors = 0;
@@ -71,16 +68,10 @@ static void test_spinlock(void)
 		lock_ops.unlock(&global_lock);
 	}
 	report("CPU%d: Done - Errors: %d", errors == 0, cpu, errors);
-
-	cpumask_set_cpu(cpu, &smp_test_complete);
-	if (cpu != 0)
-		halt();
 }
 
 int main(int argc, char **argv)
 {
-	int cpu;
-
 	if (argc > 1 && strcmp(argv[1], "bad") != 0) {
 		lock_ops.lock = gcc_builtin_lock;
 		lock_ops.unlock = gcc_builtin_unlock;
@@ -89,16 +80,7 @@ int main(int argc, char **argv)
 		lock_ops.unlock = none_unlock;
 	}
 
-	for_each_present_cpu(cpu) {
-		if (cpu == 0)
-			continue;
-		smp_boot_secondary(cpu, test_spinlock);
-	}
-
-	test_spinlock();
-
-	while (!cpumask_full(&smp_test_complete))
-		cpu_relax();
+	smp_run(test_spinlock);
 
 	return report_summary();
 }
