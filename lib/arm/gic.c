@@ -11,7 +11,6 @@ struct gicv2_data gicv2_data;
 struct gicv3_data gicv3_data;
 
 struct gic_common_ops {
-	int gic_version;
 	void (*enable_defaults)(void);
 	u32 (*read_iar)(void);
 	u32 (*iar_irqnr)(u32 iar);
@@ -23,7 +22,6 @@ struct gic_common_ops {
 static const struct gic_common_ops *gic_common_ops;
 
 static const struct gic_common_ops gicv2_common_ops = {
-	.gic_version = 2,
 	.enable_defaults = gicv2_enable_defaults,
 	.read_iar = gicv2_read_iar,
 	.iar_irqnr = gicv2_iar_irqnr,
@@ -33,7 +31,6 @@ static const struct gic_common_ops gicv2_common_ops = {
 };
 
 static const struct gic_common_ops gicv3_common_ops = {
-	.gic_version = 3,
 	.enable_defaults = gicv3_enable_defaults,
 	.read_iar = gicv3_read_iar,
 	.iar_irqnr = gicv3_iar_irqnr,
@@ -88,16 +85,22 @@ int gicv3_init(void)
 			&gicv3_data.redist_base[0]);
 }
 
+int gic_version(void)
+{
+	if (gic_common_ops == &gicv2_common_ops)
+		return 2;
+	else if (gic_common_ops == &gicv3_common_ops)
+		return 3;
+	return 0;
+}
+
 int gic_init(void)
 {
-	if (gicv2_init()) {
+	if (gicv2_init())
 		gic_common_ops = &gicv2_common_ops;
-		return 2;
-	} else if (gicv3_init()) {
+	else if (gicv3_init())
 		gic_common_ops = &gicv3_common_ops;
-		return 3;
-	}
-	return 0;
+	return gic_version();
 }
 
 void gic_enable_defaults(void)
@@ -108,12 +111,6 @@ void gic_enable_defaults(void)
 	} else
 		assert(gic_common_ops->enable_defaults);
 	gic_common_ops->enable_defaults();
-}
-
-int gic_version(void)
-{
-	assert(gic_common_ops);
-	return gic_common_ops->gic_version;
 }
 
 u32 gic_read_iar(void)
