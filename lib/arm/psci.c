@@ -10,9 +10,9 @@
 #include <asm/setup.h>
 #include <asm/page.h>
 
-#define T PSCI_INVOKE_ARG_TYPE
 __attribute__((noinline))
-int psci_invoke(T function_id, T arg0, T arg1, T arg2)
+int psci_invoke(unsigned long function_id, unsigned long arg0,
+		unsigned long arg1, unsigned long arg2)
 {
 	asm volatile(
 		"hvc #0"
@@ -23,7 +23,11 @@ int psci_invoke(T function_id, T arg0, T arg1, T arg2)
 
 int psci_cpu_on(unsigned long cpuid, unsigned long entry_point)
 {
-	return psci_invoke(PSCI_FN_CPU_ON, cpuid, entry_point, 0);
+#ifdef __arm__
+	return psci_invoke(PSCI_0_2_FN_CPU_ON, cpuid, entry_point, 0);
+#else
+	return psci_invoke(PSCI_0_2_FN64_CPU_ON, cpuid, entry_point, 0);
+#endif
 }
 
 extern void secondary_entry(void);

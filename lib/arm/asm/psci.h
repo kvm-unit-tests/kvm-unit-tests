@@ -3,10 +3,8 @@
 #include <libcflat.h>
 #include <linux/psci.h>
 
-#define PSCI_INVOKE_ARG_TYPE	u32
-#define PSCI_FN_CPU_ON		PSCI_0_2_FN_CPU_ON
-
-extern int psci_invoke(u32 function_id, u32 arg0, u32 arg1, u32 arg2);
+extern int psci_invoke(unsigned long function_id, unsigned long arg0,
+		       unsigned long arg1, unsigned long arg2);
 extern int psci_cpu_on(unsigned long cpuid, unsigned long entry_point);
 extern void psci_sys_reset(void);
 extern int cpu_psci_cpu_boot(unsigned int cpu);
