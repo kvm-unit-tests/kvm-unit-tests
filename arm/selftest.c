@@ -15,7 +15,6 @@
 #include <asm/thread_info.h>
 #include <asm/psci.h>
 #include <asm/smp.h>
-#include <asm/cpumask.h>
 #include <asm/barrier.h>
 
 static void check_setup(int argc, char **argv)
@@ -309,7 +308,6 @@ static bool psci_check(void)
 	return true;
 }
 
-static cpumask_t smp_reported;
 static void cpu_report(void)
 {
 	uint64_t mpidr = get_mpidr();
@@ -317,8 +315,6 @@ static void cpu_report(void)
 
 	report("CPU(%3d) mpidr=%010" PRIx64,
 		mpidr_to_cpu(mpidr) == cpu, cpu, mpidr);
-	cpumask_set_cpu(cpu, &smp_reported);
-	halt();
 }
 
 int main(int argc, char **argv)
@@ -345,22 +341,9 @@ int main(int argc, char **argv)
 
 	} else if (strcmp(argv[1], "smp") == 0) {
 
-		uint64_t mpidr = get_mpidr();
-		int cpu;
-
 		report("PSCI version", psci_check());
+		smp_run(cpu_report);
 
-		for_each_present_cpu(cpu) {
-			if (cpu == 0)
-				continue;
-			smp_boot_secondary(cpu, cpu_report);
-		}
-
-		report("CPU(%3d) mpidr=%010" PRIx64,
-			mpidr_to_cpu(mpidr) == 0, 0, mpidr);
-		cpumask_set_cpu(0, &smp_reported);
-		while (!cpumask_full(&smp_reported))
-			cpu_relax();
 	} else {
 		printf("Unknown subtest\n");
 		abort();
