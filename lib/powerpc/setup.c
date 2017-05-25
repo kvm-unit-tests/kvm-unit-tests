@@ -177,8 +177,8 @@ void setup(const void *fdt)
 	 * |                      |
 	 * +----------------------+   <-- top of cpu0's stack
 	 * |                      |
-	 * +----------------------+   <-- top of text/data/bss sections,
-	 * |                      |       see arm/flat.lds
+	 * +----------------------+   <-- top of text/data/bss/toc sections,
+	 * |                      |       see powerpc/flat.lds
 	 * |                      |
 	 * +----------------------+   <-- load address
 	 * |                      |
