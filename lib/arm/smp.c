@@ -7,6 +7,7 @@
  */
 #include <libcflat.h>
 #include <asm/thread_info.h>
+#include <asm/spinlock.h>
 #include <asm/cpumask.h>
 #include <asm/barrier.h>
 #include <asm/mmu.h>
@@ -16,7 +17,13 @@
 cpumask_t cpu_present_mask;
 cpumask_t cpu_online_mask;
 cpumask_t cpu_halted_mask;
+
+struct secondary_data {
+	void *stack;            /* must be first member of struct */
+	secondary_entry_fn entry;
+};
 struct secondary_data secondary_data;
+static struct spinlock lock;
 
 secondary_entry_fn secondary_cinit(void)
 {
@@ -45,6 +52,10 @@ void smp_boot_secondary(int cpu, secondary_entry_fn entry)
 {
 	int ret;
 
+	spin_lock(&lock);
+
+	assert_msg(!cpu_online(cpu), "CPU%d already boot once", cpu);
+
 	secondary_data.stack = thread_stack_alloc();
 	secondary_data.entry = entry;
 	mmu_mark_disabled(cpu);
@@ -53,6 +64,8 @@ void smp_boot_secondary(int cpu, secondary_entry_fn entry)
 
 	while (!cpu_online(cpu))
 		wfe();
+
+	spin_unlock(&lock);
 }
 
 void secondary_halt(void)

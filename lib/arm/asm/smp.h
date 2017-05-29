@@ -37,14 +37,6 @@ static inline void set_cpu_online(int cpu, bool online)
 }
 
 typedef void (*secondary_entry_fn)(void);
-
-/* secondary_data is reused for each cpu, so only boot one at a time */
-struct secondary_data {
-	void *stack;		/* must be first member of struct */
-	secondary_entry_fn entry;
-};
-extern struct secondary_data secondary_data;
-
 extern void smp_boot_secondary(int cpu, secondary_entry_fn entry);
 extern void smp_run(void (*func)(void));
 
