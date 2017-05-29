@@ -2,6 +2,10 @@
 #define _ASMARM_BARRIER_H_
 /*
  * Adapted from arch/arm/include/asm/barrier.h
+ *
+ * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ *
+ * This work is licensed under the terms of the GNU GPL, version 2.
  */
 
 #define sev()		asm volatile("sev" : : : "memory")

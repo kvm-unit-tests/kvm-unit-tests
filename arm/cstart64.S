@@ -1,9 +1,9 @@
 /*
  * Boot entry point and assembler functions for aarch64 tests.
  *
- * Copyright (C) 2014, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
  *
- * This work is licensed under the terms of the GNU LGPL, version 2.
+ * This work is licensed under the terms of the GNU GPL, version 2.
  */
 #define __ASSEMBLY__
 #include <asm/asm-offsets.h>

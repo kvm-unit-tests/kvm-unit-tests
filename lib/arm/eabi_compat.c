@@ -1,5 +1,9 @@
 /*
  * Adapted from u-boot's arch/arm/lib/eabi_compat.c
+ *
+ * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ *
+ * This work is licensed under the terms of the GNU GPL, version 2.
  */
 #include <libcflat.h>
 

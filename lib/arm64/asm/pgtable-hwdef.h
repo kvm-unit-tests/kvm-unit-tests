@@ -3,7 +3,12 @@
 /*
  * From arch/arm64/include/asm/pgtable-hwdef.h
  *      arch/arm64/include/asm/memory.h
+ *
+ * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ *
+ * This work is licensed under the terms of the GNU GPL, version 2.
  */
+
 #define UL(x) _AC(x, UL)
 
 #define PTRS_PER_PTE		(1 << (PAGE_SHIFT - 3))

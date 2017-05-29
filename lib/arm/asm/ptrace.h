@@ -4,6 +4,10 @@
  * Adapted from Linux kernel headers
  *   arch/arm/include/asm/ptrace.h
  *   arch/arm/include/uapi/asm/ptrace.h
+ *
+ * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ *
+ * This work is licensed under the terms of the GNU GPL, version 2.
  */
 
 /*

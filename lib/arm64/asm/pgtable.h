@@ -9,6 +9,10 @@
  * Note: some Linux function APIs have been modified. Nothing crazy,
  *       but if a function took, for example, an mm_struct, then
  *       that was either removed or replaced.
+ *
+ * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ *
+ * This work is licensed under the terms of the GNU GPL, version 2.
  */
 #include <alloc.h>
 #include <asm/setup.h>

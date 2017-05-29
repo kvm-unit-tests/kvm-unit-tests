@@ -3,6 +3,10 @@
 /*
  * From Linux arch/arm64/include/asm/io.h
  * Generic IO read/write.  These perform native-endian accesses.
+ *
+ * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ *
+ * This work is licensed under the terms of the GNU GPL, version 2.
  */
 #include <libcflat.h>
 #include <asm/barrier.h>

@@ -3,6 +3,10 @@
 /*
  * From the Linux kernel arch/arm/include/asm/cp15.h
  *
+ * This work is licensed under the terms of the GNU GPL, version 2.
+ */
+
+/*
  * CR1 bits (CP#15 CR1)
  */
 #define CR_M	(1 << 0)	/* MMU enable				*/

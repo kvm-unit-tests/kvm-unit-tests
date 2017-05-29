@@ -1,12 +1,12 @@
 #ifndef _ASMARM64_BITOPS_H_
 #define _ASMARM64_BITOPS_H_
 /*
- * Adapated from
+ * Adapted from
  *   arch/arm64/lib/bitops.S
  *
- * Copyright (C) 2015, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
  *
- * This work is licensed under the terms of the GNU LGPL, version 2.
+ * This work is licensed under the terms of the GNU GPL, version 2.
  */
 
 #ifndef _BITOPS_H_

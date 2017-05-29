@@ -3,6 +3,10 @@
 /*
  * From arch/arm/include/asm/pgtable-3level.h
  *      arch/arm/include/asm/pgtable-3level-hwdef.h
+ *
+ * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ *
+ * This work is licensed under the terms of the GNU GPL, version 2.
  */
 
 #define PTRS_PER_PGD		4

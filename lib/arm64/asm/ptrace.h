@@ -4,6 +4,10 @@
  * Adapted from Linux kernel headers
  * arch/arm64/include/asm/ptrace.h
  * arch/arm64/include/uapi/asm/ptrace.h
+ *
+ * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ *
+ * This work is licensed under the terms of the GNU GPL, version 2.
  */
 
 /* Current Exception Level values, as contained in CurrentEL */
