@@ -8,6 +8,6 @@ extern int psci_invoke(unsigned long function_id, unsigned long arg0,
 extern int psci_cpu_on(unsigned long cpuid, unsigned long entry_point);
 extern void psci_sys_reset(void);
 extern int cpu_psci_cpu_boot(unsigned int cpu);
-extern void cpu_psci_cpu_die(unsigned int cpu);
+extern void cpu_psci_cpu_die(void);
 
 #endif /* _ASMARM_PSCI_H_ */

@@ -9,6 +9,7 @@
 #include <asm/psci.h>
 #include <asm/setup.h>
 #include <asm/page.h>
+#include <asm/smp.h>
 
 __attribute__((noinline))
 int psci_invoke(unsigned long function_id, unsigned long arg0,
@@ -40,11 +41,11 @@ int cpu_psci_cpu_boot(unsigned int cpu)
 }
 
 #define PSCI_POWER_STATE_TYPE_POWER_DOWN (1U << 16)
-void cpu_psci_cpu_die(unsigned int cpu)
+void cpu_psci_cpu_die(void)
 {
 	int err = psci_invoke(PSCI_0_2_FN_CPU_OFF,
 			PSCI_POWER_STATE_TYPE_POWER_DOWN, 0, 0);
-	printf("unable to power off CPU%d (%d)\n", cpu, err);
+	printf("CPU%d unable to power off (error = %d)\n", smp_processor_id(), err);
 }
 
 void psci_sys_reset(void)
