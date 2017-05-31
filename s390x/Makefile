@@ -15,6 +15,9 @@ LDFLAGS += -nostdlib
 # We want to keep intermediate files
 .PRECIOUS: %.o
 
+asm-offsets = lib/$(ARCH)/asm-offsets.h
+include $(SRCDIR)/scripts/asm-offsets.mak
+
 cflatobjs += lib/util.o
 cflatobjs += lib/alloc.o
 cflatobjs += lib/s390x/io.o
@@ -33,5 +36,8 @@ FLATLIBS = $(libcflat)
 		$(filter %.o, $^) $(FLATLIBS) $(@:.elf=.aux.o)
 	$(RM) $(@:.elf=.aux.o)
 
-arch_clean:
+arch_clean: asm_offsets_clean
 	$(RM) $(TEST_DIR)/*.{o,elf} $(TEST_DIR)/.*.d lib/s390x/.*.d
+
+generated-files = $(asm-offsets)
+$(test_cases:.elf=.o) $(cstart.o) $(cflatobjs): $(generated-files)
