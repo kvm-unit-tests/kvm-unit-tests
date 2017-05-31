@@ -10,6 +10,7 @@
  */
 #include <libcflat.h>
 #include <util.h>
+#include <asm/interrupt.h>
 
 static void test_fp(void)
 {
@@ -25,6 +26,17 @@ static void test_fp(void)
 	report("3.0/2.0 == 1.5", c == 1.5);
 }
 
+static void test_pgm_int(void)
+{
+	expect_pgm_int();
+	asm volatile("	.insn e,0x0001"); /* used for SW breakpoints in QEMU */
+	check_pgm_int_code(PGM_INT_CODE_OPERATION);
+
+	expect_pgm_int();
+	*((unsigned int*)-1) = 1;
+	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
+}
+
 int main(int argc, char**argv)
 {
 	report_prefix_push("selftest");
@@ -36,6 +48,7 @@ int main(int argc, char**argv)
 	report("argv[2] == 123", !strcmp(argv[2], "123"));
 
 	test_fp();
+	test_pgm_int();
 
 	return report_summary();
 }

@@ -10,6 +10,7 @@ CFLAGS += -Wextra
 CFLAGS += -I $(SRCDIR)/lib
 CFLAGS += -O2
 CFLAGS += -march=z900
+CFLAGS += -fno-delete-null-pointer-checks
 LDFLAGS += -nostdlib
 
 # We want to keep intermediate files
@@ -23,6 +24,7 @@ cflatobjs += lib/alloc.o
 cflatobjs += lib/s390x/io.o
 cflatobjs += lib/s390x/stack.o
 cflatobjs += lib/s390x/sclp-ascii.o
+cflatobjs += lib/s390x/interrupt.o
 
 OBJDIRS += lib/s390x
 
