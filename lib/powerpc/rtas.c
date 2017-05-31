@@ -69,17 +69,22 @@ void rtas_init(void)
 	}
 }
 
-int rtas_token(const char *service)
+int rtas_token(const char *service, uint32_t *token)
 {
 	const struct fdt_property *prop;
-	u32 *token;
+	u32 *data;
+
+	if (!dt_available())
+		return RTAS_UNKNOWN_SERVICE;
 
 	prop = fdt_get_property(dt_fdt(), rtas_node(), service, NULL);
-	if (prop) {
-		token = (u32 *)prop->data;
-		return fdt32_to_cpu(*token);
-	}
-	return RTAS_UNKNOWN_SERVICE;
+	if (!prop)
+		return RTAS_UNKNOWN_SERVICE;
+
+	data = (u32 *)prop->data;
+	*token = fdt32_to_cpu(*data);
+
+	return 0;
 }
 
 int rtas_call(int token, int nargs, int nret, int *outputs, ...)
@@ -116,6 +121,15 @@ int rtas_call(int token, int nargs, int nret, int *outputs, ...)
 
 void rtas_power_off(void)
 {
-	int ret = rtas_call(rtas_token("power-off"), 2, 1, NULL, -1, -1);
+	uint32_t token;
+	int ret;
+
+	ret = rtas_token("power-off", &token);
+	if (ret) {
+		puts("RTAS power-off not available\n");
+		return;
+	}
+
+	ret = rtas_call(token, 2, 1, NULL, -1, -1);
 	printf("RTAS power-off returned %d\n", ret);
 }

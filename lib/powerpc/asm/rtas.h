@@ -21,7 +21,7 @@ struct rtas_args {
 };
 
 extern void rtas_init(void);
-extern int rtas_token(const char *service);
+extern int rtas_token(const char *service, uint32_t *token);
 extern int rtas_call(int token, int nargs, int nret, int *outputs, ...);
 
 extern void rtas_power_off(void);

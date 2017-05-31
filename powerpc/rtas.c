@@ -39,14 +39,14 @@ static unsigned long mktime(int year, int month, int day,
 
 static void check_get_time_of_day(unsigned long start)
 {
-	int token;
+	uint32_t token;
 	int ret;
 	int now[8];
 	unsigned long t1, t2, count;
 
-	token = rtas_token("get-time-of-day");
-	report("token available", token != RTAS_UNKNOWN_SERVICE);
-	if (token == RTAS_UNKNOWN_SERVICE)
+	ret = rtas_token("get-time-of-day", &token);
+	report("token available", ret == 0);
+	if (ret)
 		return;
 
 	ret = rtas_call(token, 0, 8, now);
@@ -74,23 +74,25 @@ static void check_get_time_of_day(unsigned long start)
 
 static void check_set_time_of_day(void)
 {
-	int token;
+	uint32_t stod_token, gtod_token;
 	int ret;
 	int date[8];
 	unsigned long t1, t2, count;
 
-	token = rtas_token("set-time-of-day");
-	report("token available", token != RTAS_UNKNOWN_SERVICE);
-	if (token == RTAS_UNKNOWN_SERVICE)
+	ret = rtas_token("set-time-of-day", &stod_token);
+	report("token available", ret == 0);
+	if (ret)
 		return;
 
 	/* 23:59:59 28/2/2000 */
 
-	ret = rtas_call(token, 7, 1, NULL, 2000, 2, 28, 23, 59, 59);
+	ret = rtas_call(stod_token, 7, 1, NULL, 2000, 2, 28, 23, 59, 59);
 	report("execution", ret == 0);
 
 	/* check it has worked */
-	ret = rtas_call(rtas_token("get-time-of-day"), 0, 8, date);
+	ret = rtas_token("get-time-of-day", &gtod_token);
+	assert(ret == 0);
+	ret = rtas_call(gtod_token, 0, 8, date);
 	report("re-read", ret == 0);
 	t1 = mktime(2000, 2, 28, 23, 59, 59);
 	t2 = mktime(date[0], date[1], date[2],
@@ -100,7 +102,7 @@ static void check_set_time_of_day(void)
 	/* check it is running */
 	count = 0;
 	do {
-		ret = rtas_call(rtas_token("get-time-of-day"), 0, 8, date);
+		ret = rtas_call(gtod_token, 0, 8, date);
 		t2 = mktime(date[0], date[1], date[2],
 			    date[3], date[4], date[5]);
 		count++;

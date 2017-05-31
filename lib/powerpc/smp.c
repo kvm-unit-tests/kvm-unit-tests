@@ -27,12 +27,13 @@ struct secondary_entry_data {
  */
 int start_thread(int cpu_id, secondary_entry_fn entry, uint32_t r3)
 {
-	int query_token, start_token, outputs[1], ret;
+	uint32_t query_token, start_token;
+	int outputs[1], ret;
 
-	query_token = rtas_token("query-cpu-stopped-state");
-	start_token = rtas_token("start-cpu");
-	assert(query_token != RTAS_UNKNOWN_SERVICE &&
-		start_token != RTAS_UNKNOWN_SERVICE);
+	ret = rtas_token("query-cpu-stopped-state", &query_token);
+	assert(ret == 0);
+	ret = rtas_token("start-cpu", &start_token);
+	assert(ret == 0);
 
 	ret = rtas_call(query_token, 1, 2, outputs, cpu_id);
 	if (ret) {
