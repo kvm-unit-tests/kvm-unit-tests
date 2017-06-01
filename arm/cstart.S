@@ -119,7 +119,7 @@ secondary_entry:
 
 	/* r0 is now the entry function, run it */
 	blx	r0
-	b	secondary_halt
+	b	do_idle
 
 .globl halt
 halt:

@@ -16,7 +16,7 @@
 
 cpumask_t cpu_present_mask;
 cpumask_t cpu_online_mask;
-cpumask_t cpu_halted_mask;
+cpumask_t cpu_idle_mask;
 
 struct secondary_data {
 	void *stack;            /* must be first member of struct */
@@ -68,12 +68,19 @@ void smp_boot_secondary(int cpu, secondary_entry_fn entry)
 	spin_unlock(&lock);
 }
 
-void secondary_halt(void)
+void do_idle(void)
 {
-	struct thread_info *ti = current_thread_info();
+	int cpu = smp_processor_id();
 
-	cpumask_set_cpu(ti->cpu, &cpu_halted_mask);
-	halt();
+	set_cpu_idle(cpu, true);
+	sev();
+
+	for (;;) {
+		while (cpu_idle(cpu))
+			wfe();
+		set_cpu_idle(cpu, true);
+		sev();
+	}
 }
 
 void smp_run(void (*func)(void))
@@ -87,8 +94,8 @@ void smp_run(void (*func)(void))
 	}
 	func();
 
-	cpumask_set_cpu(0, &cpu_halted_mask);
-	while (!cpumask_full(&cpu_halted_mask))
-		cpu_relax();
-	cpumask_clear_cpu(0, &cpu_halted_mask);
+	set_cpu_idle(0, true);
+	while (!cpumask_full(&cpu_idle_mask))
+		wfe();
+	set_cpu_idle(0, false);
 }

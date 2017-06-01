@@ -80,7 +80,7 @@ secondary_entry:
 
 	/* x0 is now the entry function, run it */
 	blr	x0
-	b	secondary_halt
+	b	do_idle
 
 .globl halt
 halt:
