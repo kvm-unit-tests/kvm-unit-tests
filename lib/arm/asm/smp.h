@@ -48,6 +48,8 @@ static inline void set_cpu_idle(int cpu, bool idle)
 
 typedef void (*secondary_entry_fn)(void);
 extern void smp_boot_secondary(int cpu, secondary_entry_fn entry);
+extern void on_cpu_async(int cpu, void (*func)(void *data), void *data);
+extern void on_cpu(int cpu, void (*func)(void *data), void *data);
 extern void smp_run(void (*func)(void));
 
 #endif /* _ASMARM_SMP_H_ */

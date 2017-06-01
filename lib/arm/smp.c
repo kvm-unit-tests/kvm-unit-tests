@@ -48,13 +48,9 @@ secondary_entry_fn secondary_cinit(void)
 	return entry;
 }
 
-void smp_boot_secondary(int cpu, secondary_entry_fn entry)
+static void __smp_boot_secondary(int cpu, secondary_entry_fn entry)
 {
 	int ret;
-
-	spin_lock(&lock);
-
-	assert_msg(!cpu_online(cpu), "CPU%d already boot once", cpu);
 
 	secondary_data.stack = thread_stack_alloc();
 	secondary_data.entry = entry;
@@ -64,9 +60,22 @@ void smp_boot_secondary(int cpu, secondary_entry_fn entry)
 
 	while (!cpu_online(cpu))
 		wfe();
+}
 
+void smp_boot_secondary(int cpu, secondary_entry_fn entry)
+{
+	spin_lock(&lock);
+	assert_msg(!cpu_online(cpu), "CPU%d already boot once", cpu);
+	__smp_boot_secondary(cpu, entry);
 	spin_unlock(&lock);
 }
+
+typedef void (*on_cpu_func)(void *);
+struct on_cpu_info {
+	on_cpu_func func;
+	void *data;
+};
+static struct on_cpu_info on_cpu_info[NR_CPUS];
 
 void do_idle(void)
 {
@@ -78,9 +87,48 @@ void do_idle(void)
 	for (;;) {
 		while (cpu_idle(cpu))
 			wfe();
+		smp_rmb();
+		on_cpu_info[cpu].func(on_cpu_info[cpu].data);
+		on_cpu_info[cpu].func = NULL;
+		smp_wmb();
 		set_cpu_idle(cpu, true);
 		sev();
 	}
+}
+
+void on_cpu_async(int cpu, void (*func)(void *data), void *data)
+{
+	if (cpu == smp_processor_id()) {
+		func(data);
+		return;
+	}
+
+	spin_lock(&lock);
+	if (!cpu_online(cpu))
+		__smp_boot_secondary(cpu, do_idle);
+	spin_unlock(&lock);
+
+	for (;;) {
+		while (!cpu_idle(cpu))
+			wfe();
+		spin_lock(&lock);
+		if ((volatile void *)on_cpu_info[cpu].func == NULL)
+			break;
+		spin_unlock(&lock);
+	}
+	on_cpu_info[cpu].func = func;
+	on_cpu_info[cpu].data = data;
+	spin_unlock(&lock);
+	set_cpu_idle(cpu, false);
+	sev();
+}
+
+void on_cpu(int cpu, void (*func)(void *data), void *data)
+{
+	on_cpu_async(cpu, func, data);
+
+	while (!cpu_idle(cpu))
+		wfe();
 }
 
 void smp_run(void (*func)(void))
