@@ -342,7 +342,7 @@ int main(int argc, char **argv)
 	} else if (strcmp(argv[1], "smp") == 0) {
 
 		report("PSCI version", psci_check());
-		smp_run(cpu_report);
+		on_cpus(cpu_report);
 
 	} else {
 		printf("Unknown subtest\n");

@@ -131,14 +131,14 @@ void on_cpu(int cpu, void (*func)(void *data), void *data)
 		wfe();
 }
 
-void smp_run(void (*func)(void))
+void on_cpus(void (*func)(void))
 {
 	int cpu;
 
 	for_each_present_cpu(cpu) {
 		if (cpu == 0)
 			continue;
-		smp_boot_secondary(cpu, func);
+		on_cpu_async(cpu, (on_cpu_func)func, NULL);
 	}
 	func();
 

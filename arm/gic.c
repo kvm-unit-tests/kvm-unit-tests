@@ -327,7 +327,7 @@ int main(int argc, char **argv)
 	if (strcmp(argv[1], "ipi") == 0) {
 		report_prefix_push(argv[1]);
 		nr_cpu_check(2);
-		smp_run(ipi_test);
+		on_cpus(ipi_test);
 	} else if (strcmp(argv[1], "active") == 0) {
 		run_active_clear_test();
 	} else {

@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 		lock_ops.unlock = none_unlock;
 	}
 
-	smp_run(test_spinlock);
+	on_cpus(test_spinlock);
 
 	return report_summary();
 }
