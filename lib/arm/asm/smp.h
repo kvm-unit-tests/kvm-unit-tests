@@ -10,6 +10,8 @@
 
 #define smp_processor_id()		(current_thread_info()->cpu)
 
+extern bool cpu0_calls_idle;
+
 extern void halt(void);
 extern void do_idle(void);
 

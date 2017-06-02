@@ -14,6 +14,8 @@
 #include <asm/psci.h>
 #include <asm/smp.h>
 
+bool cpu0_calls_idle;
+
 cpumask_t cpu_present_mask;
 cpumask_t cpu_online_mask;
 cpumask_t cpu_idle_mask;
@@ -81,6 +83,9 @@ void do_idle(void)
 {
 	int cpu = smp_processor_id();
 
+	if (cpu == 0)
+		cpu0_calls_idle = true;
+
 	set_cpu_idle(cpu, true);
 	sev();
 
@@ -102,6 +107,9 @@ void on_cpu_async(int cpu, void (*func)(void *data), void *data)
 		func(data);
 		return;
 	}
+
+	assert_msg(cpu != 0 || cpu0_calls_idle, "Waiting on CPU0, which is unlikely to idle. "
+						"If this is intended set cpu0_calls_idle=1");
 
 	spin_lock(&lock);
 	if (!cpu_online(cpu))
@@ -133,17 +141,15 @@ void on_cpu(int cpu, void (*func)(void *data), void *data)
 
 void on_cpus(void (*func)(void))
 {
-	int cpu;
+	int cpu, me = smp_processor_id();
 
 	for_each_present_cpu(cpu) {
-		if (cpu == 0)
+		if (cpu == me)
 			continue;
 		on_cpu_async(cpu, (on_cpu_func)func, NULL);
 	}
 	func();
 
-	set_cpu_idle(0, true);
-	while (!cpumask_full(&cpu_idle_mask))
+	while (cpumask_weight(&cpu_idle_mask) < nr_cpus - 1)
 		wfe();
-	set_cpu_idle(0, false);
 }
