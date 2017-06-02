@@ -76,8 +76,23 @@ typedef void (*on_cpu_func)(void *);
 struct on_cpu_info {
 	on_cpu_func func;
 	void *data;
+	cpumask_t waiters;
 };
 static struct on_cpu_info on_cpu_info[NR_CPUS];
+
+static void cpu_wait(int cpu)
+{
+	int me = smp_processor_id();
+
+	if (cpu == me)
+		return;
+
+	cpumask_set_cpu(me, &on_cpu_info[cpu].waiters);
+	assert_msg(!cpumask_test_cpu(cpu, &on_cpu_info[me].waiters), "CPU%d <=> CPU%d deadlock detected", me, cpu);
+	while (!cpu_idle(cpu))
+		wfe();
+	cpumask_clear_cpu(me, &on_cpu_info[cpu].waiters);
+}
 
 void do_idle(void)
 {
@@ -117,8 +132,7 @@ void on_cpu_async(int cpu, void (*func)(void *data), void *data)
 	spin_unlock(&lock);
 
 	for (;;) {
-		while (!cpu_idle(cpu))
-			wfe();
+		cpu_wait(cpu);
 		spin_lock(&lock);
 		if ((volatile void *)on_cpu_info[cpu].func == NULL)
 			break;
@@ -134,9 +148,7 @@ void on_cpu_async(int cpu, void (*func)(void *data), void *data)
 void on_cpu(int cpu, void (*func)(void *data), void *data)
 {
 	on_cpu_async(cpu, func, data);
-
-	while (!cpu_idle(cpu))
-		wfe();
+	cpu_wait(cpu);
 }
 
 void on_cpus(void (*func)(void))
@@ -150,6 +162,14 @@ void on_cpus(void (*func)(void))
 	}
 	func();
 
+	for_each_present_cpu(cpu) {
+		if (cpu == me)
+			continue;
+		cpumask_set_cpu(me, &on_cpu_info[cpu].waiters);
+		assert_msg(!cpumask_test_cpu(cpu, &on_cpu_info[me].waiters), "CPU%d <=> CPU%d deadlock detected", me, cpu);
+	}
 	while (cpumask_weight(&cpu_idle_mask) < nr_cpus - 1)
 		wfe();
+	for_each_present_cpu(cpu)
+		cpumask_clear_cpu(me, &on_cpu_info[cpu].waiters);
 }
