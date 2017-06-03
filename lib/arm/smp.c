@@ -80,6 +80,35 @@ struct on_cpu_info {
 };
 static struct on_cpu_info on_cpu_info[NR_CPUS];
 
+static void __deadlock_check(int cpu, const cpumask_t *waiters, bool *found)
+{
+	int i;
+
+	for_each_cpu(i, waiters) {
+		if (i == cpu) {
+			printf("CPU%d", cpu);
+			*found = true;
+			return;
+		}
+		__deadlock_check(cpu, &on_cpu_info[i].waiters, found);
+		if (*found) {
+			printf(" <=> CPU%d", i);
+			return;
+		}
+	}
+}
+
+static void deadlock_check(int me, int cpu)
+{
+	bool found = false;
+
+	__deadlock_check(cpu, &on_cpu_info[me].waiters, &found);
+	if (found) {
+		printf(" <=> CPU%d deadlock detectd\n", me);
+		assert(0);
+	}
+}
+
 static void cpu_wait(int cpu)
 {
 	int me = smp_processor_id();
@@ -88,7 +117,7 @@ static void cpu_wait(int cpu)
 		return;
 
 	cpumask_set_cpu(me, &on_cpu_info[cpu].waiters);
-	assert_msg(!cpumask_test_cpu(cpu, &on_cpu_info[me].waiters), "CPU%d <=> CPU%d deadlock detected", me, cpu);
+	deadlock_check(me, cpu);
 	while (!cpu_idle(cpu))
 		wfe();
 	cpumask_clear_cpu(me, &on_cpu_info[cpu].waiters);
@@ -166,7 +195,7 @@ void on_cpus(void (*func)(void))
 		if (cpu == me)
 			continue;
 		cpumask_set_cpu(me, &on_cpu_info[cpu].waiters);
-		assert_msg(!cpumask_test_cpu(cpu, &on_cpu_info[me].waiters), "CPU%d <=> CPU%d deadlock detected", me, cpu);
+		deadlock_check(me, cpu);
 	}
 	while (cpumask_weight(&cpu_idle_mask) < nr_cpus - 1)
 		wfe();
