@@ -69,7 +69,7 @@ static void synic_sints_prepare(int vcpu)
     for (i = 0; i < HV_SYNIC_SINT_COUNT; i++) {
         vec = sint_vecs[i].vec;
         auto_eoi = sint_vecs[i].auto_eoi;
-        synic_sint_create(vcpu, i, vec, auto_eoi);
+        synic_sint_create(i, vec, auto_eoi);
     }
 }
 
@@ -130,13 +130,11 @@ static void synic_test(void *ctx)
 
 static void synic_test_cleanup(void *ctx)
 {
-    int vcpu = smp_id();
     int i;
 
     irq_enable();
     for (i = 0; i < HV_SYNIC_SINT_COUNT; i++) {
-        synic_sint_destroy(vcpu, i);
-        wrmsr(HV_X64_MSR_SINT0 + i, 0xFF|HV_SYNIC_SINT_MASKED);
+        synic_sint_destroy(i);
     }
 
     wrmsr(HV_X64_MSR_SCONTROL, 0);

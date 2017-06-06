@@ -170,9 +170,9 @@ static inline bool hv_time_ref_counter_supported(void)
     return cpuid(HYPERV_CPUID_FEATURES).a & HV_X64_MSR_TIME_REF_COUNT_AVAILABLE;
 }
 
-void synic_sint_create(int vcpu, int sint, int vec, bool auto_eoi);
-void synic_sint_set(int vcpu, int sint);
-void synic_sint_destroy(int vcpu, int sint);
+void synic_sint_create(u8 sint, u8 vec, bool auto_eoi);
+void synic_sint_set(u8 vcpu, u8 sint);
+void synic_sint_destroy(u8 sint);
 
 struct hv_reference_tsc_page {
         uint32_t tsc_sequence;

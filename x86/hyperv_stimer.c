@@ -223,12 +223,10 @@ static void cpu_comp(void)
 
 static void stimer_test_prepare(void *ctx)
 {
-    int vcpu = smp_id();
-
     write_cr3((ulong)ctx);
     synic_enable();
-    synic_sint_create(vcpu, SINT1_NUM, SINT1_VEC, false);
-    synic_sint_create(vcpu, SINT2_NUM, SINT2_VEC, true);
+    synic_sint_create(SINT1_NUM, SINT1_VEC, false);
+    synic_sint_create(SINT2_NUM, SINT2_VEC, true);
     cpu_comp();
 }
 
@@ -302,11 +300,9 @@ static void stimer_test(void *ctx)
 
 static void stimer_test_cleanup(void *ctx)
 {
-    int vcpu = smp_id();
-
     stimers_shutdown();
-    synic_sint_destroy(vcpu, SINT1_NUM);
-    synic_sint_destroy(vcpu, SINT2_NUM);
+    synic_sint_destroy(SINT1_NUM);
+    synic_sint_destroy(SINT2_NUM);
     synic_disable();
     cpu_comp();
 }
