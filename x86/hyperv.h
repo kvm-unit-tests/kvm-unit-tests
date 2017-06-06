@@ -155,12 +155,6 @@ struct hv_message_page {
         struct hv_message sint_message[HV_SYNIC_SINT_COUNT];
 };
 
-enum {
-    HV_TEST_DEV_SINT_ROUTE_CREATE = 1,
-    HV_TEST_DEV_SINT_ROUTE_DESTROY,
-    HV_TEST_DEV_SINT_ROUTE_SET_SINT
-};
-
 static inline bool synic_supported(void)
 {
    return cpuid(HYPERV_CPUID_FEATURES).a & HV_X64_MSR_SYNIC_AVAILABLE;

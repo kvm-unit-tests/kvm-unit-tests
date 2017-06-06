@@ -1,7 +1,14 @@
 #include "hyperv.h"
 #include "asm/io.h"
+#include "smp.h"
 
-static void synic_ctl(u8 ctl, u8 vcpu_id, u8 sint)
+enum {
+    HV_TEST_DEV_SINT_ROUTE_CREATE = 1,
+    HV_TEST_DEV_SINT_ROUTE_DESTROY,
+    HV_TEST_DEV_SINT_ROUTE_SET_SINT,
+};
+
+static void synic_ctl(u32 ctl, u32 vcpu_id, u32 sint)
 {
     outl((ctl << 16)|((vcpu_id) << 8)|sint, 0x3000);
 }
