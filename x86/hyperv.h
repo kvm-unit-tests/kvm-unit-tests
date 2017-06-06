@@ -173,6 +173,10 @@ static inline bool hv_time_ref_counter_supported(void)
 void synic_sint_create(u8 sint, u8 vec, bool auto_eoi);
 void synic_sint_set(u8 vcpu, u8 sint);
 void synic_sint_destroy(u8 sint);
+void msg_conn_create(u8 sint, u8 vec, u8 conn_id);
+void msg_conn_destroy(u8 sint, u8 conn_id);
+void evt_conn_create(u8 sint, u8 vec, u8 conn_id);
+void evt_conn_destroy(u8 sint, u8 conn_id);
 
 struct hv_reference_tsc_page {
         uint32_t tsc_sequence;
