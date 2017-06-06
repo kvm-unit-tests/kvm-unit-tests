@@ -10,6 +10,9 @@
 #define HV_X64_MSR_SYNIC_AVAILABLE              (1 << 2)
 #define HV_X64_MSR_SYNTIMER_AVAILABLE           (1 << 3)
 
+#define HV_X64_MSR_GUEST_OS_ID                  0x40000000
+#define HV_X64_MSR_HYPERCALL                    0x40000001
+
 #define HV_X64_MSR_TIME_REF_COUNT               0x40000020
 #define HV_X64_MSR_REFERENCE_TSC                0x40000021
 
@@ -153,6 +156,31 @@ struct hv_message {
 /* Define the synthetic interrupt message page layout. */
 struct hv_message_page {
         struct hv_message sint_message[HV_SYNIC_SINT_COUNT];
+};
+
+#define HV_EVENT_FLAGS_COUNT	(256 * 8)
+
+struct hv_event_flags {
+	ulong flags[HV_EVENT_FLAGS_COUNT / (8 * sizeof(ulong))];
+};
+
+struct hv_event_flags_page {
+	struct hv_event_flags slot[HV_SYNIC_SINT_COUNT];
+};
+
+#define HV_X64_MSR_HYPERCALL_ENABLE             0x1
+
+#define HV_HYPERCALL_FAST               (1u << 16)
+
+#define HVCALL_POST_MESSAGE                     0x5c
+#define HVCALL_SIGNAL_EVENT                     0x5d
+
+struct hv_input_post_message {
+	u32 connectionid;
+	u32 reserved;
+	u32 message_type;
+	u32 payload_size;
+	u64 payload[HV_MESSAGE_PAYLOAD_QWORD_COUNT];
 };
 
 static inline bool synic_supported(void)
