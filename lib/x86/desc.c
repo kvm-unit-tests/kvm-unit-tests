@@ -262,19 +262,6 @@ bool exception_rflags_rf(void)
 static char intr_alt_stack[4096];
 
 #ifndef __x86_64__
-/*
- * GDT, with 6 entries:
- * 0x00 - NULL descriptor
- * 0x08 - Code segment (ring 0)
- * 0x10 - Data segment (ring 0)
- * 0x18 - Not present code segment (ring 0)
- * 0x20 - Code segment (ring 3)
- * 0x28 - Data segment (ring 3)
- * 0x30 - Interrupt task
- * 0x38 to 0x78 - Free to use for test cases
- * 0x80 - Primary task (CPU 0)
- */
-
 void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran)
 {
 	int num = sel >> 3;
