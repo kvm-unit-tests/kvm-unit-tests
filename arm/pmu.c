@@ -14,6 +14,7 @@
  * for more details.
  */
 #include "libcflat.h"
+#include "errata.h"
 #include "asm/barrier.h"
 #include "asm/sysreg.h"
 #include "asm/processor.h"
@@ -57,18 +58,12 @@ static inline uint8_t get_pmu_version(void)
 
 static inline uint64_t get_pmccntr(void)
 {
-	if (pmu_version == 0x3)
-		return read_sysreg(PMCCNTR64);
-	else
-		return read_sysreg(PMCCNTR32);
+	return read_sysreg(PMCCNTR32);
 }
 
 static inline void set_pmccntr(uint64_t value)
 {
-	if (pmu_version == 0x3)
-		write_sysreg(value, PMCCNTR64);
-	else
-		write_sysreg(value & 0xffffffff, PMCCNTR32);
+	write_sysreg(value & 0xffffffff, PMCCNTR32);
 }
 
 /* PMCCFILTR is an obsolete name for PMXEVTYPER31 in ARMv7 */
@@ -267,6 +262,19 @@ static bool check_cpi(int cpi)
 	return true;
 }
 
+static void pmccntr64_test(void)
+{
+#ifdef __arm__
+	if (pmu_version == 0x3) {
+		if (ERRATA(9e3f7a296940)) {
+			write_sysreg(0xdead, PMCCNTR64);
+			report("pmccntr64", read_sysreg(PMCCNTR64) == 0xdead);
+		} else
+			report_skip("Skipping unsafe pmccntr64 test. Set ERRATA_9e3f7a296940=y to enable.");
+	}
+#endif
+}
+
 /* Return FALSE if no PMU found, otherwise return TRUE */
 bool pmu_probe(void)
 {
@@ -292,6 +300,8 @@ int main(int argc, char *argv[])
 	report("Control register", check_pmcr());
 	report("Monotonically increasing cycle count", check_cycles_increase());
 	report("Cycle/instruction ratio", check_cpi(cpi));
+
+	pmccntr64_test();
 
 	return report_summary();
 }
