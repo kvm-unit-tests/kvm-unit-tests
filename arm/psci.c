@@ -8,6 +8,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <libcflat.h>
+#include <errata.h>
 #include <asm/processor.h>
 #include <asm/smp.h>
 #include <asm/psci.h>
@@ -135,7 +136,11 @@ int main(void)
 	report("invalid-function", psci_invalid_function());
 	report("affinity-info-on", psci_affinity_info_on());
 	report("affinity-info-off", psci_affinity_info_off());
-	report("cpu-on", psci_cpu_on_test());
+
+	if (ERRATA(6c7a5dce22b3))
+		report("cpu-on", psci_cpu_on_test());
+	else
+		report_skip("Skipping unsafe cpu-on test. Set ERRATA_6c7a5dce22b3=y to enable.");
 
 done:
 #if 0
