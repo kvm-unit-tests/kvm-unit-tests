@@ -43,7 +43,7 @@ static void none_unlock(int *lock_var)
 static int global_a, global_b;
 static int global_lock;
 
-static void test_spinlock(void)
+static void test_spinlock(void *data __unused)
 {
 	int i, errors = 0;
 	int cpu = smp_processor_id();
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 		lock_ops.unlock = none_unlock;
 	}
 
-	on_cpus(test_spinlock);
+	on_cpus(test_spinlock, NULL);
 
 	return report_summary();
 }

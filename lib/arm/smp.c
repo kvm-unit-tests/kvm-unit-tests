@@ -72,9 +72,8 @@ void smp_boot_secondary(int cpu, secondary_entry_fn entry)
 	spin_unlock(&lock);
 }
 
-typedef void (*on_cpu_func)(void *);
 struct on_cpu_info {
-	on_cpu_func func;
+	void (*func)(void *data);
 	void *data;
 	cpumask_t waiters;
 };
@@ -180,16 +179,16 @@ void on_cpu(int cpu, void (*func)(void *data), void *data)
 	cpu_wait(cpu);
 }
 
-void on_cpus(void (*func)(void))
+void on_cpus(void (*func)(void *data), void *data)
 {
 	int cpu, me = smp_processor_id();
 
 	for_each_present_cpu(cpu) {
 		if (cpu == me)
 			continue;
-		on_cpu_async(cpu, (on_cpu_func)func, NULL);
+		on_cpu_async(cpu, func, data);
 	}
-	func();
+	func(data);
 
 	for_each_present_cpu(cpu) {
 		if (cpu == me)

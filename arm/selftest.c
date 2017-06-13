@@ -308,7 +308,7 @@ static bool psci_check(void)
 	return true;
 }
 
-static void cpu_report(void)
+static void cpu_report(void *data __unused)
 {
 	uint64_t mpidr = get_mpidr();
 	int cpu = smp_processor_id();
@@ -342,7 +342,7 @@ int main(int argc, char **argv)
 	} else if (strcmp(argv[1], "smp") == 0) {
 
 		report("PSCI version", psci_check());
-		on_cpus(cpu_report);
+		on_cpus(cpu_report, NULL);
 
 	} else {
 		printf("Unknown subtest\n");

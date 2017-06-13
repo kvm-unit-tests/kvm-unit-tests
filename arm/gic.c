@@ -240,7 +240,7 @@ static void ipi_recv(void)
 		wfi();
 }
 
-static void ipi_test(void)
+static void ipi_test(void *data __unused)
 {
 	if (smp_processor_id() == IPI_SENDER)
 		ipi_send();
@@ -327,7 +327,7 @@ int main(int argc, char **argv)
 	if (strcmp(argv[1], "ipi") == 0) {
 		report_prefix_push(argv[1]);
 		nr_cpu_check(2);
-		on_cpus(ipi_test);
+		on_cpus(ipi_test, NULL);
 	} else if (strcmp(argv[1], "active") == 0) {
 		run_active_clear_test();
 	} else {
