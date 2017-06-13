@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 
-[ -z "$STANDALONE" ] && source scripts/arch-run.bash
+if [ -z "$STANDALONE" ]; then
+	if [ ! -f config.mak ]; then
+		echo "run ./configure && make first. See ./configure -h"
+		exit 2
+	fi
+	source config.mak
+	source scripts/arch-run.bash
+fi
 
 qemu=$(search_qemu_binary)
 
