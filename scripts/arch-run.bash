@@ -155,3 +155,9 @@ search_qemu_binary ()
 	command -v $qemu
 	export PATH=$save_path
 }
+
+initrd_create ()
+{
+	unset INITRD
+	[ -f "$ENV" ] && INITRD="-initrd $ENV"
+}
