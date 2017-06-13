@@ -12,7 +12,6 @@
 #define MAX_CPUS 4
 
 static atomic_t isr_enter_count[MAX_CPUS];
-static atomic_t cpus_comp_count;
 
 static void synic_sint_auto_eoi_isr(isr_regs_t *regs)
 {
@@ -91,7 +90,7 @@ static void synic_test_prepare(void *ctx)
     r = rdmsr(HV_X64_MSR_EOM);
     if (r != 0) {
         report("Hyper-V SynIC test, EOM read %#" PRIx64, false, r);
-        goto ret;
+        return;
     }
 
     wrmsr(HV_X64_MSR_SIMP, (u64)virt_to_phys(alloc_page()) |
@@ -101,8 +100,6 @@ static void synic_test_prepare(void *ctx)
     wrmsr(HV_X64_MSR_SCONTROL, HV_SYNIC_CONTROL_ENABLE);
 
     synic_sints_prepare(smp_id());
-ret:
-    atomic_inc(&cpus_comp_count);
 }
 
 static void synic_sints_test(int dst_vcpu)
@@ -125,7 +122,6 @@ static void synic_test(void *ctx)
 
     irq_enable();
     synic_sints_test(dst_vcpu);
-    atomic_inc(&cpus_comp_count);
 }
 
 static void synic_test_cleanup(void *ctx)
@@ -140,7 +136,6 @@ static void synic_test_cleanup(void *ctx)
     wrmsr(HV_X64_MSR_SCONTROL, 0);
     wrmsr(HV_X64_MSR_SIMP, 0);
     wrmsr(HV_X64_MSR_SIEFP, 0);
-    atomic_inc(&cpus_comp_count);
 }
 
 int main(int ac, char **av)
@@ -154,40 +149,25 @@ int main(int ac, char **av)
         smp_init();
         enable_apic();
 
-        synic_prepare_sint_vecs();
-
         ncpus = cpu_count();
-        if (ncpus > MAX_CPUS) {
-            ncpus = MAX_CPUS;
-        }
+        if (ncpus > MAX_CPUS)
+            report_abort("number cpus exceeds %d", MAX_CPUS);
         printf("ncpus = %d\n", ncpus);
 
-        atomic_set(&cpus_comp_count, 0);
-        for (i = 0; i < ncpus; i++) {
-            on_cpu_async(i, synic_test_prepare, (void *)read_cr3());
-        }
-        printf("prepare\n");
-        while (atomic_read(&cpus_comp_count) != ncpus) {
-            pause();
-        }
+        synic_prepare_sint_vecs();
 
-        atomic_set(&cpus_comp_count, 0);
+        printf("prepare\n");
+        on_cpus(synic_test_prepare, (void *)read_cr3());
+
         for (i = 0; i < ncpus; i++) {
             printf("test %d -> %d\n", i, ncpus - 1 - i);
             on_cpu_async(i, synic_test, (void *)(ulong)(ncpus - 1 - i));
         }
-        while (atomic_read(&cpus_comp_count) != ncpus) {
+        while (cpus_active() > 1)
             pause();
-        }
 
-        atomic_set(&cpus_comp_count, 0);
-        for (i = 0; i < ncpus; i++) {
-            on_cpu_async(i, synic_test_cleanup, NULL);
-        }
         printf("cleanup\n");
-        while (atomic_read(&cpus_comp_count) != ncpus) {
-            pause();
-        }
+        on_cpus(synic_test_cleanup, NULL);
 
         ok = true;
         for (i = 0; i < ncpus; ++i) {
