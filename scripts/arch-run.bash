@@ -173,6 +173,8 @@ env_add_errata ()
 			test -v $errata && continue
 			eval export "$line"
 		done
+	elif [ ! -f "$ENV" ]; then
+		env_generate_errata
 	fi
 
 	if grep -q '^ERRATA_' <(env); then
@@ -182,6 +184,50 @@ env_add_errata ()
 		[ -f "$ENV_OLD" ] && grep -v '^ERRATA_' "$ENV_OLD" > $ENV
 		grep '^ERRATA_' <(env) >> $ENV
 	fi
+}
+
+env_generate_errata ()
+{
+	local kernel_version_string=$(uname -r)
+	local kernel_version kernel_patchlevel kernel_sublevel
+	local line commit minver errata v p s have
+
+	IFS=. read kernel_version kernel_patchlevel kernel_sublevel <<<$kernel_version_string
+	kernel_sublevel=${kernel_sublevel%%[!0-9]*}
+
+	[ "$ENVIRON_DEFAULT" != "yes" ] && return
+	[ ! -f errata.txt ] && return
+
+	for line in $(grep -v '^#' errata.txt | tr -d '[:blank:]' | cut -d: -f1,2); do
+		commit=${line%:*}
+		minver=${line#*:}
+
+		errata="ERRATA_$commit"
+		test -v $errata && continue
+
+		IFS=. read v p s <<<$minver
+		s=${s%%[!0-9]*}
+
+		if (( $kernel_version > $v ||
+		      ($kernel_version == $v && $kernel_patchlevel > $p) )); then
+			have=y
+		elif (( $kernel_version == $v && $kernel_patchlevel == $p )); then
+			if [ "$kernel_sublevel" ] && [ "$s" ]; then
+				if (( $kernel_sublevel >= $s )); then
+					have=y
+				else
+					have=n
+				fi
+			elif [ "$s" ] && (( $s != 0 )); then
+				have=n
+			else
+				have=y
+			fi
+		else
+			have=n
+		fi
+		eval export "$errata=$have"
+	done
 }
 
 trap_exit_push ()
