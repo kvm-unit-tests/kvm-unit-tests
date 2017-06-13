@@ -194,5 +194,6 @@ FIRMWARE=$firmware
 ENDIAN=$endian
 PRETTY_PRINT_STACKS=$pretty_print_stacks
 ENVIRON_DEFAULT=$environ_default
+ERRATATXT=errata.txt
 U32_LONG_FMT=$u32_long
 EOF

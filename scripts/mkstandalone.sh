@@ -40,6 +40,7 @@ generate_test ()
 
 	echo "#!/usr/bin/env bash"
 	echo "export STANDALONE=yes"
+	echo "export ENVIRON_DEFAULT=yes"
 	echo "export HOST=\$(uname -m | sed -e 's/i.86/i386/;s/arm.*/arm/;s/ppc64.*/ppc64/')"
 	echo "export PRETTY_PRINT_STACKS=no"
 
@@ -60,6 +61,11 @@ generate_test ()
 	if [ "$FIRMWARE" ]; then
 		temp_file FIRMWARE "$FIRMWARE"
 		echo 'export FIRMWARE'
+	fi
+
+	if [ "$ERRATATXT" ]; then
+		temp_file ERRATATXT "$ERRATATXT"
+		echo 'export ERRATATXT'
 	fi
 
 	temp_file bin "$kernel"

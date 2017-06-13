@@ -196,9 +196,9 @@ env_generate_errata ()
 	kernel_sublevel=${kernel_sublevel%%[!0-9]*}
 
 	[ "$ENVIRON_DEFAULT" != "yes" ] && return
-	[ ! -f errata.txt ] && return
+	[ ! -f "$ERRATATXT" ] && return
 
-	for line in $(grep -v '^#' errata.txt | tr -d '[:blank:]' | cut -d: -f1,2); do
+	for line in $(grep -v '^#' "$ERRATATXT" | tr -d '[:blank:]' | cut -d: -f1,2); do
 		commit=${line%:*}
 		minver=${line#*:}
 
