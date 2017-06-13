@@ -19,6 +19,7 @@ Usage: $0 [-h] [-v] [-a] [-g group] [-j NUM-TASKS]
     -h: Output this help text
     -v: Enables verbose mode
     -a: Run all tests, including those flagged as 'nodefault'
+        and those guarded by errata.
     -g: Only execute tests in the given group
     -j: Execute tests in parallel
 
@@ -35,6 +36,7 @@ while getopts "ag:hj:v" opt; do
     case $opt in
         a)
             run_all_tests="yes"
+            export ERRATA_FORCE=y
             ;;
         g)
             only_group=$OPTARG
