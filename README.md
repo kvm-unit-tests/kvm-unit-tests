@@ -71,6 +71,40 @@ Additionally these self-explanatory variables are reserved
  QEMU_MAJOR, QEMU_MINOR, QEMU_MICRO, KERNEL_VERSION, KERNEL_PATCHLEVEL,
  KERNEL_SUBLEVEL, KERNEL_EXTRAVERSION
 
+# Guarding unsafe tests
+
+Some tests are not safe to run by default, as they may crash the
+host. kvm-unit-tests provides two ways to handle tests like those.
+
+ 1) Adding 'nodefault' to the groups field for the unit test in the
+    unittests.cfg file. When a unit test is in the nodefault group
+    it is only run when invoked
+
+    a) independently, arch-run arch/test
+    b) by specifying any other non-nodefault group it is in,
+       groups = nodefault,mygroup : ./run_tests.sh -g mygroup
+    c) by specifying all tests should be run, ./run_tests.sh -a
+
+ 2) Making the test conditional on errata in the code,
+    if (ERRATA(abcdef012345)) {
+        do_unsafe_test();
+    }
+
+    With the errata condition the unsafe unit test is only run
+    when
+
+    a) the ERRATA_abcdef012345 environ variable is provided and 'y'
+    b) the ERRATA_FORCE environ variable is provided and 'y'
+    c) by specifying all tests should be run, ./run_tests.sh -a
+       (The -a switch ensures the ERRATA_FORCE is provided and set
+        to 'y'.)
+
+The errata.txt file provides a mapping of the commits needed by errata
+conditionals to their respective minimum kernel versions. By default,
+when the user does not provide an environ, then an environ generated
+from the errata.txt file and the host's kernel version is provided to
+all unit tests.
+
 # Contributing
 
 ## Directory structure
