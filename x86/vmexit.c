@@ -419,7 +419,6 @@ static struct test tests[] = {
 };
 
 unsigned iterations;
-static atomic_t nr_cpus_done;
 
 static void run_test(void *_func)
 {
@@ -428,8 +427,6 @@ static void run_test(void *_func)
 
     for (i = 0; i < iterations; ++i)
         func();
-
-    atomic_inc(&nr_cpus_done);
 }
 
 static bool do_test(struct test *test)
@@ -463,11 +460,7 @@ static bool do_test(struct test *test)
 			for (i = 0; i < iterations; ++i)
 				func();
 		} else {
-			atomic_set(&nr_cpus_done, 0);
-			for (i = cpu_count(); i > 0; i--)
-				on_cpu_async(i-1, run_test, func);
-			while (atomic_read(&nr_cpus_done) < cpu_count())
-				;
+			on_cpus(run_test, func);
 		}
 		t2 = rdtsc();
 	} while ((t2 - t1) < GOAL);
@@ -509,8 +502,7 @@ int main(int ac, char **av)
 	nr_cpus = cpu_count();
 
 	irq_enable();
-	for (i = cpu_count(); i > 0; i--)
-		on_cpu(i-1, enable_nx, 0);
+	on_cpus(enable_nx, NULL);
 
 	fadt = find_acpi_table_addr(FACP_SIGNATURE);
 	pm_tmr_blk = fadt->pm_tmr_blk;
