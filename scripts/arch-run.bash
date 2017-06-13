@@ -158,6 +158,34 @@ search_qemu_binary ()
 
 initrd_create ()
 {
+	env_add_errata
 	unset INITRD
 	[ -f "$ENV" ] && INITRD="-initrd $ENV"
+}
+
+env_add_errata ()
+{
+	local line errata
+
+	if [ -f "$ENV" ] && grep -q '^ERRATA_' <(env); then
+		for line in $(grep '^ERRATA_' "$ENV"); do
+			errata=${line%%=*}
+			test -v $errata && continue
+			eval export "$line"
+		done
+	fi
+
+	if grep -q '^ERRATA_' <(env); then
+		export ENV_OLD="$ENV"
+		export ENV=$(mktemp)
+		trap_exit_push 'rm -f $ENV; [ "$ENV_OLD" ] && export ENV="$ENV_OLD" || unset ENV; unset ENV_OLD'
+		[ -f "$ENV_OLD" ] && grep -v '^ERRATA_' "$ENV_OLD" > $ENV
+		grep '^ERRATA_' <(env) >> $ENV
+	fi
+}
+
+trap_exit_push ()
+{
+	local old_exit=$(trap -p EXIT | sed "s/^[^']*'//;s/'[^']*$//")
+	trap -- "$1; $old_exit" EXIT
 }
