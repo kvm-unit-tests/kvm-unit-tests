@@ -49,6 +49,7 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/tsc_adjust.flat $(TEST_DIR)/asyncpf.flat \
                $(TEST_DIR)/init.flat $(TEST_DIR)/smap.flat \
                $(TEST_DIR)/hyperv_synic.flat $(TEST_DIR)/hyperv_stimer.flat \
+               $(TEST_DIR)/hyperv_connections.flat \
 
 ifdef API
 tests-api = api/api-sample api/dirty-log api/dirty-log-perf
@@ -70,6 +71,8 @@ $(TEST_DIR)/kvmclock_test.elf: $(TEST_DIR)/kvmclock.o
 $(TEST_DIR)/hyperv_synic.elf: $(TEST_DIR)/hyperv.o
 
 $(TEST_DIR)/hyperv_stimer.elf: $(TEST_DIR)/hyperv.o
+
+$(TEST_DIR)/hyperv_connections.elf: $(TEST_DIR)/hyperv.o
 
 arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
