@@ -105,6 +105,31 @@ static void test_stap(void)
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 }
 
+/* Test the STORE CPU ID instruction */
+static void test_stidp(void)
+{
+	struct cpuid id = {};
+
+	asm volatile ("stidp %0\n" : "+Q"(id));
+	report("type set", id.type);
+	report("version valid", !id.version || id.version == 0xff);
+	report("reserved bits not set", !id.reserved);
+
+	expect_pgm_int();
+	low_prot_enable();
+	asm volatile ("stidp 0(%0)\n" : : "r"(8));
+	low_prot_disable();
+	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
+
+	expect_pgm_int();
+	asm volatile ("stidp 0(%0)\n" : : "r"(1));
+	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
+
+	expect_pgm_int();
+	asm volatile ("stidp 0(%0)\n" : : "r"(-8));
+	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
+}
+
 /* Test the TEST BLOCK instruction */
 static void test_testblock(void)
 {
@@ -152,6 +177,7 @@ struct {
 	{ "stpx", test_stpx, false },
 	{ "spx", test_spx, false },
 	{ "stap", test_stap, false },
+	{ "stidp", test_stidp, false },
 	{ "testblock", test_testblock, false },
 	{ NULL, NULL, false }
 };

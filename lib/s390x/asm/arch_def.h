@@ -143,4 +143,12 @@ struct lowcore {
 #define PGM_INT_CODE_CRYPTO_OPERATION		0x119
 #define PGM_INT_CODE_TX_ABORTED_EVENT		0x200
 
+struct cpuid {
+	uint64_t version : 8;
+	uint64_t id : 24;
+	uint64_t type : 16;
+	uint64_t format : 1;
+	uint64_t reserved : 15;
+};
+
 #endif
