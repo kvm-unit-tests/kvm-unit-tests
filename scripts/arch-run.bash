@@ -226,11 +226,16 @@ env_add_errata ()
 env_generate_errata ()
 {
 	local kernel_version_string=$(uname -r)
-	local kernel_version kernel_patchlevel kernel_sublevel
-	local line commit minver errata v p s have
+	local kernel_version kernel_patchlevel kernel_sublevel kernel_extraversion
+	local line commit minver errata rest v p s x have
 
-	IFS=. read kernel_version kernel_patchlevel kernel_sublevel <<<$kernel_version_string
+	IFS=. read kernel_version kernel_patchlevel rest <<<$kernel_version_string
+	IFS=- read kernel_sublevel kernel_extraversion <<<$rest
 	kernel_sublevel=${kernel_sublevel%%[!0-9]*}
+	kernel_extraversion=${kernel_extraversion%%[!0-9]*}
+
+	! [[ $kernel_sublevel =~ ^[0-9]+$ ]] && unset $kernel_sublevel
+	! [[ $kernel_extraversion =~ ^[0-9]+$ ]] && unset $kernel_extraversion
 
 	[ "$ENVIRON_DEFAULT" != "yes" ] && return
 	[ ! -f "$ERRATATXT" ] && return
@@ -242,16 +247,37 @@ env_generate_errata ()
 		errata="ERRATA_$commit"
 		test -v $errata && continue
 
-		IFS=. read v p s <<<$minver
+		IFS=. read v p rest <<<$minver
+		IFS=- read s x <<<$rest
 		s=${s%%[!0-9]*}
+		x=${x%%[!0-9]*}
+
+		if ! [[ $v =~ ^[0-9]+$ ]] || ! [[ $p =~ ^[0-9]+$ ]]; then
+			echo "Bad minimum kernel version in $ERRATATXT, $minver"
+			exit 2
+		fi
+		! [[ $s =~ ^[0-9]+$ ]] && unset $s
+		! [[ $x =~ ^[0-9]+$ ]] && unset $x
 
 		if (( $kernel_version > $v ||
 		      ($kernel_version == $v && $kernel_patchlevel > $p) )); then
 			have=y
 		elif (( $kernel_version == $v && $kernel_patchlevel == $p )); then
 			if [ "$kernel_sublevel" ] && [ "$s" ]; then
-				if (( $kernel_sublevel >= $s )); then
+				if (( $kernel_sublevel > $s )); then
 					have=y
+				elif (( $kernel_sublevel == $s )); then
+					if [ "$kernel_extraversion" ] && [ "$x" ]; then
+						if (( $kernel_extraversion >= $x )); then
+							have=y
+						else
+							have=n
+						fi
+					elif [ "$x" ] && (( $x != 0 )); then
+						have=n
+					else
+						have=y
+					fi
 				else
 					have=n
 				fi
