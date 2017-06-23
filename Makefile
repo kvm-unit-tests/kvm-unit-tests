@@ -91,7 +91,7 @@ directories:
 
 -include */.*.d */*/.*.d
 
-all: directories $(shell git -C $(SRCDIR) rev-parse --verify --short=8 HEAD >build-head 2>/dev/null)
+all: directories $(shell cd $(SRCDIR) && git rev-parse --verify --short=8 HEAD >$(PWD)/build-head 2>/dev/null)
 
 standalone: all
 	@scripts/mkstandalone.sh
