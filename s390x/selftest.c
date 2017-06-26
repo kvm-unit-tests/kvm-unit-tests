@@ -29,7 +29,7 @@ static void test_fp(void)
 static void test_pgm_int(void)
 {
 	expect_pgm_int();
-	asm volatile("	.insn e,0x0001"); /* used for SW breakpoints in QEMU */
+	asm volatile("	.insn e,0x0000"); /* used for SW breakpoints in QEMU */
 	check_pgm_int_code(PGM_INT_CODE_OPERATION);
 
 	expect_pgm_int();
