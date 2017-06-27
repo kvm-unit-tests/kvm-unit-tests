@@ -14,6 +14,7 @@
 #include <libfdt/libfdt.h>
 #include <devicetree.h>
 #include <alloc.h>
+#include <argv.h>
 #include <asm/thread_info.h>
 #include <asm/setup.h>
 #include <asm/page.h>
@@ -22,8 +23,6 @@
 
 extern unsigned long stacktop;
 extern void io_init(void);
-extern void setup_args_progname(const char *args);
-extern void setup_env(char *env, int size);
 
 char *initrd;
 u32 initrd_size;

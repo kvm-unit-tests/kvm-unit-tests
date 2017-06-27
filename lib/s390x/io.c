@@ -11,10 +11,10 @@
  * under the terms of the GNU Library General Public License version 2.
  */
 #include <libcflat.h>
+#include <argv.h>
 #include <asm/spinlock.h>
 #include "sclp.h"
 
-extern void setup_args_progname(const char *args);
 extern char ipl_args[];
 
 static struct spinlock lock;
