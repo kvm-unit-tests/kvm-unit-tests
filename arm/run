@@ -31,7 +31,8 @@ if [ -z "$ACCEL" ]; then
 	fi
 fi
 
-qemu=$(search_qemu_binary)
+qemu=$(search_qemu_binary) ||
+	exit $?
 
 if ! $qemu -machine '?' 2>&1 | grep 'ARM Virtual Machine' > /dev/null; then
 	echo "$qemu doesn't support mach-virt ('-machine virt'). Exiting."

@@ -176,9 +176,9 @@ search_qemu_binary ()
 	done
 
 	if [ -z "$qemu" ]; then
-		echo "A QEMU binary was not found."
-		echo "You can set a custom location by using the QEMU=<path> environment variable."
-		exit 2
+		echo "A QEMU binary was not found." >&2
+		echo "You can set a custom location by using the QEMU=<path> environment variable." >&2
+		return 2
 	fi
 	command -v $qemu
 	export PATH=$save_path

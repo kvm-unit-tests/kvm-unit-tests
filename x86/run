@@ -9,7 +9,8 @@ if [ -z "$STANDALONE" ]; then
 	source scripts/arch-run.bash
 fi
 
-qemu=$(search_qemu_binary)
+qemu=$(search_qemu_binary) ||
+	exit $?
 
 if ! ${qemu} -device '?' 2>&1 | grep -F -e \"testdev\" -e \"pc-testdev\" > /dev/null;
 then

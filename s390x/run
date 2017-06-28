@@ -28,7 +28,8 @@ if [ -z "$ACCEL" ]; then
 	fi
 fi
 
-qemu=$(search_qemu_binary)
+qemu=$(search_qemu_binary) ||
+	exit $?
 
 M='-machine s390-ccw-virtio'
 M+=",accel=$ACCEL"
