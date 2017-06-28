@@ -71,12 +71,9 @@ if $qemu $M -device '?' 2>&1 | grep pci-testdev > /dev/null; then
 	pci_testdev="-device pci-testdev"
 fi
 
-initrd_create
-
 M+=",accel=$ACCEL"
 command="$qemu -nodefaults $M -cpu $processor $chr_testdev $pci_testdev"
-command+=" -display none -serial stdio $INITRD -kernel"
+command+=" -display none -serial stdio -kernel"
 command="$(timeout_cmd) $command"
-echo $command "$@"
 
 run_qemu $command "$@"

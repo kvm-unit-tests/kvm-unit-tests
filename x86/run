@@ -33,11 +33,8 @@ else
 	pc_testdev="-device testdev,chardev=testlog -chardev file,id=testlog,path=msr.out"
 fi
 
-initrd_create
-
 command="${qemu} -nodefaults -enable-kvm $pc_testdev -vnc none -serial stdio $pci_testdev $hyperv_testdev"
-command+=" $INITRD -kernel"
+command+=" -kernel"
 command="$(timeout_cmd) $command"
-echo ${command} "$@"
 
 run_qemu ${command} "$@"

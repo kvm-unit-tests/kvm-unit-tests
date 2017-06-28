@@ -28,9 +28,14 @@ run_qemu ()
 {
 	local stdout errors ret sig
 
+	echo -n $@
+	initrd_create &&
+		echo -n " #"
+	echo " $INITRD"
+
 	# stdout to {stdout}, stderr to $errors and stderr
 	exec {stdout}>&1
-	errors=$("${@}" </dev/null 2> >(tee /dev/stderr) > /dev/fd/$stdout)
+	errors=$("${@}" $INITRD </dev/null 2> >(tee /dev/stderr) > /dev/fd/$stdout)
 	ret=$?
 	exec {stdout}>&-
 
@@ -158,14 +163,20 @@ search_qemu_binary ()
 
 initrd_create ()
 {
+	local ret
+
 	env_add_errata
+	ret=$?
+
 	unset INITRD
 	[ -f "$ENV" ] && INITRD="-initrd $ENV"
+
+	return $ret
 }
 
 env_add_errata ()
 {
-	local line errata
+	local line errata ret=1
 
 	if [ -f "$ENV" ] && grep -q '^ERRATA_' <(env); then
 		for line in $(grep '^ERRATA_' "$ENV"); do
@@ -183,7 +194,10 @@ env_add_errata ()
 		trap_exit_push 'rm -f $ENV; [ "$ENV_OLD" ] && export ENV="$ENV_OLD" || unset ENV; unset ENV_OLD'
 		[ -f "$ENV_OLD" ] && grep -v '^ERRATA_' "$ENV_OLD" > $ENV
 		grep '^ERRATA_' <(env) >> $ENV
+		ret=0
 	fi
+
+	return $ret
 }
 
 env_generate_errata ()

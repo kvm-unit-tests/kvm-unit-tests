@@ -35,14 +35,11 @@ if ! $qemu -machine '?' 2>&1 | grep 'pseries' > /dev/null; then
 	exit 2
 fi
 
-initrd_create
-
 M='-machine pseries'
 M+=",accel=$ACCEL"
 command="$qemu -nodefaults $M -bios $FIRMWARE"
-command+=" -display none -serial stdio $INITRD -kernel"
+command+=" -display none -serial stdio -kernel"
 command="$(migration_cmd) $(timeout_cmd) $command"
-echo $command "$@"
 
 # powerpc tests currently exit with rtas-poweroff, which exits with 0.
 # run_qemu treats that as a failure exit and returns 1, so we need
