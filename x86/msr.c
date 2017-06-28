@@ -6,7 +6,7 @@
 
 struct msr_info {
     int index;
-    char *name;
+    const char *name;
     struct tc {
         int valid;
         unsigned long long value;
@@ -78,7 +78,7 @@ static void test_msr_rw(int msr_index, unsigned long long input, unsigned long l
 {
     unsigned long long r = 0;
     int index;
-    char *sptr;
+    const char *sptr;
     if ((index = find_msr_info(msr_index)) != -1) {
         sptr = msr_info[index].name;
     } else {

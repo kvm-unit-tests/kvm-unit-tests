@@ -81,9 +81,9 @@ void report_prefix_pop(void)
 static void va_report(const char *msg_fmt,
 		bool pass, bool xfail, bool skip, va_list va)
 {
-	char *prefix = skip ? "SKIP"
-	                    : xfail ? (pass ? "XPASS" : "XFAIL")
-	                            : (pass ? "PASS"  : "FAIL");
+	const char *prefix = skip ? "SKIP"
+				  : xfail ? (pass ? "XPASS" : "XFAIL")
+					  : (pass ? "PASS"  : "FAIL");
 
 	spin_lock(&lock);
 
