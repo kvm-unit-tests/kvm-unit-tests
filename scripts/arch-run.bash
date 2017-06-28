@@ -69,6 +69,29 @@ run_qemu ()
 	return $ret
 }
 
+run_qemu_status ()
+{
+	local stdout ret
+
+	exec {stdout}>&1
+	lines=$(run_qemu "$@" > >(tee /dev/fd/$stdout))
+	ret=$?
+	exec {stdout}>&-
+
+	if [ $ret -eq 1 ]; then
+		testret=$(grep '^EXIT: ' <<<"$lines" | sed 's/.*STATUS=\([0-9][0-9]*\).*/\1/')
+		if [ "$testret" ]; then
+			if [ $testret -eq 1 ]; then
+				ret=0
+			else
+				ret=$testret
+			fi
+		fi
+	fi
+
+	return $ret
+}
+
 timeout_cmd ()
 {
 	if [ "$TIMEOUT" ] && [ "$TIMEOUT" != "0" ]; then

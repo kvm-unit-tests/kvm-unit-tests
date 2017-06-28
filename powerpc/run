@@ -46,17 +46,4 @@ command="$(migration_cmd) $(timeout_cmd) $command"
 # to fixup the fixup below by parsing the true exit code from the output.
 # The second fixup is also a FIXME, because once we add chr-testdev
 # support for powerpc, we won't need the second fixup.
-lines=$(run_qemu $command "$@")
-ret=$?
-echo "$lines"
-if [ $ret -eq 1 ]; then
-	testret=$(grep '^EXIT: ' <<<"$lines" | sed 's/.*STATUS=\([0-9][0-9]*\).*/\1/')
-	if [ "$testret" ]; then
-		if [ $testret -eq 1 ]; then
-			ret=0
-		else
-			ret=$testret
-		fi
-	fi
-fi
-exit $ret
+run_qemu_status $command "$@"
