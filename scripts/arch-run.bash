@@ -272,3 +272,29 @@ trap_exit_push ()
 	local old_exit=$(trap -p EXIT | sed "s/^[^']*'//;s/'[^']*$//")
 	trap -- "$1; $old_exit" EXIT
 }
+
+kvm_available ()
+{
+	[ -c /dev/kvm ] ||
+		return 1
+
+	[ "$HOST" = "$ARCH_NAME" ] ||
+		[ "$HOST" = aarch64 -a "$ARCH" = arm ] ||
+		[ "$HOST" = x86_64 -a "$ARCH" = i386 ]
+}
+
+get_qemu_accelerator ()
+{
+	if [ "$ACCEL" = "kvm" ] && ! kvm_available; then
+		echo "KVM is needed, but not available on this host" >&2
+		return 2
+	fi
+
+	if [ "$ACCEL" ]; then
+		echo $ACCEL
+	elif kvm_available; then
+		echo kvm
+	else
+		echo tcg
+	fi
+}

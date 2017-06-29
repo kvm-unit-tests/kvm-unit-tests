@@ -10,26 +10,8 @@ if [ -z "$STANDALONE" ]; then
 fi
 processor="$PROCESSOR"
 
-if [ -c /dev/kvm ]; then
-	if [ "$HOST" = "arm" ] && [ "$ARCH" = "arm" ]; then
-		kvm_available=yes
-	elif [ "$HOST" = "aarch64" ]; then
-		kvm_available=yes
-	fi
-fi
-
-if [ "$ACCEL" = "kvm" ] && [ "$kvm_available" != "yes" ]; then
-	echo "KVM is needed, but not available on this host"
-	exit 2
-fi
-
-if [ -z "$ACCEL" ]; then
-	if [ "$kvm_available" = "yes" ]; then
-		ACCEL="kvm"
-	else
-		ACCEL="tcg"
-	fi
-fi
+ACCEL=$(get_qemu_accelerator) ||
+	exit $?
 
 qemu=$(search_qemu_binary) ||
 	exit $?
