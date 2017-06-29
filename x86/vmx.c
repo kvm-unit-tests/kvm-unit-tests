@@ -424,25 +424,6 @@ static void __attribute__((__used__)) syscall_handler(u64 syscall_no)
 		current->syscall_handler(syscall_no);
 }
 
-static inline int vmx_on()
-{
-	bool ret;
-	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
-	asm volatile ("push %1; popf; vmxon %2; setbe %0\n\t"
-		      : "=q" (ret) : "q" (rflags), "m" (vmxon_region) : "cc");
-	return ret;
-}
-
-static inline int vmx_off()
-{
-	bool ret;
-	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
-
-	asm volatile("push %1; popf; vmxoff; setbe %0\n\t"
-		     : "=q"(ret) : "q" (rflags) : "cc");
-	return ret;
-}
-
 static const char * const exit_reason_descriptions[] = {
 	[VMX_EXC_NMI]		= "VMX_EXC_NMI",
 	[VMX_EXTINT]		= "VMX_EXTINT",
