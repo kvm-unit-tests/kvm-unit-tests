@@ -9,6 +9,9 @@ if [ -z "$STANDALONE" ]; then
 	source scripts/arch-run.bash
 fi
 
+ACCEL=$(get_qemu_accelerator) ||
+	exit $?
+
 qemu=$(search_qemu_binary) ||
 	exit $?
 
@@ -34,8 +37,8 @@ else
 	pc_testdev="-device testdev,chardev=testlog -chardev file,id=testlog,path=msr.out"
 fi
 
-command="${qemu} -nodefaults -enable-kvm $pc_testdev -vnc none -serial stdio $pci_testdev $hyperv_testdev"
-command+=" -kernel"
+command="${qemu} -nodefaults $pc_testdev -vnc none -serial stdio $pci_testdev $hyperv_testdev"
+command+=" -machine accel=$ACCEL -kernel"
 command="$(timeout_cmd) $command"
 
 run_qemu ${command} "$@"
