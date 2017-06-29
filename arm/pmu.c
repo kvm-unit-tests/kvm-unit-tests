@@ -276,7 +276,7 @@ static void pmccntr64_test(void)
 }
 
 /* Return FALSE if no PMU found, otherwise return TRUE */
-bool pmu_probe(void)
+static bool pmu_probe(void)
 {
 	pmu_version = get_pmu_version();
 	report_info("PMU version: %d", pmu_version);

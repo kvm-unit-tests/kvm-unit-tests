@@ -30,7 +30,7 @@ static void addchar(pstream_t *p, char c)
     ++p->added;
 }
 
-void print_str(pstream_t *p, const char *s, strprops_t props)
+static void print_str(pstream_t *p, const char *s, strprops_t props)
 {
     const char *s_orig = s;
     int npad = props.npad;
@@ -58,7 +58,7 @@ void print_str(pstream_t *p, const char *s, strprops_t props)
 
 static char digits[16] = "0123456789abcdef";
 
-void print_int(pstream_t *ps, long long n, int base, strprops_t props)
+static void print_int(pstream_t *ps, long long n, int base, strprops_t props)
 {
     char buf[sizeof(long) * 3 + 2], *p = buf;
     int s = 0, i;
@@ -92,8 +92,8 @@ void print_int(pstream_t *ps, long long n, int base, strprops_t props)
     print_str(ps, buf, props);
 }
 
-void print_unsigned(pstream_t *ps, unsigned long long n, int base,
-		    strprops_t props)
+static void print_unsigned(pstream_t *ps, unsigned long long n, int base,
+			   strprops_t props)
 {
     char buf[sizeof(long) * 3 + 3], *p = buf;
     int i;

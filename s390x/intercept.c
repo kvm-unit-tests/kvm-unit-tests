@@ -182,7 +182,7 @@ struct {
 	{ NULL, NULL, false }
 };
 
-void parse_intercept_test_args(int argc, char **argv)
+static void parse_intercept_test_args(int argc, char **argv)
 {
 	int i, ti;
 	bool run_all = true;
