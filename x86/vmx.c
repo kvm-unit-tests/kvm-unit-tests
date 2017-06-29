@@ -790,29 +790,30 @@ void setup_ept_range(unsigned long *pml4, unsigned long start,
 
 /* get_ept_pte : Get the PTE of a given level in EPT,
     @level == 1 means get the latest level*/
-unsigned long get_ept_pte(unsigned long *pml4,
-		unsigned long guest_addr, int level)
+bool get_ept_pte(unsigned long *pml4, unsigned long guest_addr, int level,
+		unsigned long *pte)
 {
 	int l;
-	unsigned long *pt = pml4, pte;
+	unsigned long *pt = pml4, iter_pte;
 	unsigned offset;
 
 	assert(level >= 1 && level <= 4);
 
 	for (l = EPT_PAGE_LEVEL; ; --l) {
 		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
-		pte = pt[offset];
-		if (!(pte & (EPT_PRESENT)))
-			return -1;
+		iter_pte = pt[offset];
+		if (!(iter_pte & (EPT_PRESENT)))
+			return false;
 		if (l == level)
 			break;
-		if (l < 4 && (pte & EPT_LARGE_PAGE))
-			return -1;
-		pt = (unsigned long *)(pte & EPT_ADDR_MASK);
+		if (l < 4 && (iter_pte & EPT_LARGE_PAGE))
+			return false;
+		pt = (unsigned long *)(iter_pte & EPT_ADDR_MASK);
 	}
 	offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
-	pte = pt[offset];
-	return pte;
+	if (pte)
+		*pte = pt[offset];
+	return true;
 }
 
 static void clear_ept_ad_pte(unsigned long *pml4, unsigned long guest_addr)
@@ -875,9 +876,10 @@ void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
 	for (l = EPT_PAGE_LEVEL; ; --l) {
 		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
 
-		ept_pte = get_ept_pte(pml4, (u64) &pt[offset], 1);
-		if (ept_pte == 0)
+		if (!get_ept_pte(pml4, (u64) &pt[offset], 1, &ept_pte)) {
+			printf("EPT - guest level %d page table is not mapped.\n", l);
 			return;
+		}
 
 		if (!bad_pt_ad) {
 			bad_pt_ad |= (ept_pte & (EPT_ACCESS_FLAG|EPT_DIRTY_FLAG)) != expected_pt_ad;
@@ -906,7 +908,10 @@ void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
 	offset_in_page = guest_addr & ((1 << EPT_LEVEL_SHIFT(l)) - 1);
 	gpa = (pt[offset] & PT_ADDR_MASK) | (guest_addr & offset_in_page);
 
-	ept_pte = get_ept_pte(pml4, gpa, 1);
+	if (!get_ept_pte(pml4, gpa, 1, &ept_pte)) {
+		report("EPT - guest physical address is not mapped", false);
+		return;
+	}
 	report("EPT - guest physical address A=%d/D=%d",
 	       (ept_pte & (EPT_ACCESS_FLAG|EPT_DIRTY_FLAG)) == expected_gpa_ad,
 	       !!(expected_gpa_ad & EPT_ACCESS_FLAG),

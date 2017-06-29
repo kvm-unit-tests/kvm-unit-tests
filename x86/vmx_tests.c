@@ -1225,17 +1225,18 @@ static int ept_exit_handler_common(bool have_ad)
 			break;
 		case 3:
 			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page1);
-			data_page1_pte = get_ept_pte(pml4,
-				(unsigned long)data_page1, 1);
+			TEST_ASSERT(get_ept_pte(pml4, (unsigned long)data_page1,
+						1, &data_page1_pte));
 			set_ept_pte(pml4, (unsigned long)data_page1, 
 				1, data_page1_pte & ~EPT_PRESENT);
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 4:
-			data_page1_pte = get_ept_pte(pml4,
-				(unsigned long)data_page1, 2);
+			TEST_ASSERT(get_ept_pte(pml4, (unsigned long)data_page1,
+						2, &data_page1_pte));
 			data_page1_pte &= PAGE_MASK;
-			data_page1_pte_pte = get_ept_pte(pml4, data_page1_pte, 2);
+			TEST_ASSERT(get_ept_pte(pml4, data_page1_pte,
+						2, &data_page1_pte_pte));
 			set_ept_pte(pml4, data_page1_pte, 2,
 				data_page1_pte_pte & ~EPT_PRESENT);
 			ept_sync(INVEPT_SINGLE, eptp);
@@ -1280,7 +1281,7 @@ static int ept_exit_handler_common(bool have_ad)
 			if (exit_qual == (EPT_VLT_WR | EPT_VLT_LADDR_VLD |
 					EPT_VLT_PADDR))
 				vmx_inc_test_stage();
-			set_ept_pte(pml4, (unsigned long)data_page1, 
+			set_ept_pte(pml4, (unsigned long)data_page1,
 				1, data_page1_pte | (EPT_PRESENT));
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
@@ -2189,8 +2190,7 @@ static unsigned long ept_twiddle(unsigned long gpa, bool mkhuge, int level,
 	unsigned long pte;
 
 	/* Screw with the mapping at the requested level. */
-	orig_pte = get_ept_pte(pml4, gpa, level);
-	TEST_ASSERT(orig_pte != -1);
+	TEST_ASSERT(get_ept_pte(pml4, gpa, level, &orig_pte));
 	pte = orig_pte;
 	if (mkhuge)
 		pte = (orig_pte & ~EPT_ADDR_MASK) | data->hpa | EPT_LARGE_PAGE;
@@ -2617,8 +2617,8 @@ static void ept_access_test_setup(void)
 	 * Make sure nothing's mapped here so the tests that screw with the
 	 * pml4 entry don't inadvertently break something.
 	 */
-	TEST_ASSERT_EQ(get_ept_pte(pml4, data->gpa, 4), -1);
-	TEST_ASSERT_EQ(get_ept_pte(pml4, data->gpa + size - 1, 4), -1);
+	TEST_ASSERT(!get_ept_pte(pml4, data->gpa, 4, NULL));
+	TEST_ASSERT(!get_ept_pte(pml4, data->gpa + size - 1, 4, NULL));
 	install_ept(pml4, data->hpa, data->gpa, EPT_PRESENT);
 
 	data->hva[0] = MAGIC_VAL_1;
