@@ -13,6 +13,10 @@
 #include "apic.h"
 #include "types.h"
 
+#define NONCANONICAL            0xaaaaaaaaaaaaaaaaull
+
+#define VPID_CAP_INVVPID_TYPES_SHIFT 40
+
 u64 ia32_pat;
 u64 ia32_efer;
 void *io_bitmap_a, *io_bitmap_b;
@@ -24,6 +28,15 @@ void *data_page1, *data_page2;
 
 void *pml_log;
 #define PML_INDEX 512
+
+static inline unsigned ffs(unsigned x)
+{
+	int pos = -1;
+
+	__asm__ __volatile__("bsf %1, %%eax; cmovnz %%eax, %0"
+			     : "+r"(pos) : "rm"(x) : "eax");
+	return pos + 1;
+}
 
 static inline void vmcall()
 {
@@ -1375,7 +1388,8 @@ bool invvpid_test(int type, u16 vpid)
 {
 	bool ret, supported;
 
-	supported = ept_vpid.val & (VPID_CAP_INVVPID_SINGLE >> INVVPID_SINGLE << type);
+	supported = ept_vpid.val &
+		(VPID_CAP_INVVPID_ADDR >> INVVPID_ADDR << type);
 	ret = invvpid(type, vpid, 0);
 
 	if (ret == !supported)
@@ -1432,11 +1446,11 @@ static int vpid_exit_handler()
 	case VMX_VMCALL:
 		switch(vmx_get_test_stage()) {
 		case 0:
-			if (!invvpid_test(INVVPID_SINGLE_ADDRESS, 1))
+			if (!invvpid_test(INVVPID_ADDR, 1))
 				vmx_inc_test_stage();
 			break;
 		case 2:
-			if (!invvpid_test(INVVPID_SINGLE, 1))
+			if (!invvpid_test(INVVPID_CONTEXT_GLOBAL, 1))
 				vmx_inc_test_stage();
 			break;
 		case 4:
@@ -2922,6 +2936,209 @@ static void ept_access_test_force_2m_page(void)
 	ept_misconfig_at_level_mkhuge(true, 2, EPT_PRESENT, EPT_WA);
 }
 
+static bool invvpid_valid(u64 type, u64 vpid, u64 gla)
+{
+	u64 msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
+
+	TEST_ASSERT(msr & VPID_CAP_INVVPID);
+
+	if (type < INVVPID_ADDR || type > INVVPID_CONTEXT_LOCAL)
+		return false;
+
+	if (!(msr & (1ull << (type + VPID_CAP_INVVPID_TYPES_SHIFT))))
+		return false;
+
+	if (vpid >> 16)
+		return false;
+
+	if (type != INVVPID_ALL && !vpid)
+		return false;
+
+	if (type == INVVPID_ADDR && !is_canonical(gla))
+		return false;
+
+	return true;
+}
+
+static void try_invvpid(u64 type, u64 vpid, u64 gla)
+{
+	int rc;
+	bool valid = invvpid_valid(type, vpid, gla);
+	u64 expected = valid ? VMXERR_UNSUPPORTED_VMCS_COMPONENT
+		: VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID;
+	/*
+	 * Set VMX_INST_ERROR to VMXERR_UNVALID_VMCS_COMPONENT, so
+	 * that we can tell if it is updated by INVVPID.
+	 */
+	vmcs_read(~0);
+	rc = invvpid(type, vpid, gla);
+	report("INVVPID type %ld VPID %lx GLA %lx %s",
+	       !rc == valid, type, vpid, gla,
+	       valid ? "passes" : "fails");
+	report("After %s INVVPID, VMX_INST_ERR is %ld (actual %ld)",
+	       vmcs_read(VMX_INST_ERROR) == expected,
+	       rc ? "failed" : "successful",
+	       expected, vmcs_read(VMX_INST_ERROR));
+}
+
+static void ds_invvpid(void *data)
+{
+	u64 msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
+	u64 type = ffs(msr >> VPID_CAP_INVVPID_TYPES_SHIFT) - 1;
+
+	TEST_ASSERT(type >= INVVPID_ADDR && type <= INVVPID_CONTEXT_LOCAL);
+	asm volatile("invvpid %0, %1"
+		     :
+		     : "m"(*(struct invvpid_operand *)data),
+		       "r"(type));
+}
+
+/*
+ * The SS override is ignored in 64-bit mode, so we use an addressing
+ * mode with %rsp as the base register to generate an implicit SS
+ * reference.
+ */
+static void ss_invvpid(void *data)
+{
+	u64 msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
+	u64 type = ffs(msr >> VPID_CAP_INVVPID_TYPES_SHIFT) - 1;
+
+	TEST_ASSERT(type >= INVVPID_ADDR && type <= INVVPID_CONTEXT_LOCAL);
+	asm volatile("sub %%rsp,%0; invvpid (%%rsp,%0,1), %1"
+		     : "+r"(data)
+		     : "r"(type));
+}
+
+static void invvpid_test_gp(void)
+{
+	bool fault;
+
+	fault = test_for_exception(GP_VECTOR, &ds_invvpid,
+				   (void *)NONCANONICAL);
+	report("INVVPID with non-canonical DS operand raises #GP", fault);
+}
+
+static void invvpid_test_ss(void)
+{
+	bool fault;
+
+	fault = test_for_exception(SS_VECTOR, &ss_invvpid,
+				   (void *)NONCANONICAL);
+	report("INVVPID with non-canonical SS operand raises #SS", fault);
+}
+
+static void invvpid_test_pf(void)
+{
+	void *vpage = alloc_vpage();
+	bool fault;
+
+	fault = test_for_exception(PF_VECTOR, &ds_invvpid, vpage);
+	report("INVVPID with unmapped operand raises #PF", fault);
+}
+
+static void try_compat_invvpid(void *unused)
+{
+	struct far_pointer32 fp = {
+		.offset = (uintptr_t)&&invvpid,
+		.selector = KERNEL_CS32,
+	};
+	register uintptr_t rsp asm("rsp");
+
+	TEST_ASSERT_MSG(fp.offset == (uintptr_t)&&invvpid,
+			"Code address too high.");
+	TEST_ASSERT_MSG(rsp == (u32)rsp, "Stack address too high.");
+
+	asm goto ("lcall *%0" : : "m" (fp) : "rax" : invvpid);
+	return;
+invvpid:
+	asm volatile (".code32;"
+		      "invvpid (%eax), %eax;"
+		      "lret;"
+		      ".code64");
+	__builtin_unreachable();
+}
+
+static void invvpid_test_compatibility_mode(void)
+{
+	bool fault;
+
+	fault = test_for_exception(UD_VECTOR, &try_compat_invvpid, NULL);
+	report("Compatibility mode INVVPID raises #UD", fault);
+}
+
+static void invvpid_test_not_in_vmx_operation(void)
+{
+	bool fault;
+
+	TEST_ASSERT(!vmx_off());
+	fault = test_for_exception(UD_VECTOR, &ds_invvpid, NULL);
+	report("INVVPID outside of VMX operation raises #UD", fault);
+	TEST_ASSERT(!vmx_on());
+}
+
+/*
+ * This does not test real-address mode, virtual-8086 mode, protected mode,
+ * or CPL > 0.
+ */
+static void invvpid_test_v2(void)
+{
+	u64 msr;
+	int i;
+	unsigned types = 0;
+	unsigned type;
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
+	    !(ctrl_cpu_rev[1].clr & CPU_VPID))
+		test_skip("VPID not supported");
+
+	msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
+
+	if (!(msr & VPID_CAP_INVVPID))
+		test_skip("INVVPID not supported.\n");
+
+	if (msr & VPID_CAP_INVVPID_ADDR)
+		types |= 1u << INVVPID_ADDR;
+	if (msr & VPID_CAP_INVVPID_CXTGLB)
+		types |= 1u << INVVPID_CONTEXT_GLOBAL;
+	if (msr & VPID_CAP_INVVPID_ALL)
+		types |= 1u << INVVPID_ALL;
+	if (msr & VPID_CAP_INVVPID_CXTLOC)
+		types |= 1u << INVVPID_CONTEXT_LOCAL;
+
+	if (!types)
+		test_skip("No INVVPID types supported.\n");
+
+	for (i = -127; i < 128; i++)
+		try_invvpid(i, 0xffff, 0);
+
+	/*
+	 * VPID must not be more than 16 bits.
+	 */
+	for (i = 0; i < 64; i++)
+		for (type = 0; type < 4; type++)
+			if (types & (1u << type))
+				try_invvpid(type, 1ul << i, 0);
+
+	/*
+	 * VPID must not be zero, except for "all contexts."
+	 */
+	for (type = 0; type < 4; type++)
+		if (types & (1u << type))
+			try_invvpid(type, 0, 0);
+
+	/*
+	 * The gla operand is only validated for single-address INVVPID.
+	 */
+	if (types & (1u << INVVPID_ADDR))
+		try_invvpid(INVVPID_ADDR, 0xffff, NONCANONICAL);
+
+	invvpid_test_gp();
+	invvpid_test_ss();
+	invvpid_test_pf();
+	invvpid_test_compatibility_mode();
+	invvpid_test_not_in_vmx_operation();
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -2983,5 +3200,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(ept_access_test_paddr_read_execute_ad_enabled),
 	TEST(ept_access_test_paddr_not_present_page_fault),
 	TEST(ept_access_test_force_2m_page),
+	/* Opcode tests. */
+	TEST(invvpid_test_v2),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };

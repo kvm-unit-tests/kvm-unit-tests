@@ -13,6 +13,11 @@ struct vmcs {
 	char data[0];
 };
 
+struct invvpid_operand {
+	u64 vpid;
+	u64 gla;
+};
+
 struct regs {
 	u64 rax;
 	u64 rcx;
@@ -537,8 +542,10 @@ enum vm_instruction_error_number {
 #define EPT_CAP_INVEPT_ALL	(1ull << 26)
 #define EPT_CAP_AD_FLAG		(1ull << 21)
 #define VPID_CAP_INVVPID	(1ull << 32)
-#define VPID_CAP_INVVPID_SINGLE	(1ull << 41)
-#define VPID_CAP_INVVPID_ALL	(1ull << 42)
+#define VPID_CAP_INVVPID_ADDR   (1ull << 40)
+#define VPID_CAP_INVVPID_CXTGLB (1ull << 41)
+#define VPID_CAP_INVVPID_ALL    (1ull << 42)
+#define VPID_CAP_INVVPID_CXTLOC	(1ull << 43)
 
 #define PAGE_SIZE_2M		(512 * PAGE_SIZE)
 #define PAGE_SIZE_1G		(512 * PAGE_SIZE_2M)
@@ -569,9 +576,10 @@ enum vm_instruction_error_number {
 #define INVEPT_SINGLE		1
 #define INVEPT_GLOBAL		2
 
-#define INVVPID_SINGLE_ADDRESS	0
-#define INVVPID_SINGLE		1
+#define INVVPID_ADDR            0
+#define INVVPID_CONTEXT_GLOBAL	1
 #define INVVPID_ALL		2
+#define INVVPID_CONTEXT_LOCAL	3
 
 #define ACTV_ACTIVE		0
 #define ACTV_HLT		1
@@ -687,16 +695,12 @@ static inline bool invept(unsigned long type, u64 eptp)
 	return ret;
 }
 
-static inline bool invvpid(unsigned long type, u16 vpid, u64 gva)
+static inline bool invvpid(unsigned long type, u64 vpid, u64 gla)
 {
 	bool ret;
 	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
 
-	struct {
-		u64 vpid : 16;
-		u64 rsvd : 48;
-		u64 gva;
-	} operand = {vpid, 0, gva};
+	struct invvpid_operand operand = {vpid, gla};
 	asm volatile("push %1; popf; invvpid %2, %3; setbe %0"
 		     : "=q" (ret) : "r" (rflags), "m"(operand),"r"(type) : "cc");
 	return ret;

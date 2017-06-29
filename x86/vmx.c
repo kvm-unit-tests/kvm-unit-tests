@@ -987,9 +987,9 @@ bool ept_ad_bits_supported(void)
 void vpid_sync(int type, u16 vpid)
 {
 	switch(type) {
-	case INVVPID_SINGLE:
-		if (ept_vpid.val & VPID_CAP_INVVPID_SINGLE) {
-			invvpid(INVVPID_SINGLE, vpid, 0);
+	case INVVPID_CONTEXT_GLOBAL:
+		if (ept_vpid.val & VPID_CAP_INVVPID_CXTGLB) {
+			invvpid(INVVPID_CONTEXT_GLOBAL, vpid, 0);
 			break;
 		}
 	case INVVPID_ALL:
