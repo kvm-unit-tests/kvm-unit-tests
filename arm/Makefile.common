@@ -24,7 +24,6 @@ phys_base = $(LOADADDR)
 
 CFLAGS += -std=gnu99
 CFLAGS += -ffreestanding
-CFLAGS += -Wextra
 CFLAGS += -O2
 CFLAGS += -I $(SRCDIR)/lib -I $(SRCDIR)/lib/libfdt -I lib
 

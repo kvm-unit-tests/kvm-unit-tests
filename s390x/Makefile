@@ -7,7 +7,6 @@ test_cases: $(tests)
 
 CFLAGS += -std=gnu99
 CFLAGS += -ffreestanding
-CFLAGS += -Wextra
 CFLAGS += -I $(SRCDIR)/lib
 CFLAGS += -O2
 CFLAGS += -march=z900

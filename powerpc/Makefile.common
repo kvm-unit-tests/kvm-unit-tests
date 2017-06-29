@@ -19,7 +19,6 @@ all: directories $(TEST_DIR)/boot_rom.bin $(tests-all)
 
 CFLAGS += -std=gnu99
 CFLAGS += -ffreestanding
-CFLAGS += -Wextra
 CFLAGS += -O2
 CFLAGS += -I $(SRCDIR)/lib -I $(SRCDIR)/lib/libfdt -I lib
 CFLAGS += -Wa,-mregnames

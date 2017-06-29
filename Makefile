@@ -50,8 +50,10 @@ include $(SRCDIR)/$(TEST_DIR)/Makefile
 cc-option = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null \
               > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi ;)
 
-COMMON_CFLAGS += -g
-COMMON_CFLAGS += $(autodepend-flags) -Wall -Wwrite-strings -Werror
+COMMON_CFLAGS += -g $(autodepend-flags)
+COMMON_CFLAGS += -Wall -Wwrite-strings -Wclobbered -Wempty-body -Wuninitialized
+COMMON_CFLAGS += -Wignored-qualifiers -Wunused-but-set-parameter
+COMMON_CFLAGS += -Werror
 frame-pointer-flag=-f$(if $(KEEP_FRAME_POINTER),no-,)omit-frame-pointer
 fomit_frame_pointer := $(call cc-option, $(frame-pointer-flag), "")
 fnostack_protector := $(call cc-option, -fno-stack-protector, "")
@@ -67,6 +69,8 @@ COMMON_CFLAGS += $(if $(U32_LONG_FMT),-D__U32_LONG_FMT__,)
 COMMON_CFLAGS += $(fno_pic) $(no_pie)
 
 CFLAGS += $(COMMON_CFLAGS)
+CFLAGS += -Wmissing-parameter-type -Wold-style-declaration -Woverride-init
+
 CXXFLAGS += $(COMMON_CFLAGS)
 
 autodepend-flags = -MMD -MF $(dir $*).$(notdir $*).d
