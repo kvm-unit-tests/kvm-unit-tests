@@ -50,8 +50,8 @@ include $(SRCDIR)/$(TEST_DIR)/Makefile
 cc-option = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null \
               > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi ;)
 
-CFLAGS += -g
-CFLAGS += $(autodepend-flags) -Wall -Wwrite-strings -Werror
+COMMON_CFLAGS += -g
+COMMON_CFLAGS += $(autodepend-flags) -Wall -Wwrite-strings -Werror
 frame-pointer-flag=-f$(if $(KEEP_FRAME_POINTER),no-,)omit-frame-pointer
 fomit_frame_pointer := $(call cc-option, $(frame-pointer-flag), "")
 fnostack_protector := $(call cc-option, -fno-stack-protector, "")
@@ -59,14 +59,15 @@ fnostack_protector_all := $(call cc-option, -fno-stack-protector-all, "")
 wno_frame_address := $(call cc-option, -Wno-frame-address, "")
 fno_pic := $(call cc-option, -fno-pic, "")
 no_pie := $(call cc-option, -no-pie, "")
-CFLAGS += $(fomit_frame_pointer)
-CFLAGS += $(fno_stack_protector)
-CFLAGS += $(fno_stack_protector_all)
-CFLAGS += $(wno_frame_address)
-CFLAGS += $(if $(U32_LONG_FMT),-D__U32_LONG_FMT__,)
-CFLAGS += $(fno_pic) $(no_pie)
+COMMON_CFLAGS += $(fomit_frame_pointer)
+COMMON_CFLAGS += $(fno_stack_protector)
+COMMON_CFLAGS += $(fno_stack_protector_all)
+COMMON_CFLAGS += $(wno_frame_address)
+COMMON_CFLAGS += $(if $(U32_LONG_FMT),-D__U32_LONG_FMT__,)
+COMMON_CFLAGS += $(fno_pic) $(no_pie)
 
-CXXFLAGS += $(CFLAGS)
+CFLAGS += $(COMMON_CFLAGS)
+CXXFLAGS += $(COMMON_CFLAGS)
 
 autodepend-flags = -MMD -MF $(dir $*).$(notdir $*).d
 

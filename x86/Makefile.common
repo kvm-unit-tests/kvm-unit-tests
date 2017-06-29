@@ -21,8 +21,8 @@ OBJDIRS += lib/x86
 $(libcflat): LDFLAGS += -nostdlib
 $(libcflat): CFLAGS += -ffreestanding -I $(SRCDIR)/lib -I lib
 
-CFLAGS += -m$(bits)
-CFLAGS += -O1
+COMMON_CFLAGS += -m$(bits)
+COMMON_CFLAGS += -O1
 
 # stack.o relies on frame pointers.
 KEEP_FRAME_POINTER := y
