@@ -2596,6 +2596,7 @@ static void ept_access_test_setup(void)
 	unsigned long npages = 1ul << PAGE_1G_ORDER;
 	unsigned long size = npages * PAGE_SIZE;
 	unsigned long *page_table = current_page_table();
+	unsigned long pte;
 
 	if (setup_ept(false))
 		test_skip("EPT not supported");
@@ -2617,8 +2618,8 @@ static void ept_access_test_setup(void)
 	 * Make sure nothing's mapped here so the tests that screw with the
 	 * pml4 entry don't inadvertently break something.
 	 */
-	TEST_ASSERT(!get_ept_pte(pml4, data->gpa, 4, NULL));
-	TEST_ASSERT(!get_ept_pte(pml4, data->gpa + size - 1, 4, NULL));
+	TEST_ASSERT(get_ept_pte(pml4, data->gpa, 4, &pte) && pte == 0);
+	TEST_ASSERT(get_ept_pte(pml4, data->gpa + size - 1, 4, &pte) && pte == 0);
 	install_ept(pml4, data->hpa, data->gpa, EPT_PRESENT);
 
 	data->hva[0] = MAGIC_VAL_1;

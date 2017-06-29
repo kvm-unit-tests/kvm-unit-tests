@@ -802,11 +802,11 @@ bool get_ept_pte(unsigned long *pml4, unsigned long guest_addr, int level,
 	for (l = EPT_PAGE_LEVEL; ; --l) {
 		offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
 		iter_pte = pt[offset];
-		if (!(iter_pte & (EPT_PRESENT)))
-			return false;
 		if (l == level)
 			break;
 		if (l < 4 && (iter_pte & EPT_LARGE_PAGE))
+			return false;
+		if (!(iter_pte & (EPT_PRESENT)))
 			return false;
 		pt = (unsigned long *)(iter_pte & EPT_ADDR_MASK);
 	}
