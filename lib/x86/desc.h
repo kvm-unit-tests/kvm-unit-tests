@@ -20,6 +20,8 @@ struct ex_regs {
     unsigned long rflags;
 };
 
+typedef void (*handler)(struct ex_regs *regs);
+
 typedef struct {
 	u16 prev;
 	u16 res1;
@@ -188,7 +190,7 @@ void set_idt_dpl(int vec, u16 dpl);
 void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran);
 void set_intr_alt_stack(int e, void *fn);
 void print_current_tss_info(void);
-void handle_exception(u8 v, void (*func)(struct ex_regs *regs));
+handler handle_exception(u8 v, handler fn);
 
 bool test_for_exception(unsigned int ex, void (*trigger_func)(void *data),
 			void *data);

@@ -117,13 +117,16 @@ static void check_exception_table(struct ex_regs *regs)
     unhandled_exception(regs, false);
 }
 
-static void (*exception_handlers[32])(struct ex_regs *regs);
+static handler exception_handlers[32];
 
-
-void handle_exception(u8 v, void (*func)(struct ex_regs *regs))
+handler handle_exception(u8 v, handler fn)
 {
+	handler old;
+
+	old = exception_handlers[v];
 	if (v < 32)
-		exception_handlers[v] = func;
+		exception_handlers[v] = fn;
+	return old;
 }
 
 #ifndef __x86_64__
@@ -377,14 +380,15 @@ static void exception_handler(struct ex_regs *regs)
 bool test_for_exception(unsigned int ex, void (*trigger_func)(void *data),
 			void *data)
 {
+	handler old;
 	jmp_buf jmpbuf;
 	int ret;
 
-	handle_exception(ex, exception_handler);
+	old = handle_exception(ex, exception_handler);
 	ret = set_exception_jmpbuf(jmpbuf);
 	if (ret == 0)
 		trigger_func(data);
-	handle_exception(ex, NULL);
+	handle_exception(ex, old);
 	return ret;
 }
 
