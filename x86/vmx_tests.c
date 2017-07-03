@@ -180,7 +180,7 @@ int preemption_timer_exit_handler()
 			       saved_rip == guest_rip);
 			break;
 		default:
-			printf("Invalid stage.\n");
+			report("Invalid stage.", false);
 			print_vmexit_info();
 			break;
 		}
@@ -221,14 +221,14 @@ int preemption_timer_exit_handler()
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unexpected stage, %d\n",
+			report("unexpected stage, %d", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
 		}
 		break;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_PREEMPT);
@@ -525,7 +525,7 @@ static int cr_shadowing_exit_handler()
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unexpected stage, %d\n",
+			report("unexpected stage, %d", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -564,7 +564,7 @@ static int cr_shadowing_exit_handler()
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unexpected stage, %d\n",
+			report("unexpected stage, %d", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -572,7 +572,7 @@ static int cr_shadowing_exit_handler()
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -703,7 +703,7 @@ static int iobmp_exit_handler()
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unexpected stage, %d\n",
+			report("unexpected stage, %d", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -724,7 +724,7 @@ static int iobmp_exit_handler()
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unexpected stage, %d\n",
+			report("unexpected stage, %d", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -1154,7 +1154,7 @@ static int pml_exit_handler(void)
 			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page2);
 			break;
 		default:
-			printf("ERROR - unexpected stage, %d.\n",
+			report("unexpected stage, %d.", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -1166,7 +1166,7 @@ static int pml_exit_handler(void)
 		vmcs_write(GUEST_PML_INDEX, PML_INDEX - 1);
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1247,7 +1247,7 @@ static int ept_exit_handler_common(bool have_ad)
 			break;
 		// Should not reach here
 		default:
-			printf("ERROR - unexpected stage, %d.\n",
+			report("ERROR - unexpected stage, %d.", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -1266,7 +1266,7 @@ static int ept_exit_handler_common(bool have_ad)
 			break;
 		// Should not reach here
 		default:
-			printf("ERROR - unexpected stage, %d.\n",
+			report("ERROR - unexpected stage, %d.", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -1299,14 +1299,14 @@ static int ept_exit_handler_common(bool have_ad)
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unexpected stage, %d\n",
+			report("ERROR : unexpected stage, %d", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
 		}
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1459,7 +1459,7 @@ static int vpid_exit_handler()
 				vmx_inc_test_stage();
 			break;
 		default:
-			printf("ERROR: unexpected stage, %d\n",
+			report("ERROR: unexpected stage, %d", false,
 					vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -1467,7 +1467,7 @@ static int vpid_exit_handler()
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1624,7 +1624,7 @@ static int interrupt_exit_handler(void)
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 
@@ -1737,7 +1737,7 @@ static int dbgctls_exit_handler(void)
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %d\n", reason);
+		report("Unknown exit reason, %d", false, reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1859,7 +1859,7 @@ static int vmmcall_exit_handler()
 		       (vmcs_read(EXI_INTR_INFO) & 0xff) == UD_VECTOR);
 		break;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 
@@ -1931,7 +1931,7 @@ static int disable_rdtscp_exit_handler(void)
 		break;
 
 	default:
-		printf("Unknown exit reason, %d\n", reason);
+		report("Unknown exit reason, %d", false, reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
