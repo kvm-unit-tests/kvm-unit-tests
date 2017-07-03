@@ -1367,10 +1367,10 @@ static void pml_main()
 	report("PML - Dirty GPA Logging", vmx_get_test_stage() == 1);
 
 	while (vmx_get_test_stage() == 1) {
+		vmcall();
 		*((u32 *)data_page2) = 0x1;
 		if (count++ > PML_INDEX)
 			break;
-		vmcall();
 	}
 	report("PML Full Event", vmx_get_test_stage() == 2);
 }
