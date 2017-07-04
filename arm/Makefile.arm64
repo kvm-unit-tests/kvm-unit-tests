@@ -14,7 +14,7 @@ cflatobjs += lib/arm64/spinlock.o
 OBJDIRS += lib/arm64
 
 # arm64 specific tests
-tests =
+tests = $(TEST_DIR)/timer.flat
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 

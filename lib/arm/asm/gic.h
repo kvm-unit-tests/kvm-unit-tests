@@ -12,6 +12,8 @@
 #define GICD_TYPER			0x0004
 #define GICD_IGROUPR			0x0080
 #define GICD_ISENABLER			0x0100
+#define GICD_ISPENDR			0x0200
+#define GICD_ICPENDR			0x0280
 #define GICD_ISACTIVER			0x0300
 #define GICD_ICACTIVER			0x0380
 #define GICD_IPRIORITYR			0x0400
@@ -32,6 +34,8 @@
 
 #include <asm/gic-v2.h>
 #include <asm/gic-v3.h>
+
+#define PPI(irq)			((irq) + 16)
 
 #ifndef __ASSEMBLY__
 #include <asm/cpumask.h>
