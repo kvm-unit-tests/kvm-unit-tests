@@ -318,6 +318,30 @@ void test_vmwrite_vmread(void)
 	free_page(vmcs);
 }
 
+void test_vmcs_high(void)
+{
+	struct vmcs *vmcs = alloc_page();
+
+	memset(vmcs, 0, PAGE_SIZE);
+	vmcs->revision_id = basic.revision;
+	assert(!vmcs_clear(vmcs));
+	assert(!make_vmcs_current(vmcs));
+
+	vmcs_write(TSC_OFFSET, 0x0123456789ABCDEFull);
+	report("VMREAD TSC_OFFSET after VMWRITE TSC_OFFSET",
+	       vmcs_read(TSC_OFFSET) == 0x0123456789ABCDEFull);
+	report("VMREAD TSC_OFFSET_HI after VMWRITE TSC_OFFSET",
+	       vmcs_read(TSC_OFFSET_HI) == 0x01234567ull);
+	vmcs_write(TSC_OFFSET_HI, 0x76543210ul);
+	report("VMREAD TSC_OFFSET_HI after VMWRITE TSC_OFFSET_HI",
+	       vmcs_read(TSC_OFFSET_HI) == 0x76543210ul);
+	report("VMREAD TSC_OFFSET after VMWRITE TSC_OFFSET_HI",
+	       vmcs_read(TSC_OFFSET) == 0x7654321089ABCDEFull);
+
+	assert(!vmcs_clear(vmcs));
+	free_page(vmcs);
+}
+
 void test_vmcs_lifecycle(void)
 {
 	struct vmcs *vmcs[2] = {};
@@ -1829,6 +1853,8 @@ int main(int argc, const char *argv[])
 		test_vmptrst();
 	if (test_wanted("test_vmwrite_vmread", argv, argc))
 		test_vmwrite_vmread();
+	if (test_wanted("test_vmcs_high", argv, argc))
+		test_vmcs_high();
 	if (test_wanted("test_vmcs_lifecycle", argv, argc))
 		test_vmcs_lifecycle();
 	if (test_wanted("test_vmx_caps", argv, argc))
