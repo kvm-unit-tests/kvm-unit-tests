@@ -3140,6 +3140,159 @@ static void invvpid_test_v2(void)
 	invvpid_test_not_in_vmx_operation();
 }
 
+/*
+ * Test for early VMLAUNCH failure. Returns true if VMLAUNCH makes it
+ * at least as far as the guest-state checks. Returns false if the
+ * VMLAUNCH fails early and execution falls through to the next
+ * instruction.
+ */
+static bool vmlaunch_succeeds(void)
+{
+	/*
+	 * Indirectly set VMX_INST_ERR to 12 ("VMREAD/VMWRITE from/to
+	 * unsupported VMCS component"). The caller can then check
+	 * to see if a failed VM-entry sets VMX_INST_ERR as expected.
+	 */
+	vmcs_write(~0u, 0);
+
+	vmcs_write(HOST_RIP, (uintptr_t)&&success);
+	__asm__ __volatile__ goto ("vmwrite %%rsp, %0; vmlaunch"
+				   :
+				   : "r" ((u64)HOST_RSP)
+				   : "cc", "memory"
+				   : success);
+	return false;
+success:
+	TEST_ASSERT(vmcs_read(EXI_REASON) ==
+		    (VMX_FAIL_STATE | VMX_ENTRY_FAILURE));
+	return true;
+}
+
+/*
+ * Try to launch the current VMCS.
+ */
+static void test_vmx_controls(bool controls_valid)
+{
+	bool success = vmlaunch_succeeds();
+	u32 vmx_inst_err;
+
+	report("vmlaunch %s", success == controls_valid,
+	       controls_valid ? "succeeds" : "fails");
+	if (!controls_valid) {
+		vmx_inst_err = vmcs_read(VMX_INST_ERROR);
+		report("VMX inst error is %d (actual %d)",
+		       vmx_inst_err == VMXERR_ENTRY_INVALID_CONTROL_FIELD,
+		       VMXERR_ENTRY_INVALID_CONTROL_FIELD, vmx_inst_err);
+	}
+}
+
+/*
+ * Test a particular address setting for a physical page reference in
+ * the VMCS.
+ */
+static void test_vmcs_page_addr(const char *name,
+				enum Encoding encoding,
+				bool ignored,
+				u64 addr)
+{
+	report_prefix_pushf("%s = %lx", name, addr);
+	vmcs_write(encoding, addr);
+	test_vmx_controls(ignored || (IS_ALIGNED(addr, PAGE_SIZE) &&
+				  addr < (1ul << cpuid_maxphyaddr())));
+	report_prefix_pop();
+}
+
+/*
+ * Test interesting values for a physical page reference in the VMCS.
+ */
+static void test_vmcs_page_values(const char *name,
+				  enum Encoding encoding,
+				  bool ignored)
+{
+	unsigned i;
+	u64 orig_val = vmcs_read(encoding);
+
+	for (i = 0; i < 64; i++)
+		test_vmcs_page_addr(name, encoding, ignored, 1ul << i);
+
+	test_vmcs_page_addr(name, encoding, ignored, PAGE_SIZE - 1);
+	test_vmcs_page_addr(name, encoding, ignored, PAGE_SIZE);
+	test_vmcs_page_addr(name, encoding, ignored,
+			    (1ul << cpuid_maxphyaddr()) - PAGE_SIZE);
+	test_vmcs_page_addr(name, encoding, ignored, -1ul);
+
+	vmcs_write(encoding, orig_val);
+}
+
+/*
+ * Test a physical page reference in the VMCS, when the corresponding
+ * feature is enabled and when the corresponding feature is disabled.
+ */
+static void test_vmcs_page_reference(u32 control_bit, enum Encoding field,
+				     const char *field_name,
+				     const char *control_name)
+{
+	u32 primary = vmcs_read(CPU_EXEC_CTRL0);
+	u64 page_addr;
+
+	if (!(ctrl_cpu_rev[0].clr & control_bit))
+		return;
+
+	page_addr = vmcs_read(field);
+
+	report_prefix_pushf("%s enabled", control_name);
+	vmcs_write(CPU_EXEC_CTRL0, primary | control_bit);
+	test_vmcs_page_values(field_name, field, false);
+	report_prefix_pop();
+
+	report_prefix_pushf("%s disabled", control_name);
+	vmcs_write(CPU_EXEC_CTRL0, primary & ~control_bit);
+	test_vmcs_page_values(field_name, field, true);
+	report_prefix_pop();
+
+	vmcs_write(field, page_addr);
+	vmcs_write(CPU_EXEC_CTRL0, primary);
+}
+
+/*
+ * If the "use I/O bitmaps" VM-execution control is 1, bits 11:0 of
+ * each I/O-bitmap address must be 0. Neither address should set any
+ * bits beyond the processor's physical-address width.
+ * [Intel SDM]
+ */
+static void test_io_bitmaps(void)
+{
+	test_vmcs_page_reference(CPU_IO_BITMAP, IO_BITMAP_A,
+				 "I/O bitmap A", "Use I/O bitmaps");
+	test_vmcs_page_reference(CPU_IO_BITMAP, IO_BITMAP_B,
+				 "I/O bitmap B", "Use I/O bitmaps");
+}
+
+/*
+ * If the "use MSR bitmaps" VM-execution control is 1, bits 11:0 of
+ * the MSR-bitmap address must be 0. The address should not set any
+ * bits beyond the processor's physical-address width.
+ * [Intel SDM]
+ */
+static void test_msr_bitmap(void)
+{
+	test_vmcs_page_reference(CPU_MSR_BITMAP, MSR_BITMAP,
+				 "MSR bitmap", "Use MSR bitmaps");
+}
+
+static void vmx_controls_test(void)
+{
+	/*
+	 * Bit 1 of the guest's RFLAGS must be 1, or VM-entry will
+	 * fail due to invalid guest state, should we make it that
+	 * far.
+	 */
+	vmcs_write(GUEST_RFLAGS, 0);
+
+	test_io_bitmaps();
+	test_msr_bitmap();
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -3203,5 +3356,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(ept_access_test_force_2m_page),
 	/* Opcode tests. */
 	TEST(invvpid_test_v2),
+	/* VM-entry tests */
+	TEST(vmx_controls_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
