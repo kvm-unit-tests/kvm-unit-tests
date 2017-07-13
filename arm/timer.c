@@ -70,10 +70,14 @@ static bool test_cval_10msec(void)
 
 static void test_vtimer(void)
 {
+	u64 now = read_sysreg(cntvct_el0);
+	u64 time_10s = read_sysreg(cntfrq_el0) * 10;
+	u64 later = now + time_10s;
+
 	report_prefix_push("vtimer-busy-loop");
 
-	/* Enable the timer */
-	write_sysreg(~0, cntv_cval_el0);
+	/* Enable the timer, but schedule it for much later*/
+	write_sysreg(later, cntv_cval_el0);
 	isb();
 	write_sysreg(CNTV_CTL_ENABLE, cntv_ctl_el0);
 
