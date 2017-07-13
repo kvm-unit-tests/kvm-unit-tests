@@ -28,7 +28,7 @@ static void irq_handler(struct pt_regs *regs)
 		gic_write_eoir(irqstat);
 
 	if (irqnr == PPI(vtimer_irq)) {
-		write_sysreg(CNTV_CTL_IMASK, cntv_ctl_el0);
+		write_sysreg(CNTV_CTL_IMASK | CNTV_CTL_ENABLE, cntv_ctl_el0);
 		++vtimer_irq_received;
 	}
 }
