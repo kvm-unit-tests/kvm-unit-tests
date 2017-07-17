@@ -3293,6 +3293,101 @@ static void vmx_controls_test(void)
 	test_msr_bitmap();
 }
 
+static bool valid_vmcs_for_vmentry(void)
+{
+	struct vmcs *current_vmcs = NULL;
+
+	if (vmcs_save(&current_vmcs))
+		return false;
+
+	return current_vmcs && !(current_vmcs->revision_id >> 31);
+}
+
+static void try_vmentry_in_movss_shadow(void)
+{
+	u32 vm_inst_err;
+	u32 flags;
+	bool early_failure = false;
+	u32 expected_flags = X86_EFLAGS_FIXED;
+	bool valid_vmcs = valid_vmcs_for_vmentry();
+
+	expected_flags |= valid_vmcs ? X86_EFLAGS_ZF : X86_EFLAGS_CF;
+
+	/*
+	 * Indirectly set VM_INST_ERR to 12 ("VMREAD/VMWRITE from/to
+	 * unsupported VMCS component").
+	 */
+	vmcs_write(~0u, 0);
+
+	__asm__ __volatile__ ("mov %[host_rsp], %%edx;"
+			      "vmwrite %%rsp, %%rdx;"
+			      "mov 0f, %%rax;"
+			      "mov %[host_rip], %%edx;"
+			      "vmwrite %%rax, %%rdx;"
+			      "mov $-1, %%ah;"
+			      "sahf;"
+			      "mov %%ss, %%ax;"
+			      "mov %%ax, %%ss;"
+			      "vmlaunch;"
+			      "mov $1, %[early_failure];"
+			      "0: lahf;"
+			      "movzbl %%ah, %[flags]"
+			      : [early_failure] "+r" (early_failure),
+				[flags] "=&a" (flags)
+			      : [host_rsp] "i" (HOST_RSP),
+				[host_rip] "i" (HOST_RIP)
+			      : "rdx", "cc", "memory");
+	vm_inst_err = vmcs_read(VMX_INST_ERROR);
+
+	report("Early VM-entry failure", early_failure);
+	report("RFLAGS[8:0] is %x (actual %x)", flags == expected_flags,
+	       expected_flags, flags);
+	if (valid_vmcs)
+		report("VM-instruction error is %d (actual %d)",
+		       vm_inst_err == VMXERR_ENTRY_EVENTS_BLOCKED_BY_MOV_SS,
+		       VMXERR_ENTRY_EVENTS_BLOCKED_BY_MOV_SS, vm_inst_err);
+}
+
+static void vmentry_movss_shadow_test(void)
+{
+	struct vmcs *orig_vmcs;
+
+	TEST_ASSERT(!vmcs_save(&orig_vmcs));
+
+	/*
+	 * Set the launched flag on the current VMCS to verify the correct
+	 * error priority, below.
+	 */
+	test_set_guest(v2_null_test_guest);
+	enter_guest();
+
+	/*
+	 * With bit 1 of the guest's RFLAGS clear, VM-entry should
+	 * fail due to invalid guest state (if we make it that far).
+	 */
+	vmcs_write(GUEST_RFLAGS, 0);
+
+	/*
+	 * "VM entry with events blocked by MOV SS" takes precedence over
+	 * "VMLAUNCH with non-clear VMCS."
+	 */
+	report_prefix_push("valid current-VMCS");
+	try_vmentry_in_movss_shadow();
+	report_prefix_pop();
+
+	/*
+	 * VMfailInvalid takes precedence over "VM entry with events
+	 * blocked by MOV SS."
+	 */
+	TEST_ASSERT(!vmcs_clear(orig_vmcs));
+	report_prefix_push("no current-VMCS");
+	try_vmentry_in_movss_shadow();
+	report_prefix_pop();
+
+	TEST_ASSERT(!make_vmcs_current(orig_vmcs));
+	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED);
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -3358,5 +3453,6 @@ struct vmx_test vmx_tests[] = {
 	TEST(invvpid_test_v2),
 	/* VM-entry tests */
 	TEST(vmx_controls_test),
+	TEST(vmentry_movss_shadow_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
