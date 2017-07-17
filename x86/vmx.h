@@ -5,6 +5,7 @@
 #include "processor.h"
 #include "bitops.h"
 #include "asm/page.h"
+#include "asm/io.h"
 
 struct vmcs {
 	u32 revision_id; /* vmcs revision identifier */
@@ -675,10 +676,12 @@ static inline int vmcs_write(enum Encoding enc, u64 val)
 static inline int vmcs_save(struct vmcs **vmcs)
 {
 	bool ret;
+	unsigned long pa;
 	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
 
-	asm volatile ("push %1; popf; vmptrst %2; setbe %0"
-		      : "=q" (ret) : "q" (rflags), "m" (*vmcs) : "cc");
+	asm volatile ("push %2; popf; vmptrst %1; setbe %0"
+		      : "=q" (ret), "=m" (pa) : "r" (rflags) : "cc");
+	*vmcs = (pa == -1ull) ? NULL : phys_to_virt(pa);
 	return ret;
 }
 
