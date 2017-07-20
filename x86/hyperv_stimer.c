@@ -271,6 +271,35 @@ static void stimer_test_auto_enable_periodic(int vcpu, struct stimer *timer)
     stimer_shutdown(timer);
 }
 
+static void stimer_test_one_shot_busy(int vcpu, struct stimer *timer)
+{
+    struct hv_message_page *msg_page = g_synic_vcpu[vcpu].msg_page;
+    struct hv_message *msg = &msg_page->sint_message[timer->sint];
+
+    msg->header.message_type = HVMSG_TIMER_EXPIRED;
+    wmb();
+
+    stimer_start(timer, false, false, ONE_MS_IN_100NS, SINT1_NUM);
+
+    do
+        rmb();
+    while (!msg->header.message_flags.msg_pending);
+
+    report("no timer fired while msg slot busy: vcpu %d",
+           !atomic_read(&timer->fire_count), vcpu);
+
+    msg->header.message_type = HVMSG_NONE;
+    wmb();
+    wrmsr(HV_X64_MSR_EOM, 0);
+
+    while (atomic_read(&timer->fire_count) < 1) {
+        pause();
+    }
+    report("timer resumed when msg slot released: vcpu %d", true, vcpu);
+
+    stimer_shutdown(timer);
+}
+
 static void stimer_test(void *ctx)
 {
     int vcpu = smp_id();
@@ -286,6 +315,7 @@ static void stimer_test(void *ctx)
     stimer_test_one_shot(vcpu, timer1);
     stimer_test_auto_enable_one_shot(vcpu, timer2);
     stimer_test_auto_enable_periodic(vcpu, timer1);
+    stimer_test_one_shot_busy(vcpu, timer1);
 
     irq_disable();
 }
