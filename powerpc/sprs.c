@@ -126,6 +126,15 @@ static void set_sprs_book3s_207(uint64_t val)
 	mtspr(815, val);	/* TAR */
 }
 
+/* SPRs from PowerISA 3.00 Book III */
+static void set_sprs_book3s_300(uint64_t val)
+{
+	set_sprs_book3s_207(val);
+	mtspr(48, val);		/* PIDR */
+	mtspr(144, val);	/* TIDR */
+	mtspr(823, val);	/* PSSCR */
+}
+
 static void set_sprs(uint64_t val)
 {
 	uint32_t pvr = mfspr(287);	/* Processor Version Register */
@@ -142,6 +151,9 @@ static void set_sprs(uint64_t val)
 	case 0x4c:			/* POWER8NVL */
 	case 0x4d:			/* POWER8 */
 		set_sprs_book3s_207(val);
+		break;
+	case 0x4e:			/* POWER9 */
+		set_sprs_book3s_300(val);
 		break;
 	default:
 		puts("Warning: Unknown processor version!\n");
@@ -218,6 +230,14 @@ static void get_sprs_book3s_207(uint64_t *v)
 	v[815] = mfspr(815);	/* TAR */
 }
 
+static void get_sprs_book3s_300(uint64_t *v)
+{
+	get_sprs_book3s_207(v);
+	v[48] = mfspr(48);	/* PIDR */
+	v[144] = mfspr(144);	/* TIDR */
+	v[823] = mfspr(823);	/* PSSCR */
+}
+
 static void get_sprs(uint64_t *v)
 {
 	uint32_t pvr = mfspr(287);	/* Processor Version Register */
@@ -234,6 +254,9 @@ static void get_sprs(uint64_t *v)
 	case 0x4c:			/* POWER8NVL */
 	case 0x4d:			/* POWER8 */
 		get_sprs_book3s_207(v);
+		break;
+	case 0x4e:			/* POWER9 */
+		get_sprs_book3s_300(v);
 		break;
 	}
 }
