@@ -7,13 +7,6 @@ fi
 source config.mak
 source scripts/common.bash
 
-escape ()
-{
-	for arg in "${@}"; do
-		printf "%q " "$arg"; # XXX: trailing whitespace
-	done
-}
-
 temp_file ()
 {
 	local var="$1"
@@ -36,7 +29,10 @@ config_export ()
 
 generate_test ()
 {
-	local args=( $(escape "${@}") )
+	local args=()
+	for arg in "${@}"; do
+		args+=("$(printf "%q" "$arg")")
+	done
 
 	echo "#!/usr/bin/env bash"
 	echo "export STANDALONE=yes"
