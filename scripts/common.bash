@@ -15,7 +15,7 @@ function for_each_unittest()
 
 	exec {fd}<"$unittests"
 
-	while read -u $fd line; do
+	while read -r -u $fd line; do
 		if [[ "$line" =~ ^\[(.*)\]$ ]]; then
 			"$cmd" "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$check" "$accel" "$timeout"
 			testname=${BASH_REMATCH[1]}

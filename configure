@@ -130,17 +130,15 @@ fi
 cat << EOF > lib-test.c
 __UINT32_TYPE__
 EOF
-u32_long=$($cross_prefix$cc -E lib-test.c | grep -v '^#' | grep -q long && echo yes)
+u32_long=$("$cross_prefix$cc" -E lib-test.c | grep -v '^#' | grep -q long && echo yes)
 rm -f lib-test.c
 
 # api/: check for dependent 32 bit libraries and gnu++11 support
 if [ "$testdir" = "x86" ]; then
     echo 'int main () {}' > lib-test.c
-    $cc -m32 -o /dev/null -lstdc++ -lpthread -lrt lib-test.c &> /dev/null
-    exit=$?
-    $cxx -m32 -o /dev/null -std=gnu++11 lib-test.c &> /dev/null
-    if [ $? -eq 0 -a $exit -eq 0 ]; then
-        api=true
+    if $cc -m32 -o /dev/null -lstdc++ -lpthread -lrt lib-test.c &> /dev/null &&
+       $cxx -m32 -o /dev/null -std=gnu++11 lib-test.c &> /dev/null; then
+        api=yes
     fi
     rm -f lib-test.c
 fi
@@ -163,7 +161,7 @@ fi
 
 # link lib/asm for the architecture
 rm -f lib/asm
-asm=asm-generic
+asm="asm-generic"
 if [ -d "$srcdir/lib/$arch/asm" ]; then
 	asm="$srcdir/lib/$arch/asm"
 elif [ -d "$srcdir/lib/$testdir/asm" ]; then

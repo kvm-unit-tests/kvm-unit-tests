@@ -38,7 +38,7 @@ skip_nodefault()
     [ "$STANDALONE" != "yes" ] && return 0
 
     while true; do
-        read -p "Test marked not to be run by default, are you sure (y/N)? " yn
+        read -r -p "Test marked not to be run by default, are you sure (y/N)? " yn
         case $yn in
             "Y" | "y" | "Yes" | "yes")
                 return 1
@@ -84,7 +84,7 @@ function run()
     # check a file for a particular value before running a test
     # the check line can contain multiple files to check separated by a space
     # but each check parameter needs to be of the form <path>=<value>
-    for check_param in ${check[@]}; do
+    for check_param in "${check[@]}"; do
         path=${check_param%%=*}
         value=${check_param#*=}
         if [ "$path" ] && [ "$(cat $path)" != "$value" ]; then

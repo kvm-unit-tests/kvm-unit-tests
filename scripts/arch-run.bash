@@ -28,7 +28,7 @@ run_qemu ()
 {
 	local stdout errors ret sig
 
-	echo -n $@
+	echo -n "$@"
 	initrd_create &&
 		echo -n " #"
 	echo " $INITRD"
@@ -107,7 +107,7 @@ qmp ()
 run_migration ()
 {
 	if ! command -v nc >/dev/null 2>&1; then
-		echo "$FUNCNAME needs nc (netcat)" >&2
+		echo "${FUNCNAME[0]} needs nc (netcat)" >&2
 		exit 2
 	fi
 
@@ -229,8 +229,8 @@ env_generate_errata ()
 	local kernel_version kernel_patchlevel kernel_sublevel kernel_extraversion
 	local line commit minver errata rest v p s x have
 
-	IFS=. read kernel_version kernel_patchlevel rest <<<$kernel_version_string
-	IFS=- read kernel_sublevel kernel_extraversion <<<$rest
+	IFS=. read -r kernel_version kernel_patchlevel rest <<<$kernel_version_string
+	IFS=- read -r kernel_sublevel kernel_extraversion <<<$rest
 	kernel_sublevel=${kernel_sublevel%%[!0-9]*}
 	kernel_extraversion=${kernel_extraversion%%[!0-9]*}
 
@@ -247,8 +247,8 @@ env_generate_errata ()
 		errata="ERRATA_$commit"
 		test -v $errata && continue
 
-		IFS=. read v p rest <<<$minver
-		IFS=- read s x <<<$rest
+		IFS=. read -r v p rest <<<$minver
+		IFS=- read -r s x <<<$rest
 		s=${s%%[!0-9]*}
 		x=${x%%[!0-9]*}
 
@@ -305,8 +305,8 @@ kvm_available ()
 		return 1
 
 	[ "$HOST" = "$ARCH_NAME" ] ||
-		[ "$HOST" = aarch64 -a "$ARCH" = arm ] ||
-		[ "$HOST" = x86_64 -a "$ARCH" = i386 ]
+		( [ "$HOST" = aarch64 ] && [ "$ARCH" = arm ] ) ||
+		( [ "$HOST" = x86_64 ] && [ "$ARCH" = i386 ] )
 }
 
 get_qemu_accelerator ()
