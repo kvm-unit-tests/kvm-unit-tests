@@ -96,6 +96,23 @@ static struct timer_info ptimer_info = {
 	.write_ctl = write_ptimer_ctl,
 };
 
+static void set_timer_irq_enabled(struct timer_info *info, bool enabled)
+{
+	u32 val = 0;
+
+	if (enabled)
+		val = 1 << PPI(info->irq);
+
+	switch (gic_version()) {
+	case 2:
+		writel(val, gicv2_dist_base() + GICD_ISENABLER + 0);
+		break;
+	case 3:
+		writel(val, gicv3_sgi_base() + GICR_ISENABLER0);
+		break;
+	}
+}
+
 static void irq_handler(struct pt_regs *regs)
 {
 	struct timer_info *info;
@@ -133,6 +150,8 @@ static bool test_cval_10msec(struct timer_info *info)
 	/* Program timer to fire in 10 ms */
 	before_timer = info->read_counter();
 	info->write_cval(before_timer + time_10ms);
+	info->write_ctl(ARCH_TIMER_CTL_ENABLE);
+	isb();
 
 	/* Wait for the timer to fire */
 	while (!(info->read_ctl() & ARCH_TIMER_CTL_ISTATUS))
@@ -159,13 +178,25 @@ static void test_timer(struct timer_info *info)
 	u64 time_10s = read_sysreg(cntfrq_el0) * 10;
 	u64 later = now + time_10s;
 
+	/* We don't want the irq handler to fire because that will change the
+	 * timer state and we want to test the timer output signal.  We can
+	 * still read the pending state even if it's disabled. */
+	set_timer_irq_enabled(info, false);
 
-	/* Enable the timer, but schedule it for much later*/
+	/* Enable the timer, but schedule it for much later */
 	info->write_cval(later);
-	isb();
 	info->write_ctl(ARCH_TIMER_CTL_ENABLE);
-
+	isb();
 	report("not pending before", !gic_timer_pending(info));
+
+	info->write_cval(now - 1);
+	isb();
+	report("interrupt signal pending", gic_timer_pending(info));
+
+	/* Disable the timer again and prepare to take interrupts */
+	info->write_ctl(0);
+	set_timer_irq_enabled(info, true);
+
 	report("latency within 10 ms", test_cval_10msec(info));
 	report("interrupt received", info->irq_received);
 
@@ -211,13 +242,9 @@ static void test_init(void)
 
 	switch (gic_version()) {
 	case 2:
-		writel(1 << PPI(vtimer_info.irq), gicv2_dist_base() + GICD_ISENABLER + 0);
-		writel(1 << PPI(ptimer_info.irq), gicv2_dist_base() + GICD_ISENABLER + 0);
 		gic_ispendr = gicv2_dist_base() + GICD_ISPENDR;
 		break;
 	case 3:
-		writel(1 << PPI(vtimer_info.irq), gicv3_sgi_base() + GICR_ISENABLER0);
-		writel(1 << PPI(ptimer_info.irq), gicv3_sgi_base() + GICR_ISENABLER0);
 		gic_ispendr = gicv3_sgi_base() + GICD_ISPENDR;
 		break;
 	}
