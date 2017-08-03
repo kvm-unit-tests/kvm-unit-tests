@@ -174,7 +174,7 @@ static bool test_cval_10msec(struct timer_info *info)
 
 static void test_timer(struct timer_info *info)
 {
-	u64 now = read_sysreg(cntvct_el0);
+	u64 now = info->read_counter();
 	u64 time_10s = read_sysreg(cntfrq_el0) * 10;
 	u64 later = now + time_10s;
 
