@@ -71,27 +71,27 @@ int main(int ac, char **av)
 	handle_exception(DB_VECTOR, handle_db);
 	handle_exception(BP_VECTOR, handle_bp);
 
-sw_bp:
-	asm volatile("int3");
-	report("#BP", bp_addr[0] == (unsigned long)&&sw_bp + 1);
+	extern unsigned char sw_bp;
+	asm volatile("int3; sw_bp:");
+	report("#BP", bp_addr[0] == (unsigned long)&sw_bp);
 
 	n = 0;
-	set_dr0(&&hw_bp1);
+	extern unsigned char hw_bp1;
+	set_dr0(&hw_bp1);
 	set_dr7(0x00000402);
-hw_bp1:
-	asm volatile("nop");
+	asm volatile("hw_bp1: nop");
 	report("hw breakpoint (test that dr6.BS is not set)",
 	       n == 1 &&
-	       bp_addr[0] == ((unsigned long)&&hw_bp1) && dr6[0] == 0xffff0ff1);
+	       bp_addr[0] == ((unsigned long)&hw_bp1) && dr6[0] == 0xffff0ff1);
 
 	n = 0;
-	set_dr0(&&hw_bp2);
+	extern unsigned char hw_bp2;
+	set_dr0(&hw_bp2);
 	set_dr6(0x00004002);
-hw_bp2:
-	asm volatile("nop");
+	asm volatile("hw_bp2: nop");
 	report("hw breakpoint (test that dr6.BS is not cleared)",
 	       n == 1 &&
-	       bp_addr[0] == ((unsigned long)&&hw_bp2) && dr6[0] == 0xffff4ff1);
+	       bp_addr[0] == ((unsigned long)&hw_bp2) && dr6[0] == 0xffff4ff1);
 
 	n = 0;
 	set_dr6(0);
@@ -147,34 +147,34 @@ hw_bp2:
 	set_dr1((void *)&value);
 	set_dr7(0x00d0040a);
 
+	extern unsigned char hw_wp1;
 	asm volatile(
 		"mov $42,%%rax\n\t"
-		"mov %%rax,%0\n\t"
+		"mov %%rax,%0\n\t; hw_wp1:"
 		: "=m" (value) : : "rax");
-hw_wp1:
 	report("hw watchpoint (test that dr6.BS is not cleared)",
 	       n == 1 &&
-	       bp_addr[0] == ((unsigned long)&&hw_wp1) && dr6[0] == 0xffff4ff2);
+	       bp_addr[0] == ((unsigned long)&hw_wp1) && dr6[0] == 0xffff4ff2);
 
 	n = 0;
 	set_dr6(0);
 
+	extern unsigned char hw_wp2;
 	asm volatile(
 		"mov $42,%%rax\n\t"
-		"mov %%rax,%0\n\t"
+		"mov %%rax,%0\n\t; hw_wp2:"
 		: "=m" (value) : : "rax");
-hw_wp2:
 	report("hw watchpoint (test that dr6.BS is not set)",
 	       n == 1 &&
-	       bp_addr[0] == ((unsigned long)&&hw_wp2) && dr6[0] == 0xffff0ff2);
+	       bp_addr[0] == ((unsigned long)&hw_wp2) && dr6[0] == 0xffff0ff2);
 
 	n = 0;
 	set_dr6(0);
-sw_icebp:
-	asm volatile(".byte 0xf1");
+	extern unsigned char sw_icebp;
+	asm volatile(".byte 0xf1; sw_icebp:");
 	report("icebp",
 	       n == 1 &&
-	       bp_addr[0] == (unsigned long)&&sw_icebp + 1 &&
+	       bp_addr[0] == (unsigned long)&sw_icebp &&
 	       dr6[0] == 0xffff0ff0);
 
 	return report_summary();
