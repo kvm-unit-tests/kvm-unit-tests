@@ -7,6 +7,7 @@
  */
 #include <libcflat.h>
 #include <devicetree.h>
+#include <errata.h>
 #include <asm/processor.h>
 #include <asm/gic.h>
 #include <asm/io.h>
@@ -16,6 +17,13 @@
 #define ARCH_TIMER_CTL_ISTATUS (1 << 2)
 
 static void *gic_ispendr;
+static bool ptimer_unsupported;
+
+static void ptimer_unsupported_handler(struct pt_regs *regs, unsigned int esr)
+{
+	ptimer_unsupported = true;
+	regs->pc += 4;
+}
 
 static u64 read_vtimer_counter(void)
 {
@@ -213,6 +221,9 @@ static void test_vtimer(void)
 
 static void test_ptimer(void)
 {
+	if (ptimer_unsupported)
+		return;
+
 	report_prefix_push("ptimer-busy-loop");
 	test_timer(&ptimer_info);
 	report_prefix_pop();
@@ -238,6 +249,17 @@ static void test_init(void)
 	vtimer_info.irq = fdt32_to_cpu(data[7]);
 	vtimer_info.irq_flags = fdt32_to_cpu(data[8]);
 
+	install_exception_handler(EL1H_SYNC, ESR_EL1_EC_UNKNOWN, ptimer_unsupported_handler);
+	read_sysreg(cntp_ctl_el0);
+	install_exception_handler(EL1H_SYNC, ESR_EL1_EC_UNKNOWN, NULL);
+
+	if (ptimer_unsupported && !ERRATA(7b6b46311a85)) {
+		report_skip("Skipping ptimer tests. Set ERRATA_7b6b46311a85=y to enable.");
+	} else if (ptimer_unsupported) {
+		report("ptimer: read CNTP_CTL_EL0", false);
+		report_info("ptimer: skipping remaining tests");
+	}
+
 	gic_enable_defaults();
 
 	switch (gic_version()) {
@@ -253,52 +275,29 @@ static void test_init(void)
 	local_irq_enable();
 }
 
-static void print_vtimer_info(void)
+static void print_timer_info(void)
 {
 	printf("CNTFRQ_EL0   : 0x%016lx\n", read_sysreg(cntfrq_el0));
+
+	if (!ptimer_unsupported){
+		printf("CNTPCT_EL0   : 0x%016lx\n", read_sysreg(cntpct_el0));
+		printf("CNTP_CTL_EL0 : 0x%016lx\n", read_sysreg(cntp_ctl_el0));
+		printf("CNTP_CVAL_EL0: 0x%016lx\n", read_sysreg(cntp_cval_el0));
+	}
+
 	printf("CNTVCT_EL0   : 0x%016lx\n", read_sysreg(cntvct_el0));
 	printf("CNTV_CTL_EL0 : 0x%016lx\n", read_sysreg(cntv_ctl_el0));
 	printf("CNTV_CVAL_EL0: 0x%016lx\n", read_sysreg(cntv_cval_el0));
 }
 
-static void print_ptimer_info(void)
-{
-	printf("CNTPCT_EL0   : 0x%016lx\n", read_sysreg(cntpct_el0));
-	printf("CNTP_CTL_EL0 : 0x%016lx\n", read_sysreg(cntp_ctl_el0));
-	printf("CNTP_CVAL_EL0: 0x%016lx\n", read_sysreg(cntp_cval_el0));
-}
-
-
 int main(int argc, char **argv)
 {
-	bool run_ptimer_test = false;
-	bool run_vtimer_test = false;
-
-	/* Check if we should also check the physical timer */
-	if (argc > 1) {
-		if (strcmp(argv[1], "vtimer") == 0) {
-			run_vtimer_test = true;
-		} else if (strcmp(argv[1], "ptimer") == 0) {
-			run_ptimer_test = true;
-		} else {
-			report_abort("Unknown option '%s'", argv[1]);
-		}
-	} else {
-		run_vtimer_test = true;
-	}
-
-	if (run_vtimer_test)
-		print_vtimer_info();
-	else if (run_ptimer_test)
-		print_ptimer_info();
-
 	test_init();
 
-	if (run_vtimer_test)
-		test_vtimer();
-	else if (run_ptimer_test)
-		test_ptimer();
+	print_timer_info();
 
+	test_vtimer();
+	test_ptimer();
 
 	return report_summary();
 }
