@@ -395,6 +395,7 @@ enum Ctrl1 {
 	CPU_URG			= 1ul << 7,
 	CPU_WBINVD		= 1ul << 6,
 	CPU_RDRAND		= 1ul << 11,
+	CPU_RDSEED		= 1ul << 16,
 	CPU_PML                 = 1ul << 17,
 };
 

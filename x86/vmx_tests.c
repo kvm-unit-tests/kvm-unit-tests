@@ -770,6 +770,8 @@ asm(
 	"insn_sldt: sldt %ax;ret\n\t"
 	"insn_lldt: xor %eax, %eax; lldt %ax;ret\n\t"
 	"insn_str: str %ax;ret\n\t"
+	"insn_rdrand: rdrand %rax;ret\n\t"
+	"insn_rdseed: rdseed %rax;ret\n\t"
 );
 extern void insn_hlt();
 extern void insn_invlpg();
@@ -794,6 +796,8 @@ extern void insn_lldt();
 extern void insn_str();
 extern void insn_cpuid();
 extern void insn_invd();
+extern void insn_rdrand();
+extern void insn_rdseed();
 
 u32 cur_insn;
 u64 cr3;
@@ -849,6 +853,8 @@ static struct insn_table insn_table[] = {
 	{"DESC_TABLE (LLDT)", CPU_DESC_TABLE, insn_lldt, INSN_CPU1, 47, 0, 0, 0},
 	{"DESC_TABLE (STR)", CPU_DESC_TABLE, insn_str, INSN_CPU1, 47, 0, 0, 0},
 	/* LTR causes a #GP if done with a busy selector, so it is not tested.  */
+	{"RDRAND", CPU_RDRAND, insn_rdrand, INSN_CPU1, VMX_RDRAND, 0, 0, 0},
+	{"RDSEED", CPU_RDSEED, insn_rdseed, INSN_CPU1, VMX_RDSEED, 0, 0, 0},
 	// Instructions always trap
 	{"CPUID", 0, insn_cpuid, INSN_ALWAYS_TRAP, 10, 0, 0, 0},
 	{"INVD", 0, insn_invd, INSN_ALWAYS_TRAP, 13, 0, 0, 0},
