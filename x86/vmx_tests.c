@@ -3193,6 +3193,73 @@ static void test_vmx_controls(bool controls_valid)
 }
 
 /*
+ * Test a particular value of a VM-execution control bit, if the value
+ * is required or if the value is zero.
+ */
+static void test_rsvd_ctl_bit_value(const char *name, union vmx_ctrl_msr msr,
+				    enum Encoding encoding, unsigned bit,
+				    unsigned val)
+{
+	u32 mask = 1u << bit;
+	bool expected;
+	u32 controls;
+
+	if (msr.set & mask)
+		TEST_ASSERT(msr.clr & mask);
+
+	/*
+	 * We can't arbitrarily turn on a control bit, because it may
+	 * introduce dependencies on other VMCS fields. So, we only
+	 * test turning on bits that have a required setting.
+	 */
+	if (val && (msr.clr & mask) && !(msr.set & mask))
+		return;
+
+	report_prefix_pushf("%s %s bit %d",
+			    val ? "Set" : "Clear", name, bit);
+
+	controls = vmcs_read(encoding);
+	if (val) {
+		vmcs_write(encoding, msr.set | mask);
+		expected = (msr.clr & mask);
+	} else {
+		vmcs_write(encoding, msr.set & ~mask);
+		expected = !(msr.set & mask);
+	}
+	test_vmx_controls(expected);
+	vmcs_write(encoding, controls);
+	report_prefix_pop();
+}
+
+/*
+ * Test reserved values of a VM-execution control bit, based on the
+ * allowed bit settings from the corresponding VMX capability MSR.
+ */
+static void test_rsvd_ctl_bit(const char *name, union vmx_ctrl_msr msr,
+			      enum Encoding encoding, unsigned bit)
+{
+	test_rsvd_ctl_bit_value(name, msr, encoding, bit, 0);
+	test_rsvd_ctl_bit_value(name, msr, encoding, bit, 1);
+}
+
+/*
+ * Reserved bits in the pin-based VM-execution controls must be set
+ * properly. Software may consult the VMX capability MSRs to determine
+ * the proper settings.
+ * [Intel SDM]
+ */
+static void test_pin_based_ctls(void)
+{
+	unsigned bit;
+
+	printf("%s: %lx\n", basic.ctrl ? "MSR_IA32_VMX_TRUE_PIN" :
+	       "MSR_IA32_VMX_PINBASED_CTLS", ctrl_pin_rev.val);
+	for (bit = 0; bit < 32; bit++)
+		test_rsvd_ctl_bit("pin-based controls",
+				  ctrl_pin_rev, PIN_CONTROLS, bit);
+}
+
+/*
  * Test a particular address setting for a physical page reference in
  * the VMCS.
  */
@@ -3295,6 +3362,7 @@ static void vmx_controls_test(void)
 	 */
 	vmcs_write(GUEST_RFLAGS, 0);
 
+	test_pin_based_ctls();
 	test_io_bitmaps();
 	test_msr_bitmap();
 }
