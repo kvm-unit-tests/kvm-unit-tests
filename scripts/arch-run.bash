@@ -247,8 +247,8 @@ env_generate_errata ()
 		errata="ERRATA_$commit"
 		test -v $errata && continue
 
-		IFS=. read -r v p rest <<<$minver
-		IFS=- read -r s x <<<$rest
+		IFS=. read -r v p rest <<<"$minver"
+		IFS=- read -r s x <<<"$rest"
 		s=${s%%[!0-9]*}
 		x=${x%%[!0-9]*}
 
