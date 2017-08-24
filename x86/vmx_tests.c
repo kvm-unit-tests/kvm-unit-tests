@@ -3260,6 +3260,65 @@ static void test_pin_based_ctls(void)
 }
 
 /*
+ * Reserved bits in the primary processor-based VM-execution controls
+ * must be set properly. Software may consult the VMX capability MSRs
+ * to determine the proper settings.
+ * [Intel SDM]
+ */
+static void test_primary_processor_based_ctls(void)
+{
+	unsigned bit;
+
+	printf("\n%s: %lx\n", basic.ctrl ? "MSR_IA32_VMX_TRUE_PROC" :
+	       "MSR_IA32_VMX_PROCBASED_CTLS", ctrl_cpu_rev[0].val);
+	for (bit = 0; bit < 32; bit++)
+		test_rsvd_ctl_bit("primary processor-based controls",
+				  ctrl_cpu_rev[0], CPU_EXEC_CTRL0, bit);
+}
+
+/*
+ * If the "activate secondary controls" primary processor-based
+ * VM-execution control is 1, reserved bits in the secondary
+ * processor-based VM-execution controls must be cleared. Software may
+ * consult the VMX capability MSRs to determine which bits are
+ * reserved.
+ * If the "activate secondary controls" primary processor-based
+ * VM-execution control is 0 (or if the processor does not support the
+ * 1-setting of that control), no checks are performed on the
+ * secondary processor-based VM-execution controls.
+ * [Intel SDM]
+ */
+static void test_secondary_processor_based_ctls(void)
+{
+	u32 primary;
+	u32 secondary;
+	unsigned bit;
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY))
+		return;
+
+	primary = vmcs_read(CPU_EXEC_CTRL0);
+	secondary = vmcs_read(CPU_EXEC_CTRL1);
+
+	vmcs_write(CPU_EXEC_CTRL0, primary | CPU_SECONDARY);
+	printf("\nMSR_IA32_VMX_PROCBASED_CTLS2: %lx\n", ctrl_cpu_rev[1].val);
+	for (bit = 0; bit < 32; bit++)
+		test_rsvd_ctl_bit("secondary processor-based controls",
+				  ctrl_cpu_rev[1], CPU_EXEC_CTRL1, bit);
+
+	/*
+	 * When the "activate secondary controls" VM-execution control
+	 * is clear, there are no checks on the secondary controls.
+	 */
+	vmcs_write(CPU_EXEC_CTRL0, primary & ~CPU_SECONDARY);
+	vmcs_write(CPU_EXEC_CTRL1, ~0);
+	report("Secondary processor-based controls ignored",
+	       vmlaunch_succeeds());
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	vmcs_write(CPU_EXEC_CTRL0, primary);
+}
+
+/*
  * Test a particular address setting for a physical page reference in
  * the VMCS.
  */
@@ -3363,6 +3422,8 @@ static void vmx_controls_test(void)
 	vmcs_write(GUEST_RFLAGS, 0);
 
 	test_pin_based_ctls();
+	test_primary_processor_based_ctls();
+	test_secondary_processor_based_ctls();
 	test_io_bitmaps();
 	test_msr_bitmap();
 }
