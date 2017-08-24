@@ -3444,6 +3444,20 @@ static void test_msr_bitmap(void)
 				 "MSR bitmap", "Use MSR bitmaps");
 }
 
+/*
+ * If the "use TPR shadow" VM-execution control is 1, the virtual-APIC
+ * address must satisfy the following checks:
+ * - Bits 11:0 of the address must be 0.
+ * - The address should not set any bits beyond the processor's
+ *   physical-address width.
+ * [Intel SDM]
+ */
+static void test_apic_virt_addr(void)
+{
+	test_vmcs_page_reference(CPU_TPR_SHADOW, APIC_VIRT_ADDR,
+				 "virtual-APIC address", "Use TPR shadow");
+}
+
 static void vmx_controls_test(void)
 {
 	/*
@@ -3459,6 +3473,7 @@ static void vmx_controls_test(void)
 	test_cr3_targets();
 	test_io_bitmaps();
 	test_msr_bitmap();
+	test_apic_virt_addr();
 }
 
 static bool valid_vmcs_for_vmentry(void)
