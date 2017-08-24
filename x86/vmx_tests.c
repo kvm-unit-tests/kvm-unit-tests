@@ -3318,6 +3318,38 @@ static void test_secondary_processor_based_ctls(void)
 	vmcs_write(CPU_EXEC_CTRL0, primary);
 }
 
+static void try_cr3_target_count(unsigned i, unsigned max)
+{
+	report_prefix_pushf("CR3 target count 0x%x", i);
+	vmcs_write(CR3_TARGET_COUNT, i);
+	test_vmx_controls(i <= max);
+	report_prefix_pop();
+}
+
+/*
+ * The CR3-target count must not be greater than 4. Future processors
+ * may support a different number of CR3-target values. Software
+ * should read the VMX capability MSR IA32_VMX_MISC to determine the
+ * number of values supported.
+ * [Intel SDM]
+ */
+static void test_cr3_targets(void)
+{
+	unsigned supported_targets = (rdmsr(MSR_IA32_VMX_MISC) >> 16) & 0x1ff;
+	u32 cr3_targets = vmcs_read(CR3_TARGET_COUNT);
+	unsigned i;
+
+	printf("\nSupported CR3 targets: %d\n", supported_targets);
+	TEST_ASSERT(supported_targets <= 256);
+
+	try_cr3_target_count(-1u, supported_targets);
+	try_cr3_target_count(0x80000000, supported_targets);
+	try_cr3_target_count(0x7fffffff, supported_targets);
+	for (i = 0; i <= supported_targets + 1; i++)
+		try_cr3_target_count(i, supported_targets);
+	vmcs_write(CR3_TARGET_COUNT, cr3_targets);
+}
+
 /*
  * Test a particular address setting for a physical page reference in
  * the VMCS.
@@ -3424,6 +3456,7 @@ static void vmx_controls_test(void)
 	test_pin_based_ctls();
 	test_primary_processor_based_ctls();
 	test_secondary_processor_based_ctls();
+	test_cr3_targets();
 	test_io_bitmaps();
 	test_msr_bitmap();
 }
