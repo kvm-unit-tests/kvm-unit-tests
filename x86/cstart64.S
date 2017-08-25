@@ -45,6 +45,10 @@ ptl4:
 	.quad ptl3 + 7
 
 .align 4096
+ptl5:
+	.quad ptl4 + 7
+
+.align 4096
 
 gdt64_desc:
 	.word gdt64_end - gdt64 - 1
@@ -91,6 +95,8 @@ tss_end:
 
 mb_boot_info:	.quad 0
 
+pt_root:	.quad ptl4
+
 .section .init
 
 .code32
@@ -119,14 +125,36 @@ start:
 	call prepare_64
 	jmpl $8, $start64
 
+switch_to_5level:
+	/* Disable CR4.PCIDE */
+	mov %cr4, %eax
+	btr $17, %eax
+	mov %eax, %cr4
+
+	mov %cr0, %eax
+	btr $31, %eax
+	mov %eax, %cr0
+
+	mov $ptl5, %eax
+	mov %eax, pt_root
+
+	/* Enable CR4.LA57 */
+	mov %cr4, %eax
+	bts $12, %eax
+	mov %eax, %cr4
+
+	call enter_long_mode
+	jmpl $8, $lvl5
+
 prepare_64:
 	lgdt gdt64_desc
 
+enter_long_mode:
 	mov %cr4, %eax
 	bts $5, %eax  // pae
 	mov %eax, %cr4
 
-	mov $ptl4, %eax
+	mov pt_root, %eax
 	mov %eax, %cr3
 
 efer = 0xc0000080
@@ -210,6 +238,19 @@ start64:
 	call main
 	mov %eax, %edi
 	call exit
+
+.globl setup_5level_page_table
+setup_5level_page_table:
+	/* Check if 5-level paging has already enabled */
+	mov %cr4, %rax
+	test $12, %eax
+	jnz lvl5
+
+	pushq $32
+	pushq $switch_to_5level
+	lretq
+lvl5:
+	retq
 
 idt_descr:
 	.word 16 * 256 - 1

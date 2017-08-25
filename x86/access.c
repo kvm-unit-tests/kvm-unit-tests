@@ -15,6 +15,7 @@ typedef unsigned long pt_element_t;
 static int cpuid_7_ebx;
 static int cpuid_7_ecx;
 static int invalid_mask;
+static int page_table_levels;
 
 #define PT_BASE_ADDR_MASK ((pt_element_t)((((pt_element_t)1 << 40) - 1) & PAGE_MASK))
 #define PT_PSE_BASE_ADDR_MASK (PT_BASE_ADDR_MASK & ~(1ull << 21))
@@ -319,7 +320,7 @@ pt_element_t ac_test_alloc_pt(ac_pool_t *pool)
 
 _Bool ac_test_enough_room(ac_pool_t *pool)
 {
-    return pool->pt_pool_current + 4 * PAGE_SIZE <= pool->pt_pool_size;
+    return pool->pt_pool_current + 5 * PAGE_SIZE <= pool->pt_pool_size;
 }
 
 void ac_test_reset_pt_pool(ac_pool_t *pool)
@@ -464,16 +465,28 @@ void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
 {
     unsigned long root = read_cr3();
     int flags = at->flags;
+    bool skip = true;
 
     if (!ac_test_enough_room(pool))
 	ac_test_reset_pt_pool(pool);
 
     at->ptep = 0;
-    for (int i = 4; i >= 1 && (i >= 2 || !F(AC_PDE_PSE)); --i) {
+    for (int i = page_table_levels; i >= 1 && (i >= 2 || !F(AC_PDE_PSE)); --i) {
 	pt_element_t *vroot = va(root & PT_BASE_ADDR_MASK);
 	unsigned index = PT_INDEX((unsigned long)at->virt, i);
 	pt_element_t pte = 0;
+
+	/*
+	 * Reuse existing page tables along the path to the test code and data
+	 * (which is in the bottom 2MB).
+	 */
+	if (skip && i >= 2 && index == 0) {
+	    goto next;
+	}
+	skip = false;
+
 	switch (i) {
+	case 5:
 	case 4:
 	case 3:
 	    pte = pd_page ? pd_page : ac_test_alloc_pt(pool);
@@ -531,6 +544,7 @@ void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
 	    break;
 	}
 	vroot[index] = pte;
+ next:
 	root = vroot[index];
     }
     ac_set_expected_status(at);
@@ -554,7 +568,7 @@ static void dump_mapping(ac_test_t *at)
 	int i;
 
 	printf("Dump mapping: address: %p\n", at->virt);
-	for (i = 4; i >= 1 && (i >= 2 || !F(AC_PDE_PSE)); --i) {
+	for (i = page_table_levels ; i >= 1 && (i >= 2 || !F(AC_PDE_PSE)); --i) {
 		pt_element_t *vroot = va(root & PT_BASE_ADDR_MASK);
 		unsigned index = PT_INDEX((unsigned long)at->virt, i);
 		pt_element_t pte = vroot[index];
@@ -987,6 +1001,15 @@ int main()
     cpuid_7_ecx = cpuid(7).c;
 
     printf("starting test\n\n");
+    page_table_levels = 4;
     r = ac_test_run();
+
+    if (cpuid_7_ecx & (1 << 16)) {
+        page_table_levels = 5;
+        setup_5level_page_table();
+        printf("starting 5-level paging test.\n\n");
+        r = ac_test_run();
+    }
+
     return r ? 0 : 1;
 }
