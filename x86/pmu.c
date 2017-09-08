@@ -275,7 +275,8 @@ static void check_counters_many(void)
 
 		cnt[n].count = 0;
 		cnt[n].ctr = MSR_IA32_PERFCTR0 + n;
-		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR | gp_events[i].unit_sel;
+		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR |
+			gp_events[i % ARRAY_SIZE(gp_events)].unit_sel;
 		n++;
 	}
 	for (i = 0; i < edx.split.num_counters_fixed; i++) {
@@ -397,8 +398,6 @@ int main(int ac, char **av)
 	printf("Fixed counter width: %d\n", edx.split.bit_width_fixed);
 
 	num_counters = eax.split.num_counters;
-	if (num_counters > ARRAY_SIZE(gp_events))
-		num_counters = ARRAY_SIZE(gp_events);
 
 	apic_write(APIC_LVTPC, PC_VECTOR);
 
