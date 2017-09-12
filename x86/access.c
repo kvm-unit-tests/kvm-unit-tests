@@ -3,6 +3,7 @@
 #include "desc.h"
 #include "processor.h"
 #include "asm/page.h"
+#include "x86/vm.h"
 
 #define smp_id() 0
 
