@@ -189,23 +189,25 @@ void set_cr0_wp(int wp)
         write_cr0(cr0);
 }
 
-void set_cr4_smep(int smep)
+unsigned set_cr4_smep(int smep)
 {
     unsigned long cr4 = read_cr4();
     unsigned long old_cr4 = cr4;
     extern u64 ptl2[];
+    unsigned r;
 
     cr4 &= ~CR4_SMEP_MASK;
     if (smep)
 	cr4 |= CR4_SMEP_MASK;
     if (old_cr4 == cr4)
-        return;
+        return 0;
 
     if (smep)
         ptl2[2] &= ~PT_USER_MASK;
-    write_cr4(cr4);
+    r = write_cr4_checking(cr4);
     if (!smep)
         ptl2[2] |= PT_USER_MASK;
+    return r;
 }
 
 void set_cr4_pke(int pke)
@@ -947,9 +949,8 @@ int ac_test_run(void)
     }
 
     if (!(cpuid_7_ebx & (1 << 7))) {
-	unsigned long cr4 = read_cr4();
 	tests++;
-	if (write_cr4_checking(cr4 | CR4_SMEP_MASK) == GP_VECTOR) {
+	if (set_cr4_smep(1) == GP_VECTOR) {
             successes++;
             invalid_mask |= AC_CPU_CR4_SMEP_MASK;
             printf("CR4.SMEP not available, disabling SMEP tests\n");
