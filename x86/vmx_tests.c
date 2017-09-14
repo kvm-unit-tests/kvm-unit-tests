@@ -3458,6 +3458,86 @@ static void test_apic_virt_addr(void)
 				 "virtual-APIC address", "Use TPR shadow");
 }
 
+static void try_tpr_threshold(unsigned val)
+{
+	bool valid = true;
+
+	if ((vmcs_read(CPU_EXEC_CTRL0) & CPU_TPR_SHADOW) &&
+	    !((vmcs_read(CPU_EXEC_CTRL0) & CPU_SECONDARY) &&
+	      (vmcs_read(CPU_EXEC_CTRL1) & CPU_VINTD)))
+		valid = !(val >> 4);
+	report_prefix_pushf("TPR threshold 0x%x", val);
+	vmcs_write(TPR_THRESHOLD, val);
+	test_vmx_controls(valid);
+	report_prefix_pop();
+}
+
+/*
+ * Test interesting TPR threshold values.
+ */
+static void test_tpr_threshold_values(void)
+{
+	unsigned i;
+
+	for (i = 0; i < 0x10; i++)
+		try_tpr_threshold(i);
+	for (i = 4; i < 32; i++)
+		try_tpr_threshold(1u << i);
+	try_tpr_threshold(-1u);
+	try_tpr_threshold(0x7fffffff);
+}
+
+/*
+ * If the "use TPR shadow" VM-execution control is 1 and the
+ * "virtual-interrupt delivery" VM-execution control is 0, bits 31:4
+ * of the TPR threshold VM-execution control field must be 0.
+ * [Intel SDM]
+ */
+static void test_tpr_threshold(void)
+{
+	u32 primary = vmcs_read(CPU_EXEC_CTRL0);
+	void *virtual_apic_page;
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_TPR_SHADOW))
+		return;
+
+	virtual_apic_page = alloc_page();
+	memset(virtual_apic_page, 0xff, PAGE_SIZE);
+	vmcs_write(APIC_VIRT_ADDR, virt_to_phys(virtual_apic_page));
+
+	vmcs_write(CPU_EXEC_CTRL0, primary & ~(CPU_TPR_SHADOW | CPU_SECONDARY));
+	report_prefix_pushf("Use TPR shadow disabled");
+	test_tpr_threshold_values();
+	report_prefix_pop();
+	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | CPU_TPR_SHADOW);
+	report_prefix_pushf("Use TPR shadow enabled");
+	test_tpr_threshold_values();
+	report_prefix_pop();
+
+	if ((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
+	    (ctrl_cpu_rev[1].clr & CPU_VINTD)) {
+		u32 secondary = vmcs_read(CPU_EXEC_CTRL1);
+
+		vmcs_write(CPU_EXEC_CTRL1, CPU_VINTD);
+		report_prefix_pushf("Use TPR shadow enabled; secondary controls disabled");
+		test_tpr_threshold_values();
+		report_prefix_pop();
+		vmcs_write(CPU_EXEC_CTRL0,
+			   vmcs_read(CPU_EXEC_CTRL0) | CPU_SECONDARY);
+		report_prefix_pushf("Use TPR shadow enabled; virtual-interrupt delivery enabled");
+		test_tpr_threshold_values();
+		report_prefix_pop();
+
+		vmcs_write(CPU_EXEC_CTRL1, secondary);
+	}
+
+	vmcs_write(CPU_EXEC_CTRL0, primary);
+}
+
+/*
+ * Check that the virtual CPU checks all of the VMX controls as
+ * documented in the Intel SDM.
+ */
 static void vmx_controls_test(void)
 {
 	/*
@@ -3474,6 +3554,7 @@ static void vmx_controls_test(void)
 	test_io_bitmaps();
 	test_msr_bitmap();
 	test_apic_virt_addr();
+	test_tpr_threshold();
 }
 
 static bool valid_vmcs_for_vmentry(void)
