@@ -207,7 +207,7 @@ unsigned set_cr4_smep(int smep)
     if (smep)
         ptl2[2] &= ~PT_USER_MASK;
     r = write_cr4_checking(cr4);
-    if (!smep)
+    if (r || !smep)
         ptl2[2] |= PT_USER_MASK;
     return r;
 }
