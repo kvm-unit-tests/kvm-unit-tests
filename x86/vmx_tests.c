@@ -3177,14 +3177,14 @@ success:
 /*
  * Try to launch the current VMCS.
  */
-static void test_vmx_controls(bool controls_valid)
+static void test_vmx_controls(bool controls_valid, bool xfail)
 {
 	bool success = vmlaunch_succeeds();
 	u32 vmx_inst_err;
 
-	report("vmlaunch %s", success == controls_valid,
-	       controls_valid ? "succeeds" : "fails");
-	if (!controls_valid) {
+	report_xfail("vmlaunch %s", xfail, success == controls_valid,
+		     controls_valid ? "succeeds" : "fails");
+	if (!success) {
 		vmx_inst_err = vmcs_read(VMX_INST_ERROR);
 		report("VMX inst error is %d (actual %d)",
 		       vmx_inst_err == VMXERR_ENTRY_INVALID_CONTROL_FIELD,
@@ -3226,7 +3226,7 @@ static void test_rsvd_ctl_bit_value(const char *name, union vmx_ctrl_msr msr,
 		vmcs_write(encoding, msr.set & ~mask);
 		expected = !(msr.set & mask);
 	}
-	test_vmx_controls(expected);
+	test_vmx_controls(expected, false);
 	vmcs_write(encoding, controls);
 	report_prefix_pop();
 }
@@ -3322,7 +3322,7 @@ static void try_cr3_target_count(unsigned i, unsigned max)
 {
 	report_prefix_pushf("CR3 target count 0x%x", i);
 	vmcs_write(CR3_TARGET_COUNT, i);
-	test_vmx_controls(i <= max);
+	test_vmx_controls(i <= max, false);
 	report_prefix_pop();
 }
 
@@ -3357,13 +3357,21 @@ static void test_cr3_targets(void)
 static void test_vmcs_page_addr(const char *name,
 				enum Encoding encoding,
 				bool ignored,
+				bool xfail_beyond_mapped_ram,
 				u64 addr)
 {
+	bool xfail =
+		(xfail_beyond_mapped_ram &&
+		 addr > fwcfg_get_u64(FW_CFG_RAM_SIZE) - PAGE_SIZE &&
+		 addr < (1ul << cpuid_maxphyaddr()));
+
 	report_prefix_pushf("%s = %lx", name, addr);
 	vmcs_write(encoding, addr);
 	test_vmx_controls(ignored || (IS_ALIGNED(addr, PAGE_SIZE) &&
-				  addr < (1ul << cpuid_maxphyaddr())));
+				  addr < (1ul << cpuid_maxphyaddr())),
+			  xfail);
 	report_prefix_pop();
+	xfail = false;
 }
 
 /*
@@ -3371,19 +3379,26 @@ static void test_vmcs_page_addr(const char *name,
  */
 static void test_vmcs_page_values(const char *name,
 				  enum Encoding encoding,
-				  bool ignored)
+				  bool ignored,
+				  bool xfail_beyond_mapped_ram)
 {
 	unsigned i;
 	u64 orig_val = vmcs_read(encoding);
 
 	for (i = 0; i < 64; i++)
-		test_vmcs_page_addr(name, encoding, ignored, 1ul << i);
+		test_vmcs_page_addr(name, encoding, ignored,
+				    xfail_beyond_mapped_ram, 1ul << i);
 
-	test_vmcs_page_addr(name, encoding, ignored, PAGE_SIZE - 1);
-	test_vmcs_page_addr(name, encoding, ignored, PAGE_SIZE);
 	test_vmcs_page_addr(name, encoding, ignored,
+			    xfail_beyond_mapped_ram, PAGE_SIZE - 1);
+	test_vmcs_page_addr(name, encoding, ignored,
+			    xfail_beyond_mapped_ram, PAGE_SIZE);
+	test_vmcs_page_addr(name, encoding, ignored,
+			    xfail_beyond_mapped_ram,
 			    (1ul << cpuid_maxphyaddr()) - PAGE_SIZE);
-	test_vmcs_page_addr(name, encoding, ignored, -1ul);
+	test_vmcs_page_addr(name, encoding, ignored,
+			    xfail_beyond_mapped_ram,
+			    -1ul);
 
 	vmcs_write(encoding, orig_val);
 }
@@ -3394,7 +3409,8 @@ static void test_vmcs_page_values(const char *name,
  */
 static void test_vmcs_page_reference(u32 control_bit, enum Encoding field,
 				     const char *field_name,
-				     const char *control_name)
+				     const char *control_name,
+				     bool xfail_beyond_mapped_ram)
 {
 	u32 primary = vmcs_read(CPU_EXEC_CTRL0);
 	u64 page_addr;
@@ -3406,12 +3422,12 @@ static void test_vmcs_page_reference(u32 control_bit, enum Encoding field,
 
 	report_prefix_pushf("%s enabled", control_name);
 	vmcs_write(CPU_EXEC_CTRL0, primary | control_bit);
-	test_vmcs_page_values(field_name, field, false);
+	test_vmcs_page_values(field_name, field, false, xfail_beyond_mapped_ram);
 	report_prefix_pop();
 
 	report_prefix_pushf("%s disabled", control_name);
 	vmcs_write(CPU_EXEC_CTRL0, primary & ~control_bit);
-	test_vmcs_page_values(field_name, field, true);
+	test_vmcs_page_values(field_name, field, true, false);
 	report_prefix_pop();
 
 	vmcs_write(field, page_addr);
@@ -3427,9 +3443,9 @@ static void test_vmcs_page_reference(u32 control_bit, enum Encoding field,
 static void test_io_bitmaps(void)
 {
 	test_vmcs_page_reference(CPU_IO_BITMAP, IO_BITMAP_A,
-				 "I/O bitmap A", "Use I/O bitmaps");
+				 "I/O bitmap A", "Use I/O bitmaps", false);
 	test_vmcs_page_reference(CPU_IO_BITMAP, IO_BITMAP_B,
-				 "I/O bitmap B", "Use I/O bitmaps");
+				 "I/O bitmap B", "Use I/O bitmaps", false);
 }
 
 /*
@@ -3441,7 +3457,7 @@ static void test_io_bitmaps(void)
 static void test_msr_bitmap(void)
 {
 	test_vmcs_page_reference(CPU_MSR_BITMAP, MSR_BITMAP,
-				 "MSR bitmap", "Use MSR bitmaps");
+				 "MSR bitmap", "Use MSR bitmaps", false);
 }
 
 /*
@@ -3455,7 +3471,7 @@ static void test_msr_bitmap(void)
 static void test_apic_virt_addr(void)
 {
 	test_vmcs_page_reference(CPU_TPR_SHADOW, APIC_VIRT_ADDR,
-				 "virtual-APIC address", "Use TPR shadow");
+				 "virtual-APIC address", "Use TPR shadow", true);
 }
 
 static void try_tpr_threshold(unsigned val)
@@ -3468,7 +3484,7 @@ static void try_tpr_threshold(unsigned val)
 		valid = !(val >> 4);
 	report_prefix_pushf("TPR threshold 0x%x", val);
 	vmcs_write(TPR_THRESHOLD, val);
-	test_vmx_controls(valid);
+	test_vmx_controls(valid, false);
 	report_prefix_pop();
 }
 
