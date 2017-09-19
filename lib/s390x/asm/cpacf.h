@@ -179,7 +179,7 @@ static inline int __cpacf_check_opcode(unsigned int opcode)
 	case CPACF_PRNO:
 		return test_facility(57);	/* check for MSA5 */
 	default:
-		BUG();
+		return 0;
 	}
 }
 
