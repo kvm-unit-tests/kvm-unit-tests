@@ -13,9 +13,11 @@
 #include <libcflat.h>
 #include <argv.h>
 #include <asm/spinlock.h>
+#include <asm/facility.h>
 #include "sclp.h"
 
 extern char ipl_args[];
+uint8_t stfl_bytes[NR_STFL_BYTES] __attribute__((aligned(8)));
 
 static struct spinlock lock;
 
@@ -39,6 +41,7 @@ static void sigp_stop()
 void setup()
 {
 	setup_args_progname(ipl_args);
+	setup_facilities();
 	sclp_setup();
 }
 
