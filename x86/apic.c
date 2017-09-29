@@ -458,6 +458,83 @@ static void test_physical_broadcast(void)
 	report("APIC physical broadcast shorthand", broadcast_received(ncpus));
 }
 
+void wait_until_tmcct_is_zero(uint32_t initial_count, bool stop_when_half)
+{
+	uint32_t tmcct = apic_read(APIC_TMCCT);
+
+	if (tmcct) {
+		while (tmcct > (initial_count / 2))
+			tmcct = apic_read(APIC_TMCCT);
+
+		if ( stop_when_half )
+			return;
+
+		/* Wait until the counter reach 0 or wrap-around */
+		while ( tmcct <= (initial_count / 2) && tmcct > 0 )
+			tmcct = apic_read(APIC_TMCCT);
+	}
+}
+
+static inline void apic_change_mode(unsigned long new_mode)
+{
+	uint32_t lvtt;
+
+	lvtt = apic_read(APIC_LVTT);
+	apic_write(APIC_LVTT, (lvtt & ~APIC_LVT_TIMER_MASK) | new_mode);
+}
+
+static void test_apic_change_mode()
+{
+	uint32_t tmict = 0x999999;
+
+	printf("starting apic change mode\n");
+
+	apic_write(APIC_TMICT, tmict);
+
+	apic_change_mode(APIC_LVT_TIMER_PERIODIC);
+
+	report("TMICT value reset", apic_read(APIC_TMICT) == tmict);
+
+	/* Testing one-shot */
+	apic_change_mode(APIC_LVT_TIMER_ONESHOT);
+	apic_write(APIC_TMICT, tmict);
+	report("TMCCT should have a non-zero value", apic_read(APIC_TMCCT));
+
+	wait_until_tmcct_is_zero(tmict, false);
+	report("TMCCT should have reached 0", !apic_read(APIC_TMCCT));
+
+	/*
+	 * Write TMICT before changing mode from one-shot to periodic TMCCT should
+	 * be reset to TMICT periodicly
+	 */
+	apic_write(APIC_TMICT, tmict);
+	wait_until_tmcct_is_zero(tmict, true);
+	apic_change_mode(APIC_LVT_TIMER_PERIODIC);
+	report("TMCCT should have a non-zero value", apic_read(APIC_TMCCT));
+
+	/*
+	 * After the change of mode, the counter should not be reset and continue
+	 * counting down from where it was
+	 */
+	report("TMCCT should not be reset to TMICT value", apic_read(APIC_TMCCT) < (tmict / 2));
+	wait_until_tmcct_is_zero(tmict, false);
+	report("TMCCT should be reset to the initial-count", apic_read(APIC_TMCCT) > (tmict / 2));
+
+	wait_until_tmcct_is_zero(tmict, true);
+	/*
+	 * Keep the same TMICT and change timer mode to one-shot
+	 * TMCCT should be > 0 and count-down to 0
+	 */
+	apic_change_mode(APIC_LVT_TIMER_ONESHOT);
+	report("TMCCT should not be reset to init", apic_read(APIC_TMCCT) < (tmict / 2));
+	wait_until_tmcct_is_zero(tmict, false);
+	report("TMCCT should have reach zero", !apic_read(APIC_TMCCT));
+
+	/* now tmcct == 0 and tmict != 0 */
+	apic_change_mode(APIC_LVT_TIMER_PERIODIC);
+	report("TMCCT should stay at zero", !apic_read(APIC_TMCCT));
+}
+
 int main()
 {
     setup_vm();
@@ -478,6 +555,7 @@ int main()
     test_multiple_nmi();
 
     test_apic_timer_one_shot();
+    test_apic_change_mode();
     test_tsc_deadline_timer();
 
     return report_summary();

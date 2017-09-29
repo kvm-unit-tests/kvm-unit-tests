@@ -91,6 +91,7 @@
 #define		APIC_TIMER_BASE_CLKIN		0x0
 #define		APIC_TIMER_BASE_TMBASE		0x1
 #define		APIC_TIMER_BASE_DIV		0x2
+#define		APIC_LVT_TIMER_MASK      	(3 << 17)
 #define		APIC_LVT_TIMER_ONESHOT		(0 << 17)
 #define		APIC_LVT_TIMER_PERIODIC		(1 << 17)
 #define		APIC_LVT_TIMER_TSCDEADLINE	(2 << 17)
