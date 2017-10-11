@@ -3668,6 +3668,62 @@ static void vmentry_movss_shadow_test(void)
 	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED);
 }
 
+#define X86_FEATURE_PCID       (1 << 17)
+#define X86_FEATURE_MCE        (1 << 7)
+
+static int write_cr4_checking(unsigned long val)
+{
+	asm volatile(ASM_TRY("1f")
+		     "mov %0, %%cr4\n\t"
+		     "1:": : "r" (val));
+	return exception_vector();
+}
+
+static void vmx_cr_load_test(void)
+{
+	struct cpuid _cpuid = cpuid(1);
+	unsigned long cr4 = read_cr4(), cr3 = read_cr3();
+
+	if (!(_cpuid.c & X86_FEATURE_PCID)) {
+		report_skip("PCID not detected");
+		return;
+	}
+	if (!(_cpuid.d & X86_FEATURE_MCE)) {
+		report_skip("MCE not detected");
+		return;
+	}
+
+	TEST_ASSERT(!(cr4 & (X86_CR4_PCIDE | X86_CR4_MCE)));
+	TEST_ASSERT(!(cr3 & X86_CR3_PCID_MASK));
+
+	/* Enable PCID for L1. */
+	cr4 |= X86_CR4_PCIDE;
+	cr3 |= 0x1;
+	TEST_ASSERT(!write_cr4_checking(cr4));
+	write_cr3(cr3);
+
+	test_set_guest(v2_null_test_guest);
+	vmcs_write(HOST_CR4, cr4);
+	vmcs_write(HOST_CR3, cr3);
+	enter_guest();
+
+	/*
+	 * No exception is expected.
+	 *
+	 * NB. KVM loads the last guest write to CR4 into CR4 read
+	 *     shadow. In order to trigger an exit to KVM, we can set a
+	 *     bit that was zero in the above CR4 write and is owned by
+	 *     KVM. We choose to set CR4.MCE, which shall have no side
+	 *     effect because normally no guest MCE (e.g., as the result
+	 *     of bad memory) would happen during this test.
+	 */
+	TEST_ASSERT(!write_cr4_checking(cr4 | X86_CR4_MCE));
+
+	/* Cleanup L1 state: disable PCID. */
+	write_cr3(cr3 & ~X86_CR3_PCID_MASK);
+	TEST_ASSERT(!write_cr4_checking(cr4 & ~X86_CR4_PCIDE));
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -3734,5 +3790,7 @@ struct vmx_test vmx_tests[] = {
 	/* VM-entry tests */
 	TEST(vmx_controls_test),
 	TEST(vmentry_movss_shadow_test),
+	/* Regression tests */
+	TEST(vmx_cr_load_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
