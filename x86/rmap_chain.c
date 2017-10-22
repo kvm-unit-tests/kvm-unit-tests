@@ -4,6 +4,7 @@
 #include "fwcfg.h"
 #include "vm.h"
 #include "smp.h"
+#include "alloc_page.h"
 
 int main (void)
 {

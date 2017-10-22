@@ -1,6 +1,7 @@
 #include "libcflat.h"
 #include "vm.h"
 #include "desc.h"
+#include "alloc_page.h"
 
 #define KVM_HYPERCALL_INTEL ".byte 0x0f,0x01,0xc1"
 #define KVM_HYPERCALL_AMD ".byte 0x0f,0x01,0xd9"

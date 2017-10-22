@@ -9,6 +9,7 @@
 #include "atomic.h"
 #include "hyperv.h"
 #include "asm/barrier.h"
+#include "alloc_page.h"
 
 #define MAX_CPUS 4
 

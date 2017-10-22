@@ -13,6 +13,8 @@
 #include "intel-iommu.h"
 #include "pci-edu.h"
 #include "x86/apic.h"
+#include "vm.h"
+#include "alloc_page.h"
 
 #define VTD_TEST_DMAR_4B ("DMAR 4B memcpy test")
 #define VTD_TEST_IR_MSI ("IR MSI")

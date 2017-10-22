@@ -5,6 +5,7 @@
 #include "atomic.h"
 #include "hyperv.h"
 #include "bitops.h"
+#include "alloc_page.h"
 
 #define MAX_CPUS 64
 

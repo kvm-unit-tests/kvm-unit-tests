@@ -12,8 +12,10 @@
 
 #include "intel-iommu.h"
 #include "libcflat.h"
+#include "vm.h"
 #include "pci.h"
 #include "atomic.h"
+#include "alloc_page.h"
 
 /*
  * VT-d in QEMU currently only support 39 bits address width, which is

@@ -5,6 +5,7 @@
 #include "types.h"
 #include "processor.h"
 #include "vmalloc.h"
+#include "alloc_page.h"
 
 #define memset __builtin_memset
 #define TESTDEV_IO_PORT 0xe0

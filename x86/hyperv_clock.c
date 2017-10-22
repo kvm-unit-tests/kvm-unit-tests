@@ -4,6 +4,7 @@
 #include "processor.h"
 #include "hyperv.h"
 #include "vm.h"
+#include "alloc_page.h"
 
 #define MAX_CPU 4
 #define TICKS_PER_SEC (1000000000 / 100)

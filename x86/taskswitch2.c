@@ -5,6 +5,7 @@
 #include "processor.h"
 #include "vm.h"
 #include "vmalloc.h"
+#include "alloc_page.h"
 
 #define MAIN_TSS_SEL (FIRST_SPARE_SEL + 0)
 #define VM86_TSS_SEL (FIRST_SPARE_SEL + 8)

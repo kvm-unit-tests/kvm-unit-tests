@@ -30,6 +30,7 @@
 
 #include "libcflat.h"
 #include "processor.h"
+#include "alloc_page.h"
 #include "vm.h"
 #include "desc.h"
 #include "vmx.h"

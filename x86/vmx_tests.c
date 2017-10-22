@@ -13,6 +13,7 @@
 #include "apic.h"
 #include "types.h"
 #include "vmalloc.h"
+#include "alloc_page.h"
 
 #define NONCANONICAL            0xaaaaaaaaaaaaaaaaull
 

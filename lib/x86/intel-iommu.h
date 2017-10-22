@@ -16,7 +16,6 @@
 #define __INTEL_IOMMU_H__
 
 #include "libcflat.h"
-#include "vm.h"
 #include "isr.h"
 #include "smp.h"
 #include "desc.h"

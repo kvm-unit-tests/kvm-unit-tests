@@ -1,11 +1,12 @@
 #include "libcflat.h"
-#include "processor.h"
 #include "vm.h"
+#include "processor.h"
 #include "desc.h"
 #include "isr.h"
 #include "apic.h"
 #include "apic-defs.h"
 #include "vmalloc.h"
+#include "alloc_page.h"
 
 #ifdef __x86_64__
 #  define R "r"

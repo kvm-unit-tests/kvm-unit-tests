@@ -6,6 +6,7 @@
 #include "vm.h"
 #include "smp.h"
 #include "types.h"
+#include "alloc_page.h"
 
 /* for the nested page table*/
 u64 *pml4e;
