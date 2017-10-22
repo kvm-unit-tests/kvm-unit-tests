@@ -4,6 +4,7 @@
 #include "apic.h"
 #include "processor.h"
 #include "vm.h"
+#include "vmalloc.h"
 
 #define MAIN_TSS_SEL (FIRST_SPARE_SEL + 0)
 #define VM86_TSS_SEL (FIRST_SPARE_SEL + 8)

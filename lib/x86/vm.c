@@ -1,9 +1,9 @@
 #include "fwcfg.h"
 #include "vm.h"
 #include "libcflat.h"
+#include "vmalloc.h"
 
 static void *free = 0;
-static void *vfree_top = 0;
 
 static void free_memory(void *mem, unsigned long size)
 {
@@ -271,7 +271,7 @@ static void setup_mmu(unsigned long len)
     /* 0 - 2G memory, 2G-3G valloc area, 3G-4G mmio */
     setup_mmu_range(cr3, 0, len);
     setup_mmu_range(cr3, 3ul << 30, (1ul << 30));
-    vfree_top = (void*)(3ul << 30);
+    init_alloc_vpage((void*)(3ul << 30));
 #endif
 
     write_cr3(virt_to_phys(cr3));
@@ -302,9 +302,8 @@ void *vmalloc(unsigned long size)
     size += sizeof(unsigned long);
 
     size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-    vfree_top -= size;
-    mem = p = vfree_top;
     pages = size / PAGE_SIZE;
+    mem = p = alloc_vpages(pages);
     while (pages--) {
 	install_page(phys_to_virt(read_cr3()), virt_to_phys(alloc_page()), p);
 	p += PAGE_SIZE;
@@ -336,26 +335,14 @@ void *vmap(unsigned long long phys, unsigned long size)
     unsigned pages;
 
     size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-    vfree_top -= size;
-    phys &= ~(unsigned long long)(PAGE_SIZE - 1);
-
-    mem = p = vfree_top;
     pages = size / PAGE_SIZE;
+    mem = p = alloc_vpages(pages);
+
+    phys &= ~(unsigned long long)(PAGE_SIZE - 1);
     while (pages--) {
 	install_page(phys_to_virt(read_cr3()), phys, p);
 	phys += PAGE_SIZE;
 	p += PAGE_SIZE;
     }
     return mem;
-}
-
-void *alloc_vpages(ulong nr)
-{
-	vfree_top -= PAGE_SIZE * nr;
-	return vfree_top;
-}
-
-void *alloc_vpage(void)
-{
-    return alloc_vpages(1);
 }

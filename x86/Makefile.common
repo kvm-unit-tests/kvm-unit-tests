@@ -4,6 +4,7 @@ all: directories test_cases
 
 cflatobjs += lib/pci.o
 cflatobjs += lib/pci-edu.o
+cflatobjs += lib/vmalloc.o
 cflatobjs += lib/x86/setup.o
 cflatobjs += lib/x86/io.o
 cflatobjs += lib/x86/smp.o

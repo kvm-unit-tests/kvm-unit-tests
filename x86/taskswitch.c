@@ -7,6 +7,7 @@
 
 #include "libcflat.h"
 #include "x86/desc.h"
+#include "vmalloc.h"
 
 #define TSS_RETURN		(FIRST_SPARE_SEL)
 

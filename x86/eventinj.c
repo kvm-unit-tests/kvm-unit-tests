@@ -5,6 +5,7 @@
 #include "isr.h"
 #include "apic.h"
 #include "apic-defs.h"
+#include "vmalloc.h"
 
 #ifdef __x86_64__
 #  define R "r"

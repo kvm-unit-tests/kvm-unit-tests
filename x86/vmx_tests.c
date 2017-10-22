@@ -12,6 +12,7 @@
 #include "desc.h"
 #include "apic.h"
 #include "types.h"
+#include "vmalloc.h"
 
 #define NONCANONICAL            0xaaaaaaaaaaaaaaaaull
 
