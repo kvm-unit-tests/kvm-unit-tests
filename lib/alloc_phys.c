@@ -2,12 +2,17 @@
  * Copyright (C) 2014, Red Hat Inc, Andrew Jones <drjones@redhat.com>
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
+ *
+ * This is a simple allocator that provides contiguous physical addresses
+ * with byte granularity.
  */
 #include "alloc.h"
 #include "asm/spinlock.h"
 #include "asm/io.h"
 
 #define PHYS_ALLOC_NR_REGIONS	256
+
+#define DEFAULT_MINIMUM_ALIGNMENT	32
 
 struct phys_alloc_region {
 	phys_addr_t base;
@@ -102,60 +107,6 @@ static phys_addr_t phys_alloc_aligned_safe(phys_addr_t size,
 	return addr;
 }
 
-static phys_addr_t phys_zalloc_aligned_safe(phys_addr_t size,
-					    phys_addr_t align, bool safe)
-{
-	phys_addr_t addr = phys_alloc_aligned_safe(size, align, safe);
-	if (addr == INVALID_PHYS_ADDR)
-		return addr;
-
-	memset(phys_to_virt(addr), 0, size);
-	return addr;
-}
-
-phys_addr_t phys_alloc_aligned(phys_addr_t size, phys_addr_t align)
-{
-	return phys_alloc_aligned_safe(size, align, false);
-}
-
-phys_addr_t phys_zalloc_aligned(phys_addr_t size, phys_addr_t align)
-{
-	return phys_zalloc_aligned_safe(size, align, false);
-}
-
-phys_addr_t phys_alloc(phys_addr_t size)
-{
-	return phys_alloc_aligned(size, align_min);
-}
-
-phys_addr_t phys_zalloc(phys_addr_t size)
-{
-	return phys_zalloc_aligned(size, align_min);
-}
-
-static void *early_malloc(size_t size)
-{
-	phys_addr_t addr = phys_alloc_aligned_safe(size, align_min, true);
-	if (addr == INVALID_PHYS_ADDR)
-		return NULL;
-
-	return phys_to_virt(addr);
-}
-
-static void *early_calloc(size_t nmemb, size_t size)
-{
-	phys_addr_t addr = phys_zalloc_aligned_safe(nmemb * size,
-						    align_min, true);
-	if (addr == INVALID_PHYS_ADDR)
-		return NULL;
-
-	return phys_to_virt(addr);
-}
-
-static void early_free(void *ptr __unused)
-{
-}
-
 static void *early_memalign(size_t alignment, size_t size)
 {
 	phys_addr_t addr;
@@ -170,9 +121,6 @@ static void *early_memalign(size_t alignment, size_t size)
 }
 
 static struct alloc_ops early_alloc_ops = {
-	.malloc = early_malloc,
-	.calloc = early_calloc,
-	.free = early_free,
 	.memalign = early_memalign,
 };
 

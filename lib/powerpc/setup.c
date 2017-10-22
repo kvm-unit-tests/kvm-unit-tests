@@ -14,6 +14,7 @@
 #include <libfdt/libfdt.h>
 #include <devicetree.h>
 #include <alloc.h>
+#include <alloc_phys.h>
 #include <argv.h>
 #include <asm/setup.h>
 #include <asm/page.h>
