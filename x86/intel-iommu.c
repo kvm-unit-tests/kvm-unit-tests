@@ -132,6 +132,9 @@ static void vtd_test_ir(void)
 
 int main(int argc, char *argv[])
 {
+	setup_vm();
+	smp_init();
+
 	vtd_init();
 
 	report_prefix_push("vtd_init");

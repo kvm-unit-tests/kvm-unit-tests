@@ -12,7 +12,6 @@
 
 #include "intel-iommu.h"
 #include "libcflat.h"
-#include "vm.h"
 #include "pci.h"
 #include "atomic.h"
 #include "alloc_page.h"
@@ -360,9 +359,6 @@ void vtd_setup_ioapic_irq(struct pci_dev *dev, int vector,
 
 void vtd_init(void)
 {
-	setup_vm();
-	smp_init();
-
 	vtd_reg_base = ioremap(Q35_HOST_BRIDGE_IOMMU_ADDR, PAGE_SIZE);
 
 	vtd_dump_init_info();
