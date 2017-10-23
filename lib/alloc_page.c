@@ -22,7 +22,8 @@ void free_pages(void *mem, unsigned long size)
 
 	assert_msg(size % PAGE_SIZE == 0, "size not page aligned: %#lx", size);
 
-	assert_msg(size == 0 || mem + size > mem,
+	assert_msg(size == 0 || (uintptr_t)mem == -size ||
+		   (uintptr_t)mem + size > (uintptr_t)mem,
 		   "mem + size overflow: %p + %#lx", mem, size);
 
 	if (size == 0) {
