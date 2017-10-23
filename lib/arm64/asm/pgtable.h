@@ -3,7 +3,6 @@
 /*
  * Adapted from arch/arm64/include/asm/pgtable.h
  *              include/asm-generic/pgtable-nopmd.h
- *              include/asm-generic/pgtable-nopud.h
  *              include/linux/mm.h
  *
  * Note: some Linux function APIs have been modified. Nothing crazy,
@@ -20,7 +19,6 @@
 #include <asm/pgtable-hwdef.h>
 
 #define pgd_none(pgd)		(!pgd_val(pgd))
-#define pud_none(pud)		(!pud_val(pud))
 #define pmd_none(pmd)		(!pmd_val(pmd))
 #define pte_none(pte)		(!pte_val(pte))
 
@@ -36,13 +34,9 @@ static inline pgd_t *pgd_alloc(void)
 	return pgd;
 }
 
-#define pud_offset(pgd, addr)	((pud_t *)pgd)
-#define pud_free(pud)
-#define pud_alloc(pgd, addr)	pud_offset(pgd, addr)
-
-#define pmd_offset(pud, addr)	((pmd_t *)pud)
+#define pmd_offset(pgd, addr)	((pmd_t *)pgd)
 #define pmd_free(pmd)
-#define pmd_alloc(pud, addr)	pmd_offset(pud, addr)
+#define pmd_alloc(pgd, addr)	pmd_offset(pgd, addr)
 
 static inline pte_t *pmd_page_vaddr(pmd_t pmd)
 {

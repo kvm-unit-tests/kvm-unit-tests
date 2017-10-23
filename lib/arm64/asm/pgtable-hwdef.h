@@ -22,13 +22,8 @@
 #define PGDIR_MASK		(~(PGDIR_SIZE-1))
 #define PTRS_PER_PGD		(1 << (VA_BITS - PGDIR_SHIFT))
 
-/* From include/asm-generic/pgtable-nopud.h */
-#define PUD_SHIFT		PGDIR_SHIFT
-#define PTRS_PER_PUD		1
-#define PUD_SIZE		(UL(1) << PUD_SHIFT)
-#define PUD_MASK		(~(PUD_SIZE-1))
 /* From include/asm-generic/pgtable-nopmd.h */
-#define PMD_SHIFT		PUD_SHIFT
+#define PMD_SHIFT		PGDIR_SHIFT
 #define PTRS_PER_PMD		1
 #define PMD_SIZE		(UL(1) << PMD_SHIFT)
 #define PMD_MASK		(~(PMD_SIZE-1))
@@ -43,15 +38,7 @@
 /*
  * Hardware page table definitions.
  *
- * Level 1 descriptor (PUD).
- */
-#define PUD_TYPE_TABLE		(_AT(pudval_t, 3) << 0)
-#define PUD_TABLE_BIT		(_AT(pgdval_t, 1) << 1)
-#define PUD_TYPE_MASK		(_AT(pgdval_t, 3) << 0)
-#define PUD_TYPE_SECT		(_AT(pgdval_t, 1) << 0)
-
-/*
- * Level 2 descriptor (PMD).
+ * Level 1 descriptor (PMD).
  */
 #define PMD_TYPE_MASK		(_AT(pmdval_t, 3) << 0)
 #define PMD_TYPE_FAULT		(_AT(pmdval_t, 0) << 0)

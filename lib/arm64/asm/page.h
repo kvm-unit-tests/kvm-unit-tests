@@ -3,7 +3,6 @@
 /*
  * Adapted from
  *   arch/arm64/include/asm/pgtable-types.h
- *   include/asm-generic/pgtable-nopud.h
  *   include/asm-generic/pgtable-nopmd.h
  *
  * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
@@ -28,7 +27,6 @@
 
 typedef u64 pteval_t;
 typedef u64 pmdval_t;
-typedef u64 pudval_t;
 typedef u64 pgdval_t;
 typedef struct { pteval_t pte; } pte_t;
 typedef struct { pgdval_t pgd; } pgd_t;
@@ -42,13 +40,9 @@ typedef struct { pteval_t pgprot; } pgprot_t;
 #define __pgd(x)		((pgd_t) { (x) } )
 #define __pgprot(x)		((pgprot_t) { (x) } )
 
-typedef struct { pgd_t pgd; } pud_t;
-#define pud_val(x)		(pgd_val((x).pgd))
-#define __pud(x)		((pud_t) { __pgd(x) } )
-
-typedef struct { pud_t pud; } pmd_t;
-#define pmd_val(x)		(pud_val((x).pud))
-#define __pmd(x)		((pmd_t) { __pud(x) } )
+typedef struct { pgd_t pgd; } pmd_t;
+#define pmd_val(x)		(pgd_val((x).pgd))
+#define __pmd(x)		((pmd_t) { __pgd(x) } )
 
 #ifndef __virt_to_phys
 #define __phys_to_virt(x)	((unsigned long) (x))

@@ -4,7 +4,6 @@
  * Adapted from arch/arm/include/asm/pgtable.h
  *              arch/arm/include/asm/pgtable-3level.h
  *              arch/arm/include/asm/pgalloc.h
- *              include/asm-generic/pgtable-nopud.h
  *
  * Note: some Linux function APIs have been modified. Nothing crazy,
  *       but if a function took, for example, an mm_struct, then
@@ -16,7 +15,6 @@
  */
 
 #define pgd_none(pgd)		(!pgd_val(pgd))
-#define pud_none(pud)		(!pud_val(pud))
 #define pmd_none(pmd)		(!pmd_val(pmd))
 #define pte_none(pte)		(!pte_val(pte))
 
@@ -32,19 +30,15 @@ static inline pgd_t *pgd_alloc(void)
 	return pgd;
 }
 
-#define pud_offset(pgd, addr)	((pud_t *)pgd)
-#define pud_free(pud)
-#define pud_alloc(pgd, addr)	pud_offset(pgd, addr)
-
-static inline pmd_t *pud_page_vaddr(pud_t pud)
+static inline pmd_t *pgd_page_vaddr(pgd_t pgd)
 {
-	return __va(pud_val(pud) & PHYS_MASK & (s32)PAGE_MASK);
+	return __va(pgd_val(pgd) & PHYS_MASK & (s32)PAGE_MASK);
 }
 
 #define pmd_index(addr) \
 	(((addr) >> PMD_SHIFT) & (PTRS_PER_PMD - 1))
-#define pmd_offset(pud, addr) \
-	(pud_page_vaddr(*(pud)) + pmd_index(addr))
+#define pmd_offset(pgd, addr) \
+	(pgd_page_vaddr(*(pgd)) + pmd_index(addr))
 
 #define pmd_free(pmd) free(pmd)
 static inline pmd_t *pmd_alloc_one(void)
@@ -53,13 +47,13 @@ static inline pmd_t *pmd_alloc_one(void)
 	memset(pmd, 0, PTRS_PER_PMD * sizeof(pmd_t));
 	return pmd;
 }
-static inline pmd_t *pmd_alloc(pud_t *pud, unsigned long addr)
+static inline pmd_t *pmd_alloc(pgd_t *pgd, unsigned long addr)
 {
-	if (pud_none(*pud)) {
+	if (pgd_none(*pgd)) {
 		pmd_t *pmd = pmd_alloc_one();
-		pud_val(*pud) = __pa(pmd) | PMD_TYPE_TABLE;
+		pgd_val(*pgd) = __pa(pmd) | PMD_TYPE_TABLE;
 	}
-	return pmd_offset(pud, addr);
+	return pmd_offset(pgd, addr);
 }
 
 static inline pte_t *pmd_page_vaddr(pmd_t pmd)

@@ -34,10 +34,6 @@ typedef struct { pteval_t pgprot; } pgprot_t;
 #define __pgd(x)		((pgd_t) { (x) } )
 #define __pgprot(x)		((pgprot_t) { (x) } )
 
-typedef struct { pgd_t pgd; } pud_t;
-#define pud_val(x)		(pgd_val((x).pgd))
-#define __pud(x)		((pud_t) { __pgd(x) } )
-
 #ifndef __virt_to_phys
 #define __phys_to_virt(x)	((unsigned long) (x))
 #define __virt_to_phys(x)	(x)

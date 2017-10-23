@@ -81,8 +81,7 @@ void mmu_set_range_ptes(pgd_t *pgtable, unsigned long virt_offset,
 
 	for (; vaddr < virt_end; vaddr += PAGE_SIZE, paddr += PAGE_SIZE) {
 		pgd_t *pgd = pgd_offset(pgtable, vaddr);
-		pud_t *pud = pud_alloc(pgd, vaddr);
-		pmd_t *pmd = pmd_alloc(pud, vaddr);
+		pmd_t *pmd = pmd_alloc(pgd, vaddr);
 		pte_t *pte = pte_alloc(pmd, vaddr);
 
 		pte_val(*pte) = paddr;
