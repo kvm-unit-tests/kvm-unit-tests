@@ -14,7 +14,7 @@ uint64_t virt_to_phys_cr3(void *mem);
 
 struct pte_search {
 	int level;
-	unsigned long *pte;
+	pteval_t *pte;
 };
 
 static inline bool found_huge_pte(struct pte_search search)
@@ -29,22 +29,20 @@ static inline bool found_leaf_pte(struct pte_search search)
 	return search.level == 1 || found_huge_pte(search);
 }
 
-struct pte_search find_pte_level(unsigned long *cr3, void *virt,
+struct pte_search find_pte_level(pgd_t *cr3, void *virt,
 				 int lowest_level);
-unsigned long *get_pte(unsigned long *cr3, void *virt);
-unsigned long *get_pte_level(unsigned long *cr3, void *virt, int pte_level);
-unsigned long *install_pte(unsigned long *cr3,
-                           int pte_level,
-                           void *virt,
-                           unsigned long pte,
-                           unsigned long *pt_page);
+pteval_t *get_pte(pgd_t *cr3, void *virt);
+pteval_t *get_pte_level(pgd_t *cr3, void *virt, int pte_level);
+pteval_t *install_pte(pgd_t *cr3,
+		      int pte_level,
+		      void *virt,
+		      pteval_t pte,
+		      pteval_t *pt_page);
 
-unsigned long *install_large_page(unsigned long *cr3,unsigned long phys,
-                                  void *virt);
-unsigned long *install_page(unsigned long *cr3, unsigned long phys, void *virt);
-void install_pages(unsigned long *cr3, unsigned long phys, unsigned long len,
-		   void *virt);
-bool any_present_pages(unsigned long *cr3, void *virt, unsigned long len);
+pteval_t *install_large_page(pgd_t *cr3, phys_addr_t phys, void *virt);
+pteval_t *install_page(pgd_t *cr3, phys_addr_t phys, void *virt);
+void install_pages(pgd_t *cr3, phys_addr_t phys, size_t len, void *virt);
+bool any_present_pages(pgd_t *cr3, void *virt, size_t len);
 
 static inline void *current_page_table(void)
 {
