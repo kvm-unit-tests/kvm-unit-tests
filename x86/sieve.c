@@ -1,4 +1,4 @@
-#include "vm.h"
+#include "alloc.h"
 #include "libcflat.h"
 
 int sieve(char* data, int size)
@@ -42,9 +42,9 @@ int main()
     setup_vm();
     test_sieve("mapped", static_data, STATIC_SIZE);
     for (i = 0; i < 3; ++i) {
-	v = vmalloc(VSIZE);
+	v = malloc(VSIZE);
 	test_sieve("virtual", v, VSIZE);
-	vfree(v);
+	free(v);
     }
 
     return 0;

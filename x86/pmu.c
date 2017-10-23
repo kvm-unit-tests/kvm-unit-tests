@@ -5,7 +5,7 @@
 #include "x86/apic.h"
 #include "x86/desc.h"
 #include "x86/isr.h"
-#include "x86/vm.h"
+#include "alloc.h"
 
 #include "libcflat.h"
 #include <stdint.h>
@@ -380,7 +380,7 @@ int main(int ac, char **av)
 	setup_vm();
 	setup_idt();
 	handle_irq(PC_VECTOR, cnt_overflow);
-	buf = vmalloc(N*64);
+	buf = malloc(N*64);
 
 	eax.full = id.a;
 	ebx.full = id.b;

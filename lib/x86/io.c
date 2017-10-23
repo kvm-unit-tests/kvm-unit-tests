@@ -1,8 +1,8 @@
 #include "libcflat.h"
-#include "vm.h"
 #include "smp.h"
 #include "asm/io.h"
 #include "asm/page.h"
+#include "vmalloc.h"
 #ifndef USE_SERIAL
 #define USE_SERIAL
 #endif

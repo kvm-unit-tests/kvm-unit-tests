@@ -22,6 +22,8 @@
 #include "x86/isr.h"
 #include "x86/vm.h"
 
+#include "asm/page.h"
+#include "alloc.h"
 #include "libcflat.h"
 #include "vmalloc.h"
 #include <stdint.h>
@@ -95,7 +97,7 @@ int main(int ac, char **av)
 	wrmsr(MSR_KVM_ASYNC_PF_EN, virt_to_phys((void*)&apf_reason) |
 			KVM_ASYNC_PF_SEND_ALWAYS | KVM_ASYNC_PF_ENABLED);
 	printf("alloc memory\n");
-	buf = vmalloc(MEM);
+	buf = malloc(MEM);
 	irq_enable();
 	while(loop--) {
 		printf("start loop\n");

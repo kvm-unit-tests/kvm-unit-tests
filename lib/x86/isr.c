@@ -1,6 +1,7 @@
 #include "libcflat.h"
+#include "processor.h"
 #include "isr.h"
-#include "vm.h"
+#include "alloc.h"
 #include "desc.h"
 
 extern char isr_entry_point[];
@@ -65,7 +66,7 @@ asm (
 
 void handle_irq(unsigned vec, void (*func)(isr_regs_t *regs))
 {
-    u8 *thunk = vmalloc(50);
+    u8 *thunk = malloc(50);
 
     set_idt_entry(vec, thunk, 0);
 

@@ -3,6 +3,7 @@
 #include "libcflat.h"
 #include "fwcfg.h"
 #include "vm.h"
+#include "vmalloc.h"
 #include "smp.h"
 #include "alloc_page.h"
 

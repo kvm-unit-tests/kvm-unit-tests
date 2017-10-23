@@ -173,55 +173,7 @@ void *setup_mmu(phys_addr_t end_of_memory)
     return cr3;
 }
 
-void *vmalloc(unsigned long size)
-{
-    void *mem, *p;
-    unsigned pages;
-
-    size += sizeof(unsigned long);
-
-    size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-    pages = size / PAGE_SIZE;
-    mem = p = alloc_vpages(pages);
-    while (pages--) {
-	install_page(phys_to_virt(read_cr3()), virt_to_phys(alloc_page()), p);
-	p += PAGE_SIZE;
-    }
-    *(unsigned long *)mem = size;
-    mem += sizeof(unsigned long);
-    return mem;
-}
-
 phys_addr_t virt_to_pte_phys(pgd_t *cr3, void *mem)
 {
     return (*get_pte(cr3, mem) & PT_ADDR_MASK) + ((ulong)mem & (PAGE_SIZE - 1));
-}
-
-void vfree(void *mem)
-{
-    unsigned long size = ((unsigned long *)mem)[-1];
-
-    while (size) {
-	free_page(phys_to_virt(*get_pte(phys_to_virt(read_cr3()), mem) & PT_ADDR_MASK));
-	mem += PAGE_SIZE;
-	size -= PAGE_SIZE;
-    }
-}
-
-void *vmap(unsigned long long phys, unsigned long size)
-{
-    void *mem, *p;
-    unsigned pages;
-
-    size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-    pages = size / PAGE_SIZE;
-    mem = p = alloc_vpages(pages);
-
-    phys &= ~(unsigned long long)(PAGE_SIZE - 1);
-    while (pages--) {
-	install_page(phys_to_virt(read_cr3()), phys, p);
-	phys += PAGE_SIZE;
-	p += PAGE_SIZE;
-    }
-    return mem;
 }
