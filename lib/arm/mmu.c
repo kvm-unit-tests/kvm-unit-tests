@@ -9,6 +9,12 @@
 #include <asm/thread_info.h>
 #include <asm/cpumask.h>
 #include <asm/mmu.h>
+#include <asm/setup.h>
+#include <asm/page.h>
+
+#include "alloc.h"
+#include <asm/pgtable-hwdef.h>
+#include <asm/pgtable.h>
 
 extern unsigned long etext;
 

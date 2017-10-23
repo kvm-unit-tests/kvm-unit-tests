@@ -1,5 +1,9 @@
 #ifndef __ASMARM_MMU_API_H_
 #define __ASMARM_MMU_API_H_
+
+#include <asm/page.h>
+#include <stdbool.h>
+
 extern pgd_t *mmu_idmap;
 extern unsigned int mmu_disabled_cpu_count;
 extern bool __mmu_enabled(void);

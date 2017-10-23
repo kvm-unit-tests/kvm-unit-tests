@@ -6,6 +6,7 @@
  *
  * This work is licensed under the terms of the GNU GPL, version 2.
  */
+#include "libcflat.h"
 #include <bitops.h>
 #include <asm/barrier.h>
 #include <asm/mmu.h>

@@ -5,7 +5,6 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include <asm/pgtable.h>
 #include <asm/barrier.h>
 
 #define PTE_USER		L_PTE_USER

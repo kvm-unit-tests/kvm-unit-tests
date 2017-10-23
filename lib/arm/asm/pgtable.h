@@ -14,10 +14,6 @@
  *
  * This work is licensed under the terms of the GNU GPL, version 2.
  */
-#include <alloc.h>
-#include <asm/setup.h>
-#include <asm/page.h>
-#include <asm/pgtable-hwdef.h>
 
 #define pgd_none(pgd)		(!pgd_val(pgd))
 #define pud_none(pud)		(!pud_val(pud))
