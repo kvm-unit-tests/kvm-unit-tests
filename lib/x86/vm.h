@@ -5,7 +5,6 @@
 #include "asm/page.h"
 #include "asm/io.h"
 
-void setup_vm();
 void setup_5level_page_table();
 
 void *vmalloc(unsigned long size);

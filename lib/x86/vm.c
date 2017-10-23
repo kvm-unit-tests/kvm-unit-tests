@@ -1,11 +1,7 @@
-#include "fwcfg.h"
 #include "vm.h"
 #include "libcflat.h"
 #include "vmalloc.h"
 #include "alloc_page.h"
-
-extern char edata;
-static unsigned long end_of_memory;
 
 unsigned long *install_pte(unsigned long *cr3,
 			   int pte_level,
@@ -149,23 +145,23 @@ static void setup_mmu_range(unsigned long *cr3, unsigned long start,
 	install_pages(cr3, phys, max - phys, (void *)(ulong)phys);
 }
 
-static void setup_mmu(unsigned long len)
+void *setup_mmu(phys_addr_t end_of_memory)
 {
     unsigned long *cr3 = alloc_page();
 
     memset(cr3, 0, PAGE_SIZE);
 
 #ifdef __x86_64__
-    if (len < (1ul << 32))
-        len = (1ul << 32);  /* map mmio 1:1 */
+    if (end_of_memory < (1ul << 32))
+        end_of_memory = (1ul << 32);  /* map mmio 1:1 */
 
-    setup_mmu_range(cr3, 0, len);
+    setup_mmu_range(cr3, 0, end_of_memory);
 #else
-    if (len > (1ul << 31))
-	    len = (1ul << 31);
+    if (end_of_memory > (1ul << 31))
+	    end_of_memory = (1ul << 31);
 
     /* 0 - 2G memory, 2G-3G valloc area, 3G-4G mmio */
-    setup_mmu_range(cr3, 0, len);
+    setup_mmu_range(cr3, 0, end_of_memory);
     setup_mmu_range(cr3, 3ul << 30, (1ul << 30));
     init_alloc_vpage((void*)(3ul << 30));
 #endif
@@ -180,14 +176,7 @@ static void setup_mmu(unsigned long len)
     printf("cr0 = %lx\n", read_cr0());
     printf("cr3 = %lx\n", read_cr3());
     printf("cr4 = %lx\n", read_cr4());
-}
-
-void setup_vm()
-{
-    assert(!end_of_memory);
-    end_of_memory = fwcfg_get_u64(FW_CFG_RAM_SIZE);
-    free_pages(&edata, end_of_memory - (unsigned long)&edata);
-    setup_mmu(end_of_memory);
+    return cr3;
 }
 
 void *vmalloc(unsigned long size)

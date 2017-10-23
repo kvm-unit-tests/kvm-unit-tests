@@ -5,6 +5,7 @@
  * with page granularity.
  */
 #include "libcflat.h"
+#include "alloc_phys.h"
 #include <asm/page.h>
 #include <asm/io.h>
 #include <asm/spinlock.h>
@@ -128,4 +129,3 @@ void free_page(void *page)
 	freelist = page;
 	spin_unlock(&lock);
 }
-

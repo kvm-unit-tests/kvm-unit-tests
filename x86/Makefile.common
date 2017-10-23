@@ -6,6 +6,7 @@ cflatobjs += lib/pci.o
 cflatobjs += lib/pci-edu.o
 cflatobjs += lib/vmalloc.o
 cflatobjs += lib/alloc_page.o
+cflatobjs += lib/alloc_phys.o
 cflatobjs += lib/x86/setup.o
 cflatobjs += lib/x86/io.o
 cflatobjs += lib/x86/smp.o

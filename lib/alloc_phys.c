@@ -107,6 +107,12 @@ static phys_addr_t phys_alloc_aligned_safe(phys_addr_t size,
 	return addr;
 }
 
+void phys_alloc_get_unused(phys_addr_t *p_base, phys_addr_t *p_top)
+{
+	*p_base = base;
+	*p_top = top;
+}
+
 static void *early_memalign(size_t alignment, size_t size)
 {
 	phys_addr_t addr;

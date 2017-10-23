@@ -36,4 +36,10 @@ extern void phys_alloc_set_minimum_alignment(phys_addr_t align);
  */
 extern void phys_alloc_show(void);
 
+/*
+ * phys_alloc_get_unused returns the addresses for the still-unused part
+ * of the initial free memory region passed to phys_alloc_init.
+ */
+extern void phys_alloc_get_unused(phys_addr_t *p_base, phys_addr_t *p_top);
+
 #endif /* _ALLOC_PHYS_H_ */
