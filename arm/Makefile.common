@@ -35,6 +35,7 @@ include $(SRCDIR)/scripts/asm-offsets.mak
 
 cflatobjs += lib/util.o
 cflatobjs += lib/alloc_phys.o
+cflatobjs += lib/alloc.o
 cflatobjs += lib/devicetree.o
 cflatobjs += lib/pci.o
 cflatobjs += lib/pci-host-generic.o

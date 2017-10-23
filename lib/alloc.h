@@ -24,36 +24,17 @@
 
 struct alloc_ops {
 	void *(*memalign)(size_t alignment, size_t size);
+	void (*free)(void *ptr, size_t size);
+	size_t align_min;
 };
 
 extern struct alloc_ops *alloc_ops;
 
-/*
- * Our malloc implementation is currently so simple that it can just
- * be inlined. :)
- */
-static inline void *malloc(size_t size)
-{
-	assert(alloc_ops && alloc_ops->memalign);
-	return alloc_ops->memalign(sizeof(long), size);
-}
+void *malloc(size_t size);
+void *calloc(size_t nmemb, size_t size);
+void free(void *ptr);
+void *memalign(size_t alignment, size_t size);
 
-static inline void *calloc(size_t nmemb, size_t size)
-{
-	void *ptr = malloc(nmemb * size);
-	if (ptr)
-		memset(ptr, 0, nmemb * size);
-	return ptr;
-}
-
-static inline void free(void *ptr)
-{
-}
-
-static inline void *memalign(size_t alignment, size_t size)
-{
-	assert(alloc_ops && alloc_ops->memalign);
-	return alloc_ops->memalign(alignment, size);
-}
+extern struct alloc_ops *alloc_ops;
 
 #endif /* _ALLOC_H_ */

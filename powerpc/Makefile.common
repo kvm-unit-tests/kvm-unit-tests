@@ -31,6 +31,7 @@ include $(SRCDIR)/scripts/asm-offsets.mak
 
 cflatobjs += lib/util.o
 cflatobjs += lib/alloc_phys.o
+cflatobjs += lib/alloc.o
 cflatobjs += lib/devicetree.o
 cflatobjs += lib/powerpc/io.o
 cflatobjs += lib/powerpc/hcall.o
