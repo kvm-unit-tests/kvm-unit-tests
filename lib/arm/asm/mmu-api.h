@@ -15,7 +15,6 @@ extern void mmu_mark_enabled(int cpu);
 extern void mmu_mark_disabled(int cpu);
 extern void mmu_enable(pgd_t *pgtable);
 extern void mmu_disable(void);
-extern void mmu_enable_idmap(void);
 
 extern void mmu_set_range_sect(pgd_t *pgtable, uintptr_t virt_offset,
 			       phys_addr_t phys_start, phys_addr_t phys_end,

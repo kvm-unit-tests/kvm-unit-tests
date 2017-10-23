@@ -48,10 +48,11 @@ static inline pte_t *pmd_page_vaddr(pmd_t pmd)
 #define pte_offset(pmd, addr) \
 	(pmd_page_vaddr(*(pmd)) + pte_index(addr))
 
-#define pte_free(pte) free(pte)
+#define pte_free(pte) free_page(pte)
 static inline pte_t *pte_alloc_one(void)
 {
-	pte_t *pte = memalign(PAGE_SIZE, PTRS_PER_PTE * sizeof(pte_t));
+	assert(PTRS_PER_PTE * sizeof(pte_t) == PAGE_SIZE);
+	pte_t *pte = alloc_page();
 	memset(pte, 0, PTRS_PER_PTE * sizeof(pte_t));
 	return pte;
 }

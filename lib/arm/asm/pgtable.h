@@ -40,10 +40,11 @@ static inline pmd_t *pgd_page_vaddr(pgd_t pgd)
 #define pmd_offset(pgd, addr) \
 	(pgd_page_vaddr(*(pgd)) + pmd_index(addr))
 
-#define pmd_free(pmd) free(pmd)
+#define pmd_free(pmd) free_page(pmd)
 static inline pmd_t *pmd_alloc_one(void)
 {
-	pmd_t *pmd = memalign(PAGE_SIZE, PTRS_PER_PMD * sizeof(pmd_t));
+	assert(PTRS_PER_PMD * sizeof(pmd_t) == PAGE_SIZE);
+	pmd_t *pmd = alloc_page();
 	memset(pmd, 0, PTRS_PER_PMD * sizeof(pmd_t));
 	return pmd;
 }
@@ -66,10 +67,11 @@ static inline pte_t *pmd_page_vaddr(pmd_t pmd)
 #define pte_offset(pmd, addr) \
 	(pmd_page_vaddr(*(pmd)) + pte_index(addr))
 
-#define pte_free(pte) free(pte)
+#define pte_free(pte) free_page(pte)
 static inline pte_t *pte_alloc_one(void)
 {
-	pte_t *pte = memalign(PAGE_SIZE, PTRS_PER_PTE * sizeof(pte_t));
+	assert(PTRS_PER_PTE * sizeof(pte_t) == PAGE_SIZE);
+	pte_t *pte = alloc_page();
 	memset(pte, 0, PTRS_PER_PTE * sizeof(pte_t));
 	return pte;
 }

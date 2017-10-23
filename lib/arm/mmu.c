@@ -13,6 +13,8 @@
 #include <asm/page.h>
 
 #include "alloc.h"
+#include "alloc_page.h"
+#include "vmalloc.h"
 #include <asm/pgtable-hwdef.h>
 #include <asm/pgtable.h>
 
@@ -71,6 +73,43 @@ void mmu_disable(void)
 	asm_mmu_disable();
 }
 
+static pteval_t *get_pte(pgd_t *pgtable, uintptr_t vaddr)
+{
+	pgd_t *pgd = pgd_offset(pgtable, vaddr);
+	pmd_t *pmd = pmd_alloc(pgd, vaddr);
+	pte_t *pte = pte_alloc(pmd, vaddr);
+
+	return &pte_val(*pte);
+}
+
+static pteval_t *install_pte(pgd_t *pgtable, uintptr_t vaddr, pteval_t pte)
+{
+	pteval_t *p_pte = get_pte(pgtable, vaddr);
+	*p_pte = pte;
+	return p_pte;
+}
+
+static pteval_t *install_page_prot(pgd_t *pgtable, phys_addr_t phys,
+				   uintptr_t vaddr, pgprot_t prot)
+{
+	pteval_t pte = phys;
+	pte |= PTE_TYPE_PAGE | PTE_AF | PTE_SHARED;
+	pte |= pgprot_val(prot);
+	return install_pte(pgtable, vaddr, pte);
+}
+
+pteval_t *install_page(pgd_t *pgtable, phys_addr_t phys, void *virt)
+{
+	return install_page_prot(pgtable, phys, (uintptr_t)virt,
+				 __pgprot(PTE_WBWA | PTE_USER));
+}
+
+phys_addr_t virt_to_pte_phys(pgd_t *pgtable, void *mem)
+{
+	return (*get_pte(pgtable, (uintptr_t)mem) & PHYS_MASK & -PAGE_SIZE)
+		+ ((ulong)mem & (PAGE_SIZE - 1));
+}
+
 void mmu_set_range_ptes(pgd_t *pgtable, uintptr_t virt_offset,
 			phys_addr_t phys_start, phys_addr_t phys_end,
 			pgprot_t prot)
@@ -79,15 +118,8 @@ void mmu_set_range_ptes(pgd_t *pgtable, uintptr_t virt_offset,
 	uintptr_t vaddr = virt_offset & PAGE_MASK;
 	uintptr_t virt_end = phys_end - paddr + vaddr;
 
-	for (; vaddr < virt_end; vaddr += PAGE_SIZE, paddr += PAGE_SIZE) {
-		pgd_t *pgd = pgd_offset(pgtable, vaddr);
-		pmd_t *pmd = pmd_alloc(pgd, vaddr);
-		pte_t *pte = pte_alloc(pmd, vaddr);
-
-		pte_val(*pte) = paddr;
-		pte_val(*pte) |= PTE_TYPE_PAGE | PTE_AF | PTE_SHARED;
-		pte_val(*pte) |= pgprot_val(prot);
-	}
+	for (; vaddr < virt_end; vaddr += PAGE_SIZE, paddr += PAGE_SIZE)
+		install_page_prot(pgtable, paddr, vaddr, prot);
 }
 
 void mmu_set_range_sect(pgd_t *pgtable, uintptr_t virt_offset,
@@ -107,14 +139,20 @@ void mmu_set_range_sect(pgd_t *pgtable, uintptr_t virt_offset,
 }
 
 
-
-void mmu_enable_idmap(void)
+void *setup_mmu(phys_addr_t phys_end)
 {
-	uintptr_t phys_end = sizeof(long) == 8 || !(PHYS_END >> 32)
-						? PHYS_END : 0xfffff000;
 	uintptr_t code_end = (uintptr_t)&etext;
 
-	mmu_idmap = pgd_alloc();
+	/* 0G-1G = I/O, 1G-3G = identity, 3G-4G = vmalloc */
+	if (phys_end > (3ul << 30))
+		phys_end = 3ul << 30;
+
+#ifdef __aarch64__
+	init_alloc_vpage((void*)(4ul << 30));
+#endif
+
+	mmu_idmap = alloc_page();
+	memset(mmu_idmap, 0, PAGE_SIZE);
 
 	mmu_set_range_sect(mmu_idmap, PHYS_IO_OFFSET,
 		PHYS_IO_OFFSET, PHYS_IO_END,
@@ -130,4 +168,5 @@ void mmu_enable_idmap(void)
 		__pgprot(PTE_WBWA | PTE_USER));
 
 	mmu_enable(mmu_idmap);
+	return mmu_idmap;
 }

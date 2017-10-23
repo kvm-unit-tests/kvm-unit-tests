@@ -7,6 +7,7 @@
  */
 #include "libcflat.h"
 #include "devicetree.h"
+#include "alloc_page.h"
 #include "alloc.h"
 #include "asm/page.h"
 #include "asm/io.h"
@@ -53,7 +54,8 @@ static struct virtqueue *vm_setup_vq(struct virtio_device *vdev,
 	unsigned num = VIRTIO_MMIO_QUEUE_NUM_MIN;
 
 	vq = calloc(1, sizeof(*vq));
-	queue = memalign(PAGE_SIZE, VIRTIO_MMIO_QUEUE_SIZE_MIN);
+	assert(VIRTIO_MMIO_QUEUE_SIZE_MIN <= 2*PAGE_SIZE);
+	queue = alloc_pages(1);
 	assert(vq && queue);
 
 	writel(index, vm_dev->base + VIRTIO_MMIO_QUEUE_SEL);

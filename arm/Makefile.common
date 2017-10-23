@@ -15,6 +15,7 @@ tests-common += $(TEST_DIR)/pci-test.flat
 tests-common += $(TEST_DIR)/pmu.flat
 tests-common += $(TEST_DIR)/gic.flat
 tests-common += $(TEST_DIR)/psci.flat
+tests-common += $(TEST_DIR)/sieve.flat
 
 tests-all = $(tests-common) $(tests)
 all: directories $(tests-all)
@@ -35,6 +36,8 @@ include $(SRCDIR)/scripts/asm-offsets.mak
 
 cflatobjs += lib/util.o
 cflatobjs += lib/alloc_phys.o
+cflatobjs += lib/alloc_page.o
+cflatobjs += lib/vmalloc.o
 cflatobjs += lib/alloc.o
 cflatobjs += lib/devicetree.o
 cflatobjs += lib/pci.o

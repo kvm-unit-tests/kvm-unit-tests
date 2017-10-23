@@ -108,7 +108,7 @@ static void mem_init(phys_addr_t freemem_start)
 	phys_alloc_init(freemem_start, primary.end - freemem_start);
 	phys_alloc_set_minimum_alignment(SMP_CACHE_BYTES);
 
-	mmu_enable_idmap();
+	setup_vm();
 }
 
 void setup(const void *fdt)
