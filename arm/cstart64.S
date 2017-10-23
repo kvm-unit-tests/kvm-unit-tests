@@ -24,8 +24,8 @@ start:
 	mov	x4, #1
 	msr	spsel, x4
 	isb
-	adr     x4, stackptr
-	mov	sp, x4
+	adrp    x4, stackptr
+	add     sp, x4, :lo12:stackptr
 	stp	x0, x1, [sp, #-16]!
 
 	/* Enable FP/ASIMD */
@@ -40,16 +40,19 @@ start:
 	bl	setup
 
 	/* run the test */
-	adr	x0, __argc
-	ldr	x0, [x0]
-	adr	x1, __argv
-	adr	x2, __environ
+	adrp	x0, __argc
+	ldr	x0, [x0, :lo12:__argc]
+	adrp	x1, __argv
+	add	x1, x1, :lo12:__argv
+	adrp	x2, __environ
+	add	x2, x2, :lo12:__environ
 	bl	main
 	bl	exit
 	b	halt
 
 exceptions_init:
-	adr	x0, vector_table
+	adrp	x0, vector_table
+	add	x0, x0, :lo12:vector_table
 	msr	vbar_el1, x0
 	isb
 	ret
@@ -66,13 +69,13 @@ secondary_entry:
 	bl	exceptions_init
 
 	/* enable the MMU */
-	adr	x0, mmu_idmap
-	ldr	x0, [x0]
+	adrp	x0, mmu_idmap
+	ldr	x0, [x0, :lo12:mmu_idmap]
 	bl	asm_mmu_enable
 
 	/* set the stack */
-	adr	x1, secondary_data
-	ldr	x0, [x1]
+	adrp	x0, secondary_data
+	ldr	x0, [x0, :lo12:secondary_data]
 	mov	sp, x0
 
 	/* finish init in C code */
