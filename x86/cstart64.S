@@ -227,8 +227,8 @@ start64:
 	call enable_x2apic
 	mov mb_boot_info(%rip), %rbx
 	mov %rbx, %rdi
-	call setup_get_initrd
-	call setup_environ
+	call setup_multiboot
+	call setup_libcflat
 	mov mb_cmdline(%rbx), %eax
 	mov %rax, __args(%rip)
 	call __setup_args

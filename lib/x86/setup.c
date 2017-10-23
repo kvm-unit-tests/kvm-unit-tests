@@ -6,11 +6,32 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include "libcflat.h"
+#include "fwcfg.h"
+#include "alloc_phys.h"
 
-#define MBI_MODS_COUNT	20
-#define MBI_MODS_ADDR	24
-#define MB_MOD_START	 0
-#define MB_MOD_END	 4
+extern char edata;
+
+struct mbi_bootinfo {
+	u32 flags;
+	u32 mem_lower;
+	u32 mem_upper;
+	u32 boot_device;
+	u32 cmdline;
+	u32 mods_count;
+	u32 mods_addr;
+	u32 reserved[5];   /* 28-47 */
+	u32 mmap_addr;
+	u32 reserved0[3];  /* 52-63 */
+	u32 bootloader;
+	u32 reserved1[5];  /* 68-87 */
+	u32 size;
+};
+
+struct mbi_module {
+	u32 start, end;
+	u32 cmdline;
+	u32 unused;
+};
 
 #define ENV_SIZE 16384
 
@@ -21,22 +42,20 @@ u32 initrd_size;
 
 static char env[ENV_SIZE];
 
-void setup_get_initrd(u8 *bootinfo)
+void setup_multiboot(struct mbi_bootinfo *bootinfo)
 {
-	u32 *mods_addr, *mod_start, *mod_end;
+	struct mbi_module *mods;
 
-	if (*((u32 *)&bootinfo[MBI_MODS_COUNT]) != 1)
+	if (bootinfo->mods_count != 1)
 		return;
 
-	mods_addr = (u32 *)&bootinfo[MBI_MODS_ADDR];
-	mod_start = (u32 *)(ulong)(*mods_addr + MB_MOD_START);
-	mod_end = (u32 *)(ulong)(*mods_addr + MB_MOD_END);
+	mods = (struct mbi_module *)(uintptr_t) bootinfo->mods_addr;
 
-	initrd = (char *)(ulong)*mod_start;
-	initrd_size = *mod_end - *mod_start;
+	initrd = (char *)(uintptr_t) mods->start;
+	initrd_size = mods->end - mods->start;
 }
 
-void setup_environ(void)
+void setup_libcflat(void)
 {
 	if (initrd) {
 		/* environ is currently the only file in the initrd */
