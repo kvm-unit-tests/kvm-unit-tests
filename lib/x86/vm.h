@@ -10,7 +10,6 @@ void setup_5level_page_table();
 void *vmalloc(unsigned long size);
 void vfree(void *mem);
 void *vmap(unsigned long long phys, unsigned long size);
-uint64_t virt_to_phys_cr3(void *mem);
 
 struct pte_search {
 	int level;

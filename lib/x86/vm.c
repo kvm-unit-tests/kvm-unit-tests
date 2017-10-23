@@ -192,9 +192,9 @@ void *vmalloc(unsigned long size)
     return mem;
 }
 
-uint64_t virt_to_phys_cr3(void *mem)
+phys_addr_t virt_to_pte_phys(pgd_t *cr3, void *mem)
 {
-    return (*get_pte(phys_to_virt(read_cr3()), mem) & PT_ADDR_MASK) + ((ulong)mem & (PAGE_SIZE - 1));
+    return (*get_pte(cr3, mem) & PT_ADDR_MASK) + ((ulong)mem & (PAGE_SIZE - 1));
 }
 
 void vfree(void *mem)
