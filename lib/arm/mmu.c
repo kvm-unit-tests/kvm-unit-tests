@@ -71,13 +71,13 @@ void mmu_disable(void)
 	asm_mmu_disable();
 }
 
-void mmu_set_range_ptes(pgd_t *pgtable, unsigned long virt_offset,
-			unsigned long phys_start, unsigned long phys_end,
+void mmu_set_range_ptes(pgd_t *pgtable, uintptr_t virt_offset,
+			phys_addr_t phys_start, phys_addr_t phys_end,
 			pgprot_t prot)
 {
-	unsigned long vaddr = virt_offset & PAGE_MASK;
-	unsigned long paddr = phys_start & PAGE_MASK;
-	unsigned long virt_end = phys_end - paddr + vaddr;
+	phys_addr_t paddr = phys_start & PAGE_MASK;
+	uintptr_t vaddr = virt_offset & PAGE_MASK;
+	uintptr_t virt_end = phys_end - paddr + vaddr;
 
 	for (; vaddr < virt_end; vaddr += PAGE_SIZE, paddr += PAGE_SIZE) {
 		pgd_t *pgd = pgd_offset(pgtable, vaddr);
@@ -90,13 +90,13 @@ void mmu_set_range_ptes(pgd_t *pgtable, unsigned long virt_offset,
 	}
 }
 
-void mmu_set_range_sect(pgd_t *pgtable, unsigned long virt_offset,
-			unsigned long phys_start, unsigned long phys_end,
+void mmu_set_range_sect(pgd_t *pgtable, uintptr_t virt_offset,
+			phys_addr_t phys_start, phys_addr_t phys_end,
 			pgprot_t prot)
 {
-	unsigned long vaddr = virt_offset & PGDIR_MASK;
-	unsigned long paddr = phys_start & PGDIR_MASK;
-	unsigned long virt_end = phys_end - paddr + vaddr;
+	phys_addr_t paddr = phys_start & PGDIR_MASK;
+	uintptr_t vaddr = virt_offset & PGDIR_MASK;
+	uintptr_t virt_end = phys_end - paddr + vaddr;
 
 	for (; vaddr < virt_end; vaddr += PGDIR_SIZE, paddr += PGDIR_SIZE) {
 		pgd_t *pgd = pgd_offset(pgtable, vaddr);
@@ -107,22 +107,18 @@ void mmu_set_range_sect(pgd_t *pgtable, unsigned long virt_offset,
 }
 
 
-void mmu_init_io_sect(pgd_t *pgtable, unsigned long virt_offset)
-{
-	mmu_set_range_sect(pgtable, virt_offset,
-		PHYS_IO_OFFSET, PHYS_IO_END,
-		__pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
-}
 
 void mmu_enable_idmap(void)
 {
-	unsigned long phys_end = sizeof(long) == 8 || !(PHYS_END >> 32)
+	uintptr_t phys_end = sizeof(long) == 8 || !(PHYS_END >> 32)
 						? PHYS_END : 0xfffff000;
-	unsigned long code_end = (unsigned long)&etext;
+	uintptr_t code_end = (uintptr_t)&etext;
 
 	mmu_idmap = pgd_alloc();
 
-	mmu_init_io_sect(mmu_idmap, PHYS_IO_OFFSET);
+	mmu_set_range_sect(mmu_idmap, PHYS_IO_OFFSET,
+		PHYS_IO_OFFSET, PHYS_IO_END,
+		__pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
 
 	/* armv8 requires code shared between EL1 and EL0 to be read-only */
 	mmu_set_range_ptes(mmu_idmap, PHYS_OFFSET,
