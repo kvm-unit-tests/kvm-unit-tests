@@ -30,15 +30,14 @@ static void __testdev_send(char *buf, unsigned int len)
 void chr_testdev_exit(int code)
 {
 	unsigned int len;
-	char buf[8];
+	static char buf[8];
+
+	spin_lock(&lock);
+	if (!vcon)
+		goto out;
 
 	snprintf(buf, sizeof(buf), "%dq", code);
 	len = strlen(buf);
-
-	spin_lock(&lock);
-
-	if (!vcon)
-		goto out;
 
 	__testdev_send(buf, len);
 
