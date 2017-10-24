@@ -38,7 +38,7 @@
 
 static inline void *thread_stack_alloc(void)
 {
-	void *sp = memalign(THREAD_SIZE, THREAD_SIZE);
+	void *sp = memalign(PAGE_SIZE, THREAD_SIZE);
 	return sp + THREAD_START_SP;
 }
 
