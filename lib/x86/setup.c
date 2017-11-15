@@ -46,6 +46,10 @@ void setup_multiboot(struct mbi_bootinfo *bootinfo)
 {
 	struct mbi_module *mods;
 
+	/* TODO: use e820 */
+	u64 end_of_memory = bootinfo->mem_upper * 1024ull;
+	phys_alloc_init((uintptr_t) &edata, end_of_memory - (uintptr_t) &edata);
+
 	if (bootinfo->mods_count != 1)
 		return;
 
@@ -53,10 +57,6 @@ void setup_multiboot(struct mbi_bootinfo *bootinfo)
 
 	initrd = (char *)(uintptr_t) mods->start;
 	initrd_size = mods->end - mods->start;
-
-	/* TODO: use e820 */
-	u64 end_of_memory = bootinfo->mem_upper * 1024ull;
-	phys_alloc_init((uintptr_t) &edata, end_of_memory - (uintptr_t)edata);
 }
 
 void setup_libcflat(void)
