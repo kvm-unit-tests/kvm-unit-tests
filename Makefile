@@ -121,5 +121,5 @@ cscope: cscope_dirs = lib lib/libfdt lib/linux $(TEST_DIR) $(ARCH_LIBDIRS) lib/a
 cscope:
 	$(RM) ./cscope.*
 	find -L $(cscope_dirs) -maxdepth 1 \
-		-name '*.[chsS]' -print | sed 's,^\./,,' | sort -u > ./cscope.files
+		-name '*.[chsS]' -exec realpath --relative-base=$(PWD) {} \; | sort -u > ./cscope.files
 	cscope -bk
