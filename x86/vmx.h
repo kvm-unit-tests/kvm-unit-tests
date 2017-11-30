@@ -388,6 +388,7 @@ enum Ctrl0 {
 };
 
 enum Ctrl1 {
+	CPU_VIRT_APIC_ACCESSES	= 1ul << 0,
 	CPU_EPT			= 1ul << 1,
 	CPU_DESC_TABLE		= 1ul << 2,
 	CPU_RDTSCP		= 1ul << 3,

@@ -3480,18 +3480,58 @@ static void test_apic_virt_addr(void)
 				 "virtual-APIC address", "Use TPR shadow", true);
 }
 
-static void try_tpr_threshold(unsigned val)
+static void set_vtpr(unsigned vtpr)
+{
+	*(u32 *)phys_to_virt(vmcs_read(APIC_VIRT_ADDR) + APIC_TASKPRI) = vtpr;
+}
+
+static void try_tpr_threshold_and_vtpr(unsigned threshold, unsigned vtpr)
+{
+	bool valid = true;
+	u32 primary = vmcs_read(CPU_EXEC_CTRL0);
+	u32 secondary = vmcs_read(CPU_EXEC_CTRL1);
+
+	if ((primary & CPU_TPR_SHADOW) &&
+	    (!(primary & CPU_SECONDARY) ||
+	     !(secondary & (CPU_VINTD | CPU_VIRT_APIC_ACCESSES))))
+		valid = (threshold & 0xf) <= ((vtpr >> 4) & 0xf);
+
+	set_vtpr(vtpr);
+	report_prefix_pushf("TPR threshold 0x%x, VTPR.class 0x%x",
+	    threshold, (vtpr >> 4) & 0xf);
+	test_vmx_controls(valid, false);
+	report_prefix_pop();
+}
+
+/*
+ * Test interesting vTPR values for a given TPR threshold.
+ */
+static void test_vtpr_values(unsigned threshold)
+{
+	try_tpr_threshold_and_vtpr(threshold, threshold - 1);
+	try_tpr_threshold_and_vtpr(threshold, threshold);
+	try_tpr_threshold_and_vtpr(threshold, threshold + 1);
+}
+
+static void try_tpr_threshold(unsigned threshold)
 {
 	bool valid = true;
 
-	if ((vmcs_read(CPU_EXEC_CTRL0) & CPU_TPR_SHADOW) &&
-	    !((vmcs_read(CPU_EXEC_CTRL0) & CPU_SECONDARY) &&
-	      (vmcs_read(CPU_EXEC_CTRL1) & CPU_VINTD)))
-		valid = !(val >> 4);
-	report_prefix_pushf("TPR threshold 0x%x", val);
-	vmcs_write(TPR_THRESHOLD, val);
+	u32 primary = vmcs_read(CPU_EXEC_CTRL0);
+	u32 secondary = vmcs_read(CPU_EXEC_CTRL1);
+
+	if ((primary & CPU_TPR_SHADOW) && !((primary & CPU_SECONDARY) &&
+	    (secondary & CPU_VINTD)))
+		valid = !(threshold >> 4);
+
+	set_vtpr(-1);
+	vmcs_write(TPR_THRESHOLD, threshold);
+	report_prefix_pushf("TPR threshold 0x%x, VTPR.class 0xf", threshold);
 	test_vmx_controls(valid, false);
 	report_prefix_pop();
+
+	if (valid)
+		test_vtpr_values(threshold);
 }
 
 /*
@@ -3510,10 +3550,21 @@ static void test_tpr_threshold_values(void)
 }
 
 /*
- * If the "use TPR shadow" VM-execution control is 1 and the
- * "virtual-interrupt delivery" VM-execution control is 0, bits 31:4
- * of the TPR threshold VM-execution control field must be 0.
- * [Intel SDM]
+ * This test covers the following two VM entry checks:
+ *
+ *      i) If the "use TPR shadow" VM-execution control is 1 and the
+ *         "virtual-interrupt delivery" VM-execution control is 0, bits
+ *         31:4 of the TPR threshold VM-execution control field must
+	   be 0.
+ *         [Intel SDM]
+ *
+ *      ii) If the "use TPR shadow" VM-execution control is 1, the
+ *          "virtual-interrupt delivery" VM-execution control is 0
+ *          and the "virtualize APIC accesses" VM-execution control
+ *          is 0, the value of bits 3:0 of the TPR threshold VM-execution
+ *          control field must not be greater than the value of bits
+ *          7:4 of VTPR.
+ *          [Intel SDM]
  */
 static void test_tpr_threshold(void)
 {
@@ -3528,7 +3579,7 @@ static void test_tpr_threshold(void)
 	vmcs_write(APIC_VIRT_ADDR, virt_to_phys(virtual_apic_page));
 
 	vmcs_write(CPU_EXEC_CTRL0, primary & ~(CPU_TPR_SHADOW | CPU_SECONDARY));
-	report_prefix_pushf("Use TPR shadow disabled");
+	report_prefix_pushf("Use TPR shadow disabled, secondary controls disabled");
 	test_tpr_threshold_values();
 	report_prefix_pop();
 	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | CPU_TPR_SHADOW);
@@ -3536,23 +3587,59 @@ static void test_tpr_threshold(void)
 	test_tpr_threshold_values();
 	report_prefix_pop();
 
-	if ((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
-	    (ctrl_cpu_rev[1].clr & CPU_VINTD)) {
-		u32 secondary = vmcs_read(CPU_EXEC_CTRL1);
+	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
+	    (ctrl_cpu_rev[1].clr & (CPU_VINTD  | CPU_VIRT_APIC_ACCESSES))))
+		return;
 
+	u32 secondary = vmcs_read(CPU_EXEC_CTRL1);
+
+	if (ctrl_cpu_rev[1].clr & CPU_VINTD) {
 		vmcs_write(CPU_EXEC_CTRL1, CPU_VINTD);
-		report_prefix_pushf("Use TPR shadow enabled; secondary controls disabled");
+		report_prefix_pushf("Use TPR shadow enabled; secondary controls disabled; virtual-interrupt delivery enabled; virtualize APIC accesses disabled");
 		test_tpr_threshold_values();
 		report_prefix_pop();
+
 		vmcs_write(CPU_EXEC_CTRL0,
 			   vmcs_read(CPU_EXEC_CTRL0) | CPU_SECONDARY);
-		report_prefix_pushf("Use TPR shadow enabled; virtual-interrupt delivery enabled");
+		report_prefix_pushf("Use TPR shadow enabled; secondary controls enabled; virtual-interrupt delivery enabled; virtualize APIC accesses disabled");
+		test_tpr_threshold_values();
+		report_prefix_pop();
+	}
+
+	if (ctrl_cpu_rev[1].clr & CPU_VIRT_APIC_ACCESSES) {
+		vmcs_write(CPU_EXEC_CTRL0,
+			   vmcs_read(CPU_EXEC_CTRL0) & ~CPU_SECONDARY);
+		vmcs_write(CPU_EXEC_CTRL1, CPU_VIRT_APIC_ACCESSES);
+		report_prefix_pushf("Use TPR shadow enabled; secondary controls disabled; virtual-interrupt delivery enabled; virtualize APIC accesses enabled");
 		test_tpr_threshold_values();
 		report_prefix_pop();
 
-		vmcs_write(CPU_EXEC_CTRL1, secondary);
+		vmcs_write(CPU_EXEC_CTRL0,
+			   vmcs_read(CPU_EXEC_CTRL0) | CPU_SECONDARY);
+		report_prefix_pushf("Use TPR shadow enabled; secondary controls enabled; virtual-interrupt delivery enabled; virtualize APIC accesses enabled");
+		test_tpr_threshold_values();
+		report_prefix_pop();
 	}
 
+	if ((ctrl_cpu_rev[1].clr &
+	     (CPU_VINTD | CPU_VIRT_APIC_ACCESSES)) ==
+	    (CPU_VINTD | CPU_VIRT_APIC_ACCESSES)) {
+		vmcs_write(CPU_EXEC_CTRL0,
+			   vmcs_read(CPU_EXEC_CTRL0) & ~CPU_SECONDARY);
+		vmcs_write(CPU_EXEC_CTRL1,
+			   CPU_VINTD | CPU_VIRT_APIC_ACCESSES);
+		report_prefix_pushf("Use TPR shadow enabled; secondary controls disabled; virtual-interrupt delivery enabled; virtualize APIC accesses enabled");
+		test_tpr_threshold_values();
+		report_prefix_pop();
+
+		vmcs_write(CPU_EXEC_CTRL0,
+			   vmcs_read(CPU_EXEC_CTRL0) | CPU_SECONDARY);
+		report_prefix_pushf("Use TPR shadow enabled; secondary controls enabled; virtual-interrupt delivery enabled; virtualize APIC accesses enabled");
+		test_tpr_threshold_values();
+		report_prefix_pop();
+	}
+
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	vmcs_write(CPU_EXEC_CTRL0, primary);
 }
 
