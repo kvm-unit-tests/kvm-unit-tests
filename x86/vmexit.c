@@ -418,6 +418,27 @@ static void tscdeadline(void)
 	while (x == 0) barrier();
 }
 
+static int has_spec_ctrl(void)
+{
+    return !!(cpuid_indexed(7,0).d & (1 << 26));
+}
+
+static void wr_ibrs_msr(void)
+{
+	wrmsr(MSR_IA32_SPEC_CTRL, 1);
+	wrmsr(MSR_IA32_SPEC_CTRL, 0);
+}
+
+static int has_ibpb(void)
+{
+    return has_spec_ctrl() || !!(cpuid(0x80000008).b & (1 << 12));
+}
+
+static void wr_ibpb_msr(void)
+{
+	wrmsr(MSR_IA32_PRED_CMD, 1);
+}
+
 static struct test tests[] = {
 	{ cpuid_test, "cpuid", .parallel = 1,  },
 	{ vmcall, "vmcall", .parallel = 1, },
@@ -446,6 +467,8 @@ static struct test tests[] = {
 	{ ipi_halt, "ipi_halt", is_smp, .parallel = 0, },
 	{ ple_round_robin, "ple_round_robin", .parallel = 1 },
 	{ wr_kernel_gs_base, "wr_kernel_gs_base", .parallel = 1 },
+	{ wr_ibrs_msr, "wr_ibrs_msr", has_spec_ctrl, .parallel = 1 },
+	{ wr_ibpb_msr, "wr_ibpb_msr", has_ibpb, .parallel = 1 },
 	{ wr_tsc_adjust_msr, "wr_tsc_adjust_msr", .parallel = 1 },
 	{ rd_tsc_adjust_msr, "rd_tsc_adjust_msr", .parallel = 1 },
 	{ NULL, "pci-mem", .parallel = 0, .next = pci_mem_next },
