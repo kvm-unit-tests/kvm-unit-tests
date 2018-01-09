@@ -274,7 +274,7 @@ static void ipi_clear_active_handler(struct pt_regs *regs __unused)
 		if (gic_version() == 2)
 			base = gicv2_dist_base();
 		else
-			base = gicv3_redist_base();
+			base = gicv3_sgi_base();
 
 		writel(val, base + GICD_ICACTIVER);
 
