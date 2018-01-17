@@ -13,6 +13,11 @@
 static struct spinlock lock;
 static void *freelist = 0;
 
+bool page_alloc_initialized(void)
+{
+	return freelist != 0;
+}
+
 void free_pages(void *mem, unsigned long size)
 {
 	void *old_freelist;

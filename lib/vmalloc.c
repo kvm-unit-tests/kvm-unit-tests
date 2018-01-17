@@ -94,9 +94,12 @@ void setup_vm()
 		return;
 
 	phys_alloc_get_unused(&base, &top);
-	base = (base + PAGE_SIZE - 1) & -PAGE_SIZE;
-	top = top & -PAGE_SIZE;
-	free_pages(phys_to_virt(base), top - base);
+	assert(base != top || page_alloc_initialized());
+	if (!page_alloc_initialized()) {
+		base = (base + PAGE_SIZE - 1) & -PAGE_SIZE;
+		top = top & -PAGE_SIZE;
+		free_pages(phys_to_virt(base), top - base);
+	}
 	page_root = setup_mmu(top);
 	alloc_ops = &vmalloc_ops;
 }

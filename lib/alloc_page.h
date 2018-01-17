@@ -8,6 +8,7 @@
 #ifndef ALLOC_PAGE_H
 #define ALLOC_PAGE_H 1
 
+bool page_alloc_initialized(void);
 void *alloc_page();
 void *alloc_pages(unsigned long order);
 void free_page(void *page);
