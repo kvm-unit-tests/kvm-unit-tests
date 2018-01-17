@@ -42,16 +42,14 @@ typedef struct { pgd_t pgd; } pmd_t;
 #define pmd_val(x)		(pgd_val((x).pgd))
 #define __pmd(x)		((pmd_t) { __pgd(x) } )
 
-#ifndef __virt_to_phys
-#define __phys_to_virt(x)	((unsigned long) (x))
-#define __virt_to_phys(x)	(x)
-#endif
-
 #define __va(x)			((void *)__phys_to_virt((phys_addr_t)(x)))
 #define __pa(x)			__virt_to_phys((unsigned long)(x))
 
 #define virt_to_pfn(kaddr)	(__pa(kaddr) >> PAGE_SHIFT)
 #define pfn_to_virt(pfn)	__va((pfn) << PAGE_SHIFT)
+
+extern phys_addr_t __virt_to_phys(unsigned long addr);
+extern unsigned long __phys_to_virt(phys_addr_t addr);
 
 #endif /* !__ASSEMBLY__ */
 #endif /* _ASMARM64_PAGE_H_ */

@@ -171,3 +171,23 @@ void *setup_mmu(phys_addr_t phys_end)
 	mmu_enable(mmu_idmap);
 	return mmu_idmap;
 }
+
+phys_addr_t __virt_to_phys(unsigned long addr)
+{
+	if (mmu_enabled()) {
+		pgd_t *pgtable = current_thread_info()->pgtable;
+		return virt_to_pte_phys(pgtable, (void *)addr);
+	}
+	return addr;
+}
+
+unsigned long __phys_to_virt(phys_addr_t addr)
+{
+	/*
+	 * We don't guarantee that phys_to_virt(virt_to_phys(vaddr)) == vaddr, but
+	 * the default page tables do identity map all physical addresses, which
+	 * means phys_to_virt(virt_to_phys((void *)paddr)) == paddr.
+	 */
+	assert(!mmu_enabled() || __virt_to_phys(addr) == addr);
+	return addr;
+}
