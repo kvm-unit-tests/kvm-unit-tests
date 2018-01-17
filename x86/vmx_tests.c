@@ -2609,6 +2609,10 @@ static void ept_access_test_setup(void)
 	if (setup_ept(false))
 		test_skip("EPT not supported");
 
+	/* We use data->gpa = 1 << 39 so that test data has a separate pml4 entry */
+	if (cpuid_maxphyaddr() < 40)
+		test_skip("Test needs MAXPHYADDR >= 40");
+
 	test_set_guest(ept_access_test_guest);
 	test_add_teardown(ept_access_test_teardown, NULL);
 
@@ -2616,7 +2620,7 @@ static void ept_access_test_setup(void)
 	TEST_ASSERT(data->hva);
 	data->hpa = virt_to_phys(data->hva);
 
-	data->gpa = 1ul << 40;
+	data->gpa = 1ul << 39;
 	data->gva = (void *) ALIGN((unsigned long) alloc_vpages(npages * 2),
 				   size);
 	TEST_ASSERT(!any_present_pages(page_table, data->gva, size));
