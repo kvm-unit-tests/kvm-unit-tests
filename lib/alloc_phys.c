@@ -81,6 +81,8 @@ static phys_addr_t phys_alloc_aligned_safe(phys_addr_t size,
 	if (safe && sizeof(long) == 4)
 		top_safe = MIN(top_safe, 1ULL << 32);
 
+	assert(base < top_safe);
+
 	addr = ALIGN(base, align);
 	size += addr - base;
 
@@ -116,6 +118,14 @@ void phys_alloc_get_unused(phys_addr_t *p_base, phys_addr_t *p_top)
 {
 	*p_base = base;
 	*p_top = top;
+	if (base == top)
+		return;
+	spin_lock(&lock);
+	regions[nr_regions].base = base;
+	regions[nr_regions].size = top - base;
+	++nr_regions;
+	base = top;
+	spin_unlock(&lock);
 }
 
 static void *early_memalign(size_t alignment, size_t size)
