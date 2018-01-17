@@ -6,6 +6,7 @@
  * This work is licensed under the terms of the GNU GPL, version 2.
  */
 #define __ASSEMBLY__
+#include <auxinfo.h>
 #include <asm/asm-offsets.h>
 #include <asm/ptrace.h>
 #include <asm/processor.h>
@@ -38,7 +39,11 @@ start:
 	/* complete setup */
 	ldp	x0, x1, [sp], #16
 	bl	setup
+	bl	get_mmu_off
+	cbnz	x0, 1f
+	bl	setup_vm
 
+1:
 	/* run the test */
 	adrp	x0, __argc
 	ldr	x0, [x0, :lo12:__argc]
@@ -59,6 +64,13 @@ exceptions_init:
 
 .text
 
+.globl get_mmu_off
+get_mmu_off:
+	adrp	x0, auxinfo
+	ldr	x0, [x0, :lo12:auxinfo + 8]
+	and	x0, x0, #AUXINFO_MMU_OFF
+	ret
+
 .globl secondary_entry
 secondary_entry:
 	/* Enable FP/ASIMD */
@@ -68,11 +80,14 @@ secondary_entry:
 	/* set up exception handling */
 	bl	exceptions_init
 
-	/* enable the MMU */
+	/* enable the MMU unless requested off */
+	bl	get_mmu_off
+	cbnz	x0, 1f
 	adrp	x0, mmu_idmap
 	ldr	x0, [x0, :lo12:mmu_idmap]
 	bl	asm_mmu_enable
 
+1:
 	/* set the stack */
 	adrp	x0, secondary_data
 	ldr	x0, [x0, :lo12:secondary_data]

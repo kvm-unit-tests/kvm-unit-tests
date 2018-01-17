@@ -15,11 +15,11 @@
 #include <devicetree.h>
 #include <alloc.h>
 #include <alloc_phys.h>
+#include <alloc_page.h>
 #include <argv.h>
 #include <asm/thread_info.h>
 #include <asm/setup.h>
 #include <asm/page.h>
-#include <asm/mmu.h>
 #include <asm/smp.h>
 
 extern unsigned long stacktop;
@@ -70,6 +70,7 @@ static void mem_init(phys_addr_t freemem_start)
 	struct mem_region primary, mem = {
 		.start = (phys_addr_t)-1,
 	};
+	phys_addr_t base, top;
 	int nr_regs, i;
 
 	nr_regs = dt_get_memory_params(regs, NR_MEM_REGIONS);
@@ -108,7 +109,14 @@ static void mem_init(phys_addr_t freemem_start)
 	phys_alloc_init(freemem_start, primary.end - freemem_start);
 	phys_alloc_set_minimum_alignment(SMP_CACHE_BYTES);
 
-	setup_vm();
+	phys_alloc_get_unused(&base, &top);
+	base = PAGE_ALIGN(base);
+	top = top & PAGE_MASK;
+	assert(sizeof(long) == 8 || !(base >> 32));
+	if (sizeof(long) != 8 && (top >> 32) != 0)
+		top = ((uint64_t)1 << 32);
+	free_pages((void *)(unsigned long)base, top - base);
+	page_alloc_ops_enable();
 }
 
 void setup(const void *fdt)
@@ -156,13 +164,11 @@ void setup(const void *fdt)
 	}
 
 	/* call init functions */
+	mem_init(PAGE_ALIGN((unsigned long)freemem));
 	cpu_init();
 
 	/* cpu_init must be called before thread_info_init */
 	thread_info_init(current_thread_info(), 0);
-
-	/* thread_info_init must be called before mem_init */
-	mem_init(PAGE_ALIGN((unsigned long)freemem));
 
 	/* mem_init must be called before io_init */
 	io_init();

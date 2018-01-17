@@ -6,6 +6,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <libcflat.h>
+#include <auxinfo.h>
 #include <asm/thread_info.h>
 #include <asm/spinlock.h>
 #include <asm/cpumask.h>
@@ -33,8 +34,11 @@ secondary_entry_fn secondary_cinit(void)
 	secondary_entry_fn entry;
 
 	thread_info_init(ti, 0);
-	ti->pgtable = mmu_idmap;
-	mmu_mark_enabled(ti->cpu);
+
+	if (!(auxinfo.flags & AUXINFO_MMU_OFF)) {
+		ti->pgtable = mmu_idmap;
+		mmu_mark_enabled(ti->cpu);
+	}
 
 	/*
 	 * Save secondary_data.entry locally to avoid opening a race

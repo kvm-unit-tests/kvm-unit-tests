@@ -6,6 +6,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #define __ASSEMBLY__
+#include <auxinfo.h>
 #include <asm/thread_info.h>
 #include <asm/asm-offsets.h>
 #include <asm/ptrace.h>
@@ -57,7 +58,12 @@ start:
 	/* complete setup */
 	pop	{r0-r1}
 	bl	setup
+	bl	get_mmu_off
+	cmp	r0, #0
+	bne	1f
+	bl	setup_vm
 
+1:
 	/* run the test */
 	ldr	r0, =__argc
 	ldr	r0, [r0]
@@ -96,14 +102,25 @@ exceptions_init:
 
 .text
 
+.global get_mmu_off
+get_mmu_off:
+	ldr	r0, =auxinfo
+	ldr	r0, [r0, #4]
+	and	r0, #AUXINFO_MMU_OFF
+	mov	pc, lr
+
 .global secondary_entry
 secondary_entry:
-	/* enable the MMU */
+	/* enable the MMU unless requested off */
+	bl	get_mmu_off
+	cmp	r0, #0
+	bne	1f
 	mov	r1, #0
 	ldr	r0, =mmu_idmap
 	ldr	r0, [r0]
 	bl	asm_mmu_enable
 
+1:
 	/*
 	 * Set the stack, and set up vector table
 	 * and exception stacks. Exception stacks
