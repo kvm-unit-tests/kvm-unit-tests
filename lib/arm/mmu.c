@@ -73,6 +73,17 @@ void mmu_disable(void)
 	asm_mmu_disable();
 }
 
+static void flush_entry(pgd_t *pgtable, uintptr_t vaddr)
+{
+	pgd_t *pgd = pgd_offset(pgtable, vaddr);
+	pmd_t *pmd = pmd_offset(pgd, vaddr);
+
+	flush_dcache_addr((ulong)pgd);
+	flush_dcache_addr((ulong)pmd);
+	flush_dcache_addr((ulong)pte_offset(pmd, vaddr));
+	flush_tlb_page(vaddr);
+}
+
 static pteval_t *get_pte(pgd_t *pgtable, uintptr_t vaddr)
 {
 	pgd_t *pgd = pgd_offset(pgtable, vaddr);
@@ -85,8 +96,9 @@ static pteval_t *get_pte(pgd_t *pgtable, uintptr_t vaddr)
 static pteval_t *install_pte(pgd_t *pgtable, uintptr_t vaddr, pteval_t pte)
 {
 	pteval_t *p_pte = get_pte(pgtable, vaddr);
+
 	*p_pte = pte;
-	flush_tlb_page(vaddr);
+	flush_entry(pgtable, vaddr);
 	return p_pte;
 }
 
@@ -136,8 +148,9 @@ void mmu_set_range_sect(pgd_t *pgtable, uintptr_t virt_offset,
 		pgd_val(*pgd) = paddr;
 		pgd_val(*pgd) |= PMD_TYPE_SECT | PMD_SECT_AF | PMD_SECT_S;
 		pgd_val(*pgd) |= pgprot_val(prot);
+		flush_dcache_addr((ulong)pgd);
+		flush_tlb_page(vaddr);
 	}
-	flush_tlb_all();
 }
 
 void *setup_mmu(phys_addr_t phys_end)

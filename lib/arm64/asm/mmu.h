@@ -26,6 +26,11 @@ static inline void flush_tlb_page(unsigned long vaddr)
 	dsb(ish);
 }
 
+static inline void flush_dcache_addr(unsigned long vaddr)
+{
+	asm volatile("dc civac, %0" :: "r" (vaddr));
+}
+
 #include <asm/mmu-api.h>
 
 #endif /* __ASMARM64_MMU_H_ */
