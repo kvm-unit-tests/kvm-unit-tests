@@ -6,6 +6,7 @@
 #define _AUXINFO_H_
 struct auxinfo {
 	const char *progname;
+	unsigned long flags;
 };
 
 /* No extern!  Define a common symbol.  */

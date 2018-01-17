@@ -22,6 +22,7 @@ all: directories $(tests-all)
 
 ##################################################################
 phys_base = $(LOADADDR)
+AUXFLAGS ?= 0x0
 
 CFLAGS += -std=gnu99
 CFLAGS += -ffreestanding
@@ -69,7 +70,7 @@ FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libgcc) $(libeabi)
 	$(CC) $(LDFLAGS) -o $@ \
 		-Wl,-T,$(SRCDIR)/arm/flat.lds,--build-id=none,-Ttext=$(start_addr) \
 		$(filter %.o, $^) $(FLATLIBS) \
-		$(SRCDIR)/lib/auxinfo.c -DPROGNAME=\"$(@:.elf=.flat)\"
+		$(SRCDIR)/lib/auxinfo.c -DPROGNAME=\"$(@:.elf=.flat)\" -DAUXFLAGS=$(AUXFLAGS)
 
 %.flat: %.elf
 	$(OBJCOPY) -O binary $^ $@
