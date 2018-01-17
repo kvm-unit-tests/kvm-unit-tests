@@ -12,7 +12,6 @@
 #include <asm/setup.h>
 #include <asm/page.h>
 
-#include "alloc.h"
 #include "alloc_page.h"
 #include "vmalloc.h"
 #include <asm/pgtable-hwdef.h>

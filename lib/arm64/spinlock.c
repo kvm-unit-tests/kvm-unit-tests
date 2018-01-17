@@ -5,6 +5,7 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
+#include <libcflat.h>
 #include <asm/spinlock.h>
 #include <asm/barrier.h>
 #include <asm/mmu.h>
