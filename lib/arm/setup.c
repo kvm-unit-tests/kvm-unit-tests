@@ -75,7 +75,7 @@ static void mem_init(phys_addr_t freemem_start)
 	nr_regs = dt_get_memory_params(regs, NR_MEM_REGIONS);
 	assert(nr_regs > 0);
 
-	primary.end = 0;
+	primary = (struct mem_region){ 0 };
 
 	for (i = 0; i < nr_regs; ++i) {
 		mem_regions[i].start = regs[i].addr;
@@ -102,8 +102,8 @@ static void mem_init(phys_addr_t freemem_start)
 	assert(primary.end != 0);
 	assert(!(mem.start & ~PHYS_MASK) && !((mem.end - 1) & ~PHYS_MASK));
 
-	__phys_offset = mem.start;	/* PHYS_OFFSET */
-	__phys_end = mem.end;		/* PHYS_END */
+	__phys_offset = primary.start;	/* PHYS_OFFSET */
+	__phys_end = primary.end;	/* PHYS_END */
 
 	phys_alloc_init(freemem_start, primary.end - freemem_start);
 	phys_alloc_set_minimum_alignment(SMP_CACHE_BYTES);
