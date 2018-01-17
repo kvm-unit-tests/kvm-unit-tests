@@ -15,6 +15,8 @@
 
 #define BITS_PER_LONG	64
 
+#define HAVE_BUILTIN_FLS 1
+
 #define ATOMIC_BITOP(insn, mask, word)				\
 ({								\
 	unsigned long tmp1, tmp2;				\

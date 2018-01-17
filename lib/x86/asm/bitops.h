@@ -11,4 +11,6 @@
 #define BITS_PER_LONG	32
 #endif
 
+#define HAVE_BUILTIN_FLS 1
+
 #endif
