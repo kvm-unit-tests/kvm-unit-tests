@@ -5,7 +5,9 @@
  * with page granularity.
  */
 #include "libcflat.h"
+#include "alloc.h"
 #include "alloc_phys.h"
+#include "bitops.h"
 #include <asm/page.h>
 #include <asm/io.h>
 #include <asm/spinlock.h>
@@ -133,4 +135,33 @@ void free_page(void *page)
 	*(void **)page = freelist;
 	freelist = page;
 	spin_unlock(&lock);
+}
+
+static void *page_memalign(size_t alignment, size_t size)
+{
+	unsigned long n = ALIGN(size, PAGE_SIZE) >> PAGE_SHIFT;
+	unsigned long order;
+
+	if (!size)
+		return NULL;
+
+	order = is_power_of_2(n) ? fls(n) : fls(n) + 1;
+
+	return alloc_pages(order);
+}
+
+static void page_free(void *mem, size_t size)
+{
+	free_pages(mem, size);
+}
+
+static struct alloc_ops page_alloc_ops = {
+	.memalign = page_memalign,
+	.free = page_free,
+	.align_min = PAGE_SIZE,
+};
+
+void page_alloc_ops_enable(void)
+{
+	alloc_ops = &page_alloc_ops;
 }
