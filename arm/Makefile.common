@@ -20,6 +20,8 @@ tests-common += $(TEST_DIR)/sieve.flat
 tests-all = $(tests-common) $(tests)
 all: directories $(tests-all)
 
+$(TEST_DIR)/sieve.elf: AUXFLAGS = 0x1
+
 ##################################################################
 phys_base = $(LOADADDR)
 AUXFLAGS ?= 0x0
