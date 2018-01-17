@@ -54,12 +54,13 @@ void mmu_mark_disabled(int cpu)
 extern void asm_mmu_enable(phys_addr_t pgtable);
 void mmu_enable(pgd_t *pgtable)
 {
-	int cpu = current_thread_info()->cpu;
+	struct thread_info *info = current_thread_info();
 
 	asm_mmu_enable(__pa(pgtable));
 	flush_tlb_all();
 
-	mmu_mark_enabled(cpu);
+	info->pgtable = pgtable;
+	mmu_mark_enabled(info->cpu);
 }
 
 extern void asm_mmu_disable(void);

@@ -33,6 +33,7 @@ secondary_entry_fn secondary_cinit(void)
 	secondary_entry_fn entry;
 
 	thread_info_init(ti, 0);
+	ti->pgtable = mmu_idmap;
 	mmu_mark_enabled(ti->cpu);
 
 	/*

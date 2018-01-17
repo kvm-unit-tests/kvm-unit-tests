@@ -238,6 +238,7 @@ void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr)
 	sp_usr &= (~15UL); /* stack ptr needs 16-byte alignment */
 
 	__thread_info_init(thread_info_sp(sp_usr), TIF_USER_MODE);
+	thread_info_sp(sp_usr)->pgtable = current_thread_info()->pgtable;
 
 	asm volatile(
 		"mov	x0, %0\n"

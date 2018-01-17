@@ -47,6 +47,7 @@ static inline void *thread_stack_alloc(void)
 struct thread_info {
 	int cpu;
 	unsigned int flags;
+	void *pgtable;
 #ifdef __arm__
 	exception_fn exception_handlers[EXCPTN_MAX];
 #else

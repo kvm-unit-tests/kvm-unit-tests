@@ -124,6 +124,7 @@ void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr)
 	sp_usr &= (~7UL); /* stack ptr needs 8-byte alignment */
 
 	thread_info_init(thread_info_sp(sp_usr), TIF_USER_MODE);
+	thread_info_sp(sp_usr)->pgtable = current_thread_info()->pgtable;
 
 	asm volatile(
 		"mrs	r0, cpsr\n"
