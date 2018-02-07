@@ -115,17 +115,22 @@ run_migration ()
 	migout1=`mktemp -t mig-helper-stdout1.XXXXXXXXXX`
 	qmp1=`mktemp -u -t mig-helper-qmp1.XXXXXXXXXX`
 	qmp2=`mktemp -u -t mig-helper-qmp2.XXXXXXXXXX`
+	fifo=`mktemp -u -t mig-helper-fifo.XXXXXXXXXX`
 	qmpout1=/dev/null
 	qmpout2=/dev/null
 
 	trap 'kill 0; exit 2' INT TERM
-	trap 'rm -f ${migout1} ${migsock} ${qmp1} ${qmp2}' RETURN EXIT
+	trap 'rm -f ${migout1} ${migsock} ${qmp1} ${qmp2} ${fifo}' RETURN EXIT
 
 	eval "$@" -chardev socket,id=mon1,path=${qmp1},server,nowait \
 		-mon chardev=mon1,mode=control | tee ${migout1} &
 
+	# We have to use cat to open the named FIFO, because named FIFO's, unlike
+	# pipes, will block on open() until the other end is also opened, and that
+	# totally breaks QEMU...
+	mkfifo ${fifo}
 	eval "$@" -chardev socket,id=mon2,path=${qmp2},server,nowait \
-		-mon chardev=mon2,mode=control -incoming unix:${migsock} &
+		-mon chardev=mon2,mode=control -incoming unix:${migsock} < <(cat ${fifo}) &
 	incoming_pid=`jobs -l %+ | awk '{print$2}'`
 
 	# The test must prompt the user to migrate, so wait for the "migrate" keyword
@@ -148,9 +153,7 @@ run_migration ()
 		fi
 	done
 	qmp ${qmp1} '"quit"'> ${qmpout1} 2>/dev/null
-
-	qmp ${qmp2} '"inject-nmi"'> ${qmpout2}
-
+	echo > ${fifo}
 	wait $incoming_pid
 	ret=$?
 	wait

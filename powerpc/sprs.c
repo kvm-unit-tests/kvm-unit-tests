@@ -8,13 +8,13 @@
  * The basic idea of this test is to check whether the contents of the Special
  * Purpose Registers (SPRs) are preserved correctly during migration. So we
  * fill in the SPRs with a well-known value, read the values back (since not
- * all bits might be retained in the SPRs), then wait for a key or NMI (if the
- * '-w' option has been specified) so that the user has a chance to migrate the
- * VM. Alternatively, the test can also simply sleep a little bit with the
- * H_CEDE hypercall, in the hope that we'll get scheduled to another host CPU
- * and thus register contents might have changed, too (in case of bugs).
- * Finally, we read back the values from the SPRs and compare them with the
- * values before the migration. Mismatches are reported as test failures.
+ * all bits might be retained in the SPRs), then wait for migration to complete
+ * (if the '-w' option has been specified) so that the user has a chance to
+ * migrate the VM. Alternatively, the test can also simply sleep a little bit
+ * with the H_CEDE hypercall, in the hope that we'll get scheduled to another
+ * host CPU and thus register contents might have changed, too (in case of
+ * bugs). Finally, we read back the values from the SPRs and compare them with
+ * the values before the migration. Mismatches are reported as test failures.
  * Note that we do not test all SPRs since some of the registers change their
  * content automatically, and some are only accessible with hypervisor privi-
  * leges or have bad side effects, so we have to omit those registers.
@@ -37,13 +37,6 @@
 	asm volatile("mtspr %0,%1" : : "i"(nr), "r"(val))
 
 uint64_t before[1024], after[1024];
-
-volatile int nmi_occurred;
-
-static void nmi_handler(struct pt_regs *regs __unused, void *opaque __unused)
-{
-	nmi_occurred = 1;
-}
 
 static int h_get_term_char(uint64_t termno)
 {
@@ -303,9 +296,8 @@ int main(int argc, char **argv)
 	get_sprs(before);
 
 	if (pause) {
-		handle_exception(0x100, &nmi_handler, NULL);
-		puts("Now migrate the VM, then press a key or send NMI...\n");
-		while (!nmi_occurred && h_get_term_char(0) == 0)
+		puts("Now migrate the VM, then press a key to continue...\n");
+		while (h_get_term_char(0) == 0)
 			cpu_relax();
 	} else {
 		puts("Sleeping...\n");
