@@ -108,11 +108,8 @@ run_migration ()
 {
 	if ! command -v nc >/dev/null 2>&1; then
 		echo "${FUNCNAME[0]} needs nc (netcat)" >&2
-		exit 2
+		return 2
 	fi
-
-	qemu=$1
-	shift
 
 	migsock=`mktemp -u -t mig-helper-socket.XXXXXXXXXX`
 	migout1=`mktemp -t mig-helper-stdout1.XXXXXXXXXX`
@@ -121,13 +118,15 @@ run_migration ()
 	qmpout1=/dev/null
 	qmpout2=/dev/null
 
-	trap 'rm -f ${migout1} ${migsock} ${qmp1} ${qmp2}' EXIT
+	trap 'kill 0; exit 2' INT TERM
+	trap 'rm -f ${migout1} ${migsock} ${qmp1} ${qmp2}' RETURN EXIT
 
-	$qemu "$@" -chardev socket,id=mon1,path=${qmp1},server,nowait \
-		 -mon chardev=mon1,mode=control | tee ${migout1} &
+	eval "$@" -chardev socket,id=mon1,path=${qmp1},server,nowait \
+		-mon chardev=mon1,mode=control | tee ${migout1} &
 
-	$qemu "$@" -chardev socket,id=mon2,path=${qmp2},server,nowait \
-		 -mon chardev=mon2,mode=control -incoming unix:${migsock} &
+	eval "$@" -chardev socket,id=mon2,path=${qmp2},server,nowait \
+		-mon chardev=mon2,mode=control -incoming unix:${migsock} &
+	incoming_pid=`jobs -l %+ | awk '{print$2}'`
 
 	# The test must prompt the user to migrate, so wait for the "migrate" keyword
 	while ! grep -q -i "migrate" < ${migout1} ; do
@@ -145,14 +144,17 @@ run_migration ()
 			echo "ERROR: Migration failed." >&2
 			qmp ${qmp1} '"quit"'> ${qmpout1} 2>/dev/null
 			qmp ${qmp2} '"quit"'> ${qmpout2} 2>/dev/null
-			exit 2
+			return 2
 		fi
 	done
 	qmp ${qmp1} '"quit"'> ${qmpout1} 2>/dev/null
 
 	qmp ${qmp2} '"inject-nmi"'> ${qmpout2}
 
+	wait $incoming_pid
+	ret=$?
 	wait
+	return $ret
 }
 
 migration_cmd ()
@@ -254,7 +256,7 @@ env_generate_errata ()
 
 		if ! [[ $v =~ ^[0-9]+$ ]] || ! [[ $p =~ ^[0-9]+$ ]]; then
 			echo "Bad minimum kernel version in $ERRATATXT, $minver"
-			exit 2
+			return 2
 		fi
 		! [[ $s =~ ^[0-9]+$ ]] && unset $s
 		! [[ $x =~ ^[0-9]+$ ]] && unset $x
