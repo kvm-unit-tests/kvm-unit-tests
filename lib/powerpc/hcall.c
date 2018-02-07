@@ -31,3 +31,15 @@ void putchar(int c)
 
 	hcall(H_PUT_TERM_CHAR, vty, nr_chars, chars);
 }
+
+int __getchar(void)
+{
+	register unsigned long r3 asm("r3") = H_GET_TERM_CHAR;
+	register unsigned long r4 asm("r4") = 0; /* 0 == default vty */
+	register unsigned long r5 asm("r5");
+
+	asm volatile (" sc 1 "  : "+r"(r3), "+r"(r4), "=r"(r5)
+				: "r"(r3),  "r"(r4));
+
+	return r3 == H_SUCCESS && r4 > 0 ? r5 >> 48 : -1;
+}

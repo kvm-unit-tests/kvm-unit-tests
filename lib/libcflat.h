@@ -82,6 +82,8 @@ typedef u64			phys_addr_t;
 #define INVALID_PHYS_ADDR	(~(phys_addr_t)0)
 
 extern void puts(const char *s);
+extern int __getchar(void);
+extern int getchar(void);
 extern void exit(int code);
 extern void abort(void);
 extern long atol(const char *ptr);

@@ -38,18 +38,6 @@
 
 uint64_t before[1024], after[1024];
 
-static int h_get_term_char(uint64_t termno)
-{
-	register uint64_t r3 asm("r3") = 0x54; /* H_GET_TERM_CHAR */
-	register uint64_t r4 asm("r4") = termno;
-	register uint64_t r5 asm("r5");
-
-	asm volatile (" sc 1 "	: "+r"(r3), "+r"(r4), "=r"(r5)
-				: "r"(r3),  "r"(r4));
-
-	return r3 == H_SUCCESS && r4 > 0 ? r5 >> 48 : 0;
-}
-
 /* Common SPRs for all PowerPC CPUs */
 static void set_sprs_common(uint64_t val)
 {
@@ -297,8 +285,7 @@ int main(int argc, char **argv)
 
 	if (pause) {
 		puts("Now migrate the VM, then press a key to continue...\n");
-		while (h_get_term_char(0) == 0)
-			cpu_relax();
+		(void) getchar();
 	} else {
 		puts("Sleeping...\n");
 		handle_exception(0x900, &dec_except_handler, NULL);
