@@ -1584,6 +1584,12 @@ static void interrupt_main(void)
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
 	report("running a guest with interrupt acknowledgement set", timer_fired);
+
+	apic_write(APIC_TMICT, 0);
+	irq_enable();
+	timer_fired = false;
+	vmcall();
+	report("Inject an event to a halted guest", timer_fired);
 }
 
 static int interrupt_exit_handler(void)
@@ -1614,6 +1620,14 @@ static int interrupt_exit_handler(void)
 		case 4:
 		case 6:
 			vmcs_write(GUEST_ACTV_STATE, ACTV_HLT);
+			break;
+
+		case 8:
+			vmcs_write(GUEST_ACTV_STATE, ACTV_HLT);
+			vmcs_write(ENT_INTR_INFO,
+				   TIMER_VECTOR |
+				   (VMX_INTR_TYPE_EXT_INTR << INTR_INFO_INTR_TYPE_SHIFT) |
+				   INTR_INFO_VALID_MASK);
 			break;
 		}
 		vmx_inc_test_stage();
