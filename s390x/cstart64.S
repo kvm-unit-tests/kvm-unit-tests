@@ -18,7 +18,7 @@
 	.globl start
 start:
 	/* setup stack */
-	larl	%r15, stacktop
+	larl	%r15, stackptr
 	/* setup initial PSW mask + control registers*/
 	larl	%r1, initital_psw
 	lpswe	0(%r1)
