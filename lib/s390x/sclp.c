@@ -15,10 +15,20 @@
 #include <asm/arch_def.h>
 #include <asm/interrupt.h>
 #include "sclp.h"
+#include <alloc_phys.h>
+
+extern unsigned long stacktop;
 
 static uint64_t storage_increment_size;
 static uint64_t max_ram_size;
 static uint64_t ram_size;
+
+static void mem_init(phys_addr_t mem_end)
+{
+	phys_addr_t freemem_start = (phys_addr_t)&stacktop;
+
+	phys_alloc_init(freemem_start, mem_end - freemem_start);
+}
 
 void sclp_memory_setup(void)
 {
@@ -55,4 +65,6 @@ void sclp_memory_setup(void)
 			break;
 		ram_size += storage_increment_size;
 	}
+
+	mem_init(ram_size);
 }
