@@ -139,7 +139,7 @@ static void test_testblock(void)
 
 	asm volatile (
 		" lghi	%%r0,0\n"
-		" tb	%1\n"
+		" .insn	rre,0xb22c0000,0,%1\n"
 		" ipm	%0\n"
 		" srl	%0,28\n"
 		: "=d" (cc)
@@ -150,12 +150,12 @@ static void test_testblock(void)
 
 	expect_pgm_int();
 	low_prot_enable();
-	asm volatile (" tb %0 " : : "r"(4096));
+	asm volatile (" .insn	rre,0xb22c0000,0,%0\n" : : "r"(4096));
 	low_prot_disable();
 	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
 
 	expect_pgm_int();
-	asm volatile (" tb %0 " : : "r"(-4096));
+	asm volatile (" .insn	rre,0xb22c0000,0,%0\n" : : "r"(-4096));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 }
 
