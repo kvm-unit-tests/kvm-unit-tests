@@ -33,7 +33,7 @@ static void test_pgm_int(void)
 	check_pgm_int_code(PGM_INT_CODE_OPERATION);
 
 	expect_pgm_int();
-	asm volatile("	stg %0,0(%0)\n" : : "r"(-1));
+	asm volatile("	stg %0,0(%0)\n" : : "r"(-1L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 }
 

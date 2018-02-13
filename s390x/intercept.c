@@ -46,7 +46,7 @@ static void test_stpx(void)
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
 
 	expect_pgm_int();
-	asm volatile(" stpx 0(%0) " : : "r"(-8));
+	asm volatile(" stpx 0(%0) " : : "r"(-8L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 }
 
@@ -78,7 +78,7 @@ static void test_spx(void)
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
 
 	expect_pgm_int();
-	asm volatile(" spx 0(%0) " : : "r"(-8));
+	asm volatile(" spx 0(%0) " : : "r"(-8L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 }
 
@@ -101,7 +101,7 @@ static void test_stap(void)
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
 
 	expect_pgm_int();
-	asm volatile ("stap 0(%0)\n" : : "r"(-8));
+	asm volatile ("stap 0(%0)\n" : : "r"(-8L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 }
 
@@ -126,7 +126,7 @@ static void test_stidp(void)
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
 
 	expect_pgm_int();
-	asm volatile ("stidp 0(%0)\n" : : "r"(-8));
+	asm volatile ("stidp 0(%0)\n" : : "r"(-8L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 }
 
@@ -155,7 +155,7 @@ static void test_testblock(void)
 	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
 
 	expect_pgm_int();
-	asm volatile (" .insn	rre,0xb22c0000,0,%0\n" : : "r"(-4096));
+	asm volatile (" .insn	rre,0xb22c0000,0,%0\n" : : "r"(-4096L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 }
 
