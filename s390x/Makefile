@@ -24,6 +24,7 @@ cflatobjs += lib/util.o
 cflatobjs += lib/alloc_phys.o
 cflatobjs += lib/s390x/io.o
 cflatobjs += lib/s390x/stack.o
+cflatobjs += lib/s390x/sclp.o
 cflatobjs += lib/s390x/sclp-ascii.o
 cflatobjs += lib/s390x/interrupt.o
 

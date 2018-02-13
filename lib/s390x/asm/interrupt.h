@@ -13,6 +13,7 @@
 
 void handle_pgm_int(void);
 void expect_pgm_int(void);
+uint16_t clear_pgm_int(void);
 void check_pgm_int_code(uint16_t code);
 
 /* Activate low-address protection */

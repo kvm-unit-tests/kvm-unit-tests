@@ -23,6 +23,17 @@ void expect_pgm_int(void)
 	mb();
 }
 
+uint16_t clear_pgm_int(void)
+{
+	uint16_t code;
+
+	mb();
+	code = lc->pgm_int_code;
+	lc->pgm_int_code = 0;
+	pgm_int_expected = false;
+	return code;
+}
+
 void check_pgm_int_code(uint16_t code)
 {
 	mb();

@@ -151,4 +151,16 @@ struct cpuid {
 	uint64_t reserved : 15;
 };
 
+static inline int tprot(unsigned long addr)
+{
+	int cc;
+
+	asm volatile(
+		"	tprot	0(%1),0\n"
+		"	ipm	%0\n"
+		"	srl	%0,28\n"
+		: "=d" (cc) : "a" (addr) : "cc");
+	return cc;
+}
+
 #endif
