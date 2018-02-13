@@ -10,7 +10,10 @@
  */
 #include <libcflat.h>
 #include <util.h>
+#include <alloc.h>
 #include <asm/interrupt.h>
+#include <asm/barrier.h>
+#include <asm/pgtable.h>
 
 static void test_fp(void)
 {
@@ -37,6 +40,31 @@ static void test_pgm_int(void)
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 }
 
+static void test_malloc(void)
+{
+	int *tmp = malloc(sizeof(int));
+	int *tmp2 = malloc(sizeof(int));
+
+	*tmp = 123456789;
+	*tmp2 = 123456789;
+	mb();
+
+	report("malloc: got vaddr", (uintptr_t)tmp & 0xf000000000000000ul);
+	report("malloc: access works", *tmp == 123456789);
+	report("malloc: got 2nd vaddr", (uintptr_t)tmp2 & 0xf000000000000000ul);
+	report("malloc: access works", (*tmp2 == 123456789));
+	report("malloc: addresses differ", tmp != tmp2);
+
+	expect_pgm_int();
+	configure_dat(0);
+	*tmp = 987654321;
+	configure_dat(1);
+	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
+
+	free(tmp);
+	free(tmp2);
+}
+
 int main(int argc, char**argv)
 {
 	report_prefix_push("selftest");
@@ -49,6 +77,7 @@ int main(int argc, char**argv)
 
 	test_fp();
 	test_pgm_int();
+	test_malloc();
 
 	return report_summary();
 }
