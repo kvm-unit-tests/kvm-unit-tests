@@ -42,7 +42,7 @@ void setup()
 {
 	setup_args_progname(ipl_args);
 	setup_facilities();
-	sclp_setup();
+	sclp_ascii_setup();
 }
 
 void exit(int code)

@@ -13,10 +13,10 @@
 #include <asm/page.h>
 #include "sclp.h"
 
-static char _sccb[PAGE_SIZE] __attribute__((__aligned__(4096)));
+char _sccb[PAGE_SIZE] __attribute__((__aligned__(4096)));
 
 /* Perform service call. Return 0 on success, non-zero otherwise. */
-static int sclp_service_call(unsigned int command, void *sccb)
+int sclp_service_call(unsigned int command, void *sccb)
 {
         int cc;
 
@@ -47,7 +47,7 @@ static void sclp_set_write_mask(void)
     sclp_service_call(SCLP_CMD_WRITE_EVENT_MASK, sccb);
 }
 
-void sclp_setup(void)
+void sclp_ascii_setup(void)
 {
     sclp_set_write_mask();
 }
