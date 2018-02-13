@@ -30,6 +30,7 @@ void configure_dat(int enable)
 
 static void mmu_enable(pgd_t *pgtable)
 {
+	struct lowcore *lc = NULL;
 	const uint64_t asce = __pa(pgtable) | ASCE_DT_REGION1 |
 			      REGION_TABLE_LENGTH;
 
@@ -39,6 +40,9 @@ static void mmu_enable(pgd_t *pgtable)
 
 	/* enable dat (primary == 0 set as default) */
 	configure_dat(1);
+
+	/* we can now also use DAT unconditionally in our PGM handler */
+	lc->pgm_new_psw.mask |= PSW_MASK_DAT;
 }
 
 static pteval_t *get_pte(pgd_t *pgtable, uintptr_t vaddr)
