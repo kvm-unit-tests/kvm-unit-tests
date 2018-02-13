@@ -24,12 +24,14 @@ cflatobjs += lib/util.o
 cflatobjs += lib/alloc.o
 cflatobjs += lib/alloc_phys.o
 cflatobjs += lib/alloc_page.o
+cflatobjs += lib/vmalloc.o
 cflatobjs += lib/alloc_phys.o
 cflatobjs += lib/s390x/io.o
 cflatobjs += lib/s390x/stack.o
 cflatobjs += lib/s390x/sclp.o
 cflatobjs += lib/s390x/sclp-ascii.o
 cflatobjs += lib/s390x/interrupt.o
+cflatobjs += lib/s390x/mmu.o
 
 OBJDIRS += lib/s390x
 

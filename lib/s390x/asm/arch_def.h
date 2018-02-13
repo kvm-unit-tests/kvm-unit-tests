@@ -15,6 +15,8 @@ struct psw {
 	uint64_t	addr;
 };
 
+#define PSW_MASK_DAT			0x0400000000000000UL
+
 struct lowcore {
 	uint8_t		pad_0x0000[0x0080 - 0x0000];	/* 0x0000 */
 	uint32_t	ext_int_param;			/* 0x0080 */
@@ -161,6 +163,50 @@ static inline int tprot(unsigned long addr)
 		"	srl	%0,28\n"
 		: "=d" (cc) : "a" (addr) : "cc");
 	return cc;
+}
+
+static inline void lctlg(int cr, uint64_t value)
+{
+	asm volatile(
+		"	lctlg	%1,%1,%0\n"
+		: : "Q" (value), "i" (cr));
+}
+
+static inline uint64_t stctg(int cr)
+{
+	uint64_t value;
+
+	asm volatile(
+		"	stctg	%1,%1,%0\n"
+		: "=Q" (value) : "i" (cr) : "memory");
+	return value;
+}
+
+static inline uint64_t extract_psw_mask(void)
+{
+	uint32_t mask_upper = 0, mask_lower = 0;
+
+	asm volatile(
+		"	epsw	%0,%1\n"
+		: "+r" (mask_upper), "+r" (mask_lower) : : );
+
+	return (uint64_t) mask_upper << 32 | mask_lower;
+}
+
+static inline void load_psw_mask(uint64_t mask)
+{
+	struct psw psw = {
+		.mask = mask,
+		.addr = 0,
+	};
+	uint64_t tmp = 0;
+
+	asm volatile(
+		"	larl	%0,0f\n"
+		"	stg	%0,8(%1)\n"
+		"	lpswe	0(%1)\n"
+		"0:\n"
+		: "+r" (tmp) :  "a" (&psw) : "memory", "cc" );
 }
 
 #endif
