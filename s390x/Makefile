@@ -1,6 +1,7 @@
 tests = $(TEST_DIR)/selftest.elf
 tests += $(TEST_DIR)/intercept.elf
 tests += $(TEST_DIR)/emulator.elf
+tests += $(TEST_DIR)/sieve.elf
 
 all: directories test_cases
 
