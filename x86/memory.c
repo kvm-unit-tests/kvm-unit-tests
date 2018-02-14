@@ -26,7 +26,7 @@ static void handle_ud(struct ex_regs *regs)
 int main(int ac, char **av)
 {
 	struct cpuid cpuid7, cpuid1;
-	int xfail;
+	int expected;
 
 	setup_idt();
 	handle_exception(UD_VECTOR, handle_ud);
@@ -37,52 +37,52 @@ int main(int ac, char **av)
 	/* 3-byte instructions: */
 	isize = 3;
 
-	xfail = !(cpuid1.d & (1U << 19)); /* CLFLUSH */
+	expected = !(cpuid1.d & (1U << 19)); /* CLFLUSH */
 	ud = 0;
 	asm volatile("clflush (%0)" : : "b" (&target));
-	report_xfail("clflush", xfail, ud == 0);
+	report("clflush (%s)", ud == expected, expected ? "ABSENT" : "present");
 
-	xfail = !(cpuid1.d & (1U << 25)); /* SSE */
+	expected = !(cpuid1.d & (1U << 25)); /* SSE */
 	ud = 0;
 	asm volatile("sfence");
-	report_xfail("sfence", xfail, ud == 0);
+	report("sfence (%s)", ud == expected, expected ? "ABSENT" : "present");
 
-	xfail = !(cpuid1.d & (1U << 26)); /* SSE2 */
+	expected = !(cpuid1.d & (1U << 26)); /* SSE2 */
 	ud = 0;
 	asm volatile("lfence");
-	report_xfail("lfence", xfail, ud == 0);
+	report("lfence (%s)", ud == expected, expected ? "ABSENT" : "present");
 
 	ud = 0;
 	asm volatile("mfence");
-	report_xfail("mfence", xfail, ud == 0);
+	report("mfence (%s)", ud == expected, expected ? "ABSENT" : "present");
 
 	/* 4-byte instructions: */
 	isize = 4;
 
-	xfail = !(cpuid7.b & (1U << 23)); /* CLFLUSHOPT */
+	expected = !(cpuid7.b & (1U << 23)); /* CLFLUSHOPT */
 	ud = 0;
 	/* clflushopt (%rbx): */
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0x3b" : : "b" (&target));
-	report_xfail("clflushopt", xfail, ud == 0);
+	report("clflushopt (%s)", ud == expected, expected ? "ABSENT" : "present");
 
-	xfail = !(cpuid7.b & (1U << 24)); /* CLWB */
+	expected = !(cpuid7.b & (1U << 24)); /* CLWB */
 	ud = 0;
 	/* clwb (%rbx): */
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0x33" : : "b" (&target));
-	report_xfail("clwb", xfail, ud == 0);
+	report("clwb (%s)", ud == expected, expected ? "ABSENT" : "present");
 
 	ud = 0;
 	/* clwb requires a memory operand, the following is NOT a valid
 	 * CLWB instruction (modrm == 0xF0).
 	 */
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0xf0");
-	report("fake clwb", ud);
+	report("invalid clwb", ud);
 
-	xfail = !(cpuid7.b & (1U << 22)); /* PCOMMIT */
+	expected = !(cpuid7.b & (1U << 22)); /* PCOMMIT */
 	ud = 0;
 	/* pcommit: */
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0xf8");
-	report_xfail("pcommit", xfail, ud == 0);
+	report("pcommit (%s)", ud == expected, expected ? "ABSENT" : "present");
 
 	return report_summary();
 }
