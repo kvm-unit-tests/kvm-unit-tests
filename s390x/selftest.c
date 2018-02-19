@@ -75,6 +75,8 @@ int main(int argc, char**argv)
 	report("argv[1] == test", !strcmp(argv[1], "test"));
 	report("argv[2] == 123", !strcmp(argv[2], "123"));
 
+	setup_vm();
+
 	test_fp();
 	test_pgm_int();
 	test_malloc();
