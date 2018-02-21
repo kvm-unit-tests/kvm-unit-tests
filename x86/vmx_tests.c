@@ -3658,6 +3658,90 @@ static void test_tpr_threshold(void)
 }
 
 /*
+ * This test verifies the following two vmentry checks:
+ *
+ *  If the "NMI exiting" VM-execution control is 0, "Virtual NMIs"
+ *  VM-execution control must be 0.
+ *  [Intel SDM]
+ *
+ *  If the “virtual NMIs” VM-execution control is 0, the “NMI-window
+ *  exiting” VM-execution control must be 0.
+ *  [Intel SDM]
+ */
+static void test_nmi_ctrls(void)
+{
+	u32 pin_ctrls, cpu_ctrls0, test_pin_ctrls, test_cpu_ctrls0;
+
+	if ((ctrl_pin_rev.clr & (PIN_NMI | PIN_VIRT_NMI)) !=
+	    (PIN_NMI | PIN_VIRT_NMI)) {
+		test_skip("NMI exiting and Virtual NMIs are not supported !");
+		return;
+	}
+
+	/* Save the controls so that we can restore them after our tests */
+	pin_ctrls = vmcs_read(PIN_CONTROLS);
+	cpu_ctrls0 = vmcs_read(CPU_EXEC_CTRL0);
+
+	test_pin_ctrls = pin_ctrls & ~(PIN_NMI | PIN_VIRT_NMI);
+	test_cpu_ctrls0 = cpu_ctrls0 & ~CPU_NMI_WINDOW;
+
+	vmcs_write(PIN_CONTROLS, test_pin_ctrls);
+	report_prefix_pushf("NMI-exiting disabled, virtual-NMIs disabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	vmcs_write(PIN_CONTROLS, test_pin_ctrls | PIN_VIRT_NMI);
+	report_prefix_pushf("NMI-exiting disabled, virtual-NMIs enabled");
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	vmcs_write(PIN_CONTROLS, test_pin_ctrls | (PIN_NMI | PIN_VIRT_NMI));
+	report_prefix_pushf("NMI-exiting enabled, virtual-NMIs enabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	vmcs_write(PIN_CONTROLS, test_pin_ctrls | PIN_NMI);
+	report_prefix_pushf("NMI-exiting enabled, virtual-NMIs disabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_NMI_WINDOW)) {
+		report_info("NMI-window exiting is not supported, skipping...");
+		goto done;
+	}
+
+	vmcs_write(PIN_CONTROLS, test_pin_ctrls);
+	vmcs_write(CPU_EXEC_CTRL0, test_cpu_ctrls0 | CPU_NMI_WINDOW);
+	report_prefix_pushf("Virtual-NMIs disabled, NMI-window-exiting enabled");
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	vmcs_write(PIN_CONTROLS, test_pin_ctrls);
+	vmcs_write(CPU_EXEC_CTRL0, test_cpu_ctrls0);
+	report_prefix_pushf("Virtual-NMIs disabled, NMI-window-exiting disabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	vmcs_write(PIN_CONTROLS, test_pin_ctrls | (PIN_NMI | PIN_VIRT_NMI));
+	vmcs_write(CPU_EXEC_CTRL0, test_cpu_ctrls0 | CPU_NMI_WINDOW);
+	report_prefix_pushf("Virtual-NMIs enabled, NMI-window-exiting enabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	vmcs_write(PIN_CONTROLS, test_pin_ctrls | (PIN_NMI | PIN_VIRT_NMI));
+	vmcs_write(CPU_EXEC_CTRL0, test_cpu_ctrls0);
+	report_prefix_pushf("Virtual-NMIs enabled, NMI-window-exiting disabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	/* Restore the controls to their original values */
+	vmcs_write(CPU_EXEC_CTRL0, cpu_ctrls0);
+done:
+	vmcs_write(PIN_CONTROLS, pin_ctrls);
+}
+
+
+/*
  * Check that the virtual CPU checks all of the VMX controls as
  * documented in the Intel SDM.
  */
@@ -3678,6 +3762,7 @@ static void vmx_controls_test(void)
 	test_msr_bitmap();
 	test_apic_virt_addr();
 	test_tpr_threshold();
+	test_nmi_ctrls();
 }
 
 static bool valid_vmcs_for_vmentry(void)
