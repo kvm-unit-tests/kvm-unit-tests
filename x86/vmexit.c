@@ -251,6 +251,11 @@ static void wr_tsc_adjust_msr(void)
 	wrmsr(MSR_TSC_ADJUST, 0x0);
 }
 
+static void wr_kernel_gs_base(void)
+{
+	wrmsr(MSR_KERNEL_GS_BASE, 0x0);
+}
+
 static struct pci_test {
 	unsigned iobar;
 	unsigned ioport;
@@ -440,6 +445,7 @@ static struct test tests[] = {
 	{ ipi, "ipi", is_smp, .parallel = 0, },
 	{ ipi_halt, "ipi_halt", is_smp, .parallel = 0, },
 	{ ple_round_robin, "ple_round_robin", .parallel = 1 },
+	{ wr_kernel_gs_base, "wr_kernel_gs_base", .parallel = 1 },
 	{ wr_tsc_adjust_msr, "wr_tsc_adjust_msr", .parallel = 1 },
 	{ rd_tsc_adjust_msr, "rd_tsc_adjust_msr", .parallel = 1 },
 	{ NULL, "pci-mem", .parallel = 0, .next = pci_mem_next },
