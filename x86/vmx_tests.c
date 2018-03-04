@@ -7,6 +7,7 @@
 #include "msr.h"
 #include "processor.h"
 #include "vm.h"
+#include "pci.h"
 #include "fwcfg.h"
 #include "isr.h"
 #include "desc.h"
@@ -29,6 +30,8 @@ u16 ioport;
 unsigned long *pml4;
 u64 eptp;
 void *data_page1, *data_page2;
+
+phys_addr_t pci_physaddr;
 
 void *pml_log;
 #define PML_INDEX 512
@@ -1043,6 +1046,9 @@ static int apic_version;
 
 static int ept_init_common(bool have_ad)
 {
+	int ret;
+	struct pci_dev pcidev;
+
 	if (setup_ept(have_ad))
 		return VMX_TEST_EXIT;
 	data_page1 = alloc_page();
@@ -1055,6 +1061,13 @@ static int ept_init_common(bool have_ad)
 			EPT_RA | EPT_WA | EPT_EA);
 
 	apic_version = apic_read(APIC_LVR);
+
+	ret = pci_find_dev(PCI_VENDOR_ID_REDHAT, PCI_DEVICE_ID_REDHAT_TEST);
+	if (ret != PCIDEVADDR_INVALID) {
+		pci_dev_init(&pcidev, ret);
+		pci_physaddr = pcidev.resource[PCI_TESTDEV_BAR_MEM];
+	}
+
 	return VMX_TEST_START;
 }
 
@@ -1103,6 +1116,16 @@ t1:
 	vmcall();
 	*((u32 *)data_page1) = MAGIC_VAL_2;
 	report("EPT violation - paging structure", vmx_get_test_stage() == 5);
+
+	// MMIO Read/Write
+	vmx_set_test_stage(5);
+	vmcall();
+
+	*(u32 volatile *)pci_physaddr;
+	report("MMIO EPT violation - read", vmx_get_test_stage() == 6);
+
+	*(u32 volatile *)pci_physaddr = MAGIC_VAL_1;
+	report("MMIO EPT violation - write", vmx_get_test_stage() == 7);
 }
 
 static void ept_main()
@@ -1110,12 +1133,12 @@ static void ept_main()
 	ept_common();
 
 	// Test EPT access to L1 MMIO
-	vmx_set_test_stage(6);
+	vmx_set_test_stage(7);
 	report("EPT - MMIO access", *((u32 *)0xfee00030UL) == apic_version);
 
 	// Test invalid operand for INVEPT
 	vmcall();
-	report("EPT - unsupported INVEPT", vmx_get_test_stage() == 7);
+	report("EPT - unsupported INVEPT", vmx_get_test_stage() == 8);
 }
 
 bool invept_test(int type, u64 eptp)
@@ -1189,7 +1212,7 @@ static int ept_exit_handler_common(bool have_ad)
 	ulong reason;
 	u32 insn_len;
 	u32 exit_qual;
-	static unsigned long data_page1_pte, data_page1_pte_pte;
+	static unsigned long data_page1_pte, data_page1_pte_pte, memaddr_pte;
 
 	guest_rip = vmcs_read(GUEST_RIP);
 	guest_cr3 = vmcs_read(GUEST_CR3);
@@ -1251,7 +1274,12 @@ static int ept_exit_handler_common(bool have_ad)
 				data_page1_pte_pte & ~EPT_PRESENT);
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
-		case 6:
+		case 5:
+			install_ept(pml4, (unsigned long)pci_physaddr,
+				(unsigned long)pci_physaddr, 0);
+			ept_sync(INVEPT_SINGLE, eptp);
+			break;
+		case 7:
 			if (!invept_test(0, eptp))
 				vmx_inc_test_stage();
 			break;
@@ -1305,6 +1333,22 @@ static int ept_exit_handler_common(bool have_ad)
 				vmx_inc_test_stage();
 			set_ept_pte(pml4, data_page1_pte, 2,
 				data_page1_pte_pte | (EPT_PRESENT));
+			ept_sync(INVEPT_SINGLE, eptp);
+			break;
+		case 5:
+			if (exit_qual & EPT_VLT_RD)
+				vmx_inc_test_stage();
+			TEST_ASSERT(get_ept_pte(pml4, (unsigned long)pci_physaddr,
+						1, &memaddr_pte));
+			set_ept_pte(pml4, memaddr_pte, 1, memaddr_pte | EPT_RA);
+			ept_sync(INVEPT_SINGLE, eptp);
+			break;
+		case 6:
+			if (exit_qual & EPT_VLT_WR)
+				vmx_inc_test_stage();
+			TEST_ASSERT(get_ept_pte(pml4, (unsigned long)pci_physaddr,
+						1, &memaddr_pte));
+			set_ept_pte(pml4, memaddr_pte, 1, memaddr_pte | EPT_RA | EPT_WA);
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		default:
