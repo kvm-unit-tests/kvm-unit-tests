@@ -652,7 +652,7 @@ static bool sseeq(sse_union *v1, sse_union *v2)
     return ok;
 }
 
-static void test_sse(sse_union *mem)
+static __attribute__((target("sse"))) void test_sse(sse_union *mem)
 {
     sse_union v;
 
