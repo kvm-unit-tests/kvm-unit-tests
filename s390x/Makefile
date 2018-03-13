@@ -9,7 +9,7 @@ test_cases: $(tests)
 
 CFLAGS += -std=gnu99
 CFLAGS += -ffreestanding
-CFLAGS += -I $(SRCDIR)/lib
+CFLAGS += -I $(SRCDIR)/lib -I $(SRCDIR)/lib/s390x -I lib
 CFLAGS += -O2
 CFLAGS += -march=z900
 CFLAGS += -fno-delete-null-pointer-checks
