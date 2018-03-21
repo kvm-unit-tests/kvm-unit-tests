@@ -141,6 +141,10 @@ enum Encoding {
 	APIC_ACCS_ADDR		= 0x2014ul,
 	EPTP			= 0x201aul,
 	EPTP_HI			= 0x201bul,
+	EOI_EXIT_BITMAP0	= 0x201cul,
+	EOI_EXIT_BITMAP1	= 0x201eul,
+	EOI_EXIT_BITMAP2	= 0x2020ul,
+	EOI_EXIT_BITMAP3	= 0x2022ul,
 	PMLADDR                 = 0x200eul,
 	PMLADDR_HI              = 0x200ful,
 
@@ -321,6 +325,7 @@ enum Reason {
 	VMX_FAIL_MCHECK		= 41,
 	VMX_TPR_THRESHOLD	= 43,
 	VMX_APIC_ACCESS		= 44,
+	VMX_EOI_INDUCED		= 45,
 	VMX_GDTR_IDTR		= 46,
 	VMX_LDTR_TR		= 47,
 	VMX_EPT_VIOLATION	= 48,
@@ -364,6 +369,7 @@ enum Ctrl_pin {
 	PIN_NMI			= 1ul << 3,
 	PIN_VIRT_NMI		= 1ul << 5,
 	PIN_PREEMPT		= 1ul << 6,
+	PIN_POST_INTR		= 1ul << 7,
 };
 
 enum Ctrl0 {
@@ -392,9 +398,11 @@ enum Ctrl1 {
 	CPU_EPT			= 1ul << 1,
 	CPU_DESC_TABLE		= 1ul << 2,
 	CPU_RDTSCP		= 1ul << 3,
+	CPU_VIRT_X2APIC		= 1ul << 4,
 	CPU_VPID		= 1ul << 5,
 	CPU_WBINVD		= 1ul << 6,
 	CPU_URG			= 1ul << 7,
+	CPU_APIC_REG_VIRT	= 1ul << 8,
 	CPU_VINTD		= 1ul << 9,
 	CPU_RDRAND		= 1ul << 11,
 	CPU_RDSEED		= 1ul << 16,
