@@ -187,7 +187,7 @@ ioapic_redir_entry_t ioapic_read_redir(unsigned line)
 
 }
 
-void set_ioapic_redir(unsigned line, unsigned vec,
+void ioapic_set_redir(unsigned line, unsigned vec,
 			     trigger_mode_t trig_mode)
 {
 	ioapic_redir_entry_t e = {

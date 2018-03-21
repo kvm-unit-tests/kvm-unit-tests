@@ -70,7 +70,7 @@ static void ioapic_isr_76(isr_regs_t *regs)
 static void test_ioapic_edge_intr(void)
 {
 	handle_irq(0x76, ioapic_isr_76);
-	set_ioapic_redir(0x0e, 0x76, TRIGGER_EDGE);
+	ioapic_set_redir(0x0e, 0x76, TRIGGER_EDGE);
 	toggle_irq_line(0x0e);
 	asm volatile ("nop");
 	report("edge triggered intr", g_isr_76 == 1);
@@ -88,7 +88,7 @@ static void ioapic_isr_77(isr_regs_t *regs)
 static void test_ioapic_level_intr(void)
 {
 	handle_irq(0x77, ioapic_isr_77);
-	set_ioapic_redir(0x0e, 0x77, TRIGGER_LEVEL);
+	ioapic_set_redir(0x0e, 0x77, TRIGGER_LEVEL);
 	set_irq_line(0x0e, 1);
 	asm volatile ("nop");
 	report("level triggered intr", g_isr_77 == 1);
@@ -117,8 +117,8 @@ static void test_ioapic_simultaneous(void)
 {
 	handle_irq(0x78, ioapic_isr_78);
 	handle_irq(0x66, ioapic_isr_66);
-	set_ioapic_redir(0x0e, 0x78, TRIGGER_EDGE);
-	set_ioapic_redir(0x0f, 0x66, TRIGGER_EDGE);
+	ioapic_set_redir(0x0e, 0x78, TRIGGER_EDGE);
+	ioapic_set_redir(0x0f, 0x66, TRIGGER_EDGE);
 	irq_disable();
 	toggle_irq_line(0x0f);
 	toggle_irq_line(0x0e);
@@ -142,7 +142,7 @@ static void test_ioapic_edge_tmr(bool expected_tmr_before)
 	int tmr_before;
 
 	handle_irq(0x79, ioapic_isr_79);
-	set_ioapic_redir(0x0e, 0x79, TRIGGER_EDGE);
+	ioapic_set_redir(0x0e, 0x79, TRIGGER_EDGE);
 	tmr_before = apic_read_bit(APIC_TMR, 0x79);
 	toggle_irq_line(0x0e);
 	asm volatile ("nop");
@@ -156,7 +156,7 @@ static void test_ioapic_level_tmr(bool expected_tmr_before)
 	int tmr_before;
 
 	handle_irq(0x79, ioapic_isr_79);
-	set_ioapic_redir(0x0e, 0x79, TRIGGER_LEVEL);
+	ioapic_set_redir(0x0e, 0x79, TRIGGER_LEVEL);
 	tmr_before = apic_read_bit(APIC_TMR, 0x79);
 	set_irq_line(0x0e, 1);
 	asm volatile ("nop");
@@ -187,7 +187,7 @@ static void test_ioapic_edge_tmr_smp(bool expected_tmr_before)
 
 	g_tmr_79 = -1;
 	handle_irq(0x79, ioapic_isr_79);
-	set_ioapic_redir(0x0e, 0x79, TRIGGER_EDGE);
+	ioapic_set_redir(0x0e, 0x79, TRIGGER_EDGE);
 	tmr_before = apic_read_bit(APIC_TMR, 0x79);
 	on_cpu_async(1, toggle_irq_line_0x0e, 0);
 	i = 0;
@@ -212,7 +212,7 @@ static void test_ioapic_level_tmr_smp(bool expected_tmr_before)
 
 	g_tmr_79 = -1;
 	handle_irq(0x79, ioapic_isr_79);
-	set_ioapic_redir(0x0e, 0x79, TRIGGER_LEVEL);
+	ioapic_set_redir(0x0e, 0x79, TRIGGER_LEVEL);
 	tmr_before = apic_read_bit(APIC_TMR, 0x79);
 	on_cpu_async(1, set_irq_line_0x0e, 0);
 	i = 0;
@@ -239,7 +239,7 @@ static void ioapic_isr_98(isr_regs_t *regs)
 static void test_ioapic_level_coalesce(void)
 {
 	handle_irq(0x98, ioapic_isr_98);
-	set_ioapic_redir(0x0e, 0x98, TRIGGER_LEVEL);
+	ioapic_set_redir(0x0e, 0x98, TRIGGER_LEVEL);
 	set_irq_line(0x0e, 1);
 	asm volatile ("nop");
 	report("coalesce simultaneous level interrupts", g_isr_98 == 1);
@@ -257,7 +257,7 @@ static void ioapic_isr_99(isr_regs_t *regs)
 static void test_ioapic_level_sequential(void)
 {
 	handle_irq(0x99, ioapic_isr_99);
-	set_ioapic_redir(0x0e, 0x99, TRIGGER_LEVEL);
+	ioapic_set_redir(0x0e, 0x99, TRIGGER_LEVEL);
 	set_irq_line(0x0e, 1);
 	set_irq_line(0x0e, 1);
 	asm volatile ("nop");
@@ -279,7 +279,7 @@ static void test_ioapic_level_retrigger(void)
 	int i;
 
 	handle_irq(0x9a, ioapic_isr_9a);
-	set_ioapic_redir(0x0e, 0x9a, TRIGGER_LEVEL);
+	ioapic_set_redir(0x0e, 0x9a, TRIGGER_LEVEL);
 
 	asm volatile ("cli");
 	set_irq_line(0x0e, 1);
@@ -308,7 +308,7 @@ static void ioapic_isr_81(isr_regs_t *regs)
 static void test_ioapic_edge_mask(void)
 {
 	handle_irq(0x81, ioapic_isr_81);
-	set_ioapic_redir(0x0e, 0x81, TRIGGER_EDGE);
+	ioapic_set_redir(0x0e, 0x81, TRIGGER_EDGE);
 
 	set_mask(0x0e, true);
 	set_irq_line(0x0e, 1);
@@ -336,7 +336,7 @@ static void ioapic_isr_82(isr_regs_t *regs)
 static void test_ioapic_level_mask(void)
 {
 	handle_irq(0x82, ioapic_isr_82);
-	set_ioapic_redir(0x0e, 0x82, TRIGGER_LEVEL);
+	ioapic_set_redir(0x0e, 0x82, TRIGGER_LEVEL);
 
 	set_mask(0x0e, true);
 	set_irq_line(0x0e, 1);
@@ -362,7 +362,7 @@ static void ioapic_isr_83(isr_regs_t *regs)
 static void test_ioapic_level_retrigger_mask(void)
 {
 	handle_irq(0x83, ioapic_isr_83);
-	set_ioapic_redir(0x0e, 0x83, TRIGGER_LEVEL);
+	ioapic_set_redir(0x0e, 0x83, TRIGGER_LEVEL);
 
 	set_irq_line(0x0e, 1);
 	asm volatile ("nop");

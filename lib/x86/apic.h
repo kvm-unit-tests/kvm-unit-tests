@@ -38,7 +38,7 @@ void ioapic_write_reg(unsigned reg, uint32_t value);
 ioapic_redir_entry_t ioapic_read_redir(unsigned line);
 uint32_t ioapic_read_reg(unsigned reg);
 
-void set_ioapic_redir(unsigned line, unsigned vec,
+void ioapic_set_redir(unsigned line, unsigned vec,
 		trigger_mode_t trig_mode);
 
 void set_mask(unsigned line, int mask);
