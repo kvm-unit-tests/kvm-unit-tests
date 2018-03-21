@@ -4018,10 +4018,23 @@ static void vmx_eoi_bitmap_ioapic_scan_test(void)
 	report(__func__, 1);
 }
 
+static void set_irq_line_thread(void *data)
+{
+	/* Wait until other CPU entered L2 */
+	while (vmx_get_test_stage() != 1)
+		;
+
+	/* Set irq-line 0xf to raise vector 0x78 for vCPU 0 */
+	ioapic_set_redir(0xf, 0x78, TRIGGER_LEVEL);
+	vmx_set_test_stage(2);
+}
+
+static bool irq_78_handler_vmcall_before_eoi;
 static void irq_78_handler_guest(isr_regs_t *regs)
 {
 	set_irq_line(0xf, 0);
-	vmcall();
+	if (irq_78_handler_vmcall_before_eoi)
+		vmcall();
 	eoi();
 	vmcall();
 }
@@ -4031,12 +4044,26 @@ static void vmx_apic_passthrough_guest(void)
 	handle_irq(0x78, irq_78_handler_guest);
 	irq_enable();
 
+	/* If requested, wait for other CPU to trigger ioapic scan */
+	if (vmx_get_test_stage() < 1) {
+		vmx_set_test_stage(1);
+		while (vmx_get_test_stage() != 2)
+			;
+	}
+
 	set_irq_line(0xf, 1);
 }
 
-static void vmx_apic_passthrough_test(void)
+static void vmx_apic_passthrough(bool set_irq_line_from_thread)
 {
-	void *msr_bitmap = alloc_page();
+	void *msr_bitmap;
+
+	if (set_irq_line_from_thread && (cpu_count() < 2)) {
+		report_skip(__func__);
+		return;
+	}
+
+	msr_bitmap = alloc_page();
 
 	u64 cpu_ctrl_0 = CPU_SECONDARY | CPU_MSR_BITMAP;
 	u64 cpu_ctrl_1 = 0;
@@ -4049,14 +4076,23 @@ static void vmx_apic_passthrough_test(void)
 	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | cpu_ctrl_0);
 	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | cpu_ctrl_1);
 
-	ioapic_set_redir(0xf, 0x78, TRIGGER_LEVEL);
+	if (set_irq_line_from_thread) {
+		irq_78_handler_vmcall_before_eoi = false;
+		on_cpu_async(1, set_irq_line_thread, NULL);
+	} else {
+		irq_78_handler_vmcall_before_eoi = true;
+		ioapic_set_redir(0xf, 0x78, TRIGGER_LEVEL);
+		vmx_set_test_stage(2);
+	}
 	test_set_guest(vmx_apic_passthrough_guest);
 
-	/* Before EOI remote_irr should still be set */
-	enter_guest();
-	skip_exit_vmcall();
-	TEST_ASSERT_EQ_MSG(1, (int)ioapic_read_redir(0xf).remote_irr,
-		"IOAPIC pass-through: remote_irr=1 before EOI");
+	if (irq_78_handler_vmcall_before_eoi) {
+		/* Before EOI remote_irr should still be set */
+		enter_guest();
+		skip_exit_vmcall();
+		TEST_ASSERT_EQ_MSG(1, (int)ioapic_read_redir(0xf).remote_irr,
+			"IOAPIC pass-through: remote_irr=1 before EOI");
+	}
 
 	/* After EOI remote_irr should be cleared */
 	enter_guest();
@@ -4067,6 +4103,16 @@ static void vmx_apic_passthrough_test(void)
 	/* Let L2 finish */
 	enter_guest();
 	report(__func__, 1);
+}
+
+static void vmx_apic_passthrough_test(void)
+{
+	vmx_apic_passthrough(false);
+}
+
+static void vmx_apic_passthrough_thread_test(void)
+{
+	vmx_apic_passthrough(true);
 }
 
 #define TEST(name) { #name, .v2 = name }
@@ -4139,6 +4185,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_eoi_bitmap_ioapic_scan_test),
 	/* APIC pass-through tests */
 	TEST(vmx_apic_passthrough_test),
+	TEST(vmx_apic_passthrough_thread_test),
 	/* Regression tests */
 	TEST(vmx_cr_load_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
