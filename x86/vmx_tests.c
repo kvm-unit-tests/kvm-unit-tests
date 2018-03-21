@@ -4018,6 +4018,57 @@ static void vmx_eoi_bitmap_ioapic_scan_test(void)
 	report(__func__, 1);
 }
 
+static void irq_78_handler_guest(isr_regs_t *regs)
+{
+	set_irq_line(0xf, 0);
+	vmcall();
+	eoi();
+	vmcall();
+}
+
+static void vmx_apic_passthrough_guest(void)
+{
+	handle_irq(0x78, irq_78_handler_guest);
+	irq_enable();
+
+	set_irq_line(0xf, 1);
+}
+
+static void vmx_apic_passthrough_test(void)
+{
+	void *msr_bitmap = alloc_page();
+
+	u64 cpu_ctrl_0 = CPU_SECONDARY | CPU_MSR_BITMAP;
+	u64 cpu_ctrl_1 = 0;
+
+	memset(msr_bitmap, 0x0, PAGE_SIZE);
+	vmcs_write(MSR_BITMAP, (u64)msr_bitmap);
+
+	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_EXTINT);
+
+	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | cpu_ctrl_0);
+	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | cpu_ctrl_1);
+
+	ioapic_set_redir(0xf, 0x78, TRIGGER_LEVEL);
+	test_set_guest(vmx_apic_passthrough_guest);
+
+	/* Before EOI remote_irr should still be set */
+	enter_guest();
+	skip_exit_vmcall();
+	TEST_ASSERT_EQ_MSG(1, (int)ioapic_read_redir(0xf).remote_irr,
+		"IOAPIC pass-through: remote_irr=1 before EOI");
+
+	/* After EOI remote_irr should be cleared */
+	enter_guest();
+	skip_exit_vmcall();
+	TEST_ASSERT_EQ_MSG(0, (int)ioapic_read_redir(0xf).remote_irr,
+		"IOAPIC pass-through: remote_irr=0 after EOI");
+
+	/* Let L2 finish */
+	enter_guest();
+	report(__func__, 1);
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -4086,6 +4137,8 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmentry_movss_shadow_test),
 	/* APICv tests */
 	TEST(vmx_eoi_bitmap_ioapic_scan_test),
+	/* APIC pass-through tests */
+	TEST(vmx_apic_passthrough_test),
 	/* Regression tests */
 	TEST(vmx_cr_load_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
