@@ -3,8 +3,8 @@
 #include "msr.h"
 #include "processor.h"
 
-static void *g_apic = (void *)0xfee00000;
-static void *g_ioapic = (void *)0xfec00000;
+void *g_apic = (void *)0xfee00000;
+void *g_ioapic = (void *)0xfec00000;
 
 struct apic_ops {
     u32 (*reg_read)(unsigned reg);
@@ -187,12 +187,29 @@ ioapic_redir_entry_t ioapic_read_redir(unsigned line)
 
 }
 
+void set_ioapic_redir(unsigned line, unsigned vec,
+			     trigger_mode_t trig_mode)
+{
+	ioapic_redir_entry_t e = {
+		.vector = vec,
+		.delivery_mode = 0,
+		.trig_mode = trig_mode,
+	};
+
+	ioapic_write_redir(line, e);
+}
+
 void set_mask(unsigned line, int mask)
 {
     ioapic_redir_entry_t e = ioapic_read_redir(line);
 
     e.mask = mask;
     ioapic_write_redir(line, e);
+}
+
+void set_irq_line(unsigned line, int val)
+{
+	asm volatile("out %0, %1" : : "a"((u8)val), "d"((u16)(0x2000 + line)));
 }
 
 void enable_apic(void)

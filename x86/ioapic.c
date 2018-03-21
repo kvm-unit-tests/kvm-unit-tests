@@ -5,23 +5,6 @@
 #include "desc.h"
 #include "isr.h"
 
-static void set_ioapic_redir(unsigned line, unsigned vec,
-			     trigger_mode_t trig_mode)
-{
-	ioapic_redir_entry_t e = {
-		.vector = vec,
-		.delivery_mode = 0,
-		.trig_mode = trig_mode,
-	};
-
-	ioapic_write_redir(line, e);
-}
-
-static void set_irq_line(unsigned line, int val)
-{
-	asm volatile("out %0, %1" : : "a"((u8)val), "d"((u16)(0x2000 + line)));
-}
-
 static void toggle_irq_line(unsigned line)
 {
 	set_irq_line(line, 1);

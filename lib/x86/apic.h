@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include "apic-defs.h"
 
+extern void *g_apic;
+extern void *g_ioapic;
+
 typedef struct {
     uint8_t vector;
     uint8_t delivery_mode:3;
@@ -35,7 +38,12 @@ void ioapic_write_reg(unsigned reg, uint32_t value);
 ioapic_redir_entry_t ioapic_read_redir(unsigned line);
 uint32_t ioapic_read_reg(unsigned reg);
 
+void set_ioapic_redir(unsigned line, unsigned vec,
+		trigger_mode_t trig_mode);
+
 void set_mask(unsigned line, int mask);
+
+void set_irq_line(unsigned line, int val);
 
 void enable_apic(void);
 uint32_t apic_read(unsigned reg);
