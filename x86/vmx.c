@@ -1816,7 +1816,7 @@ int main(int argc, const char *argv[])
 	int i = 0;
 
 	setup_vm();
-	setup_idt();
+	smp_init();
 	hypercall_field = 0;
 
 	argv++;

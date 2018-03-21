@@ -14,6 +14,8 @@
 #include "types.h"
 #include "vmalloc.h"
 #include "alloc_page.h"
+#include "smp.h"
+#include "delay.h"
 
 #define NONCANONICAL            0xaaaaaaaaaaaaaaaaull
 
@@ -3916,6 +3918,106 @@ static void vmx_cr_load_test(void)
 	TEST_ASSERT(!write_cr4_checking(cr4 & ~X86_CR4_PCIDE));
 }
 
+static bool cpu_has_apicv(void)
+{
+	return ((ctrl_cpu_rev[1].clr & CPU_APIC_REG_VIRT) &&
+		(ctrl_cpu_rev[1].clr & CPU_VINTD) &&
+		(ctrl_pin_rev.clr & PIN_POST_INTR));
+}
+
+static void trigger_ioapic_scan_thread(void *data)
+{
+	/* Wait until other CPU entered L2 */
+	while (vmx_get_test_stage() != 1)
+		;
+
+	/* Trigger ioapic scan */
+	ioapic_set_redir(0xf, 0x79, TRIGGER_LEVEL);
+	vmx_set_test_stage(2);
+}
+
+static void irq_79_handler_guest(isr_regs_t *regs)
+{
+	eoi();
+
+	/* L1 expects vmexit on VMX_VMCALL and not VMX_EOI_INDUCED */
+	vmcall();
+}
+
+/*
+ * Constant for num of busy-loop iterations after which
+ * a timer interrupt should have happened in host
+ */
+#define TIMER_INTERRUPT_DELAY 100000000
+
+static void vmx_eoi_bitmap_ioapic_scan_test_guest(void)
+{
+	handle_irq(0x79, irq_79_handler_guest);
+	irq_enable();
+
+	/* Signal to L1 CPU to trigger ioapic scan */
+	vmx_set_test_stage(1);
+	/* Wait until L1 CPU to trigger ioapic scan */
+	while (vmx_get_test_stage() != 2)
+		;
+
+	/*
+	 * Wait for L0 timer interrupt to be raised while we run in L2
+	 * such that L0 will process the IOAPIC scan request before
+	 * resuming L2
+	 */
+	delay(TIMER_INTERRUPT_DELAY);
+
+	asm volatile ("int $0x79");
+}
+
+static void vmx_eoi_bitmap_ioapic_scan_test(void)
+{
+	void *msr_bitmap;
+	void *virtual_apic_page;
+
+	if (!cpu_has_apicv() || (cpu_count() < 2)) {
+		report_skip(__func__);
+		return;
+	}
+
+	msr_bitmap = alloc_page();
+	virtual_apic_page = alloc_page();
+
+	u64 cpu_ctrl_0 = CPU_SECONDARY | CPU_TPR_SHADOW | CPU_MSR_BITMAP;
+	u64 cpu_ctrl_1 = CPU_VINTD | CPU_VIRT_X2APIC;
+
+	memset(msr_bitmap, 0x0, PAGE_SIZE);
+	vmcs_write(MSR_BITMAP, (u64)msr_bitmap);
+
+	vmcs_write(APIC_VIRT_ADDR, (u64)virtual_apic_page);
+	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) | PIN_EXTINT);
+
+	vmcs_write(EOI_EXIT_BITMAP0, 0x0);
+	vmcs_write(EOI_EXIT_BITMAP1, 0x0);
+	vmcs_write(EOI_EXIT_BITMAP2, 0x0);
+	vmcs_write(EOI_EXIT_BITMAP3, 0x0);
+
+	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | cpu_ctrl_0);
+	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | cpu_ctrl_1);
+
+	on_cpu_async(1, trigger_ioapic_scan_thread, NULL);
+	test_set_guest(vmx_eoi_bitmap_ioapic_scan_test_guest);
+
+	/*
+	 * Launch L2.
+	 * We expect the exit reason to be VMX_VMCALL (and not EOI INDUCED).
+	 * In case the reason isn't VMX_VMCALL, the asserion inside
+	 * skip_exit_vmcall() will fail.
+	 */
+	enter_guest();
+	skip_exit_vmcall();
+
+	/* Let L2 finish */
+	enter_guest();
+	report(__func__, 1);
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -3982,6 +4084,8 @@ struct vmx_test vmx_tests[] = {
 	/* VM-entry tests */
 	TEST(vmx_controls_test),
 	TEST(vmentry_movss_shadow_test),
+	/* APICv tests */
+	TEST(vmx_eoi_bitmap_ioapic_scan_test),
 	/* Regression tests */
 	TEST(vmx_cr_load_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
