@@ -14,7 +14,7 @@ static void fault_test_fault(struct ex_regs *regs)
 
 static bool fault_test(struct fault_test_arg *arg)
 {
-	uint64_t val;
+	volatile uint64_t val;
 	bool raised_vector = false;
 	test_fault_func func = (test_fault_func) arg->func;
 	/* Init as success in case there isn't callback */

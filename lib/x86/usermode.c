@@ -77,7 +77,7 @@ uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
 			"mov %[arg2], %%rsi\n\t"
 			"mov %[arg3], %%rdx\n\t"
 			"mov %[arg4], %%rcx\n\t"
-			"call %[func]\n\t"
+			"call *%[func]\n\t"
 			/* Restore registers */
 			"pop %%rsi\n\t"
 			"pop %%rdi\n\t"
