@@ -28,6 +28,7 @@
 #define X86_CR4_PAE    0x00000020
 #define X86_CR4_MCE    0x00000040
 #define X86_CR4_PCE    0x00000100
+#define X86_CR4_UMIP   0x00000800
 #define X86_CR4_VMXE   0x00002000
 #define X86_CR4_PCIDE  0x00020000
 #define X86_CR4_SMAP   0x00200000
@@ -43,6 +44,7 @@
 #define X86_EFLAGS_IF    0x00000200
 #define X86_EFLAGS_DF    0x00000400
 #define X86_EFLAGS_OF    0x00000800
+#define X86_EFLAGS_IOPL  0x00003000
 #define X86_EFLAGS_NT    0x00004000
 #define X86_EFLAGS_AC    0x00040000
 
@@ -157,6 +159,13 @@ static inline void write_gs(unsigned val)
 static inline void write_rflags(unsigned long f)
 {
     asm volatile ("push %0; popf\n\t" : : "rm"(f));
+}
+
+static inline void set_iopl(int iopl)
+{
+	unsigned long flags = read_rflags() & ~X86_EFLAGS_IOPL;
+	flags |= iopl * (X86_EFLAGS_IOPL / 3);
+	write_rflags(flags);
 }
 
 static inline u64 rdmsr(u32 index)

@@ -216,6 +216,7 @@ void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran);
 void set_intr_alt_stack(int e, void *fn);
 void print_current_tss_info(void);
 handler handle_exception(u8 v, handler fn);
+void unhandled_exception(struct ex_regs *regs, bool cpu);
 
 bool test_for_exception(unsigned int ex, void (*trigger_func)(void *data),
 			void *data);

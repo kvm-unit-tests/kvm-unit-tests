@@ -63,7 +63,7 @@ static const char* exception_mnemonic(int vector)
 	}
 }
 
-static void unhandled_exception(struct ex_regs *regs, bool cpu)
+void unhandled_exception(struct ex_regs *regs, bool cpu)
 {
 	printf("Unhandled %sexception %ld %s at ip %016lx\n",
 	       cpu ? "cpu " : "", regs->vector,
