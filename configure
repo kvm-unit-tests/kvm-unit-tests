@@ -157,6 +157,9 @@ if test ! -e Makefile; then
 
     echo "linking scripts..."
     ln -sf "$srcdir/scripts"
+
+    echo "linking errata.txt..."
+    ln -sf "$srcdir/errata.txt"
 fi
 
 # link lib/asm for the architecture
