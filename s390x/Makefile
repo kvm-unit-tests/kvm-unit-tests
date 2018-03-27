@@ -8,6 +8,7 @@ tests += $(TEST_DIR)/diag10.elf
 tests += $(TEST_DIR)/pfmf.elf
 tests += $(TEST_DIR)/cmm.elf
 tests += $(TEST_DIR)/vector.elf
+tests += $(TEST_DIR)/gs.elf
 
 all: directories test_cases
 
