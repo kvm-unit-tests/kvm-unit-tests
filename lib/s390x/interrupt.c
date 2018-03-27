@@ -44,6 +44,13 @@ void check_pgm_int_code(uint16_t code)
 static void fixup_pgm_int(void)
 {
 	switch (lc->pgm_int_code) {
+	case PGM_INT_CODE_PRIVILEGED_OPERATION:
+		/* Normal operation is in supervisor state, so this exception
+		 * was produced intentionally and we should return to the
+		 * supervisor state.
+		 */
+		lc->pgm_old_psw.mask &= ~PSW_MASK_PSTATE;
+		break;
 	case PGM_INT_CODE_SEGMENT_TRANSLATION:
 	case PGM_INT_CODE_PAGE_TRANSLATION:
 	case PGM_INT_CODE_TRACE_TABLE:
