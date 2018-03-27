@@ -7,6 +7,7 @@ tests += $(TEST_DIR)/skey.elf
 tests += $(TEST_DIR)/diag10.elf
 tests += $(TEST_DIR)/pfmf.elf
 tests += $(TEST_DIR)/cmm.elf
+tests += $(TEST_DIR)/vector.elf
 
 all: directories test_cases
 

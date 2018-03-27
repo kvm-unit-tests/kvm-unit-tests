@@ -183,6 +183,24 @@ static inline uint64_t stctg(int cr)
 	return value;
 }
 
+static inline void ctl_set_bit(int cr, unsigned int bit)
+{
+        uint64_t reg;
+
+	reg = stctg(cr);
+	reg |= 1UL << bit;
+	lctlg(cr, reg);
+}
+
+static inline void ctl_clear_bit(int cr, unsigned int bit)
+{
+        uint64_t reg;
+
+	reg = stctg(cr);
+	reg &= ~(1UL << bit);
+	lctlg(cr, reg);
+}
+
 static inline uint64_t extract_psw_mask(void)
 {
 	uint32_t mask_upper = 0, mask_lower = 0;
