@@ -16,6 +16,7 @@ struct psw {
 };
 
 #define PSW_MASK_DAT			0x0400000000000000UL
+#define PSW_MASK_PSTATE			0x0001000000000000UL
 
 struct lowcore {
 	uint8_t		pad_0x0000[0x0080 - 0x0000];	/* 0x0000 */
@@ -182,6 +183,24 @@ static inline uint64_t stctg(int cr)
 	return value;
 }
 
+static inline void ctl_set_bit(int cr, unsigned int bit)
+{
+        uint64_t reg;
+
+	reg = stctg(cr);
+	reg |= 1UL << bit;
+	lctlg(cr, reg);
+}
+
+static inline void ctl_clear_bit(int cr, unsigned int bit)
+{
+        uint64_t reg;
+
+	reg = stctg(cr);
+	reg &= ~(1UL << bit);
+	lctlg(cr, reg);
+}
+
 static inline uint64_t extract_psw_mask(void)
 {
 	uint32_t mask_upper = 0, mask_lower = 0;
@@ -207,6 +226,15 @@ static inline void load_psw_mask(uint64_t mask)
 		"	lpswe	0(%1)\n"
 		"0:\n"
 		: "+r" (tmp) :  "a" (&psw) : "memory", "cc" );
+}
+
+static inline void enter_pstate(void)
+{
+	uint64_t mask;
+
+	mask = extract_psw_mask();
+	mask |= PSW_MASK_PSTATE;
+	load_psw_mask(mask);
 }
 
 #endif
