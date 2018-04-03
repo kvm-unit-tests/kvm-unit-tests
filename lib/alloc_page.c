@@ -7,6 +7,7 @@
 #include "libcflat.h"
 #include "alloc.h"
 #include "alloc_phys.h"
+#include "alloc_page.h"
 #include "bitops.h"
 #include <asm/page.h>
 #include <asm/io.h>

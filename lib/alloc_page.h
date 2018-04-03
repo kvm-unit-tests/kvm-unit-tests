@@ -10,7 +10,7 @@
 
 bool page_alloc_initialized(void);
 void page_alloc_ops_enable(void);
-void *alloc_page();
+void *alloc_page(void);
 void *alloc_pages(unsigned long order);
 void free_page(void *page);
 void free_pages(void *mem, unsigned long size);

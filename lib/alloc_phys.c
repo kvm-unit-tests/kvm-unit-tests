@@ -9,6 +9,7 @@
 #include "alloc.h"
 #include "asm/spinlock.h"
 #include "asm/io.h"
+#include "alloc_phys.h"
 
 #define PHYS_ALLOC_NR_REGIONS	256
 
