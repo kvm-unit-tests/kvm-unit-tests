@@ -3432,23 +3432,40 @@ static void test_vmcs_page_values(const char *name,
 static void test_vmcs_page_reference(u32 control_bit, enum Encoding field,
 				     const char *field_name,
 				     const char *control_name,
-				     bool xfail_beyond_mapped_ram)
+				     bool xfail_beyond_mapped_ram,
+				     bool control_primary)
 {
 	u32 primary = vmcs_read(CPU_EXEC_CTRL0);
+	u32 secondary = vmcs_read(CPU_EXEC_CTRL1);
 	u64 page_addr;
 
-	if (!(ctrl_cpu_rev[0].clr & control_bit))
-		return;
+	if (control_primary) {
+		if (!(ctrl_cpu_rev[0].clr & control_bit))
+			return;
+	} else {
+		if (!(ctrl_cpu_rev[1].clr & control_bit))
+			return;
+	}
 
 	page_addr = vmcs_read(field);
 
 	report_prefix_pushf("%s enabled", control_name);
-	vmcs_write(CPU_EXEC_CTRL0, primary | control_bit);
+	if (control_primary) {
+		vmcs_write(CPU_EXEC_CTRL0, primary | control_bit);
+	} else {
+		vmcs_write(CPU_EXEC_CTRL0, primary | CPU_SECONDARY);
+		vmcs_write(CPU_EXEC_CTRL1, secondary | control_bit);
+	}
 	test_vmcs_page_values(field_name, field, false, xfail_beyond_mapped_ram);
 	report_prefix_pop();
 
 	report_prefix_pushf("%s disabled", control_name);
-	vmcs_write(CPU_EXEC_CTRL0, primary & ~control_bit);
+	if (control_primary) {
+		vmcs_write(CPU_EXEC_CTRL0, primary & ~control_bit);
+	} else {
+		vmcs_write(CPU_EXEC_CTRL0, primary & ~CPU_SECONDARY);
+		vmcs_write(CPU_EXEC_CTRL1, secondary & ~control_bit);
+	}
 	test_vmcs_page_values(field_name, field, true, false);
 	report_prefix_pop();
 
@@ -3465,9 +3482,11 @@ static void test_vmcs_page_reference(u32 control_bit, enum Encoding field,
 static void test_io_bitmaps(void)
 {
 	test_vmcs_page_reference(CPU_IO_BITMAP, IO_BITMAP_A,
-				 "I/O bitmap A", "Use I/O bitmaps", false);
+				 "I/O bitmap A", "Use I/O bitmaps", false,
+				 true);
 	test_vmcs_page_reference(CPU_IO_BITMAP, IO_BITMAP_B,
-				 "I/O bitmap B", "Use I/O bitmaps", false);
+				 "I/O bitmap B", "Use I/O bitmaps", false,
+				 true);
 }
 
 /*
@@ -3479,7 +3498,8 @@ static void test_io_bitmaps(void)
 static void test_msr_bitmap(void)
 {
 	test_vmcs_page_reference(CPU_MSR_BITMAP, MSR_BITMAP,
-				 "MSR bitmap", "Use MSR bitmaps", false);
+				 "MSR bitmap", "Use MSR bitmaps", false,
+				 true);
 }
 
 /*
@@ -3493,7 +3513,27 @@ static void test_msr_bitmap(void)
 static void test_apic_virt_addr(void)
 {
 	test_vmcs_page_reference(CPU_TPR_SHADOW, APIC_VIRT_ADDR,
-				 "virtual-APIC address", "Use TPR shadow", true);
+				 "virtual-APIC address", "Use TPR shadow",
+				 true, true);
+}
+
+/*
+ * If the "virtualize APIC-accesses" VM-execution control is 1, the
+ * APIC-access address must satisfy the following checks:
+ *  - Bits 11:0 of the address must be 0.
+ *  - The address should not set any bits beyond the processor's
+ *    physical-address width.
+ * [Intel SDM]
+ */
+static void test_apic_access_addr(void)
+{
+	void *apic_access_page = alloc_page();
+
+	vmcs_write(APIC_ACCS_ADDR, virt_to_phys(apic_access_page));
+
+	test_vmcs_page_reference(CPU_VIRT_APIC_ACCESSES, APIC_ACCS_ADDR,
+				 "APIC-access address",
+				 "virtualize APIC-accesses", true, false);
 }
 
 static void set_vtpr(unsigned vtpr)
@@ -3763,6 +3803,7 @@ static void vmx_controls_test(void)
 	test_io_bitmaps();
 	test_msr_bitmap();
 	test_apic_virt_addr();
+	test_apic_access_addr();
 	test_tpr_threshold();
 	test_nmi_ctrls();
 }
