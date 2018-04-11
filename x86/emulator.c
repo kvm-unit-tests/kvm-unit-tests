@@ -12,6 +12,11 @@
 
 static int exceptions;
 
+/* Forced emulation prefix, used to invoke the emulator unconditionally.  */
+#define KVM_FEP "ud2; .byte 'k', 'v', 'm';"
+#define KVM_FEP_LENGTH 5
+static int fep_available = 1;
+
 struct regs {
 	u64 rax, rbx, rcx, rdx;
 	u64 rsi, rdi, rsp, rbp;
@@ -731,87 +736,6 @@ static void test_cmov(u32 *mem)
 	report("cmovnel", val == 0x12345678ul);
 }
 
-#define INSN_XCHG_ALL				\
-	"xchg %rax, 0+save \n\t"		\
-	"xchg %rbx, 8+save \n\t"		\
-	"xchg %rcx, 16+save \n\t"		\
-	"xchg %rdx, 24+save \n\t"		\
-	"xchg %rsi, 32+save \n\t"		\
-	"xchg %rdi, 40+save \n\t"		\
-	"xchg %rsp, 48+save \n\t"		\
-	"xchg %rbp, 56+save \n\t"		\
-	"xchg %r8, 64+save \n\t"		\
-	"xchg %r9, 72+save \n\t"		\
-	"xchg %r10, 80+save \n\t"		\
-	"xchg %r11, 88+save \n\t"		\
-	"xchg %r12, 96+save \n\t"		\
-	"xchg %r13, 104+save \n\t"		\
-	"xchg %r14, 112+save \n\t"		\
-	"xchg %r15, 120+save \n\t"
-
-asm(
-	".align 4096\n\t"
-	"insn_page:\n\t"
-	"ret\n\t"
-	"pushf\n\t"
-	"push 136+save \n\t"
-	"popf \n\t"
-	INSN_XCHG_ALL
-	"test_insn:\n\t"
-	"in  (%dx),%al\n\t"
-	".skip 31, 0x90\n\t"
-	"test_insn_end:\n\t"
-	INSN_XCHG_ALL
-	"pushf \n\t"
-	"pop 136+save \n\t"
-	"popf \n\t"
-	"ret \n\t"
-	"insn_page_end:\n\t"
-	".align 4096\n\t"
-);
-
-#define MK_INSN(name, str)				\
-    asm (						\
-	 ".pushsection .data.insn  \n\t"		\
-	 "insn_" #name ": \n\t"				\
-	 ".quad 1001f, 1002f - 1001f \n\t"		\
-	 ".popsection \n\t"				\
-	 ".pushsection .text.insn, \"ax\" \n\t"		\
-	 "1001: \n\t"					\
-	 "insn_code_" #name ": " str " \n\t"		\
-	 "1002: \n\t"					\
-	 ".popsection"					\
-    );							\
-    extern struct insn_desc insn_##name;
-
-static void trap_emulator(uint64_t *mem, void *alt_insn_page,
-			struct insn_desc *alt_insn)
-{
-	ulong *cr3 = (ulong *)read_cr3();
-	void *insn_ram;
-	extern u8 insn_page[], test_insn[];
-
-	insn_ram = vmap(virt_to_phys(insn_page), 4096);
-	memcpy(alt_insn_page, insn_page, 4096);
-	memcpy(alt_insn_page + (test_insn - insn_page),
-			(void *)(alt_insn->ptr), alt_insn->len);
-	save = inregs;
-
-	/* Load the code TLB with insn_page, but point the page tables at
-	   alt_insn_page (and keep the data TLB clear, for AMD decode assist).
-	   This will make the CPU trap on the insn_page instruction but the
-	   hypervisor will see alt_insn_page. */
-	install_page(cr3, virt_to_phys(insn_page), insn_ram);
-	invlpg(insn_ram);
-	/* Load code TLB */
-	asm volatile("call *%0" : : "r"(insn_ram));
-	install_page(cr3, virt_to_phys(alt_insn_page), insn_ram);
-	/* Trap, let hypervisor emulate at alt_insn_page */
-	asm volatile("call *%0": : "r"(insn_ram+1));
-
-	outregs = save;
-}
-
 static unsigned long rip_advance;
 
 static void advance_rip_and_note_exception(struct ex_regs *regs)
@@ -820,23 +744,20 @@ static void advance_rip_and_note_exception(struct ex_regs *regs)
     regs->rip += rip_advance;
 }
 
-static void test_mmx_movq_mf(uint64_t *mem, uint8_t *insn_page,
-			     uint8_t *alt_insn_page, void *insn_ram)
+static void test_mmx_movq_mf(uint64_t *mem)
 {
-    uint16_t fcw = 0;  /* all exceptions unmasked */
     /* movq %mm0, (%rax) */
-    void *stack = alloc_page();
+    extern char movq_start, movq_end;
 
+    uint16_t fcw = 0;  /* all exceptions unmasked */
     write_cr0(read_cr0() & ~6);  /* TS, EM */
     exceptions = 0;
     handle_exception(MF_VECTOR, advance_rip_and_note_exception);
     asm volatile("fninit; fldcw %0" : : "m"(fcw));
     asm volatile("fldz; fldz; fdivp"); /* generate exception */
 
-    MK_INSN(mmx_movq_mf, "movq %mm0, (%rax) \n\t");
-    rip_advance = insn_mmx_movq_mf.len;
-    inregs = (struct regs){ .rsp=(u64)stack+1024 };
-    trap_emulator(mem, alt_insn_page, &insn_mmx_movq_mf);
+    rip_advance = &movq_end - &movq_start;
+    asm(KVM_FEP "movq_start: movq %mm0, (%rax); movq_end:");
     /* exit MMX mode */
     asm volatile("fnclex; emms");
     report("movq mmx generates #MF", exceptions == 1);
@@ -857,56 +778,48 @@ static void test_jmp_noncanonical(uint64_t *mem)
 	handle_exception(GP_VECTOR, 0);
 }
 
-static void test_movabs(uint64_t *mem, uint8_t *insn_page,
-		       uint8_t *alt_insn_page, void *insn_ram)
+static void test_movabs(uint64_t *mem)
 {
     /* mov $0x9090909090909090, %rcx */
-    MK_INSN(movabs, "mov $0x9090909090909090, %rcx\n\t");
-    inregs = (struct regs){ 0 };
-    trap_emulator(mem, alt_insn_page, &insn_movabs);
-    report("64-bit mov imm2", outregs.rcx == 0x9090909090909090);
+    unsigned long rcx;
+    asm(KVM_FEP "mov $0x9090909090909090, %0" : "=c" (rcx) : "0" (0));
+    report("64-bit mov imm2", rcx == 0x9090909090909090);
 }
 
-static void test_smsw_reg(uint64_t *mem, uint8_t *insn_page,
-		      uint8_t *alt_insn_page, void *insn_ram)
+static void test_smsw_reg(uint64_t *mem)
 {
 	unsigned long cr0 = read_cr0();
-	inregs = (struct regs){ .rax = 0x1234567890abcdeful };
+	unsigned long rax;
+	const unsigned long in_rax = 0x1234567890abcdeful;
 
-	MK_INSN(smsww, "smsww %ax\n\t");
-	trap_emulator(mem, alt_insn_page, &insn_smsww);
-	report("16-bit smsw reg", (u16)outregs.rax == (u16)cr0 &&
-				  outregs.rax >> 16 == inregs.rax >> 16);
+	asm(KVM_FEP "smsww %w0\n\t" : "=a" (rax) : "0" (in_rax));
+	report("16-bit smsw reg", (u16)rax == (u16)cr0 &&
+				  rax >> 16 == in_rax >> 16);
 
-	MK_INSN(smswl, "smswl %eax\n\t");
-	trap_emulator(mem, alt_insn_page, &insn_smswl);
-	report("32-bit smsw reg", outregs.rax == (u32)cr0);
+	asm(KVM_FEP "smswl %k0\n\t" : "=a" (rax) : "0" (in_rax));
+	report("32-bit smsw reg", rax == (u32)cr0);
 
-	MK_INSN(smswq, "smswq %rax\n\t");
-	trap_emulator(mem, alt_insn_page, &insn_smswq);
-	report("64-bit smsw reg", outregs.rax == cr0);
+	asm(KVM_FEP "smswq %d0\n\t" : "=a" (rax) : "0" (in_rax));
+	report("64-bit smsw reg", rax == cr0);
 }
 
-static void test_nop(uint64_t *mem, uint8_t *insn_page,
-		uint8_t *alt_insn_page, void *insn_ram)
+static void test_nop(uint64_t *mem)
 {
-	inregs = (struct regs){ .rax = 0x1234567890abcdeful };
-	MK_INSN(nop, "nop\n\t");
-	trap_emulator(mem, alt_insn_page, &insn_nop);
-	report("nop", outregs.rax == inregs.rax);
+	unsigned long rax;
+	const unsigned long in_rax = 0x1234567890abcdeful;
+	asm(KVM_FEP "nop\n\t" : "=a" (rax) : "0" (in_rax));
+	report("nop", rax == in_rax);
 }
 
-static void test_mov_dr(uint64_t *mem, uint8_t *insn_page,
-		uint8_t *alt_insn_page, void *insn_ram)
+static void test_mov_dr(uint64_t *mem)
 {
+	unsigned long rax;
+	const unsigned long in_rax = 0;
 	bool rtm_support = cpuid(7).b & (1 << 11);
 	unsigned long dr6_fixed_1 = rtm_support ? 0xfffe0ff0ul : 0xffff0ff0ul;
-	inregs = (struct regs){ .rax = 0 };
-	MK_INSN(mov_to_dr6, "movq %rax, %dr6\n\t");
-	trap_emulator(mem, alt_insn_page, &insn_mov_to_dr6);
-	MK_INSN(mov_from_dr6, "movq %dr6, %rax\n\t");
-	trap_emulator(mem, alt_insn_page, &insn_mov_from_dr6);
-	report("mov_dr6", outregs.rax == dr6_fixed_1);
+	asm(KVM_FEP "movq %0, %%dr6\n\t"
+	    KVM_FEP "movq %%dr6, %0\n\t" : "=a" (rax) : "a" (in_rax));
+	report("mov_dr6", rax == dr6_fixed_1);
 }
 
 static void test_push16(uint64_t *mem)
@@ -1096,21 +1009,30 @@ static void test_illegal_movbe(void)
 	handle_exception(UD_VECTOR, 0);
 }
 
+static void record_no_fep(struct ex_regs *regs)
+{
+	fep_available = 0;
+	regs->rip += KVM_FEP_LENGTH;
+}
+
 int main()
 {
 	void *mem;
-	void *insn_page, *alt_insn_page;
+	void *insn_page;
 	void *insn_ram;
 	unsigned long t1, t2;
 
 	setup_vm();
 	setup_idt();
+	handle_exception(UD_VECTOR, record_no_fep);
+	asm(KVM_FEP "nop");
+	handle_exception(UD_VECTOR, 0);
+
 	mem = alloc_vpages(2);
 	install_page((void *)read_cr3(), IORAM_BASE_PHYS, mem);
 	// install the page twice to test cross-page mmio
 	install_page((void *)read_cr3(), IORAM_BASE_PHYS, mem + 4096);
 	insn_page = alloc_page();
-	alt_insn_page = alloc_page();
 	insn_ram = vmap(virt_to_phys(insn_page), 4096);
 
 	// test mov reg, r/m and mov r/m, reg
@@ -1153,11 +1075,17 @@ int main()
 	test_ltr(mem);
 	test_cmov(mem);
 
-	test_mmx_movq_mf(mem, insn_page, alt_insn_page, insn_ram);
-	test_movabs(mem, insn_page, alt_insn_page, insn_ram);
-	test_smsw_reg(mem, insn_page, alt_insn_page, insn_ram);
-	test_nop(mem, insn_page, alt_insn_page, insn_ram);
-	test_mov_dr(mem, insn_page, alt_insn_page, insn_ram);
+	if (fep_available) {
+		test_mmx_movq_mf(mem);
+		test_movabs(mem);
+		test_smsw_reg(mem);
+		test_nop(mem);
+		test_mov_dr(mem);
+	} else {
+		report_skip("skipping register-only tests, "
+			    "use kvm.forced_emulation_prefix=1 to enable");
+	}
+
 	test_push16(mem);
 	test_crosspage_mmio(mem);
 
