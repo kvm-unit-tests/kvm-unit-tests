@@ -877,6 +877,46 @@ static bool npt_rw_l1mmio_check(struct test *test)
            && (test->vmcb->control.exit_info_1 == 0x100000007ULL);
 }
 
+#define TSC_ADJUST_VALUE    (1ll << 32)
+#define TSC_OFFSET_VALUE    (-1ll << 48)
+static bool ok;
+
+static void tsc_adjust_prepare(struct test *test)
+{
+    default_prepare(test);
+    test->vmcb->control.tsc_offset = TSC_OFFSET_VALUE;
+
+    wrmsr(MSR_IA32_TSC_ADJUST, -TSC_ADJUST_VALUE);
+    int64_t adjust = rdmsr(MSR_IA32_TSC_ADJUST);
+    ok = adjust == -TSC_ADJUST_VALUE;
+}
+
+static void tsc_adjust_test(struct test *test)
+{
+    int64_t adjust = rdmsr(MSR_IA32_TSC_ADJUST);
+    ok &= adjust == -TSC_ADJUST_VALUE;
+
+    uint64_t l1_tsc = rdtsc() - TSC_OFFSET_VALUE;
+    wrmsr(MSR_IA32_TSC, l1_tsc - TSC_ADJUST_VALUE);
+
+    adjust = rdmsr(MSR_IA32_TSC_ADJUST);
+    ok &= adjust <= -2 * TSC_ADJUST_VALUE;
+
+    uint64_t l1_tsc_end = rdtsc() - TSC_OFFSET_VALUE;
+    ok &= (l1_tsc_end + TSC_ADJUST_VALUE - l1_tsc) < TSC_ADJUST_VALUE;
+
+    uint64_t l1_tsc_msr = rdmsr(MSR_IA32_TSC) - TSC_OFFSET_VALUE;
+    ok &= (l1_tsc_msr + TSC_ADJUST_VALUE - l1_tsc) < TSC_ADJUST_VALUE;
+}
+
+static bool tsc_adjust_check(struct test *test)
+{
+    int64_t adjust = rdmsr(MSR_IA32_TSC_ADJUST);
+
+    wrmsr(MSR_IA32_TSC_ADJUST, 0);
+    return ok && adjust <= -2 * TSC_ADJUST_VALUE;
+}
+
 static void latency_prepare(struct test *test)
 {
     default_prepare(test);
@@ -1048,6 +1088,8 @@ static struct test tests[] = {
 	    default_finished, npt_l1mmio_check },
     { "npt_rw_l1mmio", npt_supported, npt_rw_l1mmio_prepare, npt_rw_l1mmio_test,
 	    default_finished, npt_rw_l1mmio_check },
+    { "tsc_adjust", default_supported, tsc_adjust_prepare, tsc_adjust_test,
+       default_finished, tsc_adjust_check },
     { "latency_run_exit", default_supported, latency_prepare, latency_test,
       latency_finished, latency_check },
     { "latency_svm_insn", default_supported, lat_svm_insn_prepare, null_test,
