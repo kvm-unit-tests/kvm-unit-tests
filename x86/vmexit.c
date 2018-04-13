@@ -36,7 +36,6 @@ static void vmcall(void)
 	asm volatile ("vmcall" : "+a"(a), "=b"(b), "=c"(c), "=d"(d));
 }
 
-#define MSR_TSC_ADJUST 0x3b
 #define MSR_EFER 0xc0000080
 #define EFER_NX_MASK            (1ull << 11)
 
@@ -243,12 +242,12 @@ static void ple_round_robin(void)
 
 static void rd_tsc_adjust_msr(void)
 {
-	rdmsr(MSR_TSC_ADJUST);
+	rdmsr(MSR_IA32_TSC_ADJUST);
 }
 
 static void wr_tsc_adjust_msr(void)
 {
-	wrmsr(MSR_TSC_ADJUST, 0x0);
+	wrmsr(MSR_IA32_TSC_ADJUST, 0x0);
 }
 
 static void wr_kernel_gs_base(void)
