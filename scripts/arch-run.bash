@@ -234,8 +234,8 @@ env_generate_errata ()
 	local kernel_version kernel_patchlevel kernel_sublevel kernel_extraversion
 	local line commit minver errata rest v p s x have
 
-	IFS=. read -r kernel_version kernel_patchlevel rest <<<$kernel_version_string
-	IFS=- read -r kernel_sublevel kernel_extraversion <<<$rest
+	IFS=. read -r kernel_version kernel_patchlevel rest <<<"$kernel_version_string"
+	IFS=- read -r kernel_sublevel kernel_extraversion <<<"$rest"
 	kernel_sublevel=${kernel_sublevel%%[!0-9]*}
 	kernel_extraversion=${kernel_extraversion%%[!0-9]*}
 
@@ -249,8 +249,8 @@ env_generate_errata ()
 		commit=${line%:*}
 		minver=${line#*:}
 
+		test -z "$commit" && continue
 		errata="ERRATA_$commit"
-		test -v $errata && continue
 
 		IFS=. read -r v p rest <<<"$minver"
 		IFS=- read -r s x <<<"$rest"
