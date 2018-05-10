@@ -1974,6 +1974,8 @@ static void disable_rdtscp_main(void)
 	asm volatile("rdtscp" : : : "eax", "ecx", "edx");
 	vmcall();
 	asm volatile(".byte 0xf3, 0x0f, 0xc7, 0xf8" : : : "eax");
+
+	handle_exception(UD_VECTOR, 0);
 	vmcall();
 }
 
