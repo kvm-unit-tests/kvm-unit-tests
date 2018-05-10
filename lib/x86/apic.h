@@ -53,6 +53,7 @@ void apic_icr_write(uint32_t val, uint32_t dest);
 uint32_t apic_id(void);
 
 int enable_x2apic(void);
+void disable_apic(void);
 void reset_apic(void);
 
 #endif

@@ -151,12 +151,16 @@ int enable_x2apic(void)
     }
 }
 
+void disable_apic(void)
+{
+    wrmsr(MSR_IA32_APICBASE, rdmsr(MSR_IA32_APICBASE) & ~(APIC_EN | APIC_EXTD));
+    apic_ops = &xapic_ops;
+}
+
 void reset_apic(void)
 {
-    u64 disabled = rdmsr(MSR_IA32_APICBASE) & ~(APIC_EN | APIC_EXTD);
-    wrmsr(MSR_IA32_APICBASE, disabled);
-    apic_ops = &xapic_ops;
-    wrmsr(MSR_IA32_APICBASE, disabled | APIC_EN);
+    disable_apic();
+    wrmsr(MSR_IA32_APICBASE, rdmsr(MSR_IA32_APICBASE) | APIC_EN);
 }
 
 u32 ioapic_read_reg(unsigned reg)

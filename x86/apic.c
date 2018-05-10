@@ -7,6 +7,8 @@
 #include "msr.h"
 #include "atomic.h"
 
+#define MAX_TPR			0xf
+
 static void test_lapic_existence(void)
 {
     u32 lvr;
@@ -106,25 +108,58 @@ void test_enable_x2apic(void)
     }
 }
 
+static void verify_disabled_apic_mmio(void)
+{
+    volatile u32 *lvr = (volatile u32 *)(APIC_DEFAULT_PHYS_BASE + APIC_LVR);
+    volatile u32 *tpr = (volatile u32 *)(APIC_DEFAULT_PHYS_BASE + APIC_TASKPRI);
+    u32 cr8 = read_cr8();
+
+    memset((void *)APIC_DEFAULT_PHYS_BASE, 0xff, PAGE_SIZE);
+    report("*0xfee00030: %x", *lvr == ~0, *lvr);
+    report("CR8: %lx", read_cr8() == cr8, read_cr8());
+    write_cr8(cr8 ^ MAX_TPR);
+    report("CR8: %lx", read_cr8() == (cr8 ^ MAX_TPR), read_cr8());
+    report("*0xfee00080: %x", *tpr == ~0, *tpr);
+    write_cr8(cr8);
+}
+
 static void test_apic_disable(void)
 {
+    volatile u32 *lvr = (volatile u32 *)(APIC_DEFAULT_PHYS_BASE + APIC_LVR);
+    volatile u32 *tpr = (volatile u32 *)(APIC_DEFAULT_PHYS_BASE + APIC_TASKPRI);
     u64 orig_apicbase = rdmsr(MSR_IA32_APICBASE);
+    u32 apic_version = apic_read(APIC_LVR);
+    u32 cr8 = read_cr8();
 
     report_prefix_push("apic_disable");
+    assert_msg(orig_apicbase & APIC_EN, "APIC not enabled.");
 
-    report("Local apic enabled", orig_apicbase & APIC_EN);
-    report("CPUID.1H:EDX.APIC[bit 9] is set", cpuid(1).d & (1 << 9));
-
-    wrmsr(MSR_IA32_APICBASE, orig_apicbase & ~(APIC_EN | APIC_EXTD));
+    disable_apic();
     report("Local apic disabled", !(rdmsr(MSR_IA32_APICBASE) & APIC_EN));
     report("CPUID.1H:EDX.APIC[bit 9] is clear", !(cpuid(1).d & (1 << 9)));
+    verify_disabled_apic_mmio();
 
-    wrmsr(MSR_IA32_APICBASE, orig_apicbase & ~APIC_EXTD);
-    wrmsr(MSR_IA32_APICBASE, orig_apicbase);
+    reset_apic();
     apic_write(APIC_SPIV, 0x1ff);
-    report("Local apic enabled", rdmsr(MSR_IA32_APICBASE) & APIC_EN);
+    report("Local apic enabled in xAPIC mode",
+	   (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == APIC_EN);
     report("CPUID.1H:EDX.APIC[bit 9] is set", cpuid(1).d & (1 << 9));
+    report("*0xfee00030: %x", *lvr == apic_version, *lvr);
+    report("*0xfee00080: %x", *tpr == cr8, *tpr);
+    write_cr8(cr8 ^ MAX_TPR);
+    report("*0xfee00080: %x", *tpr == (cr8 ^ MAX_TPR) << 4, *tpr);
+    write_cr8(cr8);
 
+    if (enable_x2apic()) {
+	apic_write(APIC_SPIV, 0x1ff);
+	report("Local apic enabled in x2APIC mode",
+	   (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) ==
+	   (APIC_EN | APIC_EXTD));
+	report("CPUID.1H:EDX.APIC[bit 9] is set", cpuid(1).d & (1 << 9));
+	verify_disabled_apic_mmio();
+	if (!(orig_apicbase & APIC_EXTD))
+	    reset_apic();
+    }
     report_prefix_pop();
 }
 
