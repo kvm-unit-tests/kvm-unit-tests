@@ -4242,6 +4242,18 @@ struct vmx_test vmx_tests[] = {
 	TEST(v2_multiple_entries_test),
 	TEST(fixture_test_case1),
 	TEST(fixture_test_case2),
+	/* Opcode tests. */
+	TEST(invvpid_test_v2),
+	/* VM-entry tests */
+	TEST(vmx_controls_test),
+	TEST(vmentry_movss_shadow_test),
+	/* APICv tests */
+	TEST(vmx_eoi_bitmap_ioapic_scan_test),
+	/* APIC pass-through tests */
+	TEST(vmx_apic_passthrough_test),
+	TEST(vmx_apic_passthrough_thread_test),
+	/* Regression tests */
+	TEST(vmx_cr_load_test),
 	/* EPT access tests. */
 	TEST(ept_access_test_not_present),
 	TEST(ept_access_test_read_only),
@@ -4263,17 +4275,5 @@ struct vmx_test vmx_tests[] = {
 	TEST(ept_access_test_paddr_read_execute_ad_enabled),
 	TEST(ept_access_test_paddr_not_present_page_fault),
 	TEST(ept_access_test_force_2m_page),
-	/* Opcode tests. */
-	TEST(invvpid_test_v2),
-	/* VM-entry tests */
-	TEST(vmx_controls_test),
-	TEST(vmentry_movss_shadow_test),
-	/* APICv tests */
-	TEST(vmx_eoi_bitmap_ioapic_scan_test),
-	/* APIC pass-through tests */
-	TEST(vmx_apic_passthrough_test),
-	TEST(vmx_apic_passthrough_thread_test),
-	/* Regression tests */
-	TEST(vmx_cr_load_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
