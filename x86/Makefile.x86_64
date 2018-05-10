@@ -5,6 +5,7 @@ COMMON_CFLAGS += -mno-red-zone -mno-sse -mno-sse2
 
 cflatobjs += lib/x86/setjmp64.o
 cflatobjs += lib/x86/intel-iommu.o
+cflatobjs += lib/x86/usermode.o
 
 tests = $(TEST_DIR)/access.flat $(TEST_DIR)/apic.flat \
 	  $(TEST_DIR)/emulator.flat $(TEST_DIR)/idt_test.flat \
@@ -17,6 +18,7 @@ tests += $(TEST_DIR)/svm.flat
 tests += $(TEST_DIR)/vmx.flat
 tests += $(TEST_DIR)/tscdeadline_latency.flat
 tests += $(TEST_DIR)/intel-iommu.flat
+tests += $(TEST_DIR)/vmware_backdoors.flat
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 
