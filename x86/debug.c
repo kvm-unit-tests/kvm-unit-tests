@@ -59,6 +59,13 @@ static void handle_db(struct ex_regs *regs)
 	}
 }
 
+extern unsigned char handle_db_save_rip;
+asm("handle_db_save_rip:\n"
+   "stc\n"
+   "nop;nop;nop\n"
+   "rclq $1, n(%rip)\n"
+   "iretq\n");
+
 static void handle_bp(struct ex_regs *regs)
 {
 	bp_addr = regs->rip;
@@ -178,5 +185,50 @@ int main(int ac, char **av)
 	       db_addr[0] == (unsigned long)&sw_icebp &&
 	       dr6[0] == 0xffff0ff0);
 
+	set_dr7(0x400);
+	value = KERNEL_DS;
+	set_dr7(0x00f0040a); // 4-byte read or write
+
+	/*
+	 * Each invocation of the handler should shift n by 1 and set bit 0 to 1.
+	 * We expect a single invocation, so n should become 3.  If the entry
+	 * RIP is wrong, or if the handler is executed more than once, the value
+	 * will not match.
+	 */
+	set_idt_entry(1, &handle_db_save_rip, 0);
+
+	n = 1;
+	asm volatile(
+		"clc\n\t"
+		"mov %0,%%ss\n\t"
+		".byte 0x2e, 0x2e, 0xf1"
+		: "=m" (value) : : "rax");
+	report("MOV SS + watchpoint + ICEBP", n == 3);
+
+	/*
+	 * Here the #DB handler is invoked twice, once as a software exception
+	 * and once as a software interrupt.
+	 */
+	n = 1;
+	asm volatile(
+		"clc\n\t"
+		"mov %0,%%ss\n\t"
+		"int $1"
+		: "=m" (value) : : "rax");
+	report("MOV SS + watchpoint + int $1", n == 7);
+
+	/*
+	 * Here the #DB and #BP handlers are invoked once each.
+	 */
+	n = 1;
+	bp_addr = 0;
+	asm volatile(
+		"mov %0,%%ss\n\t"
+		".byte 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0x2e, 0xcc\n\t"
+		"sw_bp2:"
+		: "=m" (value) : : "rax");
+	extern unsigned char sw_bp2;
+	report("MOV SS + watchpoint + INT3",
+	       n == 3 && bp_addr == (unsigned long)&sw_bp2);
 	return report_summary();
 }
