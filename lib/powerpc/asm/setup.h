@@ -27,4 +27,6 @@ extern unsigned __icache_bytes, __dcache_bytes;
 #define PHYSICAL_START		(__physical_start)
 #define PHYSICAL_END		(__physical_end)
 
+void setup(const void *fdt);
+
 #endif /* _ASMPOWERPC_SETUP_H_ */
