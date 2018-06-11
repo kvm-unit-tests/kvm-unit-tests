@@ -21,6 +21,8 @@ uint8_t stfl_bytes[NR_STFL_BYTES] __attribute__((aligned(8)));
 
 static struct spinlock lock;
 
+void setup(void);
+
 void puts(const char *s)
 {
 	spin_lock(&lock);
@@ -28,7 +30,7 @@ void puts(const char *s)
 	spin_unlock(&lock);
 }
 
-static void sigp_stop()
+static void sigp_stop(void)
 {
 	register unsigned long status asm ("1") = 0;
 	register unsigned long cpu asm ("2") = 0;
@@ -38,7 +40,7 @@ static void sigp_stop()
 		: "+d" (status)  : "d" (cpu), "d" (5) : "cc");
 }
 
-void setup()
+void setup(void)
 {
 	setup_args_progname(ipl_args);
 	setup_facilities();
