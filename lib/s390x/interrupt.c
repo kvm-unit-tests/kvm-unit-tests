@@ -51,6 +51,12 @@ static void fixup_pgm_int(void)
 		 */
 		lc->pgm_old_psw.mask &= ~PSW_MASK_PSTATE;
 		break;
+	case PGM_INT_CODE_PROTECTION:
+		/* Handling for iep.c test case. */
+		if (lc->trans_exc_id & 0x80UL && lc->trans_exc_id & 0x04UL &&
+		    !(lc->trans_exc_id & 0x08UL))
+			lc->pgm_old_psw.addr = lc->sw_int_grs[14];
+		break;
 	case PGM_INT_CODE_SEGMENT_TRANSLATION:
 	case PGM_INT_CODE_PAGE_TRANSLATION:
 	case PGM_INT_CODE_TRACE_TABLE:

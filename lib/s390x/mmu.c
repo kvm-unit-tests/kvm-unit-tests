@@ -16,6 +16,8 @@
 #include <asm/barrier.h>
 #include <vmalloc.h>
 
+static pgd_t *table_root;
+
 void configure_dat(int enable)
 {
 	uint64_t mask;
@@ -62,7 +64,7 @@ phys_addr_t virt_to_pte_phys(pgd_t *pgtable, void *vaddr)
 	       ((unsigned long)vaddr & ~PAGE_MASK);
 }
 
-pteval_t *install_page(pgd_t *pgtable, phys_addr_t phys, void *vaddr)
+static pteval_t *set_pte(pgd_t *pgtable, pteval_t val, void *vaddr)
 {
 	pteval_t *p_pte = get_pte(pgtable, (uintptr_t)vaddr);
 
@@ -70,8 +72,47 @@ pteval_t *install_page(pgd_t *pgtable, phys_addr_t phys, void *vaddr)
 	if (!(*p_pte & PAGE_ENTRY_I))
 		ipte((uintptr_t)vaddr, p_pte);
 
-	*p_pte = __pa(phys);
+	*p_pte = val;
 	return p_pte;
+}
+
+pteval_t *install_page(pgd_t *pgtable, phys_addr_t phys, void *vaddr)
+{
+	return set_pte(pgtable, __pa(phys), vaddr);
+}
+
+void protect_page(void *vaddr, unsigned long prot)
+{
+	pteval_t *p_pte = get_pte(table_root, (uintptr_t)vaddr);
+	pteval_t n_pte = *p_pte | prot;
+
+	set_pte(table_root, n_pte, vaddr);
+}
+
+void unprotect_page(void *vaddr, unsigned long prot)
+{
+	pteval_t *p_pte = get_pte(table_root, (uintptr_t)vaddr);
+	pteval_t n_pte = *p_pte & ~prot;
+
+	set_pte(table_root, n_pte, vaddr);
+}
+
+void protect_range(void *start, unsigned long len, unsigned long prot)
+{
+	uintptr_t curr = (uintptr_t)start & PAGE_MASK;
+
+	len &= PAGE_MASK;
+	for (; len; len -= PAGE_SIZE, curr += PAGE_SIZE)
+		protect_page((void *)curr, prot);
+}
+
+void unprotect_range(void *start, unsigned long len, unsigned long prot)
+{
+	uintptr_t curr = (uintptr_t)start & PAGE_MASK;
+
+	len &= PAGE_MASK;
+	for (; len; len -= PAGE_SIZE, curr += PAGE_SIZE)
+		unprotect_page((void *)curr, prot);
 }
 
 static void setup_identity(pgd_t *pgtable, phys_addr_t start_addr,
@@ -104,5 +145,6 @@ void *setup_mmu(phys_addr_t phys_end){
 
 	/* finally enable DAT with the new table */
 	mmu_enable(page_root);
+	table_root = page_root;
 	return page_root;
 }
