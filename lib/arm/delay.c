@@ -8,6 +8,7 @@
 #include <libcflat.h>
 #include <asm/processor.h>
 #include <asm/barrier.h>
+#include <asm/delay.h>
 
 void delay(u64 cycles)
 {

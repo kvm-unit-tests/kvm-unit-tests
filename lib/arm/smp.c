@@ -28,6 +28,9 @@ struct secondary_data {
 struct secondary_data secondary_data;
 static struct spinlock lock;
 
+/* Needed to compile with -Wmissing-prototypes */
+secondary_entry_fn secondary_cinit(void);
+
 secondary_entry_fn secondary_cinit(void)
 {
 	struct thread_info *ti = current_thread_info();

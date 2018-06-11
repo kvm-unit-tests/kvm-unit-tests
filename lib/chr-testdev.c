@@ -7,6 +7,8 @@
 #include "virtio.h"
 #include "asm/spinlock.h"
 
+#include "chr-testdev.h"
+
 #define TESTDEV_NAME "chr-testdev"
 
 static struct virtio_device *vcon;

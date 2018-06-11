@@ -73,6 +73,9 @@ void install_exception_handler(enum vector v, exception_fn fn)
 		ti->exception_handlers[v] = fn;
 }
 
+/* Needed to compile with -Wmissing-prototypes */
+void do_handle_exception(enum vector v, struct pt_regs *regs);
+
 void do_handle_exception(enum vector v, struct pt_regs *regs)
 {
 	struct thread_info *ti = thread_info_sp(regs->ARM_sp);

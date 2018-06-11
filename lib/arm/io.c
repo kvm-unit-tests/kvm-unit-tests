@@ -14,6 +14,8 @@
 #include <asm/spinlock.h>
 #include <asm/io.h>
 
+#include "io.h"
+
 extern void halt(int code);
 
 /*

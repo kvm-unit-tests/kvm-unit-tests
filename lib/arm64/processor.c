@@ -194,6 +194,9 @@ void vector_handlers_default_init(vector_fn *handlers)
 	handlers[EL0_IRQ_64]	= default_vector_irq_handler;
 }
 
+/* Needed to compile with -Wmissing-prototypes */
+void do_handle_exception(enum vector v, struct pt_regs *regs, unsigned int esr);
+
 void do_handle_exception(enum vector v, struct pt_regs *regs, unsigned int esr)
 {
 	struct thread_info *ti = thread_info_sp(regs->sp);

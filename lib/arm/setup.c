@@ -22,8 +22,9 @@
 #include <asm/page.h>
 #include <asm/smp.h>
 
+#include "io.h"
+
 extern unsigned long stacktop;
-extern void io_init(void);
 
 char *initrd;
 u32 initrd_size;
