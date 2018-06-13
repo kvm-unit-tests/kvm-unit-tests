@@ -9,6 +9,8 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <asm/hcall.h>
+#include <libcflat.h>
+#include "io.h"
 
 int hcall_have_broken_sc1(void)
 {

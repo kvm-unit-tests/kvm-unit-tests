@@ -64,6 +64,8 @@ static struct gs_cb gs_cb;
 static struct gs_epl gs_epl;
 static unsigned long gs_area = 0x2000000;
 
+void gs_handler(struct gs_cb *this_cb);
+
 static inline void load_gs_cb(struct gs_cb *gs_cb)
 {
 	asm volatile(".insn rxy,0xe3000000004d,0,%0" : : "Q" (*gs_cb));

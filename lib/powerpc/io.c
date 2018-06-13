@@ -8,9 +8,10 @@
 #include <libcflat.h>
 #include <asm/spinlock.h>
 #include <asm/rtas.h>
+#include <asm/setup.h>
+#include "io.h"
 
 extern void halt(int code);
-extern void putchar(int c);
 
 static struct spinlock print_lock;
 

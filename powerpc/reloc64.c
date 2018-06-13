@@ -24,6 +24,8 @@ struct elf64_rela {
 	signed long long addend;
 };
 
+void relocate(unsigned long load_addr, struct elf64_dyn *dyn_table);
+
 void relocate(unsigned long load_addr, struct elf64_dyn *dyn_table)
 {
 	unsigned long long rela_addr = 0, rela_count = 0, *addr;
