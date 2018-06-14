@@ -48,9 +48,10 @@ int main(void)
 	bool has_iep = test_facility(130);
 
 	report_prefix_push("iep");
-	report_xfail("DAT IEP available", !has_iep, has_iep);
-	if (!has_iep)
+	if (!has_iep) {
+		report_skip("DAT IEP is not available");
 		goto done;
+	}
 
 	/* Setup DAT 1:1 mapping and memory management */
 	setup_vm();

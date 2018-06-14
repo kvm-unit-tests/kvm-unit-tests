@@ -150,9 +150,10 @@ int main(void)
 	report_prefix_push("sthyi");
 
 	/* Test for availability */
-	report_xfail("STHYI available", !has_sthyi, has_sthyi);
-	if (!has_sthyi)
+	if (!has_sthyi) {
+		report_skip("STHYI is not available");
 		goto done;
+	}
 
 	/* Test register/argument checking. */
 	test_exception_addr();

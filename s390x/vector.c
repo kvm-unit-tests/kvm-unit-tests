@@ -60,9 +60,10 @@ static void test_ext1_nand(void)
 		__uint128_t a,b,c;
 	} prm __attribute__((aligned(16)));
 
-	report_xfail("Vector extensions 1 available", !has_vext, has_vext);
-	if (!has_vext)
+	if (!has_vext) {
+		report_skip("Vector extensions 1 is not available");
 		return;
+	}
 
 	memset(&prm, 0xff, sizeof(prm));
 
@@ -85,9 +86,10 @@ static void test_bcd_add(void)
 		__uint128_t a,b,c;
 	} prm __attribute__((aligned(16)));
 
-	report_xfail("Vector BCD extensions available", !has_bcd, has_bcd);
-	if (!has_bcd)
+	if (!has_bcd) {
+		report_skip("Vector BCD extensions is not available");
 		return;
+	}
 
 	prm.c = 0;
 	prm.a = prm.b = 0b001000011100;
@@ -118,9 +120,10 @@ int main(void)
 	bool has_vregs = test_facility(129);
 
 	report_prefix_push("vector");
-	report_xfail("Basic vector facility available", !has_vregs, has_vregs);
-	if (!has_vregs)
+	if (!has_vregs) {
+		report_skip("Basic vector facility is not available");
 		goto done;
+	}
 
 	init();
 	test_add();
