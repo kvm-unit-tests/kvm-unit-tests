@@ -35,15 +35,17 @@ static void cpu_has_tm(int fdtnode, u64 regval __unused, void *ptr)
 		*(int *)ptr += 1;
 }
 
-/* Check whether all CPU nodes have the TM flag */
-static bool all_cpus_have_tm(void)
+/* Check amount of CPUs nodes that have the TM flag */
+static int count_cpus_with_tm(void)
 {
 	int ret;
 	int available = 0;
 
 	ret = dt_for_each_cpu_node(cpu_has_tm, &available);
+	if (ret < 0)
+		return ret;
 
-	return ret == 0 && available == nr_cpus;
+	return available;
 }
 
 static int h_cede(void)
@@ -136,16 +138,18 @@ struct {
 
 int main(int argc, char **argv)
 {
-	bool all, has_tm;
-	int i;
+	bool all;
+	int i, cpus_with_tm;
 
 	report_prefix_push("tm");
 
-	has_tm = all_cpus_have_tm();
-	report_xfail("TM available in 'ibm,pa-features' property",
-		     !has_tm, has_tm);
-	if (!has_tm)
-		return report_summary();
+	cpus_with_tm = count_cpus_with_tm();
+	if (cpus_with_tm == 0) {
+		report_skip("TM is not available");
+		goto done;
+	}
+	report("TM available in all 'ibm,pa-features' properties",
+	       cpus_with_tm == nr_cpus);
 
 	all = argc == 1 || !strcmp(argv[1], "all");
 
@@ -157,5 +161,7 @@ int main(int argc, char **argv)
 		}
 	}
 
+done:
+	report_prefix_pop();
 	return report_summary();
 }
