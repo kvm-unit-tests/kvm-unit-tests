@@ -146,6 +146,10 @@ enum Encoding {
 	APIC_ACCS_ADDR		= 0x2014ul,
 	EPTP			= 0x201aul,
 	EPTP_HI			= 0x201bul,
+	VMREAD_BITMAP           = 0x2026ul,
+	VMREAD_BITMAP_HI        = 0x2027ul,
+	VMWRITE_BITMAP          = 0x2028ul,
+	VMWRITE_BITMAP_HI       = 0x2029ul,
 	EOI_EXIT_BITMAP0	= 0x201cul,
 	EOI_EXIT_BITMAP1	= 0x201eul,
 	EOI_EXIT_BITMAP2	= 0x2020ul,
@@ -410,6 +414,7 @@ enum Ctrl1 {
 	CPU_APIC_REG_VIRT	= 1ul << 8,
 	CPU_VINTD		= 1ul << 9,
 	CPU_RDRAND		= 1ul << 11,
+	CPU_SHADOW_VMCS		= 1ul << 14,
 	CPU_RDSEED		= 1ul << 16,
 	CPU_PML                 = 1ul << 17,
 };
