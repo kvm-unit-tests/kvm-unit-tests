@@ -460,4 +460,16 @@ static inline bool is_canonical(u64 addr)
 	return (s64)(addr << 16) >> 16 == addr;
 }
 
+static inline void clear_bit(int bit, u8 *addr)
+{
+	__asm__ __volatile__("btr %1, %0"
+			     : "+m" (*addr) : "Ir" (bit) : "cc", "memory");
+}
+
+static inline void set_bit(int bit, u8 *addr)
+{
+	__asm__ __volatile__("bts %1, %0"
+			     : "+m" (*addr) : "Ir" (bit) : "cc", "memory");
+}
+
 #endif
