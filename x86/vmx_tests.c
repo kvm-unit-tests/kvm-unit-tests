@@ -4606,6 +4606,314 @@ static void vmx_apic_passthrough_thread_test(void)
 	vmx_apic_passthrough(true);
 }
 
+enum vmcs_access {
+	ACCESS_VMREAD,
+	ACCESS_VMWRITE,
+	ACCESS_NONE,
+};
+
+struct vmcs_shadow_test_common {
+	enum vmcs_access op;
+	enum Reason reason;
+	u64 field;
+	u64 value;
+	u64 flags;
+	u64 time;
+} l1_l2_common;
+
+static inline u64 vmread_flags(u64 field, u64 *val)
+{
+	u64 flags;
+
+	asm volatile ("vmread %2, %1; pushf; pop %0"
+		      : "=r" (flags), "=rm" (*val) : "r" (field) : "cc");
+	return flags & X86_EFLAGS_ALU;
+}
+
+static inline u64 vmwrite_flags(u64 field, u64 val)
+{
+	u64 flags;
+
+	asm volatile ("vmwrite %1, %2; pushf; pop %0"
+		      : "=r"(flags) : "rm" (val), "r" (field) : "cc");
+	return flags & X86_EFLAGS_ALU;
+}
+
+static void vmx_vmcs_shadow_test_guest(void)
+{
+	struct vmcs_shadow_test_common *c = &l1_l2_common;
+	u64 start;
+
+	while (c->op != ACCESS_NONE) {
+		start = rdtsc();
+		switch (c->op) {
+		default:
+			c->flags = -1ull;
+			break;
+		case ACCESS_VMREAD:
+			c->flags = vmread_flags(c->field, &c->value);
+			break;
+		case ACCESS_VMWRITE:
+			c->flags = vmwrite_flags(c->field, 0);
+			break;
+		}
+		c->time = rdtsc() - start;
+		vmcall();
+	}
+}
+
+static u64 vmread_from_shadow(u64 field)
+{
+	struct vmcs *primary;
+	struct vmcs *shadow;
+	u64 value;
+
+	TEST_ASSERT(!vmcs_save(&primary));
+	shadow = (struct vmcs *)vmcs_read(VMCS_LINK_PTR);
+	TEST_ASSERT(!make_vmcs_current(shadow));
+	value = vmcs_read(field);
+	TEST_ASSERT(!make_vmcs_current(primary));
+	return value;
+}
+
+static u64 vmwrite_to_shadow(u64 field, u64 value)
+{
+	struct vmcs *primary;
+	struct vmcs *shadow;
+
+	TEST_ASSERT(!vmcs_save(&primary));
+	shadow = (struct vmcs *)vmcs_read(VMCS_LINK_PTR);
+	TEST_ASSERT(!make_vmcs_current(shadow));
+	vmcs_write(field, value);
+	value = vmcs_read(field);
+	TEST_ASSERT(!make_vmcs_current(primary));
+	return value;
+}
+
+static void vmcs_shadow_test_access(u8 *bitmap[2], enum vmcs_access access)
+{
+	struct vmcs_shadow_test_common *c = &l1_l2_common;
+
+	c->op = access;
+	vmcs_write(VMX_INST_ERROR, 0);
+	enter_guest();
+	c->reason = vmcs_read(EXI_REASON) & 0xffff;
+	if (c->reason != VMX_VMCALL) {
+		skip_exit_insn();
+		enter_guest();
+	}
+	skip_exit_vmcall();
+}
+
+static void vmcs_shadow_test_field(u8 *bitmap[2], u64 field)
+{
+	struct vmcs_shadow_test_common *c = &l1_l2_common;
+	struct vmcs *shadow;
+	u64 value;
+	uintptr_t flags[2];
+	bool good_shadow;
+	u32 vmx_inst_error;
+
+	report_prefix_pushf("field %lx", field);
+	c->field = field;
+
+	shadow = (struct vmcs *)vmcs_read(VMCS_LINK_PTR);
+	if (shadow != (struct vmcs *)-1ull) {
+		flags[ACCESS_VMREAD] = vmread_flags(field, &value);
+		flags[ACCESS_VMWRITE] = vmwrite_flags(field, value);
+		good_shadow = !flags[ACCESS_VMREAD] && !flags[ACCESS_VMWRITE];
+	} else {
+		/*
+		 * When VMCS link pointer is -1ull, VMWRITE/VMREAD on
+		 * shadowed-fields should fail with setting RFLAGS.CF.
+		 */
+		flags[ACCESS_VMREAD] = X86_EFLAGS_CF;
+		flags[ACCESS_VMWRITE] = X86_EFLAGS_CF;
+		good_shadow = false;
+	}
+
+	/* Intercept both VMREAD and VMWRITE. */
+	report_prefix_push("no VMREAD/VMWRITE permission");
+	/* VMWRITE/VMREAD done on reserved-bit should always intercept */
+	if (!(field >> VMCS_FIELD_RESERVED_SHIFT)) {
+		set_bit(field, bitmap[ACCESS_VMREAD]);
+		set_bit(field, bitmap[ACCESS_VMWRITE]);
+	}
+	vmcs_shadow_test_access(bitmap, ACCESS_VMWRITE);
+	report("not shadowed for VMWRITE", c->reason == VMX_VMWRITE);
+	vmcs_shadow_test_access(bitmap, ACCESS_VMREAD);
+	report("not shadowed for VMREAD", c->reason == VMX_VMREAD);
+	report_prefix_pop();
+
+	if (field >> VMCS_FIELD_RESERVED_SHIFT)
+		goto out;
+
+	/* Permit shadowed VMREAD. */
+	report_prefix_push("VMREAD permission only");
+	clear_bit(field, bitmap[ACCESS_VMREAD]);
+	set_bit(field, bitmap[ACCESS_VMWRITE]);
+	if (good_shadow)
+		value = vmwrite_to_shadow(field, MAGIC_VAL_1 + field);
+	vmcs_shadow_test_access(bitmap, ACCESS_VMWRITE);
+	report("not shadowed for VMWRITE", c->reason == VMX_VMWRITE);
+	vmcs_shadow_test_access(bitmap, ACCESS_VMREAD);
+	vmx_inst_error = vmcs_read(VMX_INST_ERROR);
+	report("shadowed for VMREAD (in %ld cycles)", c->reason == VMX_VMCALL,
+	       c->time);
+	report("ALU flags after VMREAD (%lx) are as expected (%lx)",
+	       c->flags == flags[ACCESS_VMREAD],
+	       c->flags, flags[ACCESS_VMREAD]);
+	if (good_shadow)
+		report("value read from shadow (%lx) is as expected (%lx)",
+		       c->value == value, c->value, value);
+	else if (shadow != (struct vmcs *)-1ull && flags[ACCESS_VMREAD])
+		report("VMX_INST_ERROR (%d) is as expected (%d)",
+		       vmx_inst_error == VMXERR_UNSUPPORTED_VMCS_COMPONENT,
+		       vmx_inst_error, VMXERR_UNSUPPORTED_VMCS_COMPONENT);
+	report_prefix_pop();
+
+	/* Permit shadowed VMWRITE. */
+	report_prefix_push("VMWRITE permission only");
+	set_bit(field, bitmap[ACCESS_VMREAD]);
+	clear_bit(field, bitmap[ACCESS_VMWRITE]);
+	if (good_shadow)
+		vmwrite_to_shadow(field, MAGIC_VAL_1 + field);
+	vmcs_shadow_test_access(bitmap, ACCESS_VMWRITE);
+	vmx_inst_error = vmcs_read(VMX_INST_ERROR);
+	report("shadowed for VMWRITE (in %ld cycles)", c->reason == VMX_VMCALL,
+		c->time);
+	report("ALU flags after VMWRITE (%lx) are as expected (%lx)",
+	       c->flags == flags[ACCESS_VMREAD],
+	       c->flags, flags[ACCESS_VMREAD]);
+	if (good_shadow) {
+		value = vmread_from_shadow(field);
+		report("shadow VMCS value (%lx) is as expected (%lx)",
+		       value == 0, value, 0ul);
+	} else if (shadow != (struct vmcs *)-1ull && flags[ACCESS_VMWRITE]) {
+		report("VMX_INST_ERROR (%d) is as expected (%d)",
+		       vmx_inst_error == VMXERR_UNSUPPORTED_VMCS_COMPONENT,
+		       vmx_inst_error, VMXERR_UNSUPPORTED_VMCS_COMPONENT);
+	}
+	vmcs_shadow_test_access(bitmap, ACCESS_VMREAD);
+	report("not shadowed for VMREAD", c->reason == VMX_VMREAD);
+	report_prefix_pop();
+
+	/* Permit shadowed VMREAD and VMWRITE. */
+	report_prefix_push("VMREAD and VMWRITE permission");
+	clear_bit(field, bitmap[ACCESS_VMREAD]);
+	clear_bit(field, bitmap[ACCESS_VMWRITE]);
+	if (good_shadow)
+		vmwrite_to_shadow(field, MAGIC_VAL_1 + field);
+	vmcs_shadow_test_access(bitmap, ACCESS_VMWRITE);
+	vmx_inst_error = vmcs_read(VMX_INST_ERROR);
+	report("shadowed for VMWRITE (in %ld cycles)", c->reason == VMX_VMCALL,
+		c->time);
+	report("ALU flags after VMWRITE (%lx) are as expected (%lx)",
+	       c->flags == flags[ACCESS_VMREAD],
+	       c->flags, flags[ACCESS_VMREAD]);
+	if (good_shadow) {
+		value = vmread_from_shadow(field);
+		report("shadow VMCS value (%lx) is as expected (%lx)",
+		       value == 0, value, 0ul);
+	} else if (shadow != (struct vmcs *)-1ull && flags[ACCESS_VMWRITE]) {
+		report("VMX_INST_ERROR (%d) is as expected (%d)",
+		       vmx_inst_error == VMXERR_UNSUPPORTED_VMCS_COMPONENT,
+		       vmx_inst_error, VMXERR_UNSUPPORTED_VMCS_COMPONENT);
+	}
+	vmcs_shadow_test_access(bitmap, ACCESS_VMREAD);
+	vmx_inst_error = vmcs_read(VMX_INST_ERROR);
+	report("shadowed for VMREAD (in %ld cycles)", c->reason == VMX_VMCALL,
+	       c->time);
+	report("ALU flags after VMREAD (%lx) are as expected (%lx)",
+	       c->flags == flags[ACCESS_VMREAD],
+	       c->flags, flags[ACCESS_VMREAD]);
+	if (good_shadow)
+		report("value read from shadow (%lx) is as expected (%lx)",
+		       c->value == 0, c->value, 0ul);
+	else if (shadow != (struct vmcs *)-1ull && flags[ACCESS_VMREAD])
+		report("VMX_INST_ERROR (%d) is as expected (%d)",
+		       vmx_inst_error == VMXERR_UNSUPPORTED_VMCS_COMPONENT,
+		       vmx_inst_error, VMXERR_UNSUPPORTED_VMCS_COMPONENT);
+	report_prefix_pop();
+
+out:
+	report_prefix_pop();
+}
+
+static void vmx_vmcs_shadow_test_body(u8 *bitmap[2])
+{
+	unsigned base;
+	unsigned index;
+	unsigned bit;
+	unsigned highest_index = rdmsr(MSR_IA32_VMX_VMCS_ENUM);
+
+	/* Run test on all possible valid VMCS fields */
+	for (base = 0;
+	     base < (1 << VMCS_FIELD_RESERVED_SHIFT);
+	     base += (1 << VMCS_FIELD_TYPE_SHIFT))
+		for (index = 0; index <= highest_index; index++)
+			vmcs_shadow_test_field(bitmap, base + index);
+
+	/*
+	 * Run tests on some invalid VMCS fields
+	 * (Have reserved bit set).
+	 */
+	for (bit = VMCS_FIELD_RESERVED_SHIFT; bit < VMCS_FIELD_BIT_SIZE; bit++)
+		vmcs_shadow_test_field(bitmap, (1ull << bit));
+}
+
+static void vmx_vmcs_shadow_test(void)
+{
+	u8 *bitmap[2];
+	struct vmcs *shadow;
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY)) {
+		printf("\t'Activate secondary controls' not supported.\n");
+		return;
+	}
+
+	if (!(ctrl_cpu_rev[1].clr & CPU_SHADOW_VMCS)) {
+		printf("\t'VMCS shadowing' not supported.\n");
+		return;
+	}
+
+	if (!(rdmsr(MSR_IA32_VMX_MISC) &
+	      MSR_IA32_VMX_MISC_VMWRITE_SHADOW_RO_FIELDS)) {
+		printf("\tVMWRITE can't modify VM-exit information fields.\n");
+		return;
+	}
+
+	test_set_guest(vmx_vmcs_shadow_test_guest);
+
+	bitmap[ACCESS_VMREAD] = alloc_page();
+	bitmap[ACCESS_VMWRITE] = alloc_page();
+
+	vmcs_write(VMREAD_BITMAP, virt_to_phys(bitmap[ACCESS_VMREAD]));
+	vmcs_write(VMWRITE_BITMAP, virt_to_phys(bitmap[ACCESS_VMWRITE]));
+
+	shadow = alloc_page();
+	shadow->hdr.revision_id = basic.revision;
+	shadow->hdr.shadow_vmcs = 1;
+	TEST_ASSERT(!vmcs_clear(shadow));
+
+	vmcs_clear_bits(CPU_EXEC_CTRL0, CPU_RDTSC);
+	vmcs_set_bits(CPU_EXEC_CTRL0, CPU_SECONDARY);
+	vmcs_set_bits(CPU_EXEC_CTRL1, CPU_SHADOW_VMCS);
+
+	vmcs_write(VMCS_LINK_PTR, virt_to_phys(shadow));
+	report_prefix_push("valid link pointer");
+	vmx_vmcs_shadow_test_body(bitmap);
+	report_prefix_pop();
+
+	vmcs_write(VMCS_LINK_PTR, -1ull);
+	report_prefix_push("invalid link pointer");
+	vmx_vmcs_shadow_test_body(bitmap);
+	report_prefix_pop();
+
+	l1_l2_common.op = ACCESS_NONE;
+	enter_guest();
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -4656,6 +4964,8 @@ struct vmx_test vmx_tests[] = {
 	/* APIC pass-through tests */
 	TEST(vmx_apic_passthrough_test),
 	TEST(vmx_apic_passthrough_thread_test),
+	/* VMCS Shadowing tests */
+	TEST(vmx_vmcs_shadow_test),
 	/* Regression tests */
 	TEST(vmx_cr_load_test),
 	/* EPT access tests. */
