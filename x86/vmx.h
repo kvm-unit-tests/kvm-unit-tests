@@ -693,6 +693,16 @@ static inline int vmcs_write(enum Encoding enc, u64 val)
 	return ret;
 }
 
+static inline int vmcs_set_bits(enum Encoding enc, u64 val)
+{
+	return vmcs_write(enc, vmcs_read(enc) | val);
+}
+
+static inline int vmcs_clear_bits(enum Encoding enc, u64 val)
+{
+	return vmcs_write(enc, vmcs_read(enc) & ~val);
+}
+
 static inline int vmcs_save(struct vmcs **vmcs)
 {
 	bool ret;
