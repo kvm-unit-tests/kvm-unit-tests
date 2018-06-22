@@ -4265,7 +4265,7 @@ static bool valid_vmcs_for_vmentry(void)
 	if (vmcs_save(&current_vmcs))
 		return false;
 
-	return current_vmcs && !(current_vmcs->revision_id >> 31);
+	return current_vmcs && !current_vmcs->hdr.shadow_vmcs;
 }
 
 static void try_vmentry_in_movss_shadow(void)

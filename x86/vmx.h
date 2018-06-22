@@ -7,8 +7,13 @@
 #include "asm/page.h"
 #include "asm/io.h"
 
+struct vmcs_hdr {
+	u32 revision_id:31;
+	u32 shadow_vmcs:1;
+};
+
 struct vmcs {
-	u32 revision_id; /* vmcs revision identifier */
+	struct vmcs_hdr hdr;
 	u32 abort; /* VMX-abort indicator */
 	/* VMCS data */
 	char data[0];

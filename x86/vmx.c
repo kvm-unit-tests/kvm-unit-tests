@@ -340,7 +340,7 @@ void test_vmwrite_vmread(void)
 	struct vmcs *vmcs = alloc_page();
 
 	memset(vmcs, 0, PAGE_SIZE);
-	vmcs->revision_id = basic.revision;
+	vmcs->hdr.revision_id = basic.revision;
 	assert(!vmcs_clear(vmcs));
 	assert(!make_vmcs_current(vmcs));
 
@@ -356,7 +356,7 @@ void test_vmcs_high(void)
 	struct vmcs *vmcs = alloc_page();
 
 	memset(vmcs, 0, PAGE_SIZE);
-	vmcs->revision_id = basic.revision;
+	vmcs->hdr.revision_id = basic.revision;
 	assert(!vmcs_clear(vmcs));
 	assert(!make_vmcs_current(vmcs));
 
@@ -383,7 +383,7 @@ void test_vmcs_lifecycle(void)
 	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
 		vmcs[i] = alloc_page();
 		memset(vmcs[i], 0, PAGE_SIZE);
-		vmcs[i]->revision_id = basic.revision;
+		vmcs[i]->hdr.revision_id = basic.revision;
 	}
 
 #define VMPTRLD(_i) do { \
@@ -632,7 +632,7 @@ static void test_vmclear_flushing(void)
 		memset(vmcs[i], 0, PAGE_SIZE);
 	}
 
-	vmcs[0]->revision_id = basic.revision;
+	vmcs[0]->hdr.revision_id = basic.revision;
 	assert(!vmcs_clear(vmcs[0]));
 	assert(!make_vmcs_current(vmcs[0]));
 	set_all_vmcs_fields(0x86);
@@ -1203,7 +1203,7 @@ static int init_vmcs(struct vmcs **vmcs)
 {
 	*vmcs = alloc_page();
 	memset(*vmcs, 0, PAGE_SIZE);
-	(*vmcs)->revision_id = basic.revision;
+	(*vmcs)->hdr.revision_id = basic.revision;
 	/* vmclear first to init vmcs */
 	if (vmcs_clear(*vmcs)) {
 		printf("%s : vmcs_clear error\n", __func__);
@@ -1369,7 +1369,7 @@ static void test_vmptrld(void)
 	int width = cpuid_maxphyaddr();
 
 	vmcs = alloc_page();
-	vmcs->revision_id = basic.revision;
+	vmcs->hdr.revision_id = basic.revision;
 
 	/* Unaligned page access */
 	tmp_root = (struct vmcs *)((intptr_t)vmcs + 1);
