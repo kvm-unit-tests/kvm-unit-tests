@@ -2102,13 +2102,17 @@ static void assert_exit_reason(u64 expected)
 			   exit_reason_description(actual));
 }
 
-static void skip_exit_vmcall(void)
+static void skip_exit_insn(void)
 {
 	u64 guest_rip = vmcs_read(GUEST_RIP);
 	u32 insn_len = vmcs_read(EXI_INST_LEN);
-
-	assert_exit_reason(VMX_VMCALL);
 	vmcs_write(GUEST_RIP, guest_rip + insn_len);
+}
+
+static void skip_exit_vmcall(void)
+{
+	assert_exit_reason(VMX_VMCALL);
+	skip_exit_insn();
 }
 
 static void v2_null_test_guest(void)
