@@ -605,6 +605,21 @@ enum vm_instruction_error_number {
 #define ACTV_ACTIVE		0
 #define ACTV_HLT		1
 
+/*
+ * VMCS field encoding:
+ * Bit 0: High-access
+ * Bits 1-9: Index
+ * Bits 10-12: Type
+ * Bits 13-15: Width
+ * Bits 15-64: Reserved
+ */
+#define VMCS_FIELD_HIGH_SHIFT		(0)
+#define VMCS_FIELD_INDEX_SHIFT		(1)
+#define VMCS_FIELD_TYPE_SHIFT		(10)
+#define VMCS_FIELD_WIDTH_SHIFT		(13)
+#define VMCS_FIELD_RESERVED_SHIFT	(15)
+#define VMCS_FIELD_BIT_SIZE		(BITS_PER_LONG)
+
 extern struct regs regs;
 
 extern union vmx_basic basic;
