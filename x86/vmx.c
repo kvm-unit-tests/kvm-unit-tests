@@ -125,7 +125,7 @@ static struct vmcs_field vmcs_fields[] = {
 	{ MASK(64), APIC_ACCS_ADDR },
 	{ MASK(64), EPTP },
 
-	{ 0 /* read-only */, INFO_PHYS_ADDR },
+	{ MASK(64), INFO_PHYS_ADDR },
 
 	{ MASK(64), VMCS_LINK_PTR },
 	{ MASK(64), GUEST_DEBUGCTL },
@@ -155,14 +155,14 @@ static struct vmcs_field vmcs_fields[] = {
 	{ MASK(32), TPR_THRESHOLD },
 	{ MASK(32), CPU_EXEC_CTRL1 },
 
-	{ 0 /* read-only */, VMX_INST_ERROR },
-	{ 0 /* read-only */, EXI_REASON },
-	{ 0 /* read-only */, EXI_INTR_INFO },
-	{ 0 /* read-only */, EXI_INTR_ERROR },
-	{ 0 /* read-only */, IDT_VECT_INFO },
-	{ 0 /* read-only */, IDT_VECT_ERROR },
-	{ 0 /* read-only */, EXI_INST_LEN },
-	{ 0 /* read-only */, EXI_INST_INFO },
+	{ MASK(32), VMX_INST_ERROR },
+	{ MASK(32), EXI_REASON },
+	{ MASK(32), EXI_INTR_INFO },
+	{ MASK(32), EXI_INTR_ERROR },
+	{ MASK(32), IDT_VECT_INFO },
+	{ MASK(32), IDT_VECT_ERROR },
+	{ MASK(32), EXI_INST_LEN },
+	{ MASK(32), EXI_INST_INFO },
 
 	{ MASK(32), GUEST_LIMIT_ES },
 	{ MASK(32), GUEST_LIMIT_CS },
@@ -199,12 +199,12 @@ static struct vmcs_field vmcs_fields[] = {
 	{ MASK_NATURAL, CR3_TARGET_2 },
 	{ MASK_NATURAL, CR3_TARGET_3 },
 
-	{ 0 /* read-only */, EXI_QUALIFICATION },
-	{ 0 /* read-only */, IO_RCX },
-	{ 0 /* read-only */, IO_RSI },
-	{ 0 /* read-only */, IO_RDI },
-	{ 0 /* read-only */, IO_RIP },
-	{ 0 /* read-only */, GUEST_LINEAR_ADDRESS },
+	{ MASK_NATURAL, EXI_QUALIFICATION },
+	{ MASK_NATURAL, IO_RCX },
+	{ MASK_NATURAL, IO_RSI },
+	{ MASK_NATURAL, IO_RDI },
+	{ MASK_NATURAL, IO_RIP },
+	{ MASK_NATURAL, GUEST_LINEAR_ADDRESS },
 
 	{ MASK_NATURAL, GUEST_CR0 },
 	{ MASK_NATURAL, GUEST_CR3 },
@@ -241,6 +241,28 @@ static struct vmcs_field vmcs_fields[] = {
 	{ MASK_NATURAL, HOST_RIP },
 };
 
+enum vmcs_field_type {
+	VMCS_FIELD_TYPE_CONTROL = 0,
+	VMCS_FIELD_TYPE_READ_ONLY_DATA = 1,
+	VMCS_FIELD_TYPE_GUEST = 2,
+	VMCS_FIELD_TYPE_HOST = 3,
+	VMCS_FIELD_TYPES,
+};
+
+static inline int vmcs_field_type(struct vmcs_field *f)
+{
+	return (f->encoding >> VMCS_FIELD_TYPE_SHIFT) & 0x3;
+}
+
+static int vmcs_field_readonly(struct vmcs_field *f)
+{
+	u64 ia32_vmx_misc;
+
+	ia32_vmx_misc = rdmsr(MSR_IA32_VMX_MISC);
+	return !(ia32_vmx_misc & MSR_IA32_VMX_MISC_VMWRITE_SHADOW_RO_FIELDS) &&
+		(vmcs_field_type(f) == VMCS_FIELD_TYPE_READ_ONLY_DATA);
+}
+
 static inline u64 vmcs_field_value(struct vmcs_field *f, u8 cookie)
 {
 	u64 value;
@@ -263,6 +285,16 @@ static bool check_vmcs_field(struct vmcs_field *f, u8 cookie)
 	u64 expected;
 	u64 actual;
 	int ret;
+
+	if (f->encoding == VMX_INST_ERROR) {
+		printf("Skipping volatile field %lx\n", f->encoding);
+		return true;
+	}
+
+	if (vmcs_field_readonly(f)) {
+		printf("Skipping read-only field %lx\n", f->encoding);
+		return true;
+	}
 
 	ret = vmcs_read_checking(f->encoding, &actual);
 	assert(!(ret & X86_EFLAGS_CF));
