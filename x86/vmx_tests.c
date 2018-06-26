@@ -3605,6 +3605,281 @@ static void try_tpr_threshold_and_vtpr(unsigned threshold, unsigned vtpr)
 	report_prefix_pop();
 }
 
+static void test_invalid_event_injection(void)
+{
+	u32 ent_intr_info_save = vmcs_read(ENT_INTR_INFO);
+	u32 ent_intr_error_save = vmcs_read(ENT_INTR_ERROR);
+	u32 ent_inst_len_save = vmcs_read(ENT_INST_LEN);
+	u32 primary_save = vmcs_read(CPU_EXEC_CTRL0);
+	u32 secondary_save = vmcs_read(CPU_EXEC_CTRL1);
+	u64 guest_cr0_save = vmcs_read(GUEST_CR0);
+	u32 ent_intr_info_base = INTR_INFO_VALID_MASK;
+	u32 ent_intr_info, ent_intr_err, ent_intr_len;
+	u32 cnt;
+
+	/* Setup */
+	report_prefix_push("invalid event injection");
+	vmcs_write(ENT_INTR_ERROR, 0x00000000);
+	vmcs_write(ENT_INST_LEN, 0x00000001);
+
+	/* The field’s interruption type is not set to a reserved value. */
+	ent_intr_info = ent_intr_info_base | INTR_TYPE_RESERVED | DE_VECTOR;
+	report_prefix_pushf("%s, VM-entry intr info=0x%x",
+			    "RESERVED interruption type invalid [-]",
+			    ent_intr_info);
+	vmcs_write(ENT_INTR_INFO, ent_intr_info);
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	ent_intr_info = ent_intr_info_base | INTR_TYPE_EXT_INTR |
+			DE_VECTOR;
+	report_prefix_pushf("%s, VM-entry intr info=0x%x",
+			    "RESERVED interruption type invalid [+]",
+			    ent_intr_info);
+	vmcs_write(ENT_INTR_INFO, ent_intr_info);
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	/* If the interruption type is other event, the vector is 0. */
+	ent_intr_info = ent_intr_info_base | INTR_TYPE_OTHER_EVENT | DB_VECTOR;
+	report_prefix_pushf("%s, VM-entry intr info=0x%x",
+			    "(OTHER EVENT && vector != 0) invalid [-]",
+			    ent_intr_info);
+	vmcs_write(ENT_INTR_INFO, ent_intr_info);
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	/* If the interruption type is NMI, the vector is 2 (negative case). */
+	ent_intr_info = ent_intr_info_base | INTR_TYPE_NMI_INTR | DE_VECTOR;
+	report_prefix_pushf("%s, VM-entry intr info=0x%x",
+			    "(NMI && vector != 2) invalid [-]", ent_intr_info);
+	vmcs_write(ENT_INTR_INFO, ent_intr_info);
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	/* If the interruption type is NMI, the vector is 2 (positive case). */
+	ent_intr_info = ent_intr_info_base | INTR_TYPE_NMI_INTR | NMI_VECTOR;
+	report_prefix_pushf("%s, VM-entry intr info=0x%x",
+			    "(NMI && vector == 2) valid [+]", ent_intr_info);
+	vmcs_write(ENT_INTR_INFO, ent_intr_info);
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	/*
+	 * If the interruption type
+	 * is HW exception, the vector is at most 31.
+	 */
+	ent_intr_info = ent_intr_info_base | INTR_TYPE_HARD_EXCEPTION | 0x20;
+	report_prefix_pushf("%s, VM-entry intr info=0x%x",
+			    "(HW exception && vector > 31) invalid [-]",
+			    ent_intr_info);
+	vmcs_write(ENT_INTR_INFO, ent_intr_info);
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	/*
+	 * deliver-error-code is 1 iff either
+	 * (a) the "unrestricted guest" VM-execution control is 0
+	 * (b) CR0.PE is set.
+	 */
+	ent_intr_info = ent_intr_info_base | INTR_TYPE_HARD_EXCEPTION |
+			GP_VECTOR;
+	report_prefix_pushf("%s, VM-entry intr info=0x%x",
+			    "error code <-> (!URG || prot_mode) [-]",
+			    ent_intr_info);
+	disable_unrestricted_guest();
+	vmcs_write(GUEST_CR0, guest_cr0_save & ~X86_CR0_PE & ~X86_CR0_PG);
+	vmcs_write(ENT_INTR_INFO, ent_intr_info);
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	ent_intr_info = ent_intr_info_base | INTR_INFO_DELIVER_CODE_MASK |
+			INTR_TYPE_HARD_EXCEPTION | GP_VECTOR;
+	report_prefix_pushf("%s, VM-entry intr info=0x%x",
+			    "error code <-> (!URG || prot_mode) [+]",
+			    ent_intr_info);
+	disable_unrestricted_guest();
+	vmcs_write(GUEST_CR0, guest_cr0_save & ~X86_CR0_PE & ~X86_CR0_PG);
+	vmcs_write(ENT_INTR_INFO, ent_intr_info);
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	ent_intr_info = ent_intr_info_base | INTR_INFO_DELIVER_CODE_MASK |
+			INTR_TYPE_HARD_EXCEPTION | GP_VECTOR;
+	report_prefix_pushf("%s, VM-entry intr info=0x%x",
+			    "error code <-> (!URG || prot_mode) [-]",
+			    ent_intr_info);
+	enable_unrestricted_guest();
+	vmcs_write(GUEST_CR0, guest_cr0_save & ~X86_CR0_PE & ~X86_CR0_PG);
+	vmcs_write(ENT_INTR_INFO, ent_intr_info);
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	ent_intr_info = ent_intr_info_base | INTR_TYPE_HARD_EXCEPTION |
+			GP_VECTOR;
+	report_prefix_pushf("%s, VM-entry intr info=0x%x",
+			    "error code <-> (!URG || prot_mode) [-]",
+			    ent_intr_info);
+	vmcs_write(GUEST_CR0, guest_cr0_save | X86_CR0_PE);
+	vmcs_write(ENT_INTR_INFO, ent_intr_info);
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	/* deliver-error-code is 1 iff the interruption type is HW exception */
+	report_prefix_push("error code <-> HW exception");
+	for (cnt = 0; cnt < 8; cnt++) {
+		u32 exception_type_mask = cnt << 8;
+		u32 deliver_error_code_mask =
+			exception_type_mask != INTR_TYPE_HARD_EXCEPTION ?
+			INTR_INFO_DELIVER_CODE_MASK : 0;
+
+		ent_intr_info = ent_intr_info_base | deliver_error_code_mask |
+				exception_type_mask | GP_VECTOR;
+		report_prefix_pushf("VM-entry intr info=0x%x [-]",
+				    ent_intr_info);
+		vmcs_write(ENT_INTR_INFO, ent_intr_info);
+		test_vmx_controls(false, false);
+		report_prefix_pop();
+	}
+	report_prefix_pop();
+
+	/*
+	 * deliver-error-code is 1 iff the the vector
+	 * indicates an exception that would normally deliver an error code
+	 */
+	report_prefix_push("error code <-> vector delivers error code");
+	for (cnt = 0; cnt < 32; cnt++) {
+		bool has_error_code = false;
+		u32 deliver_error_code_mask;
+
+		switch (cnt) {
+		case DF_VECTOR:
+		case TS_VECTOR:
+		case NP_VECTOR:
+		case SS_VECTOR:
+		case GP_VECTOR:
+		case PF_VECTOR:
+		case AC_VECTOR:
+			has_error_code = true;
+		}
+
+		/* Negative case */
+		deliver_error_code_mask = has_error_code ?
+						0 :
+						INTR_INFO_DELIVER_CODE_MASK;
+		ent_intr_info = ent_intr_info_base | deliver_error_code_mask |
+				INTR_TYPE_HARD_EXCEPTION | cnt;
+		report_prefix_pushf("VM-entry intr info=0x%x [-]",
+				    ent_intr_info);
+		vmcs_write(ENT_INTR_INFO, ent_intr_info);
+		test_vmx_controls(false, false);
+		report_prefix_pop();
+
+		/* Positive case */
+		deliver_error_code_mask = has_error_code ?
+						INTR_INFO_DELIVER_CODE_MASK :
+						0;
+		ent_intr_info = ent_intr_info_base | deliver_error_code_mask |
+				INTR_TYPE_HARD_EXCEPTION | cnt;
+		report_prefix_pushf("VM-entry intr info=0x%x [+]",
+				    ent_intr_info);
+		vmcs_write(ENT_INTR_INFO, ent_intr_info);
+		test_vmx_controls(true, false);
+		report_prefix_pop();
+	}
+	report_prefix_pop();
+
+	/* Reserved bits in the field (30:12) are 0. */
+	report_prefix_push("reserved bits clear");
+	for (cnt = 12; cnt <= 30; cnt++) {
+		ent_intr_info = ent_intr_info_base |
+				INTR_INFO_DELIVER_CODE_MASK |
+				INTR_TYPE_HARD_EXCEPTION | GP_VECTOR |
+				(1U << cnt);
+		report_prefix_pushf("VM-entry intr info=0x%x [-]",
+				    ent_intr_info);
+		vmcs_write(ENT_INTR_INFO, ent_intr_info);
+		test_vmx_controls(false, false);
+		report_prefix_pop();
+	}
+	report_prefix_pop();
+
+	/*
+	 * If deliver-error-code is 1
+	 * bits 31:15 of the VM-entry exception error-code field are 0.
+	 */
+	ent_intr_info = ent_intr_info_base | INTR_INFO_DELIVER_CODE_MASK |
+			INTR_TYPE_HARD_EXCEPTION | GP_VECTOR;
+	report_prefix_pushf("%s, VM-entry intr info=0x%x",
+			    "VM-entry exception error code[31:15] clear",
+			    ent_intr_info);
+	vmcs_write(ENT_INTR_INFO, ent_intr_info);
+	for (cnt = 15; cnt <= 31; cnt++) {
+		ent_intr_err = 1U << cnt;
+		report_prefix_pushf("VM-entry intr error=0x%x [-]",
+				    ent_intr_err);
+		vmcs_write(ENT_INTR_ERROR, ent_intr_err);
+		test_vmx_controls(false, false);
+		report_prefix_pop();
+	}
+	vmcs_write(ENT_INTR_ERROR, 0x00000000);
+	report_prefix_pop();
+
+	/*
+	 * If the interruption type is software interrupt, software exception,
+	 * or privileged software exception, the VM-entry instruction-length
+	 * field is in the range 0–15.
+	 */
+
+	for (cnt = 0; cnt < 3; cnt++) {
+		switch (cnt) {
+		case 0:
+			ent_intr_info = ent_intr_info_base |
+					INTR_TYPE_SOFT_INTR;
+			break;
+		case 1:
+			ent_intr_info = ent_intr_info_base |
+					INTR_TYPE_SOFT_EXCEPTION;
+			break;
+		case 2:
+			ent_intr_info = ent_intr_info_base |
+					INTR_TYPE_PRIV_SW_EXCEPTION;
+			break;
+		}
+		report_prefix_pushf("%s, VM-entry intr info=0x%x",
+				    "VM-entry instruction-length check",
+				    ent_intr_info);
+		vmcs_write(ENT_INTR_INFO, ent_intr_info);
+
+		/* Instruction length set to -1 (0xFFFFFFFF) should fail */
+		ent_intr_len = -1;
+		report_prefix_pushf("VM-entry intr length = 0x%x [-]",
+				    ent_intr_len);
+		vmcs_write(ENT_INST_LEN, ent_intr_len);
+		test_vmx_controls(false, false);
+		report_prefix_pop();
+
+		/* Instruction length set to 16 should fail */
+		ent_intr_len = 0x00000010;
+		report_prefix_pushf("VM-entry intr length = 0x%x [-]",
+				    ent_intr_len);
+		vmcs_write(ENT_INST_LEN, 0x00000010);
+		test_vmx_controls(false, false);
+		report_prefix_pop();
+
+		report_prefix_pop();
+	}
+
+	/* Cleanup */
+	vmcs_write(ENT_INTR_INFO, ent_intr_info_save);
+	vmcs_write(ENT_INTR_ERROR, ent_intr_error_save);
+	vmcs_write(ENT_INST_LEN, ent_inst_len_save);
+	vmcs_write(CPU_EXEC_CTRL0, primary_save);
+	vmcs_write(CPU_EXEC_CTRL1, secondary_save);
+	vmcs_write(GUEST_CR0, guest_cr0_save);
+	report_prefix_pop();
+}
+
 /*
  * Test interesting vTPR values for a given TPR threshold.
  */
@@ -3852,6 +4127,7 @@ static void vmx_controls_test(void)
 	test_apic_access_addr();
 	test_tpr_threshold();
 	test_nmi_ctrls();
+	test_invalid_event_injection();
 }
 
 static bool valid_vmcs_for_vmentry(void)

@@ -15,6 +15,14 @@
 #  define S "4"
 #endif
 
+#define DF_VECTOR 8
+#define TS_VECTOR 10
+#define NP_VECTOR 11
+#define SS_VECTOR 12
+#define GP_VECTOR 13
+#define PF_VECTOR 14
+#define AC_VECTOR 17
+
 #define X86_CR0_PE     0x00000001
 #define X86_CR0_MP     0x00000002
 #define X86_CR0_TS     0x00000008

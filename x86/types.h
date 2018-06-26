@@ -3,6 +3,7 @@
 
 #define DE_VECTOR 0
 #define DB_VECTOR 1
+#define NMI_VECTOR 2
 #define BP_VECTOR 3
 #define OF_VECTOR 4
 #define BR_VECTOR 5

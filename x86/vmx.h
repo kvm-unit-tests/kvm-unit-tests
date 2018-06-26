@@ -428,6 +428,15 @@ enum Intr_type {
 
 #define INTR_INFO_INTR_TYPE_SHIFT       8
 
+#define INTR_TYPE_EXT_INTR              (0 << 8) /* external interrupt */
+#define INTR_TYPE_RESERVED              (1 << 8) /* reserved */
+#define INTR_TYPE_NMI_INTR		(2 << 8) /* NMI */
+#define INTR_TYPE_HARD_EXCEPTION	(3 << 8) /* processor exception */
+#define INTR_TYPE_SOFT_INTR             (4 << 8) /* software interrupt */
+#define INTR_TYPE_PRIV_SW_EXCEPTION	(5 << 8) /* priv. software exception */
+#define INTR_TYPE_SOFT_EXCEPTION	(6 << 8) /* software exception */
+#define INTR_TYPE_OTHER_EVENT           (7 << 8) /* other event */
+
 /*
  * VM-instruction error numbers
  */
@@ -718,6 +727,24 @@ static inline bool invvpid(unsigned long type, u64 vpid, u64 gla)
 	asm volatile("push %1; popf; invvpid %2, %3; setbe %0"
 		     : "=q" (ret) : "r" (rflags), "m"(operand),"r"(type) : "cc");
 	return ret;
+}
+
+static inline int enable_unrestricted_guest(void)
+{
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY))
+		return -1;
+
+	if (!(ctrl_cpu_rev[1].clr & CPU_URG))
+		return -1;
+
+	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | CPU_SECONDARY);
+	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | CPU_URG);
+	return 0;
+}
+
+static inline void disable_unrestricted_guest(void)
+{
+	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) & ~CPU_URG);
 }
 
 const char *exit_reason_description(u64 reason);
