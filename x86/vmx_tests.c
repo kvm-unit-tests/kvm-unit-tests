@@ -45,24 +45,24 @@ static inline unsigned ffs(unsigned x)
 	return pos + 1;
 }
 
-static inline void vmcall()
+static inline void vmcall(void)
 {
 	asm volatile("vmcall");
 }
 
-void basic_guest_main()
+static void basic_guest_main(void)
 {
 	report("Basic VMX test", 1);
 }
 
-int basic_exit_handler()
+static int basic_exit_handler(void)
 {
 	report("Basic VMX test", 0);
 	print_vmexit_info();
 	return VMX_TEST_EXIT;
 }
 
-void vmenter_main()
+static void vmenter_main(void)
 {
 	u64 rax;
 	u64 rsp, resume_rsp;
@@ -80,7 +80,7 @@ void vmenter_main()
 	report("test vmresume", (rax == 0xFFFF) && (rsp == resume_rsp));
 }
 
-int vmenter_exit_handler()
+static int vmenter_exit_handler(void)
 {
 	u64 guest_rip;
 	ulong reason;
@@ -108,7 +108,7 @@ volatile unsigned long long tsc_val;
 volatile u32 preempt_val;
 u64 saved_rip;
 
-int preemption_timer_init()
+static int preemption_timer_init(struct vmcs *vmcs)
 {
 	if (!(ctrl_pin_rev.clr & PIN_PREEMPT)) {
 		printf("\tPreemption timer is not supported\n");
@@ -125,7 +125,7 @@ int preemption_timer_init()
 	return VMX_TEST_START;
 }
 
-void preemption_timer_main()
+static void preemption_timer_main(void)
 {
 	tsc_val = rdtsc();
 	if (ctrl_exit_rev.clr & EXI_SAVE_PREEMPT) {
@@ -149,7 +149,7 @@ void preemption_timer_main()
 	vmcall();
 }
 
-int preemption_timer_exit_handler()
+static int preemption_timer_exit_handler(void)
 {
 	bool guest_halted;
 	u64 guest_rip;
@@ -242,7 +242,7 @@ int preemption_timer_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
-void msr_bmp_init()
+static void msr_bmp_init(void)
 {
 	void *msr_bitmap;
 	u32 ctrl_cpu0;
@@ -255,7 +255,7 @@ void msr_bmp_init()
 	vmcs_write(MSR_BITMAP, (u64)msr_bitmap);
 }
 
-static int test_ctrl_pat_init()
+static int test_ctrl_pat_init(struct vmcs *vmcs)
 {
 	u64 ctrl_ent;
 	u64 ctrl_exi;
@@ -280,7 +280,7 @@ static int test_ctrl_pat_init()
 	return VMX_TEST_START;
 }
 
-static void test_ctrl_pat_main()
+static void test_ctrl_pat_main(void)
 {
 	u64 guest_ia32_pat;
 
@@ -300,7 +300,7 @@ static void test_ctrl_pat_main()
 		report("Entry load PAT", guest_ia32_pat == ia32_pat);
 }
 
-static int test_ctrl_pat_exit_handler()
+static int test_ctrl_pat_exit_handler(void)
 {
 	u64 guest_rip;
 	ulong reason;
@@ -331,7 +331,7 @@ static int test_ctrl_pat_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
-static int test_ctrl_efer_init()
+static int test_ctrl_efer_init(struct vmcs *vmcs)
 {
 	u64 ctrl_ent;
 	u64 ctrl_exi;
@@ -347,7 +347,7 @@ static int test_ctrl_efer_init()
 	return VMX_TEST_START;
 }
 
-static void test_ctrl_efer_main()
+static void test_ctrl_efer_main(void)
 {
 	u64 guest_ia32_efer;
 
@@ -367,7 +367,7 @@ static void test_ctrl_efer_main()
 		report("Entry load EFER", guest_ia32_efer == ia32_efer);
 }
 
-static int test_ctrl_efer_exit_handler()
+static int test_ctrl_efer_exit_handler(void)
 {
 	u64 guest_rip;
 	ulong reason;
@@ -402,7 +402,7 @@ static int test_ctrl_efer_exit_handler()
 
 u32 guest_cr0, guest_cr4;
 
-static void cr_shadowing_main()
+static void cr_shadowing_main(void)
 {
 	u32 cr0, cr4, tmp;
 
@@ -488,7 +488,7 @@ static void cr_shadowing_main()
 	report("Write shadowing different X86_CR4_DE", vmx_get_test_stage() == 12);
 }
 
-static int cr_shadowing_exit_handler()
+static int cr_shadowing_exit_handler(void)
 {
 	u64 guest_rip;
 	ulong reason;
@@ -585,7 +585,7 @@ static int cr_shadowing_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
-static int iobmp_init()
+static int iobmp_init(struct vmcs *vmcs)
 {
 	u32 ctrl_cpu0;
 
@@ -602,7 +602,7 @@ static int iobmp_init()
 	return VMX_TEST_START;
 }
 
-static void iobmp_main()
+static void iobmp_main(void)
 {
 	// stage 0, test IO pass
 	vmx_set_test_stage(0);
@@ -651,7 +651,7 @@ static void iobmp_main()
 	       vmx_get_test_stage() == 11);
 }
 
-static int iobmp_exit_handler()
+static int iobmp_exit_handler(void)
 {
 	u64 guest_rip;
 	ulong reason, exit_qual;
@@ -780,31 +780,31 @@ asm(
 	"insn_rdrand: rdrand %rax;ret\n\t"
 	"insn_rdseed: rdseed %rax;ret\n\t"
 );
-extern void insn_hlt();
-extern void insn_invlpg();
-extern void insn_mwait();
-extern void insn_rdpmc();
-extern void insn_rdtsc();
-extern void insn_cr3_load();
-extern void insn_cr3_store();
+extern void insn_hlt(void);
+extern void insn_invlpg(void);
+extern void insn_mwait(void);
+extern void insn_rdpmc(void);
+extern void insn_rdtsc(void);
+extern void insn_cr3_load(void);
+extern void insn_cr3_store(void);
 #ifdef __x86_64__
-extern void insn_cr8_load();
-extern void insn_cr8_store();
+extern void insn_cr8_load(void);
+extern void insn_cr8_store(void);
 #endif
-extern void insn_monitor();
-extern void insn_pause();
-extern void insn_wbinvd();
-extern void insn_sgdt();
-extern void insn_lgdt();
-extern void insn_sidt();
-extern void insn_lidt();
-extern void insn_sldt();
-extern void insn_lldt();
-extern void insn_str();
-extern void insn_cpuid();
-extern void insn_invd();
-extern void insn_rdrand();
-extern void insn_rdseed();
+extern void insn_monitor(void);
+extern void insn_pause(void);
+extern void insn_wbinvd(void);
+extern void insn_sgdt(void);
+extern void insn_lgdt(void);
+extern void insn_sidt(void);
+extern void insn_lidt(void);
+extern void insn_sldt(void);
+extern void insn_lldt(void);
+extern void insn_str(void);
+extern void insn_cpuid(void);
+extern void insn_invd(void);
+extern void insn_rdrand(void);
+extern void insn_rdseed(void);
 
 u32 cur_insn;
 u64 cr3;
@@ -812,7 +812,7 @@ u64 cr3;
 struct insn_table {
 	const char *name;
 	u32 flag;
-	void (*insn_func)();
+	void (*insn_func)(void);
 	u32 type;
 	u32 reason;
 	ulong exit_qual;
@@ -869,7 +869,7 @@ static struct insn_table insn_table[] = {
 	{NULL},
 };
 
-static int insn_intercept_init()
+static int insn_intercept_init(struct vmcs *vmcs)
 {
 	u32 ctrl_cpu;
 
@@ -881,7 +881,7 @@ static int insn_intercept_init()
 	return VMX_TEST_START;
 }
 
-static void insn_intercept_main()
+static void insn_intercept_main(void)
 {
 	for (cur_insn = 0; insn_table[cur_insn].name != NULL; cur_insn++) {
 		vmx_set_test_stage(cur_insn * 2);
@@ -920,7 +920,7 @@ static void insn_intercept_main()
 	}
 }
 
-static int insn_intercept_exit_handler()
+static int insn_intercept_exit_handler(void)
 {
 	u64 guest_rip;
 	u32 reason;
@@ -1071,12 +1071,12 @@ static int ept_init_common(bool have_ad)
 	return VMX_TEST_START;
 }
 
-static int ept_init()
+static int ept_init(struct vmcs *vmcs)
 {
 	return ept_init_common(false);
 }
 
-static void ept_common()
+static void ept_common(void)
 {
 	vmx_set_test_stage(0);
 	if (*((u32 *)data_page2) != MAGIC_VAL_1 ||
@@ -1128,7 +1128,7 @@ t1:
 	report("MMIO EPT violation - write", vmx_get_test_stage() == 7);
 }
 
-static void ept_main()
+static void ept_main(void)
 {
 	ept_common();
 
@@ -1141,7 +1141,7 @@ static void ept_main()
 	report("EPT - unsupported INVEPT", vmx_get_test_stage() == 8);
 }
 
-bool invept_test(int type, u64 eptp)
+static bool invept_test(int type, u64 eptp)
 {
 	bool ret, supported;
 
@@ -1366,12 +1366,12 @@ static int ept_exit_handler_common(bool have_ad)
 	return VMX_TEST_VMEXIT;
 }
 
-static int ept_exit_handler()
+static int ept_exit_handler(void)
 {
 	return ept_exit_handler_common(false);
 }
 
-static int eptad_init()
+static int eptad_init(struct vmcs *vmcs)
 {
 	int r = ept_init_common(true);
 
@@ -1386,10 +1386,10 @@ static int eptad_init()
 	return r;
 }
 
-static int pml_init()
+static int pml_init(struct vmcs *vmcs)
 {
 	u32 ctrl_cpu;
-	int r = eptad_init();
+	int r = eptad_init(vmcs);
 
 	if (r == VMX_TEST_EXIT)
 		return r;
@@ -1411,7 +1411,7 @@ static int pml_init()
 	return VMX_TEST_START;
 }
 
-static void pml_main()
+static void pml_main(void)
 {
 	int count = 0;
 
@@ -1429,17 +1429,17 @@ static void pml_main()
 	report("PML Full Event", vmx_get_test_stage() == 2);
 }
 
-static void eptad_main()
+static void eptad_main(void)
 {
 	ept_common();
 }
 
-static int eptad_exit_handler()
+static int eptad_exit_handler(void)
 {
 	return ept_exit_handler_common(true);
 }
 
-bool invvpid_test(int type, u16 vpid)
+static bool invvpid_test(int type, u16 vpid)
 {
 	bool ret, supported;
 
@@ -1458,7 +1458,7 @@ bool invvpid_test(int type, u16 vpid)
 	return true;
 }
 
-static int vpid_init()
+static int vpid_init(struct vmcs *vmcs)
 {
 	u32 ctrl_cpu1;
 
@@ -1474,7 +1474,7 @@ static int vpid_init()
 	return VMX_TEST_START;
 }
 
-static void vpid_main()
+static void vpid_main(void)
 {
 	vmx_set_test_stage(0);
 	vmcall();
@@ -1487,7 +1487,7 @@ static void vpid_main()
 	report("INVVPID ALL", vmx_get_test_stage() == 5);
 }
 
-static int vpid_exit_handler()
+static int vpid_exit_handler(void)
 {
 	u64 guest_rip;
 	ulong reason;
@@ -1842,7 +1842,7 @@ static int msr_switch_init(struct vmcs *vmcs)
 	return VMX_TEST_START;
 }
 
-static void msr_switch_main()
+static void msr_switch_main(void)
 {
 	if (vmx_get_test_stage() == 1) {
 		report("VM entry MSR load",
@@ -1856,7 +1856,7 @@ static void msr_switch_main()
 	vmcall();
 }
 
-static int msr_switch_exit_handler()
+static int msr_switch_exit_handler(void)
 {
 	ulong reason;
 
@@ -1896,7 +1896,7 @@ static int msr_switch_entry_failure(struct vmentry_failure *failure)
 	return VMX_TEST_EXIT;
 }
 
-static int vmmcall_init(struct vmcs *vmcs	)
+static int vmmcall_init(struct vmcs *vmcs)
 {
 	vmcs_write(EXC_BITMAP, 1 << UD_VECTOR);
 	return VMX_TEST_START;
@@ -1912,7 +1912,7 @@ static void vmmcall_main(void)
 	report("VMMCALL", 0);
 }
 
-static int vmmcall_exit_handler()
+static int vmmcall_exit_handler(void)
 {
 	ulong reason;
 
@@ -2007,18 +2007,18 @@ static int disable_rdtscp_exit_handler(void)
 	return VMX_TEST_VMEXIT;
 }
 
-int int3_init()
+static int int3_init(struct vmcs *vmcs)
 {
 	vmcs_write(EXC_BITMAP, ~0u);
 	return VMX_TEST_START;
 }
 
-void int3_guest_main()
+static void int3_guest_main(void)
 {
 	asm volatile ("int3");
 }
 
-int int3_exit_handler()
+static int int3_exit_handler(void)
 {
 	u32 reason = vmcs_read(EXI_REASON);
 	u32 intr_info = vmcs_read(EXI_INTR_INFO);
@@ -2032,13 +2032,13 @@ int int3_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
-int into_init()
+static int into_init(struct vmcs *vmcs)
 {
 	vmcs_write(EXC_BITMAP, ~0u);
 	return VMX_TEST_START;
 }
 
-void into_guest_main()
+static void into_guest_main(void)
 {
 	struct far_pointer32 fp = {
 		.offset = (uintptr_t)&&into,
@@ -2067,7 +2067,7 @@ into:
 	__builtin_unreachable();
 }
 
-int into_exit_handler()
+static int into_exit_handler(void)
 {
 	u32 reason = vmcs_read(EXI_REASON);
 	u32 intr_info = vmcs_read(EXI_INTR_INFO);
@@ -2102,7 +2102,7 @@ static void assert_exit_reason(u64 expected)
 			   exit_reason_description(actual));
 }
 
-static void skip_exit_vmcall()
+static void skip_exit_vmcall(void)
 {
 	u64 guest_rip = vmcs_read(GUEST_RIP);
 	u32 insn_len = vmcs_read(EXI_INST_LEN);
