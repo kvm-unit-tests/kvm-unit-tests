@@ -363,7 +363,7 @@ static inline void sti(void)
     asm volatile ("sti");
 }
 
-static inline unsigned long long rdtsc()
+static inline unsigned long long rdtsc(void)
 {
 	long long r;
 

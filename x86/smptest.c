@@ -14,7 +14,7 @@ static void ipi_test(void *data)
         nipis++;
 }
 
-int main()
+int main(void)
 {
     int ncpus;
     int i;

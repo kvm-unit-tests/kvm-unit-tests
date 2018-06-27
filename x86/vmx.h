@@ -53,8 +53,8 @@ struct vmentry_failure {
 struct vmx_test {
 	const char *name;
 	int (*init)(struct vmcs *vmcs);
-	void (*guest_main)();
-	int (*exit_handler)();
+	void (*guest_main)(void);
+	int (*exit_handler)(void);
 	void (*syscall_handler)(u64 syscall_no);
 	struct regs guest_regs;
 	int (*entry_failure_handler)(struct vmentry_failure *failure);
@@ -721,7 +721,7 @@ static inline bool invvpid(unsigned long type, u64 vpid, u64 gla)
 }
 
 const char *exit_reason_description(u64 reason);
-void print_vmexit_info();
+void print_vmexit_info(void);
 void print_vmentry_failure_info(struct vmentry_failure *failure);
 void ept_sync(int type, u64 eptp);
 void vpid_sync(int type, u16 vpid);

@@ -49,7 +49,7 @@ asm ("pf_tss: \n\t"
     "jmp pf_tss\n\t"
     );
 
-static void init_test()
+static void init_test(void)
 {
     pf_count = 0;
 

@@ -514,7 +514,7 @@ static inline void apic_change_mode(unsigned long new_mode)
 	apic_write(APIC_LVTT, (lvtt & ~APIC_LVT_TIMER_MASK) | new_mode);
 }
 
-static void test_apic_change_mode()
+static void test_apic_change_mode(void)
 {
 	uint32_t tmict = 0x999999;
 
@@ -566,7 +566,7 @@ static void test_apic_change_mode()
 	report("TMCCT should stay at zero", !apic_read(APIC_TMCCT));
 }
 
-int main()
+int main(void)
 {
     setup_vm();
     smp_init();

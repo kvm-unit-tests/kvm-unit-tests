@@ -7,7 +7,7 @@
 
 static void test_syscall_lazy_load(void)
 {
-    extern void syscall_target();
+    extern void syscall_target(void);
     u16 cs = read_cs(), ss = read_ss();
     ulong tmp;
 
@@ -57,8 +57,8 @@ asm("   .code32\n"
 
 static void test_syscall_tf(void)
 {
-    extern void syscall32_target();
-    extern void syscall_tf_user32();
+    extern void syscall32_target(void);
+    extern void syscall_tf_user32(void);
     ulong rcx;
 
     wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_SCE);

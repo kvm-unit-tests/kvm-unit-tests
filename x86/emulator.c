@@ -33,7 +33,7 @@ struct insn_desc {
 
 static char st1[] = "abcdefghijklmnop";
 
-void test_stringio()
+static void test_stringio(void)
 {
 	unsigned char r = 0;
 	asm volatile("cld \n\t"
@@ -1015,7 +1015,7 @@ static void record_no_fep(struct ex_regs *regs)
 	regs->rip += KVM_FEP_LENGTH;
 }
 
-int main()
+int main(void)
 {
 	void *mem;
 	void *insn_page;

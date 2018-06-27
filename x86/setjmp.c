@@ -1,7 +1,7 @@
 #include "libcflat.h"
 #include "setjmp.h"
 
-int main()
+int main(void)
 {
     volatile int i;
     jmp_buf j;

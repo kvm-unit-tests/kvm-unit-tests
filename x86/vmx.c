@@ -1453,7 +1453,7 @@ static void __attribute__((__used__)) hypercall(u32 hypercall_no)
 	asm volatile("vmcall\n\t");
 }
 
-static bool is_hypercall()
+static bool is_hypercall(void)
 {
 	ulong reason, hyper_bit;
 
@@ -1464,7 +1464,7 @@ static bool is_hypercall()
 	return false;
 }
 
-static int handle_hypercall()
+static int handle_hypercall(void)
 {
 	ulong hypercall_no;
 
@@ -1518,7 +1518,7 @@ void test_skip(const char *msg)
 	abort();
 }
 
-static int exit_handler()
+static int exit_handler(void)
 {
 	int ret;
 
@@ -1590,7 +1590,7 @@ static bool vmx_enter_guest(struct vmentry_failure *failure)
 	return !failure->early && !(vmcs_read(EXI_REASON) & VMX_ENTRY_FAILURE);
 }
 
-static int vmx_run()
+static int vmx_run(void)
 {
 	while (1) {
 		u32 ret;

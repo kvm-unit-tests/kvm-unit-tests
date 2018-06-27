@@ -32,7 +32,7 @@ void test_sieve(const char *msg, char *data, int size)
 #define VSIZE 100000000
 char static_data[STATIC_SIZE];
 
-int main()
+int main(void)
 {
     void *v;
     int i;

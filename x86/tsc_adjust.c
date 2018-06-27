@@ -1,7 +1,7 @@
 #include "libcflat.h"
 #include "processor.h"
 
-int main()
+int main(void)
 {
 	u64 t1, t2, t3, t4, t5;
 	u64 est_delta_time;

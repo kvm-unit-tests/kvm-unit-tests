@@ -160,7 +160,7 @@ bool pvclock_read_retry(const struct pvclock_vcpu_time_info *src,
 	return version != src->version;
 }
 
-static inline u64 rdtsc_ordered()
+static inline u64 rdtsc_ordered(void)
 {
 	/*
 	 * FIXME: on Intel CPUs rmb() aka lfence is sufficient which brings up

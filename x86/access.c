@@ -992,7 +992,7 @@ int ac_test_run(void)
     return successes == tests;
 }
 
-int main()
+int main(void)
 {
     int r;
 

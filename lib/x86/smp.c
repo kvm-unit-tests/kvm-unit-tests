@@ -19,7 +19,7 @@ static volatile bool ipi_wait;
 static int _cpu_count;
 static atomic_t active_cpus;
 
-static __attribute__((used)) void ipi()
+static __attribute__((used)) void ipi(void)
 {
     void (*function)(void *data) = ipi_function;
     void *data = ipi_data;

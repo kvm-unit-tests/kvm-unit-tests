@@ -36,7 +36,7 @@ struct timespec {
 };
 
 void pvclock_set_flags(unsigned char flags);
-cycle_t kvm_clock_read();
+cycle_t kvm_clock_read(void);
 void kvm_get_wallclock(struct timespec *ts);
 void kvm_clock_init(void *data);
 void kvm_clock_clear(void *data);

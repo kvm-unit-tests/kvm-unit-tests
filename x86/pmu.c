@@ -95,7 +95,7 @@ static int num_counters;
 
 char *buf;
 
-static inline void loop()
+static inline void loop(void)
 {
 	unsigned long tmp, tmp2, tmp3;
 

@@ -37,7 +37,7 @@ void apic_self_nmi(void)
 
 extern char isr_iret_ip[];
 
-static void flush_idt_page()
+static void flush_idt_page(void)
 {
 	struct descriptor_table_ptr ptr;
 	sidt(&ptr);
@@ -196,7 +196,7 @@ ulong saved_stack;
 		asm volatile ("mov %0, %%" R "sp"::"r"(saved_stack));	\
 	} while(0)
 
-int main()
+int main(void)
 {
 	unsigned int res;
 	ulong *pt, *cr3, i;

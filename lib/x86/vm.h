@@ -5,7 +5,7 @@
 #include "asm/page.h"
 #include "asm/io.h"
 
-void setup_5level_page_table();
+void setup_5level_page_table(void);
 
 struct pte_search {
 	int level;

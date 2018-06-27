@@ -40,7 +40,7 @@ void test_rdpid(u64 aux)
        report("Test rdpid %%eax %d", eax == aux, aux);
 }
 
-int main()
+int main(void)
 {
 	u64 t1, t2;
 
