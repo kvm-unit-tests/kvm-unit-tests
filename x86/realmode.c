@@ -9,6 +9,7 @@ typedef unsigned short u16;
 typedef unsigned u32;
 typedef unsigned long long u64;
 
+void realmode_start(void);
 void test_function(void);
 
 asm(
@@ -207,7 +208,7 @@ static void exec_in_big_real_mode(struct insn_desc *insn)
 #define R_SP 64
 #define R_BP 128
 
-int regs_equal(int ignore)
+static int regs_equal(int ignore)
 {
 	const u32 *p1 = &inregs.eax, *p2 = &outregs.eax;  // yuck
 	int i;
@@ -244,7 +245,7 @@ static void report(const char *name, u16 regs_ignore, _Bool ok)
     );							\
     extern struct insn_desc insn_##name;
 
-void test_xchg(void)
+static void test_xchg(void)
 {
 	MK_INSN(xchg_test1, "xchg %eax,%eax\n\t");
 	MK_INSN(xchg_test2, "xchg %eax,%ebx\n\t");
@@ -289,7 +290,7 @@ void test_xchg(void)
 	       outregs.eax == inregs.esp && outregs.esp == inregs.eax);
 }
 
-void test_shld(void)
+static void test_shld(void)
 {
 	MK_INSN(shld_test, "shld $8,%edx,%eax\n\t");
 
@@ -298,7 +299,7 @@ void test_shld(void)
 	report("shld", ~0, outregs.eax == 0xbeef);
 }
 
-void test_mov_imm(void)
+static void test_mov_imm(void)
 {
 	MK_INSN(mov_r32_imm_1, "mov $1234567890, %eax");
 	MK_INSN(mov_r16_imm_1, "mov $1234, %ax");
@@ -326,7 +327,7 @@ void test_mov_imm(void)
 	report("mov 5", R_AX, outregs.eax == 0x1234);
 }
 
-void test_sub_imm(void)
+static void test_sub_imm(void)
 {
 	MK_INSN(sub_r32_imm_1, "mov $1234567890, %eax\n\t" "sub $10, %eax\n\t");
 	MK_INSN(sub_r16_imm_1, "mov $1234, %ax\n\t" "sub $10, %ax\n\t");
@@ -350,7 +351,7 @@ void test_sub_imm(void)
 	report("sub 4", R_AX, outregs.eax == 0x24);
 }
 
-void test_xor_imm(void)
+static void test_xor_imm(void)
 {
 	MK_INSN(xor_r32_imm_1, "mov $1234567890, %eax\n\t" "xor $1234567890, %eax\n\t");
 	MK_INSN(xor_r16_imm_1, "mov $1234, %ax\n\t" "xor $1234, %ax\n\t");
@@ -374,7 +375,7 @@ void test_xor_imm(void)
 	report("xor 4", R_AX, outregs.eax == 0);
 }
 
-void test_cmp_imm(void)
+static void test_cmp_imm(void)
 {
 	MK_INSN(cmp_test1, "mov $0x34, %al\n\t"
 			   "cmp $0x34, %al\n\t");
@@ -399,7 +400,7 @@ void test_cmp_imm(void)
 	report("cmp 3", ~0, (outregs.eflags & (1<<6)) == 0);
 }
 
-void test_add_imm(void)
+static void test_add_imm(void)
 {
 	MK_INSN(add_test1, "mov $0x43211234, %eax \n\t"
 			   "add $0x12344321, %eax \n\t");
@@ -415,7 +416,7 @@ void test_add_imm(void)
 	report("add 2", ~0, outregs.eax == 0x33);
 }
 
-void test_eflags_insn(void)
+static void test_eflags_insn(void)
 {
 	MK_INSN(clc, "clc");
 	MK_INSN(stc, "stc");
@@ -445,7 +446,7 @@ void test_eflags_insn(void)
 	report("std", ~0, (outregs.eflags & (1 << 10)));
 }
 
-void test_io(void)
+static void test_io(void)
 {
 	MK_INSN(io_test1, "mov $0xff, %al \n\t"
 		          "out %al, $0xe0 \n\t"
@@ -497,12 +498,12 @@ void test_io(void)
 }
 
 asm ("retf: lretw");
-extern void retf();
+extern void retf(void);
 
 asm ("retf_imm: lretw $10");
-extern void retf_imm();
+extern void retf_imm(void);
 
-void test_call(void)
+static void test_call(void)
 {
 	u32 esp[16];
 	u32 addr;
@@ -550,7 +551,7 @@ void test_call(void)
 	report("retf imm 1", 0, 1);
 }
 
-void test_jcc_short(void)
+static void test_jcc_short(void)
 {
 	MK_INSN(jnz_short1, "jnz 1f\n\t"
 			    "mov $0x1234, %eax\n\t"
@@ -575,7 +576,7 @@ void test_jcc_short(void)
 	report("jmp short 1", ~0, 1);
 }
 
-void test_jcc_near(void)
+static void test_jcc_near(void)
 {
 	/* encode near jmp manually. gas will not do it if offsets < 127 byte */
 	MK_INSN(jnz_near1, ".byte 0x0f, 0x85, 0x06, 0x00\n\t"
@@ -598,7 +599,7 @@ void test_jcc_near(void)
 	report("jmp near 1", 0, 1);
 }
 
-void test_long_jmp()
+static void test_long_jmp(void)
 {
 	u32 esp[16];
 
@@ -612,7 +613,7 @@ void test_long_jmp()
 	report("jmp far 1", R_AX, outregs.eax == 0x1234);
 }
 
-void test_push_pop()
+static void test_push_pop(void)
 {
 	MK_INSN(push32, "mov $0x12345678, %eax\n\t"
 			"push %eax\n\t"
@@ -678,7 +679,7 @@ void test_push_pop()
 	report("push/pop with high bits set in %esp", R_BX, outregs.ebx == 0x9977);
 }
 
-void test_null(void)
+static void test_null(void)
 {
 	MK_INSN(null, "");
 
@@ -693,7 +694,7 @@ struct {
     char top[];
 } tmp_stack;
 
-void test_pusha_popa()
+static void test_pusha_popa(void)
 {
 	MK_INSN(pusha, "pusha\n\t"
 		       "pop %edi\n\t"
@@ -726,7 +727,7 @@ void test_pusha_popa()
 	report("pusha/popa 1", 0, 1);
 }
 
-void test_iret()
+static void test_iret(void)
 {
 	MK_INSN(iret32, "pushf\n\t"
 			"pushl %cs\n\t"
@@ -781,7 +782,7 @@ void test_iret()
 	report("iret 4", R_AX, 1);
 }
 
-void test_int()
+static void test_int(void)
 {
 	inregs = (struct regs){ 0 };
 
@@ -794,7 +795,7 @@ void test_int()
 	report("int 1", 0, 1);
 }
 
-void test_imul()
+static void test_imul(void)
 {
 	MK_INSN(imul8_1, "mov $2, %al\n\t"
 			"mov $-4, %cx\n\t"
@@ -843,7 +844,7 @@ void test_imul()
 	report("imul 6", R_AX | R_CX | R_DX, outregs.eax == 8);
 }
 
-void test_mul()
+static void test_mul(void)
 {
 	MK_INSN(mul8, "mov $2, %al\n\t"
 			"mov $4, %cx\n\t"
@@ -869,7 +870,7 @@ void test_mul()
 	report("mul 3", R_AX | R_CX | R_DX, outregs.eax == 8);
 }
 
-void test_div()
+static void test_div(void)
 {
 	MK_INSN(div8, "mov $257, %ax\n\t"
 			"mov $2, %cl\n\t"
@@ -897,7 +898,7 @@ void test_div()
 	       outregs.eax == 102 && outregs.edx == 2);
 }
 
-void test_idiv()
+static void test_idiv(void)
 {
 	MK_INSN(idiv8, "mov $256, %ax\n\t"
 			"mov $-2, %cl\n\t"
@@ -923,7 +924,7 @@ void test_idiv()
 	report("idiv 3", R_AX | R_CX | R_DX, outregs.eax == (u32)-256);
 }
 
-void test_cbw(void)
+static void test_cbw(void)
 {
 	MK_INSN(cbw, "mov $0xFE, %eax \n\t"
 		     "cbw\n\t");
@@ -939,7 +940,7 @@ void test_cbw(void)
 	report("cwde 1", ~0, outregs.eax == 0xFFFFFFFE);
 }
 
-void test_loopcc(void)
+static void test_loopcc(void)
 {
 	MK_INSN(loop, "mov $10, %ecx\n\t"
 		      "1: inc %eax\n\t"
@@ -1251,7 +1252,7 @@ static void test_das(void)
     report("DAS", ~0, nr_fail == 0);
 }
 
-void test_cwd_cdq()
+static void test_cwd_cdq(void)
 {
 	/* Sign-bit set */
 	MK_INSN(cwd_1, "mov $0x8000, %ax\n\t"
@@ -1296,7 +1297,7 @@ static struct {
 	0x10,
 };
 
-void test_lds_lss()
+static void test_lds_lss(void)
 {
 	inregs = (struct regs){ .ebx = (unsigned long)&desc };
 
@@ -1346,7 +1347,7 @@ void test_lds_lss()
 		outregs.ebx == desc.sel);
 }
 
-void test_jcxz(void)
+static void test_jcxz(void)
 {
 	MK_INSN(jcxz1, "jcxz 1f\n\t"
 		       "mov $0x1234, %eax\n\t"
@@ -1645,7 +1646,7 @@ static void test_perf_memory_rmw(void)
 	print_serial(" cycles/emulated memory RMW instruction\n");
 }
 
-void test_dr_mod(void)
+static void test_dr_mod(void)
 {
 	MK_INSN(drmod, "movl %ebx, %dr0\n\t"
 		       ".byte 0x0f \n\t .byte 0x21 \n\t .byte 0x0\n\t");
@@ -1655,7 +1656,7 @@ void test_dr_mod(void)
 	report("mov dr with mod bits", R_AX | R_BX, outregs.eax == 0xaced);
 }
 
-void test_smsw(void)
+static void test_smsw(void)
 {
 	MK_INSN(smsw, "movl %cr0, %ebx\n\t"
 		      "movl %ebx, %ecx\n\t"
@@ -1668,7 +1669,7 @@ void test_smsw(void)
 	report("smsw", R_AX | R_BX | R_CX, outregs.eax == outregs.ebx);
 }
 
-void test_xadd(void)
+static void test_xadd(void)
 {
 	MK_INSN(xadd, "xaddl %eax, %eax\n\t");
 	inregs.eax = 0x12345678;
