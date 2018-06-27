@@ -1,7 +1,7 @@
 #include "libcflat.h"
 #include "desc.h"
 
-int test_ud2(bool *rflags_rf)
+static int test_ud2(bool *rflags_rf)
 {
     asm volatile(ASM_TRY("1f")
                  "ud2 \n\t"
@@ -10,7 +10,7 @@ int test_ud2(bool *rflags_rf)
     return exception_vector();
 }
 
-int test_gp(bool *rflags_rf)
+static int test_gp(bool *rflags_rf)
 {
     unsigned long tmp;
 

@@ -54,7 +54,7 @@ static void test_stringio(void)
 	report("outsb down", r == st1[0]);
 }
 
-void test_cmps_one(unsigned char *m1, unsigned char *m3)
+static void test_cmps_one(unsigned char *m1, unsigned char *m3)
 {
 	void *rsi, *rdi;
 	long rcx, tmp;
@@ -128,7 +128,7 @@ void test_cmps_one(unsigned char *m1, unsigned char *m3)
 
 }
 
-void test_cmps(void *mem)
+static void test_cmps(void *mem)
 {
 	unsigned char *m1 = mem, *m2 = mem + 1024;
 	unsigned char m3[1024];
@@ -141,7 +141,7 @@ void test_cmps(void *mem)
 	test_cmps_one(m1, m2);
 }
 
-void test_scas(void *mem)
+static void test_scas(void *mem)
 {
     bool z;
     void *di;
@@ -181,7 +181,7 @@ void test_scas(void *mem)
     report("scasq mismatch", di == mem + 8 && !z);
 }
 
-void test_cr8(void)
+static void test_cr8(void)
 {
 	unsigned long src, dst;
 
@@ -192,7 +192,7 @@ void test_cr8(void)
 	report("mov %%cr8", dst == 3 && src == 3);
 }
 
-void test_push(void *mem)
+static void test_push(void *mem)
 {
 	unsigned long tmp;
 	unsigned long *stack_top = mem + 4096;
@@ -220,7 +220,7 @@ void test_push(void *mem)
 	report("push $imm", stack_top[-4] == -7070707);
 }
 
-void test_pop(void *mem)
+static void test_pop(void *mem)
 {
 	unsigned long tmp, tmp3, rsp, rbp;
 	unsigned long *stack_top = mem + 4096;
@@ -297,7 +297,7 @@ void test_pop(void *mem)
 	       && stack_top[-1] == 0xaa55aa55bb66bb66ULL);
 }
 
-void test_ljmp(void *mem)
+static void test_ljmp(void *mem)
 {
     unsigned char *m = mem;
     volatile int res = 1;
@@ -310,7 +310,7 @@ jmpf:
     report("ljmp", res);
 }
 
-void test_incdecnotneg(void *mem)
+static void test_incdecnotneg(void *mem)
 {
     unsigned long *m = mem, v = 1234;
     unsigned char *mb = mem, vb = 66;
@@ -350,7 +350,7 @@ void test_incdecnotneg(void *mem)
     report("lock notb", *mb == vb);
 }
 
-void test_smsw(uint64_t *h_mem)
+static void test_smsw(uint64_t *h_mem)
 {
 	char mem[16];
 	unsigned short msw, msw_orig, *pmsw;
@@ -377,7 +377,7 @@ void test_smsw(uint64_t *h_mem)
 		(*h_mem & ~0xfffful) == 0x12345678ab0000ul);
 }
 
-void test_lmsw(void)
+static void test_lmsw(void)
 {
 	char mem[16];
 	unsigned short msw, *pmsw;
@@ -406,7 +406,7 @@ void test_lmsw(void)
 	asm("lmsw %0" : : "r"(msw));
 }
 
-void test_xchg(void *mem)
+static void test_xchg(void *mem)
 {
 	unsigned long *memq = mem;
 	unsigned long rax;
@@ -456,7 +456,7 @@ void test_xchg(void *mem)
 	       rax == 0x123456789abcdef && *memq == 0xfedcba9876543210);
 }
 
-void test_xadd(void *mem)
+static void test_xadd(void *mem)
 {
 	unsigned long *memq = mem;
 	unsigned long rax;
@@ -506,7 +506,7 @@ void test_xadd(void *mem)
 	       rax == 0x123456789abcdef && *memq == 0xffffffffffffffff);
 }
 
-void test_btc(void *mem)
+static void test_btc(void *mem)
 {
 	unsigned int *a = mem;
 
@@ -525,7 +525,7 @@ void test_btc(void *mem)
 		a[2] == 0x80000004 && a[3] == 0);
 }
 
-void test_bsfbsr(void *mem)
+static void test_bsfbsr(void *mem)
 {
 	unsigned long rax, *memq = mem;
 	unsigned eax, *meml = mem;

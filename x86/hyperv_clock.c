@@ -48,7 +48,7 @@ static void hvclock_get_time_values(struct hv_reference_tsc_page *shadow,
 	} while (shadow->tsc_sequence != seq);
 }
 
-uint64_t hv_clock_read(void)
+static uint64_t hv_clock_read(void)
 {
 	struct hv_reference_tsc_page shadow;
 

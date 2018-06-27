@@ -8,7 +8,7 @@
 #define uint64_t unsigned long long
 #endif
 
-int xgetbv_checking(u32 index, u64 *result)
+static int xgetbv_checking(u32 index, u64 *result)
 {
     u32 eax, edx;
 
@@ -21,7 +21,7 @@ int xgetbv_checking(u32 index, u64 *result)
     return exception_vector();
 }
 
-int xsetbv_checking(u32 index, u64 value)
+static int xsetbv_checking(u32 index, u64 value)
 {
     u32 eax = value;
     u32 edx = value >> 32;
@@ -33,7 +33,7 @@ int xsetbv_checking(u32 index, u64 value)
     return exception_vector();
 }
 
-int write_cr4_checking(unsigned long val)
+static int write_cr4_checking(unsigned long val)
 {
     asm volatile(ASM_TRY("1f")
             "mov %0,%%cr4\n\t"
@@ -43,12 +43,12 @@ int write_cr4_checking(unsigned long val)
 
 #define CPUID_1_ECX_XSAVE	    (1 << 26)
 #define CPUID_1_ECX_OSXSAVE	    (1 << 27)
-int check_cpuid_1_ecx(unsigned int bit)
+static int check_cpuid_1_ecx(unsigned int bit)
 {
     return (cpuid(1).c & bit) != 0;
 }
 
-uint64_t get_supported_xcr0(void)
+static uint64_t get_supported_xcr0(void)
 {
     struct cpuid r;
     r = cpuid_indexed(0xd, 0);
@@ -65,7 +65,7 @@ uint64_t get_supported_xcr0(void)
 #define XSTATE_SSE      0x2
 #define XSTATE_YMM      0x4
 
-void test_xsave(void)
+static void test_xsave(void)
 {
     unsigned long cr4;
     uint64_t supported_xcr0;
@@ -143,7 +143,7 @@ void test_xsave(void)
 	xgetbv_checking(XCR_XFEATURE_ENABLED_MASK, &xcr0) == UD_VECTOR);
 }
 
-void test_no_xsave(void)
+static void test_no_xsave(void)
 {
     unsigned long cr4;
     u64 xcr0;

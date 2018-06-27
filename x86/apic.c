@@ -73,7 +73,7 @@ static bool test_write_apicbase_exception(u64 data)
     return test_for_exception(GP_VECTOR, do_write_apicbase, &data);
 }
 
-void test_enable_x2apic(void)
+static void test_enable_x2apic(void)
 {
     if (enable_x2apic()) {
         printf("x2apic enabled\n");
@@ -267,7 +267,7 @@ static void test_self_ipi(void)
 
 volatile int nmi_counter_private, nmi_counter, nmi_hlt_counter, sti_loop_active;
 
-void sti_nop(char *p)
+static void sti_nop(char *p)
 {
     asm volatile (
 		  ".globl post_sti \n\t"
@@ -489,7 +489,7 @@ static void test_physical_broadcast(void)
 	report("APIC physical broadcast shorthand", broadcast_received(ncpus));
 }
 
-void wait_until_tmcct_is_zero(uint32_t initial_count, bool stop_when_half)
+static void wait_until_tmcct_is_zero(uint32_t initial_count, bool stop_when_half)
 {
 	uint32_t tmcct = apic_read(APIC_TMCCT);
 

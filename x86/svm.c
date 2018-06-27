@@ -524,13 +524,13 @@ static void prepare_ioio(struct test *test)
     io_bitmap[8192] = 0xFF;
 }
 
-int get_test_stage(struct test *test)
+static int get_test_stage(struct test *test)
 {
     barrier();
     return test->scratch;
 }
 
-void inc_test_stage(struct test *test)
+static void inc_test_stage(struct test *test)
 {
     barrier();
     test->scratch++;

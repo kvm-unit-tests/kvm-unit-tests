@@ -2,9 +2,9 @@
 #include "processor.h"
 
 #define CPUID_80000001_EDX_RDTSCP	    (1 << 27)
-int check_cpuid_80000001_edx(unsigned int bit)
+static int check_cpuid_80000001_edx(unsigned int bit)
 {
-    return (cpuid(0x80000001).d & bit) != 0;
+	return (cpuid(0x80000001).d & bit) != 0;
 }
 
 #define CPUID_7_0_ECX_RDPID		    (1 << 22)
@@ -13,7 +13,7 @@ int check_cpuid_7_0_ecx(unsigned int bit)
     return (cpuid_indexed(7, 0).c & bit) != 0;
 }
 
-void test_wrtsc(u64 t1)
+static void test_wrtsc(u64 t1)
 {
 	u64 t2;
 
@@ -22,7 +22,7 @@ void test_wrtsc(u64 t1)
 	printf("rdtsc after wrtsc(%" PRId64 "): %" PRId64 "\n", t1, t2);
 }
 
-void test_rdtscp(u64 aux)
+static void test_rdtscp(u64 aux)
 {
        u32 ecx;
 

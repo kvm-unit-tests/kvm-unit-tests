@@ -530,7 +530,7 @@ static void enable_nx(void *junk)
 		wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX_MASK);
 }
 
-bool test_wanted(struct test *test, char *wanted[], int nwanted)
+static bool test_wanted(struct test *test, char *wanted[], int nwanted)
 {
 	int i;
 

@@ -1,7 +1,7 @@
 #include "alloc.h"
 #include "libcflat.h"
 
-int sieve(char* data, int size)
+static int sieve(char* data, int size)
 {
     int i, j, r = 0;
 
@@ -19,7 +19,7 @@ int sieve(char* data, int size)
     return r;
 }
 
-void test_sieve(const char *msg, char *data, int size)
+static void test_sieve(const char *msg, char *data, int size)
 {
     int r;
 

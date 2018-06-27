@@ -2,7 +2,7 @@
 #include "x86/acpi.h"
 #include "asm/io.h"
 
-u32* find_resume_vector_addr(void)
+static u32* find_resume_vector_addr(void)
 {
     struct facs_descriptor_rev1 *facs = find_acpi_table_addr(FACS_SIGNATURE);
     if (!facs)

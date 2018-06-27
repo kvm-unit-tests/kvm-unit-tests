@@ -171,7 +171,7 @@ typedef struct {
 
 static void ac_test_show(ac_test_t *at);
 
-int write_cr4_checking(unsigned long val)
+static int write_cr4_checking(unsigned long val)
 {
     asm volatile(ASM_TRY("1f")
             "mov %0,%%cr4\n\t"
@@ -179,7 +179,7 @@ int write_cr4_checking(unsigned long val)
     return exception_vector();
 }
 
-void set_cr0_wp(int wp)
+static void set_cr0_wp(int wp)
 {
     unsigned long cr0 = read_cr0();
     unsigned long old_cr0 = cr0;
@@ -191,7 +191,7 @@ void set_cr0_wp(int wp)
         write_cr0(cr0);
 }
 
-unsigned set_cr4_smep(int smep)
+static unsigned set_cr4_smep(int smep)
 {
     unsigned long cr4 = read_cr4();
     unsigned long old_cr4 = cr4;
@@ -212,7 +212,7 @@ unsigned set_cr4_smep(int smep)
     return r;
 }
 
-void set_cr4_pke(int pke)
+static void set_cr4_pke(int pke)
 {
     unsigned long cr4 = read_cr4();
     unsigned long old_cr4 = cr4;
@@ -230,7 +230,7 @@ void set_cr4_pke(int pke)
     write_cr4(cr4);
 }
 
-void set_efer_nx(int nx)
+static void set_efer_nx(int nx)
 {
     unsigned long long efer = rdmsr(MSR_EFER);
     unsigned long long old_efer = efer;
@@ -253,7 +253,7 @@ static void ac_env_int(ac_pool_t *pool)
     pool->pt_pool_current = 0;
 }
 
-void ac_test_init(ac_test_t *at, void *virt)
+static void ac_test_init(ac_test_t *at, void *virt)
 {
     wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX_MASK);
     set_cr0_wp(1);
@@ -262,7 +262,7 @@ void ac_test_init(ac_test_t *at, void *virt)
     at->phys = 32 * 1024 * 1024;
 }
 
-int ac_test_bump_one(ac_test_t *at)
+static int ac_test_bump_one(ac_test_t *at)
 {
     at->flags = ((at->flags | invalid_mask) + 1) & ~invalid_mask;
     return at->flags < (1 << NR_AC_FLAGS);
@@ -270,7 +270,7 @@ int ac_test_bump_one(ac_test_t *at)
 
 #define F(x)  ((flags & x##_MASK) != 0)
 
-_Bool ac_test_legal(ac_test_t *at)
+static _Bool ac_test_legal(ac_test_t *at)
 {
     int flags = at->flags;
 
@@ -302,7 +302,7 @@ _Bool ac_test_legal(ac_test_t *at)
     return true;
 }
 
-int ac_test_bump(ac_test_t *at)
+static int ac_test_bump(ac_test_t *at)
 {
     int ret;
 
@@ -312,25 +312,26 @@ int ac_test_bump(ac_test_t *at)
     return ret;
 }
 
-pt_element_t ac_test_alloc_pt(ac_pool_t *pool)
+static pt_element_t ac_test_alloc_pt(ac_pool_t *pool)
 {
     pt_element_t ret = pool->pt_pool + pool->pt_pool_current;
     pool->pt_pool_current += PAGE_SIZE;
     return ret;
 }
 
-_Bool ac_test_enough_room(ac_pool_t *pool)
+static _Bool ac_test_enough_room(ac_pool_t *pool)
 {
     return pool->pt_pool_current + 5 * PAGE_SIZE <= pool->pt_pool_size;
 }
 
-void ac_test_reset_pt_pool(ac_pool_t *pool)
+static void ac_test_reset_pt_pool(ac_pool_t *pool)
 {
     pool->pt_pool_current = 0;
 }
 
-pt_element_t ac_test_permissions(ac_test_t *at, unsigned flags, bool writable,
-                                 bool user, bool executable)
+static pt_element_t ac_test_permissions(ac_test_t *at, unsigned flags,
+                                        bool writable, bool user,
+                                        bool executable)
 {
     bool kwritable = !F(AC_CPU_CR0_WP) && !F(AC_ACCESS_USER);
     pt_element_t expected = 0;
@@ -366,7 +367,7 @@ pt_element_t ac_test_permissions(ac_test_t *at, unsigned flags, bool writable,
     return expected;
 }
 
-void ac_emulate_access(ac_test_t *at, unsigned flags)
+static void ac_emulate_access(ac_test_t *at, unsigned flags)
 {
     bool pde_valid, pte_valid;
     bool user, writable, executable;
@@ -438,7 +439,7 @@ fault:
         at->expected_error &= ~PFERR_FETCH_MASK;
 }
 
-void ac_set_expected_status(ac_test_t *at)
+static void ac_set_expected_status(ac_test_t *at)
 {
     invlpg(at->virt);
 
@@ -460,8 +461,8 @@ void ac_set_expected_status(ac_test_t *at)
     ac_emulate_access(at, at->flags);
 }
 
-void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, u64 pd_page,
-			       u64 pt_page)
+static void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool,
+				      u64 pd_page, u64 pt_page)
 
 {
     unsigned long root = read_cr3();
@@ -614,7 +615,7 @@ static int pt_match(pt_element_t pte1, pt_element_t pte2, pt_element_t ignore)
     return pte1 == pte2;
 }
 
-int ac_test_do_access(ac_test_t *at)
+static int ac_test_do_access(ac_test_t *at)
 {
     static unsigned unique = 42;
     int fault = 0;
@@ -913,7 +914,7 @@ err:
 	return 0;
 }
 
-int ac_test_exec(ac_test_t *at, ac_pool_t *pool)
+static int ac_test_exec(ac_test_t *at, ac_pool_t *pool)
 {
     int r;
 
@@ -934,7 +935,7 @@ const ac_test_fn ac_test_cases[] =
 	check_smep_andnot_wp
 };
 
-int ac_test_run(void)
+static int ac_test_run(void)
 {
     ac_test_t at;
     ac_pool_t pool;

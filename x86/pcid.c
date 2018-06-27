@@ -13,7 +13,7 @@ struct invpcid_desc {
     unsigned long addr : 64;
 };
 
-int write_cr0_checking(unsigned long val)
+static int write_cr0_checking(unsigned long val)
 {
     asm volatile(ASM_TRY("1f")
                  "mov %0, %%cr0\n\t"
@@ -21,7 +21,7 @@ int write_cr0_checking(unsigned long val)
     return exception_vector();
 }
 
-int write_cr4_checking(unsigned long val)
+static int write_cr4_checking(unsigned long val)
 {
     asm volatile(ASM_TRY("1f")
                  "mov %0, %%cr4\n\t"
@@ -29,7 +29,7 @@ int write_cr4_checking(unsigned long val)
     return exception_vector();
 }
 
-int invpcid_checking(unsigned long type, void *desc)
+static int invpcid_checking(unsigned long type, void *desc)
 {
     asm volatile (ASM_TRY("1f")
                   ".byte 0x66,0x0f,0x38,0x82,0x18 \n\t" /* invpcid (%rax), %rbx */
@@ -37,13 +37,13 @@ int invpcid_checking(unsigned long type, void *desc)
     return exception_vector();
 }
 
-void test_cpuid_consistency(int pcid_enabled, int invpcid_enabled)
+static void test_cpuid_consistency(int pcid_enabled, int invpcid_enabled)
 {
     int passed = !(!pcid_enabled && invpcid_enabled);
     report("CPUID consistency", passed);
 }
 
-void test_pcid_enabled(void)
+static void test_pcid_enabled(void)
 {
     int passed = 0;
     ulong cr0 = read_cr0(), cr3 = read_cr3(), cr4 = read_cr4();
@@ -70,7 +70,7 @@ report:
     report("Test on PCID when enabled", passed);
 }
 
-void test_pcid_disabled(void)
+static void test_pcid_disabled(void)
 {
     int passed = 0;
     ulong cr4 = read_cr4();
@@ -85,7 +85,7 @@ report:
     report("Test on PCID when disabled", passed);
 }
 
-void test_invpcid_enabled(void)
+static void test_invpcid_enabled(void)
 {
     int passed = 0;
     ulong cr4 = read_cr4();
@@ -122,7 +122,7 @@ report:
     report("Test on INVPCID when enabled", passed);
 }
 
-void test_invpcid_disabled(void)
+static void test_invpcid_disabled(void)
 {
     int passed = 0;
     struct invpcid_desc desc;
