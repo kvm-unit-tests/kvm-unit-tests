@@ -104,3 +104,27 @@ void handle_pgm_int(void)
 	pgm_int_expected = false;
 	fixup_pgm_int();
 }
+
+void handle_ext_int(void)
+{
+	report_abort("Unexpected external call interrupt: at %#lx",
+		     lc->ext_old_psw.addr);
+}
+
+void handle_mcck_int(void)
+{
+	report_abort("Unexpected machine check interrupt: at %#lx",
+		     lc->mcck_old_psw.addr);
+}
+
+void handle_io_int(void)
+{
+	report_abort("Unexpected io interrupt: at %#lx",
+		     lc->io_old_psw.addr);
+}
+
+void handle_svc_int(void)
+{
+	report_abort("Unexpected service call interrupt: at %#lx",
+		     lc->svc_old_psw.addr);
+}
