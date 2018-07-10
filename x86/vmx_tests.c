@@ -3757,6 +3757,122 @@ static void test_apic_ctls(void)
 	test_virtual_intr_ctls();
 }
 
+/*
+ * If the "use TPR shadow" VM-execution control is 0, the following
+ * VM-execution controls must also be 0:
+ * 	- virtualize x2APIC mode
+ *	- APIC-register virtualization
+ *	- virtual-interrupt delivery
+ */
+static void test_apic_virtual_ctls(void)
+{
+	u32 saved_primary = vmcs_read(CPU_EXEC_CTRL0);
+	u32 saved_secondary = vmcs_read(CPU_EXEC_CTRL1);
+	u32 primary = saved_primary;
+	u32 secondary = saved_secondary;
+	bool cpu_has_virt_x2apic = 0;
+	bool cpu_has_apic_reg_virt = 0;
+	bool cpu_has_vintd = 0;
+	bool ctrl = false;
+	char str[10] = "disabled";
+
+	if (!((ctrl_cpu_rev[0].clr & (CPU_SECONDARY | CPU_TPR_SHADOW)) ==
+	    (CPU_SECONDARY | CPU_TPR_SHADOW)))
+		return;
+
+	if ((ctrl_cpu_rev[1].clr & CPU_VIRT_X2APIC) == CPU_VIRT_X2APIC)
+		cpu_has_virt_x2apic = 1;
+	if ((ctrl_cpu_rev[1].clr & CPU_APIC_REG_VIRT) == CPU_APIC_REG_VIRT)
+		cpu_has_apic_reg_virt = 1;
+	if ((ctrl_cpu_rev[1].clr & CPU_VINTD) == CPU_VINTD)
+		cpu_has_vintd = 1;
+
+	primary |= CPU_SECONDARY;
+	primary &= ~CPU_TPR_SHADOW;
+	vmcs_write(CPU_EXEC_CTRL0, primary);
+again:
+	if (cpu_has_virt_x2apic) {
+		secondary &= ~(CPU_APIC_REG_VIRT | CPU_VINTD);
+		vmcs_write(CPU_EXEC_CTRL1, secondary | CPU_VIRT_X2APIC);
+		report_prefix_pushf("Use TPR shadow %s; virtualize x2APIC mode enabled", str);
+		test_vmx_controls(ctrl, false);
+		report_prefix_pop();
+
+		if (cpu_has_apic_reg_virt) {
+			vmcs_write(CPU_EXEC_CTRL1, secondary |
+			    CPU_APIC_REG_VIRT);
+			report_prefix_pushf("Use TPR shadow %s; virtualize x2APIC mode enabled; APIC-register virtualization enabled", str);
+			test_vmx_controls(ctrl, false);
+			report_prefix_pop();
+		}
+
+		if (cpu_has_vintd) {
+			secondary &= ~CPU_APIC_REG_VIRT;
+			vmcs_write(CPU_EXEC_CTRL1, secondary | CPU_VINTD);
+			report_prefix_pushf("Use TPR shadow %s; virtualize x2APIC mode enabled; virtual-interrupt delivery enabled", str);
+			test_vmx_controls(ctrl, false);
+			report_prefix_pop();
+		}
+	}
+
+	if (cpu_has_apic_reg_virt) {
+		secondary &= ~(~CPU_VIRT_X2APIC | CPU_VINTD);
+		vmcs_write(CPU_EXEC_CTRL1, secondary | CPU_APIC_REG_VIRT);
+		report_prefix_pushf("Use TPR shadow %s; APIC-register virtualization enabled", str);
+		test_vmx_controls(ctrl, false);
+		report_prefix_pop();
+
+		if (cpu_has_vintd) {
+			secondary &= ~CPU_VIRT_X2APIC;
+			vmcs_write(CPU_EXEC_CTRL1, secondary | CPU_VINTD);
+			report_prefix_pushf("Use TPR shadow %s; APIC-register virtualization enabled; virtual-interrupt delivery enabled", str);
+			test_vmx_controls(ctrl, false);
+			report_prefix_pop();
+		}
+	}
+
+	if (cpu_has_vintd) {
+		secondary &= ~(~CPU_VIRT_X2APIC | CPU_APIC_REG_VIRT);
+		vmcs_write(CPU_EXEC_CTRL1, secondary | CPU_VINTD);
+		report_prefix_pushf("Use TPR shadow %s; virtual-interrupt delivery enabled", str);
+		test_vmx_controls(ctrl, false);
+		report_prefix_pop();
+	}
+
+	if (cpu_has_virt_x2apic && cpu_has_apic_reg_virt &&
+	    cpu_has_vintd) {
+
+		vmcs_write(CPU_EXEC_CTRL1, secondary | (CPU_VIRT_X2APIC |
+		    CPU_APIC_REG_VIRT | CPU_VINTD));
+		report_prefix_pushf("Use TPR shadow %s; virtualize x2APIC mode enabled; APIC-register virtualization enabled; virtual-interrupt delivery enabled", str);
+		test_vmx_controls(ctrl, false);
+		report_prefix_pop();
+
+	}
+
+	if ((primary & CPU_TPR_SHADOW) != CPU_TPR_SHADOW) {
+		/*
+		 * We now set CPU_TPR_SHADOW and execute all the above
+		 * tests again.
+		 */
+		primary |= CPU_TPR_SHADOW;
+		vmcs_write(CPU_EXEC_CTRL0, primary);
+		strcpy(str, "enabled");
+		ctrl = true;
+		goto again;
+	}
+
+	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
+	vmcs_write(CPU_EXEC_CTRL1, saved_secondary);
+}
+
+static void test_apic_ctls(void)
+{
+	test_apic_virt_addr();
+	test_apic_access_addr();
+	test_apic_virtual_ctls();
+}
+
 static void set_vtpr(unsigned vtpr)
 {
 	*(u32 *)phys_to_virt(vmcs_read(APIC_VIRT_ADDR) + APIC_TASKPRI) = vtpr;
