@@ -26,6 +26,18 @@ init_psw_cont:
 	/* setup pgm interrupt handler */
 	larl	%r1, pgm_int_psw
 	mvc	GEN_LC_PGM_NEW_PSW(16), 0(%r1)
+	/* setup ext interrupt handler */
+	larl	%r1, ext_int_psw
+	mvc	GEN_LC_EXT_NEW_PSW(16), 0(%r1)
+	/* setup mcck interrupt handler */
+	larl	%r1, mcck_int_psw
+	mvc	GEN_LC_MCCK_NEW_PSW(16), 0(%r1)
+	/* setup io interrupt handler */
+	larl	%r1, ext_int_psw
+	mvc	GEN_LC_IO_NEW_PSW(16), 0(%r1)
+	/* setup svc interrupt handler */
+	larl	%r1, mcck_int_psw
+	mvc	GEN_LC_SVC_NEW_PSW(16), 0(%r1)
 	/* setup cr0, enabling e.g. AFP-register control */
 	larl	%r1, initital_cr0
 	lctlg	%c0, %c0, 0(%r1)
@@ -42,7 +54,7 @@ init_psw_cont:
 	/* call exit() */
 	j exit
 
-pgm_int:
+	.macro SAVE_REGS
 	/* save grs 0-15 */
 	stmg	%r0, %r15, GEN_LC_SW_INT_GRS
 	/* save fprs 0-15 + fpc */
@@ -64,8 +76,9 @@ pgm_int:
 	std	%f14, 112(%r1)
 	std	%f15, 120(%r1)
 	stfpc	GEN_LC_SW_INT_FPC
-	/* call our c handler */
-	brasl	%r14, handle_pgm_int
+	.endm
+
+	.macro RESTORE_REGS
 	/* restore fprs 0-15 + fpc */
 	larl	%r1, GEN_LC_SW_INT_FPRS
 	ld	%f0, 0(%r1)
@@ -87,13 +100,52 @@ pgm_int:
 	lfpc	GEN_LC_SW_INT_FPC
 	/* restore grs 0-15 */
 	lmg	%r0, %r15, GEN_LC_SW_INT_GRS
+	.endm
+
+.section .text
+pgm_int:
+	SAVE_REGS
+	brasl	%r14, handle_pgm_int
+	RESTORE_REGS
 	lpswe	GEN_LC_PGM_OLD_PSW
+
+ext_int:
+	SAVE_REGS
+	brasl	%r14, handle_ext_int
+	RESTORE_REGS
+	lpswe	GEN_LC_EXT_OLD_PSW
+
+mcck_int:
+	SAVE_REGS
+	brasl	%r14, handle_mcck_int
+	RESTORE_REGS
+	lpswe	GEN_LC_MCCK_OLD_PSW
+
+io_int:
+	SAVE_REGS
+	brasl	%r14, handle_io_int
+	RESTORE_REGS
+	lpswe	GEN_LC_IO_OLD_PSW
+
+svc_int:
+	SAVE_REGS
+	brasl	%r14, handle_svc_int
+	RESTORE_REGS
+	lpswe	GEN_LC_SVC_OLD_PSW
 
 	.align	8
 initital_psw:
 	.quad	0x0000000180000000, init_psw_cont
 pgm_int_psw:
 	.quad	0x0000000180000000, pgm_int
+ext_int_psw:
+	.quad	0x0000000180000000, ext_int
+mcck_int_psw:
+	.quad	0x0000000180000000, mcck_int
+io_int_psw:
+	.quad	0x0000000180000000, io_int
+svc_int_psw:
+	.quad	0x0000000180000000, svc_int
 initital_cr0:
 	/* enable AFP-register control, so FP regs (+BFP instr) can be used */
 	.quad	0x0000000000040000

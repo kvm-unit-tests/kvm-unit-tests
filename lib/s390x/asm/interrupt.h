@@ -12,6 +12,10 @@
 #include <asm/arch_def.h>
 
 void handle_pgm_int(void);
+void handle_ext_int(void);
+void handle_mcck_int(void);
+void handle_io_int(void);
+void handle_svc_int(void);
 void expect_pgm_int(void);
 uint16_t clear_pgm_int(void);
 void check_pgm_int_code(uint16_t code);
