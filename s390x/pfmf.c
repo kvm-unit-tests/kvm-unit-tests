@@ -125,9 +125,10 @@ int main(void)
 	bool has_edat = test_facility(8);
 
 	report_prefix_push("pfmf");
-	report_xfail("PFMF available", !has_edat, has_edat);
-	if (!has_edat)
+	if (!has_edat) {
+		report_skip("PFMF is not available");
 		goto done;
+	}
 
 	test_priv();
 	/* Force the buffer pages in */

@@ -57,9 +57,10 @@ int main(void)
 	bool has_essa = test_availability();
 
 	report_prefix_push("cmm");
-	report_xfail("ESSA available", !has_essa, has_essa);
-	if (!has_essa)
+	if (!has_essa) {
+		report_skip("ESSA is not available");
 		goto done;
+	}
 
 	test_priv();
 	test_params();

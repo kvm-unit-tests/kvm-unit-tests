@@ -118,9 +118,11 @@ static void test_h_random(int argc, char **argv)
 
 	/* H_RANDOM is optional - so check for sane return values first */
 	rc = h_random(&rval);
-	report_xfail("h-call available", rc == H_FUNCTION, rc == H_SUCCESS);
-	if (rc != H_SUCCESS)
+	if (rc == H_FUNCTION) {
+		report_skip("h-call is not available");
 		return;
+	}
+	report("h-call can be used successfully", rc == H_SUCCESS);
 
 	val0 = 0ULL;
 	val1 = ~0ULL;

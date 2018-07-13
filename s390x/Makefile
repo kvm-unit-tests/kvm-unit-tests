@@ -21,7 +21,7 @@ CFLAGS += -I $(SRCDIR)/lib -I $(SRCDIR)/lib/s390x -I lib
 CFLAGS += -O2
 CFLAGS += -march=z900
 CFLAGS += -fno-delete-null-pointer-checks
-LDFLAGS += -nostdlib
+LDFLAGS += -nostdlib -Wl,--build-id=none
 
 # We want to keep intermediate files
 .PRECIOUS: %.o

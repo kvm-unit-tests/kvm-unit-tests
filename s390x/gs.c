@@ -158,9 +158,10 @@ int main(void)
 	bool has_gs = test_facility(133);
 
 	report_prefix_push("gs");
-	report_xfail("Guarded storage available", !has_gs, has_gs);
-	if (!has_gs)
+	if (!has_gs) {
+		report_skip("Guarded storage is not available");
 		goto done;
+	}
 
 	test_special();
 	init();
