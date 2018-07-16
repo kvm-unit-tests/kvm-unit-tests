@@ -40,6 +40,16 @@ static void write_vtimer_cval(u64 val)
 	write_sysreg(val, cntv_cval_el0);
 }
 
+static s32 read_vtimer_tval(void)
+{
+	return read_sysreg(cntv_tval_el0);
+}
+
+static void write_vtimer_tval(s32 val)
+{
+	write_sysreg(val, cntv_tval_el0);
+}
+
 static u64 read_vtimer_ctl(void)
 {
 	return read_sysreg(cntv_ctl_el0);
@@ -65,6 +75,16 @@ static void write_ptimer_cval(u64 val)
 	write_sysreg(val, cntp_cval_el0);
 }
 
+static s32 read_ptimer_tval(void)
+{
+	return read_sysreg(cntp_tval_el0);
+}
+
+static void write_ptimer_tval(s32 val)
+{
+	write_sysreg(val, cntp_tval_el0);
+}
+
 static u64 read_ptimer_ctl(void)
 {
 	return read_sysreg(cntp_ctl_el0);
@@ -82,6 +102,8 @@ struct timer_info {
 	u64 (*read_counter)(void);
 	u64 (*read_cval)(void);
 	void (*write_cval)(u64);
+	s32 (*read_tval)(void);
+	void (*write_tval)(s32);
 	u64 (*read_ctl)(void);
 	void (*write_ctl)(u64);
 };
@@ -91,6 +113,8 @@ static struct timer_info vtimer_info = {
 	.read_counter = read_vtimer_counter,
 	.read_cval = read_vtimer_cval,
 	.write_cval = write_vtimer_cval,
+	.read_tval = read_vtimer_tval,
+	.write_tval = write_vtimer_tval,
 	.read_ctl = read_vtimer_ctl,
 	.write_ctl = write_vtimer_ctl,
 };
@@ -100,6 +124,8 @@ static struct timer_info ptimer_info = {
 	.read_counter = read_ptimer_counter,
 	.read_cval = read_ptimer_cval,
 	.write_cval = write_ptimer_cval,
+	.read_tval = read_ptimer_tval,
+	.write_tval = write_ptimer_tval,
 	.read_ctl = read_ptimer_ctl,
 	.write_ctl = write_ptimer_ctl,
 };
