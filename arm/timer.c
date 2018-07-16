@@ -211,6 +211,7 @@ static void test_timer(struct timer_info *info)
 	u64 now = info->read_counter();
 	u64 time_10s = read_sysreg(cntfrq_el0) * 10;
 	u64 later = now + time_10s;
+	s32 left;
 
 	/* We don't want the irq handler to fire because that will change the
 	 * timer state and we want to test the timer output signal.  We can
@@ -236,6 +237,15 @@ static void test_timer(struct timer_info *info)
 
 	/* Disable the timer again */
 	info->write_ctl(0);
+
+	/* Test TVAL and IRQ trigger */
+	info->irq_received = false;
+	info->write_tval(read_sysreg(cntfrq_el0) / 100);	/* 10 ms */
+	info->write_ctl(ARCH_TIMER_CTL_ENABLE);
+	wfi();
+	left = info->read_tval();
+	report("interrupt received after TVAL/WFI", info->irq_received);
+	report("timer has expired (%d)", left < 0, left);
 }
 
 static void test_vtimer(void)
