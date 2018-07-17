@@ -209,7 +209,7 @@ env_add_errata ()
 	if [ -f "$ENV" ] && grep -q '^ERRATA_' <(env); then
 		for line in $(grep '^ERRATA_' "$ENV"); do
 			errata=${line%%=*}
-			test -v $errata && continue
+			[ -n "${!errata}" ] && continue
 			eval export "$line"
 		done
 	elif [ ! -f "$ENV" ]; then
@@ -251,6 +251,7 @@ env_generate_errata ()
 
 		test -z "$commit" && continue
 		errata="ERRATA_$commit"
+		[ -n "${!errata}" ] && continue
 
 		IFS=. read -r v p rest <<<"$minver"
 		IFS=- read -r s x <<<"$rest"
