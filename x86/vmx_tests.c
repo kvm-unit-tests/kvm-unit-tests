@@ -3582,6 +3582,91 @@ static void test_apic_access_addr(void)
 				 "virtualize APIC-accesses", true, false);
 }
 
+static bool set_bit_pattern(u8 mask, u32 *secondary)
+{
+	u8 i;
+	bool flag = false;
+	u32 test_bits[3] = {
+		CPU_VIRT_X2APIC,
+		CPU_APIC_REG_VIRT,
+		CPU_VINTD
+	};
+
+        for (i = 0; i < ARRAY_SIZE(test_bits); i++) {
+		if ((mask & (1u << i)) &&
+		    (ctrl_cpu_rev[1].clr & test_bits[i])) {
+			*secondary |= test_bits[i];
+			flag = true;
+		}
+	}
+
+	return (flag);
+}
+
+/*
+ * If the "use TPR shadow" VM-execution control is 0, the following
+ * VM-execution controls must also be 0:
+ * 	- virtualize x2APIC mode
+ *	- APIC-register virtualization
+ *	- virtual-interrupt delivery
+ */
+static void test_apic_virtual_ctls(void)
+{
+	u32 saved_primary = vmcs_read(CPU_EXEC_CTRL0);
+	u32 saved_secondary = vmcs_read(CPU_EXEC_CTRL1);
+	u32 primary = saved_primary;
+	u32 secondary = saved_secondary;
+	bool ctrl = false;
+	char str[10] = "disabled";
+	u8 i = 0, j;
+
+	if (!((ctrl_cpu_rev[0].clr & (CPU_SECONDARY | CPU_TPR_SHADOW)) ==
+	    (CPU_SECONDARY | CPU_TPR_SHADOW)))
+		return;
+
+	primary |= CPU_SECONDARY;
+	primary &= ~CPU_TPR_SHADOW;
+	vmcs_write(CPU_EXEC_CTRL0, primary);
+
+	while (1) {
+		for (j = 1; j < 8; j++) {
+			secondary &= ~(CPU_VIRT_X2APIC | CPU_APIC_REG_VIRT | CPU_VINTD);
+			if (primary & CPU_TPR_SHADOW) {
+				ctrl = true;
+			} else {
+				if (! set_bit_pattern(j, &secondary))
+					ctrl = true;
+				else
+					ctrl = false;
+			}
+
+			vmcs_write(CPU_EXEC_CTRL1, secondary);
+			report_prefix_pushf("Use TPR shadow %s, virtualize x2APIC mode %s, APIC-register virtualization %s, virtual-interrupt delivery %s",
+				str, (secondary & CPU_VIRT_X2APIC) ? "enabled" : "disabled", (secondary & CPU_APIC_REG_VIRT) ? "enabled" : "disabled", (secondary & CPU_VINTD) ? "enabled" : "disabled");
+			test_vmx_controls(ctrl, false);
+			report_prefix_pop();
+		}
+
+		if (i == 1)
+			break;
+		i++;
+
+		primary |= CPU_TPR_SHADOW;
+		vmcs_write(CPU_EXEC_CTRL0, primary);
+		strcpy(str, "enabled");
+	}
+
+	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
+	vmcs_write(CPU_EXEC_CTRL1, saved_secondary);
+}
+
+static void test_apic_ctls(void)
+{
+	test_apic_virt_addr();
+	test_apic_access_addr();
+	test_apic_virtual_ctls();
+}
+
 static void set_vtpr(unsigned vtpr)
 {
 	*(u32 *)phys_to_virt(vmcs_read(APIC_VIRT_ADDR) + APIC_TASKPRI) = vtpr;
@@ -4123,8 +4208,7 @@ static void vmx_controls_test(void)
 	test_cr3_targets();
 	test_io_bitmaps();
 	test_msr_bitmap();
-	test_apic_virt_addr();
-	test_apic_access_addr();
+	test_apic_ctls();
 	test_tpr_threshold();
 	test_nmi_ctrls();
 	test_invalid_event_injection();
