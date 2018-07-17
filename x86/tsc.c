@@ -37,7 +37,7 @@ void test_rdpid(u64 aux)
 
        wrmsr(MSR_TSC_AUX, aux);
        asm (".byte 0xf3, 0x0f, 0xc7, 0xf8" : "=a" (eax));
-       report("Test rdpid %%eax %d", eax == aux, aux);
+       report("Test rdpid %%eax %" PRId64, eax == aux, aux);
 }
 
 int main(void)
