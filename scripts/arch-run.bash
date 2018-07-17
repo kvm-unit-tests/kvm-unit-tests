@@ -197,7 +197,7 @@ initrd_create ()
 	ret=$?
 
 	unset INITRD
-	[ -f "$ENV" ] && INITRD="-initrd $ENV"
+	[ -f "$KVM_UNIT_TESTS_ENV" ] && INITRD="-initrd $KVM_UNIT_TESTS_ENV"
 
 	return $ret
 }
@@ -206,22 +206,22 @@ env_add_errata ()
 {
 	local line errata ret=1
 
-	if [ -f "$ENV" ] && grep -q '^ERRATA_' <(env); then
-		for line in $(grep '^ERRATA_' "$ENV"); do
+	if [ -f "$KVM_UNIT_TESTS_ENV" ] && grep -q '^ERRATA_' <(env); then
+		for line in $(grep '^ERRATA_' "$KVM_UNIT_TESTS_ENV"); do
 			errata=${line%%=*}
 			[ -n "${!errata}" ] && continue
 			eval export "$line"
 		done
-	elif [ ! -f "$ENV" ]; then
+	elif [ ! -f "$KVM_UNIT_TESTS_ENV" ]; then
 		env_generate_errata
 	fi
 
 	if grep -q '^ERRATA_' <(env); then
-		export ENV_OLD="$ENV"
-		export ENV=$(mktemp)
-		trap_exit_push 'rm -f $ENV; [ "$ENV_OLD" ] && export ENV="$ENV_OLD" || unset ENV; unset ENV_OLD'
-		[ -f "$ENV_OLD" ] && grep -v '^ERRATA_' "$ENV_OLD" > $ENV
-		grep '^ERRATA_' <(env) >> $ENV
+		export KVM_UNIT_TESTS_ENV_OLD="$KVM_UNIT_TESTS_ENV"
+		export KVM_UNIT_TESTS_ENV=$(mktemp)
+		trap_exit_push 'rm -f $KVM_UNIT_TESTS_ENV; [ "$KVM_UNIT_TESTS_ENV_OLD" ] && export KVM_UNIT_TESTS_ENV="$KVM_UNIT_TESTS_ENV_OLD" || unset KVM_UNIT_TESTS_ENV; unset KVM_UNIT_TESTS_ENV_OLD'
+		[ -f "$KVM_UNIT_TESTS_ENV_OLD" ] && grep -v '^ERRATA_' "$KVM_UNIT_TESTS_ENV_OLD" > $KVM_UNIT_TESTS_ENV
+		grep '^ERRATA_' <(env) >> $KVM_UNIT_TESTS_ENV
 		ret=0
 	fi
 
