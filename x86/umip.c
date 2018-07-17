@@ -71,7 +71,7 @@ static void do_movcr(void)
     GP_ASM("mov %%cr0, %%" R "ax", , "eax");
 }
 
-static void test_umip_nogp(char *msg)
+static void test_umip_nogp(const char *msg)
 {
     puts(msg);
 
@@ -91,7 +91,7 @@ static void test_umip_nogp(char *msg)
     }
 }
 
-static void test_umip_gp(char *msg)
+static void test_umip_gp(const char *msg)
 {
     puts(msg);
 
@@ -113,7 +113,7 @@ static void test_umip_gp(char *msg)
 
 /* The ugly mode switching code */
 
-int do_ring3(void (*fn)(char *), char *arg)
+int do_ring3(void (*fn)(const char *), const char *arg)
 {
     static unsigned char user_stack[4096];
     int ret;
