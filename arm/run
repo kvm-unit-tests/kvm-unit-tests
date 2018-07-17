@@ -35,6 +35,10 @@ if [ "$ACCEL" = "kvm" ]; then
 	fi
 fi
 
+if [ "$ARCH" = "arm" ]; then
+	M+=",highmem=off"
+fi
+
 if ! $qemu $M -device '?' 2>&1 | grep virtconsole > /dev/null; then
 	echo "$qemu doesn't support virtio-console for chr-testdev. Exiting."
 	exit 2

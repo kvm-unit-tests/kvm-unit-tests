@@ -168,9 +168,23 @@ void *setup_mmu(phys_addr_t phys_end)
 	mmu_idmap = alloc_page();
 	memset(mmu_idmap, 0, PAGE_SIZE);
 
-	mmu_set_range_sect(mmu_idmap, PHYS_IO_OFFSET,
-		PHYS_IO_OFFSET, PHYS_IO_END,
+	/*
+	 * mach-virt I/O regions:
+	 *   - The first 1G (arm/arm64)
+	 *   - 512M at 256G (arm64, arm uses highmem=off)
+	 *   - 512G at 512G (arm64, arm uses highmem=off)
+	 */
+	mmu_set_range_sect(mmu_idmap,
+		0, 0, (1ul << 30),
 		__pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
+#ifdef __aarch64__
+	mmu_set_range_sect(mmu_idmap,
+		(1ul << 38), (1ul << 38), (1ul << 38) | (1ul << 29),
+		__pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
+	mmu_set_range_sect(mmu_idmap,
+		(1ul << 39), (1ul << 39), (1ul << 40),
+		__pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
+#endif
 
 	/* armv8 requires code shared between EL1 and EL0 to be read-only */
 	mmu_set_range_ptes(mmu_idmap, PHYS_OFFSET,
