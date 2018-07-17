@@ -51,6 +51,36 @@ skip_nodefault()
     done
 }
 
+function print_result()
+{
+    # output test results in a TAP format
+    # https://testanything.org/tap-version-13-specification.html
+
+    local status="$1"
+    local testname="$2"
+    local summary="$3"
+    local reason="$4"
+
+    if [[ $tap_output == "no" ]]; then
+        if [ -z "$reason" ]; then
+            echo "`$status` $testname $summary"
+        else
+            echo "`$status` $testname ($reason)"
+        fi
+        return
+    fi
+
+    if [[ $status == "FAIL" ]]; then
+        echo "not ok $testname $reason"
+    elif [[ $status == "PASS" ]]; then
+        echo "ok $testname"
+    elif [[ $status == "SKIP" ]]; then
+        echo "ok $testname # SKIP $reason"
+    else
+        echo "not ok # TODO unknown test status"
+    fi
+}
+
 function run()
 {
     local testname="$1"
@@ -73,12 +103,12 @@ function run()
 
     if [ -z "$only_group" ] && grep -qw "nodefault" <<<$groups &&
             skip_nodefault; then
-        echo -e "`SKIP` $testname (test marked as manual run only)"
+        print_result "SKIP" $testname "" "test marked as manual run only"
         return;
     fi
 
     if [ -n "$arch" ] && [ "$arch" != "$ARCH" ]; then
-        echo "`SKIP` $1 ($arch only)"
+        print_result "SKIP" $testname "" "$arch only"
         return 2
     fi
 
@@ -89,13 +119,13 @@ function run()
         path=${check_param%%=*}
         value=${check_param#*=}
         if [ "$path" ] && [ "$(cat $path)" != "$value" ]; then
-            echo "`SKIP` $1 ($path not equal to $value)"
+            print_result "SKIP" $testname "" "$path not equal to $value"
             return 2
         fi
     done
 
     last_line=$(premature_failure > >(tail -1)) && {
-        echo "`SKIP` $1 ($last_line)"
+        print_result "SKIP" $testname "" "$last_line"
         return 77
     }
 
@@ -116,15 +146,15 @@ function run()
     [ "$STANDALONE" != "yes" ] && echo > >(RUNTIME_log_stdout $kernel)
 
     if [ $ret -eq 0 ]; then
-        echo "`PASS` $1 $summary"
+        print_result "PASS" $testname "$summary"
     elif [ $ret -eq 77 ]; then
-        echo "`SKIP` $1 $summary"
+        print_result "SKIP" $testname "$summary"
     elif [ $ret -eq 124 ]; then
-        echo "`FAIL` $1 (timeout; duration=$timeout)"
+        print_result "FAIL" $testname "" "timeout; duration=$timeout"
     elif [ $ret -gt 127 ]; then
-        echo "`FAIL` $1 (terminated on SIG$(kill -l $(($ret - 128))))"
+        print_result "FAIL" $testname "" "terminated on SIG$(kill -l $(($ret - 128)))"
     else
-        echo "`FAIL` $1 $summary"
+        print_result "FAIL" $testname "$summary"
     fi
 
     return $ret

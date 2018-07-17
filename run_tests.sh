@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 verbose="no"
+tap_output="no"
 run_all_tests="no" # don't run nodefault tests
 
 if [ ! -f config.mak ]; then
@@ -14,7 +15,7 @@ function usage()
 {
 cat <<EOF
 
-Usage: $0 [-h] [-v] [-a] [-g group] [-j NUM-TASKS]
+Usage: $0 [-h] [-v] [-a] [-g group] [-j NUM-TASKS] [-t]
 
     -h: Output this help text
     -v: Enables verbose mode
@@ -22,6 +23,7 @@ Usage: $0 [-h] [-v] [-a] [-g group] [-j NUM-TASKS]
         and those guarded by errata.
     -g: Only execute tests in the given group
     -j: Execute tests in parallel
+    -t: Output test results in TAP format
 
 Set the environment variable QEMU=/path/to/qemu-system-ARCH to
 specify the appropriate qemu binary for ARCH-run.
@@ -32,7 +34,7 @@ EOF
 RUNTIME_arch_run="./$TEST_DIR/run"
 source scripts/runtime.bash
 
-while getopts "ag:hj:v" opt; do
+while getopts "ag:htj:v" opt; do
     case $opt in
         a)
             run_all_tests="yes"
@@ -55,6 +57,9 @@ while getopts "ag:hj:v" opt; do
         v)
             verbose="yes"
             ;;
+        t)
+            tap_output="yes"
+            ;;
         *)
             exit 2
             ;;
@@ -74,6 +79,10 @@ RUNTIME_log_stdout () {
 function run_task()
 {
 	local testname="$1"
+	if [ -z "$testname" ]; then
+		return
+	fi
+	test_number=$((test_number+1))
 
 	while (( $(jobs | wc -l) == $unittest_run_queues )); do
 		# wait for any background test to finish
@@ -98,8 +107,16 @@ mkdir $unittest_log_dir || exit 2
 
 echo "BUILD_HEAD=$(cat build-head)" > $unittest_log_dir/SUMMARY
 
+if [[ $tap_output == "yes" ]]; then
+    test_number=0
+    echo "TAP version 13"
+fi
 trap "wait; exit 130" SIGINT
 for_each_unittest $config run_task
 
 # wait until all tasks finish
 wait
+
+if [[ $tap_output == "yes" ]]; then
+    echo "1..$test_number"
+fi
