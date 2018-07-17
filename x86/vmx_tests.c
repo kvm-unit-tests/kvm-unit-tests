@@ -3609,6 +3609,11 @@ static bool set_bit_pattern(u8 mask, u32 *secondary)
  * 	- virtualize x2APIC mode
  *	- APIC-register virtualization
  *	- virtual-interrupt delivery
+ *    [Intel SDM]
+ *
+ * 2. If the "virtualize x2APIC mode" VM-execution control is 1, the
+ *    "virtualize APIC accesses" VM-execution control must be 0.
+ *    [Intel SDM]
  */
 static void test_apic_virtual_ctls(void)
 {
@@ -3620,6 +3625,9 @@ static void test_apic_virtual_ctls(void)
 	char str[10] = "disabled";
 	u8 i = 0, j;
 
+	/*
+	 * First test
+	 */
 	if (!((ctrl_cpu_rev[0].clr & (CPU_SECONDARY | CPU_TPR_SHADOW)) ==
 	    (CPU_SECONDARY | CPU_TPR_SHADOW)))
 		return;
@@ -3655,6 +3663,38 @@ static void test_apic_virtual_ctls(void)
 		vmcs_write(CPU_EXEC_CTRL0, primary);
 		strcpy(str, "enabled");
 	}
+
+	/*
+	 * Second test
+	 */
+	u32 apic_virt_ctls = (CPU_VIRT_X2APIC | CPU_VIRT_APIC_ACCESSES);
+
+	primary = saved_primary;
+	secondary = saved_secondary;
+	if (!((ctrl_cpu_rev[1].clr & apic_virt_ctls) == apic_virt_ctls))
+		return;
+
+	vmcs_write(CPU_EXEC_CTRL0, primary | CPU_SECONDARY);
+	secondary &= ~CPU_VIRT_APIC_ACCESSES;
+	vmcs_write(CPU_EXEC_CTRL1, secondary & ~CPU_VIRT_X2APIC);
+	report_prefix_pushf("Virtualize x2APIC mode disabled; virtualize APIC access disabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	vmcs_write(CPU_EXEC_CTRL1, secondary | CPU_VIRT_APIC_ACCESSES);
+	report_prefix_pushf("Virtualize x2APIC mode disabled; virtualize APIC access enabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	vmcs_write(CPU_EXEC_CTRL1, secondary | CPU_VIRT_X2APIC);
+	report_prefix_pushf("Virtualize x2APIC mode enabled; virtualize APIC access enabled");
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	vmcs_write(CPU_EXEC_CTRL1, secondary & ~CPU_VIRT_APIC_ACCESSES);
+	report_prefix_pushf("Virtualize x2APIC mode enabled; virtualize APIC access disabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
 
 	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
 	vmcs_write(CPU_EXEC_CTRL1, saved_secondary);
