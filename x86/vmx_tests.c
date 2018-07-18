@@ -3583,7 +3583,7 @@ static void test_apic_access_addr(void)
 
 	test_vmcs_page_reference(CPU_VIRT_APIC_ACCESSES, APIC_ACCS_ADDR,
 				 "APIC-access address",
-				 "virtualize APIC-accesses", true, false);
+				 "virtualize APIC-accesses", false, false);
 }
 
 static bool set_bit_pattern(u8 mask, u32 *secondary)
