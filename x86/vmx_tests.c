@@ -762,7 +762,7 @@ asm(
 	"insn_cr3_load: mov cr3,%rax; mov %rax,%cr3;ret\n\t"
 	"insn_cr3_store: mov %cr3,%rax;ret\n\t"
 #ifdef __x86_64__
-	"insn_cr8_load: mov %rax,%cr8;ret\n\t"
+	"insn_cr8_load: xor %eax, %eax; mov %rax,%cr8;ret\n\t"
 	"insn_cr8_store: mov %cr8,%rax;ret\n\t"
 #endif
 	"insn_monitor: xor %eax, %eax; xor %ecx, %ecx; xor %edx, %edx; monitor;ret\n\t"
