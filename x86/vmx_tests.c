@@ -4014,9 +4014,9 @@ static void test_invalid_event_injection(void)
  */
 static void test_vtpr_values(unsigned threshold)
 {
-	try_tpr_threshold_and_vtpr(threshold, threshold - 1);
-	try_tpr_threshold_and_vtpr(threshold, threshold);
-	try_tpr_threshold_and_vtpr(threshold, threshold + 1);
+	try_tpr_threshold_and_vtpr(threshold, (threshold - 1) << 4);
+	try_tpr_threshold_and_vtpr(threshold, threshold << 4);
+	try_tpr_threshold_and_vtpr(threshold, (threshold + 1) << 4);
 }
 
 static void try_tpr_threshold(unsigned threshold)
