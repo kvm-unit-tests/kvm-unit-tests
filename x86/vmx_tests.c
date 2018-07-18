@@ -4089,13 +4089,15 @@ static void test_tpr_threshold(void)
 	test_tpr_threshold_values();
 	report_prefix_pop();
 	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | CPU_TPR_SHADOW);
-	report_prefix_pushf("Use TPR shadow enabled");
+	report_prefix_pushf("Use TPR shadow enabled, secondary controls disabled");
 	test_tpr_threshold_values();
 	report_prefix_pop();
 
 	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
-	    (ctrl_cpu_rev[1].clr & (CPU_VINTD  | CPU_VIRT_APIC_ACCESSES))))
+	    (ctrl_cpu_rev[1].clr & (CPU_VINTD  | CPU_VIRT_APIC_ACCESSES)))) {
+		vmcs_write(CPU_EXEC_CTRL0, primary);
 		return;
+	}
 
 	u32 secondary = vmcs_read(CPU_EXEC_CTRL1);
 
