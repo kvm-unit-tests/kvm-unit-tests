@@ -6,10 +6,13 @@
 #ifndef _ASMARM_GIC_H_
 #define _ASMARM_GIC_H_
 
+#define GIC_NR_PRIVATE_IRQS		32
+#define GIC_FIRST_SPI			GIC_NR_PRIVATE_IRQS
 
 /* Distributor registers */
 #define GICD_CTLR			0x0000
 #define GICD_TYPER			0x0004
+#define GICD_IIDR			0x0008
 #define GICD_IGROUPR			0x0080
 #define GICD_ISENABLER			0x0100
 #define GICD_ISPENDR			0x0200
@@ -18,6 +21,7 @@
 #define GICD_ICACTIVER			0x0380
 #define GICD_IPRIORITYR			0x0400
 #define GICD_SGIR			0x0f00
+#define GICD_ICPIDR2			0x0fe8
 
 #define GICD_TYPER_IRQS(typer)		((((typer) & 0x1f) + 1) * 32)
 #define GICD_INT_EN_SET_SGI		0x0000ffff

@@ -3,6 +3,7 @@
  *
  * GICv2
  *   + test sending/receiving IPIs
+ *   + MMIO access tests
  * GICv3
  *   + test sending/receiving IPIs
  *
@@ -303,6 +304,92 @@ static void run_active_clear_test(void)
 	report_prefix_pop();
 }
 
+static bool test_ro_pattern_32(void *address, u32 pattern, u32 orig)
+{
+	u32 reg;
+
+	writel(pattern, address);
+	reg = readl(address);
+
+	if (reg != orig)
+		writel(orig, address);
+
+	return reg == orig;
+}
+
+static bool test_readonly_32(void *address, bool razwi)
+{
+	u32 orig, pattern;
+
+	orig = readl(address);
+	if (razwi && orig)
+		return false;
+
+	pattern = 0xffffffff;
+	if (orig != pattern) {
+		if (!test_ro_pattern_32(address, pattern, orig))
+			return false;
+	}
+
+	pattern = 0xa5a55a5a;
+	if (orig != pattern) {
+		if (!test_ro_pattern_32(address, pattern, orig))
+			return false;
+	}
+
+	pattern = 0;
+	if (orig != pattern) {
+		if (!test_ro_pattern_32(address, pattern, orig))
+			return false;
+	}
+
+	return true;
+}
+
+static void test_typer_v2(uint32_t reg)
+{
+	int nr_gic_cpus = ((reg >> 5) & 0x7) + 1;
+
+	report("all %d CPUs have interrupts", nr_cpus == nr_gic_cpus,
+	       nr_gic_cpus);
+}
+
+static void gic_test_mmio(void)
+{
+	u32 reg;
+	int nr_irqs;
+	void *gic_dist_base, *idreg;
+
+	switch(gic_version()) {
+	case 0x2:
+		gic_dist_base = gicv2_dist_base();
+		idreg = gic_dist_base + GICD_ICPIDR2;
+		break;
+	case 0x3:
+		report_abort("GICv3 MMIO tests NYI");
+	default:
+		report_abort("GIC version %d not supported", gic_version());
+	}
+
+	reg = readl(gic_dist_base + GICD_TYPER);
+	nr_irqs = GICD_TYPER_IRQS(reg);
+	report_info("number of implemented SPIs: %d", nr_irqs - GIC_FIRST_SPI);
+
+	test_typer_v2(reg);
+
+	report_info("IIDR: 0x%08x", readl(gic_dist_base + GICD_IIDR));
+
+	report("GICD_TYPER is read-only",
+	       test_readonly_32(gic_dist_base + GICD_TYPER, false));
+	report("GICD_IIDR is read-only",
+	       test_readonly_32(gic_dist_base + GICD_IIDR, false));
+
+	reg = readl(idreg);
+	report("ICPIDR2 is read-only (0x%08x)",
+	       test_readonly_32(idreg, false),
+	       reg);
+}
+
 int main(int argc, char **argv)
 {
 	if (!gic_init()) {
@@ -330,6 +417,10 @@ int main(int argc, char **argv)
 		on_cpus(ipi_test, NULL);
 	} else if (strcmp(argv[1], "active") == 0) {
 		run_active_clear_test();
+	} else if (strcmp(argv[1], "mmio") == 0) {
+		report_prefix_push(argv[1]);
+		gic_test_mmio();
+		report_prefix_pop();
 	} else {
 		report_abort("Unknown subtest '%s'", argv[1]);
 	}
