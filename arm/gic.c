@@ -431,6 +431,46 @@ static void test_priorities(int nr_irqs, void *priptr)
 	writel(orig_prio, first_spi);
 }
 
+/* GICD_ITARGETSR is only used by GICv2. */
+static void test_targets(int nr_irqs)
+{
+	void *targetsptr = gicv2_dist_base() + GICD_ITARGETSR;
+	u32 orig_targets;
+	u32 cpu_mask;
+	u32 pattern, reg;
+
+	orig_targets = readl(targetsptr + GIC_FIRST_SPI);
+	report_prefix_push("ITARGETSR");
+
+	cpu_mask = (1 << nr_cpus) - 1;
+	cpu_mask |= cpu_mask << 8;
+	cpu_mask |= cpu_mask << 16;
+
+	/* Check that bits for non implemented CPUs are RAZ/WI. */
+	if (nr_cpus < 8) {
+		writel(0xffffffff, targetsptr + GIC_FIRST_SPI);
+		report("bits for %d non-existent CPUs masked",
+		       !(readl(targetsptr + GIC_FIRST_SPI) & ~cpu_mask),
+		       8 - nr_cpus);
+	} else {
+		report_skip("CPU masking (all CPUs implemented)");
+	}
+
+	report("accesses beyond limit RAZ/WI",
+	       test_readonly_32(targetsptr + nr_irqs, true));
+
+	pattern = 0x0103020f;
+	writel(pattern, targetsptr + GIC_FIRST_SPI);
+	reg = readl(targetsptr + GIC_FIRST_SPI);
+	report("register content preserved (%08x => %08x)",
+	       reg == (pattern & cpu_mask), pattern & cpu_mask, reg);
+
+	/* The TARGETS registers are byte accessible. */
+	test_byte_access(targetsptr + GIC_FIRST_SPI, pattern, cpu_mask);
+
+	writel(orig_targets, targetsptr + GIC_FIRST_SPI);
+}
+
 static void gic_test_mmio(void)
 {
 	u32 reg;
@@ -467,6 +507,9 @@ static void gic_test_mmio(void)
 	       reg);
 
 	test_priorities(nr_irqs, gic_dist_base + GICD_IPRIORITYR);
+
+	if (gic_version() == 2)
+		test_targets(nr_irqs);
 }
 
 int main(int argc, char **argv)
