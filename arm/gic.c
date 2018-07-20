@@ -354,6 +354,83 @@ static void test_typer_v2(uint32_t reg)
 	       nr_gic_cpus);
 }
 
+#define BYTE(reg32, byte) (((reg32) >> ((byte) * 8)) & 0xff)
+#define REPLACE_BYTE(reg32, byte, new) (((reg32) & ~(0xff << ((byte) * 8))) |\
+					((new) << ((byte) * 8)))
+
+/*
+ * Some registers are byte accessible, do a byte-wide read and write of known
+ * content to check for this.
+ * Apply a @mask to cater for special register properties.
+ * @pattern contains the value already in the register.
+ */
+static void test_byte_access(void *base_addr, u32 pattern, u32 mask)
+{
+	u32 reg = readb(base_addr + 1);
+
+	report("byte reads successful (0x%08x => 0x%02x)",
+	       reg == (BYTE(pattern, 1) & (mask >> 8)),
+	       pattern & mask, reg);
+
+	pattern = REPLACE_BYTE(pattern, 2, 0x1f);
+	writeb(BYTE(pattern, 2), base_addr + 2);
+	reg = readl(base_addr);
+	report("byte writes successful (0x%02x => 0x%08x)",
+	       reg == (pattern & mask), BYTE(pattern, 2), reg);
+}
+
+static void test_priorities(int nr_irqs, void *priptr)
+{
+	u32 orig_prio, reg, pri_bits;
+	u32 pri_mask, pattern;
+	void *first_spi = priptr + GIC_FIRST_SPI;
+
+	orig_prio = readl(first_spi);
+	report_prefix_push("IPRIORITYR");
+
+	/*
+	 * Determine implemented number of priority bits by writing all 1's
+	 * and checking the number of cleared bits in the value read back.
+	 */
+	writel(0xffffffff, first_spi);
+	pri_mask = readl(first_spi);
+
+	reg = ~pri_mask;
+	report("consistent priority masking (0x%08x)",
+	       (((reg >> 16) == (reg & 0xffff)) &&
+	        ((reg & 0xff) == ((reg >> 8) & 0xff))), pri_mask);
+
+	reg = reg & 0xff;
+	for (pri_bits = 8; reg & 1; reg >>= 1, pri_bits--)
+		;
+	report("implements at least 4 priority bits (%d)",
+	       pri_bits >= 4, pri_bits);
+
+	pattern = 0;
+	writel(pattern, first_spi);
+	report("clearing priorities", readl(first_spi) == pattern);
+
+	/* setting all priorities to their max valus was tested above */
+
+	report("accesses beyond limit RAZ/WI",
+	       test_readonly_32(priptr + nr_irqs, true));
+
+	writel(pattern, priptr + nr_irqs - 4);
+	report("accessing last SPIs",
+	       readl(priptr + nr_irqs - 4) == (pattern & pri_mask));
+
+	pattern = 0xff7fbf3f;
+	writel(pattern, first_spi);
+	report("priorities are preserved",
+	       readl(first_spi) == (pattern & pri_mask));
+
+	/* The PRIORITY registers are byte accessible. */
+	test_byte_access(first_spi, pattern, pri_mask);
+
+	report_prefix_pop();
+	writel(orig_prio, first_spi);
+}
+
 static void gic_test_mmio(void)
 {
 	u32 reg;
@@ -388,6 +465,8 @@ static void gic_test_mmio(void)
 	report("ICPIDR2 is read-only (0x%08x)",
 	       test_readonly_32(idreg, false),
 	       reg);
+
+	test_priorities(nr_irqs, gic_dist_base + GICD_IPRIORITYR);
 }
 
 int main(int argc, char **argv)
