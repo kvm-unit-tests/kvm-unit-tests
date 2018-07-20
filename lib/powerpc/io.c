@@ -35,4 +35,5 @@ void exit(int code)
 	printf("\nEXIT: STATUS=%d\n", ((code) << 1) | 1);
 	rtas_power_off();
 	halt(code);
+	__builtin_unreachable();
 }

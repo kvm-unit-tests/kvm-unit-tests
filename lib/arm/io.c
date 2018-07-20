@@ -83,4 +83,5 @@ void exit(int code)
 {
 	chr_testdev_exit(code);
 	halt(code);
+	__builtin_unreachable();
 }
