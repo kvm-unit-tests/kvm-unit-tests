@@ -22,6 +22,14 @@ static void serial_outb(char ch)
         outb(ch, serial_iobase + 0x00);
 }
 
+static void serial_put(char ch)
+{
+        /* Force carriage return to be performed on \n */
+        if (ch == '\n')
+                serial_outb('\r');
+        serial_outb(ch);
+}
+
 static void serial_init(void)
 {
         u8 lcr;
@@ -61,7 +69,7 @@ static void print_serial(const char *buf)
         }
 
         for (i = 0; i < len; i++) {
-            serial_outb(buf[i]);
+            serial_put(buf[i]);
         }
 #else
         asm volatile ("rep/outsb" : "+S"(buf), "+c"(len) : "d"(0xf1));
