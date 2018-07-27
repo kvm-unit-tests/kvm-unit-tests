@@ -42,9 +42,11 @@ FLATLIBS = lib/libcflat.a $(libgcc)
 %.elf: %.o $(FLATLIBS) $(SRCDIR)/x86/flat.lds $(cstart.o)
 	$(CC) $(CFLAGS) -nostdlib -o $@ -Wl,-T,$(SRCDIR)/x86/flat.lds \
 		$(filter %.o, $^) $(FLATLIBS)
+	@chmod a-x $@
 
 %.flat: %.elf
 	$(OBJCOPY) -O elf32-i386 $^ $@
+	@chmod a-x $@
 
 tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/smptest.flat  $(TEST_DIR)/port80.flat \

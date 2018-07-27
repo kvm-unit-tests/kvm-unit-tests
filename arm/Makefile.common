@@ -73,9 +73,11 @@ FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libgcc) $(libeabi)
 		-Wl,-T,$(SRCDIR)/arm/flat.lds,--build-id=none,-Ttext=$(start_addr) \
 		$(filter %.o, $^) $(FLATLIBS) \
 		$(SRCDIR)/lib/auxinfo.c -DPROGNAME=\"$(@:.elf=.flat)\" -DAUXFLAGS=$(AUXFLAGS)
+	@chmod a-x $@
 
 %.flat: %.elf
 	$(OBJCOPY) -O binary $^ $@
+	@chmod a-x $@
 
 $(libeabi): $(eabiobjs)
 	$(AR) rcs $@ $^

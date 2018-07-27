@@ -53,6 +53,7 @@ FLATLIBS = $(libcflat)
 	$(CC) $(LDFLAGS) -o $@ -T $(SRCDIR)/s390x/flat.lds -Ttext=0x10000 \
 		$(filter %.o, $^) $(FLATLIBS) $(@:.elf=.aux.o)
 	$(RM) $(@:.elf=.aux.o)
+	@chmod a-x $@
 
 arch_clean: asm_offsets_clean
 	$(RM) $(TEST_DIR)/*.{o,elf} $(TEST_DIR)/.*.d lib/s390x/.*.d
