@@ -3704,11 +3704,57 @@ static void test_apic_virtual_ctls(void)
 	vmcs_write(CPU_EXEC_CTRL1, saved_secondary);
 }
 
+/*
+ * If the "virtual-interrupt delivery" VM-execution control is 1, the
+ * "external-interrupt exiting" VM-execution control must be 1.
+ * [Intel SDM]
+ */
+static void test_virtual_intr_ctls(void)
+{
+	u32 saved_primary = vmcs_read(CPU_EXEC_CTRL0);
+	u32 saved_secondary = vmcs_read(CPU_EXEC_CTRL1);
+	u32 saved_pin = vmcs_read(PIN_CONTROLS);
+	u32 primary = saved_primary;
+	u32 secondary = saved_secondary;
+	u32 pin = saved_pin;
+
+	if (!((ctrl_cpu_rev[1].clr & CPU_VINTD) &&
+	    (ctrl_pin_rev.clr & PIN_EXTINT)))
+		return;
+
+	vmcs_write(CPU_EXEC_CTRL0, primary | CPU_SECONDARY | CPU_TPR_SHADOW);
+	vmcs_write(CPU_EXEC_CTRL1, secondary & ~CPU_VINTD);
+	vmcs_write(PIN_CONTROLS, pin & ~PIN_EXTINT);
+	report_prefix_pushf("Virtualize interrupt-delivery disabled; external-interrupt exiting disabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	vmcs_write(CPU_EXEC_CTRL1, secondary | CPU_VINTD);
+	report_prefix_pushf("Virtualize interrupt-delivery enabled; external-interrupt exiting disabled");
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	vmcs_write(PIN_CONTROLS, pin | PIN_EXTINT);
+	report_prefix_pushf("Virtualize interrupt-delivery enabled; external-interrupt exiting enabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	vmcs_write(PIN_CONTROLS, pin & ~PIN_EXTINT);
+	report_prefix_pushf("Virtualize interrupt-delivery enabled; external-interrupt exiting disabled");
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
+	vmcs_write(CPU_EXEC_CTRL1, saved_secondary);
+	vmcs_write(PIN_CONTROLS, saved_pin);
+}
+
 static void test_apic_ctls(void)
 {
 	test_apic_virt_addr();
 	test_apic_access_addr();
 	test_apic_virtual_ctls();
+	test_virtual_intr_ctls();
 }
 
 static void set_vtpr(unsigned vtpr)
