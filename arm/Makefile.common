@@ -4,11 +4,6 @@
 # Authors: Andrew Jones <drjones@redhat.com>
 #
 
-ifeq ($(LOADADDR),)
-	# qemu mach-virt default load address
-	LOADADDR = 0x40000000
-endif
-
 tests-common  = $(TEST_DIR)/selftest.flat
 tests-common += $(TEST_DIR)/spinlock-test.flat
 tests-common += $(TEST_DIR)/pci-test.flat
@@ -23,7 +18,6 @@ all: directories $(tests-all)
 $(TEST_DIR)/sieve.elf: AUXFLAGS = 0x1
 
 ##################################################################
-phys_base = $(LOADADDR)
 AUXFLAGS ?= 0x0
 
 CFLAGS += -std=gnu99
@@ -64,18 +58,19 @@ libeabi = lib/arm/libeabi.a
 eabiobjs = lib/arm/eabi_compat.o
 
 libgcc := $(shell $(CC) $(machine) --print-libgcc-file-name)
-start_addr := $(shell printf "%x\n" $$(( $(phys_base) + $(kernel_offset) )))
 
 FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libgcc) $(libeabi)
-%.elf: LDFLAGS = $(CFLAGS) -nostdlib
+%.elf: LDFLAGS = -nostdlib $(arch_LDFLAGS)
 %.elf: %.o $(FLATLIBS) $(SRCDIR)/arm/flat.lds $(cstart.o)
-	$(CC) $(LDFLAGS) -o $@ \
-		-Wl,-T,$(SRCDIR)/arm/flat.lds,--build-id=none,-Ttext=$(start_addr) \
-		$(filter %.o, $^) $(FLATLIBS) \
-		$(SRCDIR)/lib/auxinfo.c -DPROGNAME=\"$(@:.elf=.flat)\" -DAUXFLAGS=$(AUXFLAGS)
+	$(CC) $(CFLAGS) -c -o $(@:.elf=.aux.o) $(SRCDIR)/lib/auxinfo.c \
+		-DPROGNAME=\"$(@:.elf=.flat)\" -DAUXFLAGS=$(AUXFLAGS)
+	$(LD) $(LDFLAGS) -o $@ -T $(SRCDIR)/arm/flat.lds \
+		$(filter %.o, $^) $(FLATLIBS) $(@:.elf=.aux.o)
+	$(RM) $(@:.elf=.aux.o)
 	@chmod a-x $@
 
 %.flat: %.elf
+	$(call arch_elf_check, $^)
 	$(OBJCOPY) -O binary $^ $@
 	@chmod a-x $@
 
