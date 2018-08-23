@@ -15,30 +15,58 @@
 
 .section .init
 
+/*
+ * Bootloader params are in x0-x3. See kernel doc
+ * Documentation/arm64/booting.txt
+ */
 .globl start
 start:
+	/* get our base address */
+	adrp	x4, start
+	add     x4, x4, :lo12:start
+
 	/*
-	 * bootloader params are in x0-x3
-	 * The physical address of the dtb is in x0, x1-x3 are reserved
-	 * See the kernel doc Documentation/arm64/booting.txt
+	 * Update all R_AARCH64_RELATIVE relocations using the table
+	 * of Elf64_Rela entries between reloc_start/end. The build
+	 * will not emit other relocation types.
+	 *
+	 * struct Elf64_Rela {
+	 * 	uint64_t r_offset;
+	 * 	uint64_t r_info;
+	 * 	int64_t  r_addend;
+	 * }
 	 */
+	adrp	x5, reloc_start
+	add     x5, x5, :lo12:reloc_start
+	adrp	x6, reloc_end
+	add     x6, x6, :lo12:reloc_end
+1:
+	cmp	x5, x6
+	b.hs	1f
+	ldr	x7, [x5]			// r_offset
+	ldr	x8, [x5, #16]			// r_addend
+	add	x8, x8, x4			// val = base + r_addend
+	str	x8, [x4, x7]			// base[r_offset] = val
+	add	x5, x5, #24
+	b	1b
+
+1:
+	/* set up stack */
 	mov	x4, #1
 	msr	spsel, x4
 	isb
 	adrp    x4, stackptr
 	add     sp, x4, :lo12:stackptr
-	stp	x0, x1, [sp, #-16]!
 
-	/* Enable FP/ASIMD */
-	mov	x0, #(3 << 20)
-	msr	cpacr_el1, x0
+	/* enable FP/ASIMD */
+	mov	x4, #(3 << 20)
+	msr	cpacr_el1, x4
 
 	/* set up exception handling */
 	bl	exceptions_init
 
 	/* complete setup */
-	ldp	x0, x1, [sp], #16
-	bl	setup
+	bl	setup				// x0 is the addr of the dtb
 	bl	get_mmu_off
 	cbnz	x0, 1f
 	bl	setup_vm
@@ -56,9 +84,9 @@ start:
 	b	halt
 
 exceptions_init:
-	adrp	x0, vector_table
-	add	x0, x0, :lo12:vector_table
-	msr	vbar_el1, x0
+	adrp	x4, vector_table
+	add	x4, x4, :lo12:vector_table
+	msr	vbar_el1, x4
 	isb
 	ret
 
