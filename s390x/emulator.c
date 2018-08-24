@@ -13,6 +13,9 @@
 #include <libcflat.h>
 #include <asm/cpacf.h>
 #include <asm/interrupt.h>
+#include <asm/float.h>
+
+struct lowcore *lc = NULL;
 
 static inline void __test_spm_ipm(uint8_t cc, uint8_t key)
 {
@@ -257,6 +260,37 @@ static void test_prno(void)
 	__test_basic_cpacf_opcode(CPACF_PRNO);
 }
 
+static void test_dxc(void)
+{
+	/* DXC (0xff) is to be stored in LC and FPC on a trap (CRT) with AFP */
+	lc->dxc_vxc = 0x12345678;
+	set_fpc_dxc(0);
+
+	expect_pgm_int();
+	asm volatile("	.insn	rrf,0xb9600000,%0,%0,8,0\n"
+		     : : "r"(0) : "memory");
+	check_pgm_int_code(PGM_INT_CODE_DATA);
+
+	report("dxc in LC", lc->dxc_vxc == 0xff);
+	report("dxc in FPC", get_fpc_dxc() == 0xff);
+
+
+	/* DXC (0xff) is to be stored in LC only on a trap (CRT) without AFP */
+	lc->dxc_vxc = 0x12345678;
+	set_fpc_dxc(0);
+
+	expect_pgm_int();
+	/* temporarily disable AFP */
+	afp_disable();
+	asm volatile("	.insn	rrf,0xb9600000,%0,%0,8,0\n"
+		     : : "r"(0) : "memory");
+	afp_enable();
+	check_pgm_int_code(PGM_INT_CODE_DATA);
+
+	report("dxc in LC", lc->dxc_vxc == 0xff);
+	report("dxc not in FPC", get_fpc_dxc() == 0);
+}
+
 static struct {
 	const char *name;
 	void (*func)(void);
@@ -273,6 +307,7 @@ static struct {
 	{ "pcc", test_pcc },
 	{ "kmctr", test_kmctr },
 	{ "prno", test_prno },
+	{ "dxc", test_dxc },
 	{ NULL, NULL }
 };
 
