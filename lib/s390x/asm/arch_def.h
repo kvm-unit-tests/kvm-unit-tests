@@ -71,7 +71,9 @@ struct lowcore {
 	uint64_t	sw_int_grs[16];			/* 0x0200 */
 	uint64_t	sw_int_fprs[16];		/* 0x0280 */
 	uint32_t	sw_int_fpc;			/* 0x0300 */
-	uint8_t		pad_0x0304[0x11b0 - 0x0304];	/* 0x0304 */
+	uint8_t		pad_0x0304[0x0308 - 0x0304];	/* 0x0304 */
+	uint64_t	sw_int_cr0;			/* 0x0308 */
+	uint8_t		pad_0x0310[0x11b0 - 0x0310];	/* 0x0310 */
 	uint64_t	mcck_ext_sa_addr;		/* 0x11b0 */
 	uint8_t		pad_0x11b8[0x1200 - 0x11b8];	/* 0x11b8 */
 	uint64_t	fprs_sa[16];			/* 0x1200 */

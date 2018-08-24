@@ -57,6 +57,11 @@ init_psw_cont:
 	.macro SAVE_REGS
 	/* save grs 0-15 */
 	stmg	%r0, %r15, GEN_LC_SW_INT_GRS
+	/* save cr0 */
+	stctg	%c0, %c0, GEN_LC_SW_INT_CR0
+	/* load initital cr0 again */
+	larl	%r1, initital_cr0
+	lctlg	%c0, %c0, 0(%r1)
 	/* save fprs 0-15 + fpc */
 	la	%r1, GEN_LC_SW_INT_FPRS
 	std	%f0, 0(%r1)
@@ -98,6 +103,8 @@ init_psw_cont:
 	ld	%f14, 112(%r1)
 	ld	%f15, 120(%r1)
 	lfpc	GEN_LC_SW_INT_FPC
+	/* restore cr0 */
+	lctlg	%c0, %c0, GEN_LC_SW_INT_CR0
 	/* restore grs 0-15 */
 	lmg	%r0, %r15, GEN_LC_SW_INT_GRS
 	.endm

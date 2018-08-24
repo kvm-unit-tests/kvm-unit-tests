@@ -57,6 +57,7 @@ int main(void)
 	OFFSET(GEN_LC_SW_INT_GRS, lowcore, sw_int_grs);
 	OFFSET(GEN_LC_SW_INT_FPRS, lowcore, sw_int_fprs);
 	OFFSET(GEN_LC_SW_INT_FPC, lowcore, sw_int_fpc);
+	OFFSET(GEN_LC_SW_INT_CR0, lowcore, sw_int_cr0);
 	OFFSET(GEN_LC_MCCK_EXT_SA_ADDR, lowcore, mcck_ext_sa_addr);
 	OFFSET(GEN_LC_FPRS_SA, lowcore, fprs_sa);
 	OFFSET(GEN_LC_GRS_SA, lowcore, grs_sa);
