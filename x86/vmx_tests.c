@@ -3749,12 +3749,140 @@ static void test_virtual_intr_ctls(void)
 	vmcs_write(PIN_CONTROLS, saved_pin);
 }
 
+static void test_pi_desc_addr(u64 addr, bool ctrl)
+{
+	vmcs_write(POSTED_INTR_DESC_ADDR, addr);
+	report_prefix_pushf("Process-posted-interrupts enabled; posted-interrupt-descriptor-address 0x%lx", addr);
+	test_vmx_controls(ctrl, false);
+	report_prefix_pop();
+}
+
+/*
+ * If the â€œprocess posted interruptsâ€ VM-execution control is 1, the
+ * following must be true:
+ *
+ *	- The â€œvirtual-interrupt deliveryâ€ VM-execution control is 1.
+ *	- The â€œacknowledge interrupt on exitâ€ VM-exit control is 1.
+ *	- The posted-interrupt notification vector has a value in the
+ *	- range 0â€“255 (bits 15:8 are all 0).
+ *	- Bits 5:0 of the posted-interrupt descriptor address are all 0.
+ *	- The posted-interrupt descriptor address does not set any bits
+ *	  beyond the processor's physical-address width.
+ * [Intel SDM]
+ */
+static void test_posted_intr(void)
+{
+	u32 saved_primary = vmcs_read(CPU_EXEC_CTRL0);
+	u32 saved_secondary = vmcs_read(CPU_EXEC_CTRL1);
+	u32 saved_pin = vmcs_read(PIN_CONTROLS);
+	u32 exit_ctl_saved = vmcs_read(EXI_CONTROLS);
+	u32 primary = saved_primary;
+	u32 secondary = saved_secondary;
+	u32 pin = saved_pin;
+	u32 exit_ctl = exit_ctl_saved;
+	u16 vec;
+	int i;
+
+	if (!((ctrl_pin_rev.clr & PIN_POST_INTR) &&
+	    (ctrl_cpu_rev[1].clr & CPU_VINTD) &&
+	    (ctrl_exit_rev.clr & EXI_INTA)))
+		return;
+
+	vmcs_write(CPU_EXEC_CTRL0, primary | CPU_SECONDARY | CPU_TPR_SHADOW);
+
+	/*
+	 * Test virtual-interrupt-delivery and acknowledge-interrupt-on-exit
+	 */
+	pin |= PIN_POST_INTR;
+	vmcs_write(PIN_CONTROLS, pin);
+	secondary &= ~CPU_VINTD;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("Process-posted-interrupts enabled; virtual-interrupt-delivery disabled");
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	secondary |= CPU_VINTD;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("Process-posted-interrupts enabled; virtual-interrupt-delivery enabled");
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	exit_ctl &= ~EXI_INTA;
+	vmcs_write(EXI_CONTROLS, exit_ctl);
+	report_prefix_pushf("Process-posted-interrupts enabled; virtual-interrupt-delivery enabled; acknowledge-interrupt-on-exit disabled");
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	exit_ctl |= EXI_INTA;
+	vmcs_write(EXI_CONTROLS, exit_ctl);
+	report_prefix_pushf("Process-posted-interrupts enabled; virtual-interrupt-delivery enabled; acknowledge-interrupt-on-exit enabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	secondary &= ~CPU_VINTD;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("Process-posted-interrupts enabled; virtual-interrupt-delivery disabled; acknowledge-interrupt-on-exit enabled");
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	secondary |= CPU_VINTD;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("Process-posted-interrupts enabled; virtual-interrupt-delivery enabled; acknowledge-interrupt-on-exit enabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	/*
+	 * Test posted-interrupt notification vector
+	 */
+	for (i = 0; i < 8; i++) {
+		vec = (1ul << i);
+		vmcs_write(PINV, vec);
+		report_prefix_pushf("Process-posted-interrupts enabled; posted-interrupt-notification-vector %u", vec);
+		test_vmx_controls(true, false);
+		report_prefix_pop();
+	}
+	for (i = 8; i < 16; i++) {
+		vec = (1ul << i);
+		vmcs_write(PINV, vec);
+		report_prefix_pushf("Process-posted-interrupts enabled; posted-interrupt-notification-vector %u", vec);
+		test_vmx_controls(false, false);
+		report_prefix_pop();
+	}
+
+	vec &= ~(0xff << 8);
+	vmcs_write(PINV, vec);
+	report_prefix_pushf("Process-posted-interrupts enabled; posted-interrupt-notification-vector %u", vec);
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	/*
+	 * Test posted-interrupt descriptor addresss
+	 */
+	for (i = 0; i < 6; i++) {
+		test_pi_desc_addr(1ul << i, false);
+	}
+
+	test_pi_desc_addr(0xf0, false);
+	test_pi_desc_addr(0xff, false);
+	test_pi_desc_addr(0x0f, false);
+	test_pi_desc_addr(0x8000, true);
+	test_pi_desc_addr(0x00, true);
+	test_pi_desc_addr(0xc000, true);
+
+	test_vmcs_page_values("process-posted interrupts", POSTED_INTR_DESC_ADDR, false, false);
+
+	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
+	vmcs_write(CPU_EXEC_CTRL1, saved_secondary);
+	vmcs_write(PIN_CONTROLS, saved_pin);
+}
+
 static void test_apic_ctls(void)
 {
 	test_apic_virt_addr();
 	test_apic_access_addr();
 	test_apic_virtual_ctls();
 	test_virtual_intr_ctls();
+	test_posted_intr();
 }
 
 static void set_vtpr(unsigned vtpr)

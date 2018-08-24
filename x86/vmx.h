@@ -144,6 +144,7 @@ enum Encoding {
 	TSC_OFFSET_HI		= 0x2011ul,
 	APIC_VIRT_ADDR		= 0x2012ul,
 	APIC_ACCS_ADDR		= 0x2014ul,
+	POSTED_INTR_DESC_ADDR	= 0x2016ul,
 	EPTP			= 0x201aul,
 	EPTP_HI			= 0x201bul,
 	VMREAD_BITMAP           = 0x2026ul,
