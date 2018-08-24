@@ -23,21 +23,13 @@ void check_pgm_int_code(uint16_t code);
 /* Activate low-address protection */
 static inline void low_prot_enable(void)
 {
-	uint64_t cr0;
-
-	asm volatile (" stctg %%c0,%%c0,%0 " : : "Q"(cr0) : "memory");
-	cr0 |= 1ULL << (63-35);
-	asm volatile (" lctlg %%c0,%%c0,%0 " : : "Q"(cr0));
+	ctl_set_bit(0, 63 - 35);
 }
 
 /* Disable low-address protection */
 static inline void low_prot_disable(void)
 {
-	uint64_t cr0;
-
-	asm volatile (" stctg %%c0,%%c0,%0 " : : "Q"(cr0) : "memory");
-	cr0 &= ~(1ULL << (63-35));
-	asm volatile (" lctlg %%c0,%%c0,%0 " : : "Q"(cr0));
+	ctl_clear_bit(0, 63 - 35);
 }
 
 #endif
