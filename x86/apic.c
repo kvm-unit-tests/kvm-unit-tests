@@ -566,6 +566,17 @@ static void test_apic_change_mode(void)
 	report("TMCCT should stay at zero", !apic_read(APIC_TMCCT));
 }
 
+#define KVM_HC_SEND_IPI 10
+
+static void test_pv_ipi(void)
+{
+    int ret;
+    unsigned long a0 = 0xFFFFFFFF, a1 = 0, a2 = 0xFFFFFFFF, a3 = 0x0;
+
+    asm volatile("vmcall" : "=a"(ret) :"a"(KVM_HC_SEND_IPI), "b"(a0), "c"(a1), "d"(a2), "S"(a3));
+    report("PV IPIs testing", !ret);
+}
+
 int main(void)
 {
     setup_vm();
@@ -581,6 +592,7 @@ int main(void)
 
     test_self_ipi();
     test_physical_broadcast();
+    test_pv_ipi();
 
     test_sti_nmi();
     test_multiple_nmi();
