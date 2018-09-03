@@ -141,5 +141,5 @@ function run()
 # just remove it...
 while $RUNTIME_arch_run _NO_FILE_4Uhere_ -smp $MAX_SMP \
 		|& grep -qi 'exceeds max CPUs'; do
-	((--MAX_SMP))
+	MAX_SMP=$((MAX_SMP >> 1))
 done
