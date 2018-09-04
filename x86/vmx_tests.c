@@ -4807,6 +4807,53 @@ static void vmx_cr_load_test(void)
 	TEST_ASSERT(!write_cr4_checking(cr4 & ~X86_CR4_PCIDE));
 }
 
+bool vmx_pending_event_ipi_fired;
+static void vmx_pending_event_ipi_isr(isr_regs_t *regs)
+{
+	vmx_pending_event_ipi_fired = true;
+	eoi();
+}
+
+bool vmx_pending_event_guest_run;
+static void vmx_pending_event_guest(void)
+{
+	vmx_pending_event_guest_run = true;
+}
+
+static void vmx_pending_event_test(void)
+{
+	int ipi_vector = 0xf1;
+
+	vmx_pending_event_ipi_fired = false;
+	handle_irq(ipi_vector, vmx_pending_event_ipi_isr);
+
+	vmx_pending_event_guest_run = false;
+	test_set_guest(vmx_pending_event_guest);
+
+	vmcs_set_bits(PIN_CONTROLS, PIN_EXTINT);
+
+	irq_disable();
+	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL |
+				   APIC_DM_FIXED | ipi_vector,
+				   0);
+
+	enter_guest();
+
+	assert_exit_reason(VMX_EXTINT);
+	report("Guest did not run before host received IPI",
+		   !vmx_pending_event_guest_run);
+
+	irq_enable();
+	asm volatile ("nop");
+	irq_disable();
+	report("Got pending interrupt after IRQ enabled",
+		   vmx_pending_event_ipi_fired);
+
+	enter_guest();
+	report("Guest finished running when no interrupt",
+		   vmx_pending_event_guest_run);
+}
+
 static bool cpu_has_apicv(void)
 {
 	return ((ctrl_cpu_rev[1].clr & CPU_APIC_REG_VIRT) &&
@@ -5366,6 +5413,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_vmcs_shadow_test),
 	/* Regression tests */
 	TEST(vmx_cr_load_test),
+	TEST(vmx_pending_event_test),
 	/* EPT access tests. */
 	TEST(ept_access_test_not_present),
 	TEST(ept_access_test_read_only),
