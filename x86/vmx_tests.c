@@ -3885,6 +3885,48 @@ static void test_apic_ctls(void)
 	test_posted_intr();
 }
 
+/*
+ * If the â€œenable VPIDâ€ VM-execution control is 1, the value of the
+ * of the VPID VM-execution control field must not be 0000H.
+ * [Intel SDM]
+ */
+static void test_vpid(void)
+{
+	u32 saved_primary = vmcs_read(CPU_EXEC_CTRL0);
+	u32 saved_secondary = vmcs_read(CPU_EXEC_CTRL1);
+	u16 vpid = 0x0000;
+	int i;
+
+	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
+	    (ctrl_cpu_rev[1].clr & CPU_VPID))) {
+		test_skip("Secondary controls and/or VPID not supported");
+		return;
+	}
+
+	vmcs_write(CPU_EXEC_CTRL0, saved_primary | CPU_SECONDARY);
+	vmcs_write(CPU_EXEC_CTRL1, saved_secondary & ~CPU_VPID);
+	vmcs_write(VPID, vpid);
+	report_prefix_pushf("VPID disabled; VPID value %x", vpid);
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	vmcs_write(CPU_EXEC_CTRL1, saved_secondary | CPU_VPID);
+	report_prefix_pushf("VPID enabled; VPID value %x", vpid);
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	for (i = 0; i < 16; i++) {
+		vpid = (short)1 << i;;
+		vmcs_write(VPID, vpid);
+		report_prefix_pushf("VPID enabled; VPID value %x", vpid);
+		test_vmx_controls(true, false);
+		report_prefix_pop();
+	}
+
+	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
+	vmcs_write(CPU_EXEC_CTRL1, saved_secondary);
+}
+
 static void set_vtpr(unsigned vtpr)
 {
 	*(u32 *)phys_to_virt(vmcs_read(APIC_VIRT_ADDR) + APIC_TASKPRI) = vtpr;
@@ -4432,6 +4474,7 @@ static void vmx_controls_test(void)
 	test_tpr_threshold();
 	test_nmi_ctrls();
 	test_invalid_event_injection();
+	test_vpid();
 }
 
 static bool valid_vmcs_for_vmentry(void)
