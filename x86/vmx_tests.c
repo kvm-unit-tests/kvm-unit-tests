@@ -255,6 +255,37 @@ static void msr_bmp_init(void)
 	vmcs_write(MSR_BITMAP, (u64)msr_bitmap);
 }
 
+static void *get_msr_bitmap(void)
+{
+	void *msr_bitmap;
+
+	if (vmcs_read(CPU_EXEC_CTRL0) & CPU_MSR_BITMAP) {
+		msr_bitmap = (void *)vmcs_read(MSR_BITMAP);
+	} else {
+		msr_bitmap = alloc_page();
+		memset(msr_bitmap, 0xff, PAGE_SIZE);
+		vmcs_write(MSR_BITMAP, (u64)msr_bitmap);
+		vmcs_set_bits(CPU_EXEC_CTRL0, CPU_MSR_BITMAP);
+	}
+
+	return msr_bitmap;
+}
+
+static void disable_intercept_for_x2apic_msrs(void)
+{
+	unsigned long *msr_bitmap = (unsigned long *)get_msr_bitmap();
+	u32 msr;
+
+	for (msr = APIC_BASE_MSR;
+		 msr < (APIC_BASE_MSR+0xff);
+		 msr += BITS_PER_LONG) {
+		unsigned int word = msr / BITS_PER_LONG;
+
+		msr_bitmap[word] = 0;
+		msr_bitmap[word + (0x800 / sizeof(long))] = 0;
+	}
+}
+
 static int test_ctrl_pat_init(struct vmcs *vmcs)
 {
 	u64 ctrl_ent;
@@ -4929,7 +4960,6 @@ static void vmx_eoi_bitmap_ioapic_scan_test_guest(void)
 
 static void vmx_eoi_bitmap_ioapic_scan_test(void)
 {
-	void *msr_bitmap;
 	void *virtual_apic_page;
 
 	if (!cpu_has_apicv() || (cpu_count() < 2)) {
@@ -4937,15 +4967,12 @@ static void vmx_eoi_bitmap_ioapic_scan_test(void)
 		return;
 	}
 
-	msr_bitmap = alloc_page();
-	virtual_apic_page = alloc_page();
-
-	u64 cpu_ctrl_0 = CPU_SECONDARY | CPU_TPR_SHADOW | CPU_MSR_BITMAP;
+	u64 cpu_ctrl_0 = CPU_SECONDARY | CPU_TPR_SHADOW;
 	u64 cpu_ctrl_1 = CPU_VINTD | CPU_VIRT_X2APIC;
 
-	memset(msr_bitmap, 0x0, PAGE_SIZE);
-	vmcs_write(MSR_BITMAP, (u64)msr_bitmap);
+	disable_intercept_for_x2apic_msrs();
 
+	virtual_apic_page = alloc_page();
 	vmcs_write(APIC_VIRT_ADDR, (u64)virtual_apic_page);
 	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) | PIN_EXTINT);
 
@@ -5012,20 +5039,15 @@ static void vmx_apic_passthrough_guest(void)
 
 static void vmx_apic_passthrough(bool set_irq_line_from_thread)
 {
-	void *msr_bitmap;
-
 	if (set_irq_line_from_thread && (cpu_count() < 2)) {
 		report_skip(__func__);
 		return;
 	}
 
-	msr_bitmap = alloc_page();
-
-	u64 cpu_ctrl_0 = CPU_SECONDARY | CPU_MSR_BITMAP;
+	u64 cpu_ctrl_0 = CPU_SECONDARY;
 	u64 cpu_ctrl_1 = 0;
 
-	memset(msr_bitmap, 0x0, PAGE_SIZE);
-	vmcs_write(MSR_BITMAP, (u64)msr_bitmap);
+	disable_intercept_for_x2apic_msrs();
 
 	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_EXTINT);
 
