@@ -5006,6 +5006,47 @@ static void vmx_eoi_bitmap_ioapic_scan_test(void)
 	report(__func__, 1);
 }
 
+#define HLT_WITH_RVI_VECTOR		(0xf1)
+
+bool vmx_hlt_with_rvi_guest_isr_fired;
+static void vmx_hlt_with_rvi_guest_isr(isr_regs_t *regs)
+{
+	vmx_hlt_with_rvi_guest_isr_fired = true;
+	eoi();
+}
+
+static void vmx_hlt_with_rvi_guest(void)
+{
+	handle_irq(HLT_WITH_RVI_VECTOR, vmx_hlt_with_rvi_guest_isr);
+
+	irq_enable();
+	asm volatile ("nop");
+
+	vmcall();
+}
+
+static void vmx_hlt_with_rvi_test(void)
+{
+	if (!cpu_has_apicv()) {
+		report_skip(__func__);
+		return;
+	}
+
+	enable_vid();
+
+	vmx_hlt_with_rvi_guest_isr_fired = false;
+	test_set_guest(vmx_hlt_with_rvi_guest);
+
+	enter_guest();
+	skip_exit_vmcall();
+
+	vmcs_write(GUEST_ACTV_STATE, ACTV_HLT);
+	vmcs_write(GUEST_INT_STATUS, HLT_WITH_RVI_VECTOR);
+	enter_guest();
+
+	report("Interrupt raised in guest", vmx_hlt_with_rvi_guest_isr_fired);
+}
+
 static void set_irq_line_thread(void *data)
 {
 	/* Wait until other CPU entered L2 */
@@ -5453,6 +5494,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmentry_movss_shadow_test),
 	/* APICv tests */
 	TEST(vmx_eoi_bitmap_ioapic_scan_test),
+	TEST(vmx_hlt_with_rvi_test),
 	/* APIC pass-through tests */
 	TEST(vmx_apic_passthrough_test),
 	TEST(vmx_apic_passthrough_thread_test),
