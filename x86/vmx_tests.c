@@ -4912,6 +4912,28 @@ static bool cpu_has_apicv(void)
 		(ctrl_pin_rev.clr & PIN_POST_INTR));
 }
 
+static void enable_vid(void)
+{
+	void *virtual_apic_page;
+
+	assert(cpu_has_apicv());
+
+	disable_intercept_for_x2apic_msrs();
+
+	virtual_apic_page = alloc_page();
+	vmcs_write(APIC_VIRT_ADDR, (u64)virtual_apic_page);
+
+	vmcs_set_bits(PIN_CONTROLS, PIN_EXTINT);
+
+	vmcs_write(EOI_EXIT_BITMAP0, 0x0);
+	vmcs_write(EOI_EXIT_BITMAP1, 0x0);
+	vmcs_write(EOI_EXIT_BITMAP2, 0x0);
+	vmcs_write(EOI_EXIT_BITMAP3, 0x0);
+
+	vmcs_set_bits(CPU_EXEC_CTRL0, CPU_SECONDARY | CPU_TPR_SHADOW);
+	vmcs_set_bits(CPU_EXEC_CTRL1, CPU_VINTD | CPU_VIRT_X2APIC);
+}
+
 static void trigger_ioapic_scan_thread(void *data)
 {
 	/* Wait until other CPU entered L2 */
@@ -4960,29 +4982,12 @@ static void vmx_eoi_bitmap_ioapic_scan_test_guest(void)
 
 static void vmx_eoi_bitmap_ioapic_scan_test(void)
 {
-	void *virtual_apic_page;
-
 	if (!cpu_has_apicv() || (cpu_count() < 2)) {
 		report_skip(__func__);
 		return;
 	}
 
-	u64 cpu_ctrl_0 = CPU_SECONDARY | CPU_TPR_SHADOW;
-	u64 cpu_ctrl_1 = CPU_VINTD | CPU_VIRT_X2APIC;
-
-	disable_intercept_for_x2apic_msrs();
-
-	virtual_apic_page = alloc_page();
-	vmcs_write(APIC_VIRT_ADDR, (u64)virtual_apic_page);
-	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) | PIN_EXTINT);
-
-	vmcs_write(EOI_EXIT_BITMAP0, 0x0);
-	vmcs_write(EOI_EXIT_BITMAP1, 0x0);
-	vmcs_write(EOI_EXIT_BITMAP2, 0x0);
-	vmcs_write(EOI_EXIT_BITMAP3, 0x0);
-
-	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | cpu_ctrl_0);
-	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | cpu_ctrl_1);
+	enable_vid();
 
 	on_cpu_async(1, trigger_ioapic_scan_thread, NULL);
 	test_set_guest(vmx_eoi_bitmap_ioapic_scan_test_guest);
