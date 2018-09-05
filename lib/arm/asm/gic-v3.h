@@ -49,8 +49,11 @@
 #include <asm/smp.h>
 #include <asm/io.h>
 
+#define GICV3_NR_REDISTS 8
+
 struct gicv3_data {
 	void *dist_base;
+	void *redist_bases[GICV3_NR_REDISTS];
 	void *redist_base[NR_CPUS];
 	unsigned int irq_nr;
 };

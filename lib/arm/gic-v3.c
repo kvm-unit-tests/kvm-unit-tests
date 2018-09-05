@@ -9,17 +9,21 @@
 void gicv3_set_redist_base(size_t stride)
 {
 	u32 aff = mpidr_compress(get_mpidr());
-	void *ptr = gicv3_data.redist_base[0];
 	u64 typer;
+	int i = 0;
 
-	do {
-		typer = gicv3_read_typer(ptr + GICR_TYPER);
-		if ((typer >> 32) == aff) {
-			gicv3_redist_base() = ptr;
-			return;
-		}
-		ptr += stride; /* skip RD_base, SGI_base, etc. */
-	} while (!(typer & GICR_TYPER_LAST));
+	while (gicv3_data.redist_bases[i]) {
+		void *ptr = gicv3_data.redist_bases[i];
+		do {
+			typer = gicv3_read_typer(ptr + GICR_TYPER);
+			if ((typer >> 32) == aff) {
+				gicv3_redist_base() = ptr;
+				return;
+			}
+			ptr += stride; /* skip RD_base, SGI_base, etc. */
+		} while (!(typer & GICR_TYPER_LAST));
+		++i;
+	}
 
 	/* should never reach here */
 	assert(0);
