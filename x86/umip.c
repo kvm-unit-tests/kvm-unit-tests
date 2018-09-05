@@ -190,8 +190,8 @@ int main()
     }
     write_cr4(read_cr4() | X86_CR4_UMIP);
 
-    test_umip_nogp("UMIP=0, CPL=0\n");
-    do_ring3(test_umip_gp, "UMIP=0, CPL=3\n");
+    test_umip_nogp("UMIP=1, CPL=0\n");
+    do_ring3(test_umip_gp, "UMIP=1, CPL=3\n");
 
     return report_summary();
 }
