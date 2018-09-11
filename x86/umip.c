@@ -95,8 +95,11 @@ static void test_umip_gp(const char *msg)
 {
     puts(msg);
 
+#if 0
+    /* Skip this, because it cannot be emulated correctly.  */
     do_smsw();
     report("exception from smsw", gp_count == 1);
+#endif
     do_sgdt();
     report("exception from sgdt", gp_count == 1);
     do_sidt();
