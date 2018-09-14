@@ -25,6 +25,7 @@
 
 #define X86_CR0_PE     0x00000001
 #define X86_CR0_MP     0x00000002
+#define X86_CR0_EM     0x00000004
 #define X86_CR0_TS     0x00000008
 #define X86_CR0_WP     0x00010000
 #define X86_CR0_AM     0x00040000
