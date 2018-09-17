@@ -20,7 +20,7 @@ start:
 	/* setup stack */
 	larl	%r15, stackptr
 	/* setup initial PSW mask + control registers*/
-	larl	%r1, initital_psw
+	larl	%r1, initial_psw
 	lpswe	0(%r1)
 init_psw_cont:
 	/* setup pgm interrupt handler */
@@ -39,7 +39,7 @@ init_psw_cont:
 	larl	%r1, mcck_int_psw
 	mvc	GEN_LC_SVC_NEW_PSW(16), 0(%r1)
 	/* setup cr0, enabling e.g. AFP-register control */
-	larl	%r1, initital_cr0
+	larl	%r1, initial_cr0
 	lctlg	%c0, %c0, 0(%r1)
 	/* call setup() */
 	brasl	%r14, setup
@@ -59,8 +59,8 @@ init_psw_cont:
 	stmg	%r0, %r15, GEN_LC_SW_INT_GRS
 	/* save cr0 */
 	stctg	%c0, %c0, GEN_LC_SW_INT_CR0
-	/* load initital cr0 again */
-	larl	%r1, initital_cr0
+	/* load initial cr0 again */
+	larl	%r1, initial_cr0
 	lctlg	%c0, %c0, 0(%r1)
 	/* save fprs 0-15 + fpc */
 	la	%r1, GEN_LC_SW_INT_FPRS
@@ -141,7 +141,7 @@ svc_int:
 	lpswe	GEN_LC_SVC_OLD_PSW
 
 	.align	8
-initital_psw:
+initial_psw:
 	.quad	0x0000000180000000, init_psw_cont
 pgm_int_psw:
 	.quad	0x0000000180000000, pgm_int
@@ -153,6 +153,6 @@ io_int_psw:
 	.quad	0x0000000180000000, io_int
 svc_int_psw:
 	.quad	0x0000000180000000, svc_int
-initital_cr0:
+initial_cr0:
 	/* enable AFP-register control, so FP regs (+BFP instr) can be used */
 	.quad	0x0000000000040000
