@@ -66,8 +66,10 @@ void report_prefix_pop(void)
 
 	spin_lock(&lock);
 
-	if (!*prefixes)
+	if (!*prefixes) {
+		spin_unlock(&lock);
 		return;
+	}
 
 	for (p = prefixes, q = strstr(p, PREFIX_DELIMITER) + 2;
 			*q;
@@ -142,6 +144,7 @@ void report_info(const char *msg_fmt, ...)
 
 int report_summary(void)
 {
+	int ret;
 	spin_lock(&lock);
 
 	printf("SUMMARY: %d tests", tests);
@@ -153,14 +156,16 @@ int report_summary(void)
 		printf(", %d skipped", skipped);
 	printf("\n");
 
-	if (tests == skipped)
+	if (tests == skipped) {
+		spin_unlock(&lock);
 		/* Blame AUTOTOOLS for using 77 for skipped test and QEMU for
 		 * mangling error codes in a way that gets 77 if we ... */
 		return 77 >> 1;
+	}
 
-	return failures > 0 ? 1 : 0;
-
+	ret = failures > 0 ? 1 : 0;
 	spin_unlock(&lock);
+	return ret;
 }
 
 void report_abort(const char *msg_fmt, ...)
