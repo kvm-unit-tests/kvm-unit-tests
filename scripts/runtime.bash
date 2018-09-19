@@ -8,7 +8,8 @@ FAIL() { echo -ne "\e[31mFAIL\e[0m"; }
 
 extract_summary()
 {
-    tail -3 | grep '^SUMMARY: ' | sed 's/^SUMMARY: /(/;s/$/)/'
+    local cr=$'\r'
+    tail -3 | grep '^SUMMARY: ' | sed 's/^SUMMARY: /(/;s/'"$cr"'\{0,1\}$/)/'
 }
 
 # We assume that QEMU is going to work if it tried to load the kernel
