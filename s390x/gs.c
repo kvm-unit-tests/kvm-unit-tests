@@ -128,12 +128,20 @@ static void test_load(void)
 /* Test gs instructions without enablement resulting in an exception */
 static void test_special(void)
 {
+	report_prefix_push("disabled gs");
+	report_prefix_push("load gs");
 	expect_pgm_int();
 	load_gs_cb(&gs_cb);
 	check_pgm_int_code(PGM_INT_CODE_SPECIAL_OPERATION);
+	report_prefix_pop();
+
+	report_prefix_push("store gs");
 	expect_pgm_int();
 	store_gs_cb(&gs_cb);
 	check_pgm_int_code(PGM_INT_CODE_SPECIAL_OPERATION);
+	report_prefix_pop();
+
+	report_prefix_pop();
 }
 
 static void init(void)

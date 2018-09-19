@@ -35,10 +35,12 @@ static void test_iep(void)
 	*code = 0x07fe;
 	fn = (void *)code;
 
+	report_prefix_push("iep protection");
 	expect_pgm_int();
 	/* Jump into protected page */
 	fn();
 	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
+	report_prefix_pop();
 	unprotect_page(iepbuf, PAGE_ENTRY_IEP);
 	ctl_clear_bit(0, 20);
 }

@@ -68,18 +68,25 @@ static void test_priv(void)
 	union skey skey;
 
 	memset(pagebuf, 0, PAGE_SIZE * 2);
+	report_prefix_push("privileged");
+	report_prefix_push("sske");
 	expect_pgm_int();
 	enter_pstate();
 	set_storage_key(page0, 0x30, 0);
 	check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
+	report_prefix_pop();
 
 	skey.val = get_storage_key(page0);
 	report("skey did not change on exception", skey.str.acc != 3);
 
+	report_prefix_push("iske");
 	expect_pgm_int();
 	enter_pstate();
 	get_storage_key(page0);
 	check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
+	report_prefix_pop();
+
+	report_prefix_pop();
 }
 
 int main(void)

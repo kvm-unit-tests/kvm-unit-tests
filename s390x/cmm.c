@@ -29,17 +29,21 @@ static unsigned long essa(uint8_t state, unsigned long paddr)
 
 static void test_params(void)
 {
+	report_prefix_push("invalid ORC 8");
 	expect_pgm_int();
 	essa(8, (unsigned long)pagebuf);
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
+	report_prefix_pop();
 }
 
 static void test_priv(void)
 {
+	report_prefix_push("privileged");
 	expect_pgm_int();
 	enter_pstate();
 	essa(0, (unsigned long)pagebuf);
 	check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
+	report_prefix_pop();
 }
 
 /* Unfortunately the availability is not indicated by stfl bits, but

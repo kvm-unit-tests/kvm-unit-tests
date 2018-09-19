@@ -51,10 +51,12 @@ static inline unsigned long pfmf(unsigned long r1, unsigned long paddr)
 
 static void test_priv(void)
 {
+	report_prefix_push("privileged");
 	expect_pgm_int();
 	enter_pstate();
 	pfmf(0, (unsigned long) pagebuf);
 	check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
+	report_prefix_pop();
 }
 
 static void test_4k_key(void)
