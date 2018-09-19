@@ -4450,6 +4450,184 @@ done:
 	vmcs_write(PIN_CONTROLS, pin_ctrls);
 }
 
+static void test_eptp_ad_bit(u64 eptp, bool ctrl)
+{
+	vmcs_write(EPTP, eptp);
+	report_prefix_pushf("Enable-EPT enabled; EPT accessed and dirty flag %s",
+	    (eptp & EPTP_AD_FLAG) ? "1": "0");
+	test_vmx_controls(ctrl, false);
+	report_prefix_pop();
+
+}
+/*
+ * If the â€œenable EPTâ€ VM-execution control is 1, the EPTP VM-execution
+ * control field must satisfy the following checks:
+ *
+ *   â€”  The EPT memory type (bits 2:0) must be a value supported by the
+ *	processor as indicated in the IA32_VMX_EPT_VPID_CAP MSR.
+ *   â€”  Bits 5:3 (1 less than the EPT page-walk length) must be 3,
+ *	indicating an EPT page-walk length of 4.
+ *   â€”  Bit 6 (enable bit for accessed and dirty flags for EPT) must be
+ *	0 if bit 21 of the IA32_VMX_EPT_VPID_CAP MSR is read as 0,
+ *	indicating that the processor does not support accessed and dirty
+ *	dirty flags for EPT.
+ *   â€”  Reserved bits 11:7 and 63:N (where N is the processorâ€™s
+ *	physical-address width) must all be 0.
+ *
+ *  [Intel SDM]
+ */
+static void test_eptp(void)
+{
+	u32 primary_saved = vmcs_read(CPU_EXEC_CTRL0);
+	u32 secondary_saved = vmcs_read(CPU_EXEC_CTRL1);
+	u64 eptp_saved = vmcs_read(EPTP);
+	u32 primary = primary_saved;
+	u32 secondary = secondary_saved;
+	u64 msr, eptp = eptp_saved;
+	bool un_cache = false;
+	bool wr_bk = false;
+	bool ctrl;
+	u32 i, maxphysaddr;
+	u64 j, resv_bits_mask = 0;
+
+	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
+	    (ctrl_cpu_rev[1].clr & CPU_EPT))) {
+		test_skip("\"CPU secondary\" and/or \"enable EPT\" execution controls are not supported !");
+		return;
+	}
+
+	/*
+	 * Memory type (bits 2:0)
+	 */
+	msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
+	if (msr & EPT_CAP_UC)
+		un_cache = true;
+	if (msr & EPT_CAP_WB)
+		wr_bk = true;
+
+	primary |= CPU_SECONDARY;
+	vmcs_write(CPU_EXEC_CTRL0, primary);
+	secondary |= CPU_EPT;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	eptp = (eptp & ~EPTP_PG_WALK_LEN_MASK) |
+	    (3ul << EPTP_PG_WALK_LEN_SHIFT);
+	vmcs_write(EPTP, eptp);
+
+	for (i = 0; i < 8; i++) {
+		if (i == 0) {
+			if (un_cache) {
+				report_info("EPT paging structure memory-type is Un-cacheable\n");
+				ctrl = true;
+			} else {
+				ctrl = false;
+			}
+		} else if (i == 6) {
+			if (wr_bk) {
+				report_info("EPT paging structure memory-type is Write-back\n");
+				ctrl = true;
+			} else {
+				ctrl = false;
+			}
+		} else {
+			ctrl = false;
+		}
+
+		eptp = (eptp & ~EPT_MEM_TYPE_MASK) | i;
+		vmcs_write(EPTP, eptp);
+		report_prefix_pushf("Enable-EPT enabled; EPT memory type %lu",
+		    eptp & EPT_MEM_TYPE_MASK);
+		test_vmx_controls(ctrl, false);
+		report_prefix_pop();
+	}
+
+	eptp = (eptp & ~EPT_MEM_TYPE_MASK) | 6ul;
+
+	/*
+	 * Page walk length (bits 5:3)
+	 */
+	for (i = 0; i < 8; i++) {
+		eptp = (eptp & ~EPTP_PG_WALK_LEN_MASK) |
+		    (i << EPTP_PG_WALK_LEN_SHIFT);
+		if (i == 3)
+			ctrl = true;
+		else
+			ctrl = false;
+
+		vmcs_write(EPTP, eptp);
+		report_prefix_pushf("Enable-EPT enabled; EPT page walk length %lu",
+		    eptp & EPTP_PG_WALK_LEN_MASK);
+		test_vmx_controls(ctrl, false);
+		report_prefix_pop();
+	}
+
+	eptp = (eptp & ~EPTP_PG_WALK_LEN_MASK) |
+	    3ul << EPTP_PG_WALK_LEN_SHIFT;
+
+	/*
+	 * Accessed and dirty flag (bit 6)
+	 */
+	if (msr & EPT_CAP_AD_FLAG) {
+		report_info("Processor supports accessed and dirty flag");
+		eptp &= ~EPTP_AD_FLAG;
+		test_eptp_ad_bit(eptp, true);
+
+		eptp |= EPTP_AD_FLAG;
+		test_eptp_ad_bit(eptp, true);
+	} else {
+		report_info("Processor does not supports accessed and dirty flag");
+		eptp &= ~EPTP_AD_FLAG;
+		test_eptp_ad_bit(eptp, true);
+
+		eptp |= EPTP_AD_FLAG;
+		test_eptp_ad_bit(eptp, false);
+	}
+
+	/*
+	 * Reserved bits [11:7] and [63:N]
+	 */
+	for (i = 0; i < 32; i++) {
+		if (i  == 0)
+			ctrl = true;
+		else
+			ctrl = false;
+
+		eptp = (eptp &
+		    ~(EPTP_RESERV_BITS_MASK << EPTP_RESERV_BITS_SHIFT)) |
+		    (i << EPTP_RESERV_BITS_SHIFT);
+		vmcs_write(EPTP, eptp);
+		report_prefix_pushf("Enable-EPT enabled; reserved bits [11:7] %lu",
+		    (eptp >> EPTP_RESERV_BITS_SHIFT) &
+		    EPTP_RESERV_BITS_MASK);
+		test_vmx_controls(ctrl, false);
+		report_prefix_pop();
+	}
+
+	eptp = (eptp & ~(EPTP_RESERV_BITS_MASK << EPTP_RESERV_BITS_SHIFT));
+
+	maxphysaddr = cpuid_maxphyaddr();
+	for (i = 0; i < (63 - maxphysaddr + 1); i++) {
+		resv_bits_mask |= 1ul << i;
+	}
+
+	for (j = 0; j < (63 - maxphysaddr + 1); j++) {
+		if (j  == 0)
+			ctrl = true;
+		else
+			ctrl = false;
+
+		eptp = (eptp & ~(resv_bits_mask << maxphysaddr)) |
+		    (j << maxphysaddr);
+		vmcs_write(EPTP, eptp);
+		report_prefix_pushf("Enable-EPT enabled; reserved bits [63:N] %lu",
+		    (eptp >> maxphysaddr) & resv_bits_mask);
+		test_vmx_controls(ctrl, false);
+		report_prefix_pop();
+	}
+
+	vmcs_write(CPU_EXEC_CTRL0, primary_saved);
+	vmcs_write(CPU_EXEC_CTRL1, secondary_saved);
+	vmcs_write(EPTP, eptp_saved);
+}
 
 /*
  * Check that the virtual CPU checks all of the VMX controls as
@@ -4475,6 +4653,7 @@ static void vmx_controls_test(void)
 	test_nmi_ctrls();
 	test_invalid_event_injection();
 	test_vpid();
+	test_eptp();
 }
 
 static bool valid_vmcs_for_vmentry(void)

@@ -544,6 +544,9 @@ enum vm_instruction_error_number {
 #define HYPERCALL_VMSKIP	0x3
 
 #define EPTP_PG_WALK_LEN_SHIFT	3ul
+#define EPTP_PG_WALK_LEN_MASK	0x38ul
+#define EPTP_RESERV_BITS_MASK	0x1ful
+#define EPTP_RESERV_BITS_SHIFT	0x7ul
 #define EPTP_AD_FLAG		(1ul << 6)
 
 #define EPT_MEM_TYPE_UC		0ul
@@ -560,6 +563,7 @@ enum vm_instruction_error_number {
 #define EPT_DIRTY_FLAG		(1ul << 9)
 #define EPT_LARGE_PAGE		(1ul << 7)
 #define EPT_MEM_TYPE_SHIFT	3ul
+#define EPT_MEM_TYPE_MASK	0x7ul
 #define EPT_IGNORE_PAT		(1ul << 6)
 #define EPT_SUPPRESS_VE		(1ull << 63)
 
