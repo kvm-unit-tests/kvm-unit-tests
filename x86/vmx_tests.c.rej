@@ -1,0 +1,10 @@
+--- x86/vmx_tests.c
++++ x86/vmx_tests.c
+@@ -5451,6 +5657,7 @@
+ 	/* Regression tests */
+ 	TEST(vmx_cr_load_test),
+ 	TEST(vmx_nm_test),
++	TEST(vmx_db_test),
+ 	/* EPT access tests. */
+ 	TEST(ept_access_test_not_present),
+ 	TEST(ept_access_test_read_only),

@@ -3,6 +3,9 @@
  *
  * Author : Arthur Chunqi Li <yzt356@gmail.com>
  */
+
+#include <asm/debugreg.h>
+
 #include "vmx.h"
 #include "msr.h"
 #include "processor.h"
@@ -4969,6 +4972,209 @@ static void vmx_pending_event_hlt_test(void)
 	vmx_pending_event_test_core(true);
 }
 
+static void vmx_db_test_guest(void)
+{
+	/*
+	 * For a hardware generated single-step #DB.
+	 */
+	asm volatile("vmcall;"
+		     "nop;"
+		     ".Lpost_nop:");
+	/*
+	 * ...in a MOVSS shadow, with pending debug exceptions.
+	 */
+	asm volatile("vmcall;"
+		     "nop;"
+		     ".Lpost_movss_nop:");
+	/*
+	 * For an L0 synthesized single-step #DB. (L0 intercepts WBINVD and
+	 * emulates it in software.)
+	 */
+	asm volatile("vmcall;"
+		     "wbinvd;"
+		     ".Lpost_wbinvd:");
+	/*
+	 * ...in a MOVSS shadow, with pending debug exceptions.
+	 */
+	asm volatile("vmcall;"
+		     "wbinvd;"
+		     ".Lpost_movss_wbinvd:");
+	/*
+	 * For a hardware generated single-step #DB in a transactional region.
+	 */
+	asm volatile("vmcall;"
+		     ".Lxbegin: xbegin .Lskip_rtm;"
+		     "xend;"
+		     ".Lskip_rtm:");
+}
+
+/*
+ * Clear the pending debug exceptions and RFLAGS.TF and re-enter
+ * L2. No #DB is delivered and L2 continues to the next point of
+ * interest.
+ */
+static void dismiss_db(void)
+{
+	vmcs_write(GUEST_PENDING_DEBUG, 0);
+	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED);
+	enter_guest();
+}
+
+/*
+ * Check a variety of VMCS fields relevant to an intercepted #DB exception.
+ * Then throw away the #DB exception and resume L2.
+ */
+static void check_db_exit(bool xfail_qual, bool xfail_dr6, bool xfail_pdbg,
+			  void *expected_rip, u64 expected_exit_qual,
+			  u64 expected_dr6)
+{
+	u32 reason = vmcs_read(EXI_REASON);
+	u32 intr_info = vmcs_read(EXI_INTR_INFO);
+	u64 exit_qual = vmcs_read(EXI_QUALIFICATION);
+	u64 guest_rip = vmcs_read(GUEST_RIP);
+	u64 guest_pending_dbg = vmcs_read(GUEST_PENDING_DEBUG);
+	u64 dr6 = read_dr6();
+	const u32 expected_intr_info = INTR_INFO_VALID_MASK |
+		INTR_TYPE_HARD_EXCEPTION | DB_VECTOR;
+
+	report("Expected #DB VM-exit",
+	       reason == VMX_EXC_NMI && intr_info == expected_intr_info);
+	report("Expected RIP %p (actual %lx)", (u64)expected_rip == guest_rip,
+	       expected_rip, guest_rip);
+	report_xfail("Expected pending debug exceptions 0 (actual %lx)",
+		     xfail_pdbg, 0 == guest_pending_dbg, guest_pending_dbg);
+	report_xfail("Expected exit qualification %lx (actual %lx)", xfail_qual,
+		     expected_exit_qual == exit_qual,
+		     expected_exit_qual, exit_qual);
+	report_xfail("Expected DR6 %lx (actual %lx)", xfail_dr6,
+		     expected_dr6 == dr6, expected_dr6, dr6);
+	dismiss_db();
+}
+
+/*
+ * Assuming the guest has just exited on a VMCALL instruction, skip
+ * over the vmcall, and set the guest's RFLAGS.TF in the VMCS. If
+ * pending debug exceptions are non-zero, set the VMCS up as if the
+ * previous instruction was a MOVSS that generated the indicated
+ * pending debug exceptions. Then enter L2.
+ */
+static void single_step_guest(const char *test_name, u64 starting_dr6,
+			      u64 pending_debug_exceptions)
+{
+	printf("\n%s\n", test_name);
+	skip_exit_vmcall();
+	write_dr6(starting_dr6);
+	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED | X86_EFLAGS_TF);
+	if (pending_debug_exceptions) {
+		vmcs_write(GUEST_PENDING_DEBUG, pending_debug_exceptions);
+		vmcs_write(GUEST_INTR_STATE, GUEST_INTR_STATE_MOVSS);
+	}
+	enter_guest();
+}
+
+/*
+ * When L1 intercepts #DB, verify that a single-step trap clears
+ * pending debug exceptions, populates the exit qualification field
+ * properly, and that DR6 is not prematurely clobbered. In a
+ * (simulated) MOVSS shadow, make sure that the pending debug
+ * exception bits are properly accumulated into the exit qualification
+ * field.
+ */
+static void vmx_db_test(void)
+{
+	/*
+	 * We are going to set a few arbitrary bits in DR6 to verify that
+	 * (a) DR6 is not modified by an intercepted #DB, and
+	 * (b) stale bits in DR6 (DR6.BD, in particular) don't leak into
+         *     the exit qualification field for a subsequent #DB exception.
+	 */
+	const u64 starting_dr6 = DR6_RESERVED | BIT(13) | DR_TRAP3 | DR_TRAP1;
+	extern char post_nop asm(".Lpost_nop");
+	extern char post_movss_nop asm(".Lpost_movss_nop");
+	extern char post_wbinvd asm(".Lpost_wbinvd");
+	extern char post_movss_wbinvd asm(".Lpost_movss_wbinvd");
+	extern char xbegin asm(".Lxbegin");
+	extern char skip_rtm asm(".Lskip_rtm");
+
+	/*
+	 * L1 wants to intercept #DB exceptions encountered in L2.
+	 */
+	vmcs_write(EXC_BITMAP, BIT(DB_VECTOR));
+
+	/*
+	 * Start L2 and run it up to the first point of interest.
+	 */
+	test_set_guest(vmx_db_test_guest);
+	enter_guest();
+
+	/*
+	 * Hardware-delivered #DB trap for single-step sets the
+	 * standard that L0 has to follow for emulated instructions.
+	 */
+	single_step_guest("Hardware delivered single-step", starting_dr6, 0);
+	check_db_exit(false, false, false, &post_nop, DR_STEP, starting_dr6);
+
+	/*
+	 * Hardware-delivered #DB trap for single-step in MOVSS shadow
+	 * also sets the standard that L0 has to follow for emulated
+	 * instructions. Here, we establish the VMCS pending debug
+	 * exceptions to indicate that the simulated MOVSS triggered a
+	 * data breakpoint as well as the single-step trap.
+	 */
+	single_step_guest("Hardware delivered single-step in MOVSS shadow",
+			  starting_dr6, BIT(12) | DR_STEP | DR_TRAP0 );
+	check_db_exit(false, false, false, &post_movss_nop, DR_STEP | DR_TRAP0,
+		      starting_dr6);
+
+	/*
+	 * L0 synthesized #DB trap for single-step is buggy, because
+	 * kvm (a) clobbers DR6 too early, and (b) tries its best to
+	 * reconstitute the exit qualification from the prematurely
+	 * modified DR6, but fails miserably.
+	 */
+	single_step_guest("Software synthesized single-step", starting_dr6, 0);
+	check_db_exit(true, true, false, &post_wbinvd, DR_STEP, starting_dr6);
+
+	/*
+	 * L0 synthesized #DB trap for single-step in MOVSS shadow is
+	 * even worse, because L0 also leaves the pending debug
+	 * exceptions in the VMCS instead of accumulating them into
+	 * the exit qualification field for the #DB exception.
+	 */
+	single_step_guest("Software synthesized single-step in MOVSS shadow",
+			  starting_dr6, BIT(12) | DR_STEP | DR_TRAP0);
+	check_db_exit(true, true, true, &post_movss_wbinvd, DR_STEP | DR_TRAP0,
+		      starting_dr6);
+
+	/*
+	 * Optional RTM test for hardware that supports RTM, to
+	 * demonstrate that the current volume 3 of the SDM
+	 * (325384-067US), table 27-1 is incorrect. Bit 16 of the exit
+	 * qualification for debug exceptions is not reserved. It is
+	 * set to 1 if a debug exception (#DB) or a breakpoint
+	 * exception (#BP) occurs inside an RTM region while advanced
+	 * debugging of RTM transactional regions is enabled.
+	 */
+	if (cpuid(7).b & BIT(11)) {
+		vmcs_write(ENT_CONTROLS,
+			   vmcs_read(ENT_CONTROLS) | ENT_LOAD_DBGCTLS);
+		/*
+		 * Set DR7.RTM[bit 11] and IA32_DEBUGCTL.RTM[bit 15]
+		 * in the guest to enable advanced debugging of RTM
+		 * transactional regions.
+		 */
+		vmcs_write(GUEST_DR7, BIT(11));
+		vmcs_write(GUEST_DEBUGCTL, BIT(15));
+		single_step_guest("Hardware delivered single-step in "
+				  "transactional region", starting_dr6, 0);
+		check_db_exit(false, false, false, &xbegin, BIT(16),
+			      starting_dr6);
+	} else {
+		vmcs_write(GUEST_RIP, (u64)&skip_rtm);
+		enter_guest();
+	}
+}
+
 static bool cpu_has_apicv(void)
 {
 	return ((ctrl_cpu_rev[1].clr & CPU_APIC_REG_VIRT) &&
@@ -5567,6 +5773,7 @@ struct vmx_test vmx_tests[] = {
 	/* Regression tests */
 	TEST(vmx_cr_load_test),
 	TEST(vmx_nm_test),
+	TEST(vmx_db_test),
 	TEST(vmx_pending_event_test),
 	TEST(vmx_pending_event_hlt_test),
 	/* EPT access tests. */

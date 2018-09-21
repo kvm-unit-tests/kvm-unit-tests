@@ -449,6 +449,15 @@ enum Intr_type {
 #define INTR_TYPE_OTHER_EVENT           (7 << 8) /* other event */
 
 /*
+ * Guest interruptibility state
+ */
+#define GUEST_INTR_STATE_STI		(1 << 0)
+#define GUEST_INTR_STATE_MOVSS		(1 << 1)
+#define GUEST_INTR_STATE_SMI		(1 << 2)
+#define GUEST_INTR_STATE_NMI		(1 << 3)
+#define GUEST_INTR_STATE_ENCLAVE	(1 << 4)
+
+/*
  * VM-instruction error numbers
  */
 enum vm_instruction_error_number {
