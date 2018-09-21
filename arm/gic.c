@@ -3,6 +3,7 @@
  *
  * GICv2
  *   + test sending/receiving IPIs
+ *   + MMIO access tests
  * GICv3
  *   + test sending/receiving IPIs
  *
@@ -303,6 +304,214 @@ static void run_active_clear_test(void)
 	report_prefix_pop();
 }
 
+static bool test_ro_pattern_32(void *address, u32 pattern, u32 orig)
+{
+	u32 reg;
+
+	writel(pattern, address);
+	reg = readl(address);
+
+	if (reg != orig)
+		writel(orig, address);
+
+	return reg == orig;
+}
+
+static bool test_readonly_32(void *address, bool razwi)
+{
+	u32 orig, pattern;
+
+	orig = readl(address);
+	if (razwi && orig)
+		return false;
+
+	pattern = 0xffffffff;
+	if (orig != pattern) {
+		if (!test_ro_pattern_32(address, pattern, orig))
+			return false;
+	}
+
+	pattern = 0xa5a55a5a;
+	if (orig != pattern) {
+		if (!test_ro_pattern_32(address, pattern, orig))
+			return false;
+	}
+
+	pattern = 0;
+	if (orig != pattern) {
+		if (!test_ro_pattern_32(address, pattern, orig))
+			return false;
+	}
+
+	return true;
+}
+
+static void test_typer_v2(uint32_t reg)
+{
+	int nr_gic_cpus = ((reg >> 5) & 0x7) + 1;
+
+	report("all %d CPUs have interrupts", nr_cpus == nr_gic_cpus,
+	       nr_gic_cpus);
+}
+
+#define BYTE(reg32, byte) (((reg32) >> ((byte) * 8)) & 0xff)
+#define REPLACE_BYTE(reg32, byte, new) (((reg32) & ~(0xff << ((byte) * 8))) |\
+					((new) << ((byte) * 8)))
+
+/*
+ * Some registers are byte accessible, do a byte-wide read and write of known
+ * content to check for this.
+ * Apply a @mask to cater for special register properties.
+ * @pattern contains the value already in the register.
+ */
+static void test_byte_access(void *base_addr, u32 pattern, u32 mask)
+{
+	u32 reg = readb(base_addr + 1);
+
+	report("byte reads successful (0x%08x => 0x%02x)",
+	       reg == (BYTE(pattern, 1) & (mask >> 8)),
+	       pattern & mask, reg);
+
+	pattern = REPLACE_BYTE(pattern, 2, 0x1f);
+	writeb(BYTE(pattern, 2), base_addr + 2);
+	reg = readl(base_addr);
+	report("byte writes successful (0x%02x => 0x%08x)",
+	       reg == (pattern & mask), BYTE(pattern, 2), reg);
+}
+
+static void test_priorities(int nr_irqs, void *priptr)
+{
+	u32 orig_prio, reg, pri_bits;
+	u32 pri_mask, pattern;
+	void *first_spi = priptr + GIC_FIRST_SPI;
+
+	orig_prio = readl(first_spi);
+	report_prefix_push("IPRIORITYR");
+
+	/*
+	 * Determine implemented number of priority bits by writing all 1's
+	 * and checking the number of cleared bits in the value read back.
+	 */
+	writel(0xffffffff, first_spi);
+	pri_mask = readl(first_spi);
+
+	reg = ~pri_mask;
+	report("consistent priority masking (0x%08x)",
+	       (((reg >> 16) == (reg & 0xffff)) &&
+	        ((reg & 0xff) == ((reg >> 8) & 0xff))), pri_mask);
+
+	reg = reg & 0xff;
+	for (pri_bits = 8; reg & 1; reg >>= 1, pri_bits--)
+		;
+	report("implements at least 4 priority bits (%d)",
+	       pri_bits >= 4, pri_bits);
+
+	pattern = 0;
+	writel(pattern, first_spi);
+	report("clearing priorities", readl(first_spi) == pattern);
+
+	/* setting all priorities to their max valus was tested above */
+
+	report("accesses beyond limit RAZ/WI",
+	       test_readonly_32(priptr + nr_irqs, true));
+
+	writel(pattern, priptr + nr_irqs - 4);
+	report("accessing last SPIs",
+	       readl(priptr + nr_irqs - 4) == (pattern & pri_mask));
+
+	pattern = 0xff7fbf3f;
+	writel(pattern, first_spi);
+	report("priorities are preserved",
+	       readl(first_spi) == (pattern & pri_mask));
+
+	/* The PRIORITY registers are byte accessible. */
+	test_byte_access(first_spi, pattern, pri_mask);
+
+	report_prefix_pop();
+	writel(orig_prio, first_spi);
+}
+
+/* GICD_ITARGETSR is only used by GICv2. */
+static void test_targets(int nr_irqs)
+{
+	void *targetsptr = gicv2_dist_base() + GICD_ITARGETSR;
+	u32 orig_targets;
+	u32 cpu_mask;
+	u32 pattern, reg;
+
+	orig_targets = readl(targetsptr + GIC_FIRST_SPI);
+	report_prefix_push("ITARGETSR");
+
+	cpu_mask = (1 << nr_cpus) - 1;
+	cpu_mask |= cpu_mask << 8;
+	cpu_mask |= cpu_mask << 16;
+
+	/* Check that bits for non implemented CPUs are RAZ/WI. */
+	if (nr_cpus < 8) {
+		writel(0xffffffff, targetsptr + GIC_FIRST_SPI);
+		report("bits for %d non-existent CPUs masked",
+		       !(readl(targetsptr + GIC_FIRST_SPI) & ~cpu_mask),
+		       8 - nr_cpus);
+	} else {
+		report_skip("CPU masking (all CPUs implemented)");
+	}
+
+	report("accesses beyond limit RAZ/WI",
+	       test_readonly_32(targetsptr + nr_irqs, true));
+
+	pattern = 0x0103020f;
+	writel(pattern, targetsptr + GIC_FIRST_SPI);
+	reg = readl(targetsptr + GIC_FIRST_SPI);
+	report("register content preserved (%08x => %08x)",
+	       reg == (pattern & cpu_mask), pattern & cpu_mask, reg);
+
+	/* The TARGETS registers are byte accessible. */
+	test_byte_access(targetsptr + GIC_FIRST_SPI, pattern, cpu_mask);
+
+	writel(orig_targets, targetsptr + GIC_FIRST_SPI);
+}
+
+static void gic_test_mmio(void)
+{
+	u32 reg;
+	int nr_irqs;
+	void *gic_dist_base, *idreg;
+
+	switch(gic_version()) {
+	case 0x2:
+		gic_dist_base = gicv2_dist_base();
+		idreg = gic_dist_base + GICD_ICPIDR2;
+		break;
+	case 0x3:
+		report_abort("GICv3 MMIO tests NYI");
+	default:
+		report_abort("GIC version %d not supported", gic_version());
+	}
+
+	reg = readl(gic_dist_base + GICD_TYPER);
+	nr_irqs = GICD_TYPER_IRQS(reg);
+	report_info("number of implemented SPIs: %d", nr_irqs - GIC_FIRST_SPI);
+
+	test_typer_v2(reg);
+
+	report_info("IIDR: 0x%08x", readl(gic_dist_base + GICD_IIDR));
+
+	report("GICD_TYPER is read-only",
+	       test_readonly_32(gic_dist_base + GICD_TYPER, false));
+	report("GICD_IIDR is read-only",
+	       test_readonly_32(gic_dist_base + GICD_IIDR, false));
+
+	reg = readl(idreg);
+	report("ICPIDR2 is read-only (0x%08x)",
+	       test_readonly_32(idreg, false),
+	       reg);
+
+	test_priorities(nr_irqs, gic_dist_base + GICD_IPRIORITYR);
+
+	if (gic_version() == 2)
+		test_targets(nr_irqs);
+}
+
 int main(int argc, char **argv)
 {
 	if (!gic_init()) {
@@ -330,6 +539,10 @@ int main(int argc, char **argv)
 		on_cpus(ipi_test, NULL);
 	} else if (strcmp(argv[1], "active") == 0) {
 		run_active_clear_test();
+	} else if (strcmp(argv[1], "mmio") == 0) {
+		report_prefix_push(argv[1]);
+		gic_test_mmio();
+		report_prefix_pop();
 	} else {
 		report_abort("Unknown subtest '%s'", argv[1]);
 	}

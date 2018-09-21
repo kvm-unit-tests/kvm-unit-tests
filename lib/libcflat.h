@@ -84,8 +84,8 @@ typedef u64			phys_addr_t;
 extern void puts(const char *s);
 extern int __getchar(void);
 extern int getchar(void);
-extern void exit(int code);
-extern void abort(void);
+extern void exit(int code) __attribute__((noreturn));
+extern void abort(void) __attribute__((noreturn));
 extern long atol(const char *ptr);
 extern char *getenv(const char *name);
 
@@ -107,7 +107,8 @@ extern void report(const char *msg_fmt, bool pass, ...)
 extern void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...)
 					__attribute__((format(printf, 1, 4)));
 extern void report_abort(const char *msg_fmt, ...)
-					__attribute__((format(printf, 1, 2)));
+					__attribute__((format(printf, 1, 2)))
+					__attribute__((noreturn));
 extern void report_skip(const char *msg_fmt, ...)
 					__attribute__((format(printf, 1, 2)));
 extern void report_info(const char *msg_fmt, ...)
