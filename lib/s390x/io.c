@@ -51,5 +51,7 @@ void setup(void)
 void exit(int code)
 {
 	printf("\nEXIT: STATUS=%d\n", ((code) << 1) | 1);
-	sigp_stop();
+	while (1) {
+		sigp_stop();
+	}
 }
