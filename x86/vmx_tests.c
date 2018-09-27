@@ -3903,7 +3903,8 @@ static void test_posted_intr(void)
 	test_pi_desc_addr(0x00, true);
 	test_pi_desc_addr(0xc000, true);
 
-	test_vmcs_page_values("process-posted interrupts", POSTED_INTR_DESC_ADDR, false, false);
+	test_vmcs_page_values("process-posted interrupts",
+	    POSTED_INTR_DESC_ADDR, false, false);
 
 	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
 	vmcs_write(CPU_EXEC_CTRL1, saved_secondary);
@@ -4664,6 +4665,63 @@ static void test_eptp(void)
 }
 
 /*
+ * If the 'enable PML' VM-execution control is 1, the 'enable EPT'
+ * VM-execution control must also be 1. In addition, the PML address
+ * must satisfy the following checks:
+ *
+ *    * Bits 11:0 of the address must be 0.
+ *    * The address should not set any bits beyond the processor's
+ *	physical-address width.
+ *
+ *  [Intel SDM]
+ */
+static void test_pml(void)
+{
+	u32 primary_saved = vmcs_read(CPU_EXEC_CTRL0);
+	u32 secondary_saved = vmcs_read(CPU_EXEC_CTRL1);
+	u32 primary = primary_saved;
+	u32 secondary = secondary_saved;
+
+	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
+	    (ctrl_cpu_rev[1].clr & CPU_EPT) && (ctrl_cpu_rev[1].clr & CPU_PML))) {
+		test_skip("\"Secondary execution\" control or \"enable EPT\" control or \"enable PML\" control is not supported !");
+		return;
+	}
+
+	primary |= CPU_SECONDARY;
+	vmcs_write(CPU_EXEC_CTRL0, primary);
+	secondary &= ~(CPU_PML | CPU_EPT);
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("enable-PML disabled, enable-EPT disabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	secondary |= CPU_PML;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("enable-PML enabled, enable-EPT disabled");
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	secondary |= CPU_EPT;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("enable-PML enabled, enable-EPT enabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	secondary &= ~CPU_PML;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("enable-PML disabled, enable EPT enabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	test_vmcs_page_reference(CPU_PML, PMLADDR, "PML address",
+	    "PML", false, false);
+
+	vmcs_write(CPU_EXEC_CTRL0, primary_saved);
+	vmcs_write(CPU_EXEC_CTRL1, secondary_saved);
+}
+
+/*
  * Check that the virtual CPU checks all of the VMX controls as
  * documented in the Intel SDM.
  */
@@ -4685,6 +4743,7 @@ static void vmx_controls_test(void)
 	test_apic_ctls();
 	test_tpr_threshold();
 	test_nmi_ctrls();
+	test_pml();
 	test_invalid_event_injection();
 	test_vpid();
 	test_eptp();
