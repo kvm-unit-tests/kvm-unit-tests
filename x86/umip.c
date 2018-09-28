@@ -13,7 +13,7 @@ static unsigned long expected_rip;
 static int skip_count;
 static volatile int gp_count;
 
-void gp_handler(struct ex_regs *regs)
+static void gp_handler(struct ex_regs *regs)
 {
     if (regs->rip == expected_rip) {
         gp_count++;
@@ -116,7 +116,7 @@ static void test_umip_gp(const char *msg)
 
 /* The ugly mode switching code */
 
-int do_ring3(void (*fn)(const char *), const char *arg)
+static int do_ring3(void (*fn)(const char *), const char *arg)
 {
     static unsigned char user_stack[4096];
     int ret;
@@ -171,7 +171,7 @@ int do_ring3(void (*fn)(const char *), const char *arg)
     return ret;
 }
 
-int main()
+int main(void)
 {
     extern unsigned char kernel_entry;
 

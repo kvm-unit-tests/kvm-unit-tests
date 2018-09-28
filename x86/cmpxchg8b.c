@@ -17,7 +17,7 @@ static void test_cmpxchg8b(u32 *mem)
     report("cmpxchg8b", mem[0] == 3 && mem[1] == 4);
 }
 
-int main()
+int main(void)
 {
 	setup_vm();
 	setup_idt();

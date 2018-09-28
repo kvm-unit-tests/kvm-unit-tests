@@ -8,7 +8,7 @@ static int check_cpuid_80000001_edx(unsigned int bit)
 }
 
 #define CPUID_7_0_ECX_RDPID		    (1 << 22)
-int check_cpuid_7_0_ecx(unsigned int bit)
+static int check_cpuid_7_0_ecx(unsigned int bit)
 {
     return (cpuid_indexed(7, 0).c & bit) != 0;
 }
@@ -31,7 +31,7 @@ static void test_rdtscp(u64 aux)
        report("Test RDTSCP %" PRIu64, ecx == aux, aux);
 }
 
-void test_rdpid(u64 aux)
+static void test_rdpid(u64 aux)
 {
        u32 eax;
 

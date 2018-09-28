@@ -335,7 +335,7 @@ static bool check_all_vmcs_fields(u8 cookie)
 	return pass;
 }
 
-void test_vmwrite_vmread(void)
+static void test_vmwrite_vmread(void)
 {
 	struct vmcs *vmcs = alloc_page();
 
@@ -351,7 +351,7 @@ void test_vmwrite_vmread(void)
 	free_page(vmcs);
 }
 
-void test_vmcs_high(void)
+static void test_vmcs_high(void)
 {
 	struct vmcs *vmcs = alloc_page();
 
@@ -375,7 +375,7 @@ void test_vmcs_high(void)
 	free_page(vmcs);
 }
 
-void test_vmcs_lifecycle(void)
+static void test_vmcs_lifecycle(void)
 {
 	struct vmcs *vmcs[2] = {};
 	int i;
