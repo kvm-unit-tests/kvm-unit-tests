@@ -53,6 +53,7 @@ cc-option = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null \
 COMMON_CFLAGS += -g $(autodepend-flags)
 COMMON_CFLAGS += -Wall -Wwrite-strings -Wclobbered -Wempty-body -Wuninitialized
 COMMON_CFLAGS += -Wignored-qualifiers -Wunused-but-set-parameter
+COMMON_CFLAGS += -Wmissing-prototypes -Wstrict-prototypes
 COMMON_CFLAGS += -Werror
 frame-pointer-flag=-f$(if $(KEEP_FRAME_POINTER),no-,)omit-frame-pointer
 fomit_frame_pointer := $(call cc-option, $(frame-pointer-flag), "")
