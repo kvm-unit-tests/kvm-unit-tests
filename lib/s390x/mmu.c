@@ -15,6 +15,7 @@
 #include <asm/arch_def.h>
 #include <asm/barrier.h>
 #include <vmalloc.h>
+#include "mmu.h"
 
 static pgd_t *table_root;
 

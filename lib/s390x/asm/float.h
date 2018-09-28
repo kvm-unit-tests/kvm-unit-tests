@@ -24,7 +24,7 @@ static inline uint32_t get_fpc(void)
 	return fpc;
 }
 
-static inline uint8_t get_fpc_dxc()
+static inline uint8_t get_fpc_dxc(void)
 {
 	return get_fpc() >> 8;
 }
