@@ -14,17 +14,19 @@
 #  define R "e"
 #endif
 
+void do_pf_tss(void);
+
 static inline void io_delay(void)
 {
 }
 
-void apic_self_ipi(u8 v)
+static void apic_self_ipi(u8 v)
 {
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED |
 		       APIC_INT_ASSERT | v, 0);
 }
 
-void apic_self_nmi(void)
+static void apic_self_nmi(void)
 {
 	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
 }

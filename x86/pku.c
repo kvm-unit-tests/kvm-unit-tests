@@ -14,7 +14,7 @@ volatile int pf_count = 0;
 volatile unsigned save;
 volatile unsigned test;
 
-void set_cr0_wp(int wp)
+static void set_cr0_wp(int wp)
 {
     unsigned long cr0 = read_cr0();
 
@@ -24,6 +24,7 @@ void set_cr0_wp(int wp)
     write_cr0(cr0);
 }
 
+void do_pf_tss(unsigned long error_code);
 void do_pf_tss(unsigned long error_code)
 {
     pf_count++;

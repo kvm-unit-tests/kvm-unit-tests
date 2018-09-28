@@ -9,6 +9,7 @@ volatile int pf_count = 0;
 volatile int save;
 volatile unsigned test;
 
+void do_pf_tss(unsigned long error_code);
 
 // When doing ring 3 tests, page fault handlers will always run on a
 // separate stack (the ring 0 stack).  Seems easier to use the alt_stack

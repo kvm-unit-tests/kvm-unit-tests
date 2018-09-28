@@ -35,7 +35,9 @@ struct mbi_module {
 
 #define ENV_SIZE 16384
 
-extern void setup_env(char *env, int size);
+void setup_env(char *env, int size);
+void setup_multiboot(struct mbi_bootinfo *bootinfo);
+void setup_libcflat(void);
 
 char *initrd;
 u32 initrd_size;

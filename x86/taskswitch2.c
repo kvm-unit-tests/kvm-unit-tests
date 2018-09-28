@@ -17,6 +17,8 @@ static volatile unsigned int test_divider;
 static char *fault_addr;
 static ulong fault_phys;
 
+void do_pf_tss(ulong *error_code);
+
 static inline void io_delay(void)
 {
 }
@@ -115,7 +117,7 @@ start:
 	goto start;
 }
 
-void test_kernel_mode_int()
+static void test_kernel_mode_int(void)
 {
 	unsigned int res;
 
@@ -193,7 +195,7 @@ void test_kernel_mode_int()
 	report("PF exeption", test_count == 1);
 }
 
-void test_gdt_task_gate(void)
+static void test_gdt_task_gate(void)
 {
 	/* test that calling a task by lcall works */
 	test_count = 0;
@@ -219,7 +221,7 @@ void test_gdt_task_gate(void)
 	report("ljmp", test_count == 1);
 }
 
-void test_vm86_switch(void)
+static void test_vm86_switch(void)
 {
     static tss32_t main_tss;
     static tss32_t vm86_tss;
@@ -266,7 +268,7 @@ void test_vm86_switch(void)
 
 #define IOPL_SHIFT 12
 
-void test_conforming_switch(void)
+static void test_conforming_switch(void)
 {
 	/* test lcall with conforming segment, cs.dpl != cs.rpl */
 	test_count = 0;
@@ -281,7 +283,7 @@ void test_conforming_switch(void)
 	report("lcall with cs.rpl != cs.dpl", test_count == 1);
 }
 
-int main()
+int main(void)
 {
 	setup_vm();
 	setup_idt();

@@ -61,6 +61,7 @@ static inline u64 scale_delta(u64 delta, u32 mul_frac, int shift)
 	__rem;							\
  })
 #else
+u32 __attribute__((weak)) __div64_32(u64 *n, u32 base);
 u32 __attribute__((weak)) __div64_32(u64 *n, u32 base)
 {
 	u64 rem = *n;
@@ -121,7 +122,7 @@ u32 __attribute__((weak)) __div64_32(u64 *n, u32 base)
  *	0 <= tv_nsec < NSEC_PER_SEC
  * For negative values only the tv_sec field is negative !
  */
-void set_normalized_timespec(struct timespec *ts, long sec, s64 nsec)
+static void set_normalized_timespec(struct timespec *ts, long sec, s64 nsec)
 {
 	while (nsec >= NSEC_PER_SEC) {
 		/*
@@ -179,7 +180,7 @@ cycle_t __pvclock_read_cycles(const struct pvclock_vcpu_time_info *src)
 	return src->system_time + offset;
 }
 
-cycle_t pvclock_clocksource_read(struct pvclock_vcpu_time_info *src)
+static cycle_t pvclock_clocksource_read(struct pvclock_vcpu_time_info *src)
 {
 	unsigned version;
 	cycle_t ret;
@@ -246,9 +247,9 @@ void kvm_clock_clear(void *data)
         wrmsr(MSR_KVM_SYSTEM_TIME_NEW, 0LL);
 }
 
-void pvclock_read_wallclock(struct pvclock_wall_clock *wall_clock,
-			    struct pvclock_vcpu_time_info *vcpu_time,
-			    struct timespec *ts)
+static void pvclock_read_wallclock(struct pvclock_wall_clock *wall_clock,
+				   struct pvclock_vcpu_time_info *vcpu_time,
+				   struct timespec *ts)
 {
 	u32 version;
 	u64 delta;
