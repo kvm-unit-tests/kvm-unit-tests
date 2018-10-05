@@ -4494,24 +4494,26 @@ static void test_eptp_ad_bit(u64 eptp, bool ctrl)
 	report_prefix_pop();
 
 }
+
 /*
- * If the â€œenable EPTâ€ VM-execution control is 1, the EPTP VM-execution
- * control field must satisfy the following checks:
+ * 1. If the "enable EPT" VM-execution control is 1, the "EPTP VM-execution"
+ *    control field must satisfy the following checks:
  *
- *   â€”  The EPT memory type (bits 2:0) must be a value supported by the
- *	processor as indicated in the IA32_VMX_EPT_VPID_CAP MSR.
- *   â€”  Bits 5:3 (1 less than the EPT page-walk length) must be 3,
- *	indicating an EPT page-walk length of 4.
- *   â€”  Bit 6 (enable bit for accessed and dirty flags for EPT) must be
- *	0 if bit 21 of the IA32_VMX_EPT_VPID_CAP MSR is read as 0,
- *	indicating that the processor does not support accessed and dirty
- *	dirty flags for EPT.
- *   â€”  Reserved bits 11:7 and 63:N (where N is the processorâ€™s
- *	physical-address width) must all be 0.
+ *     - The EPT memory type (bits 2:0) must be a value supported by the
+ *	 processor as indicated in the IA32_VMX_EPT_VPID_CAP MSR.
+ *     - Bits 5:3 (1 less than the EPT page-walk length) must be 3,
+ *	 indicating an EPT page-walk length of 4.
+ *     - Bit 6 (enable bit for accessed and dirty flags for EPT) must be
+ *	 0 if bit 21 of the IA32_VMX_EPT_VPID_CAP MSR is read as 0,
+ *	 indicating that the processor does not support accessed and dirty
+ *	 dirty flags for EPT.
+ *     - Reserved bits 11:7 and 63:N (where N is the processor's
+ *	 physical-address width) must all be 0.
  *
- *  [Intel SDM]
+ * 2. If the "unrestricted guest" VM-execution control is 1, the
+ *    "enable EPT" VM-execution control must also be 1.
  */
-static void test_eptp(void)
+static void test_ept_eptp(void)
 {
 	u32 primary_saved = vmcs_read(CPU_EXEC_CTRL0);
 	u32 secondary_saved = vmcs_read(CPU_EXEC_CTRL1);
@@ -4659,6 +4661,30 @@ static void test_eptp(void)
 		report_prefix_pop();
 	}
 
+	secondary &= ~(CPU_EPT | CPU_URG);
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("Enable-EPT disabled, unrestricted-guest disabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	secondary |= CPU_URG;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("Enable-EPT disabled, unrestricted-guest enabled");
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	secondary |= CPU_EPT;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("Enable-EPT enabled, unrestricted-guest enabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	secondary &= ~CPU_URG;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("Enable-EPT enabled, unrestricted-guest disabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
 	vmcs_write(CPU_EXEC_CTRL0, primary_saved);
 	vmcs_write(CPU_EXEC_CTRL1, secondary_saved);
 	vmcs_write(EPTP, eptp_saved);
@@ -4746,7 +4772,7 @@ static void vmx_controls_test(void)
 	test_pml();
 	test_invalid_event_injection();
 	test_vpid();
-	test_eptp();
+	test_ept_eptp();
 }
 
 static bool valid_vmcs_for_vmentry(void)
