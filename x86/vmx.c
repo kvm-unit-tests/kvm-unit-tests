@@ -36,6 +36,7 @@
 #include "vmx.h"
 #include "msr.h"
 #include "smp.h"
+#include "apic.h"
 
 u64 *vmxon_region;
 struct vmcs *vmcs_root;
@@ -1850,6 +1851,9 @@ int main(int argc, const char *argv[])
 	setup_vm();
 	smp_init();
 	hypercall_field = 0;
+
+	/* We want xAPIC mode to test MMIO passthrough from L1 (us) to L2.  */
+	reset_apic();
 
 	argv++;
 	argc--;
