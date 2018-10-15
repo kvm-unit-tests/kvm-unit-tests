@@ -199,9 +199,9 @@ static void test_thunk(struct test *test)
 
 struct regs {
         u64 rax;
+        u64 rbx;
         u64 rcx;
         u64 rdx;
-        u64 rbx;
         u64 cr2;
         u64 rbp;
         u64 rsi;
