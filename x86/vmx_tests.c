@@ -183,6 +183,8 @@ static int preemption_timer_exit_handler(void)
 			vmx_set_test_stage(4);
 			vmcs_write(PIN_CONTROLS,
 				   vmcs_read(PIN_CONTROLS) & ~PIN_PREEMPT);
+			vmcs_write(EXI_CONTROLS,
+				   vmcs_read(EXI_CONTROLS) & ~EXI_SAVE_PREEMPT);
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 			return VMX_TEST_RESUME;
 		case 4:
@@ -4747,6 +4749,55 @@ static void test_pml(void)
 	vmcs_write(CPU_EXEC_CTRL1, secondary_saved);
 }
 
+ /*
+ * If the "activate VMX-preemption timer" VM-execution control is 0, the
+ * the "save VMX-preemption timer value" VM-exit control must also be 0.
+ *
+ *  [Intel SDM]
+ */
+static void test_vmx_preemption_timer(void)
+{
+	u32 saved_pin = vmcs_read(PIN_CONTROLS);
+	u32 saved_exit = vmcs_read(EXI_CONTROLS);
+	u32 pin = saved_pin;
+	u32 exit = saved_exit;
+
+	if (!((ctrl_exit_rev.clr & EXI_SAVE_PREEMPT) ||
+	    (ctrl_pin_rev.clr & PIN_PREEMPT))) {
+		printf("\"Save-VMX-preemption-timer\" control and/or \"Enable-VMX-preemption-timer\" control is not supported\n");
+		return;
+	}
+
+	pin |= PIN_PREEMPT;
+	vmcs_write(PIN_CONTROLS, pin);
+	exit &= ~EXI_SAVE_PREEMPT;
+	vmcs_write(EXI_CONTROLS, exit);
+	report_prefix_pushf("enable-VMX-preemption-timer enabled, save-VMX-preemption-timer disabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	exit |= EXI_SAVE_PREEMPT;
+	vmcs_write(EXI_CONTROLS, exit);
+	report_prefix_pushf("enable-VMX-preemption-timer enabled, save-VMX-preemption-timer enabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	pin &= ~PIN_PREEMPT;
+	vmcs_write(PIN_CONTROLS, pin);
+	report_prefix_pushf("enable-VMX-preemption-timer disabled, save-VMX-preemption-timer enabled");
+	test_vmx_controls(false, false);
+	report_prefix_pop();
+
+	exit &= ~EXI_SAVE_PREEMPT;
+	vmcs_write(EXI_CONTROLS, exit);
+	report_prefix_pushf("enable-VMX-preemption-timer disabled, save-VMX-preemption-timer disabled");
+	test_vmx_controls(true, false);
+	report_prefix_pop();
+
+	vmcs_write(PIN_CONTROLS, saved_pin);
+	vmcs_write(EXI_CONTROLS, saved_exit);
+}
+
 /*
  * Check that the virtual CPU checks all of the VMX controls as
  * documented in the Intel SDM.
@@ -4773,6 +4824,7 @@ static void vmx_controls_test(void)
 	test_invalid_event_injection();
 	test_vpid();
 	test_ept_eptp();
+	test_vmx_preemption_timer();
 }
 
 static bool valid_vmcs_for_vmentry(void)
