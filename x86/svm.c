@@ -42,6 +42,11 @@ u64 runs;
 u8 *io_bitmap;
 u8 io_bitmap_area[16384];
 
+#define MSR_BITMAP_SIZE 8192
+
+u8 *msr_bitmap;
+u8 msr_bitmap_area[MSR_BITMAP_SIZE + PAGE_SIZE];
+
 static bool npt_supported(void)
 {
    return cpuid(0x8000000A).d & 1;
@@ -60,6 +65,8 @@ static void setup_svm(void)
     scratch_page = alloc_page();
 
     io_bitmap = (void *) (((ulong)io_bitmap_area + 4095) & ~4095);
+
+    msr_bitmap = (void *) ALIGN((ulong)msr_bitmap_area, PAGE_SIZE);
 
     if (!npt_supported())
         return;
@@ -169,6 +176,7 @@ static void vmcb_ident(struct vmcb *vmcb)
     save->dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
     ctrl->intercept = (1ULL << INTERCEPT_VMRUN) | (1ULL << INTERCEPT_VMMCALL);
     ctrl->iopm_base_pa = virt_to_phys(io_bitmap);
+    ctrl->msrpm_base_pa = virt_to_phys(msr_bitmap);
 
     if (npt_supported()) {
         ctrl->nested_ctl = 1;
@@ -522,6 +530,126 @@ static bool check_next_rip(struct test *test)
     unsigned long address = (unsigned long)&exp_next_rip;
 
     return address == test->vmcb->control.next_rip;
+}
+
+static void prepare_msr_intercept(struct test *test)
+{
+    default_prepare(test);
+    test->vmcb->control.intercept |= (1ULL << INTERCEPT_MSR_PROT);
+    test->vmcb->control.intercept_exceptions |= (1ULL << GP_VECTOR);
+    memset(msr_bitmap, 0xff, MSR_BITMAP_SIZE);
+}
+
+static void test_msr_intercept(struct test *test)
+{
+    unsigned long msr_value = 0xef8056791234abcd; /* Arbitrary value */
+    unsigned long msr_index;
+
+    for (msr_index = 0; msr_index <= 0xc0011fff; msr_index++) {
+        if (msr_index == 0xC0010131 /* MSR_SEV_STATUS */) {
+            /*
+             * Per section 15.34.10 "SEV_STATUS MSR" of AMD64 Architecture
+             * Programmer's Manual volume 2 - System Programming:
+             * http://support.amd.com/TechDocs/24593.pdf
+             * SEV_STATUS MSR (C001_0131) is a non-interceptable MSR.
+             */
+            continue;
+        }
+
+        /* Skips gaps between supported MSR ranges */
+        if (msr_index == 0x2000)
+            msr_index = 0xc0000000;
+        else if (msr_index == 0xc0002000)
+            msr_index = 0xc0010000;
+
+        test->scratch = -1;
+
+        rdmsr(msr_index);
+
+        /* Check that a read intercept occurred for MSR at msr_index */
+        if (test->scratch != msr_index)
+            report("MSR 0x%lx read intercept", false, msr_index);
+
+        /*
+         * Poor man approach to generate a value that
+         * seems arbitrary each time around the loop.
+         */
+        msr_value += (msr_value << 1);
+
+        wrmsr(msr_index, msr_value);
+
+        /* Check that a write intercept occurred for MSR with msr_value */
+        if (test->scratch != msr_value)
+            report("MSR 0x%lx write intercept", false, msr_index);
+    }
+
+    test->scratch = -2;
+}
+
+static bool msr_intercept_finished(struct test *test)
+{
+    u32 exit_code = test->vmcb->control.exit_code;
+    u64 exit_info_1;
+    u8 *opcode;
+
+    if (exit_code == SVM_EXIT_MSR) {
+        exit_info_1 = test->vmcb->control.exit_info_1;
+    } else {
+        /*
+         * If #GP exception occurs instead, check that it was
+         * for RDMSR/WRMSR and set exit_info_1 accordingly.
+         */
+
+        if (exit_code != (SVM_EXIT_EXCP_BASE + GP_VECTOR))
+            return true;
+
+        opcode = (u8 *)test->vmcb->save.rip;
+        if (opcode[0] != 0x0f)
+            return true;
+
+        switch (opcode[1]) {
+        case 0x30: /* WRMSR */
+            exit_info_1 = 1;
+            break;
+        case 0x32: /* RDMSR */
+            exit_info_1 = 0;
+            break;
+        default:
+            return true;
+        }
+
+        /*
+         * Warn that #GP exception occured instead.
+         * RCX holds the MSR index.
+         */
+        printf("%s 0x%lx #GP exception\n",
+            exit_info_1 ? "WRMSR" : "RDMSR", regs.rcx);
+    }
+
+    /* Jump over RDMSR/WRMSR instruction */
+    test->vmcb->save.rip += 2;
+
+    /*
+     * Test whether the intercept was for RDMSR/WRMSR.
+     * For RDMSR, test->scratch is set to the MSR index;
+     *      RCX holds the MSR index.
+     * For WRMSR, test->scratch is set to the MSR value;
+     *      RDX holds the upper 32 bits of the MSR value,
+     *      while RAX hold its lower 32 bits.
+     */
+    if (exit_info_1)
+        test->scratch =
+            ((regs.rdx << 32) | (test->vmcb->save.rax & 0xffffffff));
+    else
+        test->scratch = regs.rcx;
+
+    return false;
+}
+
+static bool check_msr_intercept(struct test *test)
+{
+    memset(msr_bitmap, 0, MSR_BITMAP_SIZE);
+    return (test->scratch == -2);
 }
 
 static void prepare_mode_switch(struct test *test)
@@ -1184,6 +1312,8 @@ static struct test tests[] = {
       test_dr_intercept, dr_intercept_finished, check_dr_intercept },
     { "next_rip", next_rip_supported, prepare_next_rip, test_next_rip,
       default_finished, check_next_rip },
+    { "msr intercept check", default_supported, prepare_msr_intercept,
+       test_msr_intercept, msr_intercept_finished, check_msr_intercept },
     { "mode_switch", default_supported, prepare_mode_switch, test_mode_switch,
        mode_switch_finished, check_mode_switch },
     { "asid_zero", default_supported, prepare_asid_zero, test_asid_zero,
