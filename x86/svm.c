@@ -8,6 +8,8 @@
 #include "types.h"
 #include "alloc_page.h"
 
+#define SVM_EXIT_MAX_DR_INTERCEPT 0x3f
+
 /* for the nested page table*/
 u64 *pml4e;
 u64 *pdpe;
@@ -380,6 +382,120 @@ static void test_cr3_intercept_bypass(struct test *test)
     asm volatile ("mmio_insn: mov %0, (%0); nop"
                   : "+a"(a) : : "memory");
     test->scratch = a;
+}
+
+static void prepare_dr_intercept(struct test *test)
+{
+    default_prepare(test);
+    test->vmcb->control.intercept_dr_read = 0xff;
+    test->vmcb->control.intercept_dr_write = 0xff;
+}
+
+static void test_dr_intercept(struct test *test)
+{
+    unsigned int i, failcnt = 0;
+
+    /* Loop testing debug register reads */
+    for (i = 0; i < 8; i++) {
+
+        switch (i) {
+        case 0:
+            asm volatile ("mov %%dr0, %0" : "=r"(test->scratch) : : "memory");
+            break;
+        case 1:
+            asm volatile ("mov %%dr1, %0" : "=r"(test->scratch) : : "memory");
+            break;
+        case 2:
+            asm volatile ("mov %%dr2, %0" : "=r"(test->scratch) : : "memory");
+            break;
+        case 3:
+            asm volatile ("mov %%dr3, %0" : "=r"(test->scratch) : : "memory");
+            break;
+        case 4:
+            asm volatile ("mov %%dr4, %0" : "=r"(test->scratch) : : "memory");
+            break;
+        case 5:
+            asm volatile ("mov %%dr5, %0" : "=r"(test->scratch) : : "memory");
+            break;
+        case 6:
+            asm volatile ("mov %%dr6, %0" : "=r"(test->scratch) : : "memory");
+            break;
+        case 7:
+            asm volatile ("mov %%dr7, %0" : "=r"(test->scratch) : : "memory");
+            break;
+        }
+
+        if (test->scratch != i) {
+            report("dr%u read intercept", false, i);
+            failcnt++;
+        }
+    }
+
+    /* Loop testing debug register writes */
+    for (i = 0; i < 8; i++) {
+
+        switch (i) {
+        case 0:
+            asm volatile ("mov %0, %%dr0" : : "r"(test->scratch) : "memory");
+            break;
+        case 1:
+            asm volatile ("mov %0, %%dr1" : : "r"(test->scratch) : "memory");
+            break;
+        case 2:
+            asm volatile ("mov %0, %%dr2" : : "r"(test->scratch) : "memory");
+            break;
+        case 3:
+            asm volatile ("mov %0, %%dr3" : : "r"(test->scratch) : "memory");
+            break;
+        case 4:
+            asm volatile ("mov %0, %%dr4" : : "r"(test->scratch) : "memory");
+            break;
+        case 5:
+            asm volatile ("mov %0, %%dr5" : : "r"(test->scratch) : "memory");
+            break;
+        case 6:
+            asm volatile ("mov %0, %%dr6" : : "r"(test->scratch) : "memory");
+            break;
+        case 7:
+            asm volatile ("mov %0, %%dr7" : : "r"(test->scratch) : "memory");
+            break;
+        }
+
+        if (test->scratch != i) {
+            report("dr%u write intercept", false, i);
+            failcnt++;
+        }
+    }
+
+    test->scratch = failcnt;
+}
+
+static bool dr_intercept_finished(struct test *test)
+{
+    ulong n = (test->vmcb->control.exit_code - SVM_EXIT_READ_DR0);
+
+    /* Only expect DR intercepts */
+    if (n > (SVM_EXIT_MAX_DR_INTERCEPT - SVM_EXIT_READ_DR0))
+        return true;
+
+    /*
+     * Compute debug register number.
+     * Per Appendix C "SVM Intercept Exit Codes" of AMD64 Architecture
+     * Programmer's Manual Volume 2 - System Programming:
+     * http://support.amd.com/TechDocs/24593.pdf
+     * there are 16 VMEXIT codes each for DR read and write.
+     */
+    test->scratch = (n % 16);
+
+    /* Jump over MOV instruction */
+    test->vmcb->save.rip += 3;
+
+    return false;
+}
+
+static bool check_dr_intercept(struct test *test)
+{
+    return !test->scratch;
 }
 
 static bool next_rip_supported(void)
@@ -1064,6 +1180,8 @@ static struct test tests[] = {
     { "cr3 read intercept emulate", smp_supported,
       prepare_cr3_intercept_bypass, test_cr3_intercept_bypass,
       default_finished, check_cr3_intercept },
+    { "dr intercept check", default_supported, prepare_dr_intercept,
+      test_dr_intercept, dr_intercept_finished, check_dr_intercept },
     { "next_rip", next_rip_supported, prepare_next_rip, test_next_rip,
       default_finished, check_next_rip },
     { "mode_switch", default_supported, prepare_mode_switch, test_mode_switch,
