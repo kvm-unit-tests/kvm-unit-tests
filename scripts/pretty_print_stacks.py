@@ -37,14 +37,14 @@ def pretty_print_stack(binary, line):
         return
 
     for line in out.splitlines():
-        m = re.match('(.*) at [^ ]*/kvm-unit-tests/([^ ]*):([0-9]+)(.*)', line)
+        m = re.match(b'(.*) at [^ ]*/kvm-unit-tests/([^ ]*):([0-9]+)(.*)', line)
         if m is None:
             puts('%s\n' % line)
             return
 
         head, path, line, tail = m.groups()
         line = int(line)
-        puts('%s at %s:%d%s\n' % (head, path, line, tail))
+        puts('%s at %s:%d%s\n' % (head.decode(), path.decode(), line, tail.decode()))
         try:
             lines = open(path).readlines()
         except IOError:
