@@ -5109,6 +5109,50 @@ static void vmx_pending_event_hlt_test(void)
 	vmx_pending_event_test_core(true);
 }
 
+#define GUEST_TSC_OFFSET (1u << 30)
+
+static u64 guest_tsc;
+
+static void vmx_store_tsc_test_guest(void)
+{
+	guest_tsc = rdtsc();
+}
+
+/*
+ * This test ensures that when IA32_TSC is in the VM-exit MSR-store
+ * list, the value saved is not subject to the TSC offset that is
+ * applied to RDTSC/RDTSCP/RDMSR(IA32_TSC) in guest execution.
+ */
+static void vmx_store_tsc_test(void)
+{
+	struct vmx_msr_entry msr_entry = { .index = MSR_IA32_TSC };
+	u64 low, high;
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_USE_TSC_OFFSET)) {
+		report_skip("'Use TSC offsetting' not supported");
+		return;
+	}
+
+	test_set_guest(vmx_store_tsc_test_guest);
+
+	vmcs_set_bits(CPU_EXEC_CTRL0, CPU_USE_TSC_OFFSET);
+	vmcs_write(EXI_MSR_ST_CNT, 1);
+	vmcs_write(EXIT_MSR_ST_ADDR, virt_to_phys(&msr_entry));
+	vmcs_write(TSC_OFFSET, GUEST_TSC_OFFSET);
+
+	low = rdtsc();
+	enter_guest();
+	high = rdtsc();
+
+	report("RDTSC value in the guest (%lu) is in range [%lu, %lu]",
+	       low + GUEST_TSC_OFFSET <= guest_tsc &&
+	       guest_tsc <= high + GUEST_TSC_OFFSET,
+	       guest_tsc, low + GUEST_TSC_OFFSET, high + GUEST_TSC_OFFSET);
+	report("IA32_TSC value saved in the VM-exit MSR-store list (%lu) is in range [%lu, %lu]",
+	       low <= msr_entry.value && msr_entry.value <= high,
+	       msr_entry.value, low, high);
+}
+
 static void vmx_db_test_guest(void)
 {
 	/*
@@ -5913,6 +5957,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_db_test),
 	TEST(vmx_pending_event_test),
 	TEST(vmx_pending_event_hlt_test),
+	TEST(vmx_store_tsc_test),
 	/* EPT access tests. */
 	TEST(ept_access_test_not_present),
 	TEST(ept_access_test_read_only),

@@ -384,6 +384,7 @@ enum Ctrl_pin {
 
 enum Ctrl0 {
 	CPU_INTR_WINDOW		= 1ul << 2,
+	CPU_USE_TSC_OFFSET	= 1ul << 3,
 	CPU_HLT			= 1ul << 7,
 	CPU_INVLPG		= 1ul << 9,
 	CPU_MWAIT		= 1ul << 10,
