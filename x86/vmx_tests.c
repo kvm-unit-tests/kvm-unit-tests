@@ -5245,6 +5245,176 @@ static void vmx_nmi_window_test(void)
 	report_prefix_pop();
 }
 
+static void vmx_intr_window_test_guest(void)
+{
+	handle_exception(UD_VECTOR, vmx_window_test_ud_handler);
+
+	/*
+	 * The two consecutive STIs are to ensure that only the first
+	 * one has a shadow. Note that NOP and STI are one byte
+	 * instructions.
+	 */
+	asm volatile("vmcall\n\t"
+		     "nop\n\t"
+		     "sti\n\t"
+		     "sti\n\t");
+
+	handle_exception(UD_VECTOR, NULL);
+}
+
+static void verify_intr_window_exit(u64 rip)
+{
+	u32 exit_reason = vmcs_read(EXI_REASON);
+
+	report("Exit reason (%d) is 'interrupt window'",
+	       exit_reason == VMX_INTR_WINDOW, exit_reason);
+	report("RIP (%#lx) is %#lx", vmcs_read(GUEST_RIP) == rip,
+	       vmcs_read(GUEST_RIP), rip);
+	report("Activity state (%ld) is 'ACTIVE'",
+	       vmcs_read(GUEST_ACTV_STATE) == ACTV_ACTIVE,
+	       vmcs_read(GUEST_ACTV_STATE));
+}
+
+static void vmx_intr_window_test(void)
+{
+	u64 vmcall_addr;
+	u64 nop_addr;
+	unsigned int orig_ud_gate_type;
+	void *ud_fault_addr = get_idt_addr(&boot_idt[UD_VECTOR]);
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_INTR_WINDOW)) {
+		report_skip("CPU does not support the \"interrupt-window exiting\" VM-execution control.");
+		return;
+	}
+
+	/*
+	 * Change the IDT entry for #UD from interrupt gate to trap gate,
+	 * so that it won't clear RFLAGS.IF. We don't want interrupts to
+	 * be disabled after vectoring a #UD.
+	 */
+	orig_ud_gate_type = boot_idt[UD_VECTOR].type;
+	boot_idt[UD_VECTOR].type = 15;
+
+	report_prefix_push("interrupt-window");
+	test_set_guest(vmx_intr_window_test_guest);
+	enter_guest();
+	assert_exit_reason(VMX_VMCALL);
+	vmcall_addr = vmcs_read(GUEST_RIP);
+
+	/*
+	 * Ask for "interrupt-window exiting" with RFLAGS.IF set and
+	 * no blocking; expect an immediate VM-exit. Note that we have
+	 * not advanced past the vmcall instruction yet, so RIP should
+	 * point to the vmcall instruction.
+	 */
+	report_prefix_push("active, no blocking, RFLAGS.IF=1");
+	vmcs_set_bits(CPU_EXEC_CTRL0, CPU_INTR_WINDOW);
+	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED | X86_EFLAGS_IF);
+	enter_guest();
+	verify_intr_window_exit(vmcall_addr);
+	report_prefix_pop();
+
+	/*
+	 * Ask for "interrupt-window exiting" (with event injection)
+	 * with RFLAGS.IF set and no blocking; expect a VM-exit after
+	 * the event is injected. That is, RIP should should be at the
+	 * address specified in the IDT entry for #UD.
+	 */
+	report_prefix_push("active, no blocking, RFLAGS.IF=1, injecting #UD");
+	vmcs_write(ENT_INTR_INFO,
+		   INTR_INFO_VALID_MASK | INTR_TYPE_HARD_EXCEPTION | UD_VECTOR);
+	vmcall_addr = vmcs_read(GUEST_RIP);
+	enter_guest();
+	verify_intr_window_exit((u64)ud_fault_addr);
+	report_prefix_pop();
+
+	/*
+	 * Let the L2 guest run through the IRET, back to the VMCALL.
+	 * We have to clear the "interrupt-window exiting"
+	 * VM-execution control, or it would just keep causing
+	 * VM-exits. Then, advance past the VMCALL and set the
+	 * "interrupt-window exiting" VM-execution control again.
+	 */
+	vmcs_clear_bits(CPU_EXEC_CTRL0, CPU_INTR_WINDOW);
+	enter_guest();
+	skip_exit_vmcall();
+	nop_addr = vmcs_read(GUEST_RIP);
+	vmcs_set_bits(CPU_EXEC_CTRL0, CPU_INTR_WINDOW);
+
+	/*
+	 * Ask for "interrupt-window exiting" in a MOV-SS shadow with
+	 * RFLAGS.IF set, and expect a VM-exit on the next
+	 * instruction. (NOP is one byte.)
+	 */
+	report_prefix_push("active, blocking by MOV-SS, RFLAGS.IF=1");
+	vmcs_write(GUEST_INTR_STATE, GUEST_INTR_STATE_MOVSS);
+	enter_guest();
+	verify_intr_window_exit(nop_addr + 1);
+	report_prefix_pop();
+
+	/*
+	 * Back up to the NOP and ask for "interrupt-window exiting"
+	 * in an STI shadow with RFLAGS.IF set, and expect a VM-exit
+	 * on the next instruction. (NOP is one byte.)
+	 */
+	report_prefix_push("active, blocking by STI, RFLAGS.IF=1");
+	vmcs_write(GUEST_RIP, nop_addr);
+	vmcs_write(GUEST_INTR_STATE, GUEST_INTR_STATE_STI);
+	enter_guest();
+	verify_intr_window_exit(nop_addr + 1);
+	report_prefix_pop();
+
+	/*
+	 * Ask for "interrupt-window exiting" with RFLAGS.IF clear,
+	 * and expect a VM-exit on the instruction following the STI
+	 * shadow. Only the first STI (which is one byte past the NOP)
+	 * should have a shadow. The second STI (which is two bytes
+	 * past the NOP) has no shadow. Therefore, the interrupt
+	 * window opens at three bytes past the NOP.
+	 */
+	report_prefix_push("active, RFLAGS.IF = 0");
+	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED);
+	enter_guest();
+	verify_intr_window_exit(nop_addr + 3);
+	report_prefix_pop();
+
+	if (!(rdmsr(MSR_IA32_VMX_MISC) & (1 << 6))) {
+		report_skip("CPU does not support activity state HLT.");
+	} else {
+		/*
+		 * Ask for "interrupt-window exiting" when entering
+		 * activity state HLT, and expect an immediate
+		 * VM-exit. RIP is still three bytes past the nop.
+		 */
+		report_prefix_push("halted, no blocking");
+		vmcs_write(GUEST_ACTV_STATE, ACTV_HLT);
+		enter_guest();
+		verify_intr_window_exit(nop_addr + 3);
+		report_prefix_pop();
+
+		/*
+		 * Ask for "interrupt-window exiting" when entering
+		 * activity state HLT (with event injection), and
+		 * expect a VM-exit after the event is injected. That
+		 * is, RIP should should be at the address specified
+		 * in the IDT entry for #UD.
+		 */
+		report_prefix_push("halted, no blocking, injecting #UD");
+		vmcs_write(GUEST_ACTV_STATE, ACTV_HLT);
+		vmcs_write(ENT_INTR_INFO,
+			   INTR_INFO_VALID_MASK | INTR_TYPE_HARD_EXCEPTION |
+			   UD_VECTOR);
+		enter_guest();
+		verify_intr_window_exit((u64)ud_fault_addr);
+		report_prefix_pop();
+	}
+
+	boot_idt[UD_VECTOR].type = orig_ud_gate_type;
+	vmcs_clear_bits(CPU_EXEC_CTRL0, CPU_INTR_WINDOW);
+	enter_guest();
+	report_prefix_pop();
+}
+
 #define GUEST_TSC_OFFSET (1u << 30)
 
 static u64 guest_tsc;
@@ -6092,6 +6262,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_nm_test),
 	TEST(vmx_db_test),
 	TEST(vmx_nmi_window_test),
+	TEST(vmx_intr_window_test),
 	TEST(vmx_pending_event_test),
 	TEST(vmx_pending_event_hlt_test),
 	TEST(vmx_store_tsc_test),
