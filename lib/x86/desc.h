@@ -224,4 +224,13 @@ void __set_exception_jmpbuf(jmp_buf *addr);
 #define set_exception_jmpbuf(jmpbuf) \
 	(setjmp(jmpbuf) ? : (__set_exception_jmpbuf(&(jmpbuf)), 0))
 
+static inline void *get_idt_addr(idt_entry_t *entry)
+{
+	uintptr_t addr = entry->offset0 | ((u32)entry->offset1 << 16);
+#ifdef __x86_64__
+	addr |= (u64)entry->offset2 << 32;
+#endif
+	return (void *)addr;
+}
+
 #endif

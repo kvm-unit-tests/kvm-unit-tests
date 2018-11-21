@@ -5109,6 +5109,142 @@ static void vmx_pending_event_hlt_test(void)
 	vmx_pending_event_test_core(true);
 }
 
+static int vmx_window_test_ud_count;
+
+static void vmx_window_test_ud_handler(struct ex_regs *regs)
+{
+	vmx_window_test_ud_count++;
+}
+
+static void vmx_nmi_window_test_guest(void)
+{
+	handle_exception(UD_VECTOR, vmx_window_test_ud_handler);
+
+	asm volatile("vmcall\n\t"
+		     "nop\n\t");
+
+	handle_exception(UD_VECTOR, NULL);
+}
+
+static void verify_nmi_window_exit(u64 rip)
+{
+	u32 exit_reason = vmcs_read(EXI_REASON);
+
+	report("Exit reason (%d) is 'NMI window'",
+	       exit_reason == VMX_NMI_WINDOW, exit_reason);
+	report("RIP (%#lx) is %#lx", vmcs_read(GUEST_RIP) == rip,
+	       vmcs_read(GUEST_RIP), rip);
+	report("Activity state (%ld) is 'ACTIVE'",
+	       vmcs_read(GUEST_ACTV_STATE) == ACTV_ACTIVE,
+	       vmcs_read(GUEST_ACTV_STATE));
+}
+
+static void vmx_nmi_window_test(void)
+{
+	u64 nop_addr;
+	void *ud_fault_addr = get_idt_addr(&boot_idt[UD_VECTOR]);
+
+	if (!(ctrl_pin_rev.clr & PIN_VIRT_NMI)) {
+		report_skip("CPU does not support the \"Virtual NMIs\" VM-execution control.");
+		return;
+	}
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_NMI_WINDOW)) {
+		report_skip("CPU does not support the \"NMI-window exiting\" VM-execution control.");
+		return;
+	}
+
+	vmx_window_test_ud_count = 0;
+
+	report_prefix_push("NMI-window");
+	test_set_guest(vmx_nmi_window_test_guest);
+	vmcs_set_bits(PIN_CONTROLS, PIN_VIRT_NMI);
+	enter_guest();
+	skip_exit_vmcall();
+	nop_addr = vmcs_read(GUEST_RIP);
+
+	/*
+	 * Ask for "NMI-window exiting," and expect an immediate VM-exit.
+	 * RIP will not advance.
+	 */
+	report_prefix_push("active, no blocking");
+	vmcs_set_bits(CPU_EXEC_CTRL0, CPU_NMI_WINDOW);
+	enter_guest();
+	verify_nmi_window_exit(nop_addr);
+	report_prefix_pop();
+
+	/*
+	 * Ask for "NMI-window exiting" in a MOV-SS shadow, and expect
+	 * a VM-exit on the next instruction after the nop. (The nop
+	 * is one byte.)
+	 */
+	report_prefix_push("active, blocking by MOV-SS");
+	vmcs_write(GUEST_INTR_STATE, GUEST_INTR_STATE_MOVSS);
+	enter_guest();
+	verify_nmi_window_exit(nop_addr + 1);
+	report_prefix_pop();
+
+	/*
+	 * Ask for "NMI-window exiting" (with event injection), and
+	 * expect a VM-exit after the event is injected. (RIP should
+	 * be at the address specified in the IDT entry for #UD.)
+	 */
+	report_prefix_push("active, no blocking, injecting #UD");
+	vmcs_write(ENT_INTR_INFO,
+		   INTR_INFO_VALID_MASK | INTR_TYPE_HARD_EXCEPTION | UD_VECTOR);
+	enter_guest();
+	verify_nmi_window_exit((u64)ud_fault_addr);
+	report_prefix_pop();
+
+	/*
+	 * Ask for "NMI-window exiting" with NMI blocking, and expect
+	 * a VM-exit after the next IRET (i.e. after the #UD handler
+	 * returns). So, RIP should be back at one byte past the nop.
+	 */
+	report_prefix_push("active, blocking by NMI");
+	vmcs_write(GUEST_INTR_STATE, GUEST_INTR_STATE_NMI);
+	enter_guest();
+	verify_nmi_window_exit(nop_addr + 1);
+	report("#UD handler executed once (actual %d times)",
+	       vmx_window_test_ud_count == 1,
+	       vmx_window_test_ud_count);
+	report_prefix_pop();
+
+	if (!(rdmsr(MSR_IA32_VMX_MISC) & (1 << 6))) {
+		report_skip("CPU does not support activity state HLT.");
+	} else {
+		/*
+		 * Ask for "NMI-window exiting" when entering activity
+		 * state HLT, and expect an immediate VM-exit. RIP is
+		 * still one byte past the nop.
+		 */
+		report_prefix_push("halted, no blocking");
+		vmcs_write(GUEST_ACTV_STATE, ACTV_HLT);
+		enter_guest();
+		verify_nmi_window_exit(nop_addr + 1);
+		report_prefix_pop();
+
+		/*
+		 * Ask for "NMI-window exiting" when entering activity
+		 * state HLT (with event injection), and expect a
+		 * VM-exit after the event is injected. (RIP should be
+		 * at the address specified in the IDT entry for #UD.)
+		 */
+		report_prefix_push("halted, no blocking, injecting #UD");
+		vmcs_write(GUEST_ACTV_STATE, ACTV_HLT);
+		vmcs_write(ENT_INTR_INFO,
+			   INTR_INFO_VALID_MASK | INTR_TYPE_HARD_EXCEPTION |
+			   UD_VECTOR);
+		enter_guest();
+		verify_nmi_window_exit((u64)ud_fault_addr);
+		report_prefix_pop();
+	}
+
+	vmcs_clear_bits(CPU_EXEC_CTRL0, CPU_NMI_WINDOW);
+	enter_guest();
+	report_prefix_pop();
+}
+
 #define GUEST_TSC_OFFSET (1u << 30)
 
 static u64 guest_tsc;
@@ -5955,6 +6091,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_cr_load_test),
 	TEST(vmx_nm_test),
 	TEST(vmx_db_test),
+	TEST(vmx_nmi_window_test),
 	TEST(vmx_pending_event_test),
 	TEST(vmx_pending_event_hlt_test),
 	TEST(vmx_store_tsc_test),
