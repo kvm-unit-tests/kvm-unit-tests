@@ -125,6 +125,6 @@ void handle_io_int(void)
 
 void handle_svc_int(void)
 {
-	report_abort("Unexpected service call interrupt: at %#lx",
+	report_abort("Unexpected supervisor call interrupt: at %#lx",
 		     lc->svc_old_psw.addr);
 }

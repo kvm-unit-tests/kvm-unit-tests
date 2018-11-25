@@ -33,10 +33,10 @@ init_psw_cont:
 	larl	%r1, mcck_int_psw
 	mvc	GEN_LC_MCCK_NEW_PSW(16), 0(%r1)
 	/* setup io interrupt handler */
-	larl	%r1, ext_int_psw
+	larl	%r1, io_int_psw
 	mvc	GEN_LC_IO_NEW_PSW(16), 0(%r1)
 	/* setup svc interrupt handler */
-	larl	%r1, mcck_int_psw
+	larl	%r1, svc_int_psw
 	mvc	GEN_LC_SVC_NEW_PSW(16), 0(%r1)
 	/* setup cr0, enabling e.g. AFP-register control */
 	larl	%r1, initial_cr0
