@@ -1605,7 +1605,7 @@ static bool vmx_enter_guest(struct vmentry_failure *failure)
 		"pushf\n\t"
 		"pop %%rdi\n\t"
 		"mov %%rdi, %[failure_flags]\n\t"
-		"movl $1, %[failure_flags]\n\t"
+		"movl $1, %[failure_early]\n\t"
 		"jmp 3f\n\t"
 		"vmx_return:\n\t"
 		SAVE_GPR_C
