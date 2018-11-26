@@ -47,6 +47,11 @@ environment variable:
 
     QEMU=/tmp/qemu/x86_64-softmmu/qemu-system-x86_64 ./x86-run ./x86/msr.flat
 
+To select an accelerator, for example "kvm" or "tcg", specify the
+ACCEL=<name> environment variable:
+
+    ACCEL=kvm ./x86-run ./x86/msr.flat
+
 # Unit test inputs
 
 Unit tests use QEMU's '-append <args...>' parameter for command line
