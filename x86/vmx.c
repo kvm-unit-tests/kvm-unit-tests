@@ -1384,7 +1384,8 @@ static void test_vmptrld(void)
 	       make_vmcs_current(tmp_root) == 1);
 
 	/* Pass VMXON region */
-	make_vmcs_current(vmcs);
+	assert(!vmcs_clear(vmcs));
+	assert(!make_vmcs_current(vmcs));
 	tmp_root = (struct vmcs *)vmxon_region;
 	report("test vmptrld with vmxon region",
 	       make_vmcs_current(tmp_root) == 1);
