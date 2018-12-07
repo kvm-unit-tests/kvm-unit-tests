@@ -4799,6 +4799,26 @@ static void test_vmx_preemption_timer(void)
 }
 
 /*
+ * Tests for VM-execution control fields
+ */
+static void test_vm_execution_ctls(void)
+{
+	test_pin_based_ctls();
+	test_primary_processor_based_ctls();
+	test_secondary_processor_based_ctls();
+	test_cr3_targets();
+	test_io_bitmaps();
+	test_msr_bitmap();
+	test_apic_ctls();
+	test_tpr_threshold();
+	test_nmi_ctrls();
+	test_pml();
+	test_vpid();
+	test_ept_eptp();
+	test_vmx_preemption_timer();
+}
+
+/*
  * Check that the virtual CPU checks all of the VMX controls as
  * documented in the Intel SDM.
  */
@@ -4811,20 +4831,8 @@ static void vmx_controls_test(void)
 	 */
 	vmcs_write(GUEST_RFLAGS, 0);
 
-	test_pin_based_ctls();
-	test_primary_processor_based_ctls();
-	test_secondary_processor_based_ctls();
-	test_cr3_targets();
-	test_io_bitmaps();
-	test_msr_bitmap();
-	test_apic_ctls();
-	test_tpr_threshold();
-	test_nmi_ctrls();
-	test_pml();
+	test_vm_execution_ctls();
 	test_invalid_event_injection();
-	test_vpid();
-	test_ept_eptp();
-	test_vmx_preemption_timer();
 }
 
 static bool valid_vmcs_for_vmentry(void)
