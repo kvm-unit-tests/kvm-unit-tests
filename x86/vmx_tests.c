@@ -4819,6 +4819,14 @@ static void test_vm_execution_ctls(void)
 }
 
 /*
+ * Tests for VM-entry control fields
+ */
+static void test_vm_entry_ctls(void)
+{
+	test_invalid_event_injection();
+}
+
+/*
  * Check that the virtual CPU checks all of the VMX controls as
  * documented in the Intel SDM.
  */
@@ -4832,7 +4840,7 @@ static void vmx_controls_test(void)
 	vmcs_write(GUEST_RFLAGS, 0);
 
 	test_vm_execution_ctls();
-	test_invalid_event_injection();
+	test_vm_entry_ctls();
 }
 
 static bool valid_vmcs_for_vmentry(void)
