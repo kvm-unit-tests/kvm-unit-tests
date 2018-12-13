@@ -3459,14 +3459,13 @@ static void test_cr3_targets(void)
 }
 
 /*
- * Test a particular address setting for a physical page reference in
- * the VMCS.
+ * Test a particular address setting in the VMCS
  */
-static void test_vmcs_page_addr(const char *name,
-				enum Encoding encoding,
-				bool ignored,
-				bool xfail_beyond_mapped_ram,
-				u64 addr)
+static void test_vmcs_addr(const char *name,
+			   enum Encoding encoding,
+			   bool ignored,
+			   bool xfail_beyond_mapped_ram,
+			   u64 addr)
 {
 	bool xfail =
 		(xfail_beyond_mapped_ram &&
@@ -3483,9 +3482,9 @@ static void test_vmcs_page_addr(const char *name,
 }
 
 /*
- * Test interesting values for a physical page reference in the VMCS.
+ * Test interesting values for a VMCS address
  */
-static void test_vmcs_page_values(const char *name,
+static void test_vmcs_addr_values(const char *name,
 				  enum Encoding encoding,
 				  bool ignored,
 				  bool xfail_beyond_mapped_ram)
@@ -3494,28 +3493,28 @@ static void test_vmcs_page_values(const char *name,
 	u64 orig_val = vmcs_read(encoding);
 
 	for (i = 0; i < 64; i++)
-		test_vmcs_page_addr(name, encoding, ignored,
-				    xfail_beyond_mapped_ram, 1ul << i);
+		test_vmcs_addr(name, encoding, ignored,
+			       xfail_beyond_mapped_ram, 1ul << i);
 
-	test_vmcs_page_addr(name, encoding, ignored,
-			    xfail_beyond_mapped_ram, PAGE_SIZE - 1);
-	test_vmcs_page_addr(name, encoding, ignored,
-			    xfail_beyond_mapped_ram, PAGE_SIZE);
-	test_vmcs_page_addr(name, encoding, ignored,
-			    xfail_beyond_mapped_ram,
-			    (1ul << cpuid_maxphyaddr()) - PAGE_SIZE);
-	test_vmcs_page_addr(name, encoding, ignored,
-			    xfail_beyond_mapped_ram,
-			    -1ul);
+	test_vmcs_addr(name, encoding, ignored,
+		       xfail_beyond_mapped_ram, PAGE_SIZE - 1);
+	test_vmcs_addr(name, encoding, ignored,
+		       xfail_beyond_mapped_ram, PAGE_SIZE);
+	test_vmcs_addr(name, encoding, ignored,
+		       xfail_beyond_mapped_ram,
+		      (1ul << cpuid_maxphyaddr()) - PAGE_SIZE);
+	test_vmcs_addr(name, encoding, ignored,
+		       xfail_beyond_mapped_ram,
+		       -1ul);
 
 	vmcs_write(encoding, orig_val);
 }
 
 /*
- * Test a physical page reference in the VMCS, when the corresponding
+ * Test a physical address reference in the VMCS, when the corresponding
  * feature is enabled and when the corresponding feature is disabled.
  */
-static void test_vmcs_page_reference(u32 control_bit, enum Encoding field,
+static void test_vmcs_addr_reference(u32 control_bit, enum Encoding field,
 				     const char *field_name,
 				     const char *control_name,
 				     bool xfail_beyond_mapped_ram,
@@ -3542,7 +3541,7 @@ static void test_vmcs_page_reference(u32 control_bit, enum Encoding field,
 		vmcs_write(CPU_EXEC_CTRL0, primary | CPU_SECONDARY);
 		vmcs_write(CPU_EXEC_CTRL1, secondary | control_bit);
 	}
-	test_vmcs_page_values(field_name, field, false, xfail_beyond_mapped_ram);
+	test_vmcs_addr_values(field_name, field, false, xfail_beyond_mapped_ram);
 	report_prefix_pop();
 
 	report_prefix_pushf("%s disabled", control_name);
@@ -3552,7 +3551,7 @@ static void test_vmcs_page_reference(u32 control_bit, enum Encoding field,
 		vmcs_write(CPU_EXEC_CTRL0, primary & ~CPU_SECONDARY);
 		vmcs_write(CPU_EXEC_CTRL1, secondary & ~control_bit);
 	}
-	test_vmcs_page_values(field_name, field, true, false);
+	test_vmcs_addr_values(field_name, field, true, false);
 	report_prefix_pop();
 
 	vmcs_write(field, page_addr);
@@ -3567,10 +3566,10 @@ static void test_vmcs_page_reference(u32 control_bit, enum Encoding field,
  */
 static void test_io_bitmaps(void)
 {
-	test_vmcs_page_reference(CPU_IO_BITMAP, IO_BITMAP_A,
+	test_vmcs_addr_reference(CPU_IO_BITMAP, IO_BITMAP_A,
 				 "I/O bitmap A", "Use I/O bitmaps", false,
 				 true);
-	test_vmcs_page_reference(CPU_IO_BITMAP, IO_BITMAP_B,
+	test_vmcs_addr_reference(CPU_IO_BITMAP, IO_BITMAP_B,
 				 "I/O bitmap B", "Use I/O bitmaps", false,
 				 true);
 }
@@ -3583,7 +3582,7 @@ static void test_io_bitmaps(void)
  */
 static void test_msr_bitmap(void)
 {
-	test_vmcs_page_reference(CPU_MSR_BITMAP, MSR_BITMAP,
+	test_vmcs_addr_reference(CPU_MSR_BITMAP, MSR_BITMAP,
 				 "MSR bitmap", "Use MSR bitmaps", false,
 				 true);
 }
@@ -3598,7 +3597,7 @@ static void test_msr_bitmap(void)
  */
 static void test_apic_virt_addr(void)
 {
-	test_vmcs_page_reference(CPU_TPR_SHADOW, APIC_VIRT_ADDR,
+	test_vmcs_addr_reference(CPU_TPR_SHADOW, APIC_VIRT_ADDR,
 				 "virtual-APIC address", "Use TPR shadow",
 				 true, true);
 }
@@ -3617,7 +3616,7 @@ static void test_apic_access_addr(void)
 
 	vmcs_write(APIC_ACCS_ADDR, virt_to_phys(apic_access_page));
 
-	test_vmcs_page_reference(CPU_VIRT_APIC_ACCESSES, APIC_ACCS_ADDR,
+	test_vmcs_addr_reference(CPU_VIRT_APIC_ACCESSES, APIC_ACCS_ADDR,
 				 "APIC-access address",
 				 "virtualize APIC-accesses", false, false);
 }
@@ -3905,7 +3904,7 @@ static void test_posted_intr(void)
 	test_pi_desc_addr(0x00, true);
 	test_pi_desc_addr(0xc000, true);
 
-	test_vmcs_page_values("process-posted interrupts",
+	test_vmcs_addr_values("process-posted interrupts",
 	    POSTED_INTR_DESC_ADDR, false, false);
 
 	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
@@ -4742,7 +4741,7 @@ static void test_pml(void)
 	test_vmx_controls(true, false);
 	report_prefix_pop();
 
-	test_vmcs_page_reference(CPU_PML, PMLADDR, "PML address",
+	test_vmcs_addr_reference(CPU_PML, PMLADDR, "PML address",
 	    "PML", false, false);
 
 	vmcs_write(CPU_EXEC_CTRL0, primary_saved);
