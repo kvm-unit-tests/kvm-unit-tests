@@ -3489,12 +3489,13 @@ static void test_vmcs_addr_values(const char *name,
 				  enum Encoding encoding,
 				  u64 align,
 				  bool ignored,
-				  bool xfail_beyond_mapped_ram)
+				  bool xfail_beyond_mapped_ram,
+				  u32 bit_start, u32 bit_end)
 {
 	unsigned i;
 	u64 orig_val = vmcs_read(encoding);
 
-	for (i = 0; i < 64; i++)
+	for (i = bit_start; i <= bit_end; i++)
 		test_vmcs_addr(name, encoding, align, ignored,
 			       xfail_beyond_mapped_ram, 1ul << i);
 
@@ -3542,8 +3543,9 @@ static void test_vmcs_addr_reference(u32 control_bit, enum Encoding field,
 		vmcs_write(CPU_EXEC_CTRL0, primary | CPU_SECONDARY);
 		vmcs_write(CPU_EXEC_CTRL1, secondary | control_bit);
 	}
+
 	test_vmcs_addr_values(field_name, field, align, false,
-			      xfail_beyond_mapped_ram);
+			      xfail_beyond_mapped_ram, 0, 63);
 	report_prefix_pop();
 
 	report_prefix_pushf("%s disabled", control_name);
@@ -3553,7 +3555,8 @@ static void test_vmcs_addr_reference(u32 control_bit, enum Encoding field,
 		vmcs_write(CPU_EXEC_CTRL0, primary & ~CPU_SECONDARY);
 		vmcs_write(CPU_EXEC_CTRL1, secondary & ~control_bit);
 	}
-	test_vmcs_addr_values(field_name, field, align, true, false);
+
+	test_vmcs_addr_values(field_name, field, align, true, false, 0, 63);
 	report_prefix_pop();
 
 	vmcs_write(field, page_addr);
@@ -3909,7 +3912,7 @@ static void test_posted_intr(void)
 
 	test_vmcs_addr_values("process-posted interrupts",
 			       POSTED_INTR_DESC_ADDR, PAGE_SIZE,
-			       false, false);
+			       false, false, 0, 63);
 
 	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
 	vmcs_write(CPU_EXEC_CTRL1, saved_secondary);
