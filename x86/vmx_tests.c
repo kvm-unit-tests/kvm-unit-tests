@@ -4833,6 +4833,83 @@ static void test_vm_entry_ctls(void)
 }
 
 /*
+ * The following checks are performed for the VM-exit MSR-store address if
+ * the VM-exit MSR-store count field is non-zero:
+ *
+ *    - The lower 4 bits of the VM-exit MSR-store address must be 0.
+ *      The address should not set any bits beyond the processor’s
+ *      physical-address width.
+ *
+ *    - The address of the last byte in the VM-exit MSR-store area
+ *      should not set any bits beyond the processor’s physical-address
+ *      width. The address of this last byte is VM-exit MSR-store address
+ *      + (MSR count * 16) - 1. (The arithmetic used for the computation
+ *      uses more bits than the processor’s physical-address width.)
+ *
+ * If IA32_VMX_BASIC[48] is read as 1, neither address should set any bits
+ * in the range 63:32.
+ *
+ *  [Intel SDM]
+ */
+static void test_exit_msr_store(void)
+{
+	exit_msr_store = alloc_page();
+	u64 tmp;
+	u32 exit_msr_st_cnt = 1;
+	int i;
+	u32 addr_len = 64;
+
+	vmcs_write(EXI_MSR_ST_CNT, exit_msr_st_cnt);
+
+	/* Check first 4 bits of VM-exit MSR-store address */
+	for (i = 0; i < 4; i++) {
+		tmp = (u64)exit_msr_store | 1ull << i;
+		vmcs_write(EXIT_MSR_ST_ADDR, tmp);
+		report_prefix_pushf("VM-exit MSR-store addr [4:0] %lx",
+				    tmp & 0xf);
+		test_vmx_controls(false, false);
+		report_prefix_pop();
+	}
+
+	if (basic.val & (1ul << 48))
+		addr_len = 32;
+
+	test_vmcs_addr_values("VM-exit-MSR-store address",
+				EXIT_MSR_ST_ADDR, 16, false, false,
+				4, addr_len - 1);
+
+	/*
+	 * Check last byte of VM-exit MSR-store address
+	 */
+	exit_msr_store = (struct vmx_msr_entry *)((u64)exit_msr_store & ~0xf);
+
+	for (i = (addr_len == 64 ? cpuid_maxphyaddr(): addr_len);
+							i < 64; i++) {
+		tmp = ((u64)exit_msr_store + exit_msr_st_cnt * 16 - 1) |
+			1ul << i;
+		vmcs_write(EXIT_MSR_ST_ADDR,
+			   tmp - (exit_msr_st_cnt * 16 - 1));
+                test_vmx_controls(false, false);
+	}
+
+	vmcs_write(EXI_MSR_ST_CNT, 2);
+	vmcs_write(EXIT_MSR_ST_ADDR, (1ULL << cpuid_maxphyaddr()) - 16);
+	test_vmx_controls(false, false);
+	vmcs_write(EXIT_MSR_ST_ADDR, (1ULL << cpuid_maxphyaddr()) - 32);
+	test_vmx_controls(true, false);
+	vmcs_write(EXIT_MSR_ST_ADDR, (1ULL << cpuid_maxphyaddr()) - 48);
+	test_vmx_controls(true, false);
+}
+
+/*
+ * Tests for VM-exit controls
+ */
+static void test_vm_exit_ctls(void)
+{
+	test_exit_msr_store();
+}
+
+/*
  * Check that the virtual CPU checks all of the VMX controls as
  * documented in the Intel SDM.
  */
@@ -4847,6 +4924,7 @@ static void vmx_controls_test(void)
 
 	test_vm_execution_ctls();
 	test_vm_entry_ctls();
+	test_vm_exit_ctls();
 }
 
 static bool valid_vmcs_for_vmentry(void)
