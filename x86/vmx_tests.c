@@ -3463,18 +3463,19 @@ static void test_cr3_targets(void)
  */
 static void test_vmcs_addr(const char *name,
 			   enum Encoding encoding,
+			   u64 align,
 			   bool ignored,
 			   bool xfail_beyond_mapped_ram,
 			   u64 addr)
 {
 	bool xfail =
 		(xfail_beyond_mapped_ram &&
-		 addr > fwcfg_get_u64(FW_CFG_RAM_SIZE) - PAGE_SIZE &&
+		 addr > fwcfg_get_u64(FW_CFG_RAM_SIZE) - align &&
 		 addr < (1ul << cpuid_maxphyaddr()));
 
 	report_prefix_pushf("%s = %lx", name, addr);
 	vmcs_write(encoding, addr);
-	test_vmx_controls(ignored || (IS_ALIGNED(addr, PAGE_SIZE) &&
+	test_vmx_controls(ignored || (IS_ALIGNED(addr, align) &&
 				  addr < (1ul << cpuid_maxphyaddr())),
 			  xfail);
 	report_prefix_pop();
@@ -3486,6 +3487,7 @@ static void test_vmcs_addr(const char *name,
  */
 static void test_vmcs_addr_values(const char *name,
 				  enum Encoding encoding,
+				  u64 align,
 				  bool ignored,
 				  bool xfail_beyond_mapped_ram)
 {
@@ -3493,19 +3495,18 @@ static void test_vmcs_addr_values(const char *name,
 	u64 orig_val = vmcs_read(encoding);
 
 	for (i = 0; i < 64; i++)
-		test_vmcs_addr(name, encoding, ignored,
+		test_vmcs_addr(name, encoding, align, ignored,
 			       xfail_beyond_mapped_ram, 1ul << i);
 
-	test_vmcs_addr(name, encoding, ignored,
+	test_vmcs_addr(name, encoding, align, ignored,
 		       xfail_beyond_mapped_ram, PAGE_SIZE - 1);
-	test_vmcs_addr(name, encoding, ignored,
+	test_vmcs_addr(name, encoding, align, ignored,
 		       xfail_beyond_mapped_ram, PAGE_SIZE);
-	test_vmcs_addr(name, encoding, ignored,
+	test_vmcs_addr(name, encoding, align, ignored,
 		       xfail_beyond_mapped_ram,
 		      (1ul << cpuid_maxphyaddr()) - PAGE_SIZE);
-	test_vmcs_addr(name, encoding, ignored,
-		       xfail_beyond_mapped_ram,
-		       -1ul);
+	test_vmcs_addr(name, encoding, align, ignored,
+		       xfail_beyond_mapped_ram, -1ul);
 
 	vmcs_write(encoding, orig_val);
 }
@@ -3516,7 +3517,7 @@ static void test_vmcs_addr_values(const char *name,
  */
 static void test_vmcs_addr_reference(u32 control_bit, enum Encoding field,
 				     const char *field_name,
-				     const char *control_name,
+				     const char *control_name, u64 align,
 				     bool xfail_beyond_mapped_ram,
 				     bool control_primary)
 {
@@ -3541,7 +3542,8 @@ static void test_vmcs_addr_reference(u32 control_bit, enum Encoding field,
 		vmcs_write(CPU_EXEC_CTRL0, primary | CPU_SECONDARY);
 		vmcs_write(CPU_EXEC_CTRL1, secondary | control_bit);
 	}
-	test_vmcs_addr_values(field_name, field, false, xfail_beyond_mapped_ram);
+	test_vmcs_addr_values(field_name, field, align, false,
+			      xfail_beyond_mapped_ram);
 	report_prefix_pop();
 
 	report_prefix_pushf("%s disabled", control_name);
@@ -3551,7 +3553,7 @@ static void test_vmcs_addr_reference(u32 control_bit, enum Encoding field,
 		vmcs_write(CPU_EXEC_CTRL0, primary & ~CPU_SECONDARY);
 		vmcs_write(CPU_EXEC_CTRL1, secondary & ~control_bit);
 	}
-	test_vmcs_addr_values(field_name, field, true, false);
+	test_vmcs_addr_values(field_name, field, align, true, false);
 	report_prefix_pop();
 
 	vmcs_write(field, page_addr);
@@ -3567,11 +3569,11 @@ static void test_vmcs_addr_reference(u32 control_bit, enum Encoding field,
 static void test_io_bitmaps(void)
 {
 	test_vmcs_addr_reference(CPU_IO_BITMAP, IO_BITMAP_A,
-				 "I/O bitmap A", "Use I/O bitmaps", false,
-				 true);
+				 "I/O bitmap A", "Use I/O bitmaps",
+				 PAGE_SIZE, false, true);
 	test_vmcs_addr_reference(CPU_IO_BITMAP, IO_BITMAP_B,
-				 "I/O bitmap B", "Use I/O bitmaps", false,
-				 true);
+				 "I/O bitmap B", "Use I/O bitmaps",
+				 PAGE_SIZE, false, true);
 }
 
 /*
@@ -3583,8 +3585,8 @@ static void test_io_bitmaps(void)
 static void test_msr_bitmap(void)
 {
 	test_vmcs_addr_reference(CPU_MSR_BITMAP, MSR_BITMAP,
-				 "MSR bitmap", "Use MSR bitmaps", false,
-				 true);
+				 "MSR bitmap", "Use MSR bitmaps",
+				 PAGE_SIZE, false, true);
 }
 
 /*
@@ -3599,7 +3601,7 @@ static void test_apic_virt_addr(void)
 {
 	test_vmcs_addr_reference(CPU_TPR_SHADOW, APIC_VIRT_ADDR,
 				 "virtual-APIC address", "Use TPR shadow",
-				 true, true);
+				 PAGE_SIZE, true, true);
 }
 
 /*
@@ -3618,7 +3620,8 @@ static void test_apic_access_addr(void)
 
 	test_vmcs_addr_reference(CPU_VIRT_APIC_ACCESSES, APIC_ACCS_ADDR,
 				 "APIC-access address",
-				 "virtualize APIC-accesses", false, false);
+				 "virtualize APIC-accesses", PAGE_SIZE,
+				 false, false);
 }
 
 static bool set_bit_pattern(u8 mask, u32 *secondary)
@@ -3905,7 +3908,8 @@ static void test_posted_intr(void)
 	test_pi_desc_addr(0xc000, true);
 
 	test_vmcs_addr_values("process-posted interrupts",
-	    POSTED_INTR_DESC_ADDR, false, false);
+			       POSTED_INTR_DESC_ADDR, PAGE_SIZE,
+			       false, false);
 
 	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
 	vmcs_write(CPU_EXEC_CTRL1, saved_secondary);
@@ -4741,8 +4745,8 @@ static void test_pml(void)
 	test_vmx_controls(true, false);
 	report_prefix_pop();
 
-	test_vmcs_addr_reference(CPU_PML, PMLADDR, "PML address",
-	    "PML", false, false);
+	test_vmcs_addr_reference(CPU_PML, PMLADDR, "PML address", "PML",
+				 PAGE_SIZE, false, false);
 
 	vmcs_write(CPU_EXEC_CTRL0, primary_saved);
 	vmcs_write(CPU_EXEC_CTRL1, secondary_saved);
