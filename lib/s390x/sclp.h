@@ -68,14 +68,19 @@
 #define SCLP_RC_EVENT_BUFFER_SYNTAX_ERROR       0x73f0
 #define SCLP_RC_INVALID_MASK_LENGTH             0x74f0
 
-/* Service Call Control Block (SCCB) and its elements */
+/* SCLP control mask bits */
+#define SCLP_CM2_VARIABLE_LENGTH_RESPONSE       0x80
 
-#define SCCB_SIZE 4096
+/* SCLP function codes */
+#define SCLP_FC_NORMAL_WRITE                    0
+#define SCLP_FC_SINGLE_INCREMENT_ASSIGN         0x40
+#define SCLP_FC_DUMP_INDICATOR                  0x80
 
-#define SCLP_VARIABLE_LENGTH_RESPONSE           0x80
+/* SCLP event buffer flags */
 #define SCLP_EVENT_BUFFER_ACCEPTED              0x80
 
-#define SCLP_FC_NORMAL_WRITE                    0
+/* Service Call Control Block (SCCB) and its elements */
+#define SCCB_SIZE 4096
 
 typedef struct SCCBHeader {
     uint16_t length;
