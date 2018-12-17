@@ -30,14 +30,33 @@ static void mem_init(phys_addr_t mem_end)
 	phys_alloc_init(freemem_start, mem_end - freemem_start);
 }
 
+static void sclp_read_scp_info(ReadInfo *ri, int length)
+{
+	unsigned int commands[] = { SCLP_CMDW_READ_SCP_INFO_FORCED,
+				    SCLP_CMDW_READ_SCP_INFO };
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(commands); i++) {
+		memset(&ri->h, 0, sizeof(ri->h));
+		ri->h.length = length;
+
+		if (sclp_service_call(commands[i], ri))
+			break;
+		if (ri->h.response_code == SCLP_RC_NORMAL_READ_COMPLETION)
+			return;
+		if (ri->h.response_code != SCLP_RC_INVALID_SCLP_COMMAND)
+			break;
+	}
+	report_abort("READ_SCP_INFO failed");
+}
+
 void sclp_memory_setup(void)
 {
 	ReadInfo *ri = (void *)_sccb;
 	uint64_t rnmax, rnsize;
 	int cc;
 
-	ri->h.length = SCCB_SIZE;
-	sclp_service_call(SCLP_CMDW_READ_SCP_INFO_FORCED, ri);
+	sclp_read_scp_info(ri, SCCB_SIZE);
 
 	/* calculate the storage increment size */
 	rnsize = ri->rnsize;
