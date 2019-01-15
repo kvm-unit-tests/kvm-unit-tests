@@ -4827,12 +4827,80 @@ static void test_vm_execution_ctls(void)
 	test_vmx_preemption_timer();
 }
 
+ /*
+  * The following checks are performed for the VM-entry MSR-load address if
+  * the VM-entry MSR-load count field is non-zero:
+  *
+  *    - The lower 4 bits of the VM-entry MSR-load address must be 0.
+  *      The address should not set any bits beyond the processorâ€™s
+  *      physical-address width.
+  *
+  *    - The address of the last byte in the VM-entry MSR-load area
+  *      should not set any bits beyond the processorâ€™s physical-address
+  *      width. The address of this last byte is VM-entry MSR-load address
+  *      + (MSR count * 16) - 1. (The arithmetic used for the computation
+  *      uses more bits than the processorâ€™s physical-address width.)
+  *
+  *
+  *  [Intel SDM]
+  */
+static void test_entry_msr_load(void)
+{
+	entry_msr_load = alloc_page();
+	u64 tmp;
+	u32 entry_msr_ld_cnt = 1;
+	int i;
+	u32 addr_len = 64;
+
+	vmcs_write(ENT_MSR_LD_CNT, entry_msr_ld_cnt);
+
+	/* Check first 4 bits of VM-entry MSR-load address */
+	for (i = 0; i < 4; i++) {
+		tmp = (u64)entry_msr_load | 1ull << i;
+		vmcs_write(ENTER_MSR_LD_ADDR, tmp);
+		report_prefix_pushf("VM-entry MSR-load addr [4:0] %lx",
+				    tmp & 0xf);
+		test_vmx_controls(false, false);
+		report_prefix_pop();
+	}
+
+	if (basic.val & (1ul << 48))
+		addr_len = 32;
+
+	test_vmcs_addr_values("VM-entry-MSR-load address",
+				ENTER_MSR_LD_ADDR, 16, false, false,
+				4, addr_len - 1);
+
+	/*
+	 * Check last byte of VM-entry MSR-load address
+	 */
+	entry_msr_load = (struct vmx_msr_entry *)((u64)entry_msr_load & ~0xf);
+
+	for (i = (addr_len == 64 ? cpuid_maxphyaddr(): addr_len);
+							i < 64; i++) {
+		tmp = ((u64)entry_msr_load + entry_msr_ld_cnt * 16 - 1) |
+			1ul << i;
+		vmcs_write(ENTER_MSR_LD_ADDR,
+			   tmp - (entry_msr_ld_cnt * 16 - 1));
+		test_vmx_controls(false, false);
+	}
+
+	vmcs_write(ENT_MSR_LD_CNT, 2);
+	vmcs_write(ENTER_MSR_LD_ADDR, (1ULL << cpuid_maxphyaddr()) - 16);
+	test_vmx_controls(false, false);
+	vmcs_write(ENTER_MSR_LD_ADDR, (1ULL << cpuid_maxphyaddr()) - 32);
+	test_vmx_controls(true, false);
+	vmcs_write(ENTER_MSR_LD_ADDR, (1ULL << cpuid_maxphyaddr()) - 48);
+	test_vmx_controls(true, false);
+}
+
 /*
  * Tests for VM-entry control fields
  */
 static void test_vm_entry_ctls(void)
 {
 	test_invalid_event_injection();
+	test_entry_msr_load();
 }
 
 /*
