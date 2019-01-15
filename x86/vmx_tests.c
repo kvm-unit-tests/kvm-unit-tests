@@ -3262,6 +3262,8 @@ static void invvpid_test_v2(void)
  */
 static bool vmlaunch_succeeds(void)
 {
+	u32 exit_reason;
+
 	/*
 	 * Indirectly set VMX_INST_ERR to 12 ("VMREAD/VMWRITE from/to
 	 * unsupported VMCS component"). The caller can then check
@@ -3277,8 +3279,9 @@ static bool vmlaunch_succeeds(void)
 				   : success);
 	return false;
 success:
-	TEST_ASSERT(vmcs_read(EXI_REASON) ==
-		    (VMX_FAIL_STATE | VMX_ENTRY_FAILURE));
+	exit_reason = vmcs_read(EXI_REASON);
+	TEST_ASSERT(exit_reason == (VMX_FAIL_STATE | VMX_ENTRY_FAILURE) ||
+		    exit_reason == (VMX_FAIL_MSR | VMX_ENTRY_FAILURE));
 	return true;
 }
 
