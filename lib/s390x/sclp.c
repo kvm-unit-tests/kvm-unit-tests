@@ -16,6 +16,7 @@
 #include <asm/interrupt.h>
 #include "sclp.h"
 #include <alloc_phys.h>
+#include <alloc_page.h>
 
 extern unsigned long stacktop;
 
@@ -28,8 +29,16 @@ char _sccb[PAGE_SIZE] __attribute__((__aligned__(4096)));
 static void mem_init(phys_addr_t mem_end)
 {
 	phys_addr_t freemem_start = (phys_addr_t)&stacktop;
+	phys_addr_t base, top;
 
 	phys_alloc_init(freemem_start, mem_end - freemem_start);
+	phys_alloc_get_unused(&base, &top);
+	base = (base + PAGE_SIZE - 1) & -PAGE_SIZE;
+	top = top & -PAGE_SIZE;
+
+	/* Make the pages available to the physical allocator */
+	free_pages((void *)(unsigned long)base, top - base);
+	page_alloc_ops_enable();
 }
 
 static void sclp_read_scp_info(ReadInfo *ri, int length)
