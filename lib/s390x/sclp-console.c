@@ -13,26 +13,6 @@
 #include <asm/page.h>
 #include "sclp.h"
 
-char _sccb[PAGE_SIZE] __attribute__((__aligned__(4096)));
-
-/* Perform service call. Return 0 on success, non-zero otherwise. */
-int sclp_service_call(unsigned int command, void *sccb)
-{
-        int cc;
-
-        asm volatile(
-                "       .insn   rre,0xb2200000,%1,%2\n"  /* servc %1,%2 */
-                "       ipm     %0\n"
-                "       srl     %0,28"
-                : "=&d" (cc) : "d" (command), "a" (__pa(sccb))
-                : "cc", "memory");
-        if (cc == 3)
-                return -1;
-        if (cc == 2)
-                return -1;
-        return 0;
-}
-
 static void sclp_set_write_mask(void)
 {
 	WriteEventMask *sccb = (void *)_sccb;

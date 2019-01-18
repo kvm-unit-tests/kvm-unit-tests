@@ -212,9 +212,9 @@ typedef struct ReadEventData {
     uint32_t mask;
 } __attribute__((packed)) ReadEventData;
 
+extern char _sccb[];
 void sclp_console_setup(void);
 void sclp_print(const char *str);
-extern char _sccb[];
 int sclp_service_call(unsigned int command, void *sccb);
 void sclp_memory_setup(void);
 
