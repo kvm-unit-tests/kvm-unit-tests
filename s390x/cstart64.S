@@ -11,6 +11,7 @@
  * under the terms of the GNU Library General Public License version 2.
  */
 #include <asm/asm-offsets.h>
+#include <asm/sigp.h>
 
 .section .init
 
@@ -20,9 +21,19 @@
  *
  * For KVM and TCG kernel boot we are in 64 bit z/Arch mode.
  * When booting from disk the initial short psw is in 31 bit mode.
+ * When running under LPAR or z/VM, we might start in 31 bit and esam mode.
  */
 	.globl start
 start:
+	/* Switch to z/Architecture mode and 64-bit */
+	slr     %r0, %r0		# Set cpuid to zero
+	lhi     %r1, 2			# mode 2 = esame
+	sigp    %r1, %r0, SIGP_SET_ARCHITECTURE
+	/* XOR all registers with themselves to clear them fully. */
+	.irp i, 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+	xgr \i,\i
+	.endr
+	sam64				# Set addressing mode to 64 bit
 	/* setup stack */
 	larl	%r15, stackptr
 	/* setup initial PSW mask + control registers*/
