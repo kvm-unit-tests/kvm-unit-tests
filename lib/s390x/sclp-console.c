@@ -35,34 +35,34 @@ int sclp_service_call(unsigned int command, void *sccb)
 
 static void sclp_set_write_mask(void)
 {
-    WriteEventMask *sccb = (void *)_sccb;
+	WriteEventMask *sccb = (void *)_sccb;
 
-    sccb->h.length = sizeof(WriteEventMask);
-    sccb->mask_length = sizeof(unsigned int);
-    sccb->receive_mask = SCLP_EVENT_MASK_MSG_ASCII;
-    sccb->cp_receive_mask = SCLP_EVENT_MASK_MSG_ASCII;
-    sccb->send_mask = SCLP_EVENT_MASK_MSG_ASCII;
-    sccb->cp_send_mask = SCLP_EVENT_MASK_MSG_ASCII;
+	sccb->h.length = sizeof(WriteEventMask);
+	sccb->mask_length = sizeof(unsigned int);
+	sccb->receive_mask = SCLP_EVENT_MASK_MSG_ASCII;
+	sccb->cp_receive_mask = SCLP_EVENT_MASK_MSG_ASCII;
+	sccb->send_mask = SCLP_EVENT_MASK_MSG_ASCII;
+	sccb->cp_send_mask = SCLP_EVENT_MASK_MSG_ASCII;
 
-    sclp_service_call(SCLP_CMD_WRITE_EVENT_MASK, sccb);
+	sclp_service_call(SCLP_CMD_WRITE_EVENT_MASK, sccb);
 }
 
-void sclp_ascii_setup(void)
+void sclp_console_setup(void)
 {
-    sclp_set_write_mask();
+	sclp_set_write_mask();
 }
 
 void sclp_print(const char *str)
 {
-    int len = strlen(str);
-    WriteEventData *sccb = (void *)_sccb;
+	int len = strlen(str);
+	WriteEventData *sccb = (void *)_sccb;
 
-    sccb->h.length = sizeof(WriteEventData) + len;
-    sccb->h.function_code = SCLP_FC_NORMAL_WRITE;
-    sccb->ebh.length = sizeof(EventBufferHeader) + len;
-    sccb->ebh.type = SCLP_EVENT_ASCII_CONSOLE_DATA;
-    sccb->ebh.flags = 0;
-    memcpy(sccb->data, str, len);
+	sccb->h.length = sizeof(WriteEventData) + len;
+	sccb->h.function_code = SCLP_FC_NORMAL_WRITE;
+	sccb->ebh.length = sizeof(EventBufferHeader) + len;
+	sccb->ebh.type = SCLP_EVENT_ASCII_CONSOLE_DATA;
+	sccb->ebh.flags = 0;
+	memcpy(sccb->data, str, len);
 
-    sclp_service_call(SCLP_CMD_WRITE_EVENT_DATA, sccb);
+	sclp_service_call(SCLP_CMD_WRITE_EVENT_DATA, sccb);
 }

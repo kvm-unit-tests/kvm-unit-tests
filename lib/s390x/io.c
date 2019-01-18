@@ -35,7 +35,7 @@ void setup(void)
 {
 	setup_args_progname(ipl_args);
 	setup_facilities();
-	sclp_ascii_setup();
+	sclp_console_setup();
 	sclp_memory_setup();
 }
 
