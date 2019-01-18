@@ -40,7 +40,9 @@ SECTIONS
 	. = ALIGN(16);
 	.rodata : { *(.rodata) *(.rodata.*) }
 	. = ALIGN(16);
+	__bss_start = .;
 	.bss : { *(.bss) }
+	__bss_end = .;
 	. = ALIGN(64K);
 	edata = .;
 	. += 64K;

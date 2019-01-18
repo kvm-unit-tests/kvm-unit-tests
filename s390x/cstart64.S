@@ -39,7 +39,22 @@ start:
 	/* setup initial PSW mask + control registers*/
 	larl	%r1, initial_psw
 	lpswe	0(%r1)
-init_psw_cont:
+clear_bss_start:
+	larl 	%r2, __bss_start
+	larl 	%r3, __bss_end
+	slgr 	%r3, %r2		# Get sizeof bss
+	aghi 	%r3,-1
+	srlg 	%r4,%r3,8		# Calc number of 256 byte chunks
+	ltgr 	%r4,%r4
+	lgr 	%r1,%r2
+	jz	clear_bss_remainder		# If none, clear remaining bytes
+clear_bss_loop:
+	xc	0(256,%r1), 0(%r1)	# Clear 256 byte chunks via xor
+	la	%r1, 256(%r1)
+	brctg 	%r4, clear_bss_loop
+clear_bss_remainder:
+	larl	%r2, memsetxc
+	ex 	%r3, 0(%r2)
 	/* setup pgm interrupt handler */
 	larl	%r1, pgm_int_psw
 	mvc	GEN_LC_PGM_NEW_PSW(16), 0(%r1)
@@ -70,6 +85,9 @@ init_psw_cont:
 	lgr	%r3, %r2
 	/* call exit() */
 	j exit
+
+memsetxc:
+	xc 0(1,%r1),0(%r1)
 
 	.macro SAVE_REGS
 	/* save grs 0-15 */
@@ -159,7 +177,7 @@ svc_int:
 
 	.align	8
 initial_psw:
-	.quad	0x0000000180000000, init_psw_cont
+	.quad	0x0000000180000000, clear_bss_start
 pgm_int_psw:
 	.quad	0x0000000180000000, pgm_int
 ext_int_psw:
