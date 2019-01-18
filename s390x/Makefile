@@ -10,10 +10,12 @@ tests += $(TEST_DIR)/cmm.elf
 tests += $(TEST_DIR)/vector.elf
 tests += $(TEST_DIR)/gs.elf
 tests += $(TEST_DIR)/iep.elf
+tests_binary = $(patsubst %.elf,%.bin,$(tests))
 
-all: directories test_cases
+all: directories test_cases test_cases_binary
 
 test_cases: $(tests)
+test_cases_binary: $(tests_binary)
 
 CFLAGS += -std=gnu99
 CFLAGS += -ffreestanding
@@ -55,8 +57,11 @@ FLATLIBS = $(libcflat)
 	$(RM) $(@:.elf=.aux.o)
 	@chmod a-x $@
 
+%.bin: %.elf
+	$(OBJCOPY) -O binary  $< $@
+
 arch_clean: asm_offsets_clean
-	$(RM) $(TEST_DIR)/*.{o,elf} $(TEST_DIR)/.*.d lib/s390x/.*.d
+	$(RM) $(TEST_DIR)/*.{o,elf,bin} $(TEST_DIR)/.*.d lib/s390x/.*.d
 
 generated-files = $(asm-offsets)
 $(tests:.elf=.o) $(cstart.o) $(cflatobjs): $(generated-files)
