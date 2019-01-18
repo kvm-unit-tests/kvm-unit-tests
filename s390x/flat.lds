@@ -1,10 +1,21 @@
 SECTIONS
 {
+	/*
+	 * Initial short psw for disk boot, with 31 bit addressing for
+	 * non z/Arch environment compatibility and the instruction
+	 * address 0x10000 (cstart64.S .init).
+	 */
+	.lowcore : {
+		. = 0;
+		 LONG(0x00080000)
+		 LONG(0x80010000)
+	}
+	. = 0x10000;
 	.text : {
 		*(.init)
 		. = 0x480;
 		ipl_args = .;
-		. = 0x600;
+		.  = 0x1000;
 		*(.text)
 		*(.text.*)
 	}

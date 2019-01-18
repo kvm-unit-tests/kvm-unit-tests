@@ -14,7 +14,13 @@
 
 .section .init
 
-/* entry point - for KVM + TCG we directly start in 64 bit mode */
+/*
+ * Short init between 0x10000 and 0x10480 and then jump to 0x11000.
+ * 0x10480 - 0x11000 are written to by bootloader.
+ *
+ * For KVM and TCG kernel boot we are in 64 bit z/Arch mode.
+ * When booting from disk the initial short psw is in 31 bit mode.
+ */
 	.globl start
 start:
 	/* setup stack */
