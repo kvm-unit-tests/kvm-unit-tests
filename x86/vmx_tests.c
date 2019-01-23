@@ -4685,6 +4685,7 @@ static void test_ept_eptp(void)
 	report_prefix_pop();
 
 	secondary |= CPU_EPT;
+	setup_ept(false);
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("Enable-EPT enabled, unrestricted-guest enabled");
 	test_vmx_controls(true, false);
@@ -4740,6 +4741,7 @@ static void test_pml(void)
 	report_prefix_pop();
 
 	secondary |= CPU_EPT;
+	setup_ept(false);
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("enable-PML enabled, enable-EPT enabled");
 	test_vmx_controls(true, false);
