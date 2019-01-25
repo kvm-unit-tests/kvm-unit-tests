@@ -16,6 +16,7 @@
 #include <asm/interrupt.h>
 #include "sclp.h"
 #include <alloc_phys.h>
+#include <alloc_page.h>
 
 extern unsigned long stacktop;
 
@@ -23,11 +24,59 @@ static uint64_t storage_increment_size;
 static uint64_t max_ram_size;
 static uint64_t ram_size;
 
+char _sccb[PAGE_SIZE] __attribute__((__aligned__(4096)));
+
 static void mem_init(phys_addr_t mem_end)
 {
 	phys_addr_t freemem_start = (phys_addr_t)&stacktop;
+	phys_addr_t base, top;
 
 	phys_alloc_init(freemem_start, mem_end - freemem_start);
+	phys_alloc_get_unused(&base, &top);
+	base = (base + PAGE_SIZE - 1) & -PAGE_SIZE;
+	top = top & -PAGE_SIZE;
+
+	/* Make the pages available to the physical allocator */
+	free_pages((void *)(unsigned long)base, top - base);
+	page_alloc_ops_enable();
+}
+
+static void sclp_read_scp_info(ReadInfo *ri, int length)
+{
+	unsigned int commands[] = { SCLP_CMDW_READ_SCP_INFO_FORCED,
+				    SCLP_CMDW_READ_SCP_INFO };
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(commands); i++) {
+		memset(&ri->h, 0, sizeof(ri->h));
+		ri->h.length = length;
+
+		if (sclp_service_call(commands[i], ri))
+			break;
+		if (ri->h.response_code == SCLP_RC_NORMAL_READ_COMPLETION)
+			return;
+		if (ri->h.response_code != SCLP_RC_INVALID_SCLP_COMMAND)
+			break;
+	}
+	report_abort("READ_SCP_INFO failed");
+}
+
+/* Perform service call. Return 0 on success, non-zero otherwise. */
+int sclp_service_call(unsigned int command, void *sccb)
+{
+	int cc;
+
+	asm volatile(
+		"       .insn   rre,0xb2200000,%1,%2\n"  /* servc %1,%2 */
+		"       ipm     %0\n"
+		"       srl     %0,28"
+		: "=&d" (cc) : "d" (command), "a" (__pa(sccb))
+		: "cc", "memory");
+	if (cc == 3)
+		return -1;
+	if (cc == 2)
+		return -1;
+	return 0;
 }
 
 void sclp_memory_setup(void)
@@ -36,8 +85,7 @@ void sclp_memory_setup(void)
 	uint64_t rnmax, rnsize;
 	int cc;
 
-	ri->h.length = SCCB_SIZE;
-	sclp_service_call(SCLP_CMDW_READ_SCP_INFO_FORCED, ri);
+	sclp_read_scp_info(ri, SCCB_SIZE);
 
 	/* calculate the storage increment size */
 	rnsize = ri->rnsize;

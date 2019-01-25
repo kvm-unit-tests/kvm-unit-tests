@@ -11,18 +11,50 @@
  * under the terms of the GNU Library General Public License version 2.
  */
 #include <asm/asm-offsets.h>
+#include <asm/sigp.h>
 
 .section .init
 
-/* entry point - for KVM + TCG we directly start in 64 bit mode */
+/*
+ * Short init between 0x10000 and 0x10480 and then jump to 0x11000.
+ * 0x10480 - 0x11000 are written to by bootloader.
+ *
+ * For KVM and TCG kernel boot we are in 64 bit z/Arch mode.
+ * When booting from disk the initial short psw is in 31 bit mode.
+ * When running under LPAR or z/VM, we might start in 31 bit and esam mode.
+ */
 	.globl start
 start:
+	/* Switch to z/Architecture mode and 64-bit */
+	slr     %r0, %r0		# Set cpuid to zero
+	lhi     %r1, 2			# mode 2 = esame
+	sigp    %r1, %r0, SIGP_SET_ARCHITECTURE
+	/* XOR all registers with themselves to clear them fully. */
+	.irp i, 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+	xgr \i,\i
+	.endr
+	sam64				# Set addressing mode to 64 bit
 	/* setup stack */
 	larl	%r15, stackptr
 	/* setup initial PSW mask + control registers*/
 	larl	%r1, initial_psw
 	lpswe	0(%r1)
-init_psw_cont:
+clear_bss_start:
+	larl 	%r2, __bss_start
+	larl 	%r3, __bss_end
+	slgr 	%r3, %r2		# Get sizeof bss
+	aghi 	%r3,-1
+	srlg 	%r4,%r3,8		# Calc number of 256 byte chunks
+	ltgr 	%r4,%r4
+	lgr 	%r1,%r2
+	jz	clear_bss_remainder		# If none, clear remaining bytes
+clear_bss_loop:
+	xc	0(256,%r1), 0(%r1)	# Clear 256 byte chunks via xor
+	la	%r1, 256(%r1)
+	brctg 	%r4, clear_bss_loop
+clear_bss_remainder:
+	larl	%r2, memsetxc
+	ex 	%r3, 0(%r2)
 	/* setup pgm interrupt handler */
 	larl	%r1, pgm_int_psw
 	mvc	GEN_LC_PGM_NEW_PSW(16), 0(%r1)
@@ -53,6 +85,9 @@ init_psw_cont:
 	lgr	%r3, %r2
 	/* call exit() */
 	j exit
+
+memsetxc:
+	xc 0(1,%r1),0(%r1)
 
 	.macro SAVE_REGS
 	/* save grs 0-15 */
@@ -142,7 +177,7 @@ svc_int:
 
 	.align	8
 initial_psw:
-	.quad	0x0000000180000000, init_psw_cont
+	.quad	0x0000000180000000, clear_bss_start
 pgm_int_psw:
 	.quad	0x0000000180000000, pgm_int
 ext_int_psw:

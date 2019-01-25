@@ -14,6 +14,7 @@
 #include <argv.h>
 #include <asm/spinlock.h>
 #include <asm/facility.h>
+#include <asm/sigp.h>
 #include "sclp.h"
 
 extern char ipl_args[];
@@ -30,21 +31,11 @@ void puts(const char *s)
 	spin_unlock(&lock);
 }
 
-static void sigp_stop(void)
-{
-	register unsigned long status asm ("1") = 0;
-	register unsigned long cpu asm ("2") = 0;
-
-	asm volatile(
-		"	sigp %0,%1,0(%2)\n"
-		: "+d" (status)  : "d" (cpu), "d" (5) : "cc");
-}
-
 void setup(void)
 {
 	setup_args_progname(ipl_args);
 	setup_facilities();
-	sclp_ascii_setup();
+	sclp_console_setup();
 	sclp_memory_setup();
 }
 
