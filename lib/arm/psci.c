@@ -48,7 +48,13 @@ void cpu_psci_cpu_die(void)
 	printf("CPU%d unable to power off (error = %d)\n", smp_processor_id(), err);
 }
 
-void psci_sys_reset(void)
+void psci_system_reset(void)
 {
 	psci_invoke(PSCI_0_2_FN_SYSTEM_RESET, 0, 0, 0);
+}
+
+void psci_system_off(void)
+{
+	int err = psci_invoke(PSCI_0_2_FN_SYSTEM_OFF, 0, 0, 0);
+	printf("CPU%d unable to do system off (error = %d)\n", smp_processor_id(), err);
 }
