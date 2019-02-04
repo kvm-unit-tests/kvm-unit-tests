@@ -12,6 +12,7 @@
 #include <devicetree.h>
 #include <chr-testdev.h>
 #include <config.h>
+#include <asm/psci.h>
 #include <asm/spinlock.h>
 #include <asm/io.h>
 
@@ -91,6 +92,7 @@ void puts(const char *s)
 void exit(int code)
 {
 	chr_testdev_exit(code);
+	psci_system_off();
 	halt(code);
 	__builtin_unreachable();
 }
