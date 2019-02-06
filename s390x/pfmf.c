@@ -70,6 +70,7 @@ static void test_4k_key(void)
 	r1.reg.key = 0x30;
 	pfmf(r1.val, (unsigned long) pagebuf);
 	skey.val = get_storage_key((unsigned long) pagebuf);
+	skey.val &= SKEY_ACC | SKEY_FP;
 	report("set 4k", skey.val == 0x30);
 }
 
@@ -77,6 +78,7 @@ static void test_1m_key(void)
 {
 	int i;
 	union r1 r1;
+	union skey skey;
 
 	r1.val = 0;
 	r1.reg.sk = 1;
@@ -84,7 +86,9 @@ static void test_1m_key(void)
 	r1.reg.key = 0x30;
 	pfmf(r1.val, (unsigned long) pagebuf);
 	for (i = 0; i < 256; i++) {
-		if (get_storage_key((unsigned long) pagebuf + i * PAGE_SIZE) != 0x30) {
+		skey.val = get_storage_key((unsigned long) pagebuf + i * PAGE_SIZE);
+		skey.val &= SKEY_ACC | SKEY_FP;
+		if (skey.val != 0x30) {
 			report("set 1M", false);
 			return;
 		}
