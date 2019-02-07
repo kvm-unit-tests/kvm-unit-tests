@@ -6515,6 +6515,30 @@ static void virt_x2apic_mode_test(void)
 	assert_exit_reason(VMX_VMCALL);
 }
 
+/*
+ * On processors that support Intel 64 architecture, the IA32_SYSENTER_ESP
+ * field and the IA32_SYSENTER_EIP field must each contain a canonical
+ * address.
+ *
+ *  [Intel SDM]
+ */
+static void test_sysenter_field(u32 field, const char *name)
+{
+	u64 addr_saved = vmcs_read(field);
+
+	vmcs_write(field, NONCANONICAL);
+	report_prefix_pushf("%s non-canonical", name);
+	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD, false);
+	report_prefix_pop();
+
+	vmcs_write(field, 0xffffffff);
+	report_prefix_pushf("%s canonical", name);
+	test_vmx_vmlaunch(0, false);
+	report_prefix_pop();
+
+	vmcs_write(field, addr_saved);
+}
+
 static void test_ctl_reg(const char *cr_name, u64 cr, u64 fixed0, u64 fixed1)
 {
 	u64 val;
@@ -6621,6 +6645,9 @@ static void vmx_host_state_area_test(void)
 	vmcs_write(GUEST_RFLAGS, 0);
 
 	test_host_ctl_regs();
+
+	test_sysenter_field(HOST_SYSENTER_ESP, "HOST_SYSENTER_ESP");
+	test_sysenter_field(HOST_SYSENTER_EIP, "HOST_SYSENTER_EIP");
 }
 
 static bool valid_vmcs_for_vmentry(void)
