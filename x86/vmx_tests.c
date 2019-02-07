@@ -5051,8 +5051,8 @@ static void vmx_controls_test(void)
 	vmcs_write(GUEST_RFLAGS, 0);
 
 	test_vm_execution_ctls();
-	test_vm_entry_ctls();
 	test_vm_exit_ctls();
+	test_vm_entry_ctls();
 }
 
 static bool valid_vmcs_for_vmentry(void)
