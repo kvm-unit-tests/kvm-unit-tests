@@ -3334,19 +3334,28 @@ success:
 /*
  * Try to launch the current VMCS.
  */
-static void test_vmx_controls(bool controls_valid, bool xfail)
+static void test_vmx_vmlaunch(u32 xerror, bool xfail)
 {
 	bool success = vmlaunch_succeeds();
 	u32 vmx_inst_err;
 
-	report_xfail("vmlaunch %s", xfail, success == controls_valid,
-		     controls_valid ? "succeeds" : "fails");
-	if (!success) {
+	report_xfail("vmlaunch %s", xfail, success == !xerror,
+		     !xerror ? "succeeds" : "fails");
+	if (!success && xerror) {
 		vmx_inst_err = vmcs_read(VMX_INST_ERROR);
 		report("VMX inst error is %d (actual %d)",
-		       vmx_inst_err == VMXERR_ENTRY_INVALID_CONTROL_FIELD,
-		       VMXERR_ENTRY_INVALID_CONTROL_FIELD, vmx_inst_err);
+		       vmx_inst_err == xerror, xerror, vmx_inst_err);
 	}
+}
+
+static void test_vmx_invalid_controls(bool xfail)
+{
+	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_CONTROL_FIELD, xfail);
+}
+
+static void test_vmx_valid_controls(bool xfail)
+{
+	test_vmx_vmlaunch(0, xfail);
 }
 
 /*
@@ -3383,7 +3392,10 @@ static void test_rsvd_ctl_bit_value(const char *name, union vmx_ctrl_msr msr,
 		vmcs_write(encoding, msr.set & ~mask);
 		expected = !(msr.set & mask);
 	}
-	test_vmx_controls(expected, false);
+	if (expected)
+		test_vmx_valid_controls(false);
+	else
+		test_vmx_invalid_controls(false);
 	vmcs_write(encoding, controls);
 	report_prefix_pop();
 }
@@ -3479,7 +3491,10 @@ static void try_cr3_target_count(unsigned i, unsigned max)
 {
 	report_prefix_pushf("CR3 target count 0x%x", i);
 	vmcs_write(CR3_TARGET_COUNT, i);
-	test_vmx_controls(i <= max, false);
+	if (i <= max)
+		test_vmx_valid_controls(false);
+	else
+		test_vmx_invalid_controls(false);
 	report_prefix_pop();
 }
 
@@ -3524,9 +3539,11 @@ static void test_vmcs_addr(const char *name,
 
 	report_prefix_pushf("%s = %lx", name, addr);
 	vmcs_write(encoding, addr);
-	test_vmx_controls(ignored || (IS_ALIGNED(addr, align) &&
-				  addr < (1ul << cpuid_maxphyaddr())),
-			  xfail);
+	if (ignored || (IS_ALIGNED(addr, align) &&
+	    addr < (1ul << cpuid_maxphyaddr())))
+		test_vmx_valid_controls(xfail);
+	else
+		test_vmx_invalid_controls(xfail);
 	report_prefix_pop();
 	xfail = false;
 }
@@ -3745,7 +3762,10 @@ static void test_apic_virtual_ctls(void)
 			vmcs_write(CPU_EXEC_CTRL1, secondary);
 			report_prefix_pushf("Use TPR shadow %s, virtualize x2APIC mode %s, APIC-register virtualization %s, virtual-interrupt delivery %s",
 				str, (secondary & CPU_VIRT_X2APIC) ? "enabled" : "disabled", (secondary & CPU_APIC_REG_VIRT) ? "enabled" : "disabled", (secondary & CPU_VINTD) ? "enabled" : "disabled");
-			test_vmx_controls(ctrl, false);
+			if (ctrl)
+				test_vmx_valid_controls(false);
+			else
+				test_vmx_invalid_controls(false);
 			report_prefix_pop();
 		}
 
@@ -3772,22 +3792,22 @@ static void test_apic_virtual_ctls(void)
 	secondary &= ~CPU_VIRT_APIC_ACCESSES;
 	vmcs_write(CPU_EXEC_CTRL1, secondary & ~CPU_VIRT_X2APIC);
 	report_prefix_pushf("Virtualize x2APIC mode disabled; virtualize APIC access disabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(CPU_EXEC_CTRL1, secondary | CPU_VIRT_APIC_ACCESSES);
 	report_prefix_pushf("Virtualize x2APIC mode disabled; virtualize APIC access enabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(CPU_EXEC_CTRL1, secondary | CPU_VIRT_X2APIC);
 	report_prefix_pushf("Virtualize x2APIC mode enabled; virtualize APIC access enabled");
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(CPU_EXEC_CTRL1, secondary & ~CPU_VIRT_APIC_ACCESSES);
 	report_prefix_pushf("Virtualize x2APIC mode enabled; virtualize APIC access disabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
@@ -3816,22 +3836,22 @@ static void test_virtual_intr_ctls(void)
 	vmcs_write(CPU_EXEC_CTRL1, secondary & ~CPU_VINTD);
 	vmcs_write(PIN_CONTROLS, pin & ~PIN_EXTINT);
 	report_prefix_pushf("Virtualize interrupt-delivery disabled; external-interrupt exiting disabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(CPU_EXEC_CTRL1, secondary | CPU_VINTD);
 	report_prefix_pushf("Virtualize interrupt-delivery enabled; external-interrupt exiting disabled");
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(PIN_CONTROLS, pin | PIN_EXTINT);
 	report_prefix_pushf("Virtualize interrupt-delivery enabled; external-interrupt exiting enabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(PIN_CONTROLS, pin & ~PIN_EXTINT);
 	report_prefix_pushf("Virtualize interrupt-delivery enabled; external-interrupt exiting disabled");
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
@@ -3843,7 +3863,10 @@ static void test_pi_desc_addr(u64 addr, bool ctrl)
 {
 	vmcs_write(POSTED_INTR_DESC_ADDR, addr);
 	report_prefix_pushf("Process-posted-interrupts enabled; posted-interrupt-descriptor-address 0x%lx", addr);
-	test_vmx_controls(ctrl, false);
+	if (ctrl)
+		test_vmx_valid_controls(false);
+	else
+		test_vmx_invalid_controls(false);
 	report_prefix_pop();
 }
 
@@ -3888,37 +3911,37 @@ static void test_posted_intr(void)
 	secondary &= ~CPU_VINTD;
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("Process-posted-interrupts enabled; virtual-interrupt-delivery disabled");
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	secondary |= CPU_VINTD;
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("Process-posted-interrupts enabled; virtual-interrupt-delivery enabled");
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	exit_ctl &= ~EXI_INTA;
 	vmcs_write(EXI_CONTROLS, exit_ctl);
 	report_prefix_pushf("Process-posted-interrupts enabled; virtual-interrupt-delivery enabled; acknowledge-interrupt-on-exit disabled");
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	exit_ctl |= EXI_INTA;
 	vmcs_write(EXI_CONTROLS, exit_ctl);
 	report_prefix_pushf("Process-posted-interrupts enabled; virtual-interrupt-delivery enabled; acknowledge-interrupt-on-exit enabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	secondary &= ~CPU_VINTD;
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("Process-posted-interrupts enabled; virtual-interrupt-delivery disabled; acknowledge-interrupt-on-exit enabled");
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	secondary |= CPU_VINTD;
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("Process-posted-interrupts enabled; virtual-interrupt-delivery enabled; acknowledge-interrupt-on-exit enabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	/*
@@ -3928,21 +3951,21 @@ static void test_posted_intr(void)
 		vec = (1ul << i);
 		vmcs_write(PINV, vec);
 		report_prefix_pushf("Process-posted-interrupts enabled; posted-interrupt-notification-vector %u", vec);
-		test_vmx_controls(true, false);
+		test_vmx_valid_controls(false);
 		report_prefix_pop();
 	}
 	for (i = 8; i < 16; i++) {
 		vec = (1ul << i);
 		vmcs_write(PINV, vec);
 		report_prefix_pushf("Process-posted-interrupts enabled; posted-interrupt-notification-vector %u", vec);
-		test_vmx_controls(false, false);
+		test_vmx_invalid_controls(false);
 		report_prefix_pop();
 	}
 
 	vec &= ~(0xff << 8);
 	vmcs_write(PINV, vec);
 	report_prefix_pushf("Process-posted-interrupts enabled; posted-interrupt-notification-vector %u", vec);
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	/*
@@ -3999,19 +4022,19 @@ static void test_vpid(void)
 	vmcs_write(CPU_EXEC_CTRL1, saved_secondary & ~CPU_VPID);
 	vmcs_write(VPID, vpid);
 	report_prefix_pushf("VPID disabled; VPID value %x", vpid);
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(CPU_EXEC_CTRL1, saved_secondary | CPU_VPID);
 	report_prefix_pushf("VPID enabled; VPID value %x", vpid);
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	for (i = 0; i < 16; i++) {
 		vpid = (short)1 << i;;
 		vmcs_write(VPID, vpid);
 		report_prefix_pushf("VPID enabled; VPID value %x", vpid);
-		test_vmx_controls(true, false);
+		test_vmx_valid_controls(false);
 		report_prefix_pop();
 	}
 
@@ -4038,7 +4061,10 @@ static void try_tpr_threshold_and_vtpr(unsigned threshold, unsigned vtpr)
 	set_vtpr(vtpr);
 	report_prefix_pushf("TPR threshold 0x%x, VTPR.class 0x%x",
 	    threshold, (vtpr >> 4) & 0xf);
-	test_vmx_controls(valid, false);
+	if (valid)
+		test_vmx_valid_controls(false);
+	else
+		test_vmx_invalid_controls(false);
 	report_prefix_pop();
 }
 
@@ -4065,7 +4091,7 @@ static void test_invalid_event_injection(void)
 			    "RESERVED interruption type invalid [-]",
 			    ent_intr_info);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	ent_intr_info = ent_intr_info_base | INTR_TYPE_EXT_INTR |
@@ -4074,7 +4100,7 @@ static void test_invalid_event_injection(void)
 			    "RESERVED interruption type invalid [+]",
 			    ent_intr_info);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	/* If the interruption type is other event, the vector is 0. */
@@ -4083,7 +4109,7 @@ static void test_invalid_event_injection(void)
 			    "(OTHER EVENT && vector != 0) invalid [-]",
 			    ent_intr_info);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	/* If the interruption type is NMI, the vector is 2 (negative case). */
@@ -4091,7 +4117,7 @@ static void test_invalid_event_injection(void)
 	report_prefix_pushf("%s, VM-entry intr info=0x%x",
 			    "(NMI && vector != 2) invalid [-]", ent_intr_info);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	/* If the interruption type is NMI, the vector is 2 (positive case). */
@@ -4099,7 +4125,7 @@ static void test_invalid_event_injection(void)
 	report_prefix_pushf("%s, VM-entry intr info=0x%x",
 			    "(NMI && vector == 2) valid [+]", ent_intr_info);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	/*
@@ -4111,7 +4137,7 @@ static void test_invalid_event_injection(void)
 			    "(HW exception && vector > 31) invalid [-]",
 			    ent_intr_info);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	/*
@@ -4131,7 +4157,7 @@ static void test_invalid_event_injection(void)
 			    ent_intr_info);
 	vmcs_write(GUEST_CR0, guest_cr0_save & ~X86_CR0_PE & ~X86_CR0_PG);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	ent_intr_info = ent_intr_info_base | INTR_INFO_DELIVER_CODE_MASK |
@@ -4141,7 +4167,7 @@ static void test_invalid_event_injection(void)
 			    ent_intr_info);
 	vmcs_write(GUEST_CR0, guest_cr0_save & ~X86_CR0_PE & ~X86_CR0_PG);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	if (enable_unrestricted_guest())
@@ -4154,7 +4180,7 @@ static void test_invalid_event_injection(void)
 			    ent_intr_info);
 	vmcs_write(GUEST_CR0, guest_cr0_save & ~X86_CR0_PE & ~X86_CR0_PG);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	ent_intr_info = ent_intr_info_base | INTR_TYPE_HARD_EXCEPTION |
@@ -4164,7 +4190,7 @@ static void test_invalid_event_injection(void)
 			    ent_intr_info);
 	vmcs_write(GUEST_CR0, guest_cr0_save | X86_CR0_PE);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(CPU_EXEC_CTRL1, secondary_save);
@@ -4186,7 +4212,7 @@ skip_unrestricted_guest:
 		report_prefix_pushf("VM-entry intr info=0x%x [-]",
 				    ent_intr_info);
 		vmcs_write(ENT_INTR_INFO, ent_intr_info);
-		test_vmx_controls(false, false);
+		test_vmx_invalid_controls(false);
 		report_prefix_pop();
 	}
 	report_prefix_pop();
@@ -4220,7 +4246,7 @@ skip_unrestricted_guest:
 		report_prefix_pushf("VM-entry intr info=0x%x [-]",
 				    ent_intr_info);
 		vmcs_write(ENT_INTR_INFO, ent_intr_info);
-		test_vmx_controls(false, false);
+		test_vmx_invalid_controls(false);
 		report_prefix_pop();
 
 		/* Positive case */
@@ -4232,7 +4258,7 @@ skip_unrestricted_guest:
 		report_prefix_pushf("VM-entry intr info=0x%x [+]",
 				    ent_intr_info);
 		vmcs_write(ENT_INTR_INFO, ent_intr_info);
-		test_vmx_controls(true, false);
+		test_vmx_valid_controls(false);
 		report_prefix_pop();
 	}
 	report_prefix_pop();
@@ -4247,7 +4273,7 @@ skip_unrestricted_guest:
 		report_prefix_pushf("VM-entry intr info=0x%x [-]",
 				    ent_intr_info);
 		vmcs_write(ENT_INTR_INFO, ent_intr_info);
-		test_vmx_controls(false, false);
+		test_vmx_invalid_controls(false);
 		report_prefix_pop();
 	}
 	report_prefix_pop();
@@ -4267,7 +4293,7 @@ skip_unrestricted_guest:
 		report_prefix_pushf("VM-entry intr error=0x%x [-]",
 				    ent_intr_err);
 		vmcs_write(ENT_INTR_ERROR, ent_intr_err);
-		test_vmx_controls(false, false);
+		test_vmx_invalid_controls(false);
 		report_prefix_pop();
 	}
 	vmcs_write(ENT_INTR_ERROR, 0x00000000);
@@ -4304,7 +4330,7 @@ skip_unrestricted_guest:
 		report_prefix_pushf("VM-entry intr length = 0x%x [-]",
 				    ent_intr_len);
 		vmcs_write(ENT_INST_LEN, ent_intr_len);
-		test_vmx_controls(false, false);
+		test_vmx_invalid_controls(false);
 		report_prefix_pop();
 
 		/* Instruction length set to 16 should fail */
@@ -4312,7 +4338,7 @@ skip_unrestricted_guest:
 		report_prefix_pushf("VM-entry intr length = 0x%x [-]",
 				    ent_intr_len);
 		vmcs_write(ENT_INST_LEN, 0x00000010);
-		test_vmx_controls(false, false);
+		test_vmx_invalid_controls(false);
 		report_prefix_pop();
 
 		report_prefix_pop();
@@ -4352,7 +4378,10 @@ static void try_tpr_threshold(unsigned threshold)
 	set_vtpr(-1);
 	vmcs_write(TPR_THRESHOLD, threshold);
 	report_prefix_pushf("TPR threshold 0x%x, VTPR.class 0xf", threshold);
-	test_vmx_controls(valid, false);
+	if (valid)
+		test_vmx_valid_controls(false);
+	else
+		test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	if (valid)
@@ -4500,22 +4529,22 @@ static void test_nmi_ctrls(void)
 
 	vmcs_write(PIN_CONTROLS, test_pin_ctrls);
 	report_prefix_pushf("NMI-exiting disabled, virtual-NMIs disabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(PIN_CONTROLS, test_pin_ctrls | PIN_VIRT_NMI);
 	report_prefix_pushf("NMI-exiting disabled, virtual-NMIs enabled");
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(PIN_CONTROLS, test_pin_ctrls | (PIN_NMI | PIN_VIRT_NMI));
 	report_prefix_pushf("NMI-exiting enabled, virtual-NMIs enabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(PIN_CONTROLS, test_pin_ctrls | PIN_NMI);
 	report_prefix_pushf("NMI-exiting enabled, virtual-NMIs disabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	if (!(ctrl_cpu_rev[0].clr & CPU_NMI_WINDOW)) {
@@ -4526,25 +4555,25 @@ static void test_nmi_ctrls(void)
 	vmcs_write(PIN_CONTROLS, test_pin_ctrls);
 	vmcs_write(CPU_EXEC_CTRL0, test_cpu_ctrls0 | CPU_NMI_WINDOW);
 	report_prefix_pushf("Virtual-NMIs disabled, NMI-window-exiting enabled");
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(PIN_CONTROLS, test_pin_ctrls);
 	vmcs_write(CPU_EXEC_CTRL0, test_cpu_ctrls0);
 	report_prefix_pushf("Virtual-NMIs disabled, NMI-window-exiting disabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(PIN_CONTROLS, test_pin_ctrls | (PIN_NMI | PIN_VIRT_NMI));
 	vmcs_write(CPU_EXEC_CTRL0, test_cpu_ctrls0 | CPU_NMI_WINDOW);
 	report_prefix_pushf("Virtual-NMIs enabled, NMI-window-exiting enabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(PIN_CONTROLS, test_pin_ctrls | (PIN_NMI | PIN_VIRT_NMI));
 	vmcs_write(CPU_EXEC_CTRL0, test_cpu_ctrls0);
 	report_prefix_pushf("Virtual-NMIs enabled, NMI-window-exiting disabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	/* Restore the controls to their original values */
@@ -4558,7 +4587,10 @@ static void test_eptp_ad_bit(u64 eptp, bool ctrl)
 	vmcs_write(EPTP, eptp);
 	report_prefix_pushf("Enable-EPT enabled; EPT accessed and dirty flag %s",
 	    (eptp & EPTP_AD_FLAG) ? "1": "0");
-	test_vmx_controls(ctrl, false);
+	if (ctrl)
+		test_vmx_valid_controls(false);
+	else
+		test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 }
@@ -4641,7 +4673,10 @@ static void test_ept_eptp(void)
 		vmcs_write(EPTP, eptp);
 		report_prefix_pushf("Enable-EPT enabled; EPT memory type %lu",
 		    eptp & EPT_MEM_TYPE_MASK);
-		test_vmx_controls(ctrl, false);
+		if (ctrl)
+			test_vmx_valid_controls(false);
+		else
+			test_vmx_invalid_controls(false);
 		report_prefix_pop();
 	}
 
@@ -4661,7 +4696,10 @@ static void test_ept_eptp(void)
 		vmcs_write(EPTP, eptp);
 		report_prefix_pushf("Enable-EPT enabled; EPT page walk length %lu",
 		    eptp & EPTP_PG_WALK_LEN_MASK);
-		test_vmx_controls(ctrl, false);
+		if (ctrl)
+			test_vmx_valid_controls(false);
+		else
+			test_vmx_invalid_controls(false);
 		report_prefix_pop();
 	}
 
@@ -4691,11 +4729,6 @@ static void test_ept_eptp(void)
 	 * Reserved bits [11:7] and [63:N]
 	 */
 	for (i = 0; i < 32; i++) {
-		if (i  == 0)
-			ctrl = true;
-		else
-			ctrl = false;
-
 		eptp = (eptp &
 		    ~(EPTP_RESERV_BITS_MASK << EPTP_RESERV_BITS_SHIFT)) |
 		    (i << EPTP_RESERV_BITS_SHIFT);
@@ -4703,7 +4736,10 @@ static void test_ept_eptp(void)
 		report_prefix_pushf("Enable-EPT enabled; reserved bits [11:7] %lu",
 		    (eptp >> EPTP_RESERV_BITS_SHIFT) &
 		    EPTP_RESERV_BITS_MASK);
-		test_vmx_controls(ctrl, false);
+		if (i == 0)
+			test_vmx_valid_controls(false);
+		else
+			test_vmx_invalid_controls(false);
 		report_prefix_pop();
 	}
 
@@ -4714,43 +4750,41 @@ static void test_ept_eptp(void)
 		resv_bits_mask |= 1ul << i;
 	}
 
-	for (j = 0; j < (63 - maxphysaddr + 1); j++) {
-		if (j  == 0)
-			ctrl = true;
-		else
-			ctrl = false;
-
+	for (j = maxphysaddr - 1; j <= 63; j++) {
 		eptp = (eptp & ~(resv_bits_mask << maxphysaddr)) |
-		    (j << maxphysaddr);
+		    (j < maxphysaddr ? 0 : 1ul << j);
 		vmcs_write(EPTP, eptp);
 		report_prefix_pushf("Enable-EPT enabled; reserved bits [63:N] %lu",
 		    (eptp >> maxphysaddr) & resv_bits_mask);
-		test_vmx_controls(ctrl, false);
+		if (j < maxphysaddr)
+			test_vmx_valid_controls(false);
+		else
+			test_vmx_invalid_controls(false);
 		report_prefix_pop();
 	}
 
 	secondary &= ~(CPU_EPT | CPU_URG);
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("Enable-EPT disabled, unrestricted-guest disabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	secondary |= CPU_URG;
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("Enable-EPT disabled, unrestricted-guest enabled");
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	secondary |= CPU_EPT;
 	setup_dummy_ept();
 	report_prefix_pushf("Enable-EPT enabled, unrestricted-guest enabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	secondary &= ~CPU_URG;
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("Enable-EPT enabled, unrestricted-guest disabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(CPU_EXEC_CTRL0, primary_saved);
@@ -4787,25 +4821,25 @@ static void test_pml(void)
 	secondary &= ~(CPU_PML | CPU_EPT);
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("enable-PML disabled, enable-EPT disabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	secondary |= CPU_PML;
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("enable-PML enabled, enable-EPT disabled");
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	secondary |= CPU_EPT;
 	setup_dummy_ept();
 	report_prefix_pushf("enable-PML enabled, enable-EPT enabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	secondary &= ~CPU_PML;
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("enable-PML disabled, enable EPT enabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	test_vmcs_addr_reference(CPU_PML, PMLADDR, "PML address", "PML",
@@ -4839,25 +4873,25 @@ static void test_vmx_preemption_timer(void)
 	exit &= ~EXI_SAVE_PREEMPT;
 	vmcs_write(EXI_CONTROLS, exit);
 	report_prefix_pushf("enable-VMX-preemption-timer enabled, save-VMX-preemption-timer disabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	exit |= EXI_SAVE_PREEMPT;
 	vmcs_write(EXI_CONTROLS, exit);
 	report_prefix_pushf("enable-VMX-preemption-timer enabled, save-VMX-preemption-timer enabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	pin &= ~PIN_PREEMPT;
 	vmcs_write(PIN_CONTROLS, pin);
 	report_prefix_pushf("enable-VMX-preemption-timer disabled, save-VMX-preemption-timer enabled");
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	report_prefix_pop();
 
 	exit &= ~EXI_SAVE_PREEMPT;
 	vmcs_write(EXI_CONTROLS, exit);
 	report_prefix_pushf("enable-VMX-preemption-timer disabled, save-VMX-preemption-timer disabled");
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
 	vmcs_write(PIN_CONTROLS, saved_pin);
@@ -4917,7 +4951,7 @@ static void test_entry_msr_load(void)
 		vmcs_write(ENTER_MSR_LD_ADDR, tmp);
 		report_prefix_pushf("VM-entry MSR-load addr [4:0] %lx",
 				    tmp & 0xf);
-		test_vmx_controls(false, false);
+		test_vmx_invalid_controls(false);
 		report_prefix_pop();
 	}
 
@@ -4939,16 +4973,16 @@ static void test_entry_msr_load(void)
 			1ul << i;
 		vmcs_write(ENTER_MSR_LD_ADDR,
 			   tmp - (entry_msr_ld_cnt * 16 - 1));
-		test_vmx_controls(false, false);
+		test_vmx_invalid_controls(false);
 	}
 
 	vmcs_write(ENT_MSR_LD_CNT, 2);
 	vmcs_write(ENTER_MSR_LD_ADDR, (1ULL << cpuid_maxphyaddr()) - 16);
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	vmcs_write(ENTER_MSR_LD_ADDR, (1ULL << cpuid_maxphyaddr()) - 32);
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	vmcs_write(ENTER_MSR_LD_ADDR, (1ULL << cpuid_maxphyaddr()) - 48);
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 }
 
 /*
@@ -4995,7 +5029,7 @@ static void test_exit_msr_store(void)
 		vmcs_write(EXIT_MSR_ST_ADDR, tmp);
 		report_prefix_pushf("VM-exit MSR-store addr [4:0] %lx",
 				    tmp & 0xf);
-		test_vmx_controls(false, false);
+		test_vmx_invalid_controls(false);
 		report_prefix_pop();
 	}
 
@@ -5017,16 +5051,16 @@ static void test_exit_msr_store(void)
 			1ul << i;
 		vmcs_write(EXIT_MSR_ST_ADDR,
 			   tmp - (exit_msr_st_cnt * 16 - 1));
-                test_vmx_controls(false, false);
+		test_vmx_invalid_controls(false);
 	}
 
 	vmcs_write(EXI_MSR_ST_CNT, 2);
 	vmcs_write(EXIT_MSR_ST_ADDR, (1ULL << cpuid_maxphyaddr()) - 16);
-	test_vmx_controls(false, false);
+	test_vmx_invalid_controls(false);
 	vmcs_write(EXIT_MSR_ST_ADDR, (1ULL << cpuid_maxphyaddr()) - 32);
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 	vmcs_write(EXIT_MSR_ST_ADDR, (1ULL << cpuid_maxphyaddr()) - 48);
-	test_vmx_controls(true, false);
+	test_vmx_valid_controls(false);
 }
 
 /*
