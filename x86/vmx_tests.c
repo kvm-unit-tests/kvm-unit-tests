@@ -1067,6 +1067,21 @@ static int enable_ept(void)
 	return setup_eptp(0, false);
 }
 
+static int enable_unrestricted_guest(void)
+{
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
+	    !(ctrl_cpu_rev[1].clr & CPU_URG))
+		return 1;
+
+	if (enable_ept())
+		return 1;
+
+	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | CPU_SECONDARY);
+	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | CPU_URG);
+
+	return 0;
+}
+
 static void ept_enable_ad_bits(void)
 {
 	eptp |= EPTP_AD_FLAG;
@@ -4081,12 +4096,16 @@ static void test_invalid_event_injection(void)
 	 * (a) the "unrestricted guest" VM-execution control is 0
 	 * (b) CR0.PE is set.
 	 */
+
+	/* Assert that unrestricted guest is disabled or unsupported */
+	assert(!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
+	       !(secondary_save & CPU_URG));
+
 	ent_intr_info = ent_intr_info_base | INTR_TYPE_HARD_EXCEPTION |
 			GP_VECTOR;
 	report_prefix_pushf("%s, VM-entry intr info=0x%x",
 			    "error code <-> (!URG || prot_mode) [-]",
 			    ent_intr_info);
-	disable_unrestricted_guest();
 	vmcs_write(GUEST_CR0, guest_cr0_save & ~X86_CR0_PE & ~X86_CR0_PG);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
 	test_vmx_controls(false, false);
@@ -4097,18 +4116,19 @@ static void test_invalid_event_injection(void)
 	report_prefix_pushf("%s, VM-entry intr info=0x%x",
 			    "error code <-> (!URG || prot_mode) [+]",
 			    ent_intr_info);
-	disable_unrestricted_guest();
 	vmcs_write(GUEST_CR0, guest_cr0_save & ~X86_CR0_PE & ~X86_CR0_PG);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
 	test_vmx_controls(true, false);
 	report_prefix_pop();
+
+	if (enable_unrestricted_guest())
+		goto skip_unrestricted_guest;
 
 	ent_intr_info = ent_intr_info_base | INTR_INFO_DELIVER_CODE_MASK |
 			INTR_TYPE_HARD_EXCEPTION | GP_VECTOR;
 	report_prefix_pushf("%s, VM-entry intr info=0x%x",
 			    "error code <-> (!URG || prot_mode) [-]",
 			    ent_intr_info);
-	enable_unrestricted_guest();
 	vmcs_write(GUEST_CR0, guest_cr0_save & ~X86_CR0_PE & ~X86_CR0_PG);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
 	test_vmx_controls(false, false);
@@ -4123,6 +4143,12 @@ static void test_invalid_event_injection(void)
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
 	test_vmx_controls(false, false);
 	report_prefix_pop();
+
+	vmcs_write(CPU_EXEC_CTRL1, secondary_save);
+	vmcs_write(CPU_EXEC_CTRL0, primary_save);
+
+skip_unrestricted_guest:
+	vmcs_write(GUEST_CR0, guest_cr0_save);
 
 	/* deliver-error-code is 1 iff the interruption type is HW exception */
 	report_prefix_push("error code <-> HW exception");

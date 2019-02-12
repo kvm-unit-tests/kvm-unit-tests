@@ -779,24 +779,6 @@ static inline bool invvpid(unsigned long type, u64 vpid, u64 gla)
 	return ret;
 }
 
-static inline int enable_unrestricted_guest(void)
-{
-	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY))
-		return -1;
-
-	if (!(ctrl_cpu_rev[1].clr & CPU_URG))
-		return -1;
-
-	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | CPU_SECONDARY);
-	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | CPU_URG);
-	return 0;
-}
-
-static inline void disable_unrestricted_guest(void)
-{
-	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) & ~CPU_URG);
-}
-
 const char *exit_reason_description(u64 reason);
 void print_vmexit_info(void);
 void print_vmentry_failure_info(struct vmentry_failure *failure);
