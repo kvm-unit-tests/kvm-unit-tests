@@ -1009,7 +1009,6 @@ static int insn_intercept_exit_handler(void)
 static int setup_ept(bool enable_ad)
 {
 	unsigned long end_of_memory;
-	u32 ctrl_cpu[2];
 
 	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
 	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
@@ -1032,14 +1031,8 @@ static int setup_ept(bool enable_ad)
 		printf("\tPWL4 is not supported\n");
 		return 1;
 	}
-	ctrl_cpu[0] = vmcs_read(CPU_EXEC_CTRL0);
-	ctrl_cpu[1] = vmcs_read(CPU_EXEC_CTRL1);
-	ctrl_cpu[0] = (ctrl_cpu[0] | CPU_SECONDARY)
-		& ctrl_cpu_rev[0].clr;
-	ctrl_cpu[1] = (ctrl_cpu[1] | CPU_EPT)
-		& ctrl_cpu_rev[1].clr;
-	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu[0]);
-	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu[1]);
+	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0)| CPU_SECONDARY);
+	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1)| CPU_EPT);
 	eptp |= (3 << EPTP_PG_WALK_LEN_SHIFT);
 	pml4 = alloc_page();
 	memset(pml4, 0, PAGE_SIZE);
