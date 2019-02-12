@@ -1004,18 +1004,13 @@ static int insn_intercept_exit_handler(void)
 	return VMX_TEST_RESUME;
 }
 
-
-/* Enables EPT and sets up the identity map. */
-static int setup_ept(bool enable_ad)
+static int setup_eptp(u64 hpa, bool enable_ad)
 {
-	unsigned long end_of_memory;
-
 	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
 	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
 		printf("\tEPT is not supported");
 		return 1;
 	}
-
 
 	if (!(ept_vpid.val & EPT_CAP_UC) &&
 			!(ept_vpid.val & EPT_CAP_WB)) {
@@ -1023,23 +1018,38 @@ static int setup_ept(bool enable_ad)
 				"UC&WB are not supported\n");
 		return 1;
 	}
-	if (ept_vpid.val & EPT_CAP_UC)
-		eptp = EPT_MEM_TYPE_UC;
-	else
-		eptp = EPT_MEM_TYPE_WB;
 	if (!(ept_vpid.val & EPT_CAP_PWL4)) {
 		printf("\tPWL4 is not supported\n");
 		return 1;
 	}
-	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0)| CPU_SECONDARY);
-	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1)| CPU_EPT);
+
+	if (ept_vpid.val & EPT_CAP_UC)
+		eptp = EPT_MEM_TYPE_UC;
+	else
+		eptp = EPT_MEM_TYPE_WB;
 	eptp |= (3 << EPTP_PG_WALK_LEN_SHIFT);
-	pml4 = alloc_page();
-	memset(pml4, 0, PAGE_SIZE);
-	eptp |= virt_to_phys(pml4);
+	eptp |= hpa;
 	if (enable_ad)
 		eptp |= EPTP_AD_FLAG;
+
 	vmcs_write(EPTP, eptp);
+	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0)| CPU_SECONDARY);
+	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1)| CPU_EPT);
+
+	return 0;
+}
+
+/* Enables EPT and sets up the identity map. */
+static int setup_ept(bool enable_ad)
+{
+	unsigned long end_of_memory;
+
+	pml4 = alloc_page();
+
+	setup_eptp(virt_to_phys(pml4), enable_ad);
+
+	memset(pml4, 0, PAGE_SIZE);
+
 	end_of_memory = fwcfg_get_u64(FW_CFG_RAM_SIZE);
 	if (end_of_memory < (1ul << 32))
 		end_of_memory = (1ul << 32);
@@ -1050,6 +1060,11 @@ static int setup_ept(bool enable_ad)
 			!enable_ad && ept_2m_supported(),
 			EPT_WA | EPT_RA | EPT_EA);
 	return 0;
+}
+
+static int enable_ept(void)
+{
+	return setup_eptp(0, false);
 }
 
 static void ept_enable_ad_bits(void)
@@ -4678,8 +4693,7 @@ static void test_ept_eptp(void)
 	report_prefix_pop();
 
 	secondary |= CPU_EPT;
-	setup_ept(false);
-	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	enable_ept();
 	report_prefix_pushf("Enable-EPT enabled, unrestricted-guest enabled");
 	test_vmx_controls(true, false);
 	report_prefix_pop();
@@ -4734,8 +4748,7 @@ static void test_pml(void)
 	report_prefix_pop();
 
 	secondary |= CPU_EPT;
-	setup_ept(false);
-	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	enable_ept();
 	report_prefix_pushf("enable-PML enabled, enable-EPT enabled");
 	test_vmx_controls(true, false);
 	report_prefix_pop();
