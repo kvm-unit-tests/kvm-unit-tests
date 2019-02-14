@@ -6377,6 +6377,51 @@ static void vmx_vmcs_shadow_test(void)
 	enter_guest();
 }
 
+
+
+static int invalid_msr_init(struct vmcs *vmcs)
+{
+	if (!(ctrl_pin_rev.clr & PIN_PREEMPT)) {
+		printf("\tPreemption timer is not supported\n");
+		return VMX_TEST_EXIT;
+	}
+	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) | PIN_PREEMPT);
+	preempt_val = 10000000;
+	vmcs_write(PREEMPT_TIMER_VALUE, preempt_val);
+	preempt_scale = rdmsr(MSR_IA32_VMX_MISC) & 0x1F;
+
+	if (!(ctrl_exit_rev.clr & EXI_SAVE_PREEMPT))
+		printf("\tSave preemption value is not supported\n");
+
+	vmcs_write(ENT_MSR_LD_CNT, 1);
+	vmcs_write(ENTER_MSR_LD_ADDR, (u64)0x13370000);
+
+	return VMX_TEST_START;
+}
+
+
+static void invalid_msr_main(void)
+{
+	report("Invalid MSR load", 0);
+}
+
+static int invalid_msr_exit_handler(void)
+{
+	report("Invalid MSR load", 0);
+	print_vmexit_info();
+	return VMX_TEST_EXIT;
+}
+
+static int invalid_msr_entry_failure(struct vmentry_failure *failure)
+{
+	ulong reason;
+
+	reason = vmcs_read(EXI_REASON);
+	report("Invalid MSR load", reason == (0x80000000u | VMX_FAIL_MSR));
+	return VMX_TEST_VMEXIT;
+}
+
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -6412,6 +6457,8 @@ struct vmx_test vmx_tests[] = {
 	{ "into", into_init, into_guest_main, into_exit_handler, NULL, {0} },
 	{ "exit_monitor_from_l2_test", NULL, exit_monitor_from_l2_main,
 		exit_monitor_from_l2_handler, NULL, {0} },
+	{ "invalid_msr", invalid_msr_init, invalid_msr_main,
+		invalid_msr_exit_handler, NULL, {0}, invalid_msr_entry_failure},
 	/* Basic V2 tests. */
 	TEST(v2_null_test),
 	TEST(v2_multiple_entries_test),
