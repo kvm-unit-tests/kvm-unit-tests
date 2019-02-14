@@ -65,6 +65,8 @@ while getopts "ag:htj:v" opt; do
             ;;
     esac
 done
+shift $((OPTIND - 1))
+only_tests="$*"
 
 # RUNTIME_log_file will be configured later
 RUNTIME_log_stderr () { cat >> $RUNTIME_log_file; }

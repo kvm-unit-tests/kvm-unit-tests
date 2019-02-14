@@ -97,6 +97,10 @@ function run()
         return
     fi
 
+    if [ -n "$only_tests" ] && ! grep -qw "$testname" <<<$only_tests; then
+        return
+    fi
+
     if [ -n "$only_group" ] && ! grep -qw "$only_group" <<<$groups; then
         return
     fi
