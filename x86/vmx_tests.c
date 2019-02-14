@@ -3914,7 +3914,7 @@ static void test_posted_intr(void)
 	test_pi_desc_addr(0xc000, true);
 
 	test_vmcs_addr_values("process-posted interrupts",
-			       POSTED_INTR_DESC_ADDR, PAGE_SIZE,
+			       POSTED_INTR_DESC_ADDR, 64,
 			       false, false, 0, 63);
 
 	vmcs_write(CPU_EXEC_CTRL0, saved_primary);
