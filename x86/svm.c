@@ -158,7 +158,7 @@ static void vmcb_ident(struct vmcb *vmcb)
     struct descriptor_table_ptr desc_table_ptr;
 
     memset(vmcb, 0, sizeof(*vmcb));
-    asm volatile ("vmsave" : : "a"(vmcb_phys) : "memory");
+    asm volatile ("vmsave %0" : : "a"(vmcb_phys) : "memory");
     vmcb_set_seg(&save->es, read_es(), 0, -1U, data_seg_attr);
     vmcb_set_seg(&save->cs, read_cs(), 0, -1U, code_seg_attr);
     vmcb_set_seg(&save->ss, read_ss(), 0, -1U, data_seg_attr);
@@ -268,24 +268,25 @@ static void test_run(struct test *test, struct vmcb *vmcb)
     do {
         tsc_start = rdtsc();
         asm volatile (
-            "clgi \n\t"
+            "clgi;\n\t" // semi-colon needed for LLVM compatibility
             "cmpb $0, set_host_if\n\t"
             "jz 1f\n\t"
             "sti \n\t"
             "1: \n\t"
             "vmload \n\t"
+            "vmload %0\n\t"
             "mov regs+0x80, %%r15\n\t"  // rflags
             "mov %%r15, 0x170(%0)\n\t"
             "mov regs, %%r15\n\t"       // rax
             "mov %%r15, 0x1f8(%0)\n\t"
             LOAD_GPR_C
-            "vmrun \n\t"
+            "vmrun %0\n\t"
             SAVE_GPR_C
             "mov 0x170(%0), %%r15\n\t"  // rflags
             "mov %%r15, regs+0x80\n\t"
             "mov 0x1f8(%0), %%r15\n\t"  // rax
             "mov %%r15, regs\n\t"
-            "vmsave \n\t"
+            "vmsave %0\n\t"
             "cli \n\t"
             "stgi"
             : : "a"(vmcb_phys)
@@ -341,7 +342,7 @@ static bool check_no_vmrun_int(struct test *test)
 
 static void test_vmrun(struct test *test)
 {
-    asm volatile ("vmrun" : : "a"(virt_to_phys(test->vmcb)));
+    asm volatile ("vmrun %0" : : "a"(virt_to_phys(test->vmcb)));
 }
 
 static bool check_vmrun(struct test *test)
@@ -1259,7 +1260,7 @@ static bool lat_svm_insn_finished(struct test *test)
 
     for ( ; runs != 0; runs--) {
         tsc_start = rdtsc();
-        asm volatile("vmload\n\t" : : "a"(vmcb_phys) : "memory");
+        asm volatile("vmload %0\n\t" : : "a"(vmcb_phys) : "memory");
         cycles = rdtsc() - tsc_start;
         if (cycles > latvmload_max)
             latvmload_max = cycles;
@@ -1268,7 +1269,7 @@ static bool lat_svm_insn_finished(struct test *test)
         vmload_sum += cycles;
 
         tsc_start = rdtsc();
-        asm volatile("vmsave\n\t" : : "a"(vmcb_phys) : "memory");
+        asm volatile("vmsave %0\n\t" : : "a"(vmcb_phys) : "memory");
         cycles = rdtsc() - tsc_start;
         if (cycles > latvmsave_max)
             latvmsave_max = cycles;
