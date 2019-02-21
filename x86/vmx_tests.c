@@ -1011,11 +1011,8 @@ static int setup_eptp(u64 hpa, bool enable_ad)
 		printf("\tEPT is not supported");
 		return 1;
 	}
-
-	if (!(ept_vpid.val & EPT_CAP_UC) &&
-			!(ept_vpid.val & EPT_CAP_WB)) {
-		printf("\tEPT paging-structure memory type "
-				"UC&WB are not supported\n");
+	if (!(ept_vpid.val & EPT_CAP_WB)) {
+		printf("WB memtype for EPT walks not supported\n");
 		return 1;
 	}
 	if (!(ept_vpid.val & EPT_CAP_PWL4)) {
@@ -1023,10 +1020,7 @@ static int setup_eptp(u64 hpa, bool enable_ad)
 		return 1;
 	}
 
-	if (ept_vpid.val & EPT_CAP_UC)
-		eptp = EPT_MEM_TYPE_UC;
-	else
-		eptp = EPT_MEM_TYPE_WB;
+	eptp = EPT_MEM_TYPE_WB;
 	eptp |= (3 << EPTP_PG_WALK_LEN_SHIFT);
 	eptp |= hpa;
 	if (enable_ad)
