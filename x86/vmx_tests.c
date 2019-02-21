@@ -1004,6 +1004,17 @@ static int insn_intercept_exit_handler(void)
 	return VMX_TEST_RESUME;
 }
 
+/**
+ * __setup_ept - Setup the VMCS fields to enable Extended Page Tables (EPT)
+ * @hpa:	Host physical address of the top-level, a.k.a. root, EPT table
+ * @enable_ad:	Whether or not to enable Access/Dirty bits for EPT entries
+ *
+ * Returns 0 on success, 1 on failure.
+ *
+ * Note that @hpa doesn't need to point at actual memory if VM-Launch is
+ * expected to fail, e.g. setup_dummy_ept() arbitrarily passes '0' to satisfy
+ * the various EPTP consistency checks, but doesn't ensure backing for HPA '0'.
+ */
 static int __setup_ept(u64 hpa, bool enable_ad)
 {
 	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
@@ -1033,7 +1044,15 @@ static int __setup_ept(u64 hpa, bool enable_ad)
 	return 0;
 }
 
-/* Enables EPT and sets up the identity map. */
+/**
+ * setup_ept - Enable Extended Page Tables (EPT) and setup an identity map
+ * @enable_ad:	Whether or not to enable Access/Dirty bits for EPT entries
+ *
+ * Returns 0 on success, 1 on failure.
+ *
+ * This is the "real" function for setting up EPT tables, i.e. use this for
+ * tests that need to run code in the guest with EPT enabled.
+ */
 static int setup_ept(bool enable_ad)
 {
 	unsigned long end_of_memory;
@@ -1057,6 +1076,14 @@ static int setup_ept(bool enable_ad)
 	return 0;
 }
 
+/**
+ * setup_dummy_ept - Enable Extended Page Tables (EPT) with a dummy root HPA
+ *
+ * Setup EPT using a semi-arbitrary dummy root HPA.  This function is intended
+ * for use by tests that need EPT enabled to verify dependent VMCS controls
+ * but never expect to fully enter the guest, i.e. don't need setup the actual
+ * EPT tables.
+ */
 static void setup_dummy_ept(void)
 {
 	if (__setup_ept(0, false))
