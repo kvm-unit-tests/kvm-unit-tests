@@ -1046,7 +1046,8 @@ static int setup_ept(bool enable_ad)
 
 	pml4 = alloc_page();
 
-	setup_eptp(virt_to_phys(pml4), enable_ad);
+	if (setup_eptp(virt_to_phys(pml4), enable_ad))
+		return 1;
 
 	memset(pml4, 0, PAGE_SIZE);
 
