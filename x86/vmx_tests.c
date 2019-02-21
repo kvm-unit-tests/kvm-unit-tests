@@ -1004,7 +1004,7 @@ static int insn_intercept_exit_handler(void)
 	return VMX_TEST_RESUME;
 }
 
-static int setup_eptp(u64 hpa, bool enable_ad)
+static int __setup_ept(u64 hpa, bool enable_ad)
 {
 	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
 	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
@@ -1040,7 +1040,7 @@ static int setup_ept(bool enable_ad)
 
 	pml4 = alloc_page();
 
-	if (setup_eptp(virt_to_phys(pml4), enable_ad))
+	if (__setup_ept(virt_to_phys(pml4), enable_ad))
 		return 1;
 
 	memset(pml4, 0, PAGE_SIZE);
@@ -1057,9 +1057,9 @@ static int setup_ept(bool enable_ad)
 	return 0;
 }
 
-static void enable_ept(void)
+static void setup_dummy_ept(void)
 {
-	if (setup_eptp(0, false))
+	if (__setup_ept(0, false))
 		report_abort("EPT setup unexpectedly failed");
 }
 
@@ -1070,7 +1070,7 @@ static int enable_unrestricted_guest(void)
 	    !(ctrl_cpu_rev[1].clr & CPU_EPT))
 		return 1;
 
-	enable_ept();
+	setup_dummy_ept();
 
 	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | CPU_SECONDARY);
 	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | CPU_URG);
@@ -4715,7 +4715,7 @@ static void test_ept_eptp(void)
 	report_prefix_pop();
 
 	secondary |= CPU_EPT;
-	enable_ept();
+	setup_dummy_ept();
 	report_prefix_pushf("Enable-EPT enabled, unrestricted-guest enabled");
 	test_vmx_controls(true, false);
 	report_prefix_pop();
@@ -4770,7 +4770,7 @@ static void test_pml(void)
 	report_prefix_pop();
 
 	secondary |= CPU_EPT;
-	enable_ept();
+	setup_dummy_ept();
 	report_prefix_pushf("enable-PML enabled, enable-EPT enabled");
 	test_vmx_controls(true, false);
 	report_prefix_pop();
