@@ -1063,19 +1063,20 @@ static int setup_ept(bool enable_ad)
 	return 0;
 }
 
-static int enable_ept(void)
+static void enable_ept(void)
 {
-	return setup_eptp(0, false);
+	if (setup_eptp(0, false))
+		report_abort("EPT setup unexpectedly failed");
 }
 
 static int enable_unrestricted_guest(void)
 {
 	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
-	    !(ctrl_cpu_rev[1].clr & CPU_URG))
+	    !(ctrl_cpu_rev[1].clr & CPU_URG) ||
+	    !(ctrl_cpu_rev[1].clr & CPU_EPT))
 		return 1;
 
-	if (enable_ept())
-		return 1;
+	enable_ept();
 
 	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | CPU_SECONDARY);
 	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | CPU_URG);
