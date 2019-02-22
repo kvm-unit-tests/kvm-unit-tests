@@ -69,12 +69,50 @@ shift $((OPTIND - 1))
 only_tests="$*"
 
 # RUNTIME_log_file will be configured later
-RUNTIME_log_stderr () { cat >> $RUNTIME_log_file; }
+if [[ $tap_output == "no" ]]; then
+    process_test_output() { cat >> $RUNTIME_log_file; }
+    postprocess_suite_output() { cat; }
+else
+    process_test_output() {
+        CR=$'\r'
+        while read -r line; do
+            line="${line%$CR}"
+            case "${line:0:4}" in
+                PASS)
+                    echo "ok TEST_NUMBER - ${line#??????}" >&3
+                    ;;
+                FAIL)
+                    echo "not ok TEST_NUMBER - ${line#??????}" >&3
+                    ;;
+                SKIP)
+                    echo "ok TEST_NUMBER - ${line#??????} # skip" >&3
+                    ;;
+                *)
+                    ;;
+            esac
+            echo "${line}"
+        done >> $RUNTIME_log_file
+    }
+    postprocess_suite_output() {
+        test_number=0
+        while read -r line; do
+            case "${line}" in
+                ok*|"not ok"*)
+                    (( test_number++ ))
+                    echo "${line/TEST_NUMBER/${test_number}}" ;;
+                *) echo "${line}" ;;
+            esac
+        done
+        echo "1..$test_number"
+    }
+fi
+
+RUNTIME_log_stderr () { process_test_output; }
 RUNTIME_log_stdout () {
     if [ "$PRETTY_PRINT_STACKS" = "yes" ]; then
-        ./scripts/pretty_print_stacks.py $1 >> $RUNTIME_log_file
+        ./scripts/pretty_print_stacks.py $1 | process_test_output
     else
-        cat >> $RUNTIME_log_file
+        process_test_output
     fi
 }
 
@@ -84,7 +122,6 @@ function run_task()
 	if [ -z "$testname" ]; then
 		return
 	fi
-	test_number=$((test_number+1))
 
 	while (( $(jobs | wc -l) == $unittest_run_queues )); do
 		# wait for any background test to finish
@@ -110,15 +147,17 @@ mkdir $unittest_log_dir || exit 2
 echo "BUILD_HEAD=$(cat build-head)" > $unittest_log_dir/SUMMARY
 
 if [[ $tap_output == "yes" ]]; then
-    test_number=0
     echo "TAP version 13"
 fi
+
 trap "wait; exit 130" SIGINT
-for_each_unittest $config run_task
+
+(
+   # preserve stdout so that process_test_output output can write TAP to it
+   exec 3>&1
+   test "$tap_output" == "yes" && exec > /dev/null
+   for_each_unittest $config run_task
+) | postprocess_suite_output
 
 # wait until all tasks finish
 wait
-
-if [[ $tap_output == "yes" ]]; then
-    echo "1..$test_number"
-fi

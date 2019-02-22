@@ -61,23 +61,10 @@ function print_result()
     local summary="$3"
     local reason="$4"
 
-    if [[ $tap_output == "no" ]]; then
-        if [ -z "$reason" ]; then
-            echo "`$status` $testname $summary"
-        else
-            echo "`$status` $testname ($reason)"
-        fi
-        return
-    fi
-
-    if [[ $status == "FAIL" ]]; then
-        echo "not ok $testname $reason"
-    elif [[ $status == "PASS" ]]; then
-        echo "ok $testname"
-    elif [[ $status == "SKIP" ]]; then
-        echo "ok $testname # SKIP $reason"
+    if [ -z "$reason" ]; then
+        echo "`$status` $testname $summary"
     else
-        echo "not ok # TODO unknown test status"
+        echo "`$status` $testname ($reason)"
     fi
 }
 
