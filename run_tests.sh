@@ -17,13 +17,13 @@ cat <<EOF
 
 Usage: $0 [-h] [-v] [-a] [-g group] [-j NUM-TASKS] [-t]
 
-    -h: Output this help text
-    -v: Enables verbose mode
-    -a: Run all tests, including those flagged as 'nodefault'
-        and those guarded by errata.
-    -g: Only execute tests in the given group
-    -j: Execute tests in parallel
-    -t: Output test results in TAP format
+    -h, --help      Output this help text
+    -v, --verbose   Enables verbose mode
+    -a, --all       Run all tests, including those flagged as 'nodefault'
+                    and those guarded by errata.
+    -g, --group     Only execute tests in the given group
+    -j, --parallel  Execute tests in parallel
+    -t, --tap13     Output test results in TAP format
 
 Set the environment variable QEMU=/path/to/qemu-system-ARCH to
 specify the appropriate qemu binary for ARCH-run.
@@ -34,39 +34,46 @@ EOF
 RUNTIME_arch_run="./$TEST_DIR/run"
 source scripts/runtime.bash
 
-while getopts "ag:htj:v" opt; do
-    case $opt in
-        a)
+only_tests=""
+args=`getopt -u -o ag:htj:v -l all,group:,help,tap13,parallel:,verbose -- $*`
+[ $? -ne 0 ] && exit 2;
+set -- $args;
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -a | --all)
             run_all_tests="yes"
             export ERRATA_FORCE=y
             ;;
-        g)
-            only_group=$OPTARG
+        -g | --group)
+            shift
+            only_group=$1
             ;;
-        h)
+        -h | --help)
             usage
             exit
             ;;
-        j)
-            unittest_run_queues=$OPTARG
+        -j | --parallel)
+            shift
+            unittest_run_queues=$1
             if (( $unittest_run_queues <= 0 )); then
                 echo "Invalid -j option: $unittest_run_queues"
                 exit 2
             fi
             ;;
-        v)
+        -v | --verbose)
             verbose="yes"
             ;;
-        t)
+        -t | --tap13)
             tap_output="yes"
             ;;
+        --)
+            ;;
         *)
-            exit 2
+            only_tests="$only_tests $1"
             ;;
     esac
+    shift
 done
-shift $((OPTIND - 1))
-only_tests="$*"
 
 # RUNTIME_log_file will be configured later
 if [[ $tap_output == "no" ]]; then
