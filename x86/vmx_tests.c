@@ -5089,6 +5089,114 @@ static void vmx_controls_test(void)
 	test_vm_entry_ctls();
 }
 
+static void test_ctl_reg(const char *cr_name, u64 cr, u64 fixed0, u64 fixed1)
+{
+	u64 val;
+	u64 cr_saved = vmcs_read(cr);
+	int i;
+
+	val = fixed0 & fixed1;
+	if (cr == HOST_CR4)
+		vmcs_write(cr, val | X86_CR4_PAE);
+	else
+		vmcs_write(cr, val);
+	report_prefix_pushf("%s %lx", cr_name, val);
+	if (val == fixed0)
+		test_vmx_vmlaunch(0, false);
+	else
+		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
+				  false);
+	report_prefix_pop();
+
+	for (i = 0; i < 64; i++) {
+
+		/* Set a bit when the corresponding bit in fixed1 is 0 */
+		if ((fixed1 & (1ull << i)) == 0) {
+			if (cr == HOST_CR4 && ((1ull << i) & X86_CR4_SMEP ||
+					       (1ull << i) & X86_CR4_SMAP))
+				continue;
+
+			vmcs_write(cr, cr_saved | (1ull << i));
+			report_prefix_pushf("%s %llx", cr_name,
+						cr_saved | (1ull << i));
+			test_vmx_vmlaunch(
+					VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
+					false);
+			report_prefix_pop();
+		}
+
+		/* Unset a bit when the corresponding bit in fixed0 is 1 */
+		if (fixed0 & (1ull << i)) {
+			vmcs_write(cr, cr_saved & ~(1ull << i));
+			report_prefix_pushf("%s %llx", cr_name,
+						cr_saved & ~(1ull << i));
+			test_vmx_vmlaunch(
+					VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
+					false);
+			report_prefix_pop();
+		}
+	}
+
+	vmcs_write(cr, cr_saved);
+}
+
+/*
+ * 1. The CR0 field must not set any bit to a value not supported in VMX
+ *    operation.
+ * 2. The CR4 field must not set any bit to a value not supported in VMX
+ *    operation.
+ * 3. On processors that support Intel 64 architecture, the CR3 field must
+ *    be such that bits 63:52 and bits in the range 51:32 beyond the
+ *    processorâ€™s physical-address width must be 0.
+ *
+ *  [Intel SDM]
+ */
+static void test_host_ctl_regs(void)
+{
+	u64 fixed0, fixed1, cr3, cr3_saved;
+	int i;
+
+	/* Test CR0 */
+	fixed0 = rdmsr(MSR_IA32_VMX_CR0_FIXED0);
+	fixed1 = rdmsr(MSR_IA32_VMX_CR0_FIXED1);
+	test_ctl_reg("HOST_CR0", HOST_CR0, fixed0, fixed1);
+
+	/* Test CR4 */
+	fixed0 = rdmsr(MSR_IA32_VMX_CR4_FIXED0);
+	fixed1 = rdmsr(MSR_IA32_VMX_CR4_FIXED1) &
+		 ~(X86_CR4_SMEP | X86_CR4_SMAP);
+	test_ctl_reg("HOST_CR4", HOST_CR4, fixed0, fixed1);
+
+	/* Test CR3 */
+	cr3_saved = vmcs_read(HOST_CR3);
+	for (i = cpuid_maxphyaddr(); i < 64; i++) {
+		cr3 = cr3_saved | (1ul << i);
+		vmcs_write(HOST_CR3, cr3);
+		report_prefix_pushf("HOST_CR3 %lx", cr3);
+		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
+				  false);
+		report_prefix_pop();
+	}
+
+	vmcs_write(HOST_CR3, cr3_saved);
+}
+
+/*
+ * Check that the virtual CPU checks the VMX Host State Area as
+ * documented in the Intel SDM.
+ */
+static void vmx_host_state_area_test(void)
+{
+	/*
+	 * Bit 1 of the guest's RFLAGS must be 1, or VM-entry will
+	 * fail due to invalid guest state, should we make it that
+	 * far.
+	 */
+	vmcs_write(GUEST_RFLAGS, 0);
+
+	test_host_ctl_regs();
+}
+
 static bool valid_vmcs_for_vmentry(void)
 {
 	struct vmcs *current_vmcs = NULL;
@@ -6557,6 +6665,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(invvpid_test_v2),
 	/* VM-entry tests */
 	TEST(vmx_controls_test),
+	TEST(vmx_host_state_area_test),
 	TEST(vmentry_movss_shadow_test),
 	/* APICv tests */
 	TEST(vmx_eoi_bitmap_ioapic_scan_test),
