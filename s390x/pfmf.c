@@ -64,6 +64,7 @@ static void test_4k_key(void)
 	union r1 r1;
 	union skey skey;
 
+	report_prefix_push("4K");
 	r1.val = 0;
 	r1.reg.sk = 1;
 	r1.reg.fsc = FSC_4K;
@@ -71,15 +72,18 @@ static void test_4k_key(void)
 	pfmf(r1.val, (unsigned long) pagebuf);
 	skey.val = get_storage_key((unsigned long) pagebuf);
 	skey.val &= SKEY_ACC | SKEY_FP;
-	report("set 4k", skey.val == 0x30);
+	report("set storage keys", skey.val == 0x30);
+	report_prefix_pop();
 }
 
 static void test_1m_key(void)
 {
 	int i;
+	bool rp = true;
 	union r1 r1;
 	union skey skey;
 
+	report_prefix_push("1M");
 	r1.val = 0;
 	r1.reg.sk = 1;
 	r1.reg.fsc = FSC_1M;
@@ -89,11 +93,12 @@ static void test_1m_key(void)
 		skey.val = get_storage_key((unsigned long) pagebuf + i * PAGE_SIZE);
 		skey.val &= SKEY_ACC | SKEY_FP;
 		if (skey.val != 0x30) {
-			report("set 1M", false);
-			return;
+			rp = false;
+			break;
 		}
 	}
-	report("set 1M", true);
+	report("set storage keys", rp);
+	report_prefix_pop();
 }
 
 static void test_4k_clear(void)
@@ -104,9 +109,11 @@ static void test_4k_clear(void)
 	r1.reg.cf = 1;
 	r1.reg.fsc = FSC_4K;
 
+	report_prefix_push("4K");
 	memset(pagebuf, 42, PAGE_SIZE);
 	pfmf(r1.val, (unsigned long) pagebuf);
-	report("clear 4k", !memcmp(pagebuf, pagebuf + PAGE_SIZE, PAGE_SIZE));
+	report("clear memory", !memcmp(pagebuf, pagebuf + PAGE_SIZE, PAGE_SIZE));
+	report_prefix_pop();
 }
 
 static void test_1m_clear(void)
@@ -119,11 +126,13 @@ static void test_1m_clear(void)
 	r1.reg.cf = 1;
 	r1.reg.fsc = FSC_1M;
 
+	report_prefix_push("1M");
 	memset(pagebuf, 42, PAGE_SIZE * 256);
 	pfmf(r1.val, (unsigned long) pagebuf);
 	for (i = 0; i < PAGE_SIZE * 256; i++)
 		sum |= pagebuf[i];
-	report("clear 1m", !sum);
+	report("clear memory", !sum);
+	report_prefix_pop();
 }
 
 int main(void)
@@ -141,8 +150,8 @@ int main(void)
 	memset(pagebuf, 0, PAGE_SIZE * 256);
 
 	test_4k_key();
-	test_1m_key();
 	test_4k_clear();
+	test_1m_key();
 	test_1m_clear();
 
 done:
