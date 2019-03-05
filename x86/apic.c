@@ -489,7 +489,7 @@ static void test_physical_broadcast(void)
 	report("APIC physical broadcast shorthand", broadcast_received(ncpus));
 }
 
-static void wait_until_tmcct_is_zero(uint32_t initial_count, bool stop_when_half)
+static void wait_until_tmcct_common(uint32_t initial_count, bool stop_when_half, bool should_wrap_around)
 {
 	uint32_t tmcct = apic_read(APIC_TMCCT);
 
@@ -503,7 +503,21 @@ static void wait_until_tmcct_is_zero(uint32_t initial_count, bool stop_when_half
 		/* Wait until the counter reach 0 or wrap-around */
 		while ( tmcct <= (initial_count / 2) && tmcct > 0 )
 			tmcct = apic_read(APIC_TMCCT);
+
+		/* Wait specifically for wrap around to skip 0 TMCCR if we were asked to */
+		while (should_wrap_around && !tmcct)
+			tmcct = apic_read(APIC_TMCCT);
 	}
+}
+
+static void wait_until_tmcct_is_zero(uint32_t initial_count, bool stop_when_half)
+{
+	return wait_until_tmcct_common(initial_count, stop_when_half, false);
+}
+
+static void wait_until_tmcct_wrap_around(uint32_t initial_count, bool stop_when_half)
+{
+	return wait_until_tmcct_common(initial_count, stop_when_half, true);
 }
 
 static inline void apic_change_mode(unsigned long new_mode)
@@ -548,7 +562,12 @@ static void test_apic_change_mode(void)
 	 * counting down from where it was
 	 */
 	report("TMCCT should not be reset to TMICT value", apic_read(APIC_TMCCT) < (tmict / 2));
-	wait_until_tmcct_is_zero(tmict, false);
+	/*
+	 * Specifically wait for timer wrap around and skip 0.
+	 * Under KVM lapic there is a possibility that a small amount of consecutive
+	 * TMCCR reads return 0 while hrtimer is reset in an async callback
+	 */
+	wait_until_tmcct_wrap_around(tmict, false);
 	report("TMCCT should be reset to the initial-count", apic_read(APIC_TMCCT) > (tmict / 2));
 
 	wait_until_tmcct_is_zero(tmict, true);
