@@ -3627,6 +3627,7 @@ static void test_vmcs_addr_reference(u32 control_bit, enum Encoding field,
 
 	vmcs_write(field, page_addr);
 	vmcs_write(CPU_EXEC_CTRL0, primary);
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
 }
 
 /*
