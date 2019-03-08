@@ -266,6 +266,7 @@ static void test_dxc(void)
 	lc->dxc_vxc = 0x12345678;
 	set_fpc_dxc(0);
 
+	report_prefix_push("afp");
 	expect_pgm_int();
 	asm volatile("	.insn	rrf,0xb9600000,%0,%0,8,0\n"
 		     : : "r"(0) : "memory");
@@ -273,12 +274,13 @@ static void test_dxc(void)
 
 	report("dxc in LC", lc->dxc_vxc == 0xff);
 	report("dxc in FPC", get_fpc_dxc() == 0xff);
-
+	report_prefix_pop();
 
 	/* DXC (0xff) is to be stored in LC only on a trap (CRT) without AFP */
 	lc->dxc_vxc = 0x12345678;
 	set_fpc_dxc(0);
 
+	report_prefix_push("no-afp");
 	expect_pgm_int();
 	/* temporarily disable AFP */
 	afp_disable();
@@ -289,6 +291,7 @@ static void test_dxc(void)
 
 	report("dxc in LC", lc->dxc_vxc == 0xff);
 	report("dxc not in FPC", get_fpc_dxc() == 0);
+	report_prefix_pop();
 }
 
 static struct {

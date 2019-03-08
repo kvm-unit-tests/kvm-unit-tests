@@ -10,6 +10,11 @@
 #ifndef _ASM_S390_MEM_H
 #define _ASM_S390_MEM_H
 
+#define SKEY_ACC	0xf0
+#define SKEY_FP		0x08
+#define SKEY_RF		0x04
+#define SKEY_CH		0x02
+
 union skey {
 	struct {
 		uint8_t acc : 4;

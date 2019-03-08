@@ -35,9 +35,10 @@ static void test_set_mb(void)
 	while (addr < end)
 		addr = set_storage_key_mb(addr, skey.val);
 
-	ret1.val = get_storage_key(end - PAGE_SIZE);
-	ret2.val = get_storage_key(end - PAGE_SIZE * 2);
-	report("multi block", ret1.val == ret2.val && ret1.val == skey.val);
+	ret1.val = get_storage_key(end - PAGE_SIZE) & (SKEY_ACC | SKEY_FP);
+	ret2.val = get_storage_key(end - PAGE_SIZE * 2) & (SKEY_ACC | SKEY_FP);
+	report("multi block",
+	       ret1.val == ret2.val && ret1.val == skey.val);
 }
 
 static void test_chg(void)
@@ -60,7 +61,13 @@ static void test_set(void)
 	ret.val = get_storage_key(page0);
 	set_storage_key(page0, skey.val, 0);
 	ret.val = get_storage_key(page0);
-	report("set key test", skey.val == ret.val);
+	/*
+	 * For all set tests we only test the ACC and FP bits. RF and
+	 * CH are set by the machine for memory references and changes
+	 * and hence might change between a set and a get.
+	 */
+	report("set key test",
+	       skey.str.acc == ret.str.acc && skey.str.fp == ret.str.fp);
 }
 
 static void test_priv(void)

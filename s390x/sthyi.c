@@ -52,10 +52,12 @@ static void test_exception_addr(void)
 
 static void test_exception_reg_odd(void)
 {
-	report_prefix_push("Register check odd");
+	report_prefix_push("Register check odd R1");
 	expect_pgm_int();
 	sthyi((uint64_t)pagebuf, 0, NULL, 1, 2);
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
+	report_prefix_pop();
+	report_prefix_push("Register check odd R2");
 	expect_pgm_int();
 	sthyi((uint64_t)pagebuf, 0, NULL, 0, 3);
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
@@ -76,52 +78,58 @@ static void test_function_code(uint64_t addr)
 	uint64_t urc = 0;
 	int cc = sthyi((uint64_t)pagebuf, 42, &urc, 0, 2);
 
-	report("Ill. fcode", cc == 3 && urc == CODE_UNSUPP);
+	report("Illegal fcode", cc == 3 && urc == CODE_UNSUPP);
 }
 
 static void test_fcode0_hdr(struct sthyi_hdr_sctn *hdr)
 {
-	report("HDR length", (hdr->INFHDLN >= sizeof(*hdr)
-			      && !(hdr->INFHDLN % 8)));
-	report("MACH sctn length", (hdr->INFMLEN >= sizeof(struct sthyi_mach_sctn)
-				    && !(hdr->INFMLEN % 8)));
-	report("PAR sctn length", (hdr->INFPLEN >= sizeof(struct sthyi_par_sctn)
-				   && !(hdr->INFPLEN % 8)));
+	report_prefix_push("Header");
 
-	report("MACH offset", hdr->INFMOFF >= hdr->INFHDLN);
-	report("PAR offset", hdr->INFPOFF >= hdr->INFHDLN);
+	report("length", hdr->INFHDLN >= sizeof(*hdr) && !(hdr->INFHDLN % 8));
+	report("Machine sctn length", (hdr->INFMLEN >= sizeof(struct sthyi_mach_sctn)
+				       && !(hdr->INFMLEN % 8)));
+	report("Partition section length", (hdr->INFPLEN >= sizeof(struct sthyi_par_sctn)
+					    && !(hdr->INFPLEN % 8)));
+
+	report("Machine offset", hdr->INFMOFF >= hdr->INFHDLN);
+	report("Partition offset", hdr->INFPOFF >= hdr->INFHDLN);
+	report_prefix_pop();
 }
 
 static void test_fcode0_mach(struct sthyi_mach_sctn *mach)
 {
 	int sum = mach->INFMSCPS + mach->INFMDCPS + mach->INFMSIFL + mach->INFMDIFL;
 
+	report_prefix_push("Machine");
 	if (mach->INFMVAL1 & MACH_ID_VLD) {
-		report("MACH type", memcmp(mach->INFMTYPE, null_buf, sizeof(mach->INFMTYPE)));
-		report("MACH manu", memcmp(mach->INFMMANU, null_buf, sizeof(mach->INFMMANU)));
-		report("MACH seq", memcmp(mach->INFMSEQ, null_buf, sizeof(mach->INFMSEQ)));
-		report("MACH plant", memcmp(mach->INFMPMAN, null_buf, sizeof(mach->INFMPMAN)));
+		report("type", memcmp(mach->INFMTYPE, null_buf, sizeof(mach->INFMTYPE)));
+		report("manufacturer", memcmp(mach->INFMMANU, null_buf, sizeof(mach->INFMMANU)));
+		report("sequence", memcmp(mach->INFMSEQ, null_buf, sizeof(mach->INFMSEQ)));
+		report("plant", memcmp(mach->INFMPMAN, null_buf, sizeof(mach->INFMPMAN)));
 	}
 
 	if (mach->INFMVAL1 & MACH_NAME_VLD)
-		report("MACH name", memcmp(mach->INFMNAME, null_buf,
-					   sizeof(mach->INFMNAME)));
+		report("name", memcmp(mach->INFMNAME, null_buf,
+				      sizeof(mach->INFMNAME)));
 
 	if (mach->INFMVAL1 & MACH_CNT_VLD)
-		report("MACH core counts", sum);
+		report("core counts", sum);
+	report_prefix_pop();
 }
 
 static void test_fcode0_par(struct sthyi_par_sctn *par)
 {
 	int sum = par->INFPSCPS + par->INFPDCPS + par->INFPSIFL + par->INFPDIFL;
 
+	report_prefix_push("Partition");
 	if (par->INFPVAL1 & PART_CNT_VLD)
-		report("PAR core counts", sum);
+		report("core counts", sum);
 
 	if (par->INFPVAL1 & PART_STSI_SUC) {
-		report("PAR number", par->INFPPNUM);
-		report("PAR name", memcmp(par->INFPPNAM, null_buf, sizeof(par->INFPPNAM)));
+		report("number", par->INFPPNUM);
+		report("name", memcmp(par->INFPPNAM, null_buf, sizeof(par->INFPPNAM)));
 	}
+	report_prefix_pop();
 }
 
 static void test_fcode0(void)
@@ -133,6 +141,7 @@ static void test_fcode0(void)
 	/* Zero destination memory. */
 	memset(pagebuf, 0, PAGE_SIZE);
 
+	report_prefix_push("fcode 0");
 	sthyi((uint64_t)pagebuf, 0, NULL, 0, 2);
 	hdr = (void *)pagebuf;
 	mach = (void *)pagebuf + hdr->INFMOFF;
@@ -141,6 +150,7 @@ static void test_fcode0(void)
 	test_fcode0_hdr(hdr);
 	test_fcode0_mach(mach);
 	test_fcode0_par(par);
+	report_prefix_pop();
 }
 
 int main(void)
@@ -156,10 +166,12 @@ int main(void)
 	}
 
 	/* Test register/argument checking. */
+	report_prefix_push("Instruction");
 	test_exception_addr();
 	test_exception_reg_odd();
 	test_exception_reg_equal();
 	test_function_code((uint64_t) pagebuf);
+	report_prefix_pop();
 
 	/* Test function code 0 - CP and IFL Capacity Information */
 	test_fcode0();
