@@ -17,6 +17,7 @@ pretty_print_stacks=yes
 environ_default=yes
 u32_long=
 vmm="qemu"
+errata_force=0
 
 usage() {
     cat <<-EOF
@@ -118,6 +119,7 @@ elif [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
         arm_uart_early_addr=0x09000000
     elif [ "$vmm" = "kvmtool" ]; then
         arm_uart_early_addr=0x3f8
+        errata_force=1
     else
         echo '--vmm must be one of "qemu" or "kvmtool"!'
         usage
@@ -226,6 +228,7 @@ if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
 cat <<EOF >> lib/config.h
 
 #define CONFIG_UART_EARLY_BASE ${arm_uart_early_addr}
+#define CONFIG_ERRATA_FORCE ${errata_force}
 
 EOF
 fi
