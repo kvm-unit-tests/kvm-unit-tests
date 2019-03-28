@@ -1207,7 +1207,7 @@ static void init_vmcs_guest(void)
 	/* 26.3.1.4 */
 	vmcs_write(GUEST_RIP, (u64)(&guest_entry));
 	vmcs_write(GUEST_RSP, (u64)(guest_stack + PAGE_SIZE - 1));
-	vmcs_write(GUEST_RFLAGS, 0x2);
+	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED);
 
 	/* 26.3.1.5 */
 	vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
@@ -1751,7 +1751,7 @@ static int test_run(struct vmx_test *test)
 	test->exits = 0;
 	current = test;
 	regs = test->guest_regs;
-	vmcs_write(GUEST_RFLAGS, regs.rflags | 0x2);
+	vmcs_write(GUEST_RFLAGS, regs.rflags | X86_EFLAGS_FIXED);
 	launched = 0;
 	guest_finished = 0;
 	printf("\nTest suite: %s\n", test->name);
