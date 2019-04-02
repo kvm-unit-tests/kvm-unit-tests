@@ -5405,6 +5405,7 @@ struct apic_reg_virt_guest_args {
 	u32 reg;
 	u32 val;
 	bool check_rd;
+	u32 (*virt_fn)(u32);
 } apic_reg_virt_guest_args;
 
 static void apic_reg_virt_guest(void)
@@ -5418,6 +5419,7 @@ static void apic_reg_virt_guest(void)
 		u32 reg = args->reg;
 		u32 val = args->val;
 		bool check_rd = args->check_rd;
+		u32 (*virt_fn)(u32) = args->virt_fn;
 
 		if (op == TERMINATE)
 			break;
@@ -5425,9 +5427,13 @@ static void apic_reg_virt_guest(void)
 		if (op == APIC_OP_XAPIC_RD) {
 			u32 ret = vmx_xapic_read(apic_access_address, reg);
 
-			if (check_rd)
+			if (check_rd) {
+				u32 want = virt_fn(val);
+				u32 got = virt_fn(ret);
+
 				report("read 0x%x, expected 0x%x.",
-				       ret == val, ret, val);
+				       got == want, got, want);
+			}
 		} else if (op == APIC_OP_XAPIC_WR) {
 			vmx_xapic_write(apic_access_address, reg, val);
 		}
@@ -5457,6 +5463,7 @@ static void test_xapic_rd(
 	args->reg = reg;
 	args->val = val;
 	args->check_rd = exit_reason_want == VMX_VMCALL;
+	args->virt_fn = expectation->virt_fn;
 
 	/* Setup virtual APIC page */
 	if (!expectation->virtualize_apic_accesses) {
