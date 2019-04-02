@@ -5121,9 +5121,9 @@ static u32 apic_virt_identity(u32 val)
 	return val;
 }
 
-static u32 apic_virt_byte0(u32 val)
+static u32 apic_virt_nibble1(u32 val)
 {
-	return val & 0xff;
+	return val & 0xf0;
 }
 
 static u32 apic_virt_byte3(u32 val)
@@ -5168,7 +5168,7 @@ static bool apic_reg_virt_exit_expectation(
 		case APIC_TASKPRI:
 			expectation->rd_exit_reason = VMX_VMCALL;
 			expectation->wr_exit_reason = VMX_VMCALL;
-			expectation->virt_fn = apic_virt_byte0;
+			expectation->virt_fn = apic_virt_nibble1;
 			break;
 		default:
 			expectation->rd_exit_reason = VMX_APIC_ACCESS;
@@ -5203,7 +5203,7 @@ static bool apic_reg_virt_exit_expectation(
 			break;
 		case APIC_TASKPRI:
 			expectation->wr_exit_reason = VMX_VMCALL;
-			expectation->virt_fn = apic_virt_byte0;
+			expectation->virt_fn = apic_virt_nibble1;
 			break;
 		case APIC_ICR2:
 			expectation->wr_exit_reason = VMX_VMCALL;
@@ -5563,6 +5563,7 @@ static void test_xapic_wr(
 	if (virtualized && !checked) {
 		u32 want = expectation->virt_fn(val);
 		u32 got = virtual_apic_page[apic_reg_index(reg)];
+		got = expectation->virt_fn(got);
 
 		report("exitless write; val is 0x%x, want 0x%x",
 		       got == want, got, want);
@@ -5734,6 +5735,751 @@ static void apic_reg_virt_test(void)
 	vmcs_write(CPU_EXEC_CTRL0, cpu_exec_ctrl0);
 	vmcs_write(CPU_EXEC_CTRL1, cpu_exec_ctrl1);
 	args->op = TERMINATE;
+	enter_guest();
+	assert_exit_reason(VMX_VMCALL);
+}
+
+struct virt_x2apic_mode_config {
+	struct apic_reg_virt_config apic_reg_virt_config;
+	bool virtual_interrupt_delivery;
+	bool use_msr_bitmaps;
+	bool disable_x2apic_msr_intercepts;
+	bool disable_x2apic;
+};
+
+struct virt_x2apic_mode_test_case {
+	const char *name;
+	struct virt_x2apic_mode_config virt_x2apic_mode_config;
+};
+
+enum Virt_x2apic_mode_behavior_type {
+	X2APIC_ACCESS_VIRTUALIZED,
+	X2APIC_ACCESS_PASSED_THROUGH,
+	X2APIC_ACCESS_TRIGGERS_GP,
+};
+
+struct virt_x2apic_mode_expectation {
+	enum Reason rd_exit_reason;
+	enum Reason wr_exit_reason;
+
+	/*
+	 * RDMSR and WRMSR handle 64-bit values. However, except for ICR, all of
+	 * the x2APIC registers are 32 bits. Notice:
+	 *   1. vmx_x2apic_read() clears the upper 32 bits for 32-bit registers.
+	 *   2. vmx_x2apic_write() expects the val arg to be well-formed.
+	 */
+	u64 rd_val;
+	u64 wr_val;
+
+	/*
+	 * Compares input to virtualized output;
+	 * 1st arg is pointer to return expected virtualization output.
+	 */
+	u64 (*virt_fn)(u64);
+
+	enum Virt_x2apic_mode_behavior_type rd_behavior;
+	enum Virt_x2apic_mode_behavior_type wr_behavior;
+	bool wr_only;
+};
+
+static u64 virt_x2apic_mode_identity(u64 val)
+{
+	return val;
+}
+
+static u64 virt_x2apic_mode_nibble1(u64 val)
+{
+	return val & 0xf0;
+}
+
+static void virt_x2apic_mode_rd_expectation(
+	u32 reg, bool virt_x2apic_mode_on, bool disable_x2apic,
+	bool apic_register_virtualization, bool virtual_interrupt_delivery,
+	struct virt_x2apic_mode_expectation *expectation)
+{
+	bool readable =
+		!x2apic_reg_reserved(reg) &&
+		reg != APIC_EOI &&
+		reg != APIC_CMCI;
+
+	expectation->rd_exit_reason = VMX_VMCALL;
+	expectation->virt_fn = virt_x2apic_mode_identity;
+	if (virt_x2apic_mode_on && apic_register_virtualization) {
+		expectation->rd_val = MAGIC_VAL_1;
+		if (reg == APIC_PROCPRI && virtual_interrupt_delivery)
+			expectation->virt_fn = virt_x2apic_mode_nibble1;
+		else if (reg == APIC_TASKPRI)
+			expectation->virt_fn = virt_x2apic_mode_nibble1;
+		expectation->rd_behavior = X2APIC_ACCESS_VIRTUALIZED;
+	} else if (virt_x2apic_mode_on && !apic_register_virtualization &&
+		   reg == APIC_TASKPRI) {
+		expectation->rd_val = MAGIC_VAL_1;
+		expectation->virt_fn = virt_x2apic_mode_nibble1;
+		expectation->rd_behavior = X2APIC_ACCESS_VIRTUALIZED;
+	} else if (!disable_x2apic && readable) {
+		expectation->rd_val = apic_read(reg);
+		expectation->rd_behavior = X2APIC_ACCESS_PASSED_THROUGH;
+	} else {
+		expectation->rd_behavior = X2APIC_ACCESS_TRIGGERS_GP;
+	}
+}
+
+/*
+ * get_x2apic_wr_val() creates an innocuous write value for an x2APIC register.
+ *
+ * For writable registers, get_x2apic_wr_val() deposits the write value into the
+ * val pointer arg and returns true. For non-writable registers, val is not
+ * modified and get_x2apic_wr_val() returns false.
+ *
+ * CMCI, including the LVT CMCI register, is disabled by default. Thus,
+ * get_x2apic_wr_val() treats this register as non-writable.
+ */
+static bool get_x2apic_wr_val(u32 reg, u64 *val)
+{
+	switch (reg) {
+	case APIC_TASKPRI:
+		/* Bits 31:8 are reserved. */
+		*val &= 0xff;
+		break;
+	case APIC_EOI:
+	case APIC_ESR:
+	case APIC_TMICT:
+		/*
+		 * EOI, ESR: WRMSR of a non-zero value causes #GP(0).
+		 * TMICT: A write of 0 to the initial-count register effectively
+		 *        stops the local APIC timer, in both one-shot and
+		 *        periodic mode.
+		 */
+		*val = 0;
+		break;
+	case APIC_SPIV:
+	case APIC_LVTT:
+	case APIC_LVTTHMR:
+	case APIC_LVTPC:
+	case APIC_LVT0:
+	case APIC_LVT1:
+	case APIC_LVTERR:
+	case APIC_TDCR:
+		/*
+		 * To avoid writing a 1 to a reserved bit or causing some other
+		 * unintended side effect, read the current value and use it as
+		 * the write value.
+		 */
+		*val = apic_read(reg);
+		break;
+	case APIC_ICR:
+		*val = 0x40000 | 0xf1;
+		break;
+	case APIC_SELF_IPI:
+		/*
+		 * With special processing (i.e., virtualize x2APIC mode +
+		 * virtual interrupt delivery), writing zero causes an
+		 * APIC-write VM exit. We plan to add a test for enabling
+		 * "virtual-interrupt delivery" in VMCS12, and that's where we
+		 * will test a self IPI with special processing.
+		 */
+		*val = 0x0;
+		break;
+	default:
+		return false;
+	}
+
+	return true;
+}
+
+static bool special_processing_applies(u32 reg, u64 *val,
+				       bool virt_int_delivery)
+{
+	bool special_processing =
+		(reg == APIC_TASKPRI) ||
+		(virt_int_delivery &&
+		 (reg == APIC_EOI || reg == APIC_SELF_IPI));
+
+	if (special_processing) {
+		TEST_ASSERT(get_x2apic_wr_val(reg, val));
+		return true;
+	}
+
+	return false;
+}
+
+static void virt_x2apic_mode_wr_expectation(
+	u32 reg, bool virt_x2apic_mode_on, bool disable_x2apic,
+	bool virt_int_delivery,
+	struct virt_x2apic_mode_expectation *expectation)
+{
+	expectation->wr_exit_reason = VMX_VMCALL;
+	expectation->wr_val = MAGIC_VAL_1;
+	expectation->wr_only = false;
+
+	if (virt_x2apic_mode_on &&
+	    special_processing_applies(reg, &expectation->wr_val,
+				       virt_int_delivery)) {
+		expectation->wr_behavior = X2APIC_ACCESS_VIRTUALIZED;
+		if (reg == APIC_SELF_IPI)
+			expectation->wr_exit_reason = VMX_APIC_WRITE;
+	} else if (!disable_x2apic &&
+		   get_x2apic_wr_val(reg, &expectation->wr_val)) {
+		expectation->wr_behavior = X2APIC_ACCESS_PASSED_THROUGH;
+		if (reg == APIC_EOI || reg == APIC_SELF_IPI)
+			expectation->wr_only = true;
+		if (reg == APIC_ICR)
+			expectation->wr_exit_reason = VMX_EXTINT;
+	} else {
+		expectation->wr_behavior = X2APIC_ACCESS_TRIGGERS_GP;
+		/*
+		 * Writing 1 to a reserved bit triggers a #GP.
+		 * Thus, set the write value to 0, which seems
+		 * the most likely to detect a missed #GP.
+		 */
+		expectation->wr_val = 0;
+	}
+}
+
+static void virt_x2apic_mode_exit_expectation(
+	u32 reg, struct virt_x2apic_mode_config *config,
+	struct virt_x2apic_mode_expectation *expectation)
+{
+	struct apic_reg_virt_config *base_config =
+		&config->apic_reg_virt_config;
+	bool virt_x2apic_mode_on =
+		base_config->virtualize_x2apic_mode &&
+		config->use_msr_bitmaps &&
+		config->disable_x2apic_msr_intercepts &&
+		base_config->activate_secondary_controls;
+
+	virt_x2apic_mode_wr_expectation(
+		reg, virt_x2apic_mode_on, config->disable_x2apic,
+		config->virtual_interrupt_delivery, expectation);
+	virt_x2apic_mode_rd_expectation(
+		reg, virt_x2apic_mode_on, config->disable_x2apic,
+		base_config->apic_register_virtualization,
+		config->virtual_interrupt_delivery, expectation);
+}
+
+struct virt_x2apic_mode_test_case virt_x2apic_mode_tests[] = {
+	/*
+	 * Baseline "virtualize x2APIC mode" configuration:
+	 *   - virtualize x2APIC mode
+	 *   - virtual-interrupt delivery
+	 *   - APIC-register virtualization
+	 *   - x2APIC MSR intercepts disabled
+	 *
+	 * Reads come from virtual APIC page, special processing applies to
+	 * VTPR, EOI, and SELF IPI, and all other writes pass through to L1
+	 * APIC.
+	 */
+	{
+		.name = "Baseline",
+		.virt_x2apic_mode_config = {
+			.virtual_interrupt_delivery = true,
+			.use_msr_bitmaps = true,
+			.disable_x2apic_msr_intercepts = true,
+			.disable_x2apic = false,
+			.apic_reg_virt_config = {
+				.apic_register_virtualization = true,
+				.use_tpr_shadow = true,
+				.virtualize_apic_accesses = false,
+				.virtualize_x2apic_mode = true,
+				.activate_secondary_controls = true,
+			},
+		},
+	},
+	{
+		.name = "Baseline w/ x2apic disabled",
+		.virt_x2apic_mode_config = {
+			.virtual_interrupt_delivery = true,
+			.use_msr_bitmaps = true,
+			.disable_x2apic_msr_intercepts = true,
+			.disable_x2apic = true,
+			.apic_reg_virt_config = {
+				.apic_register_virtualization = true,
+				.use_tpr_shadow = true,
+				.virtualize_apic_accesses = false,
+				.virtualize_x2apic_mode = true,
+				.activate_secondary_controls = true,
+			},
+		},
+	},
+
+	/*
+	 * Baseline, minus virtual-interrupt delivery. Reads come from virtual
+	 * APIC page, special processing applies to VTPR, and all other writes
+	 * pass through to L1 APIC.
+	 */
+	{
+		.name = "Baseline - virtual interrupt delivery",
+		.virt_x2apic_mode_config = {
+			.virtual_interrupt_delivery = false,
+			.use_msr_bitmaps = true,
+			.disable_x2apic_msr_intercepts = true,
+			.disable_x2apic = false,
+			.apic_reg_virt_config = {
+				.apic_register_virtualization = true,
+				.use_tpr_shadow = true,
+				.virtualize_apic_accesses = false,
+				.virtualize_x2apic_mode = true,
+				.activate_secondary_controls = true,
+			},
+		},
+	},
+
+	/*
+	 * Baseline, minus APIC-register virtualization. x2APIC reads pass
+	 * through to L1's APIC, unless reading VTPR
+	 */
+	{
+		.name = "Virtualize x2APIC mode, no APIC reg virt",
+		.virt_x2apic_mode_config = {
+			.virtual_interrupt_delivery = true,
+			.use_msr_bitmaps = true,
+			.disable_x2apic_msr_intercepts = true,
+			.disable_x2apic = false,
+			.apic_reg_virt_config = {
+				.apic_register_virtualization = false,
+				.use_tpr_shadow = true,
+				.virtualize_apic_accesses = false,
+				.virtualize_x2apic_mode = true,
+				.activate_secondary_controls = true,
+			},
+		},
+	},
+	{
+		.name = "Virtualize x2APIC mode, no APIC reg virt, x2APIC off",
+		.virt_x2apic_mode_config = {
+			.virtual_interrupt_delivery = true,
+			.use_msr_bitmaps = true,
+			.disable_x2apic_msr_intercepts = true,
+			.disable_x2apic = true,
+			.apic_reg_virt_config = {
+				.apic_register_virtualization = false,
+				.use_tpr_shadow = true,
+				.virtualize_apic_accesses = false,
+				.virtualize_x2apic_mode = true,
+				.activate_secondary_controls = true,
+			},
+		},
+	},
+
+	/*
+	 * Enable "virtualize x2APIC mode" and "APIC-register virtualization",
+	 * and disable intercepts for the x2APIC MSRs, but fail to enable
+	 * "activate secondary controls" (i.e. L2 gets access to L1's x2APIC
+	 * MSRs).
+	 */
+	{
+		.name = "Fail to enable activate secondary controls",
+		.virt_x2apic_mode_config = {
+			.virtual_interrupt_delivery = true,
+			.use_msr_bitmaps = true,
+			.disable_x2apic_msr_intercepts = true,
+			.disable_x2apic = false,
+			.apic_reg_virt_config = {
+				.apic_register_virtualization = true,
+				.use_tpr_shadow = true,
+				.virtualize_apic_accesses = false,
+				.virtualize_x2apic_mode = true,
+				.activate_secondary_controls = false,
+			},
+		},
+	},
+
+	/*
+	 * Enable "APIC-register virtualization" and enable "activate secondary
+	 * controls" and disable intercepts for the x2APIC MSRs, but do not
+	 * enable the "virtualize x2APIC mode" VM-execution control (i.e. L2
+	 * gets access to L1's x2APIC MSRs).
+	 */
+	{
+		.name = "Fail to enable virtualize x2APIC mode",
+		.virt_x2apic_mode_config = {
+			.virtual_interrupt_delivery = true,
+			.use_msr_bitmaps = true,
+			.disable_x2apic_msr_intercepts = true,
+			.disable_x2apic = false,
+			.apic_reg_virt_config = {
+				.apic_register_virtualization = true,
+				.use_tpr_shadow = true,
+				.virtualize_apic_accesses = false,
+				.virtualize_x2apic_mode = false,
+				.activate_secondary_controls = true,
+			},
+		},
+	},
+};
+
+enum X2apic_op {
+	X2APIC_OP_RD,
+	X2APIC_OP_WR,
+	X2APIC_TERMINATE,
+};
+
+static u64 vmx_x2apic_read(u32 reg)
+{
+	u32 msr_addr = x2apic_msr(reg);
+	u64 val;
+
+	val = rdmsr(msr_addr);
+
+	return val;
+}
+
+static void vmx_x2apic_write(u32 reg, u64 val)
+{
+	u32 msr_addr = x2apic_msr(reg);
+
+	wrmsr(msr_addr, val);
+}
+
+struct virt_x2apic_mode_guest_args {
+	enum X2apic_op op;
+	u32 reg;
+	u64 val;
+	bool should_gp;
+	u64 (*virt_fn)(u64);
+} virt_x2apic_mode_guest_args;
+
+static volatile bool handle_x2apic_gp_ran;
+static volatile u32 handle_x2apic_gp_insn_len;
+static void handle_x2apic_gp(struct ex_regs *regs)
+{
+	handle_x2apic_gp_ran = true;
+	regs->rip += handle_x2apic_gp_insn_len;
+}
+
+static handler setup_x2apic_gp_handler(void)
+{
+	handler old_handler;
+
+	old_handler = handle_exception(GP_VECTOR, handle_x2apic_gp);
+	/* RDMSR and WRMSR are both 2 bytes, assuming no prefixes. */
+	handle_x2apic_gp_insn_len = 2;
+
+	return old_handler;
+}
+
+static void teardown_x2apic_gp_handler(handler old_handler)
+{
+	handle_exception(GP_VECTOR, old_handler);
+
+	/*
+	 * Defensively reset instruction length, so that if the handler is
+	 * incorrectly used, it will loop infinitely, rather than run off into
+	 * la la land.
+	 */
+	handle_x2apic_gp_insn_len = 0;
+	handle_x2apic_gp_ran = false;
+}
+
+static void virt_x2apic_mode_guest(void)
+{
+	volatile struct virt_x2apic_mode_guest_args *args =
+		&virt_x2apic_mode_guest_args;
+
+	for (;;) {
+		enum X2apic_op op = args->op;
+		u32 reg = args->reg;
+		u64 val = args->val;
+		bool should_gp = args->should_gp;
+		u64 (*virt_fn)(u64) = args->virt_fn;
+		handler old_handler;
+
+		if (op == X2APIC_TERMINATE)
+			break;
+
+		if (should_gp) {
+			TEST_ASSERT(!handle_x2apic_gp_ran);
+			old_handler = setup_x2apic_gp_handler();
+		}
+
+		if (op == X2APIC_OP_RD) {
+			u64 ret = vmx_x2apic_read(reg);
+
+			if (!should_gp) {
+				u64 want = virt_fn(val);
+				u64 got = virt_fn(ret);
+
+				report("APIC read; got 0x%lx, want 0x%lx.",
+				       got == want, got, want);
+			}
+		} else if (op == X2APIC_OP_WR) {
+			vmx_x2apic_write(reg, val);
+		}
+
+		if (should_gp) {
+			report("x2APIC op triggered GP.",
+			       handle_x2apic_gp_ran);
+			teardown_x2apic_gp_handler(old_handler);
+		}
+
+		/*
+		 * The L1 should always execute a vmcall after it's done testing
+		 * an individual APIC operation. This helps to validate that the
+		 * L1 and L2 are in sync with each other, as expected.
+		 */
+		vmcall();
+	}
+}
+
+static void test_x2apic_rd(
+	u32 reg, struct virt_x2apic_mode_expectation *expectation,
+	u32 *virtual_apic_page)
+{
+	u64 val = expectation->rd_val;
+	u32 exit_reason_want = expectation->rd_exit_reason;
+	struct virt_x2apic_mode_guest_args *args = &virt_x2apic_mode_guest_args;
+
+	report_prefix_pushf("x2apic - reading 0x%03x", reg);
+
+	/* Configure guest to do an x2apic read */
+	args->op = X2APIC_OP_RD;
+	args->reg = reg;
+	args->val = val;
+	args->should_gp = expectation->rd_behavior == X2APIC_ACCESS_TRIGGERS_GP;
+	args->virt_fn = expectation->virt_fn;
+
+	/* Setup virtual APIC page */
+	if (expectation->rd_behavior == X2APIC_ACCESS_VIRTUALIZED)
+		virtual_apic_page[apic_reg_index(reg)] = (u32)val;
+
+	/* Enter guest */
+	enter_guest();
+
+	if (exit_reason_want != VMX_VMCALL) {
+		report("Oops, bad exit expectation: %u.", false,
+		       exit_reason_want);
+	}
+
+	skip_exit_vmcall();
+	report_prefix_pop();
+}
+
+static volatile bool handle_x2apic_ipi_ran;
+static void handle_x2apic_ipi(isr_regs_t *regs)
+{
+	handle_x2apic_ipi_ran = true;
+	eoi();
+}
+
+static void test_x2apic_wr(
+	u32 reg, struct virt_x2apic_mode_expectation *expectation,
+	u32 *virtual_apic_page)
+{
+	u64 val = expectation->wr_val;
+	u32 exit_reason_want = expectation->wr_exit_reason;
+	struct virt_x2apic_mode_guest_args *args = &virt_x2apic_mode_guest_args;
+	int ipi_vector = 0xf1;
+
+	report_prefix_pushf("x2apic - writing 0x%lx to 0x%03x", val, reg);
+
+	/* Configure guest to do an x2apic read */
+	args->op = X2APIC_OP_WR;
+	args->reg = reg;
+	args->val = val;
+	args->should_gp = expectation->wr_behavior == X2APIC_ACCESS_TRIGGERS_GP;
+
+	/* Setup virtual APIC page */
+	if (expectation->wr_behavior == X2APIC_ACCESS_VIRTUALIZED)
+		virtual_apic_page[apic_reg_index(reg)] = 0;
+
+	/* Setup IPI handler */
+	handle_x2apic_ipi_ran = false;
+	handle_irq(ipi_vector, handle_x2apic_ipi);
+
+	/* Enter guest */
+	enter_guest();
+
+	/*
+	 * Validate the behavior and
+	 * pass a magic value back to the guest.
+	 */
+	if (exit_reason_want == VMX_EXTINT) {
+		assert_exit_reason(exit_reason_want);
+
+		/* Clear the external interrupt. */
+		irq_enable();
+		asm volatile ("nop");
+		irq_disable();
+		report("Got pending interrupt after IRQ enabled.",
+		       handle_x2apic_ipi_ran);
+
+		enter_guest();
+	} else if (exit_reason_want == VMX_APIC_WRITE) {
+		assert_exit_reason(exit_reason_want);
+		report("got APIC write exit @ page offset 0x%03x; val is 0x%x, want 0x%lx",
+		       virtual_apic_page[apic_reg_index(reg)] == val,
+		       apic_reg_index(reg),
+		       virtual_apic_page[apic_reg_index(reg)], val);
+
+		/* Reenter guest so it can consume/check rcx and exit again. */
+		enter_guest();
+	} else if (exit_reason_want != VMX_VMCALL) {
+		report("Oops, bad exit expectation: %u.", false,
+		       exit_reason_want);
+	}
+
+	assert_exit_reason(VMX_VMCALL);
+	if (expectation->wr_behavior == X2APIC_ACCESS_VIRTUALIZED) {
+		u64 want = val;
+		u32 got = virtual_apic_page[apic_reg_index(reg)];
+
+		report("x2APIC write; got 0x%x, want 0x%lx",
+		       got == want, got, want);
+	} else if (expectation->wr_behavior == X2APIC_ACCESS_PASSED_THROUGH) {
+		if (!expectation->wr_only) {
+			u32 got = apic_read(reg);
+			bool ok;
+
+			/*
+			 * When L1's TPR is passed through to L2, the lower
+			 * nibble can be lost. For example, if L2 executes
+			 * WRMSR(0x808, 0x78), then, L1 might read 0x70.
+			 *
+			 * Here's how the lower nibble can get lost:
+			 *   1. L2 executes WRMSR(0x808, 0x78).
+			 *   2. L2 exits to L0 with a WRMSR exit.
+			 *   3. L0 emulates WRMSR, by writing L1's TPR.
+			 *   4. L0 re-enters L2.
+			 *   5. L2 exits to L0 (reason doesn't matter).
+			 *   6. L0 reflects L2's exit to L1.
+			 *   7. Before entering L1, L0 exits to user-space
+			 *      (e.g., to satisfy TPR access reporting).
+			 *   8. User-space executes KVM_SET_REGS ioctl, which
+			 *      clears the lower nibble of L1's TPR.
+			 */
+			if (reg == APIC_TASKPRI) {
+				got = apic_virt_nibble1(got);
+				val = apic_virt_nibble1(val);
+			}
+
+			ok = got == val;
+			report("non-virtualized write; val is 0x%x, want 0x%lx",
+			       ok, got, val);
+		} else {
+			report("non-virtualized and write-only OK", true);
+		}
+	}
+	skip_exit_insn();
+
+	report_prefix_pop();
+}
+
+static enum Config_type configure_virt_x2apic_mode_test(
+	struct virt_x2apic_mode_config *virt_x2apic_mode_config,
+	u8 *msr_bitmap_page)
+{
+	int msr;
+	u32 cpu_exec_ctrl0 = vmcs_read(CPU_EXEC_CTRL0);
+	u64 cpu_exec_ctrl1 = vmcs_read(CPU_EXEC_CTRL1);
+
+	/* x2apic-specific VMCS config */
+	if (virt_x2apic_mode_config->use_msr_bitmaps) {
+		/* virt_x2apic_mode_test() checks for MSR bitmaps support */
+		cpu_exec_ctrl0 |= CPU_MSR_BITMAP;
+	} else {
+		cpu_exec_ctrl0 &= ~CPU_MSR_BITMAP;
+	}
+
+	if (virt_x2apic_mode_config->virtual_interrupt_delivery) {
+		if (!(ctrl_cpu_rev[1].clr & CPU_VINTD)) {
+			report_skip("VM-execution control \"virtual-interrupt delivery\" NOT supported.\n");
+			return CONFIG_TYPE_UNSUPPORTED;
+		}
+		cpu_exec_ctrl1 |= CPU_VINTD;
+	} else {
+		cpu_exec_ctrl1 &= ~CPU_VINTD;
+	}
+
+	vmcs_write(CPU_EXEC_CTRL0, cpu_exec_ctrl0);
+	vmcs_write(CPU_EXEC_CTRL1, cpu_exec_ctrl1);
+
+	/* x2APIC MSR intercepts are usually off for "Virtualize x2APIC mode" */
+	for (msr = 0x800; msr <= 0x8ff; msr++) {
+		if (virt_x2apic_mode_config->disable_x2apic_msr_intercepts) {
+			clear_bit(msr, msr_bitmap_page + 0x000);
+			clear_bit(msr, msr_bitmap_page + 0x800);
+		} else {
+			set_bit(msr, msr_bitmap_page + 0x000);
+			set_bit(msr, msr_bitmap_page + 0x800);
+		}
+	}
+
+	/* x2APIC mode can impact virtualization */
+	reset_apic();
+	if (!virt_x2apic_mode_config->disable_x2apic)
+		enable_x2apic();
+
+	return configure_apic_reg_virt_test(
+		&virt_x2apic_mode_config->apic_reg_virt_config);
+}
+
+static void virt_x2apic_mode_test(void)
+{
+	u32 *virtual_apic_page;
+	u8 *msr_bitmap_page;
+	u64 cpu_exec_ctrl0 = vmcs_read(CPU_EXEC_CTRL0);
+	u64 cpu_exec_ctrl1 = vmcs_read(CPU_EXEC_CTRL1);
+	int i;
+	struct virt_x2apic_mode_guest_args *args = &virt_x2apic_mode_guest_args;
+
+	/*
+	 * Check that VMCS12 supports:
+	 *   - "Virtual-APIC address", indicated by "use TPR shadow"
+	 *   - "MSR-bitmap address", indicated by "use MSR bitmaps"
+	 */
+	if (!(ctrl_cpu_rev[0].clr & CPU_TPR_SHADOW)) {
+		report_skip("VM-execution control \"use TPR shadow\" NOT supported.\n");
+		return;
+	} else if (!(ctrl_cpu_rev[0].clr & CPU_MSR_BITMAP)) {
+		report_skip("VM-execution control \"use MSR bitmaps\" NOT supported.\n");
+		return;
+	}
+
+	test_set_guest(virt_x2apic_mode_guest);
+
+	virtual_apic_page = alloc_page();
+	vmcs_write(APIC_VIRT_ADDR, virt_to_phys(virtual_apic_page));
+
+	msr_bitmap_page = alloc_page();
+	memset(msr_bitmap_page, 0xff, PAGE_SIZE);
+	vmcs_write(MSR_BITMAP, virt_to_phys(msr_bitmap_page));
+
+	for (i = 0; i < ARRAY_SIZE(virt_x2apic_mode_tests); i++) {
+		struct virt_x2apic_mode_test_case *virt_x2apic_mode_test_case =
+			&virt_x2apic_mode_tests[i];
+		struct virt_x2apic_mode_config *virt_x2apic_mode_config =
+			&virt_x2apic_mode_test_case->virt_x2apic_mode_config;
+		enum Config_type config_type;
+		u32 reg;
+
+		printf("--- %s test ---\n", virt_x2apic_mode_test_case->name);
+		config_type =
+			configure_virt_x2apic_mode_test(virt_x2apic_mode_config,
+							msr_bitmap_page);
+		if (config_type == CONFIG_TYPE_UNSUPPORTED) {
+			report_skip("Skip because of missing features.\n");
+			continue;
+		} else if (config_type == CONFIG_TYPE_VMENTRY_FAILS_EARLY) {
+			enter_guest_with_bad_controls();
+			continue;
+		}
+
+		for (reg = 0; reg < PAGE_SIZE / sizeof(u32); reg += 0x10) {
+			struct virt_x2apic_mode_expectation expectation;
+
+			virt_x2apic_mode_exit_expectation(
+				reg, virt_x2apic_mode_config, &expectation);
+
+			test_x2apic_rd(reg, &expectation, virtual_apic_page);
+			test_x2apic_wr(reg, &expectation, virtual_apic_page);
+		}
+	}
+
+
+	/* Terminate the guest */
+	vmcs_write(CPU_EXEC_CTRL0, cpu_exec_ctrl0);
+	vmcs_write(CPU_EXEC_CTRL1, cpu_exec_ctrl1);
+	args->op = X2APIC_TERMINATE;
 	enter_guest();
 	assert_exit_reason(VMX_VMCALL);
 }
@@ -7320,6 +8066,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_eoi_bitmap_ioapic_scan_test),
 	TEST(vmx_hlt_with_rvi_test),
 	TEST(apic_reg_virt_test),
+	TEST(virt_x2apic_mode_test),
 	/* APIC pass-through tests */
 	TEST(vmx_apic_passthrough_test),
 	TEST(vmx_apic_passthrough_thread_test),

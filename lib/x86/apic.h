@@ -62,4 +62,26 @@ static inline u32 apic_reg_index(u32 reg)
 	return reg >> 2;
 }
 
+static inline u32 x2apic_msr(u32 reg)
+{
+	return APIC_BASE_MSR + (reg >> 4);
+}
+
+static inline bool x2apic_reg_reserved(u32 reg)
+{
+	switch (reg) {
+	case 0x000 ... 0x010:
+	case 0x040 ... 0x070:
+	case 0x0c0:
+	case 0x0e0:
+	case 0x290 ... 0x2e0:
+	case 0x310:
+	case 0x3a0 ... 0x3d0:
+	case 0x3f0:
+		return true;
+	default:
+		return false;
+	}
+}
+
 #endif
