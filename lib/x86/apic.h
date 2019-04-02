@@ -56,4 +56,10 @@ int enable_x2apic(void);
 void disable_apic(void);
 void reset_apic(void);
 
+/* Converts byte-addressable APIC register offset to 4-byte offset. */
+static inline u32 apic_reg_index(u32 reg)
+{
+	return reg >> 2;
+}
+
 #endif

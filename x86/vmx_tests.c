@@ -5090,6 +5090,447 @@ static void vmx_controls_test(void)
 	test_vm_entry_ctls();
 }
 
+struct apic_reg_virt_config {
+	bool apic_register_virtualization;
+	bool use_tpr_shadow;
+	bool virtualize_apic_accesses;
+	bool virtualize_x2apic_mode;
+};
+
+struct apic_reg_test {
+	const char *name;
+	struct apic_reg_virt_config apic_reg_virt_config;
+};
+
+struct apic_reg_virt_expectation {
+	enum Reason rd_exit_reason;
+	enum Reason wr_exit_reason;
+	u32 val;
+	u32 (*virt_fn)(u32);
+};
+
+static u32 apic_virt_identity(u32 val)
+{
+	return val;
+}
+
+static u32 apic_virt_byte0(u32 val)
+{
+	return val & 0xff;
+}
+
+static u32 apic_virt_byte3(u32 val)
+{
+	return val & (0xff << 24);
+}
+
+static bool apic_reg_virt_exit_expectation(
+	u32 reg, struct apic_reg_virt_config *config,
+	struct apic_reg_virt_expectation *expectation)
+{
+	bool virtualize_apic_accesses_only =
+		config->virtualize_apic_accesses &&
+		!config->use_tpr_shadow &&
+		!config->apic_register_virtualization &&
+		!config->virtualize_x2apic_mode;
+	bool virtualize_apic_accesses_and_use_tpr_shadow =
+		config->virtualize_apic_accesses &&
+		config->use_tpr_shadow &&
+		!config->apic_register_virtualization &&
+		!config->virtualize_x2apic_mode;
+	bool apic_register_virtualization =
+		config->virtualize_apic_accesses &&
+		config->use_tpr_shadow &&
+		config->apic_register_virtualization &&
+		!config->virtualize_x2apic_mode;
+
+	expectation->val = MAGIC_VAL_1;
+	expectation->virt_fn = apic_virt_identity;
+	if (virtualize_apic_accesses_only) {
+		expectation->rd_exit_reason = VMX_APIC_ACCESS;
+		expectation->wr_exit_reason = VMX_APIC_ACCESS;
+	} else if (virtualize_apic_accesses_and_use_tpr_shadow) {
+		switch (reg) {
+		case APIC_TASKPRI:
+			expectation->rd_exit_reason = VMX_VMCALL;
+			expectation->wr_exit_reason = VMX_VMCALL;
+			expectation->virt_fn = apic_virt_byte0;
+			break;
+		default:
+			expectation->rd_exit_reason = VMX_APIC_ACCESS;
+			expectation->wr_exit_reason = VMX_APIC_ACCESS;
+		}
+	} else if (apic_register_virtualization) {
+		expectation->rd_exit_reason = VMX_VMCALL;
+
+		switch (reg) {
+		case APIC_ID:
+		case APIC_EOI:
+		case APIC_LDR:
+		case APIC_DFR:
+		case APIC_SPIV:
+		case APIC_ESR:
+		case APIC_ICR:
+		case APIC_LVTT:
+		case APIC_LVTTHMR:
+		case APIC_LVTPC:
+		case APIC_LVT0:
+		case APIC_LVT1:
+		case APIC_LVTERR:
+		case APIC_TMICT:
+		case APIC_TDCR:
+			expectation->wr_exit_reason = VMX_APIC_WRITE;
+			break;
+		case APIC_LVR:
+		case APIC_ISR ... APIC_ISR + 0x70:
+		case APIC_TMR ... APIC_TMR + 0x70:
+		case APIC_IRR ... APIC_IRR + 0x70:
+			expectation->wr_exit_reason = VMX_APIC_ACCESS;
+			break;
+		case APIC_TASKPRI:
+			expectation->wr_exit_reason = VMX_VMCALL;
+			expectation->virt_fn = apic_virt_byte0;
+			break;
+		case APIC_ICR2:
+			expectation->wr_exit_reason = VMX_VMCALL;
+			expectation->virt_fn = apic_virt_byte3;
+			break;
+		default:
+			expectation->rd_exit_reason = VMX_APIC_ACCESS;
+			expectation->wr_exit_reason = VMX_APIC_ACCESS;
+		}
+	} else {
+		printf("Cannot parse APIC register virtualization config:\n"
+		       "\tvirtualize_apic_accesses: %d\n"
+		       "\tuse_tpr_shadow: %d\n"
+		       "\tapic_register_virtualization: %d\n"
+		       "\tvirtualize_x2apic_mode: %d\n",
+		       config->virtualize_apic_accesses,
+		       config->use_tpr_shadow,
+		       config->apic_register_virtualization,
+		       config->virtualize_x2apic_mode);
+
+		return false;
+	}
+
+	return true;
+}
+
+struct apic_reg_test apic_reg_tests[] = {
+	{
+		.name = "Virtualize APIC accesses",
+		.apic_reg_virt_config = {
+			.virtualize_apic_accesses = true,
+			.use_tpr_shadow = false,
+			.apic_register_virtualization = false,
+			.virtualize_x2apic_mode = false,
+		},
+	},
+	{
+		.name = "Virtualize APIC accesses + Use TPR shadow",
+		.apic_reg_virt_config = {
+			.virtualize_apic_accesses = true,
+			.use_tpr_shadow = true,
+			.apic_register_virtualization = false,
+			.virtualize_x2apic_mode = false,
+		},
+	},
+	{
+		.name = "APIC-register virtualization",
+		.apic_reg_virt_config = {
+			.virtualize_apic_accesses = true,
+			.use_tpr_shadow = true,
+			.apic_register_virtualization = true,
+			.virtualize_x2apic_mode = false,
+		},
+	},
+};
+
+enum Apic_op {
+	APIC_OP_XAPIC_RD,
+	APIC_OP_XAPIC_WR,
+	TERMINATE,
+};
+
+static u32 vmx_xapic_read(u32 reg)
+{
+	/* This code assumes the APIC access address is 0 */
+	return *(volatile u32 *)(uintptr_t)reg;
+}
+
+static void vmx_xapic_write(u32 reg, u32 val)
+{
+	/* This code assumes the APIC access address is 0 */
+	*(volatile u32 *)(uintptr_t)reg = val;
+}
+
+struct apic_reg_virt_guest_args {
+	enum Apic_op op;
+	u32 reg;
+	u32 val;
+	bool virtualized;
+} apic_reg_virt_guest_args;
+
+static void apic_reg_virt_guest(void)
+{
+	volatile struct apic_reg_virt_guest_args *args =
+		&apic_reg_virt_guest_args;
+
+	for (;;) {
+		enum Apic_op op = args->op;
+		u32 reg = args->reg;
+		u32 val = args->val;
+		bool virtualized = args->virtualized;
+
+		if (op == TERMINATE)
+			break;
+
+		if (op == APIC_OP_XAPIC_RD) {
+			u32 ret = vmx_xapic_read(reg);
+
+			if (virtualized)
+				report("read 0x%x, expected 0x%x.",
+				       ret == val, ret, val);
+		} else if (op == APIC_OP_XAPIC_WR) {
+			vmx_xapic_write(reg, val);
+		}
+
+		/*
+		 * The L1 should always execute a vmcall after it's done testing
+		 * an individual APIC operation. This helps to validate that the
+		 * L1 and L2 are in sync with each other, as expected.
+		 */
+		vmcall();
+	}
+}
+
+static void test_xapic_rd(
+	u32 reg, struct apic_reg_virt_expectation *expectation,
+	u32 *virtual_apic_page)
+{
+	u32 val = expectation->val;
+	u32 exit_reason_want = expectation->rd_exit_reason;
+	struct apic_reg_virt_guest_args *args = &apic_reg_virt_guest_args;
+	bool virtualized = exit_reason_want == VMX_VMCALL;
+
+	report_prefix_pushf("xapic - reading 0x%03x", reg);
+
+	/* Configure guest to do an xapic read */
+	args->op = APIC_OP_XAPIC_RD;
+	args->reg = reg;
+	args->val = val;
+	args->virtualized = virtualized;
+
+	/* Setup virtual APIC page */
+	if (virtualized)
+		virtual_apic_page[apic_reg_index(reg)] = val;
+
+	/* Enter guest */
+	enter_guest();
+
+	/*
+	 * Validate the behavior and
+	 * pass a magic value back to the guest.
+	 */
+	if (exit_reason_want == VMX_APIC_ACCESS) {
+		u32 apic_page_offset = vmcs_read(EXI_QUALIFICATION) & 0xfff;
+
+		assert_exit_reason(exit_reason_want);
+		report("got APIC access exit @ page offset 0x%03x, want 0x%03x",
+		       apic_page_offset == reg, apic_page_offset, reg);
+		skip_exit_insn();
+
+		/* Reenter guest so it can consume/check rcx and exit again. */
+		enter_guest();
+	} else if (exit_reason_want != VMX_VMCALL) {
+		report("Oops, bad exit expectation: %u.", false,
+		       exit_reason_want);
+	}
+
+	skip_exit_vmcall();
+	report_prefix_pop();
+}
+
+static void test_xapic_wr(
+	u32 reg, struct apic_reg_virt_expectation *expectation,
+	u32 *virtual_apic_page)
+{
+	u32 val = expectation->val;
+	u32 exit_reason_want = expectation->wr_exit_reason;
+	struct apic_reg_virt_guest_args *args = &apic_reg_virt_guest_args;
+	bool virtualized =
+		exit_reason_want == VMX_APIC_WRITE ||
+		exit_reason_want == VMX_VMCALL;
+	bool checked = false;
+
+	report_prefix_pushf("xapic - writing 0x%x to 0x%03x", val, reg);
+
+	/* Configure guest to do an xapic read */
+	args->op = APIC_OP_XAPIC_WR;
+	args->reg = reg;
+	args->val = val;
+
+	/* Setup virtual APIC page */
+	if (virtualized)
+		virtual_apic_page[apic_reg_index(reg)] = 0;
+
+	/* Enter guest */
+	enter_guest();
+
+	/*
+	 * Validate the behavior and
+	 * pass a magic value back to the guest.
+	 */
+	if (exit_reason_want == VMX_APIC_ACCESS) {
+		u32 apic_page_offset = vmcs_read(EXI_QUALIFICATION) & 0xfff;
+
+		assert_exit_reason(exit_reason_want);
+		report("got APIC access exit @ page offset 0x%03x, want 0x%03x",
+		       apic_page_offset == reg, apic_page_offset, reg);
+		skip_exit_insn();
+
+		/* Reenter guest so it can consume/check rcx and exit again. */
+		enter_guest();
+	} else if (exit_reason_want == VMX_APIC_WRITE) {
+		assert_exit_reason(exit_reason_want);
+		report("got APIC write exit @ page offset 0x%03x; val is 0x%x, want 0x%x",
+		       virtual_apic_page[apic_reg_index(reg)] == val,
+		       apic_reg_index(reg),
+		       virtual_apic_page[apic_reg_index(reg)], val);
+		checked = true;
+
+		/* Reenter guest so it can consume/check rcx and exit again. */
+		enter_guest();
+	} else if (exit_reason_want != VMX_VMCALL) {
+		report("Oops, bad exit expectation: %u.", false,
+		       exit_reason_want);
+	}
+
+	assert_exit_reason(VMX_VMCALL);
+	if (virtualized && !checked) {
+		u32 want = expectation->virt_fn(val);
+		u32 got = virtual_apic_page[apic_reg_index(reg)];
+
+		report("exitless write; val is 0x%x, want 0x%x",
+		       got == want, got, want);
+	}
+
+	skip_exit_vmcall();
+	report_prefix_pop();
+}
+
+static bool configure_apic_reg_virt_test(
+		struct apic_reg_virt_config *apic_reg_virt_config)
+{
+	u32 cpu_exec_ctrl0 = vmcs_read(CPU_EXEC_CTRL0);
+	u32 cpu_exec_ctrl1 = vmcs_read(CPU_EXEC_CTRL1);
+
+	if (apic_reg_virt_config->virtualize_apic_accesses) {
+		if (!(ctrl_cpu_rev[1].clr & CPU_VIRT_APIC_ACCESSES)) {
+			printf("VM-execution control \"virtualize APIC accesses\" NOT supported.\n");
+			return false;
+		}
+		cpu_exec_ctrl1 |= CPU_VIRT_APIC_ACCESSES;
+	} else {
+		cpu_exec_ctrl1 &= ~CPU_VIRT_APIC_ACCESSES;
+	}
+
+	if (apic_reg_virt_config->use_tpr_shadow) {
+		if (!(ctrl_cpu_rev[0].clr & CPU_TPR_SHADOW)) {
+			printf("VM-execution control \"use TPR shadow\" NOT supported.\n");
+			return false;
+		}
+		cpu_exec_ctrl0 |= CPU_TPR_SHADOW;
+	} else {
+		cpu_exec_ctrl0 &= ~CPU_TPR_SHADOW;
+	}
+
+	if (apic_reg_virt_config->apic_register_virtualization) {
+		if (!(ctrl_cpu_rev[1].clr & CPU_APIC_REG_VIRT)) {
+			printf("VM-execution control \"APIC-register virtualization\" NOT supported.\n");
+			return false;
+		}
+		cpu_exec_ctrl1 |= CPU_APIC_REG_VIRT;
+	} else {
+		cpu_exec_ctrl1 &= ~CPU_APIC_REG_VIRT;
+	}
+
+	if (apic_reg_virt_config->virtualize_x2apic_mode) {
+		if (!(ctrl_cpu_rev[1].clr & CPU_VIRT_X2APIC)) {
+			printf("VM-execution control \"virtualize x2APIC mode\" NOT supported.\n");
+			return false;
+		}
+		cpu_exec_ctrl1 |= CPU_VIRT_X2APIC;
+	} else {
+		cpu_exec_ctrl1 &= ~CPU_VIRT_X2APIC;
+	}
+
+	vmcs_write(CPU_EXEC_CTRL0, cpu_exec_ctrl0);
+	vmcs_write(CPU_EXEC_CTRL1, cpu_exec_ctrl1);
+
+	return true;
+}
+
+static void apic_reg_virt_test(void)
+{
+	u32 *virtual_apic_page;
+	u64 control;
+	int i;
+	struct apic_reg_virt_guest_args *args = &apic_reg_virt_guest_args;
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY)) {
+		printf("VM-execution control \"activate secondary controls\" NOT supported.\n");
+		return;
+	}
+	control = vmcs_read(CPU_EXEC_CTRL0);
+	control |= CPU_SECONDARY;
+	vmcs_write(CPU_EXEC_CTRL0, control);
+
+	control = vmcs_read(CPU_EXEC_CTRL1);
+	control &= ~CPU_VINTD;
+	vmcs_write(CPU_EXEC_CTRL1, control);
+
+	test_set_guest(apic_reg_virt_guest);
+
+	vmcs_write(APIC_ACCS_ADDR, 0);
+
+	virtual_apic_page = alloc_page();
+	vmcs_write(APIC_VIRT_ADDR, virt_to_phys(virtual_apic_page));
+
+	for (i = 0; i < ARRAY_SIZE(apic_reg_tests); i++) {
+		struct apic_reg_test *apic_reg_test = &apic_reg_tests[i];
+		struct apic_reg_virt_config *apic_reg_virt_config =
+				&apic_reg_test->apic_reg_virt_config;
+		u32 reg;
+
+		printf("--- %s test ---\n", apic_reg_test->name);
+		if (!configure_apic_reg_virt_test(apic_reg_virt_config)) {
+			printf("Skip because of missing features.\n");
+			continue;
+		}
+
+		for (reg = 0; reg < PAGE_SIZE / sizeof(u32); reg += 0x10) {
+			struct apic_reg_virt_expectation expectation = {};
+			bool ok;
+
+			ok = apic_reg_virt_exit_expectation(
+				reg, apic_reg_virt_config, &expectation);
+			if (!ok) {
+				report("Malformed test.", false);
+				break;
+			}
+
+			test_xapic_rd(reg, &expectation, virtual_apic_page);
+			test_xapic_wr(reg, &expectation, virtual_apic_page);
+		}
+	}
+
+	/* Terminate the guest */
+	args->op = TERMINATE;
+	enter_guest();
+	assert_exit_reason(VMX_VMCALL);
+}
+
 static void test_ctl_reg(const char *cr_name, u64 cr, u64 fixed0, u64 fixed1)
 {
 	u64 val;
@@ -6671,6 +7112,7 @@ struct vmx_test vmx_tests[] = {
 	/* APICv tests */
 	TEST(vmx_eoi_bitmap_ioapic_scan_test),
 	TEST(vmx_hlt_with_rvi_test),
+	TEST(apic_reg_virt_test),
 	/* APIC pass-through tests */
 	TEST(vmx_apic_passthrough_test),
 	TEST(vmx_apic_passthrough_thread_test),
