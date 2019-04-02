@@ -177,3 +177,86 @@ phys_addr_t virt_to_pte_phys(pgd_t *cr3, void *mem)
 {
     return (*get_pte(cr3, mem) & PT_ADDR_MASK) + ((ulong)mem & (PAGE_SIZE - 1));
 }
+
+/*
+ * split_large_page: Split a 2M/1G large page into 512 smaller PTEs.
+ *   @ptep : large page table entry to split
+ *   @level : level of ptep (2 or 3)
+ */
+void split_large_page(unsigned long *ptep, int level)
+{
+	unsigned long *new_pt;
+	unsigned long pa;
+	unsigned long pte;
+	unsigned long prototype;
+	int i;
+
+	pte = *ptep;
+	assert(pte & PT_PRESENT_MASK);
+	assert(pte & PT_PAGE_SIZE_MASK);
+	assert(level == 2 || level == 3);
+
+	new_pt = alloc_page();
+	assert(new_pt);
+
+	prototype = pte & ~PT_ADDR_MASK;
+	if (level == 2)
+		prototype &= ~PT_PAGE_SIZE_MASK;
+
+	pa = pte & PT_ADDR_MASK;
+	for (i = 0; i < (1 << PGDIR_WIDTH); i++) {
+		new_pt[i] = prototype | pa;
+		pa += 1ul << PGDIR_BITS(level - 1);
+	}
+
+	pte &= ~PT_PAGE_SIZE_MASK;
+	pte &= ~PT_ADDR_MASK;
+	pte |= virt_to_phys(new_pt);
+
+	/* Modify the relevant paging-structure entry */
+	*ptep = pte;
+
+	/*
+	 * Flush the TLB to eradicate stale mappings.
+	 *
+	 * Note: Removing specific TLB mappings is tricky because
+	 * split_large_page() can be called to split the active code page
+	 * backing the next set of instructions to be fetched and executed.
+	 * Furthermore, Intel SDM volume 3 recommends to clear the present bit
+	 * for the page being split, before invalidating any mappings.
+	 *
+	 * But clearing the mapping from the page table and removing it from the
+	 * TLB (where it's not actually guaranteed to reside anyway) makes it
+	 * impossible to continue fetching instructions!
+	 */
+	flush_tlb();
+}
+
+/*
+ * force_4k_page: Ensures that addr translate to a 4k page.
+ *
+ * This function uses split_large_page(), as needed, to ensure that target
+ * address, addr, translates to a 4k page.
+ *
+ *   @addr: target address that should be mapped to a 4k page
+ */
+void force_4k_page(void *addr)
+{
+	unsigned long *ptep;
+	unsigned long pte;
+	unsigned long *cr3 = current_page_table();
+
+	ptep = get_pte_level(cr3, addr, 3);
+	assert(ptep);
+	pte = *ptep;
+	assert(pte & PT_PRESENT_MASK);
+	if (pte & PT_PAGE_SIZE_MASK)
+		split_large_page(ptep, 3);
+
+	ptep = get_pte_level(cr3, addr, 2);
+	assert(ptep);
+	pte = *ptep;
+	assert(pte & PT_PRESENT_MASK);
+	if (pte & PT_PAGE_SIZE_MASK)
+		split_large_page(ptep, 2);
+}

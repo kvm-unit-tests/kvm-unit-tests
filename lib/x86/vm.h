@@ -42,4 +42,7 @@ static inline void *current_page_table(void)
 {
 	return phys_to_virt(read_cr3());
 }
+
+void split_large_page(unsigned long *ptep, int level);
+void force_4k_page(void *addr);
 #endif

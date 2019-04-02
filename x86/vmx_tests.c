@@ -5673,7 +5673,13 @@ static void apic_reg_virt_test(void)
 
 	test_set_guest(apic_reg_virt_guest);
 
+	/*
+	 * From the SDM: The 1-setting of the "virtualize APIC accesses"
+	 * VM-execution is guaranteed to apply only if translations to the
+	 * APIC-access address use a 4-KByte page.
+	 */
 	apic_access_address = alloc_page();
+	force_4k_page(apic_access_address);
 	vmcs_write(APIC_ACCS_ADDR, virt_to_phys(apic_access_address));
 
 	virtual_apic_page = alloc_page();

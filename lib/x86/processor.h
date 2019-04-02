@@ -36,6 +36,7 @@
 #define X86_CR4_PSE    0x00000010
 #define X86_CR4_PAE    0x00000020
 #define X86_CR4_MCE    0x00000040
+#define X86_CR4_PGE    0x00000080
 #define X86_CR4_PCE    0x00000100
 #define X86_CR4_UMIP   0x00000800
 #define X86_CR4_VMXE   0x00002000
@@ -475,6 +476,15 @@ static inline void set_bit(int bit, u8 *addr)
 {
 	__asm__ __volatile__("bts %1, %0"
 			     : "+m" (*addr) : "Ir" (bit) : "cc", "memory");
+}
+
+static inline void flush_tlb(void)
+{
+	ulong cr4;
+
+	cr4 = read_cr4();
+	write_cr4(cr4 ^ X86_CR4_PGE);
+	write_cr4(cr4);
 }
 
 #endif
