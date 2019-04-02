@@ -812,6 +812,7 @@ bool ept_execute_only_supported(void);
 bool ept_ad_bits_supported(void);
 
 void enter_guest(void);
+void enter_guest_with_bad_controls(void);
 
 typedef void (*test_guest_func)(void);
 typedef void (*test_teardown_func)(void *data);

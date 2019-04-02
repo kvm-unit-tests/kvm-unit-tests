@@ -1763,6 +1763,30 @@ void test_set_guest(test_guest_func func)
 	v2_guest_main = func;
 }
 
+static void check_for_guest_termination(void)
+{
+	if (is_hypercall()) {
+		int ret;
+
+		ret = handle_hypercall();
+		switch (ret) {
+		case VMX_TEST_VMEXIT:
+			guest_finished = 1;
+			break;
+		case VMX_TEST_VMABORT:
+			continue_abort();
+			break;
+		case VMX_TEST_VMSKIP:
+			continue_skip();
+			break;
+		default:
+			printf("ERROR : Invalid handle_hypercall return %d.\n",
+			       ret);
+			abort();
+		}
+	}
+}
+
 /*
  * Enters the guest (or launches it for the first time). Error to call once the
  * guest has returned (i.e., run past the end of its guest() function). Also
@@ -1785,26 +1809,39 @@ void enter_guest(void)
 
 	launched = 1;
 
-	if (is_hypercall()) {
-		int ret;
+	check_for_guest_termination();
+}
 
-		ret = handle_hypercall();
-		switch (ret) {
-		case VMX_TEST_VMEXIT:
-			guest_finished = 1;
-			break;
-		case VMX_TEST_VMABORT:
-			continue_abort();
-			break;
-		case VMX_TEST_VMSKIP:
-			continue_skip();
-			break;
-		default:
-			printf("ERROR : Invalid handle_hypercall return %d.\n",
-			       ret);
-			abort();
-		}
-	}
+void enter_guest_with_bad_controls(void)
+{
+	struct vmentry_failure failure;
+	bool ok;
+
+	TEST_ASSERT_MSG(v2_guest_main,
+			"Never called test_set_guest_func!");
+
+	TEST_ASSERT_MSG(!guest_finished,
+			"Called enter_guest() after guest returned.");
+
+	ok = vmx_enter_guest(&failure);
+	report_xfail("vmlaunch fails, as expected",
+		     true, ok);
+	report("failure occurred early", failure.early);
+	report("FLAGS set correctly",
+	       (failure.flags & VMX_ENTRY_FLAGS) == X86_EFLAGS_ZF);
+	report("VM-Inst Error # is %d (VM entry with invalid control field(s))",
+	       vmcs_read(VMX_INST_ERROR) == VMXERR_ENTRY_INVALID_CONTROL_FIELD,
+	       VMXERR_ENTRY_INVALID_CONTROL_FIELD);
+
+	/*
+	 * This if statement shouldn't fire, as the entire premise of this
+	 * function is that VM entry is expected to fail, rather than succeed
+	 * and execute to termination. However, if the VM entry does
+	 * unexpectedly succeed, it's nice to check whether the guest has
+	 * terminated, to reduce the number of error messages.
+	 */
+	if (ok)
+		check_for_guest_termination();
 }
 
 extern struct vmx_test vmx_tests[];
