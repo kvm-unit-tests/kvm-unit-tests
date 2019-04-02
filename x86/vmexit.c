@@ -417,11 +417,6 @@ static void tscdeadline(void)
 	while (x == 0) barrier();
 }
 
-static int has_spec_ctrl(void)
-{
-    return !!(cpuid_indexed(7,0).d & (1 << 26));
-}
-
 static void wr_ibrs_msr(void)
 {
 	wrmsr(MSR_IA32_SPEC_CTRL, 1);

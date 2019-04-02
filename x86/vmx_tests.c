@@ -6106,6 +6106,27 @@ struct virt_x2apic_mode_test_case virt_x2apic_mode_tests[] = {
 			},
 		},
 	},
+
+	/*
+	 * Disable "Virtualize x2APIC mode", disable x2APIC MSR intercepts, and
+	 * enable "APIC-register virtualization" --> L2 gets L1's x2APIC MSRs.
+	 */
+	{
+		.name = "Baseline",
+		.virt_x2apic_mode_config = {
+			.virtual_interrupt_delivery = true,
+			.use_msr_bitmaps = true,
+			.disable_x2apic_msr_intercepts = true,
+			.disable_x2apic = false,
+			.apic_reg_virt_config = {
+				.apic_register_virtualization = true,
+				.use_tpr_shadow = true,
+				.virtualize_apic_accesses = false,
+				.virtualize_x2apic_mode = false,
+				.activate_secondary_controls = true,
+			},
+		},
+	},
 };
 
 enum X2apic_op {
@@ -6421,6 +6442,16 @@ static void virt_x2apic_mode_test(void)
 	u64 cpu_exec_ctrl1 = vmcs_read(CPU_EXEC_CTRL1);
 	int i;
 	struct virt_x2apic_mode_guest_args *args = &virt_x2apic_mode_guest_args;
+
+	/*
+	 * This is to exercise an issue in KVM's logic to merge L0's and L1's
+	 * MSR bitmaps. Previously, an L1 could get at L0's x2APIC MSRs by
+	 * writing the IA32_SPEC_CTRL MSR or the IA32_PRED_CMD MSRs. KVM would
+	 * then proceed to manipulate the MSR bitmaps, as if VMCS12 had the
+	 * "Virtualize x2APIC mod" control set, even when it didn't.
+	 */
+	if (has_spec_ctrl())
+		wrmsr(MSR_IA32_SPEC_CTRL, 1);
 
 	/*
 	 * Check that VMCS12 supports:

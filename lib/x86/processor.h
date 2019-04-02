@@ -487,4 +487,9 @@ static inline void flush_tlb(void)
 	write_cr4(cr4);
 }
 
+static inline int has_spec_ctrl(void)
+{
+    return !!(cpuid_indexed(7,0).d & (1 << 26));
+}
+
 #endif
