@@ -16,6 +16,8 @@ endian=""
 pretty_print_stacks=yes
 environ_default=yes
 u32_long=
+vmm="qemu"
+errata_force=0
 
 usage() {
     cat <<-EOF
@@ -24,6 +26,8 @@ usage() {
 	Options include:
 	    --arch=ARCH            architecture to compile for ($arch)
 	    --processor=PROCESSOR  processor to compile for ($arch)
+	    --vmm=VMM              virtual machine monitor to compile for (qemu
+	                           or kvmtool, default is qemu) (arm/arm64 only)
 	    --cross-prefix=PREFIX  cross compiler prefix
 	    --cc=CC		   c compiler to use ($cc)
 	    --cxx=CXX		   c++ compiler to use ($cxx)
@@ -55,6 +59,9 @@ while [[ "$1" = -* ]]; do
 	    ;;
         --processor)
 	    processor="$arg"
+	    ;;
+	--vmm)
+	    vmm="$arg"
 	    ;;
 	--cross-prefix)
 	    cross_prefix="$arg"
@@ -108,6 +115,15 @@ if [ "$arch" = "i386" ] || [ "$arch" = "x86_64" ]; then
     testdir=x86
 elif [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
     testdir=arm
+    if [ "$vmm" = "qemu" ]; then
+        arm_uart_early_addr=0x09000000
+    elif [ "$vmm" = "kvmtool" ]; then
+        arm_uart_early_addr=0x3f8
+        errata_force=1
+    else
+        echo '--vmm must be one of "qemu" or "kvmtool"!'
+        usage
+    fi
 elif [ "$arch" = "ppc64" ]; then
     testdir=powerpc
     firmware="$testdir/boot_rom.bin"
@@ -198,3 +214,22 @@ ENVIRON_DEFAULT=$environ_default
 ERRATATXT=errata.txt
 U32_LONG_FMT=$u32_long
 EOF
+
+cat <<EOF > lib/config.h
+#ifndef CONFIG_H
+#define CONFIG_H 1
+/*
+ * Generated file. DO NOT MODIFY.
+ *
+ */
+
+EOF
+if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
+cat <<EOF >> lib/config.h
+
+#define CONFIG_UART_EARLY_BASE ${arm_uart_early_addr}
+#define CONFIG_ERRATA_FORCE ${errata_force}
+
+EOF
+fi
+echo "#endif" >> lib/config.h

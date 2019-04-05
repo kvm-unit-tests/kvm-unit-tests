@@ -10,6 +10,7 @@ patches
 cscope.*
 *.swp
 /lib/asm
+/lib/config.h
 /config.mak
 /*-run
 /msr.out

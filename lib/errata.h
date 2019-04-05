@@ -6,6 +6,11 @@
  */
 #ifndef _ERRATA_H_
 #define _ERRATA_H_
+#include "config.h"
+
+#ifndef CONFIG_ERRATA_FORCE
+#define CONFIG_ERRATA_FORCE 0
+#endif
 
 #define _ERRATA(erratum) errata("ERRATA_" # erratum)
 #define ERRATA(erratum) _ERRATA(erratum)
@@ -15,8 +20,12 @@
 
 static inline bool errata_force(void)
 {
-	char *s = getenv("ERRATA_FORCE");
+	char *s;
 
+	if (CONFIG_ERRATA_FORCE == 1)
+		return true;
+
+	s = getenv("ERRATA_FORCE");
 	return s && (*s == '1' || *s == 'y' || *s == 'Y');
 }
 

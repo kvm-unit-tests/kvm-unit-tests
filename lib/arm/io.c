@@ -11,6 +11,8 @@
 #include <libcflat.h>
 #include <devicetree.h>
 #include <chr-testdev.h>
+#include <config.h>
+#include <asm/psci.h>
 #include <asm/spinlock.h>
 #include <asm/io.h>
 
@@ -18,36 +20,44 @@
 
 extern void halt(int code);
 
+static struct spinlock uart_lock;
 /*
- * Use this guess for the pl011 base in order to make an attempt at
+ * Use this guess for the uart base in order to make an attempt at
  * having earlier printf support. We'll overwrite it with the real
  * base address that we read from the device tree later. This is
- * the address we expect QEMU's mach-virt machine type to put in
+ * the address we expect the virtual machine manager to put in
  * its generated device tree.
  */
-#define UART_EARLY_BASE 0x09000000UL
-
-static struct spinlock uart_lock;
-static volatile u8 *uart0_base = (u8 *)UART_EARLY_BASE;
+#define UART_EARLY_BASE (u8 *)(unsigned long)CONFIG_UART_EARLY_BASE
+static volatile u8 *uart0_base = UART_EARLY_BASE;
 
 static void uart0_init(void)
 {
-	const char *compatible = "arm,pl011";
+	/*
+	 * kvm-unit-tests uses the uart only for output. Both uart models have
+	 * the TX register at offset 0 from the base address, so there is no
+	 * need to treat them separately.
+	 */
+	const char *compatible[] = {"arm,pl011", "ns16550a"};
 	struct dt_pbus_reg base;
-	int ret;
+	int i, ret;
 
 	ret = dt_get_default_console_node();
 	assert(ret >= 0 || ret == -FDT_ERR_NOTFOUND);
 
 	if (ret == -FDT_ERR_NOTFOUND) {
 
-		ret = dt_pbus_get_base_compatible(compatible, &base);
-		assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
+		for (i = 0; i < ARRAY_SIZE(compatible); i++) {
+			ret = dt_pbus_get_base_compatible(compatible[i], &base);
+			assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
+
+			if (ret == 0)
+				break;
+		}
 
 		if (ret) {
-			printf("%s: %s not found in the device tree, "
-				"aborting...\n",
-				__func__, compatible);
+			printf("%s: Compatible uart not found in the device tree, "
+				"aborting...\n", __func__);
 			abort();
 		}
 
@@ -58,10 +68,10 @@ static void uart0_init(void)
 
 	uart0_base = ioremap(base.addr, base.size);
 
-	if (uart0_base != (u8 *)UART_EARLY_BASE) {
+	if (uart0_base != UART_EARLY_BASE) {
 		printf("WARNING: early print support may not work. "
 		       "Found uart at %p, but early base is %p.\n",
-			uart0_base, (u8 *)UART_EARLY_BASE);
+			uart0_base, UART_EARLY_BASE);
 	}
 }
 
@@ -82,6 +92,7 @@ void puts(const char *s)
 void exit(int code)
 {
 	chr_testdev_exit(code);
+	psci_system_off();
 	halt(code);
 	__builtin_unreachable();
 }

@@ -17,6 +17,13 @@
 #include <asm/smp.h>
 #include <asm/barrier.h>
 
+static void __user_psci_system_off(void)
+{
+	psci_system_off();
+	halt();
+	__builtin_unreachable();
+}
+
 static void check_setup(int argc, char **argv)
 {
 	int nr_tests = 0, len, i;
@@ -154,6 +161,11 @@ static bool check_svc(void)
 
 	return svc_works;
 }
+
+static void user_psci_system_off(struct pt_regs *regs)
+{
+	__user_psci_system_off();
+}
 #elif defined(__aarch64__)
 
 /*
@@ -270,12 +282,25 @@ static bool check_svc(void)
 
 	return svc_works;
 }
+
+static void user_psci_system_off(struct pt_regs *regs, unsigned int esr)
+{
+	__user_psci_system_off();
+}
 #endif
 
 static void check_vectors(void *arg __unused)
 {
 	report("und", check_und());
 	report("svc", check_svc());
+	if (is_user()) {
+#ifdef __arm__
+		install_exception_handler(EXCPTN_UND, user_psci_system_off);
+#else
+		install_exception_handler(EL0_SYNC_64, ESR_EL1_EC_UNKNOWN,
+					  user_psci_system_off);
+#endif
+	}
 	exit(report_summary());
 }
 
