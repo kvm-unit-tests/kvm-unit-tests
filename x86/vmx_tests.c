@@ -6653,6 +6653,76 @@ static void test_host_ctl_regs(void)
 }
 
 /*
+ * PAT values higher than 8 are uninteresting since they're likely lumped
+ * in with "8". We only test values above 8 one bit at a time,
+ * in order to reduce the number of VM-Entries and keep the runtime reasonable.
+ */
+#define	PAT_VAL_LIMIT	8
+
+static void test_pat(u32 field, const char * field_name, u32 ctrl_field,
+		     u64 ctrl_bit)
+{
+	u32 ctrl_saved = vmcs_read(ctrl_field);
+	u64 pat_saved = vmcs_read(field);
+	u64 i, val;
+	u32 j;
+	int error;
+
+	vmcs_write(ctrl_field, ctrl_saved & ~ctrl_bit);
+	for (i = 0; i < 256; i = (i < PAT_VAL_LIMIT) ? i + 1 : i * 2) {
+		/* Test PAT0..PAT7 fields */
+		for (j = 0; j < (i ? 8 : 1); j++) {
+			val = i << j * 8;
+			vmcs_write(field, val);
+			report_prefix_pushf("%s %lx", field_name, val);
+			test_vmx_vmlaunch(0, false);
+			report_prefix_pop();
+		}
+	}
+
+	vmcs_write(ctrl_field, ctrl_saved | ctrl_bit);
+	for (i = 0; i < 256; i = (i < PAT_VAL_LIMIT) ? i + 1 : i * 2) {
+		/* Test PAT0..PAT7 fields */
+		for (j = 0; j < (i ? 8 : 1); j++) {
+			val = i << j * 8;
+			vmcs_write(field, val);
+			report_prefix_pushf("%s %lx", field_name, val);
+			if (i == 0x2 || i == 0x3 || i >= 0x8)
+				error = VMXERR_ENTRY_INVALID_HOST_STATE_FIELD;
+			else
+				error = 0;
+			test_vmx_vmlaunch(error, false);
+			report_prefix_pop();
+		}
+	}
+
+	vmcs_write(ctrl_field, ctrl_saved);
+	vmcs_write(field, pat_saved);
+}
+
+/*
+ *  If the "load IA32_PAT" VM-exit control is 1, the value of the field
+ *  for the IA32_PAT MSR must be one that could be written by WRMSR
+ *  without fault at CPL 0. Specifically, each of the 8 bytes in the
+ *  field must have one of the values 0 (UC), 1 (WC), 4 (WT), 5 (WP),
+ *  6 (WB), or 7 (UC-).
+ *
+ *  [Intel SDM]
+ */
+static void test_load_host_pat(void)
+{
+	/*
+	 * "load IA32_PAT" VM-exit control
+	 */
+	if (!(ctrl_exit_rev.clr & EXI_LOAD_PAT)) {
+		printf("\"Load-IA32-PAT\" exit control not supported\n");
+		return;
+	}
+
+	test_pat(HOST_PAT, "HOST_PAT", EXI_CONTROLS, EXI_LOAD_PAT);
+}
+
+/*
  * Check that the virtual CPU checks the VMX Host State Area as
  * documented in the Intel SDM.
  */
@@ -6669,6 +6739,8 @@ static void vmx_host_state_area_test(void)
 
 	test_sysenter_field(HOST_SYSENTER_ESP, "HOST_SYSENTER_ESP");
 	test_sysenter_field(HOST_SYSENTER_EIP, "HOST_SYSENTER_EIP");
+
+	test_load_host_pat();
 }
 
 static bool valid_vmcs_for_vmentry(void)
