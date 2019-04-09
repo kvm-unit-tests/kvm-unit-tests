@@ -18,8 +18,6 @@
 
 #include "io.h"
 
-extern void halt(int code);
-
 static struct spinlock uart_lock;
 /*
  * Use this guess for the uart base in order to make an attempt at
@@ -88,6 +86,14 @@ void puts(const char *s)
 		writeb(*s++, uart0_base);
 	spin_unlock(&uart_lock);
 }
+
+
+/*
+ * Defining halt to take 'code' as an argument guarantees that it will
+ * be in x0/r0 when we halt. That gives us a final chance to see the exit
+ * status while inspecting the halted unit test state.
+ */
+extern void halt(int code);
 
 void exit(int code)
 {

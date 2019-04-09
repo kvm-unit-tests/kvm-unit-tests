@@ -11,8 +11,6 @@
 #include <asm/setup.h>
 #include "io.h"
 
-extern void halt(int code);
-
 static struct spinlock print_lock;
 
 void io_init(void)
@@ -27,6 +25,13 @@ void puts(const char *s)
 		putchar(*s++);
 	spin_unlock(&print_lock);
 }
+
+/*
+ * Defining halt to take 'code' as an argument guarantees that it will
+ * be in r3 when we halt. That gives us a final chance to see the exit
+ * status while inspecting the halted unit test state.
+ */
+extern void halt(int code);
 
 void exit(int code)
 {
