@@ -243,7 +243,7 @@ start64:
 setup_5level_page_table:
 	/* Check if 5-level paging has already enabled */
 	mov %cr4, %rax
-	test $12, %eax
+	test $0x1000, %eax
 	jnz lvl5
 
 	pushq $32
