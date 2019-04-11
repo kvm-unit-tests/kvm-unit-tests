@@ -70,9 +70,51 @@ static void test_set(void)
 	       skey.str.acc == ret.str.acc && skey.str.fp == ret.str.fp);
 }
 
+static inline int stsi(void *addr, int fc, int sel1, int sel2)
+{
+	register int r0 asm("0") = (fc << 28) | sel1;
+	register int r1 asm("1") = sel2;
+	int rc = 0;
+
+	asm volatile(
+		"	stsi	0(%3)\n"
+		"	jz	0f\n"
+		"	lhi	%1,-1\n"
+		"0:\n"
+		: "+d" (r0), "+d" (rc)
+		: "d" (r1), "a" (addr)
+		: "cc", "memory");
+
+	return rc;
+}
+
+/* Returns true if we are running under z/VM 6.x */
+static bool check_for_zvm6(void)
+{
+	int dcbt;	/* Descriptor block count */
+	int nr;
+	static const unsigned char zvm6[] = {
+		/* This is "z/VM    6" in EBCDIC */
+		0xa9, 0x61, 0xe5, 0xd4, 0x40, 0x40, 0x40, 0x40, 0xf6
+	};
+
+	if (stsi(pagebuf, 3, 2, 2))
+		return false;
+
+	dcbt = pagebuf[31] & 0xf;
+
+	for (nr = 0; nr < dcbt; nr++) {
+		if (!memcmp(&pagebuf[32 + nr * 64 + 24], zvm6, sizeof(zvm6)))
+			return true;
+	}
+
+	return false;
+}
+
 static void test_priv(void)
 {
 	union skey skey;
+	bool is_zvm6 = check_for_zvm6();
 
 	memset(pagebuf, 0, PAGE_SIZE * 2);
 	report_prefix_push("privileged");
@@ -87,10 +129,15 @@ static void test_priv(void)
 	report("skey did not change on exception", skey.str.acc != 3);
 
 	report_prefix_push("iske");
-	expect_pgm_int();
-	enter_pstate();
-	get_storage_key(page0);
-	check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
+	if (is_zvm6) {
+		/* There is a known bug with z/VM 6, so skip the test there */
+		report_skip("not working on z/VM 6");
+	} else {
+		expect_pgm_int();
+		enter_pstate();
+		get_storage_key(page0);
+		check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
+	}
 	report_prefix_pop();
 
 	report_prefix_pop();
