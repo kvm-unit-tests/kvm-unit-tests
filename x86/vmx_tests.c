@@ -5664,6 +5664,13 @@ static enum Config_type configure_apic_reg_virt_test(
 	return CONFIG_TYPE_GOOD;
 }
 
+static bool cpu_has_apicv(void)
+{
+	return ((ctrl_cpu_rev[1].clr & CPU_APIC_REG_VIRT) &&
+		(ctrl_cpu_rev[1].clr & CPU_VINTD) &&
+		(ctrl_pin_rev.clr & PIN_POST_INTR));
+}
+
 /* Validates APIC register access across valid virtualization configurations. */
 static void apic_reg_virt_test(void)
 {
@@ -5674,6 +5681,11 @@ static void apic_reg_virt_test(void)
 	u64 cpu_exec_ctrl1 = vmcs_read(CPU_EXEC_CTRL1);
 	int i;
 	struct apic_reg_virt_guest_args *args = &apic_reg_virt_guest_args;
+
+	if (!cpu_has_apicv()) {
+		report_skip(__func__);
+		return;
+	}
 
 	control = cpu_exec_ctrl1;
 	control &= ~CPU_VINTD;
@@ -6442,6 +6454,11 @@ static void virt_x2apic_mode_test(void)
 	u64 cpu_exec_ctrl1 = vmcs_read(CPU_EXEC_CTRL1);
 	int i;
 	struct virt_x2apic_mode_guest_args *args = &virt_x2apic_mode_guest_args;
+
+	if (!cpu_has_apicv()) {
+		report_skip(__func__);
+		return;
+	}
 
 	/*
 	 * This is to exercise an issue in KVM's logic to merge L0's and L1's
@@ -7483,13 +7500,6 @@ static void vmx_db_test(void)
 		vmcs_write(GUEST_RIP, (u64)&skip_rtm);
 		enter_guest();
 	}
-}
-
-static bool cpu_has_apicv(void)
-{
-	return ((ctrl_cpu_rev[1].clr & CPU_APIC_REG_VIRT) &&
-		(ctrl_cpu_rev[1].clr & CPU_VINTD) &&
-		(ctrl_pin_rev.clr & PIN_POST_INTR));
 }
 
 static void enable_vid(void)
