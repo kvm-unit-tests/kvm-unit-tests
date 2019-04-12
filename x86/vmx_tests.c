@@ -6302,6 +6302,7 @@ static void test_x2apic_wr(
 	u32 exit_reason_want = expectation->wr_exit_reason;
 	struct virt_x2apic_mode_guest_args *args = &virt_x2apic_mode_guest_args;
 	int ipi_vector = 0xf1;
+	u32 restore_val = 0;
 
 	report_prefix_pushf("x2apic - writing 0x%lx to 0x%03x", val, reg);
 
@@ -6314,6 +6315,8 @@ static void test_x2apic_wr(
 	/* Setup virtual APIC page */
 	if (expectation->wr_behavior == X2APIC_ACCESS_VIRTUALIZED)
 		virtual_apic_page[apic_reg_index(reg)] = 0;
+	if (expectation->wr_behavior == X2APIC_ACCESS_PASSED_THROUGH && !expectation->wr_only)
+		restore_val = apic_read(reg);
 
 	/* Setup IPI handler */
 	handle_x2apic_ipi_ran = false;
@@ -6388,6 +6391,7 @@ static void test_x2apic_wr(
 			ok = got == val;
 			report("non-virtualized write; val is 0x%x, want 0x%lx",
 			       ok, got, val);
+			apic_write(reg, restore_val);
 		} else {
 			report("non-virtualized and write-only OK", true);
 		}
