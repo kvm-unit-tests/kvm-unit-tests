@@ -69,32 +69,44 @@ static void do_write_apicbase(void *data)
 
 static bool test_write_apicbase_exception(u64 data)
 {
-    data |= APIC_DEFAULT_PHYS_BASE | APIC_BSP;
     return test_for_exception(GP_VECTOR, do_write_apicbase, &data);
 }
 
 static void test_enable_x2apic(void)
 {
+    u64 orig_apicbase = rdmsr(MSR_IA32_APICBASE);
+    u64 apicbase;
+
     if (enable_x2apic()) {
         printf("x2apic enabled\n");
 
+        apicbase = orig_apicbase & ~(APIC_EN | APIC_EXTD);
         report("x2apic enabled to invalid state",
-               test_write_apicbase_exception(APIC_EXTD));
+               test_write_apicbase_exception(apicbase | APIC_EXTD));
         report("x2apic enabled to apic enabled",
-               test_write_apicbase_exception(APIC_EN));
+               test_write_apicbase_exception(apicbase | APIC_EN));
 
         report("x2apic enabled to disabled state",
-               !test_write_apicbase_exception(0));
+               !test_write_apicbase_exception(apicbase | 0));
         report("disabled to invalid state",
-               test_write_apicbase_exception(APIC_EXTD));
+               test_write_apicbase_exception(apicbase | APIC_EXTD));
         report("disabled to x2apic enabled",
-               test_write_apicbase_exception(APIC_EN | APIC_EXTD));
+               test_write_apicbase_exception(apicbase | APIC_EN | APIC_EXTD));
 
-        wrmsr(MSR_IA32_APICBASE, APIC_EN);
+        report("apic disabled to apic enabled",
+               !test_write_apicbase_exception(apicbase | APIC_EN));
         report("apic enabled to invalid state",
-               test_write_apicbase_exception(APIC_EXTD));
+               test_write_apicbase_exception(apicbase | APIC_EXTD));
 
-        wrmsr(MSR_IA32_APICBASE, APIC_EN | APIC_EXTD);
+        if (orig_apicbase & APIC_EXTD)
+            enable_x2apic();
+        else
+            reset_apic();
+
+        /*
+         * Disabling the APIC resets various APIC registers, restore them to
+         * their desired values.
+         */
         apic_write(APIC_SPIV, 0x1ff);
     } else {
         printf("x2apic not detected\n");
