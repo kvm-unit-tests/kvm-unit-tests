@@ -1470,7 +1470,7 @@ static void test_vmx_caps(void)
 
 	val = rdmsr(MSR_IA32_VMX_VMCS_ENUM);
 	report("MSR_IA32_VMX_VMCS_ENUM",
-	       (val & 0x3e) >= 0x2a &&
+	       (val & 0x1fe) >= 0x2a &&
 	       (val & 0xfffffffffffffc01Ull) == 0);
 
 	val = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
