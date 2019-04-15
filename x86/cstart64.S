@@ -285,7 +285,6 @@ smp_init:
 	rep/movsb
 	mov $APIC_DEFAULT_PHYS_BASE, %eax
 	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT), APIC_ICR(%rax)
-	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT), APIC_ICR(%rax)
 	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_STARTUP), APIC_ICR(%rax)
 	call fwcfg_get_nb_cpus
 1:	pause
