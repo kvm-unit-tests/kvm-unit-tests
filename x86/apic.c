@@ -267,13 +267,18 @@ static void self_ipi_isr(isr_regs_t *regs)
 
 static void test_self_ipi(void)
 {
+    u64 start = rdtsc();
     int vec = 0xf1;
 
     handle_irq(vec, self_ipi_isr);
     irq_enable();
     apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED | vec,
                    0);
-    asm volatile ("nop");
+
+    do {
+        pause();
+    } while (rdtsc() - start < 1000000000 && ipi_count == 0);
+
     report("self ipi", ipi_count == 1);
 }
 
