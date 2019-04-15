@@ -3669,9 +3669,17 @@ static void test_msr_bitmap(void)
  */
 static void test_apic_virt_addr(void)
 {
+	/*
+	 * Ensure the processor will never use the virtual-APIC page, since
+	 * we will point it to invalid RAM.  Otherwise KVM is puzzled about
+	 * what we're trying to achieve and fails vmentry.
+	 */
+	u32 cpu_ctrls0 = vmcs_read(CPU_EXEC_CTRL0);
+	vmcs_write(CPU_EXEC_CTRL0, cpu_ctrls0 | CPU_CR8_LOAD | CPU_CR8_STORE);
 	test_vmcs_addr_reference(CPU_TPR_SHADOW, APIC_VIRT_ADDR,
 				 "virtual-APIC address", "Use TPR shadow",
-				 PAGE_SIZE, true, true);
+				 PAGE_SIZE, false, true);
+	vmcs_write(CPU_EXEC_CTRL0, cpu_ctrls0);
 }
 
 /*
