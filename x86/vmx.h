@@ -640,6 +640,7 @@ enum vm_instruction_error_number {
  */
 #define VMCS_FIELD_HIGH_SHIFT		(0)
 #define VMCS_FIELD_INDEX_SHIFT		(1)
+#define VMCS_FIELD_INDEX_MASK		GENMASK(9, 1)
 #define VMCS_FIELD_TYPE_SHIFT		(10)
 #define VMCS_FIELD_WIDTH_SHIFT		(13)
 #define VMCS_FIELD_RESERVED_SHIFT	(15)

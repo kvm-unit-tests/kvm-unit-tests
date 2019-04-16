@@ -281,19 +281,15 @@ static void set_vmcs_field(struct vmcs_field *f, u8 cookie)
 	vmcs_write(f->encoding, vmcs_field_value(f, cookie));
 }
 
-static bool check_vmcs_field(struct vmcs_field *f, u8 cookie)
+static bool check_vmcs_field(struct vmcs_field *f, u8 cookie, u32 *max_index)
 {
 	u64 expected;
 	u64 actual;
+	u32 index;
 	int ret;
 
 	if (f->encoding == VMX_INST_ERROR) {
 		printf("Skipping volatile field %lx\n", f->encoding);
-		return true;
-	}
-
-	if (vmcs_field_readonly(f)) {
-		printf("Skipping read-only field %lx\n", f->encoding);
 		return true;
 	}
 
@@ -302,6 +298,17 @@ static bool check_vmcs_field(struct vmcs_field *f, u8 cookie)
 	/* Skip VMCS fields that aren't recognized by the CPU */
 	if (ret & X86_EFLAGS_ZF)
 		return true;
+
+	if (max_index) {
+		index = f->encoding & VMCS_FIELD_INDEX_MASK;
+		if (index > *max_index)
+			*max_index = index;
+	}
+
+	if (vmcs_field_readonly(f)) {
+		printf("Skipping read-only field %lx\n", f->encoding);
+		return true;
+	}
 
 	expected = vmcs_field_value(f, cookie);
 	actual &= f->mask;
@@ -323,22 +330,28 @@ static void set_all_vmcs_fields(u8 cookie)
 		set_vmcs_field(&vmcs_fields[i], cookie);
 }
 
-static bool check_all_vmcs_fields(u8 cookie)
+static bool __check_all_vmcs_fields(u8 cookie, u32 *max_index)
 {
 	bool pass = true;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(vmcs_fields); i++) {
-		if (!check_vmcs_field(&vmcs_fields[i], cookie))
+		if (!check_vmcs_field(&vmcs_fields[i], cookie, max_index))
 			pass = false;
 	}
 
 	return pass;
 }
 
+static bool check_all_vmcs_fields(u8 cookie)
+{
+	return __check_all_vmcs_fields(cookie, NULL);
+}
+
 static void test_vmwrite_vmread(void)
 {
 	struct vmcs *vmcs = alloc_page();
+	u32 vmcs_enum_max, max_index = 0;
 
 	memset(vmcs, 0, PAGE_SIZE);
 	vmcs->hdr.revision_id = basic.revision;
@@ -346,7 +359,11 @@ static void test_vmwrite_vmread(void)
 	assert(!make_vmcs_current(vmcs));
 
 	set_all_vmcs_fields(0x42);
-	report("VMWRITE/VMREAD", check_all_vmcs_fields(0x42));
+	report("VMWRITE/VMREAD", __check_all_vmcs_fields(0x42, &max_index));
+
+	vmcs_enum_max = rdmsr(MSR_IA32_VMX_VMCS_ENUM) & VMCS_FIELD_INDEX_MASK;
+	report("VMX_VMCS_ENUM.MAX_INDEX expected: %x, actual: %x",
+		vmcs_enum_max == max_index, max_index, vmcs_enum_max);
 
 	assert(!vmcs_clear(vmcs));
 	free_page(vmcs);
@@ -1470,7 +1487,7 @@ static void test_vmx_caps(void)
 
 	val = rdmsr(MSR_IA32_VMX_VMCS_ENUM);
 	report("MSR_IA32_VMX_VMCS_ENUM",
-	       (val & 0x1fe) >= 0x2a &&
+	       (val & VMCS_FIELD_INDEX_MASK) >= 0x2a &&
 	       (val & 0xfffffffffffffc01Ull) == 0);
 
 	val = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
