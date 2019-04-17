@@ -1261,6 +1261,8 @@ static void init_vmx(void)
 	vmxon_region = alloc_page();
 	memset(vmxon_region, 0, PAGE_SIZE);
 
+	vmcs_root = alloc_page();
+
 	fix_cr0_set =  rdmsr(MSR_IA32_VMX_CR0_FIXED0);
 	fix_cr0_clr =  rdmsr(MSR_IA32_VMX_CR0_FIXED1);
 	fix_cr4_set =  rdmsr(MSR_IA32_VMX_CR4_FIXED0);
