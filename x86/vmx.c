@@ -1602,10 +1602,10 @@ entry_failure_handler(struct vmentry_failure *failure)
 }
 
 /*
- * Tries to enter the guest. Returns true iff entry succeeded. Otherwise,
+ * Tries to enter the guest. Returns true if entry succeeded. Otherwise,
  * populates @failure.
  */
-static bool vmx_enter_guest(struct vmentry_failure *failure)
+static void vmx_enter_guest(struct vmentry_failure *failure)
 {
 	failure->early = 0;
 
@@ -1639,8 +1639,6 @@ static bool vmx_enter_guest(struct vmentry_failure *failure)
 
 	failure->vmlaunch = !launched;
 	failure->instr = launched ? "vmresume" : "vmlaunch";
-
-	return !failure->early && !(vmcs_read(EXI_REASON) & VMX_ENTRY_FAILURE);
 }
 
 static int vmx_run(void)
@@ -1650,7 +1648,9 @@ static int vmx_run(void)
 		bool entered;
 		struct vmentry_failure failure;
 
-		entered = vmx_enter_guest(&failure);
+		vmx_enter_guest(&failure);
+		entered = !failure.early &&
+			  !(vmcs_read(EXI_REASON) & VMX_ENTRY_FAILURE);
 
 		if (entered) {
 			/*
@@ -1806,35 +1806,39 @@ static void check_for_guest_termination(void)
 	}
 }
 
+#define        ABORT_ON_EARLY_VMENTRY_FAIL     0x1
+#define        ABORT_ON_INVALID_GUEST_STATE    0x2
+
 /*
  * Enters the guest (or launches it for the first time). Error to call once the
- * guest has returned (i.e., run past the end of its guest() function). Also
- * aborts if guest entry fails.
+ * guest has returned (i.e., run past the end of its guest() function).
  */
-void enter_guest(void)
+static void __enter_guest(u8 abort_flag, struct vmentry_failure *failure)
 {
-	struct vmentry_failure failure;
-
 	TEST_ASSERT_MSG(v2_guest_main,
 			"Never called test_set_guest_func!");
 
 	TEST_ASSERT_MSG(!guest_finished,
 			"Called enter_guest() after guest returned.");
 
-	if (!vmx_enter_guest(&failure)) {
-		print_vmentry_failure_info(&failure);
+	vmx_enter_guest(failure);
+	if ((abort_flag & ABORT_ON_EARLY_VMENTRY_FAIL && failure->early) ||
+	    (abort_flag & ABORT_ON_INVALID_GUEST_STATE &&
+	    vmcs_read(EXI_REASON) & VMX_ENTRY_FAILURE)) {
+
+		print_vmentry_failure_info(failure);
 		abort();
 	}
 
-	launched = 1;
-
-	check_for_guest_termination();
+	if (!failure->early) {
+		launched = 1;
+		check_for_guest_termination();
+	}
 }
 
 void enter_guest_with_bad_controls(void)
 {
-	struct vmentry_failure failure;
-	bool ok;
+	struct vmentry_failure failure = {0};
 
 	TEST_ASSERT_MSG(v2_guest_main,
 			"Never called test_set_guest_func!");
@@ -1842,9 +1846,7 @@ void enter_guest_with_bad_controls(void)
 	TEST_ASSERT_MSG(!guest_finished,
 			"Called enter_guest() after guest returned.");
 
-	ok = vmx_enter_guest(&failure);
-	report_xfail("vmlaunch fails, as expected",
-		     true, ok);
+	__enter_guest(ABORT_ON_INVALID_GUEST_STATE, &failure);
 	report("failure occurred early", failure.early);
 	report("FLAGS set correctly",
 	       (failure.flags & VMX_ENTRY_FLAGS) == X86_EFLAGS_ZF);
@@ -1859,8 +1861,23 @@ void enter_guest_with_bad_controls(void)
 	 * unexpectedly succeed, it's nice to check whether the guest has
 	 * terminated, to reduce the number of error messages.
 	 */
-	if (ok)
+	if (!failure.early)
 		check_for_guest_termination();
+}
+
+void enter_guest(void)
+{
+	struct vmentry_failure failure = {0};
+
+	__enter_guest(ABORT_ON_EARLY_VMENTRY_FAIL |
+		      ABORT_ON_INVALID_GUEST_STATE, &failure);
+}
+
+void enter_guest_with_invalid_guest_state(void)
+{
+	struct vmentry_failure failure = {0};
+
+	__enter_guest(ABORT_ON_EARLY_VMENTRY_FAIL, &failure);
 }
 
 extern struct vmx_test vmx_tests[];
