@@ -4994,6 +4994,32 @@ static void test_entry_msr_load(void)
 	test_vmx_valid_controls(false);
 }
 
+static void guest_pat_main(void)
+{
+	while (1) {
+		if (vmx_get_test_stage() != 2)
+			vmcall();
+		else
+			break;
+	}
+
+	asm volatile("fnop");
+}
+
+static void report_guest_pat_test(const char *test, u32 xreason, u64 guest_pat)
+{
+	u32 reason = vmcs_read(EXI_REASON);
+	u64 guest_rip;
+	u32 insn_len;
+
+	report("%s, GUEST_PAT %lx", reason == xreason, test, guest_pat);
+
+	guest_rip = vmcs_read(GUEST_RIP);
+	insn_len = vmcs_read(EXI_INST_LEN);
+	if (! (reason & 0x80000021))
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+}
+
 /*
  * Tests for VM-entry control fields
  */
@@ -6676,32 +6702,75 @@ static void test_pat(u32 field, const char * field_name, u32 ctrl_field,
 	u32 j;
 	int error;
 
-	vmcs_write(ctrl_field, ctrl_saved & ~ctrl_bit);
+	vmcs_clear_bits(ctrl_field, ctrl_bit);
+	if (field == GUEST_PAT) {
+		vmx_set_test_stage(1);
+		test_set_guest(guest_pat_main);
+	}
+
 	for (i = 0; i < 256; i = (i < PAT_VAL_LIMIT) ? i + 1 : i * 2) {
 		/* Test PAT0..PAT7 fields */
 		for (j = 0; j < (i ? 8 : 1); j++) {
 			val = i << j * 8;
 			vmcs_write(field, val);
-			report_prefix_pushf("%s %lx", field_name, val);
-			test_vmx_vmlaunch(0, false);
-			report_prefix_pop();
+			if (field == HOST_PAT) {
+				report_prefix_pushf("%s %lx", field_name, val);
+				test_vmx_vmlaunch(0, false);
+				report_prefix_pop();
+
+			} else {	// GUEST_PAT
+				enter_guest_with_invalid_guest_state();
+				report_guest_pat_test("ENT_LOAD_PAT enabled",
+						       VMX_VMCALL, val);
+			}
 		}
 	}
 
-	vmcs_write(ctrl_field, ctrl_saved | ctrl_bit);
+	vmcs_set_bits(ctrl_field, ctrl_bit);
 	for (i = 0; i < 256; i = (i < PAT_VAL_LIMIT) ? i + 1 : i * 2) {
 		/* Test PAT0..PAT7 fields */
 		for (j = 0; j < (i ? 8 : 1); j++) {
 			val = i << j * 8;
 			vmcs_write(field, val);
-			report_prefix_pushf("%s %lx", field_name, val);
-			if (i == 0x2 || i == 0x3 || i >= 0x8)
-				error = VMXERR_ENTRY_INVALID_HOST_STATE_FIELD;
-			else
-				error = 0;
-			test_vmx_vmlaunch(error, false);
-			report_prefix_pop();
+
+			if (field == HOST_PAT) {
+				report_prefix_pushf("%s %lx", field_name, val);
+				if (i == 0x2 || i == 0x3 || i >= 0x8)
+					error =
+					VMXERR_ENTRY_INVALID_HOST_STATE_FIELD;
+				else
+					error = 0;
+
+				test_vmx_vmlaunch(error, false);
+				report_prefix_pop();
+
+			} else {	// GUEST_PAT
+				if (i == 0x2 || i == 0x3 || i >= 0x8) {
+					enter_guest_with_invalid_guest_state();
+					report_guest_pat_test("ENT_LOAD_PAT "
+								"enabled",
+							     VMX_FAIL_STATE |
+							     VMX_ENTRY_FAILURE,
+							     val);
+				} else {
+					enter_guest();
+					report_guest_pat_test("ENT_LOAD_PAT "
+							      "enabled",
+							      VMX_VMCALL,
+							      val);
+				}
+			}
+
 		}
+	}
+
+	if (field == GUEST_PAT) {
+		/*
+		 * Let the guest finish execution
+		 */
+		vmx_set_test_stage(2);
+		vmcs_write(field, pat_saved);
+		enter_guest();
 	}
 
 	vmcs_write(ctrl_field, ctrl_saved);
@@ -6749,6 +6818,37 @@ static void vmx_host_state_area_test(void)
 	test_sysenter_field(HOST_SYSENTER_EIP, "HOST_SYSENTER_EIP");
 
 	test_load_host_pat();
+}
+
+/*
+ *  If the "load IA32_PAT" VM-entry control is 1, the value of the field
+ *  for the IA32_PAT MSR must be one that could be written by WRMSR
+ *  without fault at CPL 0. Specifically, each of the 8 bytes in the
+ *  field must have one of the values 0 (UC), 1 (WC), 4 (WT), 5 (WP),
+ *  6 (WB), or 7 (UC-).
+ *
+ *  [Intel SDM]
+ */
+static void test_load_guest_pat(void)
+{
+	/*
+	 * "load IA32_PAT" VM-entry control
+	 */
+	if (!(ctrl_exit_rev.clr & ENT_LOAD_PAT)) {
+		printf("\"Load-IA32-PAT\" entry control not supported\n");
+		return;
+	}
+
+	test_pat(GUEST_PAT, "GUEST_PAT", ENT_CONTROLS, ENT_LOAD_PAT);
+}
+
+/*
+ * Check that the virtual CPU checks the VMX Guest State Area as
+ * documented in the Intel SDM.
+ */
+static void vmx_guest_state_area_test(void)
+{
+	test_load_guest_pat();
 }
 
 static bool valid_vmcs_for_vmentry(void)
@@ -8213,6 +8313,7 @@ struct vmx_test vmx_tests[] = {
 	/* VM-entry tests */
 	TEST(vmx_controls_test),
 	TEST(vmx_host_state_area_test),
+	TEST(vmx_guest_state_area_test),
 	TEST(vmentry_movss_shadow_test),
 	/* APICv tests */
 	TEST(vmx_eoi_bitmap_ioapic_scan_test),
