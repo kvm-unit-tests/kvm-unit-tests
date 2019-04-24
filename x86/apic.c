@@ -222,7 +222,7 @@ static void __test_apic_id(void * unused)
     newid = (id + 1) << 24;
     report("writeable xapic id",
             !test_for_exception(GP_VECTOR, do_write_apic_id, &newid) &&
-            id + 1 == apic_id());
+	    (id == apic_id() || id + 1 == apic_id()));
 
     if (!enable_x2apic())
         goto out;
