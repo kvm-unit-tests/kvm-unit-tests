@@ -420,6 +420,34 @@ static void test_multiple_nmi(void)
     report("multiple nmi", ok);
 }
 
+static void pending_nmi_handler(isr_regs_t *regs)
+{
+    int i;
+
+    if (++nmi_received == 1) {
+        for (i = 0; i < 10; ++i)
+            apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI, 0);
+    }
+}
+
+static void test_pending_nmi(void)
+{
+    int i;
+
+    handle_irq(2, pending_nmi_handler);
+    for (i = 0; i < 100000; ++i) {
+	    nmi_received = 0;
+
+        apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI, 0);
+        while (nmi_received < 2)
+            pause();
+
+        if (nmi_received != 2)
+            break;
+    }
+    report("pending nmi", nmi_received == 2);
+}
+
 static volatile int lvtt_counter = 0;
 
 static void lvtt_handler(isr_regs_t *regs)
@@ -632,6 +660,7 @@ int main(void)
 
     test_sti_nmi();
     test_multiple_nmi();
+    test_pending_nmi();
 
     test_apic_timer_one_shot();
     test_apic_change_mode();
