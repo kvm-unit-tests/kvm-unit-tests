@@ -11,11 +11,11 @@
 
 static void test_lapic_existence(void)
 {
-    u32 lvr;
+    u8 version;
 
-    lvr = apic_read(APIC_LVR);
-    printf("apic version: %x\n", lvr);
-    report("apic existence", (u16)lvr == 0x14);
+    version = (u8)apic_read(APIC_LVR);
+    printf("apic version: %x\n", version);
+    report("apic existence", version >= 0x10 && version <= 0x15);
 }
 
 #define TSC_DEADLINE_TIMER_VECTOR 0xef
