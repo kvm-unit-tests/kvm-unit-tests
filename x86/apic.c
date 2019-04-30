@@ -171,7 +171,7 @@ static void test_apic_disable(void)
     report_prefix_pop();
 }
 
-#define ALTERNATE_APIC_BASE	0x42000000
+#define ALTERNATE_APIC_BASE	0xfed40000
 
 static void test_apicbase(void)
 {
