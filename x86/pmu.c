@@ -184,6 +184,7 @@ static void start_event(pmu_counter_t *evt)
 	    wrmsr(MSR_CORE_PERF_FIXED_CTR_CTRL, ctrl);
     }
     global_enable(evt);
+    apic_write(APIC_LVTPC, PC_VECTOR);
 }
 
 static void stop_event(pmu_counter_t *evt)
