@@ -4421,6 +4421,8 @@ static void test_tpr_threshold_values(void)
 static void test_tpr_threshold(void)
 {
 	u32 primary = vmcs_read(CPU_EXEC_CTRL0);
+	u64 apic_virt_addr = vmcs_read(APIC_VIRT_ADDR);
+	u64 threshold = vmcs_read(TPR_THRESHOLD);
 	void *virtual_apic_page;
 
 	if (!(ctrl_cpu_rev[0].clr & CPU_TPR_SHADOW))
@@ -4440,11 +4442,8 @@ static void test_tpr_threshold(void)
 	report_prefix_pop();
 
 	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
-	    (ctrl_cpu_rev[1].clr & (CPU_VINTD  | CPU_VIRT_APIC_ACCESSES)))) {
-		vmcs_write(CPU_EXEC_CTRL0, primary);
-		return;
-	}
-
+	    (ctrl_cpu_rev[1].clr & (CPU_VINTD  | CPU_VIRT_APIC_ACCESSES))))
+		goto out;
 	u32 secondary = vmcs_read(CPU_EXEC_CTRL1);
 
 	if (ctrl_cpu_rev[1].clr & CPU_VINTD) {
@@ -4494,6 +4493,9 @@ static void test_tpr_threshold(void)
 	}
 
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
+out:
+	vmcs_write(TPR_THRESHOLD, threshold);
+	vmcs_write(APIC_VIRT_ADDR, apic_virt_addr);
 	vmcs_write(CPU_EXEC_CTRL0, primary);
 }
 
