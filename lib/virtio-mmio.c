@@ -56,7 +56,6 @@ static struct virtqueue *vm_setup_vq(struct virtio_device *vdev,
 	vq = calloc(1, sizeof(*vq));
 	assert(VIRTIO_MMIO_QUEUE_SIZE_MIN <= 2*PAGE_SIZE);
 	queue = alloc_pages(1);
-	memset(queue, 0, 2*PAGE_SIZE);
 	assert(vq && queue);
 
 	writel(index, vm_dev->base + VIRTIO_MMIO_QUEUE_SEL);
