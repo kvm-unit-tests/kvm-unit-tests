@@ -4,6 +4,7 @@
 #include "smp.h"
 #include "desc.h"
 #include "isr.h"
+#include "delay.h"
 
 static void toggle_irq_line(unsigned line)
 {
@@ -163,13 +164,6 @@ static void test_ioapic_level_tmr(bool expected_tmr_before)
 	report("TMR for ioapic level interrupts (expected %s)",
 	       tmr_before == expected_tmr_before && g_tmr_79,
 	       expected_tmr_before ? "true" : "false");
-}
-
-#define IPI_DELAY 1000000
-
-static void delay(int count)
-{
-	while(count--) asm("");
 }
 
 static void toggle_irq_line_0x0e(void *data)

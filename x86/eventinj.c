@@ -7,6 +7,7 @@
 #include "apic-defs.h"
 #include "vmalloc.h"
 #include "alloc_page.h"
+#include "delay.h"
 
 #ifdef __x86_64__
 #  define R "r"
@@ -15,10 +16,6 @@
 #endif
 
 void do_pf_tss(void);
-
-static inline void io_delay(void)
-{
-}
 
 static void apic_self_ipi(u8 v)
 {

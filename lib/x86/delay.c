@@ -1,8 +1,11 @@
 #include "delay.h"
+#include "processor.h"
 
 void delay(u64 count)
 {
-	while (count--)
-		asm volatile("pause");
-}
+	u64 start = rdtsc();
 
+	do {
+		pause();
+	} while (rdtsc() - start < count);
+}

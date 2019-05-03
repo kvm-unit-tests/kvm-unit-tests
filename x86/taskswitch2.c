@@ -6,6 +6,7 @@
 #include "vm.h"
 #include "vmalloc.h"
 #include "alloc_page.h"
+#include "delay.h"
 
 #define MAIN_TSS_SEL (FIRST_SPARE_SEL + 0)
 #define VM86_TSS_SEL (FIRST_SPARE_SEL + 8)
@@ -18,10 +19,6 @@ static char *fault_addr;
 static ulong fault_phys;
 
 void do_pf_tss(ulong *error_code);
-
-static inline void io_delay(void)
-{
-}
 
 static void nmi_tss(void)
 {
