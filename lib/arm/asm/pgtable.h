@@ -53,7 +53,6 @@ static inline pmd_t *pmd_alloc_one(void)
 {
 	assert(PTRS_PER_PMD * sizeof(pmd_t) == PAGE_SIZE);
 	pmd_t *pmd = alloc_page();
-	memset(pmd, 0, PTRS_PER_PMD * sizeof(pmd_t));
 	return pmd;
 }
 static inline pmd_t *pmd_alloc(pgd_t *pgd, unsigned long addr)
@@ -80,7 +79,6 @@ static inline pte_t *pte_alloc_one(void)
 {
 	assert(PTRS_PER_PTE * sizeof(pte_t) == PAGE_SIZE);
 	pte_t *pte = alloc_page();
-	memset(pte, 0, PTRS_PER_PTE * sizeof(pte_t));
 	return pte;
 }
 static inline pte_t *pte_alloc(pmd_t *pmd, unsigned long addr)

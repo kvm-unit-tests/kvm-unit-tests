@@ -166,7 +166,6 @@ void *setup_mmu(phys_addr_t phys_end)
 #endif
 
 	mmu_idmap = alloc_page();
-	memset(mmu_idmap, 0, PAGE_SIZE);
 
 	/*
 	 * mach-virt I/O regions:
