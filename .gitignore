@@ -21,3 +21,4 @@ cscope.*
 /api/api-sample
 /api/dirty-log
 /api/dirty-log-perf
+/s390x/*.bin
