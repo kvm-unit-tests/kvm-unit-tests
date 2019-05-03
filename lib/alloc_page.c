@@ -65,6 +65,8 @@ void *alloc_page()
 	freelist = *(void **)freelist;
 	spin_unlock(&lock);
 
+	if (p)
+		memset(p, 0, PAGE_SIZE);
 	return p;
 }
 
@@ -126,6 +128,8 @@ void *alloc_pages(unsigned long order)
 		}
 	}
 	spin_unlock(&lock);
+	if (run_start)
+		memset(run_start, 0, n * PAGE_SIZE);
 	return run_start;
 }
 
