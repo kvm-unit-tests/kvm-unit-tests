@@ -353,7 +353,6 @@ static void test_vmwrite_vmread(void)
 	struct vmcs *vmcs = alloc_page();
 	u32 vmcs_enum_max, max_index = 0;
 
-	memset(vmcs, 0, PAGE_SIZE);
 	vmcs->hdr.revision_id = basic.revision;
 	assert(!vmcs_clear(vmcs));
 	assert(!make_vmcs_current(vmcs));
@@ -373,7 +372,6 @@ static void test_vmcs_high(void)
 {
 	struct vmcs *vmcs = alloc_page();
 
-	memset(vmcs, 0, PAGE_SIZE);
 	vmcs->hdr.revision_id = basic.revision;
 	assert(!vmcs_clear(vmcs));
 	assert(!make_vmcs_current(vmcs));
@@ -400,7 +398,6 @@ static void test_vmcs_lifecycle(void)
 
 	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
 		vmcs[i] = alloc_page();
-		memset(vmcs[i], 0, PAGE_SIZE);
 		vmcs[i]->hdr.revision_id = basic.revision;
 	}
 
@@ -647,7 +644,6 @@ static void test_vmclear_flushing(void)
 
 	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
 		vmcs[i] = alloc_page();
-		memset(vmcs[i], 0, PAGE_SIZE);
 	}
 
 	vmcs[0]->hdr.revision_id = basic.revision;
@@ -745,7 +741,6 @@ static void split_large_ept_entry(unsigned long *ptep, int level)
 
 	new_pt = alloc_page();
 	assert(new_pt);
-	memset(new_pt, 0, PAGE_SIZE);
 
 	prototype = pte & ~EPT_ADDR_MASK;
 	if (level == 2)
@@ -1220,7 +1215,6 @@ static void init_vmcs_guest(void)
 static int init_vmcs(struct vmcs **vmcs)
 {
 	*vmcs = alloc_page();
-	memset(*vmcs, 0, PAGE_SIZE);
 	(*vmcs)->hdr.revision_id = basic.revision;
 	/* vmclear first to init vmcs */
 	if (vmcs_clear(*vmcs)) {
@@ -1259,7 +1253,6 @@ static void init_vmx(void)
 	ulong fix_cr4_set, fix_cr4_clr;
 
 	vmxon_region = alloc_page();
-	memset(vmxon_region, 0, PAGE_SIZE);
 
 	vmcs_root = alloc_page();
 
@@ -1291,9 +1284,7 @@ static void init_vmx(void)
 	*vmxon_region = basic.revision;
 
 	guest_stack = alloc_page();
-	memset(guest_stack, 0, PAGE_SIZE);
 	guest_syscall_stack = alloc_page();
-	memset(guest_syscall_stack, 0, PAGE_SIZE);
 }
 
 static void do_vmxon_off(void *data)
@@ -1420,7 +1411,6 @@ static void test_vmptrst(void)
 	struct vmcs *vmcs1, *vmcs2;
 
 	vmcs1 = alloc_page();
-	memset(vmcs1, 0, PAGE_SIZE);
 	init_vmcs(&vmcs1);
 	ret = vmcs_save(&vmcs2);
 	report("test vmptrst", (!ret) && (vmcs1 == vmcs2));

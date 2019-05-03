@@ -125,7 +125,6 @@ static void vtd_setup_root_table(void)
 {
 	void *root = alloc_page();
 
-	memset(root, 0, PAGE_SIZE);
 	vtd_writeq(DMAR_RTADDR_REG, virt_to_phys(root));
 	vtd_gcmd_or(VTD_GCMD_ROOT);
 	printf("DMAR table address: %#018lx\n", vtd_root_table());
@@ -135,7 +134,6 @@ static void vtd_setup_ir_table(void)
 {
 	void *root = alloc_page();
 
-	memset(root, 0, PAGE_SIZE);
 	/* 0xf stands for table size (2^(0xf+1) == 65536) */
 	vtd_writeq(DMAR_IRTA_REG, virt_to_phys(root) | 0xf);
 	vtd_gcmd_or(VTD_GCMD_IR_TABLE);
@@ -153,7 +151,6 @@ static void vtd_install_pte(vtd_pte_t *root, iova_t iova,
 		offset = PGDIR_OFFSET(iova, level);
 		if (!(root[offset] & VTD_PTE_RW)) {
 			page = alloc_page();
-			memset(page, 0, PAGE_SIZE);
 			root[offset] = virt_to_phys(page) | VTD_PTE_RW;
 		}
 		root = (uint64_t *)(phys_to_virt(root[offset] &
@@ -195,7 +192,6 @@ void vtd_map_range(uint16_t sid, iova_t iova, phys_addr_t pa, size_t size)
 
 	if (!re->present) {
 		ce = alloc_page();
-		memset(ce, 0, PAGE_SIZE);
 		memset(re, 0, sizeof(*re));
 		re->context_table_p = virt_to_phys(ce) >> VTD_PAGE_SHIFT;
 		re->present = 1;
@@ -209,7 +205,6 @@ void vtd_map_range(uint16_t sid, iova_t iova, phys_addr_t pa, size_t size)
 
 	if (!ce->present) {
 		slptptr = alloc_page();
-		memset(slptptr, 0, PAGE_SIZE);
 		memset(ce, 0, sizeof(*ce));
 		/* To make it simple, domain ID is the same as SID */
 		ce->domain_id = sid;

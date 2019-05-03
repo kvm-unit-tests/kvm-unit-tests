@@ -47,7 +47,6 @@ static void setup_hypercall(void)
 	hypercall_page = alloc_page();
 	if (!hypercall_page)
 		report_abort("failed to allocate hypercall page");
-	memset(hypercall_page, 0, PAGE_SIZE);
 
 	wrmsr(HV_X64_MSR_GUEST_OS_ID, guestid);
 
@@ -105,9 +104,6 @@ static void setup_cpu(void *ctx)
 	hv->post_msg = alloc_page();
 	if (!hv->msg_page || !hv->evt_page || !hv->post_msg)
 		report_abort("failed to allocate synic pages for vcpu");
-	memset(hv->msg_page, 0, sizeof(*hv->msg_page));
-	memset(hv->evt_page, 0, sizeof(*hv->evt_page));
-	memset(hv->post_msg, 0, sizeof(*hv->post_msg));
 	hv->msg_conn = MSG_CONN_BASE + vcpu;
 	hv->evt_conn = EVT_CONN_BASE + vcpu;
 

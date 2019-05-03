@@ -395,7 +395,6 @@ int main(void)
 
 	pt = alloc_page();
 	cr3 = (void*)read_cr3();
-	memset(pt, 0, 4096);
 	/* use shadowed stack during interrupt delivery */
 	for (i = 0; i < 4096/sizeof(ulong); i++) {
 		if (!cr3[i]) {

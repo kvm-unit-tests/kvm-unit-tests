@@ -253,7 +253,6 @@ static void msr_bmp_init(void)
 	u32 ctrl_cpu0;
 
 	msr_bitmap = alloc_page();
-	memset(msr_bitmap, 0x0, PAGE_SIZE);
 	ctrl_cpu0 = vmcs_read(CPU_EXEC_CTRL0);
 	ctrl_cpu0 |= CPU_MSR_BITMAP;
 	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu0);
@@ -627,8 +626,6 @@ static int iobmp_init(struct vmcs *vmcs)
 
 	io_bitmap_a = alloc_page();
 	io_bitmap_b = alloc_page();
-	memset(io_bitmap_a, 0x0, PAGE_SIZE);
-	memset(io_bitmap_b, 0x0, PAGE_SIZE);
 	ctrl_cpu0 = vmcs_read(CPU_EXEC_CTRL0);
 	ctrl_cpu0 |= CPU_IO_BITMAP;
 	ctrl_cpu0 &= (~CPU_IO);
@@ -1062,8 +1059,6 @@ static int setup_ept(bool enable_ad)
 	if (__setup_ept(virt_to_phys(pml4), enable_ad))
 		return 1;
 
-	memset(pml4, 0, PAGE_SIZE);
-
 	end_of_memory = fwcfg_get_u64(FW_CFG_RAM_SIZE);
 	if (end_of_memory < (1ul << 32))
 		end_of_memory = (1ul << 32);
@@ -1135,8 +1130,6 @@ static int ept_init_common(bool have_ad)
 		return VMX_TEST_EXIT;
 	data_page1 = alloc_page();
 	data_page2 = alloc_page();
-	memset(data_page1, 0x0, PAGE_SIZE);
-	memset(data_page2, 0x0, PAGE_SIZE);
 	*((u32 *)data_page1) = MAGIC_VAL_1;
 	*((u32 *)data_page2) = MAGIC_VAL_2;
 	install_ept(pml4, (unsigned long)data_page1, (unsigned long)data_page2,
@@ -1483,7 +1476,6 @@ static int pml_init(struct vmcs *vmcs)
 	}
 
 	pml_log = alloc_page();
-	memset(pml_log, 0x0, PAGE_SIZE);
 	vmcs_write(PMLADDR, (u64)pml_log);
 	vmcs_write(GUEST_PML_INDEX, PML_INDEX - 1);
 
@@ -1908,9 +1900,6 @@ static int msr_switch_init(struct vmcs *vmcs)
 	exit_msr_store = alloc_page();
 	exit_msr_load = alloc_page();
 	entry_msr_load = alloc_page();
-	memset(exit_msr_store, 0, PAGE_SIZE);
-	memset(exit_msr_load, 0, PAGE_SIZE);
-	memset(entry_msr_load, 0, PAGE_SIZE);
 	entry_msr_load[0].index = MSR_KERNEL_GS_BASE;
 	entry_msr_load[0].value = MSR_MAGIC;
 
