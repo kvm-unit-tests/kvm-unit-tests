@@ -604,16 +604,20 @@ enum vm_instruction_error_number {
 #define EPT_ADDR_MASK		GENMASK_ULL(51, 12)
 #define PAGE_MASK_2M		(~(PAGE_SIZE_2M-1))
 
-#define EPT_VLT_RD		1
-#define EPT_VLT_WR		(1 << 1)
-#define EPT_VLT_FETCH		(1 << 2)
-#define EPT_VLT_PERM_RD		(1 << 3)
-#define EPT_VLT_PERM_WR		(1 << 4)
-#define EPT_VLT_PERM_EX		(1 << 5)
+#define EPT_VLT_RD		(1ull << 0)
+#define EPT_VLT_WR		(1ull << 1)
+#define EPT_VLT_FETCH		(1ull << 2)
+#define EPT_VLT_PERM_RD		(1ull << 3)
+#define EPT_VLT_PERM_WR		(1ull << 4)
+#define EPT_VLT_PERM_EX		(1ull << 5)
+#define EPT_VLT_PERM_USER_EX	(1ull << 6)
 #define EPT_VLT_PERMS		(EPT_VLT_PERM_RD | EPT_VLT_PERM_WR | \
 				 EPT_VLT_PERM_EX)
-#define EPT_VLT_LADDR_VLD	(1 << 7)
-#define EPT_VLT_PADDR		(1 << 8)
+#define EPT_VLT_LADDR_VLD	(1ull << 7)
+#define EPT_VLT_PADDR		(1ull << 8)
+#define EPT_VLT_GUEST_USER	(1ull << 9)
+#define EPT_VLT_GUEST_RW	(1ull << 10)
+#define EPT_VLT_GUEST_EX	(1ull << 11)
 
 #define MAGIC_VAL_1		0x12345678ul
 #define MAGIC_VAL_2		0x87654321ul

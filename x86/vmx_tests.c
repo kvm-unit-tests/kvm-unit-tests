@@ -2390,6 +2390,10 @@ static void do_ept_violation(bool leaf, enum ept_access_op op,
 
 	qual = vmcs_read(EXI_QUALIFICATION);
 
+	/* Mask undefined bits (which may later be defined in certain cases). */
+	qual &= ~(EPT_VLT_GUEST_USER | EPT_VLT_GUEST_RW | EPT_VLT_GUEST_EX |
+		 EPT_VLT_PERM_USER_EX);
+
 	diagnose_ept_violation_qual(expected_qual, qual);
 	TEST_EXPECT_EQ(expected_qual, qual);
 
