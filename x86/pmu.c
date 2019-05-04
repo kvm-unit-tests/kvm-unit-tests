@@ -316,14 +316,19 @@ static void check_counter_overflow(void)
 	for (i = 0; i < num_counters + 1; i++, cnt.ctr++) {
 		uint64_t status;
 		int idx;
-		if (i == num_counters)
+
+		cnt.count = 1 - count;
+
+		if (i == num_counters) {
 			cnt.ctr = fixed_events[0].unit_sel;
+			cnt.count &= (1ul << edx.split.bit_width_fixed) - 1;
+		}
+
 		if (i % 2)
 			cnt.config |= EVNTSEL_INT;
 		else
 			cnt.config &= ~EVNTSEL_INT;
 		idx = event_to_global_idx(&cnt);
-		cnt.count = 1 - count;
 		measure(&cnt, 1);
 		report("cntr-%d", cnt.count == 1, i);
 		status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
@@ -357,16 +362,25 @@ static void check_rdpmc(void)
 	report_prefix_push("rdpmc");
 
 	for (i = 0; i < num_counters; i++) {
-		uint64_t x = (val & 0xffffffff) |
-			((1ull << (eax.split.bit_width - 32)) - 1) << 32;
+		uint64_t x;
+
+		/*
+		 * Only the low 32 bits are writable, and the value is
+		 * sign-extended.
+		 */
+		x = (uint64_t)(int64_t)(int32_t)val;
+
+		/* Mask according to the number of supported bits */
+		x &= (1ull << eax.split.bit_width) - 1;
+
 		wrmsr(MSR_IA32_PERFCTR0 + i, val);
 		report("cntr-%d", rdpmc(i) == x, i);
 		report("fast-%d", rdpmc(i | (1<<31)) == (u32)val, i);
 	}
 	for (i = 0; i < edx.split.num_counters_fixed; i++) {
-		uint64_t x = (val & 0xffffffff) |
-			((1ull << (edx.split.bit_width_fixed - 32)) - 1) << 32;
-		wrmsr(MSR_CORE_PERF_FIXED_CTR0 + i, val);
+		uint64_t x = val & ((1ull << edx.split.bit_width_fixed) - 1);
+
+		wrmsr(MSR_CORE_PERF_FIXED_CTR0 + i, x);
 		report("fixed cntr-%d", rdpmc(i | (1 << 30)) == x, i);
 		report("fixed fast-%d", rdpmc(i | (3<<30)) == (u32)val, i);
 	}
