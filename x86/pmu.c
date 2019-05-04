@@ -354,15 +354,32 @@ static void check_gp_counter_cmask(void)
 	report("cmask", cnt.count < gp_events[1].min);
 }
 
+static void do_rdpmc_fast(void *ptr)
+{
+	pmu_counter_t *cnt = ptr;
+	uint32_t idx = (uint32_t)cnt->idx | (1u << 31);
+
+	if (!is_gp(cnt))
+		idx |= 1 << 30;
+
+	cnt->count = rdpmc(idx);
+}
+
+
 static void check_rdpmc(void)
 {
 	uint64_t val = 0x1f3456789ull;
+	bool exc;
 	int i;
 
 	report_prefix_push("rdpmc");
 
 	for (i = 0; i < num_counters; i++) {
 		uint64_t x;
+		pmu_counter_t cnt = {
+			.ctr = MSR_IA32_PERFCTR0 + i,
+			.idx = i
+		};
 
 		/*
 		 * Only the low 32 bits are writable, and the value is
@@ -375,14 +392,28 @@ static void check_rdpmc(void)
 
 		wrmsr(MSR_IA32_PERFCTR0 + i, val);
 		report("cntr-%d", rdpmc(i) == x, i);
-		report("fast-%d", rdpmc(i | (1<<31)) == (u32)val, i);
+
+		exc = test_for_exception(GP_VECTOR, do_rdpmc_fast, &cnt);
+		if (exc)
+			report_skip("fast-%d", i);
+		else
+			report("fast-%d", cnt.count == (u32)val, i);
 	}
 	for (i = 0; i < edx.split.num_counters_fixed; i++) {
 		uint64_t x = val & ((1ull << edx.split.bit_width_fixed) - 1);
+		pmu_counter_t cnt = {
+			.ctr = MSR_CORE_PERF_FIXED_CTR0 + i,
+			.idx = i
+		};
 
 		wrmsr(MSR_CORE_PERF_FIXED_CTR0 + i, x);
 		report("fixed cntr-%d", rdpmc(i | (1 << 30)) == x, i);
-		report("fixed fast-%d", rdpmc(i | (3<<30)) == (u32)val, i);
+
+		exc = test_for_exception(GP_VECTOR, do_rdpmc_fast, &cnt);
+		if (exc)
+			report_skip("fixed fast-%d", i);
+		else
+			report("fixed fast-%d", cnt.count == (u32)x, i);
 	}
 
 	report_prefix_pop();
