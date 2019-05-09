@@ -5010,7 +5010,7 @@ static void test_entry_msr_load(void)
 	test_vmx_valid_controls(false);
 }
 
-static void guest_pat_main(void)
+static void guest_state_test_main(void)
 {
 	while (1) {
 		if (vmx_get_test_stage() != 2)
@@ -6721,7 +6721,7 @@ static void test_pat(u32 field, const char * field_name, u32 ctrl_field,
 	vmcs_clear_bits(ctrl_field, ctrl_bit);
 	if (field == GUEST_PAT) {
 		vmx_set_test_stage(1);
-		test_set_guest(guest_pat_main);
+		test_set_guest(guest_state_test_main);
 	}
 
 	for (i = 0; i < 256; i = (i < PAT_VAL_LIMIT) ? i + 1 : i * 2) {
