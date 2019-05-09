@@ -5022,13 +5022,14 @@ static void guest_state_test_main(void)
 	asm volatile("fnop");
 }
 
-static void report_guest_pat_test(const char *test, u32 xreason, u64 guest_pat)
+static void report_guest_state_test(const char *test, u32 xreason,
+				    u64 field, const char * field_name)
 {
 	u32 reason = vmcs_read(EXI_REASON);
 	u64 guest_rip;
 	u32 insn_len;
 
-	report("%s, GUEST_PAT %lx", reason == xreason, test, guest_pat);
+	report("%s, %s %lx", reason == xreason, test, field_name, field);
 
 	guest_rip = vmcs_read(GUEST_RIP);
 	insn_len = vmcs_read(EXI_INST_LEN);
@@ -6736,8 +6737,9 @@ static void test_pat(u32 field, const char * field_name, u32 ctrl_field,
 
 			} else {	// GUEST_PAT
 				enter_guest();
-				report_guest_pat_test("ENT_LOAD_PAT enabled",
-						       VMX_VMCALL, val);
+				report_guest_state_test("ENT_LOAD_PAT enabled",
+							VMX_VMCALL, val,
+							"GUEST_PAT");
 			}
 		}
 	}
@@ -6763,17 +6765,18 @@ static void test_pat(u32 field, const char * field_name, u32 ctrl_field,
 			} else {	// GUEST_PAT
 				if (i == 0x2 || i == 0x3 || i >= 0x8) {
 					enter_guest_with_invalid_guest_state();
-					report_guest_pat_test("ENT_LOAD_PAT "
-								"enabled",
-							     VMX_FAIL_STATE |
-							     VMX_ENTRY_FAILURE,
-							     val);
+					report_guest_state_test("ENT_LOAD_PAT "
+							        "enabled",
+							        VMX_FAIL_STATE | VMX_ENTRY_FAILURE,
+							        val,
+							        "GUEST_PAT");
 				} else {
 					enter_guest();
-					report_guest_pat_test("ENT_LOAD_PAT "
-							      "enabled",
-							      VMX_VMCALL,
-							      val);
+					report_guest_state_test("ENT_LOAD_PAT "
+							        "enabled",
+							        VMX_VMCALL,
+							        val,
+							        "GUEST_PAT");
 				}
 			}
 
