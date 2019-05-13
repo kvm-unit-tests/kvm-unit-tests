@@ -99,7 +99,11 @@ void exit(int code)
 #else
         asm volatile("out %0, %1" : : "a"(code), "d"((short)0xf4));
 #endif
-	__builtin_unreachable();
+
+	/* Fallback */
+	while (1) {
+		asm volatile("hlt" ::: "memory");
+	}
 }
 
 void __iomem *ioremap(phys_addr_t phys_addr, size_t size)
