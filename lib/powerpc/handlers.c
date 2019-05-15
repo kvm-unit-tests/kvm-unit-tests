@@ -12,11 +12,12 @@
 
 /*
  * Generic handler for decrementer exceptions (0x900)
- * Just reset the decrementer back to its maximum value (0x7FFFFFFF)
+ * Just reset the decrementer back to the value specified when registering the
+ * handler
  */
-void dec_except_handler(struct pt_regs *regs __unused, void *data __unused)
+void dec_except_handler(struct pt_regs *regs __unused, void *data)
 {
-	uint32_t dec = 0x7FFFFFFF;
+	uint64_t dec = *((uint64_t *) data);
 
 	asm volatile ("mtdec %0" : : "r" (dec));
 }
