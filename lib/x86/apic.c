@@ -161,6 +161,7 @@ void reset_apic(void)
 {
     disable_apic();
     wrmsr(MSR_IA32_APICBASE, rdmsr(MSR_IA32_APICBASE) | APIC_EN);
+    apic_write(APIC_SPIV, 0x1ff);
 }
 
 u32 ioapic_read_reg(unsigned reg)
@@ -219,7 +220,7 @@ void set_irq_line(unsigned line, int val)
 void enable_apic(void)
 {
     printf("enabling apic\n");
-    xapic_write(0xf0, 0x1ff); /* spurious vector register */
+    xapic_write(APIC_SPIV, 0x1ff);
 }
 
 void mask_pic_interrupts(void)

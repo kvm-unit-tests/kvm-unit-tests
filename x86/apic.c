@@ -148,7 +148,6 @@ static void test_apic_disable(void)
     verify_disabled_apic_mmio();
 
     reset_apic();
-    apic_write(APIC_SPIV, 0x1ff);
     report("Local apic enabled in xAPIC mode",
 	   (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == APIC_EN);
     report("CPUID.1H:EDX.APIC[bit 9] is set", cpuid(1).d & (1 << 9));
