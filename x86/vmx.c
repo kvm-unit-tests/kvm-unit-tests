@@ -361,8 +361,8 @@ static void test_vmwrite_vmread(void)
 	report("VMWRITE/VMREAD", __check_all_vmcs_fields(0x42, &max_index));
 
 	vmcs_enum_max = rdmsr(MSR_IA32_VMX_VMCS_ENUM) & VMCS_FIELD_INDEX_MASK;
-	report("VMX_VMCS_ENUM.MAX_INDEX expected: %x, actual: %x",
-		vmcs_enum_max == max_index, max_index, vmcs_enum_max);
+	report("VMX_VMCS_ENUM.MAX_INDEX expected at least: %x, actual: %x",
+		vmcs_enum_max >= max_index, max_index, vmcs_enum_max);
 
 	assert(!vmcs_clear(vmcs));
 	free_page(vmcs);
