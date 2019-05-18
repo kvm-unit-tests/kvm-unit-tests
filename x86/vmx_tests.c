@@ -842,6 +842,17 @@ extern void insn_rdseed(void);
 u32 cur_insn;
 u64 cr3;
 
+#define X86_FEATURE_MONITOR	(1 << 3)
+#define X86_FEATURE_MCE		(1 << 7)
+#define X86_FEATURE_PCID	(1 << 17)
+
+typedef bool (*supported_fn)(void);
+
+static bool monitor_supported(void)
+{
+	return cpuid(1).c & X86_FEATURE_MONITOR;
+}
+
 struct insn_table {
 	const char *name;
 	u32 flag;
@@ -853,6 +864,8 @@ struct insn_table {
 	// Use FIELD_EXIT_QUAL and FIELD_INSN_INFO to define
 	// which field need to be tested, reason is always tested
 	u32 test_field;
+	const supported_fn supported_fn;
+	u8 disabled;
 };
 
 /*
@@ -868,7 +881,7 @@ static struct insn_table insn_table[] = {
 	{"HLT",  CPU_HLT, insn_hlt, INSN_CPU0, 12, 0, 0, 0},
 	{"INVLPG", CPU_INVLPG, insn_invlpg, INSN_CPU0, 14,
 		0x12345678, 0, FIELD_EXIT_QUAL},
-	{"MWAIT", CPU_MWAIT, insn_mwait, INSN_CPU0, 36, 0, 0, 0},
+	{"MWAIT", CPU_MWAIT, insn_mwait, INSN_CPU0, 36, 0, 0, 0, &monitor_supported},
 	{"RDPMC", CPU_RDPMC, insn_rdpmc, INSN_CPU0, 15, 0, 0, 0},
 	{"RDTSC", CPU_RDTSC, insn_rdtsc, INSN_CPU0, 16, 0, 0, 0},
 	{"CR3 load", CPU_CR3_LOAD, insn_cr3_load, INSN_CPU0, 28, 0x3, 0,
@@ -881,7 +894,7 @@ static struct insn_table insn_table[] = {
 	{"CR8 store", CPU_CR8_STORE, insn_cr8_store, INSN_CPU0, 28, 0x18, 0,
 		FIELD_EXIT_QUAL},
 #endif
-	{"MONITOR", CPU_MONITOR, insn_monitor, INSN_CPU0, 39, 0, 0, 0},
+	{"MONITOR", CPU_MONITOR, insn_monitor, INSN_CPU0, 39, 0, 0, 0, &monitor_supported},
 	{"PAUSE", CPU_PAUSE, insn_pause, INSN_CPU0, 40, 0, 0, 0},
 	// Flags for Secondary Processor-Based VM-Execution Controls
 	{"WBINVD", CPU_WBINVD, insn_wbinvd, INSN_CPU1, 54, 0, 0, 0},
@@ -904,13 +917,19 @@ static struct insn_table insn_table[] = {
 
 static int insn_intercept_init(struct vmcs *vmcs)
 {
-	u32 ctrl_cpu;
+	u32 ctrl_cpu, cur_insn;
 
 	ctrl_cpu = ctrl_cpu_rev[0].set | CPU_SECONDARY;
 	ctrl_cpu &= ctrl_cpu_rev[0].clr;
 	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu);
 	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu_rev[1].set);
 	cr3 = read_cr3();
+
+	for (cur_insn = 0; insn_table[cur_insn].name != NULL; cur_insn++) {
+		if (insn_table[cur_insn].supported_fn == NULL)
+			continue;
+		insn_table[cur_insn].disabled = !insn_table[cur_insn].supported_fn();
+	}
 	return VMX_TEST_START;
 }
 
@@ -924,6 +943,12 @@ static void insn_intercept_main(void)
 		     !(ctrl_cpu_rev[1].clr & insn_table[cur_insn].flag))) {
 			printf("\tCPU_CTRL%d.CPU_%s is not supported.\n",
 			       insn_table[cur_insn].type - INSN_CPU0,
+			       insn_table[cur_insn].name);
+			continue;
+		}
+
+		if (insn_table[cur_insn].disabled) {
+			printf("\tFeature required for %s is not supported.\n",
 			       insn_table[cur_insn].name);
 			continue;
 		}
@@ -6936,9 +6961,6 @@ static void vmentry_movss_shadow_test(void)
 	TEST_ASSERT(!make_vmcs_current(orig_vmcs));
 	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED);
 }
-
-#define X86_FEATURE_PCID       (1 << 17)
-#define X86_FEATURE_MCE        (1 << 7)
 
 static int write_cr4_checking(unsigned long val)
 {
