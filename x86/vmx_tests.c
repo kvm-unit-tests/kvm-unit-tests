@@ -7146,21 +7146,21 @@ static void vmx_pending_event_hlt_test(void)
 	vmx_pending_event_test_core(true);
 }
 
-static int vmx_window_test_ud_count;
+static int vmx_window_test_db_count;
 
-static void vmx_window_test_ud_handler(struct ex_regs *regs)
+static void vmx_window_test_db_handler(struct ex_regs *regs)
 {
-	vmx_window_test_ud_count++;
+	vmx_window_test_db_count++;
 }
 
 static void vmx_nmi_window_test_guest(void)
 {
-	handle_exception(UD_VECTOR, vmx_window_test_ud_handler);
+	handle_exception(DB_VECTOR, vmx_window_test_db_handler);
 
 	asm volatile("vmcall\n\t"
 		     "nop\n\t");
 
-	handle_exception(UD_VECTOR, NULL);
+	handle_exception(DB_VECTOR, NULL);
 }
 
 static void verify_nmi_window_exit(u64 rip)
@@ -7179,7 +7179,7 @@ static void verify_nmi_window_exit(u64 rip)
 static void vmx_nmi_window_test(void)
 {
 	u64 nop_addr;
-	void *ud_fault_addr = get_idt_addr(&boot_idt[UD_VECTOR]);
+	void *db_fault_addr = get_idt_addr(&boot_idt[DB_VECTOR]);
 
 	if (!(ctrl_pin_rev.clr & PIN_VIRT_NMI)) {
 		report_skip("CPU does not support the \"Virtual NMIs\" VM-execution control.");
@@ -7191,7 +7191,7 @@ static void vmx_nmi_window_test(void)
 		return;
 	}
 
-	vmx_window_test_ud_count = 0;
+	vmx_window_test_db_count = 0;
 
 	report_prefix_push("NMI-window");
 	test_set_guest(vmx_nmi_window_test_guest);
@@ -7224,27 +7224,27 @@ static void vmx_nmi_window_test(void)
 	/*
 	 * Ask for "NMI-window exiting" (with event injection), and
 	 * expect a VM-exit after the event is injected. (RIP should
-	 * be at the address specified in the IDT entry for #UD.)
+	 * be at the address specified in the IDT entry for #DB.)
 	 */
-	report_prefix_push("active, no blocking, injecting #UD");
+	report_prefix_push("active, no blocking, injecting #DB");
 	vmcs_write(ENT_INTR_INFO,
-		   INTR_INFO_VALID_MASK | INTR_TYPE_HARD_EXCEPTION | UD_VECTOR);
+		   INTR_INFO_VALID_MASK | INTR_TYPE_HARD_EXCEPTION | DB_VECTOR);
 	enter_guest();
-	verify_nmi_window_exit((u64)ud_fault_addr);
+	verify_nmi_window_exit((u64)db_fault_addr);
 	report_prefix_pop();
 
 	/*
 	 * Ask for "NMI-window exiting" with NMI blocking, and expect
-	 * a VM-exit after the next IRET (i.e. after the #UD handler
+	 * a VM-exit after the next IRET (i.e. after the #DB handler
 	 * returns). So, RIP should be back at one byte past the nop.
 	 */
 	report_prefix_push("active, blocking by NMI");
 	vmcs_write(GUEST_INTR_STATE, GUEST_INTR_STATE_NMI);
 	enter_guest();
 	verify_nmi_window_exit(nop_addr + 1);
-	report("#UD handler executed once (actual %d times)",
-	       vmx_window_test_ud_count == 1,
-	       vmx_window_test_ud_count);
+	report("#DB handler executed once (actual %d times)",
+	       vmx_window_test_db_count == 1,
+	       vmx_window_test_db_count);
 	report_prefix_pop();
 
 	if (!(rdmsr(MSR_IA32_VMX_MISC) & (1 << 6))) {
@@ -7265,15 +7265,15 @@ static void vmx_nmi_window_test(void)
 		 * Ask for "NMI-window exiting" when entering activity
 		 * state HLT (with event injection), and expect a
 		 * VM-exit after the event is injected. (RIP should be
-		 * at the address specified in the IDT entry for #UD.)
+		 * at the address specified in the IDT entry for #DB.)
 		 */
-		report_prefix_push("halted, no blocking, injecting #UD");
+		report_prefix_push("halted, no blocking, injecting #DB");
 		vmcs_write(GUEST_ACTV_STATE, ACTV_HLT);
 		vmcs_write(ENT_INTR_INFO,
 			   INTR_INFO_VALID_MASK | INTR_TYPE_HARD_EXCEPTION |
-			   UD_VECTOR);
+			   DB_VECTOR);
 		enter_guest();
-		verify_nmi_window_exit((u64)ud_fault_addr);
+		verify_nmi_window_exit((u64)db_fault_addr);
 		report_prefix_pop();
 	}
 
@@ -7284,7 +7284,7 @@ static void vmx_nmi_window_test(void)
 
 static void vmx_intr_window_test_guest(void)
 {
-	handle_exception(UD_VECTOR, vmx_window_test_ud_handler);
+	handle_exception(DB_VECTOR, vmx_window_test_db_handler);
 
 	/*
 	 * The two consecutive STIs are to ensure that only the first
@@ -7296,7 +7296,7 @@ static void vmx_intr_window_test_guest(void)
 		     "sti\n\t"
 		     "sti\n\t");
 
-	handle_exception(UD_VECTOR, NULL);
+	handle_exception(DB_VECTOR, NULL);
 }
 
 static void verify_intr_window_exit(u64 rip)
@@ -7316,8 +7316,8 @@ static void vmx_intr_window_test(void)
 {
 	u64 vmcall_addr;
 	u64 nop_addr;
-	unsigned int orig_ud_gate_type;
-	void *ud_fault_addr = get_idt_addr(&boot_idt[UD_VECTOR]);
+	unsigned int orig_db_gate_type;
+	void *db_fault_addr = get_idt_addr(&boot_idt[DB_VECTOR]);
 
 	if (!(ctrl_cpu_rev[0].clr & CPU_INTR_WINDOW)) {
 		report_skip("CPU does not support the \"interrupt-window exiting\" VM-execution control.");
@@ -7325,12 +7325,12 @@ static void vmx_intr_window_test(void)
 	}
 
 	/*
-	 * Change the IDT entry for #UD from interrupt gate to trap gate,
+	 * Change the IDT entry for #DB from interrupt gate to trap gate,
 	 * so that it won't clear RFLAGS.IF. We don't want interrupts to
-	 * be disabled after vectoring a #UD.
+	 * be disabled after vectoring a #DB.
 	 */
-	orig_ud_gate_type = boot_idt[UD_VECTOR].type;
-	boot_idt[UD_VECTOR].type = 15;
+	orig_db_gate_type = boot_idt[DB_VECTOR].type;
+	boot_idt[DB_VECTOR].type = 15;
 
 	report_prefix_push("interrupt-window");
 	test_set_guest(vmx_intr_window_test_guest);
@@ -7355,14 +7355,14 @@ static void vmx_intr_window_test(void)
 	 * Ask for "interrupt-window exiting" (with event injection)
 	 * with RFLAGS.IF set and no blocking; expect a VM-exit after
 	 * the event is injected. That is, RIP should should be at the
-	 * address specified in the IDT entry for #UD.
+	 * address specified in the IDT entry for #DB.
 	 */
-	report_prefix_push("active, no blocking, RFLAGS.IF=1, injecting #UD");
+	report_prefix_push("active, no blocking, RFLAGS.IF=1, injecting #DB");
 	vmcs_write(ENT_INTR_INFO,
-		   INTR_INFO_VALID_MASK | INTR_TYPE_HARD_EXCEPTION | UD_VECTOR);
+		   INTR_INFO_VALID_MASK | INTR_TYPE_HARD_EXCEPTION | DB_VECTOR);
 	vmcall_addr = vmcs_read(GUEST_RIP);
 	enter_guest();
-	verify_intr_window_exit((u64)ud_fault_addr);
+	verify_intr_window_exit((u64)db_fault_addr);
 	report_prefix_pop();
 
 	/*
@@ -7434,19 +7434,19 @@ static void vmx_intr_window_test(void)
 		 * activity state HLT (with event injection), and
 		 * expect a VM-exit after the event is injected. That
 		 * is, RIP should should be at the address specified
-		 * in the IDT entry for #UD.
+		 * in the IDT entry for #DB.
 		 */
-		report_prefix_push("halted, no blocking, injecting #UD");
+		report_prefix_push("halted, no blocking, injecting #DB");
 		vmcs_write(GUEST_ACTV_STATE, ACTV_HLT);
 		vmcs_write(ENT_INTR_INFO,
 			   INTR_INFO_VALID_MASK | INTR_TYPE_HARD_EXCEPTION |
-			   UD_VECTOR);
+			   DB_VECTOR);
 		enter_guest();
-		verify_intr_window_exit((u64)ud_fault_addr);
+		verify_intr_window_exit((u64)db_fault_addr);
 		report_prefix_pop();
 	}
 
-	boot_idt[UD_VECTOR].type = orig_ud_gate_type;
+	boot_idt[DB_VECTOR].type = orig_db_gate_type;
 	vmcs_clear_bits(CPU_EXEC_CTRL0, CPU_INTR_WINDOW);
 	enter_guest();
 	report_prefix_pop();
