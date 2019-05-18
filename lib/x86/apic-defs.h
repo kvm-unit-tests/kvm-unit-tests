@@ -2,6 +2,13 @@
 #define _ASM_X86_APICDEF_H
 
 /*
+ * Abuse this header file to hold the number of max-cpus, making it available
+ * both in C and ASM
+ */
+
+#define MAX_TEST_CPUS (64)
+
+/*
  * Constants for various Intel APICs. (local APIC, IOAPIC, etc.)
  *
  * Alan Cox <Alan.Cox@linux.org>, 1995.

@@ -68,8 +68,10 @@ static void setup_smp_id(void *data)
 static void __on_cpu(int cpu, void (*function)(void *data), void *data,
                      int wait)
 {
+    unsigned int target = id_map[cpu];
+
     spin_lock(&ipi_lock);
-    if (cpu == smp_id())
+    if (target == smp_id())
 	function(data);
     else {
 	atomic_inc(&active_cpus);
@@ -78,8 +80,7 @@ static void __on_cpu(int cpu, void (*function)(void *data), void *data,
 	ipi_data = data;
 	ipi_wait = wait;
 	apic_icr_write(APIC_INT_ASSERT | APIC_DEST_PHYSICAL | APIC_DM_FIXED
-                       | IPI_VECTOR,
-                       cpu);
+                       | IPI_VECTOR, target);
 	while (!ipi_done)
 	    ;
     }
@@ -112,6 +113,8 @@ int cpus_active(void)
     return atomic_read(&active_cpus);
 }
 
+extern unsigned long long online_cpus;
+
 void smp_init(void)
 {
     int i;
@@ -120,6 +123,7 @@ void smp_init(void)
     _cpu_count = fwcfg_get_nb_cpus();
 
     setup_idt();
+    init_apic_map();
     set_idt_entry(IPI_VECTOR, ipi_entry, 0);
 
     setup_smp_id(0);

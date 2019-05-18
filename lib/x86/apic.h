@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include "apic-defs.h"
 
+extern u8 id_map[MAX_TEST_CPUS];
+
 extern void *g_apic;
 extern void *g_ioapic;
 
@@ -55,6 +57,7 @@ uint32_t apic_id(void);
 int enable_x2apic(void);
 void disable_apic(void);
 void reset_apic(void);
+void init_apic_map(void);
 
 /* Converts byte-addressable APIC register offset to 4-byte offset. */
 static inline u32 apic_reg_index(u32 reg)

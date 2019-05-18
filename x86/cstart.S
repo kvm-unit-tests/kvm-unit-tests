@@ -2,11 +2,13 @@
 #include "apic-defs.h"
 
 .globl boot_idt
+.global online_cpus
+
 boot_idt = 0
 
 ipi_vector = 0x20
 
-max_cpus = 64
+max_cpus = MAX_TEST_CPUS
 
 .bss
 
@@ -123,6 +125,13 @@ prepare_32:
 
 smp_stacktop:	.long 0xa0000
 
+save_id:
+	movl $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
+	movl (%eax), %eax
+	shrl $24, %eax
+	lock btsl %eax, online_cpus
+	retl
+
 ap_start32:
 	mov $0x10, %ax
 	mov %ax, %ds
@@ -134,6 +143,7 @@ ap_start32:
 	lock/xaddl %esp, smp_stacktop
 	setup_percpu_area
 	call prepare_32
+	call save_id
 	call load_tss
 	call enable_apic
 	call enable_x2apic
@@ -145,6 +155,7 @@ ap_start32:
 	jmp 1b
 
 start32:
+	call save_id
 	call load_tss
 	call mask_pic_interrupts
 	call enable_apic
@@ -193,6 +204,9 @@ smp_init:
 	jne 1b
 smp_init_done:
 	ret
+
+online_cpus:
+	.quad 0
 
 cpu_online_count:	.word 1
 

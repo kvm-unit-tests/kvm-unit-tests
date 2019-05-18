@@ -272,7 +272,7 @@ static void test_self_ipi(void)
     handle_irq(vec, self_ipi_isr);
     irq_enable();
     apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED | vec,
-                   0);
+                   id_map[0]);
 
     do {
         pause();
@@ -336,7 +336,7 @@ static void test_sti_nmi(void)
     on_cpu_async(1, sti_loop, 0);
     while (nmi_counter < 30000) {
 	old_counter = nmi_counter;
-	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 1);
+	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, id_map[1]);
 	while (nmi_counter == old_counter) {
 	    ;
 	}
@@ -365,10 +365,10 @@ static void kick_me_nmi(void *blah)
 	if (nmi_done) {
 	    return;
 	}
-	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
+	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, id_map[0]);
 	/* make sure the NMI has arrived by sending an IPI after it */
 	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_FIXED | APIC_INT_ASSERT
-		       | 0x44, 0);
+		       | 0x44, id_map[0]);
 	++cpu1_nmi_ctr2;
 	while (cpu1_nmi_ctr2 != cpu0_nmi_ctr2 && !nmi_done) {
 	    pause();
@@ -402,7 +402,7 @@ static void test_multiple_nmi(void)
 	while (cpu1_nmi_ctr1 != cpu0_nmi_ctr1) {
 	    pause();
 	}
-	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
+	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, id_map[0]);
 	while (!nmi_flushed) {
 	    pause();
 	}

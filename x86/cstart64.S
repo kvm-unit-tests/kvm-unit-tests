@@ -7,10 +7,11 @@ boot_idt = 0
 .globl idt_descr
 .globl tss_descr
 .globl gdt64_desc
+.globl online_cpus
 
 ipi_vector = 0x20
 
-max_cpus = 64
+max_cpus = MAX_TEST_CPUS
 
 .bss
 
@@ -208,9 +209,17 @@ ap_start32:
 	ljmpl $8, $ap_start64
 
 .code64
+save_id:
+	movl $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
+	movl (%rax), %eax
+	shrl $24, %eax
+	lock btsl %eax, online_cpus
+	retq
+
 ap_start64:
 	call load_tss
 	call enable_apic
+	call save_id
 	call enable_x2apic
 	sti
 	nop
@@ -223,6 +232,7 @@ start64:
 	call load_tss
 	call mask_pic_interrupts
 	call enable_apic
+	call save_id
 	call smp_init
 	call enable_x2apic
 	mov mb_boot_info(%rip), %rbx
@@ -255,6 +265,9 @@ lvl5:
 idt_descr:
 	.word 16 * 256 - 1
 	.quad boot_idt
+
+online_cpus:
+	.quad 0
 
 load_tss:
 	lidtq idt_descr

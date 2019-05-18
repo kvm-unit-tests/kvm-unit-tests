@@ -5,6 +5,7 @@
 
 void *g_apic = (void *)0xfee00000;
 void *g_ioapic = (void *)0xfec00000;
+u8 id_map[MAX_TEST_CPUS];
 
 struct apic_ops {
     u32 (*reg_read)(unsigned reg);
@@ -227,4 +228,16 @@ void mask_pic_interrupts(void)
 {
     outb(0xff, 0x21);
     outb(0xff, 0xa1);
+}
+
+extern unsigned char online_cpus[256 / 8];
+
+void init_apic_map(void)
+{
+	unsigned int i, j = 0;
+
+	for (i = 0; i < sizeof(online_cpus) * 8; i++) {
+		if ((1ul << (i % 8)) & (online_cpus[i / 8]))
+			id_map[j++] = i;
+	}
 }
