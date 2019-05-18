@@ -7171,9 +7171,7 @@ static void verify_nmi_window_exit(u64 rip)
 	       exit_reason == VMX_NMI_WINDOW, exit_reason);
 	report("RIP (%#lx) is %#lx", vmcs_read(GUEST_RIP) == rip,
 	       vmcs_read(GUEST_RIP), rip);
-	report("Activity state (%ld) is 'ACTIVE'",
-	       vmcs_read(GUEST_ACTV_STATE) == ACTV_ACTIVE,
-	       vmcs_read(GUEST_ACTV_STATE));
+	vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 }
 
 static void vmx_nmi_window_test(void)
@@ -7307,9 +7305,7 @@ static void verify_intr_window_exit(u64 rip)
 	       exit_reason == VMX_INTR_WINDOW, exit_reason);
 	report("RIP (%#lx) is %#lx", vmcs_read(GUEST_RIP) == rip,
 	       vmcs_read(GUEST_RIP), rip);
-	report("Activity state (%ld) is 'ACTIVE'",
-	       vmcs_read(GUEST_ACTV_STATE) == ACTV_ACTIVE,
-	       vmcs_read(GUEST_ACTV_STATE));
+	vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 }
 
 static void vmx_intr_window_test(void)
