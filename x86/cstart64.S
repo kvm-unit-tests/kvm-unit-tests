@@ -19,7 +19,7 @@ max_cpus = MAX_TEST_CPUS
 	.align 16
 stacktop:
 
-	. = . + 4096
+	. = . + 4096 * max_cpus
 	.align 16
 ring0stacktop:
 
@@ -170,7 +170,7 @@ efer = 0xc0000080
 	mov %eax, %cr0
 	ret
 
-smp_stacktop:	.long 0xa0000
+smp_stacktop:	.long stacktop - 4096
 
 .align 16
 
