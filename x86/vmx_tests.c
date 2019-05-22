@@ -6735,7 +6735,7 @@ static void test_pat(u32 field, const char * field_name, u32 ctrl_field,
 				report_prefix_pop();
 
 			} else {	// GUEST_PAT
-				enter_guest_with_invalid_guest_state();
+				enter_guest();
 				report_guest_pat_test("ENT_LOAD_PAT enabled",
 						       VMX_VMCALL, val);
 			}
