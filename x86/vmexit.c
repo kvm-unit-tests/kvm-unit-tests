@@ -521,7 +521,7 @@ static bool do_test(struct test *test)
 
 static void enable_nx(void *junk)
 {
-	if (cpuid(0x80000001).d & (1 << 20))
+	if (cpu_has_efer_nx())
 		wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX_MASK);
 }
 

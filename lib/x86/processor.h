@@ -492,4 +492,9 @@ static inline int has_spec_ctrl(void)
     return !!(cpuid_indexed(7,0).d & (1 << 26));
 }
 
+static inline int cpu_has_efer_nx(void)
+{
+	return !!(cpuid(0x80000001).d & (1 << 20));
+}
+
 #endif
