@@ -1,10 +1,12 @@
+image: fedora:30
+
 before_script:
- - apt-get update -qq
- - apt-get install -y -qq qemu-system
+ - dnf update -y
+ - dnf install -y make python
 
 build-aarch64:
  script:
- - apt-get install -y -qq gcc-aarch64-linux-gnu
+ - dnf install -y qemu-system-aarch64 gcc-aarch64-linux-gnu
  - ./configure --arch=aarch64 --cross-prefix=aarch64-linux-gnu-
  - make -j2
  - ACCEL=tcg ./run_tests.sh
@@ -15,8 +17,8 @@ build-aarch64:
 
 build-arm:
  script:
- - apt-get install -y -qq gcc-arm-linux-gnueabi
- - ./configure --arch=arm --cross-prefix=arm-linux-gnueabi-
+ - dnf install -y qemu-system-arm gcc-arm-linux-gnu
+ - ./configure --arch=arm --cross-prefix=arm-linux-gnu-
  - make -j2
  - ACCEL=tcg ./run_tests.sh
      selftest-setup selftest-vectors-kernel selftest-vectors-user selftest-smp
@@ -26,7 +28,7 @@ build-arm:
 
 build-ppc64be:
  script:
- - apt-get install -y -qq gcc-powerpc64-linux-gnu
+ - dnf install -y qemu-system-ppc gcc-powerpc64-linux-gnu
  - ./configure --arch=ppc64 --endian=big --cross-prefix=powerpc64-linux-gnu-
  - make -j2
  - ACCEL=tcg ./run_tests.sh
@@ -37,7 +39,7 @@ build-ppc64be:
 
 build-ppc64le:
  script:
- - apt-get install -y -qq gcc-powerpc64-linux-gnu
+ - dnf install -y qemu-system-ppc gcc-powerpc64-linux-gnu
  - ./configure --arch=ppc64 --endian=little --cross-prefix=powerpc64-linux-gnu-
  - make -j2
  - ACCEL=tcg ./run_tests.sh
@@ -48,28 +50,33 @@ build-ppc64le:
 
 build-s390x:
  script:
- - apt-get install -y -qq gcc-s390x-linux-gnu
+ - dnf install -y qemu-system-s390x gcc-s390x-linux-gnu
  - ./configure --arch=s390x --cross-prefix=s390x-linux-gnu-
  - make -j2
+ - ACCEL=tcg ./run_tests.sh
+     selftest-setup intercept emulator sieve diag10
+     | tee results.txt
+ - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-x86_64:
  script:
+ - dnf install -y qemu-system-x86 gcc
  - ./configure --arch=x86_64
  - make -j2
  - ACCEL=tcg ./run_tests.sh
      ioapic-split ioapic smptest smptest3 vmexit_cpuid vmexit_mov_from_cr8
      vmexit_mov_to_cr8 vmexit_inl_pmtimer  vmexit_ipi vmexit_ipi_halt
      vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed
-     eventinj msr port80 sieve tsc rmap_chain umip hyperv_stimer intel_iommu
+     eventinj msr port80 syscall tsc rmap_chain umip intel_iommu
      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-i386:
  script:
- - apt-get install -y -qq gcc-multilib
+ - dnf install -y qemu-system-x86 gcc
  - ./configure --arch=i386
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     eventinj port80 sieve tsc taskswitch umip hyperv_stimer
+     eventinj port80 sieve tsc taskswitch taskswitch2 umip
      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
