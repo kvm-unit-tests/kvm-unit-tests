@@ -231,6 +231,7 @@ static void test_timer(struct timer_info *info)
 	/* Disable the timer again and prepare to take interrupts */
 	info->write_ctl(0);
 	set_timer_irq_enabled(info, true);
+	report("interrupt signal no longer pending", !gic_timer_pending(info));
 
 	report("latency within 10 ms", test_cval_10msec(info));
 	report("interrupt received", info->irq_received);
@@ -242,6 +243,7 @@ static void test_timer(struct timer_info *info)
 	info->irq_received = false;
 	info->write_tval(read_sysreg(cntfrq_el0) / 100);	/* 10 ms */
 	info->write_ctl(ARCH_TIMER_CTL_ENABLE);
+	report_info("waiting for interrupt...");
 	wfi();
 	left = info->read_tval();
 	report("interrupt received after TVAL/WFI", info->irq_received);
@@ -328,12 +330,23 @@ static void print_timer_info(void)
 
 int main(int argc, char **argv)
 {
+	int i;
+
 	test_init();
 
 	print_timer_info();
 
-	test_vtimer();
-	test_ptimer();
+	if (argc == 1) {
+		test_vtimer();
+		test_ptimer();
+	}
+
+	for (i = 1; i < argc; ++i) {
+		if (strcmp(argv[i], "vtimer") == 0)
+			test_vtimer();
+		if (strcmp(argv[i], "ptimer") == 0)
+			test_ptimer();
+	}
 
 	return report_summary();
 }
