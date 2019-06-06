@@ -253,6 +253,7 @@ int main(int argc, char **argv)
 		0x1234567890ABCDEFULL, 0xFEDCBA0987654321ULL,
 		-1ULL,
 	};
+	static uint64_t decr = 0x7FFFFFFF; /* Max value */
 
 	for (i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "-w")) {
@@ -288,7 +289,7 @@ int main(int argc, char **argv)
 		(void) getchar();
 	} else {
 		puts("Sleeping...\n");
-		handle_exception(0x900, &dec_except_handler, NULL);
+		handle_exception(0x900, &dec_except_handler, &decr);
 		asm volatile ("mtdec %0" : : "r" (0x3FFFFFFF));
 		hcall(H_CEDE);
 	}

@@ -95,11 +95,13 @@ static bool enable_tm(void)
 static void test_h_cede_tm(int argc, char **argv)
 {
 	int i;
+	static uint64_t decr = 0x3FFFFF; /* ~10ms */
 
 	if (argc > 2)
 		report_abort("Unsupported argument: '%s'", argv[2]);
 
-	handle_exception(0x900, &dec_except_handler, NULL);
+	handle_exception(0x900, &dec_except_handler, &decr);
+	asm volatile ("mtdec %0" : : "r" (decr));
 
 	if (!start_all_cpus(halt, 0))
 		report_abort("Failed to start secondary cpus");
