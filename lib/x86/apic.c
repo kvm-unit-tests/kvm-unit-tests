@@ -2,6 +2,7 @@
 #include "apic.h"
 #include "msr.h"
 #include "processor.h"
+#include "asm/barrier.h"
 
 void *g_apic = (void *)0xfee00000;
 void *g_ioapic = (void *)0xfec00000;
@@ -71,6 +72,7 @@ static void x2apic_write(unsigned reg, u32 val)
 
 static void x2apic_icr_write(u32 val, u32 dest)
 {
+    mb();
     asm volatile ("wrmsr" : : "a"(val), "d"(dest),
                   "c"(APIC_BASE_MSR + APIC_ICR/16));
 }
