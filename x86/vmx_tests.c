@@ -5859,6 +5859,11 @@ static u64 virt_x2apic_mode_nibble1(u64 val)
 	return val & 0xf0;
 }
 
+static bool is_cmci_enabled(void)
+{
+	return rdmsr(MSR_IA32_MCG_CAP) & BIT_ULL(10);
+}
+
 static void virt_x2apic_mode_rd_expectation(
 	u32 reg, bool virt_x2apic_mode_on, bool disable_x2apic,
 	bool apic_register_virtualization, bool virtual_interrupt_delivery,
@@ -5866,8 +5871,10 @@ static void virt_x2apic_mode_rd_expectation(
 {
 	bool readable =
 		!x2apic_reg_reserved(reg) &&
-		reg != APIC_EOI &&
-		reg != APIC_CMCI;
+		reg != APIC_EOI;
+
+	if (reg == APIC_CMCI && !is_cmci_enabled())
+		readable = false;
 
 	expectation->rd_exit_reason = VMX_VMCALL;
 	expectation->virt_fn = virt_x2apic_mode_identity;
@@ -5897,9 +5904,6 @@ static void virt_x2apic_mode_rd_expectation(
  * For writable registers, get_x2apic_wr_val() deposits the write value into the
  * val pointer arg and returns true. For non-writable registers, val is not
  * modified and get_x2apic_wr_val() returns false.
- *
- * CMCI, including the LVT CMCI register, is disabled by default. Thus,
- * get_x2apic_wr_val() treats this register as non-writable.
  */
 static bool get_x2apic_wr_val(u32 reg, u64 *val)
 {
@@ -5932,6 +5936,11 @@ static bool get_x2apic_wr_val(u32 reg, u64 *val)
 		 * unintended side effect, read the current value and use it as
 		 * the write value.
 		 */
+		*val = apic_read(reg);
+		break;
+	case APIC_CMCI:
+		if (!is_cmci_enabled())
+			return false;
 		*val = apic_read(reg);
 		break;
 	case APIC_ICR:
