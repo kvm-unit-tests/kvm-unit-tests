@@ -75,6 +75,7 @@ static inline bool x2apic_reg_reserved(u32 reg)
 	switch (reg) {
 	case 0x000 ... 0x010:
 	case 0x040 ... 0x070:
+	case 0x090:
 	case 0x0c0:
 	case 0x0e0:
 	case 0x290 ... 0x2e0:
