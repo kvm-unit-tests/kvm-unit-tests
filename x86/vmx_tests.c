@@ -7100,8 +7100,11 @@ static int write_cr4_checking(unsigned long val)
 
 static void vmx_cr_load_test(void)
 {
+	unsigned long cr3, cr4, orig_cr3, orig_cr4;
 	struct cpuid _cpuid = cpuid(1);
-	unsigned long cr4 = read_cr4(), cr3 = read_cr3();
+
+	orig_cr4 = read_cr4();
+	orig_cr3 = read_cr3();
 
 	if (!(_cpuid.c & X86_FEATURE_PCID)) {
 		report_skip("PCID not detected");
@@ -7112,12 +7115,11 @@ static void vmx_cr_load_test(void)
 		return;
 	}
 
-	TEST_ASSERT(!(cr4 & (X86_CR4_PCIDE | X86_CR4_MCE)));
-	TEST_ASSERT(!(cr3 & X86_CR3_PCID_MASK));
+	TEST_ASSERT(!(orig_cr3 & X86_CR3_PCID_MASK));
 
 	/* Enable PCID for L1. */
-	cr4 |= X86_CR4_PCIDE;
-	cr3 |= 0x1;
+	cr4 = orig_cr4 | X86_CR4_PCIDE;
+	cr3 = orig_cr3 | 0x1;
 	TEST_ASSERT(!write_cr4_checking(cr4));
 	write_cr3(cr3);
 
@@ -7130,17 +7132,16 @@ static void vmx_cr_load_test(void)
 	 * No exception is expected.
 	 *
 	 * NB. KVM loads the last guest write to CR4 into CR4 read
-	 *     shadow. In order to trigger an exit to KVM, we can set a
-	 *     bit that was zero in the above CR4 write and is owned by
-	 *     KVM. We choose to set CR4.MCE, which shall have no side
-	 *     effect because normally no guest MCE (e.g., as the result
-	 *     of bad memory) would happen during this test.
+	 *     shadow. In order to trigger an exit to KVM, we can toggle a
+	 *     bit that is owned by KVM. We use CR4.MCE, which shall
+	 *     have no side effect because normally no guest MCE (e.g., as the
+	 *     result of bad memory) would happen during this test.
 	 */
-	TEST_ASSERT(!write_cr4_checking(cr4 | X86_CR4_MCE));
+	TEST_ASSERT(!write_cr4_checking(cr4 ^ X86_CR4_MCE));
 
-	/* Cleanup L1 state: disable PCID. */
-	write_cr3(cr3 & ~X86_CR3_PCID_MASK);
-	TEST_ASSERT(!write_cr4_checking(cr4 & ~X86_CR4_PCIDE));
+	/* Cleanup L1 state. */
+	write_cr3(orig_cr3);
+	TEST_ASSERT(!write_cr4_checking(orig_cr4));
 }
 
 static void vmx_nm_test_guest(void)
