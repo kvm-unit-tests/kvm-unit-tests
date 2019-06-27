@@ -162,7 +162,7 @@ void reset_apic(void)
 {
     disable_apic();
     wrmsr(MSR_IA32_APICBASE, rdmsr(MSR_IA32_APICBASE) | APIC_EN);
-    apic_write(APIC_SPIV, 0x1ff);
+    xapic_write(APIC_SPIV, 0x1ff);
 }
 
 u32 ioapic_read_reg(unsigned reg)

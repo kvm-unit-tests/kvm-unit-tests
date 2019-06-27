@@ -143,6 +143,7 @@ ap_start32:
 	lock/xaddl %esp, smp_stacktop
 	setup_percpu_area
 	call prepare_32
+	call reset_apic
 	call save_id
 	call load_tss
 	call enable_apic
@@ -155,6 +156,7 @@ ap_start32:
 	jmp 1b
 
 start32:
+	call reset_apic
 	call save_id
 	call load_tss
 	call mask_pic_interrupts
