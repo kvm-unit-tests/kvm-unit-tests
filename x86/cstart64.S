@@ -118,6 +118,21 @@ MSR_GS_BASE = 0xc0000101
 	wrmsr
 .endm
 
+.macro setup_segments
+	mov $MSR_GS_BASE, %ecx
+	rdmsr
+
+	mov $0x10, %bx
+	mov %bx, %ds
+	mov %bx, %es
+	mov %bx, %fs
+	mov %bx, %gs
+	mov %bx, %ss
+
+	/* restore MSR_GS_BASE */
+	wrmsr
+.endm
+
 .globl start
 start:
 	mov %ebx, mb_boot_info
@@ -149,6 +164,7 @@ switch_to_5level:
 
 prepare_64:
 	lgdt gdt64_desc
+	setup_segments
 
 enter_long_mode:
 	mov %cr4, %eax
@@ -196,12 +212,7 @@ sipi_end:
 
 .code32
 ap_start32:
-	mov $0x10, %ax
-	mov %ax, %ds
-	mov %ax, %es
-	mov %ax, %fs
-	mov %ax, %gs
-	mov %ax, %ss
+	setup_segments
 	mov $-4096, %esp
 	lock/xaddl %esp, smp_stacktop
 	setup_percpu_area
