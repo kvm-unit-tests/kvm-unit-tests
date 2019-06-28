@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define __unused __attribute__((__unused__))
 
@@ -52,10 +53,6 @@ typedef int32_t		s32;
 typedef uint64_t	u64;
 typedef int64_t		s64;
 typedef unsigned long	ulong;
-
-typedef _Bool		bool;
-#define false 0
-#define true  1
 
 #if __SIZEOF_LONG__ == 8
 #  define __PRI32_PREFIX
