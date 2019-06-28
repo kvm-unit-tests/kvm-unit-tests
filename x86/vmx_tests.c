@@ -6952,6 +6952,163 @@ static void test_load_host_pat(void)
 }
 
 /*
+ * Test a value for the given VMCS field.
+ *
+ *  "field" - VMCS field
+ *  "field_name" - string name of VMCS field
+ *  "bit_start" - starting bit
+ *  "bit_end" - ending bit
+ *  "val" - value that the bit range must or must not contain
+ *  "valid_val" - whether value given in 'val' must be valid or not
+ *  "error" - expected VMCS error when vmentry fails for an invalid value
+ */
+static void test_vmcs_field(u64 field, const char *field_name, u32 bit_start,
+			    u32 bit_end, u64 val, bool valid_val, u32 error)
+{
+	u64 field_saved = vmcs_read(field);
+	u32 i;
+	u64 tmp;
+	u32 bit_on;
+	u64 mask = ~0ull;
+
+	mask = (mask >> bit_end) << bit_end;
+	mask = mask | ((1 << bit_start) - 1);
+	tmp = (field_saved & mask) | (val << bit_start);
+
+	vmcs_write(field, tmp);
+	report_prefix_pushf("%s %lx", field_name, tmp);
+	if (valid_val)
+		test_vmx_vmlaunch(0, false);
+	else
+		test_vmx_vmlaunch(error, false);
+	report_prefix_pop();
+
+	for (i = bit_start; i <= bit_end; i = i + 2) {
+		bit_on = ((1ull < i) & (val << bit_start)) ? 0 : 1;
+		if (bit_on)
+			tmp = field_saved | (1ull << i);
+		else
+			tmp = field_saved & ~(1ull << i);
+		vmcs_write(field, tmp);
+		report_prefix_pushf("%s %lx", field_name, tmp);
+		if (valid_val)
+			test_vmx_vmlaunch(error, false);
+		else
+			test_vmx_vmlaunch(0, false);
+		report_prefix_pop();
+	}
+
+	vmcs_write(field, field_saved);
+}
+
+static void test_canonical(u64 field, const char * field_name)
+{
+	u64 addr_saved = vmcs_read(field);
+	u64 addr = addr_saved;
+
+	report_prefix_pushf("%s %lx", field_name, addr);
+	if (is_canonical(addr)) {
+		test_vmx_vmlaunch(0, false);
+		report_prefix_pop();
+
+		addr = make_non_canonical(addr);
+		vmcs_write(field, addr);
+		report_prefix_pushf("%s %lx", field_name, addr);
+		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
+				  false);
+
+		vmcs_write(field, addr_saved);
+	} else {
+		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
+				  false);
+	}
+	report_prefix_pop();
+}
+
+/*
+ * 1. In the selector field for each of CS, SS, DS, ES, FS, GS and TR, the
+ *    RPL (bits 1:0) and the TI flag (bit 2) must be 0.
+ * 2. The selector fields for CS and TR cannot be 0000H.
+ * 3. The selector field for SS cannot be 0000H if the "host address-space
+ *    size" VM-exit control is 0.
+ * 4. On processors that support Intel 64 architecture, the base-address
+ *    fields for FS, GS and TR must contain canonical addresses.
+ */
+static void test_host_segment_regs(void)
+{
+	u32 exit_ctrl_saved = vmcs_read(EXI_CONTROLS);
+	u16 selector_saved;
+
+	/*
+	 * Test RPL and TI flags
+	 */
+	test_vmcs_field(HOST_SEL_CS, "HOST_SEL_CS", 0, 2, 0x0, true,
+		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	test_vmcs_field(HOST_SEL_SS, "HOST_SEL_SS", 0, 2, 0x0, true,
+		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	test_vmcs_field(HOST_SEL_DS, "HOST_SEL_DS", 0, 2, 0x0, true,
+		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	test_vmcs_field(HOST_SEL_ES, "HOST_SEL_ES", 0, 2, 0x0, true,
+		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	test_vmcs_field(HOST_SEL_FS, "HOST_SEL_FS", 0, 2, 0x0, true,
+		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	test_vmcs_field(HOST_SEL_GS, "HOST_SEL_GS", 0, 2, 0x0, true,
+		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	test_vmcs_field(HOST_SEL_TR, "HOST_SEL_TR", 0, 2, 0x0, true,
+		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+
+	/*
+	 * Test that CS and TR fields can not be 0x0000
+	 */
+	test_vmcs_field(HOST_SEL_CS, "HOST_SEL_CS", 3, 15, 0x0000, false,
+			     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	test_vmcs_field(HOST_SEL_TR, "HOST_SEL_TR", 3, 15, 0x0000, false,
+			     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+
+	/*
+	 * SS field can not be 0x0000 if "host address-space size" VM-exit
+	 * control is 0
+	 */
+	selector_saved = vmcs_read(HOST_SEL_SS);
+	vmcs_write(HOST_SEL_SS, 0);
+	if (exit_ctrl_saved & EXI_HOST_64) {
+		report_prefix_pushf("HOST_SEL_SS 0");
+		test_vmx_vmlaunch(0, false);
+		report_prefix_pop();
+
+		vmcs_write(EXI_CONTROLS, exit_ctrl_saved & ~EXI_HOST_64);
+	}
+
+	report_prefix_pushf("HOST_SEL_SS 0");
+	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD, false);
+	report_prefix_pop();
+
+	vmcs_write(HOST_SEL_SS, selector_saved);
+	vmcs_write(EXI_CONTROLS, exit_ctrl_saved);
+
+#ifdef __x86_64__
+	/*
+	 * Base address for FS, GS and TR must be canonical
+	 */
+	test_canonical(HOST_BASE_FS, "HOST_BASE_FS");
+	test_canonical(HOST_BASE_GS, "HOST_BASE_GS");
+	test_canonical(HOST_BASE_TR, "HOST_BASE_TR");
+#endif
+}
+
+/*
+ *  On processors that support Intel 64 architecture, the base-address
+ *  fields for GDTR and IDTR must contain canonical addresses.
+ */
+static void test_host_desc_tables(void)
+{
+#ifdef __x86_64__
+	test_canonical(HOST_BASE_GDTR, "HOST_BASE_GDTR");
+	test_canonical(HOST_BASE_IDTR, "HOST_BASE_IDTR");
+#endif
+}
+
+/*
  * Check that the virtual CPU checks the VMX Host State Area as
  * documented in the Intel SDM.
  */
@@ -6971,6 +7128,8 @@ static void vmx_host_state_area_test(void)
 
 	test_host_efer();
 	test_load_host_pat();
+	test_host_segment_regs();
+	test_host_desc_tables();
 }
 
 /*

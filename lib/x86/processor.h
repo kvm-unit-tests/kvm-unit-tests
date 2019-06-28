@@ -461,6 +461,11 @@ static inline void write_pkru(u32 pkru)
         : : "a" (eax), "c" (ecx), "d" (edx));
 }
 
+static inline u64 make_non_canonical(u64 addr)
+{
+	return (addr | 1ull << 48);
+}
+
 static inline bool is_canonical(u64 addr)
 {
 	return (s64)(addr << 16) >> 16 == addr;
