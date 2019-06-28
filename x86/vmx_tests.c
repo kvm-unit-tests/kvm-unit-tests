@@ -7099,14 +7099,6 @@ static void vmentry_movss_shadow_test(void)
 	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED);
 }
 
-static int write_cr4_checking(unsigned long val)
-{
-	asm volatile(ASM_TRY("1f")
-		     "mov %0, %%cr4\n\t"
-		     "1:": : "r" (val));
-	return exception_vector();
-}
-
 static void vmx_cr_load_test(void)
 {
 	unsigned long cr3, cr4, orig_cr3, orig_cr4;

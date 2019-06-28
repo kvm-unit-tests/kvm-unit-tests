@@ -21,14 +21,6 @@ static int write_cr0_checking(unsigned long val)
     return exception_vector();
 }
 
-static int write_cr4_checking(unsigned long val)
-{
-    asm volatile(ASM_TRY("1f")
-                 "mov %0, %%cr4\n\t"
-                 "1:": : "r" (val));
-    return exception_vector();
-}
-
 static int invpcid_checking(unsigned long type, void *desc)
 {
     asm volatile (ASM_TRY("1f")

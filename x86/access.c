@@ -171,14 +171,6 @@ typedef struct {
 
 static void ac_test_show(ac_test_t *at);
 
-static int write_cr4_checking(unsigned long val)
-{
-    asm volatile(ASM_TRY("1f")
-            "mov %0,%%cr4\n\t"
-            "1:": : "r" (val));
-    return exception_vector();
-}
-
 static void set_cr0_wp(int wp)
 {
     unsigned long cr0 = read_cr0();

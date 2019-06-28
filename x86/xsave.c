@@ -33,14 +33,6 @@ static int xsetbv_checking(u32 index, u64 value)
     return exception_vector();
 }
 
-static int write_cr4_checking(unsigned long val)
-{
-    asm volatile(ASM_TRY("1f")
-            "mov %0,%%cr4\n\t"
-            "1:": : "r" (val));
-    return exception_vector();
-}
-
 #define CPUID_1_ECX_XSAVE	    (1 << 26)
 #define CPUID_1_ECX_OSXSAVE	    (1 << 27)
 static int check_cpuid_1_ecx(unsigned int bit)
