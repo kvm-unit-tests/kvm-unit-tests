@@ -118,9 +118,9 @@ int main(int argc, char **argv)
     test_tsc_deadline_timer();
     irq_enable();
 
-    do {
+    /* The condition might have triggered already, so check before HLT. */
+    while (!hitmax && table_idx < size)
         asm volatile("hlt");
-    } while (!hitmax && table_idx < size);
 
     for (i = 0; i < table_idx; i++) {
         if (hitmax && i == table_idx-1)
