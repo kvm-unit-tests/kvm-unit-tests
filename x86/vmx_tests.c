@@ -8160,6 +8160,11 @@ static void vmx_apic_passthrough(bool set_irq_line_from_thread)
 		return;
 	}
 
+	/* Test device is required for generating IRQs */
+	if (!test_device_enabled()) {
+		report_skip(__func__);
+		return;
+	}
 	u64 cpu_ctrl_0 = CPU_SECONDARY;
 	u64 cpu_ctrl_1 = 0;
 

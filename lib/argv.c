@@ -53,12 +53,17 @@ static void setup_args(const char *args)
 	__setup_args();
 }
 
+void add_setup_arg(const char *arg)
+{
+	__argv[__argc] = copy_ptr;
+	strcpy(__argv[__argc], arg);
+	copy_ptr += strlen(arg) + 1;
+	++__argc;
+}
+
 void setup_args_progname(const char *args)
 {
-	__argv[0] = copy_ptr;
-	strcpy(__argv[0], auxinfo.progname);
-	copy_ptr += strlen(auxinfo.progname) + 1;
-	++__argc;
+	add_setup_arg(auxinfo.progname);
 	setup_args(args);
 }
 

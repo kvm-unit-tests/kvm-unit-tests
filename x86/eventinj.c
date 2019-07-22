@@ -8,6 +8,7 @@
 #include "vmalloc.h"
 #include "alloc_page.h"
 #include "delay.h"
+#include "fwcfg.h"
 
 #ifdef __x86_64__
 #  define R "r"
@@ -28,7 +29,11 @@ static void apic_self_nmi(void)
 	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
 }
 
-#define flush_phys_addr(__s) outl(__s, 0xe4)
+#define flush_phys_addr(__s) do {					\
+		if (test_device_enabled())				\
+			outl(__s, 0xe4);				\
+	} while (0)
+
 #define flush_stack() do {						\
 		int __l;						\
 		flush_phys_addr(virt_to_phys(&__l));			\
@@ -136,6 +141,8 @@ extern void do_iret(ulong phys_stack, void *virt_stack);
 // Return to same privilege level won't pop SS or SP, so
 // save it in RDX while we run on the nested stack
 
+extern bool no_test_device;
+
 asm("do_iret:"
 #ifdef __x86_64__
 	"mov %rdi, %rax \n\t"		// phys_stack
@@ -148,10 +155,14 @@ asm("do_iret:"
 	"pushf"W" \n\t"
 	"mov %cs, %ecx \n\t"
 	"push"W" %"R "cx \n\t"
-	"push"W" $1f \n\t"
+	"push"W" $2f \n\t"
+
+	"cmpb $0, no_test_device\n\t"	// see if need to flush
+	"jnz 1f\n\t"
 	"outl %eax, $0xe4 \n\t"		// flush page
+	"1: \n\t"
 	"iret"W" \n\t"
-	"1: xchg %"R "dx, %"R "sp \n\t"	// point to old stack
+	"2: xchg %"R "dx, %"R "sp \n\t"	// point to old stack
 	"ret\n\t"
    );
 

@@ -8,6 +8,7 @@
 #include "libcflat.h"
 #include "fwcfg.h"
 #include "alloc_phys.h"
+#include "argv.h"
 
 extern char edata;
 
@@ -66,7 +67,11 @@ void setup_libcflat(void)
 	if (initrd) {
 		/* environ is currently the only file in the initrd */
 		u32 size = MIN(initrd_size, ENV_SIZE);
+		const char *str;
+
 		memcpy(env, initrd, size);
 		setup_env(env, size);
+		if ((str = getenv("BOOTLOADER")) && atol(str) != 0)
+			add_setup_arg("bootloader");
 	}
 }

@@ -2,6 +2,7 @@
 #define FWCFG_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define FW_CFG_SIGNATURE        0x00
 #define FW_CFG_ID               0x01
@@ -32,6 +33,15 @@
 #define FW_CFG_ACPI_TABLES (FW_CFG_ARCH_LOCAL + 0)
 #define FW_CFG_SMBIOS_ENTRIES (FW_CFG_ARCH_LOCAL + 1)
 #define FW_CFG_IRQ0_OVERRIDE (FW_CFG_ARCH_LOCAL + 2)
+
+extern bool no_test_device;
+
+void read_cfg_override(void);
+
+static inline bool test_device_enabled(void)
+{
+	return !no_test_device;
+}
 
 uint8_t fwcfg_get_u8(unsigned index);
 uint16_t fwcfg_get_u16(unsigned index);

@@ -246,8 +246,6 @@ start64:
 	call mask_pic_interrupts
 	call enable_apic
 	call save_id
-	call smp_init
-	call enable_x2apic
 	mov mb_boot_info(%rip), %rbx
 	mov %rbx, %rdi
 	call setup_multiboot
@@ -255,6 +253,12 @@ start64:
 	mov mb_cmdline(%rbx), %eax
 	mov %rax, __args(%rip)
 	call __setup_args
+
+	/* Read the configuration before running smp_init */
+	call read_cfg_override
+	call smp_init
+	call enable_x2apic
+
 	mov __argc(%rip), %edi
 	lea __argv(%rip), %rsi
 	lea __environ(%rip), %rdx

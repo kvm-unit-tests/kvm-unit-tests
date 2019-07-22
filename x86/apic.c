@@ -6,6 +6,7 @@
 #include "isr.h"
 #include "msr.h"
 #include "atomic.h"
+#include "fwcfg.h"
 
 #define MAX_TPR			0xf
 
@@ -655,7 +656,8 @@ int main(void)
 
     test_self_ipi();
     test_physical_broadcast();
-    test_pv_ipi();
+    if (test_device_enabled())
+        test_pv_ipi();
 
     test_sti_nmi();
     test_multiple_nmi();
