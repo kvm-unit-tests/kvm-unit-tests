@@ -41,6 +41,7 @@
 #include <asm/gic-v3.h>
 
 #define PPI(irq)			((irq) + 16)
+#define SPI(irq)			((irq) + GIC_FIRST_SPI)
 
 #ifndef __ASSEMBLY__
 #include <asm/cpumask.h>

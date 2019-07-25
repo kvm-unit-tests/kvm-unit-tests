@@ -11,6 +11,7 @@ tests-common += $(TEST_DIR)/pmu.flat
 tests-common += $(TEST_DIR)/gic.flat
 tests-common += $(TEST_DIR)/psci.flat
 tests-common += $(TEST_DIR)/sieve.flat
+tests-common += $(TEST_DIR)/pl031.flat
 
 tests-all = $(tests-common) $(tests)
 all: directories $(tests-all)
