@@ -242,9 +242,11 @@ static void test_timer(struct timer_info *info)
 	/* Test TVAL and IRQ trigger */
 	info->irq_received = false;
 	info->write_tval(read_sysreg(cntfrq_el0) / 100);	/* 10 ms */
+	local_irq_disable();
 	info->write_ctl(ARCH_TIMER_CTL_ENABLE);
 	report_info("waiting for interrupt...");
 	wfi();
+	local_irq_enable();
 	left = info->read_tval();
 	report("interrupt received after TVAL/WFI", info->irq_received);
 	report("timer has expired (%d)", left < 0, left);
