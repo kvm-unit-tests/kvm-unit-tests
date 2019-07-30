@@ -44,7 +44,7 @@ static int enable_tsc_deadline_timer(void)
 {
     uint32_t lvtt;
 
-    if (cpuid(1).c & (1 << 24)) {
+    if (this_cpu_has(X86_FEATURE_TSC_DEADLINE_TIMER)) {
         lvtt = APIC_LVT_TIMER_TSCDEADLINE | TSC_DEADLINE_TIMER_VECTOR;
         apic_write(APIC_LVTT, lvtt);
         return 1;
@@ -144,13 +144,13 @@ static void test_apic_disable(void)
 
     disable_apic();
     report("Local apic disabled", !(rdmsr(MSR_IA32_APICBASE) & APIC_EN));
-    report("CPUID.1H:EDX.APIC[bit 9] is clear", !(cpuid(1).d & (1 << 9)));
+    report("CPUID.1H:EDX.APIC[bit 9] is clear", !this_cpu_has(X86_FEATURE_APIC));
     verify_disabled_apic_mmio();
 
     reset_apic();
     report("Local apic enabled in xAPIC mode",
 	   (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == APIC_EN);
-    report("CPUID.1H:EDX.APIC[bit 9] is set", cpuid(1).d & (1 << 9));
+    report("CPUID.1H:EDX.APIC[bit 9] is set", this_cpu_has(X86_FEATURE_APIC));
     report("*0xfee00030: %x", *lvr == apic_version, *lvr);
     report("*0xfee00080: %x", *tpr == cr8, *tpr);
     write_cr8(cr8 ^ MAX_TPR);
@@ -162,7 +162,7 @@ static void test_apic_disable(void)
 	report("Local apic enabled in x2APIC mode",
 	   (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) ==
 	   (APIC_EN | APIC_EXTD));
-	report("CPUID.1H:EDX.APIC[bit 9] is set", cpuid(1).d & (1 << 9));
+	report("CPUID.1H:EDX.APIC[bit 9] is set", this_cpu_has(X86_FEATURE_APIC));
 	verify_disabled_apic_mmio();
 	if (!(orig_apicbase & APIC_EXTD))
 	    reset_apic();

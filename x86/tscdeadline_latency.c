@@ -80,7 +80,7 @@ static int enable_tsc_deadline_timer(void)
 {
     uint32_t lvtt;
 
-    if (cpuid(1).c & (1 << 24)) {
+    if (this_cpu_has(X86_FEATURE_TSC_DEADLINE_TIMER)) {
         lvtt = APIC_LVT_TIMER_TSCDEADLINE | TSC_DEADLINE_TIMER_VECTOR;
         apic_write(APIC_LVTT, lvtt);
         start_tsc_deadline_timer();

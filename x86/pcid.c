@@ -4,9 +4,6 @@
 #include "processor.h"
 #include "desc.h"
 
-#define X86_FEATURE_PCID       (1 << 17)
-#define X86_FEATURE_INVPCID    (1 << 10)
-
 struct invpcid_desc {
     unsigned long pcid : 12;
     unsigned long rsv  : 52;
@@ -131,16 +128,13 @@ report:
 
 int main(int ac, char **av)
 {
-    struct cpuid _cpuid;
     int pcid_enabled = 0, invpcid_enabled = 0;
 
     setup_idt();
 
-    _cpuid = cpuid(1);
-    if (_cpuid.c & X86_FEATURE_PCID)
+    if (this_cpu_has(X86_FEATURE_PCID))
         pcid_enabled = 1;
-    _cpuid = cpuid_indexed(7, 0);
-    if (_cpuid.b & X86_FEATURE_INVPCID)
+    if (this_cpu_has(X86_FEATURE_INVPCID))
         invpcid_enabled = 1;
 
     test_cpuid_consistency(pcid_enabled, invpcid_enabled);

@@ -13,8 +13,6 @@
 static _Bool verbose = false;
 
 typedef unsigned long pt_element_t;
-static int cpuid_7_ebx;
-static int cpuid_7_ecx;
 static int invalid_mask;
 static int page_table_levels;
 
@@ -862,7 +860,7 @@ static int check_smep_andnot_wp(ac_pool_t *pool)
 	ac_test_t at1;
 	int err_prepare_andnot_wp, err_smep_andnot_wp;
 
-	if (!(cpuid_7_ebx & (1 << 7))) {
+	if (!this_cpu_has(X86_FEATURE_INVPCID_SINGLE)) {
 	    return 1;
 	}
 
@@ -937,7 +935,7 @@ static int ac_test_run(void)
     printf("run\n");
     tests = successes = 0;
 
-    if (cpuid_7_ecx & (1 << 3)) {
+    if (this_cpu_has(X86_FEATURE_PKU)) {
         set_cr4_pke(1);
         set_cr4_pke(0);
         /* Now PKRU = 0xFFFFFFFF.  */
@@ -957,7 +955,7 @@ static int ac_test_run(void)
 	}
     }
 
-    if (!(cpuid_7_ebx & (1 << 7))) {
+    if (!this_cpu_has(X86_FEATURE_INVPCID_SINGLE)) {
 	tests++;
 	if (set_cr4_smep(1) == GP_VECTOR) {
             successes++;
@@ -992,14 +990,11 @@ int main(void)
 
     setup_idt();
 
-    cpuid_7_ebx = cpuid(7).b;
-    cpuid_7_ecx = cpuid(7).c;
-
     printf("starting test\n\n");
     page_table_levels = 4;
     r = ac_test_run();
 
-    if (cpuid_7_ecx & (1 << 16)) {
+    if (this_cpu_has(X86_FEATURE_LA57)) {
         page_table_levels = 5;
         setup_5level_page_table();
         printf("starting 5-level paging test.\n\n");

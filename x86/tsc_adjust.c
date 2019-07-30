@@ -6,7 +6,7 @@ int main(void)
 	u64 t1, t2, t3, t4, t5;
 	u64 est_delta_time;
 
-	if (cpuid(7).b & (1 << 1)) { // MSR_IA32_TSC_ADJUST Feature is enabled?
+	if (this_cpu_has(X86_FEATURE_TSC_ADJUST)) { // MSR_IA32_TSC_ADJUST Feature is enabled?
 		report("MSR_IA32_TSC_ADJUST msr initialization",
 				rdmsr(MSR_IA32_TSC_ADJUST) == 0x0);
 		t3 = 100000000000ull;

@@ -1922,7 +1922,7 @@ int main(int argc, const char *argv[])
 	argv++;
 	argc--;
 
-	if (!(cpuid(1).c & (1 << 5))) {
+	if (!this_cpu_has(X86_FEATURE_VMX)) {
 		printf("WARNING: vmx not supported, add '-cpu host'\n");
 		goto exit;
 	}

@@ -33,13 +33,6 @@ static int xsetbv_checking(u32 index, u64 value)
     return exception_vector();
 }
 
-#define CPUID_1_ECX_XSAVE	    (1 << 26)
-#define CPUID_1_ECX_OSXSAVE	    (1 << 27)
-static int check_cpuid_1_ecx(unsigned int bit)
-{
-    return (cpuid(1).c & bit) != 0;
-}
-
 static uint64_t get_supported_xcr0(void)
 {
     struct cpuid r;
@@ -76,7 +69,7 @@ static void test_xsave(void)
     cr4 = read_cr4();
     report("Set CR4 OSXSAVE", write_cr4_checking(cr4 | X86_CR4_OSXSAVE) == 0);
     report("Check CPUID.1.ECX.OSXSAVE - expect 1",
-		    check_cpuid_1_ecx(CPUID_1_ECX_OSXSAVE));
+		    this_cpu_has(X86_FEATURE_OSXSAVE));
 
     printf("\tLegal tests\n");
     test_bits = XSTATE_FP;
@@ -119,7 +112,7 @@ static void test_xsave(void)
     cr4 &= ~X86_CR4_OSXSAVE;
     report("Unset CR4 OSXSAVE", write_cr4_checking(cr4) == 0);
     report("Check CPUID.1.ECX.OSXSAVE - expect 0",
-	check_cpuid_1_ecx(CPUID_1_ECX_OSXSAVE) == 0);
+	this_cpu_has(X86_FEATURE_OSXSAVE) == 0);
 
     printf("\tIllegal tests:\n");
     test_bits = XSTATE_FP;
@@ -141,7 +134,7 @@ static void test_no_xsave(void)
     u64 xcr0;
 
     report("Check CPUID.1.ECX.OSXSAVE - expect 0",
-	check_cpuid_1_ecx(CPUID_1_ECX_OSXSAVE) == 0);
+	this_cpu_has(X86_FEATURE_OSXSAVE) == 0);
 
     printf("Illegal instruction testing:\n");
 
@@ -159,7 +152,7 @@ static void test_no_xsave(void)
 int main(void)
 {
     setup_idt();
-    if (check_cpuid_1_ecx(CPUID_1_ECX_XSAVE)) {
+    if (this_cpu_has(X86_FEATURE_XSAVE)) {
         printf("CPU has XSAVE feature\n");
         test_xsave();
     } else {

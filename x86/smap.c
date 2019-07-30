@@ -3,8 +3,6 @@
 #include "x86/processor.h"
 #include "x86/vm.h"
 
-#define X86_FEATURE_SMAP	20
-
 volatile int pf_count = 0;
 volatile int save;
 volatile unsigned test;
@@ -92,7 +90,7 @@ int main(int ac, char **av)
 {
 	unsigned long i;
 
-	if (!(cpuid_indexed(7, 0).b & (1 << X86_FEATURE_SMAP))) {
+	if (!this_cpu_has(X86_FEATURE_SMAP)) {
 		printf("SMAP not enabled\n");
 		return report_summary();
 	}

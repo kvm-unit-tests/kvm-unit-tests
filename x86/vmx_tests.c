@@ -843,14 +843,12 @@ u32 cur_insn;
 u64 cr3;
 
 #define X86_FEATURE_MONITOR	(1 << 3)
-#define X86_FEATURE_MCE		(1 << 7)
-#define X86_FEATURE_PCID	(1 << 17)
 
 typedef bool (*supported_fn)(void);
 
 static bool monitor_supported(void)
 {
-	return cpuid(1).c & X86_FEATURE_MONITOR;
+	return this_cpu_has(X86_FEATURE_MWAIT);
 }
 
 struct insn_table {
@@ -7261,16 +7259,15 @@ static void vmentry_movss_shadow_test(void)
 static void vmx_cr_load_test(void)
 {
 	unsigned long cr3, cr4, orig_cr3, orig_cr4;
-	struct cpuid _cpuid = cpuid(1);
 
 	orig_cr4 = read_cr4();
 	orig_cr3 = read_cr3();
 
-	if (!(_cpuid.c & X86_FEATURE_PCID)) {
+	if (!this_cpu_has(X86_FEATURE_PCID)) {
 		report_skip("PCID not detected");
 		return;
 	}
-	if (!(_cpuid.d & X86_FEATURE_MCE)) {
+	if (!this_cpu_has(X86_FEATURE_MCE)) {
 		report_skip("MCE not detected");
 		return;
 	}
@@ -7964,7 +7961,7 @@ static void vmx_db_test(void)
 	 * exception (#BP) occurs inside an RTM region while advanced
 	 * debugging of RTM transactional regions is enabled.
 	 */
-	if (cpuid(7).b & BIT(11)) {
+	if (this_cpu_has(X86_FEATURE_RTM)) {
 		vmcs_write(ENT_CONTROLS,
 			   vmcs_read(ENT_CONTROLS) | ENT_LOAD_DBGCTLS);
 		/*

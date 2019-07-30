@@ -573,12 +573,12 @@ static inline void flush_tlb(void)
 
 static inline int has_spec_ctrl(void)
 {
-    return !!(cpuid_indexed(7,0).d & (1 << 26));
+    return !!(this_cpu_has(X86_FEATURE_SPEC_CTRL));
 }
 
 static inline int cpu_has_efer_nx(void)
 {
-	return !!(cpuid(0x80000001).d & (1 << 20));
+	return !!(this_cpu_has(X86_FEATURE_NX));
 }
 
 #endif

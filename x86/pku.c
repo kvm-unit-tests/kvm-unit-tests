@@ -4,7 +4,6 @@
 #include "x86/vm.h"
 #include "x86/msr.h"
 
-#define X86_FEATURE_PKU  3
 #define CR0_WP_MASK      (1UL << 16)
 #define PTE_PKEY_BIT     59
 #define USER_BASE        (1 << 24)
@@ -67,7 +66,7 @@ int main(int ac, char **av)
     unsigned int pkru_ad = 0x10;
     unsigned int pkru_wd = 0x20;
 
-    if (!(cpuid_indexed(7, 0).c & (1 << X86_FEATURE_PKU))) {
+    if (!this_cpu_has(X86_FEATURE_PKU)) {
         printf("PKU not enabled\n");
         return report_summary();
     }

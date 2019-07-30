@@ -3,9 +3,6 @@
 #include "desc.h"
 #include "processor.h"
 
-#define CPUID_7_ECX_UMIP (1 << 2)
-static int cpuid_7_ecx;
-
 
 /* GP handler to skip over faulting instructions */
 
@@ -183,8 +180,7 @@ int main(void)
     test_umip_nogp("UMIP=0, CPL=0\n");
     do_ring3(test_umip_nogp, "UMIP=0, CPL=3\n");
 
-    cpuid_7_ecx = cpuid(7).c;
-    if (!(cpuid_7_ecx & CPUID_7_ECX_UMIP)) {
+    if (!this_cpu_has(X86_FEATURE_UMIP)) {
         printf("UMIP not available\n");
         return report_summary();
     }

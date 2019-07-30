@@ -49,7 +49,7 @@ u8 msr_bitmap_area[MSR_BITMAP_SIZE + PAGE_SIZE];
 
 static bool npt_supported(void)
 {
-   return cpuid(0x8000000A).d & 1;
+	return this_cpu_has(X86_FEATURE_NPT);
 }
 
 static void setup_svm(void)
@@ -508,7 +508,7 @@ static bool check_dr_intercept(struct test *test)
 
 static bool next_rip_supported(void)
 {
-    return (cpuid(SVM_CPUID_FUNC).d & 8);
+    return this_cpu_has(X86_FEATURE_NRIPS);
 }
 
 static void prepare_next_rip(struct test *test)
@@ -1352,7 +1352,7 @@ int main(int ac, char **av)
     setup_vm();
     smp_init();
 
-    if (!(cpuid(0x80000001).c & 4)) {
+    if (!this_cpu_has(X86_FEATURE_SVM)) {
         printf("SVM not availble\n");
         return report_summary();
     }

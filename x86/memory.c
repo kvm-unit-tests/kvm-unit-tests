@@ -25,29 +25,25 @@ static void handle_ud(struct ex_regs *regs)
 
 int main(int ac, char **av)
 {
-	struct cpuid cpuid7, cpuid1;
 	int expected;
 
 	setup_idt();
 	handle_exception(UD_VECTOR, handle_ud);
 
-	cpuid1 = cpuid(1);
-	cpuid7 = cpuid_indexed(7, 0);
-
 	/* 3-byte instructions: */
 	isize = 3;
 
-	expected = !(cpuid1.d & (1U << 19)); /* CLFLUSH */
+	expected = !this_cpu_has(X86_FEATURE_CLFLUSH); /* CLFLUSH */
 	ud = 0;
 	asm volatile("clflush (%0)" : : "b" (&target));
 	report("clflush (%s)", ud == expected, expected ? "ABSENT" : "present");
 
-	expected = !(cpuid1.d & (1U << 25)); /* SSE */
+	expected = !this_cpu_has(X86_FEATURE_XMM); /* SSE */
 	ud = 0;
 	asm volatile("sfence");
 	report("sfence (%s)", ud == expected, expected ? "ABSENT" : "present");
 
-	expected = !(cpuid1.d & (1U << 26)); /* SSE2 */
+	expected = !this_cpu_has(X86_FEATURE_XMM2); /* SSE2 */
 	ud = 0;
 	asm volatile("lfence");
 	report("lfence (%s)", ud == expected, expected ? "ABSENT" : "present");
@@ -59,13 +55,13 @@ int main(int ac, char **av)
 	/* 4-byte instructions: */
 	isize = 4;
 
-	expected = !(cpuid7.b & (1U << 23)); /* CLFLUSHOPT */
+	expected = !this_cpu_has(X86_FEATURE_CLFLUSHOPT); /* CLFLUSHOPT */
 	ud = 0;
 	/* clflushopt (%rbx): */
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0x3b" : : "b" (&target));
 	report("clflushopt (%s)", ud == expected, expected ? "ABSENT" : "present");
 
-	expected = !(cpuid7.b & (1U << 24)); /* CLWB */
+	expected = !this_cpu_has(X86_FEATURE_CLWB); /* CLWB */
 	ud = 0;
 	/* clwb (%rbx): */
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0x33" : : "b" (&target));
@@ -78,7 +74,7 @@ int main(int ac, char **av)
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0xf0");
 	report("invalid clwb", ud);
 
-	expected = !(cpuid7.b & (1U << 22)); /* PCOMMIT */
+	expected = !this_cpu_has(X86_FEATURE_PCOMMIT); /* PCOMMIT */
 	ud = 0;
 	/* pcommit: */
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0xf8");

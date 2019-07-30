@@ -395,7 +395,7 @@ static int has_tscdeadline(void)
 {
     uint32_t lvtt;
 
-    if (cpuid(1).c & (1 << 24)) {
+    if (this_cpu_has(X86_FEATURE_TSC_DEADLINE_TIMER)) {
         lvtt = APIC_LVT_TIMER_TSCDEADLINE | IPI_TEST_VECTOR;
         apic_write(APIC_LVTT, lvtt);
         return 1;
@@ -425,7 +425,7 @@ static void wr_ibrs_msr(void)
 
 static int has_ibpb(void)
 {
-    return has_spec_ctrl() || !!(cpuid(0x80000008).b & (1 << 12));
+    return has_spec_ctrl() || !!(this_cpu_has(X86_FEATURE_AMD_IBPB));
 }
 
 static void wr_ibpb_msr(void)
@@ -521,7 +521,7 @@ static bool do_test(struct test *test)
 
 static void enable_nx(void *junk)
 {
-	if (cpu_has_efer_nx())
+	if (this_cpu_has(X86_FEATURE_NX))
 		wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX_MASK);
 }
 

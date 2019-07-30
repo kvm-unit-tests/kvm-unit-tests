@@ -815,7 +815,7 @@ static void test_mov_dr(uint64_t *mem)
 {
 	unsigned long rax;
 	const unsigned long in_rax = 0;
-	bool rtm_support = cpuid(7).b & (1 << 11);
+	bool rtm_support = this_cpu_has(X86_FEATURE_RTM);
 	unsigned long dr6_fixed_1 = rtm_support ? 0xfffe0ff0ul : 0xffff0ff0ul;
 	asm(KVM_FEP "movq %0, %%dr6\n\t"
 	    KVM_FEP "movq %%dr6, %0\n\t" : "=a" (rax) : "a" (in_rax));
@@ -996,7 +996,7 @@ static void illegal_movbe_handler(struct ex_regs *regs)
 
 static void test_illegal_movbe(void)
 {
-	if (!(cpuid(1).c & (1 << 22))) {
+	if (!this_cpu_has(X86_FEATURE_MOVBE)) {
 		report_skip("illegal movbe");
 		return;
 	}
