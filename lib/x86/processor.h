@@ -65,6 +65,117 @@
 #define X86_IA32_EFER          0xc0000080
 #define X86_EFER_LMA           (1UL << 8)
 
+/*
+ * CPU features
+ */
+
+enum cpuid_output_regs {
+	EAX,
+	EBX,
+	ECX,
+	EDX
+};
+
+struct cpuid { u32 a, b, c, d; };
+
+static inline struct cpuid raw_cpuid(u32 function, u32 index)
+{
+    struct cpuid r;
+    asm volatile ("cpuid"
+                  : "=a"(r.a), "=b"(r.b), "=c"(r.c), "=d"(r.d)
+                  : "0"(function), "2"(index));
+    return r;
+}
+
+static inline struct cpuid cpuid_indexed(u32 function, u32 index)
+{
+    u32 level = raw_cpuid(function & 0xf0000000, 0).a;
+    if (level < function)
+        return (struct cpuid) { 0, 0, 0, 0 };
+    return raw_cpuid(function, index);
+}
+
+static inline struct cpuid cpuid(u32 function)
+{
+    return cpuid_indexed(function, 0);
+}
+
+static inline u8 cpuid_maxphyaddr(void)
+{
+    if (raw_cpuid(0x80000000, 0).a < 0x80000008)
+        return 36;
+    return raw_cpuid(0x80000008, 0).a & 0xff;
+}
+
+#define	CPUID(a, b, c, d) ((((unsigned long long) a) << 32) | (b << 16) | \
+			  (c << 8) | d)
+
+/*
+ * Each X86_FEATURE_XXX definition is 64-bit and contains the following
+ * CPUID meta-data:
+ *
+ * 	[63:32] :  input value for EAX
+ * 	[31:16] :  input value for ECX
+ * 	[15:8]  :  output register
+ * 	[7:0]   :  bit position in output register
+ */
+
+/*
+ * Intel CPUID features
+ */
+#define	X86_FEATURE_MWAIT		(CPUID(0x1, 0, ECX, 3))
+#define	X86_FEATURE_VMX			(CPUID(0x1, 0, ECX, 5))
+#define	X86_FEATURE_PCID		(CPUID(0x1, 0, ECX, 17))
+#define	X86_FEATURE_MOVBE		(CPUID(0x1, 0, ECX, 22))
+#define	X86_FEATURE_TSC_DEADLINE_TIMER	(CPUID(0x1, 0, ECX, 24))
+#define	X86_FEATURE_XSAVE		(CPUID(0x1, 0, ECX, 26))
+#define	X86_FEATURE_OSXSAVE		(CPUID(0x1, 0, ECX, 27))
+#define	X86_FEATURE_RDRAND		(CPUID(0x1, 0, ECX, 30))
+#define	X86_FEATURE_MCE			(CPUID(0x1, 0, EDX, 7))
+#define	X86_FEATURE_APIC		(CPUID(0x1, 0, EDX, 9))
+#define	X86_FEATURE_CLFLUSH		(CPUID(0x1, 0, EDX, 19))
+#define	X86_FEATURE_XMM			(CPUID(0x1, 0, EDX, 25))
+#define	X86_FEATURE_XMM2		(CPUID(0x1, 0, EDX, 26))
+#define	X86_FEATURE_TSC_ADJUST		(CPUID(0x7, 0, EBX, 1))
+#define	X86_FEATURE_INVPCID_SINGLE	(CPUID(0x7, 0, EBX, 7))
+#define	X86_FEATURE_INVPCID		(CPUID(0x7, 0, EBX, 10))
+#define	X86_FEATURE_RTM			(CPUID(0x7, 0, EBX, 11))
+#define	X86_FEATURE_SMAP		(CPUID(0x7, 0, EBX, 20))
+#define	X86_FEATURE_PCOMMIT		(CPUID(0x7, 0, EBX, 22))
+#define	X86_FEATURE_CLFLUSHOPT		(CPUID(0x7, 0, EBX, 23))
+#define	X86_FEATURE_CLWB		(CPUID(0x7, 0, EBX, 24))
+#define	X86_FEATURE_UMIP		(CPUID(0x7, 0, ECX, 2))
+#define	X86_FEATURE_PKU			(CPUID(0x7, 0, ECX, 3))
+#define	X86_FEATURE_LA57		(CPUID(0x7, 0, ECX, 16))
+#define	X86_FEATURE_RDPID		(CPUID(0x7, 0, ECX, 22))
+#define	X86_FEATURE_SPEC_CTRL		(CPUID(0x7, 0, EDX, 26))
+#define	X86_FEATURE_NX			(CPUID(0x80000001, 0, EDX, 20))
+
+/*
+ * AMD CPUID features
+ */
+#define	X86_FEATURE_SVM			(CPUID(0x80000001, 0, ECX, 2))
+#define	X86_FEATURE_RDTSCP		(CPUID(0x80000001, 0, EDX, 27))
+#define	X86_FEATURE_AMD_IBPB		(CPUID(0x80000008, 0, EBX, 12))
+#define	X86_FEATURE_NPT			(CPUID(0x8000000A, 0, EDX, 0))
+#define	X86_FEATURE_NRIPS		(CPUID(0x8000000A, 0, EDX, 3))
+
+
+static inline bool this_cpu_has(u64 feature)
+{
+	u32 input_eax = feature >> 32;
+	u32 input_ecx = (feature >> 16) & 0xffff;
+	u32 output_reg = (feature >> 8) & 0xff;
+	u8 bit = feature & 0xff;
+	struct cpuid c;
+	u32 *tmp;
+
+	c = cpuid_indexed(input_eax, input_ecx);
+	tmp = (u32 *)&c;
+
+	return ((*(tmp + (output_reg % 32))) & (1 << bit));
+}
+
 struct far_pointer32 {
 	u32 offset;
 	u16 selector;
@@ -329,38 +440,6 @@ static inline ulong read_dr7(void)
     asm volatile ("mov %%dr7, %0" : "=r"(val));
     return val;
 }
-
-struct cpuid { u32 a, b, c, d; };
-
-static inline struct cpuid raw_cpuid(u32 function, u32 index)
-{
-    struct cpuid r;
-    asm volatile ("cpuid"
-                  : "=a"(r.a), "=b"(r.b), "=c"(r.c), "=d"(r.d)
-                  : "0"(function), "2"(index));
-    return r;
-}
-
-static inline struct cpuid cpuid_indexed(u32 function, u32 index)
-{
-    u32 level = raw_cpuid(function & 0xf0000000, 0).a;
-    if (level < function)
-        return (struct cpuid) { 0, 0, 0, 0 };
-    return raw_cpuid(function, index);
-}
-
-static inline struct cpuid cpuid(u32 function)
-{
-    return cpuid_indexed(function, 0);
-}
-
-static inline u8 cpuid_maxphyaddr(void)
-{
-    if (raw_cpuid(0x80000000, 0).a < 0x80000008)
-        return 36;
-    return raw_cpuid(0x80000008, 0).a & 0xff;
-}
-
 
 static inline void pause(void)
 {
