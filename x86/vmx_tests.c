@@ -2469,13 +2469,14 @@ static void ept_access_violation(unsigned long access, enum ept_access_op op,
  * with wonky addresses. We don't test that yet.
  *
  * This function modifies the EPT entry that maps the GPA that the guest page
- * table entry mapping ept_access_data.gva resides on.
+ * table entry mapping ept_access_test_data.gva resides on.
  *
  *	@ept_access	EPT permissions to set. Other permissions are cleared.
  *
  *	@pte_ad		Set the A/D bits on the guest PTE accordingly.
  *
- *	@op		Guest operation to perform with ept_access_data.gva.
+ *	@op		Guest operation to perform with
+ *			ept_access_test_data.gva.
  *
  *	@expect_violation
  *			Is a violation expected during the paddr access?
