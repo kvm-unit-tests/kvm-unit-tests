@@ -704,8 +704,9 @@ static int ac_test_do_access(ac_test_t *at)
                   "unexpected access");
     ac_test_check(at, &success, fault && e != at->expected_error,
                   "error code %x expected %x", e, at->expected_error);
-    ac_test_check(at, &success, at->ptep && *at->ptep != at->expected_pte,
-                  "pte %x expected %x", *at->ptep, at->expected_pte);
+    if (at->ptep)
+        ac_test_check(at, &success, *at->ptep != at->expected_pte,
+                      "pte %x expected %x", *at->ptep, at->expected_pte);
     ac_test_check(at, &success,
                   !pt_match(*at->pdep, at->expected_pde, at->ignore_pde),
                   "pde %x expected %x", *at->pdep, at->expected_pde);
