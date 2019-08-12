@@ -6956,15 +6956,14 @@ static void test_load_host_pat(void)
 }
 
 /*
- * Test a value for the given VMCS field.
- *
- *  "field" - VMCS field
- *  "field_name" - string name of VMCS field
- *  "bit_start" - starting bit
- *  "bit_end" - ending bit
- *  "val" - value that the bit range must or must not contain
- *  "valid_val" - whether value given in 'val' must be valid or not
- *  "error" - expected VMCS error when vmentry fails for an invalid value
+ * test_vmcs_field - test a value for the given VMCS field
+ * @field: VMCS field
+ * @field_name: string name of VMCS field
+ * @bit_start: starting bit
+ * @bit_end: ending bit
+ * @val: value that the bit range must or must not contain
+ * @valid_val: whether value given in 'val' must be valid or not
+ * @error: expected VMCS error when vmentry fails for an invalid value
  */
 static void test_vmcs_field(u64 field, const char *field_name, u32 bit_start,
 			    u32 bit_end, u64 val, bool valid_val, u32 error)
@@ -7008,16 +7007,14 @@ static void test_vmcs_field(u64 field, const char *field_name, u32 bit_start,
 static void test_canonical(u64 field, const char * field_name)
 {
 	u64 addr_saved = vmcs_read(field);
-	u64 addr = addr_saved;
 
-	report_prefix_pushf("%s %lx", field_name, addr);
-	if (is_canonical(addr)) {
+	report_prefix_pushf("%s %lx", field_name, addr_saved);
+	if (is_canonical(addr_saved)) {
 		test_vmx_vmlaunch(0, false);
 		report_prefix_pop();
 
-		addr = make_non_canonical(addr);
-		vmcs_write(field, addr);
-		report_prefix_pushf("%s %lx", field_name, addr);
+		vmcs_write(field, NONCANONICAL);
+		report_prefix_pushf("%s %llx", field_name, NONCANONICAL);
 		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
 				  false);
 
@@ -7028,6 +7025,14 @@ static void test_canonical(u64 field, const char * field_name)
 	}
 	report_prefix_pop();
 }
+
+#define TEST_RPL_TI_FLAGS(reg, name)				\
+	test_vmcs_field(reg, name, 0, 2, 0x0, true,		\
+			VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+
+#define TEST_CS_TR_FLAGS(reg, name)				\
+	test_vmcs_field(reg, name, 3, 15, 0x0000, false,	\
+			VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
 
 /*
  * 1. In the selector field for each of CS, SS, DS, ES, FS, GS and TR, the
@@ -7040,34 +7045,24 @@ static void test_canonical(u64 field, const char * field_name)
  */
 static void test_host_segment_regs(void)
 {
-	u32 exit_ctrl_saved = vmcs_read(EXI_CONTROLS);
 	u16 selector_saved;
 
 	/*
 	 * Test RPL and TI flags
 	 */
-	test_vmcs_field(HOST_SEL_CS, "HOST_SEL_CS", 0, 2, 0x0, true,
-		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-	test_vmcs_field(HOST_SEL_SS, "HOST_SEL_SS", 0, 2, 0x0, true,
-		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-	test_vmcs_field(HOST_SEL_DS, "HOST_SEL_DS", 0, 2, 0x0, true,
-		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-	test_vmcs_field(HOST_SEL_ES, "HOST_SEL_ES", 0, 2, 0x0, true,
-		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-	test_vmcs_field(HOST_SEL_FS, "HOST_SEL_FS", 0, 2, 0x0, true,
-		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-	test_vmcs_field(HOST_SEL_GS, "HOST_SEL_GS", 0, 2, 0x0, true,
-		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-	test_vmcs_field(HOST_SEL_TR, "HOST_SEL_TR", 0, 2, 0x0, true,
-		     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	TEST_RPL_TI_FLAGS(HOST_SEL_CS, "HOST_SEL_CS");
+	TEST_RPL_TI_FLAGS(HOST_SEL_SS, "HOST_SEL_SS");
+	TEST_RPL_TI_FLAGS(HOST_SEL_DS, "HOST_SEL_DS");
+	TEST_RPL_TI_FLAGS(HOST_SEL_ES, "HOST_SEL_ES");
+	TEST_RPL_TI_FLAGS(HOST_SEL_FS, "HOST_SEL_FS");
+	TEST_RPL_TI_FLAGS(HOST_SEL_GS, "HOST_SEL_GS");
+	TEST_RPL_TI_FLAGS(HOST_SEL_TR, "HOST_SEL_TR");
 
 	/*
 	 * Test that CS and TR fields can not be 0x0000
 	 */
-	test_vmcs_field(HOST_SEL_CS, "HOST_SEL_CS", 3, 15, 0x0000, false,
-			     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-	test_vmcs_field(HOST_SEL_TR, "HOST_SEL_TR", 3, 15, 0x0000, false,
-			     VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	TEST_CS_TR_FLAGS(HOST_SEL_CS, "HOST_SEL_CS");
+	TEST_CS_TR_FLAGS(HOST_SEL_TR, "HOST_SEL_TR");
 
 	/*
 	 * SS field can not be 0x0000 if "host address-space size" VM-exit
@@ -7075,20 +7070,15 @@ static void test_host_segment_regs(void)
 	 */
 	selector_saved = vmcs_read(HOST_SEL_SS);
 	vmcs_write(HOST_SEL_SS, 0);
-	if (exit_ctrl_saved & EXI_HOST_64) {
-		report_prefix_pushf("HOST_SEL_SS 0");
-		test_vmx_vmlaunch(0, false);
-		report_prefix_pop();
-
-		vmcs_write(EXI_CONTROLS, exit_ctrl_saved & ~EXI_HOST_64);
-	}
-
 	report_prefix_pushf("HOST_SEL_SS 0");
-	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD, false);
+	if (vmcs_read(EXI_CONTROLS) & EXI_HOST_64) {
+		test_vmx_vmlaunch(0, false);
+	} else {
+		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD, false);
+	}
 	report_prefix_pop();
 
 	vmcs_write(HOST_SEL_SS, selector_saved);
-	vmcs_write(EXI_CONTROLS, exit_ctrl_saved);
 
 #ifdef __x86_64__
 	/*
