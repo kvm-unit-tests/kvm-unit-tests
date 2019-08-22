@@ -254,8 +254,6 @@ start64:
 	mov %rax, __args(%rip)
 	call __setup_args
 
-	/* Read the configuration before running smp_init */
-	call read_cfg_override
 	call smp_init
 	call enable_x2apic
 

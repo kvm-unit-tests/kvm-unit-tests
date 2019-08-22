@@ -36,8 +36,6 @@
 
 extern bool no_test_device;
 
-void read_cfg_override(void);
-
 static inline bool test_device_enabled(void)
 {
 	return !no_test_device;

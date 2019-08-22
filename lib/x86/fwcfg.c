@@ -5,10 +5,11 @@
 static struct spinlock lock;
 
 static long fw_override[FW_CFG_MAX_ENTRY];
+static bool fw_override_done;
 
 bool no_test_device;
 
-void read_cfg_override(void)
+static void read_cfg_override(void)
 {
 	const char *str;
 	int i;
@@ -26,6 +27,8 @@ void read_cfg_override(void)
 
 	if ((str = getenv("TEST_DEVICE")))
 		no_test_device = !atol(str);
+
+    fw_override_done = true;
 }
 
 static uint64_t fwcfg_get_u(uint16_t index, int bytes)
@@ -34,7 +37,10 @@ static uint64_t fwcfg_get_u(uint16_t index, int bytes)
     uint8_t b;
     int i;
 
-    if (fw_override[index] >= 0)
+    if (!fw_override_done)
+        read_cfg_override();
+
+    if (index < FW_CFG_MAX_ENTRY && fw_override[index] >= 0)
 	    return fw_override[index];
 
     spin_lock(&lock);
