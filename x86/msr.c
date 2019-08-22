@@ -48,7 +48,6 @@ struct msr_info msr_info[] =
     { .index = 0xc0000080, .name = "MSR_EFER",
       .val_pairs = {{ .valid = 1, .value = 0xD00, .expected = 0xD00}}
     },
-#endif
     { .index = 0xc0000082, .name = "MSR_LSTAR",
       .val_pairs = {{ .valid = 1, .value = addr_64, .expected = addr_64}}
     },
@@ -58,6 +57,7 @@ struct msr_info msr_info[] =
     { .index = 0xc0000084, .name = "MSR_SYSCALL_MASK",
       .val_pairs = {{ .valid = 1, .value = 0xffffffff, .expected = 0xffffffff}}
     },
+#endif
 
 //    MSR_IA32_DEBUGCTLMSR needs svm feature LBRV
 //    MSR_VM_HSAVE_PA only AMD host
