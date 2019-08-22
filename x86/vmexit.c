@@ -196,6 +196,13 @@ static void ipi_halt(void)
 int pm_tmr_blk;
 static void inl_pmtimer(void)
 {
+    if (!pm_tmr_blk) {
+	struct fadt_descriptor_rev1 *fadt;
+
+	fadt = find_acpi_table_addr(FACP_SIGNATURE);
+	pm_tmr_blk = fadt->pm_tmr_blk;
+	printf("PM timer port is %x\n", pm_tmr_blk);
+    }
     inl(pm_tmr_blk);
 }
 
@@ -541,7 +548,6 @@ static bool test_wanted(struct test *test, char *wanted[], int nwanted)
 
 int main(int ac, char **av)
 {
-	struct fadt_descriptor_rev1 *fadt;
 	int i;
 	unsigned long membar = 0;
 	struct pci_dev pcidev;
@@ -554,10 +560,6 @@ int main(int ac, char **av)
 
 	irq_enable();
 	on_cpus(enable_nx, NULL);
-
-	fadt = find_acpi_table_addr(FACP_SIGNATURE);
-	pm_tmr_blk = fadt->pm_tmr_blk;
-	printf("PM timer port is %x\n", pm_tmr_blk);
 
 	ret = pci_find_dev(PCI_VENDOR_ID_REDHAT, PCI_DEVICE_ID_REDHAT_TEST);
 	if (ret != PCIDEVADDR_INVALID) {
