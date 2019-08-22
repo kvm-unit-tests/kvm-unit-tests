@@ -4797,6 +4797,9 @@ static void test_ept_eptp(void)
 	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
+	if (!(ctrl_cpu_rev[1].clr & CPU_URG))
+		goto skip_unrestricted_guest;
+
 	secondary |= CPU_URG;
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("Enable-EPT disabled, unrestricted-guest enabled");
@@ -4809,6 +4812,7 @@ static void test_ept_eptp(void)
 	test_vmx_valid_controls(false);
 	report_prefix_pop();
 
+skip_unrestricted_guest:
 	secondary &= ~CPU_URG;
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("Enable-EPT enabled, unrestricted-guest disabled");
