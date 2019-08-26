@@ -145,6 +145,33 @@ memsetxc:
 	.endm
 
 .section .text
+/*
+ * load_reset calling convention:
+ * %r2 subcode (0 or 1)
+ */
+.globl diag308_load_reset
+diag308_load_reset:
+	SAVE_REGS
+	/* Save the first PSW word to the IPL PSW */
+	epsw	%r0, %r1
+	st	%r0, 0
+	/* Store the address and the bit for 31 bit addressing */
+	larl    %r0, 0f
+	oilh    %r0, 0x8000
+	st      %r0, 0x4
+	/* Do the reset */
+	diag    %r0,%r2,0x308
+	/* Failure path */
+	xgr	%r2, %r2
+	br	%r14
+	/* Success path */
+	/* We lost cr0 due to the reset */
+0:	larl	%r1, initial_cr0
+	lctlg	%c0, %c0, 0(%r1)
+	RESTORE_REGS
+	lhi	%r2, 1
+	br	%r14
+
 pgm_int:
 	SAVE_REGS
 	brasl	%r14, handle_pgm_int
