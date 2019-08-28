@@ -34,6 +34,10 @@ static void test_4k_key(void)
 	union skey skey;
 
 	report_prefix_push("4K");
+	if (test_facility(169)) {
+		report_skip("storage key removal facility is active");
+		goto out;
+	}
 	r1.val = 0;
 	r1.reg.sk = 1;
 	r1.reg.fsc = PFMF_FSC_4K;
@@ -42,6 +46,7 @@ static void test_4k_key(void)
 	skey.val = get_storage_key(pagebuf);
 	skey.val &= SKEY_ACC | SKEY_FP;
 	report("set storage keys", skey.val == 0x30);
+out:
 	report_prefix_pop();
 }
 
@@ -53,6 +58,10 @@ static void test_1m_key(void)
 	union skey skey;
 
 	report_prefix_push("1M");
+	if (test_facility(169)) {
+		report_skip("storage key removal facility is active");
+		goto out;
+	}
 	r1.val = 0;
 	r1.reg.sk = 1;
 	r1.reg.fsc = PFMF_FSC_1M;
@@ -67,6 +76,7 @@ static void test_1m_key(void)
 		}
 	}
 	report("set storage keys", rp);
+out:
 	report_prefix_pop();
 }
 

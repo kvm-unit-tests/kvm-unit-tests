@@ -126,10 +126,15 @@ static void test_priv(void)
 int main(void)
 {
 	report_prefix_push("skey");
+	if (test_facility(169)) {
+		report_skip("storage key removal facility is active");
+		goto done;
+	}
 	test_priv();
 	test_set();
 	test_set_mb();
 	test_chg();
+done:
 	report_prefix_pop();
 	return report_summary();
 }

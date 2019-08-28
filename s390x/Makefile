@@ -14,6 +14,7 @@ tests += $(TEST_DIR)/iep.elf
 tests += $(TEST_DIR)/cpumodel.elf
 tests += $(TEST_DIR)/diag288.elf
 tests += $(TEST_DIR)/stsi.elf
+tests += $(TEST_DIR)/skrf.elf
 tests_binary = $(patsubst %.elf,%.bin,$(tests))
 
 all: directories test_cases test_cases_binary
