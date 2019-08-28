@@ -2374,6 +2374,7 @@ static unsigned long ept_twiddle(unsigned long gpa, bool mkhuge, int level,
 static void ept_untwiddle(unsigned long gpa, int level, unsigned long orig_pte)
 {
 	set_ept_pte(pml4, gpa, level, orig_pte);
+	ept_sync(INVEPT_SINGLE, eptp);
 }
 
 static void do_ept_violation(bool leaf, enum ept_access_op op,
