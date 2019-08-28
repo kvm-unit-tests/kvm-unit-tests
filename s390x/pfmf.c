@@ -39,7 +39,7 @@ static void test_4k_key(void)
 	r1.reg.fsc = PFMF_FSC_4K;
 	r1.reg.key = 0x30;
 	pfmf(r1.val, pagebuf);
-	skey.val = get_storage_key((unsigned long) pagebuf);
+	skey.val = get_storage_key(pagebuf);
 	skey.val &= SKEY_ACC | SKEY_FP;
 	report("set storage keys", skey.val == 0x30);
 	report_prefix_pop();
@@ -59,7 +59,7 @@ static void test_1m_key(void)
 	r1.reg.key = 0x30;
 	pfmf(r1.val, pagebuf);
 	for (i = 0; i < 256; i++) {
-		skey.val = get_storage_key((unsigned long) pagebuf + i * PAGE_SIZE);
+		skey.val = get_storage_key(pagebuf + i * PAGE_SIZE);
 		skey.val &= SKEY_ACC | SKEY_FP;
 		if (skey.val != 0x30) {
 			rp = false;
