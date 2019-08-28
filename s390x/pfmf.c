@@ -16,60 +16,29 @@
 #include <asm/facility.h>
 #include <asm/mem.h>
 
-#define FSC_4K 0
-#define FSC_1M 1
-#define FSC_2G 2
-
-union r1 {
-	struct {
-		unsigned long pad0 : 32;
-		unsigned long pad1 : 12;
-		unsigned long pad_fmfi : 2;
-		unsigned long sk : 1; /* set key*/
-		unsigned long cf : 1; /* clear frame */
-		unsigned long ui : 1; /* usage indication */
-		unsigned long fsc : 3;
-		unsigned long pad2 : 1;
-		unsigned long mr : 1;
-		unsigned long mc : 1;
-		unsigned long pad3 : 1;
-		unsigned long key : 8; /* storage keys */
-	} reg;
-	unsigned long val;
-};
-
 static uint8_t pagebuf[PAGE_SIZE * 256] __attribute__((aligned(PAGE_SIZE * 256)));
-
-static inline unsigned long pfmf(unsigned long r1, unsigned long paddr)
-{
-	register uint64_t addr asm("1") = paddr;
-
-	asm volatile(".insn rre,0xb9af0000,%[r1],%[addr]"
-		     : [addr] "+a" (addr) : [r1] "d" (r1) : "memory");
-	return addr;
-}
 
 static void test_priv(void)
 {
 	report_prefix_push("privileged");
 	expect_pgm_int();
 	enter_pstate();
-	pfmf(0, (unsigned long) pagebuf);
+	pfmf(0, pagebuf);
 	check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
 	report_prefix_pop();
 }
 
 static void test_4k_key(void)
 {
-	union r1 r1;
+	union pfmf_r1 r1;
 	union skey skey;
 
 	report_prefix_push("4K");
 	r1.val = 0;
 	r1.reg.sk = 1;
-	r1.reg.fsc = FSC_4K;
+	r1.reg.fsc = PFMF_FSC_4K;
 	r1.reg.key = 0x30;
-	pfmf(r1.val, (unsigned long) pagebuf);
+	pfmf(r1.val, pagebuf);
 	skey.val = get_storage_key((unsigned long) pagebuf);
 	skey.val &= SKEY_ACC | SKEY_FP;
 	report("set storage keys", skey.val == 0x30);
@@ -80,15 +49,15 @@ static void test_1m_key(void)
 {
 	int i;
 	bool rp = true;
-	union r1 r1;
+	union pfmf_r1 r1;
 	union skey skey;
 
 	report_prefix_push("1M");
 	r1.val = 0;
 	r1.reg.sk = 1;
-	r1.reg.fsc = FSC_1M;
+	r1.reg.fsc = PFMF_FSC_1M;
 	r1.reg.key = 0x30;
-	pfmf(r1.val, (unsigned long) pagebuf);
+	pfmf(r1.val, pagebuf);
 	for (i = 0; i < 256; i++) {
 		skey.val = get_storage_key((unsigned long) pagebuf + i * PAGE_SIZE);
 		skey.val &= SKEY_ACC | SKEY_FP;
@@ -103,15 +72,15 @@ static void test_1m_key(void)
 
 static void test_4k_clear(void)
 {
-	union r1 r1;
+	union pfmf_r1 r1;
 
 	r1.val = 0;
 	r1.reg.cf = 1;
-	r1.reg.fsc = FSC_4K;
+	r1.reg.fsc = PFMF_FSC_4K;
 
 	report_prefix_push("4K");
 	memset(pagebuf, 42, PAGE_SIZE);
-	pfmf(r1.val, (unsigned long) pagebuf);
+	pfmf(r1.val, pagebuf);
 	report("clear memory", !memcmp(pagebuf, pagebuf + PAGE_SIZE, PAGE_SIZE));
 	report_prefix_pop();
 }
@@ -119,16 +88,16 @@ static void test_4k_clear(void)
 static void test_1m_clear(void)
 {
 	int i;
-	union r1 r1;
+	union pfmf_r1 r1;
 	unsigned long sum = 0;
 
 	r1.val = 0;
 	r1.reg.cf = 1;
-	r1.reg.fsc = FSC_1M;
+	r1.reg.fsc = PFMF_FSC_1M;
 
 	report_prefix_push("1M");
 	memset(pagebuf, 42, PAGE_SIZE * 256);
-	pfmf(r1.val, (unsigned long) pagebuf);
+	pfmf(r1.val, pagebuf);
 	for (i = 0; i < PAGE_SIZE * 256; i++)
 		sum |= pagebuf[i];
 	report("clear memory", !sum);
