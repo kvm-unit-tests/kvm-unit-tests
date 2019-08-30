@@ -4040,7 +4040,7 @@ static void test_vpid(void)
 
 	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
 	    (ctrl_cpu_rev[1].clr & CPU_VPID))) {
-		test_skip("Secondary controls and/or VPID not supported");
+		printf("Secondary controls and/or VPID not supported\n");
 		return;
 	}
 
@@ -4544,7 +4544,7 @@ static void test_nmi_ctrls(void)
 
 	if ((ctrl_pin_rev.clr & (PIN_NMI | PIN_VIRT_NMI)) !=
 	    (PIN_NMI | PIN_VIRT_NMI)) {
-		test_skip("NMI exiting and Virtual NMIs are not supported !");
+		printf("NMI exiting and Virtual NMIs are not supported !\n");
 		return;
 	}
 
@@ -4657,7 +4657,7 @@ static void test_ept_eptp(void)
 
 	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
 	    (ctrl_cpu_rev[1].clr & CPU_EPT))) {
-		test_skip("\"CPU secondary\" and/or \"enable EPT\" execution controls are not supported !");
+		printf("\"CPU secondary\" and/or \"enable EPT\" execution controls are not supported !\n");
 		return;
 	}
 
@@ -4844,7 +4844,7 @@ static void test_pml(void)
 
 	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
 	    (ctrl_cpu_rev[1].clr & CPU_EPT) && (ctrl_cpu_rev[1].clr & CPU_PML))) {
-		test_skip("\"Secondary execution\" control or \"enable EPT\" control or \"enable PML\" control is not supported !");
+		printf("\"Secondary execution\" control or \"enable EPT\" control or \"enable PML\" control is not supported !\n");
 		return;
 	}
 
