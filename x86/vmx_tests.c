@@ -4306,15 +4306,15 @@ skip_unrestricted_guest:
 
 	/*
 	 * If deliver-error-code is 1
-	 * bits 31:15 of the VM-entry exception error-code field are 0.
+	 * bits 31:16 of the VM-entry exception error-code field are 0.
 	 */
 	ent_intr_info = ent_intr_info_base | INTR_INFO_DELIVER_CODE_MASK |
 			INTR_TYPE_HARD_EXCEPTION | GP_VECTOR;
 	report_prefix_pushf("%s, VM-entry intr info=0x%x",
-			    "VM-entry exception error code[31:15] clear",
+			    "VM-entry exception error code[31:16] clear",
 			    ent_intr_info);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	for (cnt = 15; cnt <= 31; cnt++) {
+	for (cnt = 16; cnt <= 31; cnt++) {
 		ent_intr_err = 1U << cnt;
 		report_prefix_pushf("VM-entry intr error=0x%x [-]",
 				    ent_intr_err);
