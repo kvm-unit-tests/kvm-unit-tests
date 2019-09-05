@@ -12,6 +12,7 @@ KEEP_FRAME_POINTER := y
 
 CFLAGS += $(machine)
 CFLAGS += -mcpu=$(PROCESSOR)
+CFLAGS += -mno-unaligned-access
 
 arch_LDFLAGS = -Ttext=40010000
 
