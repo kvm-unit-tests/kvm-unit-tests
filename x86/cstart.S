@@ -208,7 +208,7 @@ smp_init_done:
 	ret
 
 online_cpus:
-	.quad 0
+	.fill (max_cpus + 7) / 8, 1, 0
 
 cpu_online_count:	.word 1
 

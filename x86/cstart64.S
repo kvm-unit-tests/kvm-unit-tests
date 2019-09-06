@@ -282,7 +282,7 @@ idt_descr:
 	.quad boot_idt
 
 online_cpus:
-	.quad 0
+	.fill (max_cpus + 7) / 8, 1, 0
 
 load_tss:
 	lidtq idt_descr

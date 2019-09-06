@@ -113,8 +113,6 @@ int cpus_active(void)
     return atomic_read(&active_cpus);
 }
 
-extern unsigned long long online_cpus;
-
 void smp_init(void)
 {
     int i;
