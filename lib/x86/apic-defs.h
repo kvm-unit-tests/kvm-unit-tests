@@ -6,7 +6,7 @@
  * both in C and ASM
  */
 
-#define MAX_TEST_CPUS (64)
+#define MAX_TEST_CPUS (255)
 
 /*
  * Constants for various Intel APICs. (local APIC, IOAPIC, etc.)
