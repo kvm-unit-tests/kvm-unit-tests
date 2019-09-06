@@ -232,13 +232,13 @@ void mask_pic_interrupts(void)
     outb(0xff, 0xa1);
 }
 
-extern unsigned char online_cpus[256 / 8];
+extern unsigned char online_cpus[MAX_TEST_CPUS / 8];
 
 void init_apic_map(void)
 {
 	unsigned int i, j = 0;
 
-	for (i = 0; i < sizeof(online_cpus) * 8; i++) {
+	for (i = 0; i < MAX_TEST_CPUS; i++) {
 		if ((1ul << (i % 8)) & (online_cpus[i / 8]))
 			id_map[j++] = i;
 	}
