@@ -799,7 +799,7 @@ static void test_smsw_reg(uint64_t *mem)
 	asm(KVM_FEP "smswl %k0\n\t" : "=a" (rax) : "0" (in_rax));
 	report("32-bit smsw reg", rax == (u32)cr0);
 
-	asm(KVM_FEP "smswq %d0\n\t" : "=a" (rax) : "0" (in_rax));
+	asm(KVM_FEP "smswq %q0\n\t" : "=a" (rax) : "0" (in_rax));
 	report("64-bit smsw reg", rax == cr0);
 }
 
