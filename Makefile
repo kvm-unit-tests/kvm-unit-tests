@@ -1,4 +1,3 @@
-
 SHELL := /usr/bin/env bash
 
 ifeq ($(wildcard config.mak),)
@@ -53,7 +52,6 @@ cc-option = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null \
 COMMON_CFLAGS += -g $(autodepend-flags)
 COMMON_CFLAGS += -Wall -Wwrite-strings -Wclobbered -Wempty-body -Wuninitialized
 COMMON_CFLAGS += -Wignored-qualifiers -Wunused-but-set-parameter
-COMMON_CFLAGS += -Wmissing-prototypes -Wstrict-prototypes
 COMMON_CFLAGS += -Werror
 frame-pointer-flag=-f$(if $(KEEP_FRAME_POINTER),no-,)omit-frame-pointer
 fomit_frame_pointer := $(call cc-option, $(frame-pointer-flag), "")
@@ -71,6 +69,7 @@ COMMON_CFLAGS += $(fno_pic) $(no_pie)
 
 CFLAGS += $(COMMON_CFLAGS)
 CFLAGS += -Wmissing-parameter-type -Wold-style-declaration -Woverride-init
+CFLAGS += -Wmissing-prototypes -Wstrict-prototypes
 
 CXXFLAGS += $(COMMON_CFLAGS)
 
