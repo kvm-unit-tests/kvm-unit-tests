@@ -113,7 +113,7 @@ int main(int ac, char **av)
 		"and $~(1<<8),%%rax\n\t"
 		"push %%rax\n\t"
 		"popf\n\t"
-		: "=g" (start) : : "rax");
+		: "=r" (start) : : "rax");
 	report("single step",
 	       n == 3 &&
 	       db_addr[0] == start+1+6 && dr6[0] == 0xffff4ff0 &&
@@ -140,7 +140,7 @@ int main(int ac, char **av)
 		"movl $0x1a0,%%ecx\n\t"
 		"rdmsr\n\t"
 		"popf\n\t"
-		: "=g" (start) : : "rax", "ebx", "ecx", "edx");
+		: "=r" (start) : : "rax", "ebx", "ecx", "edx");
 	report("single step emulated instructions",
 	       n == 7 &&
 	       db_addr[0] == start+1+6 && dr6[0] == 0xffff4ff0 &&
