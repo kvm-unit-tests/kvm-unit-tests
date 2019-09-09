@@ -104,7 +104,7 @@ static void va_report(const char *msg_fmt,
 	spin_unlock(&lock);
 }
 
-void report(const char *msg_fmt, bool pass, ...)
+void report(const char *msg_fmt, unsigned pass, ...)
 {
 	va_list va;
 	va_start(va, pass);
@@ -112,7 +112,7 @@ void report(const char *msg_fmt, bool pass, ...)
 	va_end(va);
 }
 
-void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...)
+void report_xfail(const char *msg_fmt, bool xfail, unsigned pass, ...)
 {
 	va_list va;
 	va_start(va, pass);
