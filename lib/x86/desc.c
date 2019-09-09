@@ -263,7 +263,7 @@ unsigned exception_error_code(void)
 {
     unsigned short error_code;
 
-    asm("mov %%gs:6, %0" : "=rm"(error_code));
+    asm("mov %%gs:6, %0" : "=r"(error_code));
     return error_code;
 }
 
