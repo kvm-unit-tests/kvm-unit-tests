@@ -150,6 +150,7 @@ static inline u8 cpuid_maxphyaddr(void)
 #define	X86_FEATURE_RDPID		(CPUID(0x7, 0, ECX, 22))
 #define	X86_FEATURE_SPEC_CTRL		(CPUID(0x7, 0, EDX, 26))
 #define	X86_FEATURE_NX			(CPUID(0x80000001, 0, EDX, 20))
+#define	X86_FEATURE_RDPRU		(CPUID(0x80000008, 0, EBX, 4))
 
 /*
  * AMD CPUID features
