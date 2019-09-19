@@ -1268,29 +1268,35 @@ static void init_vmx_caps(void)
 		ept_vpid.val = 0;
 }
 
-static void init_vmx(void)
+static void init_vmx(u64 *vmxon_region)
 {
 	ulong fix_cr0_set, fix_cr0_clr;
 	ulong fix_cr4_set, fix_cr4_clr;
-
-	vmxon_region = alloc_page();
-
-	vmcs_root = alloc_page();
 
 	fix_cr0_set =  rdmsr(MSR_IA32_VMX_CR0_FIXED0);
 	fix_cr0_clr =  rdmsr(MSR_IA32_VMX_CR0_FIXED1);
 	fix_cr4_set =  rdmsr(MSR_IA32_VMX_CR4_FIXED0);
 	fix_cr4_clr = rdmsr(MSR_IA32_VMX_CR4_FIXED1);
 
-	init_vmx_caps();
-
 	write_cr0((read_cr0() & fix_cr0_clr) | fix_cr0_set);
 	write_cr4((read_cr4() & fix_cr4_clr) | fix_cr4_set | X86_CR4_VMXE);
 
 	*vmxon_region = basic.revision;
+}
 
+static void alloc_bsp_vmx_pages(void)
+{
+	vmxon_region = alloc_page();
 	guest_stack = alloc_page();
 	guest_syscall_stack = alloc_page();
+	vmcs_root = alloc_page();
+}
+
+static void init_bsp_vmx(void)
+{
+	init_vmx_caps();
+	alloc_bsp_vmx_pages();
+	init_vmx(vmxon_region);
 }
 
 static void do_vmxon_off(void *data)
@@ -1932,7 +1938,7 @@ int main(int argc, const char *argv[])
 		printf("WARNING: vmx not supported, add '-cpu host'\n");
 		goto exit;
 	}
-	init_vmx();
+	init_bsp_vmx();
 	if (test_wanted("test_vmx_feature_control", argv, argc)) {
 		/* Sets MSR_IA32_FEATURE_CONTROL to 0x5 */
 		if (test_vmx_feature_control() != 0)
