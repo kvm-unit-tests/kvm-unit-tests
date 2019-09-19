@@ -1247,6 +1247,19 @@ static int init_vmcs(struct vmcs **vmcs)
 	return 0;
 }
 
+void enable_vmx(void)
+{
+	bool vmx_enabled =
+		rdmsr(MSR_IA32_FEATURE_CONTROL) &
+		FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX;
+
+	if (!vmx_enabled) {
+		wrmsr(MSR_IA32_FEATURE_CONTROL,
+				FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX |
+				FEATURE_CONTROL_LOCKED);
+	}
+}
+
 static void init_vmx_caps(void)
 {
 	basic.val = rdmsr(MSR_IA32_VMX_BASIC);
@@ -1932,7 +1945,6 @@ test_wanted(const char *name, const char *filters[], int filter_count)
 int main(int argc, const char *argv[])
 {
 	int i = 0;
-	bool vmx_enabled;
 
 	setup_vm();
 	smp_init();
@@ -1954,13 +1966,7 @@ int main(int argc, const char *argv[])
 		if (test_vmx_feature_control() != 0)
 			goto exit;
 	} else {
-		vmx_enabled = rdmsr(MSR_IA32_FEATURE_CONTROL) &
-			FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX;
-		if (!vmx_enabled) {
-			wrmsr(MSR_IA32_FEATURE_CONTROL,
-				  FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX |
-				  FEATURE_CONTROL_LOCKED);
-		}
+		enable_vmx();
 	}
 
 	if (test_wanted("test_vmxon", argv, argc)) {

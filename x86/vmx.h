@@ -790,6 +790,7 @@ static inline bool invvpid(unsigned long type, u64 vpid, u64 gla)
 	return ret;
 }
 
+void enable_vmx(void);
 void init_vmx(u64 *vmxon_region);
 
 const char *exit_reason_description(u64 reason);
