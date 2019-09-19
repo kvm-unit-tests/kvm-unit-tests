@@ -8272,6 +8272,147 @@ static void vmx_apic_passthrough_thread_test(void)
 	vmx_apic_passthrough(true);
 }
 
+static u64 init_signal_test_exit_reason;
+static bool init_signal_test_thread_continued;
+
+static void init_signal_test_thread(void *data)
+{
+	struct vmcs *test_vmcs = data;
+
+	/* Enter VMX operation (i.e. exec VMXON) */
+	u64 *ap_vmxon_region = alloc_page();
+	enable_vmx();
+	init_vmx(ap_vmxon_region);
+	_vmx_on(ap_vmxon_region);
+
+	/* Signal CPU have entered VMX operation */
+	vmx_set_test_stage(1);
+
+	/* Wait for BSP CPU to send INIT signal */
+	while (vmx_get_test_stage() != 2)
+		;
+
+	/*
+	 * Signal that we continue as usual as INIT signal
+	 * should be blocked while CPU is in VMX operation
+	 */
+	vmx_set_test_stage(3);
+
+	/* Wait for signal to enter VMX non-root mode */
+	while (vmx_get_test_stage() != 4)
+		;
+
+	/* Enter VMX non-root mode */
+	test_set_guest(v2_null_test_guest);
+	make_vmcs_current(test_vmcs);
+	enter_guest();
+	/* Save exit reason for BSP CPU to compare to expected result */
+	init_signal_test_exit_reason = vmcs_read(EXI_REASON);
+	/* VMCLEAR test-vmcs so it could be loaded by BSP CPU */
+	vmcs_clear(test_vmcs);
+	launched = false;
+	/* Signal that CPU exited to VMX root mode */
+	vmx_set_test_stage(5);
+
+	/* Wait for signal to exit VMX operation */
+	while (vmx_get_test_stage() != 6)
+		;
+
+	/* Exit VMX operation (i.e. exec VMXOFF) */
+	vmx_off();
+
+	/*
+	 * Exiting VMX operation should result in latched
+	 * INIT signal being processed. Therefore, we should
+	 * never reach the below code. Thus, signal to BSP
+	 * CPU if we have reached here so it is able to
+	 * report an issue if it happens.
+	 */
+	init_signal_test_thread_continued = true;
+}
+
+#define INIT_SIGNAL_TEST_DELAY	100000000ULL
+
+static void vmx_init_signal_test(void)
+{
+	struct vmcs *test_vmcs;
+
+	if (cpu_count() < 2) {
+		report_skip(__func__);
+		return;
+	}
+
+	/* VMCLEAR test-vmcs so it could be loaded by other CPU */
+	vmcs_save(&test_vmcs);
+	vmcs_clear(test_vmcs);
+
+	vmx_set_test_stage(0);
+	on_cpu_async(1, init_signal_test_thread, test_vmcs);
+
+	/* Wait for other CPU to enter VMX operation */
+	while (vmx_get_test_stage() != 1)
+		;
+
+	/* Send INIT signal to other CPU */
+	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT,
+				   id_map[1]);
+	/* Signal other CPU we have sent INIT signal */
+	vmx_set_test_stage(2);
+
+	/*
+	 * Wait reasonable amount of time for INIT signal to
+	 * be received on other CPU and verify that other CPU
+	 * have proceed as usual to next test stage as INIT
+	 * signal should be blocked while other CPU in
+	 * VMX operation
+	 */
+	delay(INIT_SIGNAL_TEST_DELAY);
+	report("INIT signal blocked when CPU in VMX operation",
+		   vmx_get_test_stage() == 3);
+	/* No point to continue if we failed at this point */
+	if (vmx_get_test_stage() != 3)
+		return;
+
+	/* Signal other CPU to enter VMX non-root mode */
+	init_signal_test_exit_reason = -1ull;
+	vmx_set_test_stage(4);
+	/*
+	 * Wait reasonable amont of time for other CPU
+	 * to exit to VMX root mode
+	 */
+	delay(INIT_SIGNAL_TEST_DELAY);
+	if (vmx_get_test_stage() != 5) {
+		report("Pending INIT signal didn't result in VMX exit", false);
+		return;
+	}
+	report("INIT signal during VMX non-root mode result in exit-reason %s (%lu)",
+			init_signal_test_exit_reason == VMX_INIT,
+			exit_reason_description(init_signal_test_exit_reason),
+			init_signal_test_exit_reason);
+
+	/* Run guest to completion */
+	make_vmcs_current(test_vmcs);
+	enter_guest();
+
+	/* Signal other CPU to exit VMX operation */
+	init_signal_test_thread_continued = false;
+	vmx_set_test_stage(6);
+
+	/*
+	 * Wait reasonable amount of time for other CPU
+	 * to run after INIT signal was processed
+	 */
+	delay(INIT_SIGNAL_TEST_DELAY);
+	report("INIT signal processed after exit VMX operation",
+		   !init_signal_test_thread_continued);
+
+	/*
+	 * TODO: Send SIPI to other CPU to sipi_entry (See x86/cstart64.S)
+	 * to re-init it to kvm-unit-tests standard environment.
+	 * Somehow (?) verify that SIPI was indeed received.
+	 */
+}
+
 enum vmcs_access {
 	ACCESS_VMREAD,
 	ACCESS_VMWRITE,
@@ -8810,6 +8951,7 @@ struct vmx_test vmx_tests[] = {
 	/* APIC pass-through tests */
 	TEST(vmx_apic_passthrough_test),
 	TEST(vmx_apic_passthrough_thread_test),
+	TEST(vmx_init_signal_test),
 	/* VMCS Shadowing tests */
 	TEST(vmx_vmcs_shadow_test),
 	/* Regression tests */
