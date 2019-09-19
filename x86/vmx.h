@@ -661,6 +661,7 @@ extern union vmx_ctrl_msr ctrl_enter_rev;
 extern union vmx_ept_vpid  ept_vpid;
 
 extern u64 *bsp_vmxon_region;
+extern bool launched;
 
 void vmx_set_test_stage(u32 s);
 u32 vmx_get_test_stage(void);
