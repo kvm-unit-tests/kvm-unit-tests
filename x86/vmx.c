@@ -38,7 +38,7 @@
 #include "smp.h"
 #include "apic.h"
 
-u64 *vmxon_region;
+u64 *bsp_vmxon_region;
 struct vmcs *vmcs_root;
 u32 vpid_cnt;
 void *guest_stack, *guest_syscall_stack;
@@ -693,7 +693,7 @@ static void test_vmclear(void)
 	       vmcs_clear(tmp_root) == 1);
 
 	/* Pass VMXON region */
-	tmp_root = (struct vmcs *)vmxon_region;
+	tmp_root = (struct vmcs *)bsp_vmxon_region;
 	report("test vmclear with vmxon region",
 	       vmcs_clear(tmp_root) == 1);
 
@@ -1286,7 +1286,7 @@ void init_vmx(u64 *vmxon_region)
 
 static void alloc_bsp_vmx_pages(void)
 {
-	vmxon_region = alloc_page();
+	bsp_vmxon_region = alloc_page();
 	guest_stack = alloc_page();
 	guest_syscall_stack = alloc_page();
 	vmcs_root = alloc_page();
@@ -1296,7 +1296,7 @@ static void init_bsp_vmx(void)
 {
 	init_vmx_caps();
 	alloc_bsp_vmx_pages();
-	init_vmx(vmxon_region);
+	init_vmx(bsp_vmxon_region);
 }
 
 static void do_vmxon_off(void *data)
@@ -1346,12 +1346,12 @@ static int test_vmx_feature_control(void)
 static int test_vmxon(void)
 {
 	int ret, ret1;
-	u64 *tmp_region = vmxon_region;
+	u64 *vmxon_region;
 	int width = cpuid_maxphyaddr();
 
 	/* Unaligned page access */
-	vmxon_region = (u64 *)((intptr_t)vmxon_region + 1);
-	ret1 = vmx_on();
+	vmxon_region = (u64 *)((intptr_t)bsp_vmxon_region + 1);
+	ret1 = _vmx_on(vmxon_region);
 	report("test vmxon with unaligned vmxon region", ret1);
 	if (!ret1) {
 		ret = 1;
@@ -1359,8 +1359,8 @@ static int test_vmxon(void)
 	}
 
 	/* gpa bits beyond physical address width are set*/
-	vmxon_region = (u64 *)((intptr_t)tmp_region | ((u64)1 << (width+1)));
-	ret1 = vmx_on();
+	vmxon_region = (u64 *)((intptr_t)bsp_vmxon_region | ((u64)1 << (width+1)));
+	ret1 = _vmx_on(vmxon_region);
 	report("test vmxon with bits set beyond physical address width", ret1);
 	if (!ret1) {
 		ret = 1;
@@ -1368,8 +1368,7 @@ static int test_vmxon(void)
 	}
 
 	/* invalid revision indentifier */
-	vmxon_region = tmp_region;
-	*vmxon_region = 0xba9da9;
+	*bsp_vmxon_region = 0xba9da9;
 	ret1 = vmx_on();
 	report("test vmxon with invalid revision identifier", ret1);
 	if (!ret1) {
@@ -1378,7 +1377,7 @@ static int test_vmxon(void)
 	}
 
 	/* and finally a valid region */
-	*vmxon_region = basic.revision;
+	*bsp_vmxon_region = basic.revision;
 	ret = vmx_on();
 	report("test vmxon with valid vmxon region", !ret);
 
@@ -1408,7 +1407,7 @@ static void test_vmptrld(void)
 	/* Pass VMXON region */
 	assert(!vmcs_clear(vmcs));
 	assert(!make_vmcs_current(vmcs));
-	tmp_root = (struct vmcs *)vmxon_region;
+	tmp_root = (struct vmcs *)bsp_vmxon_region;
 	report("test vmptrld with vmxon region",
 	       make_vmcs_current(tmp_root) == 1);
 	report("test vmptrld with vmxon region vm-instruction error",

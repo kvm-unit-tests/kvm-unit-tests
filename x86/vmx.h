@@ -660,19 +660,24 @@ extern union vmx_ctrl_msr ctrl_exit_rev;
 extern union vmx_ctrl_msr ctrl_enter_rev;
 extern union vmx_ept_vpid  ept_vpid;
 
-extern u64 *vmxon_region;
+extern u64 *bsp_vmxon_region;
 
 void vmx_set_test_stage(u32 s);
 u32 vmx_get_test_stage(void);
 void vmx_inc_test_stage(void);
 
-static int vmx_on(void)
+static int _vmx_on(u64 *vmxon_region)
 {
 	bool ret;
 	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
 	asm volatile ("push %1; popf; vmxon %2; setbe %0\n\t"
 		      : "=q" (ret) : "q" (rflags), "m" (vmxon_region) : "cc");
 	return ret;
+}
+
+static int vmx_on(void)
+{
+	return _vmx_on(bsp_vmxon_region);
 }
 
 static int vmx_off(void)
