@@ -1314,13 +1314,18 @@ static int test_vmx_feature_control(void)
 {
 	u64 ia32_feature_control;
 	bool vmx_enabled;
+	bool feature_control_locked;
 
 	ia32_feature_control = rdmsr(MSR_IA32_FEATURE_CONTROL);
-	vmx_enabled = ((ia32_feature_control & 0x5) == 0x5);
-	if ((ia32_feature_control & 0x5) == 0x5) {
+	vmx_enabled =
+		ia32_feature_control & FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX;
+	feature_control_locked =
+		ia32_feature_control & FEATURE_CONTROL_LOCKED;
+
+	if (vmx_enabled && feature_control_locked) {
 		printf("VMX enabled and locked by BIOS\n");
 		return 0;
-	} else if (ia32_feature_control & 0x1) {
+	} else if (feature_control_locked) {
 		printf("ERROR: VMX locked out by BIOS!?\n");
 		return 1;
 	}
@@ -1329,12 +1334,17 @@ static int test_vmx_feature_control(void)
 	report("test vmxon with FEATURE_CONTROL cleared",
 	       test_for_exception(GP_VECTOR, &do_vmxon_off, NULL));
 
-	wrmsr(MSR_IA32_FEATURE_CONTROL, 0x4);
+	wrmsr(MSR_IA32_FEATURE_CONTROL, FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX);
 	report("test vmxon without FEATURE_CONTROL lock",
 	       test_for_exception(GP_VECTOR, &do_vmxon_off, NULL));
 
-	wrmsr(MSR_IA32_FEATURE_CONTROL, 0x5);
-	vmx_enabled = ((rdmsr(MSR_IA32_FEATURE_CONTROL) & 0x5) == 0x5);
+	wrmsr(MSR_IA32_FEATURE_CONTROL,
+		  FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX |
+		  FEATURE_CONTROL_LOCKED);
+
+	ia32_feature_control = rdmsr(MSR_IA32_FEATURE_CONTROL);
+	vmx_enabled =
+		ia32_feature_control & FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX;
 	report("test enable VMX in FEATURE_CONTROL", vmx_enabled);
 
 	report("test FEATURE_CONTROL lock bit",
@@ -1922,6 +1932,7 @@ test_wanted(const char *name, const char *filters[], int filter_count)
 int main(int argc, const char *argv[])
 {
 	int i = 0;
+	bool vmx_enabled;
 
 	setup_vm();
 	smp_init();
@@ -1943,8 +1954,13 @@ int main(int argc, const char *argv[])
 		if (test_vmx_feature_control() != 0)
 			goto exit;
 	} else {
-		if ((rdmsr(MSR_IA32_FEATURE_CONTROL) & 0x5) != 0x5)
-			wrmsr(MSR_IA32_FEATURE_CONTROL, 0x5);
+		vmx_enabled = rdmsr(MSR_IA32_FEATURE_CONTROL) &
+			FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX;
+		if (!vmx_enabled) {
+			wrmsr(MSR_IA32_FEATURE_CONTROL,
+				  FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX |
+				  FEATURE_CONTROL_LOCKED);
+		}
 	}
 
 	if (test_wanted("test_vmxon", argv, argc)) {
