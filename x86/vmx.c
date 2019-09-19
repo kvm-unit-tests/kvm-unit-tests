@@ -1247,19 +1247,8 @@ static int init_vmcs(struct vmcs **vmcs)
 	return 0;
 }
 
-static void init_vmx(void)
+static void init_vmx_caps(void)
 {
-	ulong fix_cr0_set, fix_cr0_clr;
-	ulong fix_cr4_set, fix_cr4_clr;
-
-	vmxon_region = alloc_page();
-
-	vmcs_root = alloc_page();
-
-	fix_cr0_set =  rdmsr(MSR_IA32_VMX_CR0_FIXED0);
-	fix_cr0_clr =  rdmsr(MSR_IA32_VMX_CR0_FIXED1);
-	fix_cr4_set =  rdmsr(MSR_IA32_VMX_CR4_FIXED0);
-	fix_cr4_clr = rdmsr(MSR_IA32_VMX_CR4_FIXED1);
 	basic.val = rdmsr(MSR_IA32_VMX_BASIC);
 	ctrl_pin_rev.val = rdmsr(basic.ctrl ? MSR_IA32_VMX_TRUE_PIN
 			: MSR_IA32_VMX_PINBASED_CTLS);
@@ -1277,6 +1266,23 @@ static void init_vmx(void)
 		ept_vpid.val = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
 	else
 		ept_vpid.val = 0;
+}
+
+static void init_vmx(void)
+{
+	ulong fix_cr0_set, fix_cr0_clr;
+	ulong fix_cr4_set, fix_cr4_clr;
+
+	vmxon_region = alloc_page();
+
+	vmcs_root = alloc_page();
+
+	fix_cr0_set =  rdmsr(MSR_IA32_VMX_CR0_FIXED0);
+	fix_cr0_clr =  rdmsr(MSR_IA32_VMX_CR0_FIXED1);
+	fix_cr4_set =  rdmsr(MSR_IA32_VMX_CR4_FIXED0);
+	fix_cr4_clr = rdmsr(MSR_IA32_VMX_CR4_FIXED1);
+
+	init_vmx_caps();
 
 	write_cr0((read_cr0() & fix_cr0_clr) | fix_cr0_set);
 	write_cr4((read_cr4() & fix_cr4_clr) | fix_cr4_set | X86_CR4_VMXE);
