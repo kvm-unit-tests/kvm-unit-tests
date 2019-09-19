@@ -785,6 +785,8 @@ static inline bool invvpid(unsigned long type, u64 vpid, u64 gla)
 	return ret;
 }
 
+void init_vmx(u64 *vmxon_region);
+
 const char *exit_reason_description(u64 reason);
 void print_vmexit_info(void);
 void print_vmentry_failure_info(struct vmentry_failure *failure);

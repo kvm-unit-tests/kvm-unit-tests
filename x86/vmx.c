@@ -1268,7 +1268,7 @@ static void init_vmx_caps(void)
 		ept_vpid.val = 0;
 }
 
-static void init_vmx(u64 *vmxon_region)
+void init_vmx(u64 *vmxon_region)
 {
 	ulong fix_cr0_set, fix_cr0_clr;
 	ulong fix_cr4_set, fix_cr4_clr;
