@@ -179,6 +179,7 @@ typedef struct SCCB {
 /* SCLP event masks */
 #define SCLP_EVENT_MASK_SIGNAL_QUIESCE          0x00000008
 #define SCLP_EVENT_MASK_MSG_ASCII               0x00000040
+#define SCLP_EVENT_MASK_MSG          		0x40000000
 
 #define SCLP_UNCONDITIONAL_READ                 0x00
 #define SCLP_SELECTIVE_READ                     0x01
@@ -193,6 +194,55 @@ typedef struct WriteEventMask {
     uint32_t receive_mask;
 } __attribute__((packed)) WriteEventMask;
 
+#define MDBTYP_GO               0x0001
+#define MDBTYP_MTO              0x0004
+#define EVTYP_MSG               0x02
+#define LNTPFLGS_CNTLTEXT       0x8000
+#define LNTPFLGS_LABELTEXT      0x4000
+#define LNTPFLGS_DATATEXT       0x2000
+#define LNTPFLGS_ENDTEXT        0x1000
+#define LNTPFLGS_PROMPTTEXT     0x0800
+
+typedef uint32_t sccb_mask_t;
+
+/* SCLP line mode console related structures. */
+
+struct mto {
+	u16 length;
+	u16 type;
+	u16 line_type_flags;
+	u8  alarm_control;
+	u8  _reserved[3];
+} __attribute__((packed));
+
+struct go {
+	u16 length;
+	u16 type;
+	u32 domid;
+	u8  hhmmss_time[8];
+	u8  th_time[3];
+	u8  reserved_0;
+	u8  dddyyyy_date[7];
+	u8  _reserved_1;
+	u16 general_msg_flags;
+	u8  _reserved_2[10];
+	u8  originating_system_name[8];
+	u8  job_guest_name[8];
+} __attribute__((packed));
+
+struct mdb_header {
+	u16 length;
+	u16 type;
+	u32 tag;
+	u32 revision_code;
+} __attribute__((packed));
+
+struct mdb {
+	struct mdb_header header;
+	struct go go;
+	struct mto mto;
+} __attribute__((packed));
+
 typedef struct EventBufferHeader {
     uint16_t length;
     uint8_t  type;
@@ -203,7 +253,10 @@ typedef struct EventBufferHeader {
 typedef struct WriteEventData {
     SCCBHeader h;
     EventBufferHeader ebh;
-    char data[0];
+    union {
+	char data[0];
+	struct mdb mdb;
+    } msg;
 } __attribute__((packed)) WriteEventData;
 
 typedef struct ReadEventData {
