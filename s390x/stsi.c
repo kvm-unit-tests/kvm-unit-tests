@@ -35,7 +35,7 @@ static void test_specs(void)
 
 	report_prefix_push("unaligned");
 	expect_pgm_int();
-	stsi(pagebuf + 42, 1, 0, 0);
+	stsi(pagebuf + 42, 1, 1, 1);
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
 	report_prefix_pop();
 
@@ -71,6 +71,8 @@ static inline unsigned long stsi_get_fc(void *addr)
 static void test_fc(void)
 {
 	report("invalid fc",  stsi(pagebuf, 7, 0, 0) == 3);
+	report("invalid selector 1", stsi(pagebuf, 1, 0, 1) == 3);
+	report("invalid selector 2", stsi(pagebuf, 1, 1, 0) == 3);
 	report("query fc >= 2",  stsi_get_fc(pagebuf) >= 2);
 }
 
