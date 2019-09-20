@@ -12,6 +12,7 @@
 #include <libcflat.h>
 #include <asm/interrupt.h>
 #include <asm/barrier.h>
+#include <sclp.h>
 
 static bool pgm_int_expected;
 static struct lowcore *lc;
@@ -107,8 +108,15 @@ void handle_pgm_int(void)
 
 void handle_ext_int(void)
 {
-	report_abort("Unexpected external call interrupt: at %#lx",
-		     lc->ext_old_psw.addr);
+	if (lc->ext_int_code != EXT_IRQ_SERVICE_SIG) {
+		report_abort("Unexpected external call interrupt: at %#lx",
+			     lc->ext_old_psw.addr);
+	} else {
+		lc->ext_old_psw.mask &= ~PSW_MASK_EXT;
+		lc->sw_int_cr0 &= ~(1UL << 9);
+		sclp_handle_ext();
+		lc->ext_int_code = 0;
+	}
 }
 
 void handle_mcck_int(void)

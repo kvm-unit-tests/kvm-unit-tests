@@ -17,6 +17,7 @@ static void sclp_set_write_mask(void)
 {
 	WriteEventMask *sccb = (void *)_sccb;
 
+	sclp_mark_busy();
 	sccb->h.length = sizeof(WriteEventMask);
 	sccb->mask_length = sizeof(unsigned int);
 	sccb->receive_mask = SCLP_EVENT_MASK_MSG_ASCII;
@@ -37,6 +38,7 @@ void sclp_print(const char *str)
 	int len = strlen(str);
 	WriteEventData *sccb = (void *)_sccb;
 
+	sclp_mark_busy();
 	sccb->h.length = sizeof(WriteEventData) + len;
 	sccb->h.function_code = SCLP_FC_NORMAL_WRITE;
 	sccb->ebh.length = sizeof(EventBufferHeader) + len;

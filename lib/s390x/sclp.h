@@ -213,6 +213,9 @@ typedef struct ReadEventData {
 } __attribute__((packed)) ReadEventData;
 
 extern char _sccb[];
+void sclp_handle_ext(void);
+void sclp_wait_busy(void);
+void sclp_mark_busy(void);
 void sclp_console_setup(void);
 void sclp_print(const char *str);
 int sclp_service_call(unsigned int command, void *sccb);
