@@ -15,12 +15,20 @@
 #include <sclp.h>
 
 static bool pgm_int_expected;
+static bool ext_int_expected;
 static struct lowcore *lc;
 
 void expect_pgm_int(void)
 {
 	pgm_int_expected = true;
 	lc->pgm_int_code = 0;
+	mb();
+}
+
+void expect_ext_int(void)
+{
+	ext_int_expected = true;
+	lc->ext_int_code = 0;
 	mb();
 }
 
@@ -108,15 +116,22 @@ void handle_pgm_int(void)
 
 void handle_ext_int(void)
 {
-	if (lc->ext_int_code != EXT_IRQ_SERVICE_SIG) {
+	if (!ext_int_expected &&
+	    lc->ext_int_code != EXT_IRQ_SERVICE_SIG) {
 		report_abort("Unexpected external call interrupt: at %#lx",
 			     lc->ext_old_psw.addr);
-	} else {
-		lc->ext_old_psw.mask &= ~PSW_MASK_EXT;
+		return;
+	}
+
+	if (lc->ext_int_code == EXT_IRQ_SERVICE_SIG) {
 		lc->sw_int_cr0 &= ~(1UL << 9);
 		sclp_handle_ext();
-		lc->ext_int_code = 0;
+	} else {
+		ext_int_expected = false;
 	}
+
+	if (!(lc->sw_int_cr0 & CR0_EXTM_MASK))
+		lc->ext_old_psw.mask &= ~PSW_MASK_EXT;
 }
 
 void handle_mcck_int(void)
