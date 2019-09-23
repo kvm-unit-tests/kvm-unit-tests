@@ -16,6 +16,7 @@
 #include <asm/facility.h>
 #include <asm/sigp.h>
 #include "sclp.h"
+#include "smp.h"
 
 extern char ipl_args[];
 uint8_t stfl_bytes[NR_STFL_BYTES] __attribute__((aligned(8)));
@@ -37,12 +38,14 @@ void setup(void)
 	setup_facilities();
 	sclp_console_setup();
 	sclp_memory_setup();
+	smp_setup();
 }
 
 void exit(int code)
 {
+	smp_teardown();
 	printf("\nEXIT: STATUS=%d\n", ((code) << 1) | 1);
 	while (1) {
-		sigp_stop();
+		sigp(0, SIGP_STOP, 0, NULL);
 	}
 }

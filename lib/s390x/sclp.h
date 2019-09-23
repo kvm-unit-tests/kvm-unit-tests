@@ -19,6 +19,7 @@
 #define SCLP_CMD_CODE_MASK                      0xffff00ff
 
 /* SCLP command codes */
+#define SCLP_READ_CPU_INFO			0x00010001
 #define SCLP_CMDW_READ_SCP_INFO                 0x00020001
 #define SCLP_CMDW_READ_SCP_INFO_FORCED          0x00120001
 #define SCLP_READ_STORAGE_ELEMENT_INFO          0x00040001
