@@ -7203,7 +7203,7 @@ static void test_load_guest_pat(void)
 	/*
 	 * "load IA32_PAT" VM-entry control
 	 */
-	if (!(ctrl_exit_rev.clr & ENT_LOAD_PAT)) {
+	if (!(ctrl_enter_rev.clr & ENT_LOAD_PAT)) {
 		printf("\"Load-IA32-PAT\" entry control not supported\n");
 		return;
 	}
