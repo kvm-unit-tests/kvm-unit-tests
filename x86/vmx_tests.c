@@ -5030,19 +5030,23 @@ static void guest_state_test_main(void)
 	asm volatile("fnop");
 }
 
+static void advance_guest_state_test(void)
+{
+	u32 reason = vmcs_read(EXI_REASON);
+	if (! (reason & 0x80000000)) {
+		u64 guest_rip = vmcs_read(GUEST_RIP);
+		u32 insn_len = vmcs_read(EXI_INST_LEN);
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+	}
+}
+
 static void report_guest_state_test(const char *test, u32 xreason,
 				    u64 field, const char * field_name)
 {
 	u32 reason = vmcs_read(EXI_REASON);
-	u64 guest_rip;
-	u32 insn_len;
 
 	report("%s, %s %lx", reason == xreason, test, field_name, field);
-
-	guest_rip = vmcs_read(GUEST_RIP);
-	insn_len = vmcs_read(EXI_INST_LEN);
-	if (! (reason & 0x80000021))
-		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+	advance_guest_state_test();
 }
 
 /*
@@ -6720,6 +6724,25 @@ static void test_host_ctl_regs(void)
 	vmcs_write(HOST_CR3, cr3_saved);
 }
 
+static void test_efer_vmlaunch(u32 fld, bool ok)
+{
+	if (fld == HOST_EFER) {
+		if (ok)
+			test_vmx_vmlaunch(0, false);
+		else
+			test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD, false);
+	} else {
+		if (ok) {
+			enter_guest();
+			report("vmlaunch succeeds", vmcs_read(EXI_REASON) == VMX_VMCALL);
+		} else {
+			enter_guest_with_invalid_guest_state();
+			report("vmlaunch fails", vmcs_read(EXI_REASON) == (VMX_ENTRY_FAILURE | VMX_FAIL_STATE));
+		}
+		advance_guest_state_test();
+	}
+}
+
 static void test_efer_one(u32 fld, const char * fld_name, u64 efer,
 			  u32 ctrl_fld, u64 ctrl,
 			  int i, const char *efer_bit_name)
@@ -6727,12 +6750,27 @@ static void test_efer_one(u32 fld, const char * fld_name, u64 efer,
 	bool ok;
 
 	ok = true;
-	if (ctrl & EXI_LOAD_EFER) {
+	if (ctrl_fld == EXI_CONTROLS && (ctrl & EXI_LOAD_EFER)) {
 		if (!!(efer & EFER_LMA) != !!(ctrl & EXI_HOST_64))
 			ok = false;
 		if (!!(efer & EFER_LME) != !!(ctrl & EXI_HOST_64))
 			ok = false;
 	}
+	if (ctrl_fld == ENT_CONTROLS && (ctrl & ENT_LOAD_EFER)) {
+		/* Check LMA too since CR0.PG is set.  */
+		if (!!(efer & EFER_LMA) != !!(ctrl & ENT_GUEST_64))
+			ok = false;
+		if (!!(efer & EFER_LME) != !!(ctrl & ENT_GUEST_64))
+			ok = false;
+	}
+
+	/*
+	 * Skip the test if it would enter the guest in 32-bit mode.
+	 * Perhaps write the test in assembly and make sure it
+	 * can be run in either mode?
+	 */
+	if (fld == GUEST_EFER && ok && !(ctrl & ENT_GUEST_64))
+		return;
 
 	vmcs_write(ctrl_fld, ctrl);
 	vmcs_write(fld, efer);
@@ -6741,11 +6779,7 @@ static void test_efer_one(u32 fld, const char * fld_name, u64 efer,
 			    (i & 1) ? "on" : "off",
 			    (i & 2) ? "on" : "off");
 
-	if (ok)
-		test_vmx_vmlaunch(0, false);
-	else
-		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
-				  false);
+	test_efer_vmlaunch(fld, ok);
 	report_prefix_pop();
 }
 
@@ -6792,7 +6826,7 @@ static void test_efer(u32 fld, const char * fld_name, u32 ctrl_fld,
 	}
 
 	report_prefix_pushf("%s %lx", fld_name, efer_saved);
-	test_vmx_vmlaunch(0, false);
+	test_efer_vmlaunch(fld, true);
 	report_prefix_pop();
 
 	/*
@@ -6804,7 +6838,7 @@ static void test_efer(u32 fld, const char * fld_name, u32 ctrl_fld,
 			efer = efer_saved | (1ull << i);
 			vmcs_write(fld, efer);
 			report_prefix_pushf("%s %lx", fld_name, efer);
-			test_vmx_vmlaunch(0, false);
+			test_efer_vmlaunch(fld, true);
 			report_prefix_pop();
 		}
 	}
@@ -6815,8 +6849,7 @@ static void test_efer(u32 fld, const char * fld_name, u32 ctrl_fld,
 			efer = efer_saved | (1ull << i);
 			vmcs_write(fld, efer);
 			report_prefix_pushf("%s %lx", fld_name, efer);
-			test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
-					  false);
+			test_efer_vmlaunch(fld, false);
 			report_prefix_pop();
 		}
 	}
@@ -6860,6 +6893,25 @@ static void test_host_efer(void)
 	test_efer(HOST_EFER, "HOST_EFER", EXI_CONTROLS, 
 		  ctrl_exit_rev.clr & EXI_LOAD_EFER,
 		  EXI_HOST_64);
+}
+
+/*
+ * If the 'load IA32_EFER' VM-enter control is 1, bits reserved in the
+ * IA32_EFER MSR must be 0 in the field for that register. In addition,
+ * the values of the LMA and LME bits in the field must each be that of
+ * the 'IA32e-mode guest' VM-exit control.
+ */
+static void test_guest_efer(void)
+{
+	if (!(ctrl_enter_rev.clr & ENT_LOAD_EFER)) {
+		printf("\"Load-IA32-EFER\" entry control not supported\n");
+		return;
+	}
+
+	vmcs_write(GUEST_EFER, rdmsr(MSR_EFER));
+	test_efer(GUEST_EFER, "GUEST_EFER", ENT_CONTROLS,
+		  ctrl_enter_rev.clr & ENT_LOAD_EFER,
+		  ENT_GUEST_64);
 }
 
 /*
@@ -7230,6 +7282,7 @@ static void vmx_guest_state_area_test(void)
 	test_set_guest(guest_state_test_main);
 
 	test_load_guest_pat();
+	test_guest_efer();
 
 	/*
 	 * Let the guest finish execution
