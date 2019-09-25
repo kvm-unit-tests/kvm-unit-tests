@@ -21,32 +21,20 @@ static void test_priv(void)
 	check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
 }
 
+
 /*
- * Check that diag308 with subcode 1 loads the PSW at address 0, i.e.
+ * Check that diag308 with subcode 0 and 1 loads the PSW at address 0, i.e.
  * that we can put a pointer into address 4 which then gets executed.
  */
+extern int diag308_load_reset(u64);
+static void test_subcode0(void)
+{
+	report("load modified clear done", diag308_load_reset(0));
+}
+
 static void test_subcode1(void)
 {
-	uint64_t saved_psw = *(uint64_t *)0;
-	long subcode = 1;
-	long ret, tmp;
-
-	asm volatile (
-		"	epsw	%0,%1\n"
-		"	st	%0,0\n"
-		"	larl	%0,0f\n"
-		"	oilh	%0,0x8000\n"
-		"	st	%0,4\n"
-		"	diag	0,%2,0x308\n"
-		"	lghi	%0,0\n"
-		"	j	1f\n"
-		"0:	lghi	%0,1\n"
-		"1:"
-		: "=&d"(ret), "=&d"(tmp) : "d"(subcode) : "memory");
-
-	*(uint64_t *)0 = saved_psw;
-
-	report("load normal reset done", ret == 1);
+	report("load normal reset done", diag308_load_reset(1));
 }
 
 /* Expect a specification exception when using an uneven register */
@@ -107,6 +95,7 @@ static struct {
 	void (*func)(void);
 } tests[] = {
 	{ "privileged", test_priv },
+	{ "subcode 0", test_subcode0 },
 	{ "subcode 1", test_subcode1 },
 	{ "subcode 5", test_subcode5 },
 	{ "subcode 6", test_subcode6 },

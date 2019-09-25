@@ -26,9 +26,7 @@ union skey {
 	uint8_t val;
 };
 
-static inline void set_storage_key(unsigned long addr,
-				   unsigned char skey,
-				   int nq)
+static inline void set_storage_key(void *addr, unsigned char skey, int nq)
 {
 	if (nq)
 		asm volatile(".insn rrf,0xb22b0000,%0,%1,8,0"
@@ -37,8 +35,7 @@ static inline void set_storage_key(unsigned long addr,
 		asm volatile("sske %0,%1" : : "d" (skey), "a" (addr));
 }
 
-static inline unsigned long set_storage_key_mb(unsigned long addr,
-					       unsigned char skey)
+static inline void *set_storage_key_mb(void *addr, unsigned char skey)
 {
 	assert(test_facility(8));
 
@@ -47,11 +44,42 @@ static inline unsigned long set_storage_key_mb(unsigned long addr,
 	return addr;
 }
 
-static inline unsigned char get_storage_key(unsigned long addr)
+static inline unsigned char get_storage_key(void *addr)
 {
 	unsigned char skey;
 
 	asm volatile("iske %0,%1" : "=d" (skey) : "a" (addr));
 	return skey;
+}
+
+#define PFMF_FSC_4K 0
+#define PFMF_FSC_1M 1
+#define PFMF_FSC_2G 2
+
+union pfmf_r1 {
+	struct {
+		unsigned long pad0 : 32;
+		unsigned long pad1 : 12;
+		unsigned long pad_fmfi : 2;
+		unsigned long sk : 1; /* set key*/
+		unsigned long cf : 1; /* clear frame */
+		unsigned long ui : 1; /* usage indication */
+		unsigned long fsc : 3;
+		unsigned long pad2 : 1;
+		unsigned long mr : 1;
+		unsigned long mc : 1;
+		unsigned long pad3 : 1;
+		unsigned long key : 8; /* storage keys */
+	} reg;
+	unsigned long val;
+};
+
+static inline void *pfmf(unsigned long r1, void *paddr)
+{
+	register void * addr asm("1") = paddr;
+
+	asm volatile(".insn rre,0xb9af0000,%[r1],%[addr]"
+		     : [addr] "+a" (addr) : [r1] "d" (r1) : "memory");
+	return addr;
 }
 #endif

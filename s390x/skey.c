@@ -18,14 +18,12 @@
 
 
 static uint8_t pagebuf[PAGE_SIZE * 2] __attribute__((aligned(PAGE_SIZE * 2)));
-const unsigned long page0 = (unsigned long)pagebuf;
-const unsigned long page1 = (unsigned long)(pagebuf + PAGE_SIZE);
 
 static void test_set_mb(void)
 {
 	union skey skey, ret1, ret2;
-	unsigned long addr = 0x10000 - 2 * PAGE_SIZE;
-	unsigned long end = 0x10000;
+	void *addr = (void *)0x10000 - 2 * PAGE_SIZE;
+	void *end = (void *)0x10000;
 
 	/* Multi block support came with EDAT 1 */
 	if (!test_facility(8))
@@ -46,10 +44,10 @@ static void test_chg(void)
 	union skey skey1, skey2;
 
 	skey1.val = 0x30;
-	set_storage_key(page0, skey1.val, 0);
-	skey1.val = get_storage_key(page0);
+	set_storage_key(pagebuf, skey1.val, 0);
+	skey1.val = get_storage_key(pagebuf);
 	pagebuf[0] = 3;
-	skey2.val = get_storage_key(page0);
+	skey2.val = get_storage_key(pagebuf);
 	report("chg bit test", !skey1.str.ch && skey2.str.ch);
 }
 
@@ -58,9 +56,9 @@ static void test_set(void)
 	union skey skey, ret;
 
 	skey.val = 0x30;
-	ret.val = get_storage_key(page0);
-	set_storage_key(page0, skey.val, 0);
-	ret.val = get_storage_key(page0);
+	ret.val = get_storage_key(pagebuf);
+	set_storage_key(pagebuf, skey.val, 0);
+	ret.val = get_storage_key(pagebuf);
 	/*
 	 * For all set tests we only test the ACC and FP bits. RF and
 	 * CH are set by the machine for memory references and changes
@@ -68,24 +66,6 @@ static void test_set(void)
 	 */
 	report("set key test",
 	       skey.str.acc == ret.str.acc && skey.str.fp == ret.str.fp);
-}
-
-static inline int stsi(void *addr, int fc, int sel1, int sel2)
-{
-	register int r0 asm("0") = (fc << 28) | sel1;
-	register int r1 asm("1") = sel2;
-	int rc = 0;
-
-	asm volatile(
-		"	stsi	0(%3)\n"
-		"	jz	0f\n"
-		"	lhi	%1,-1\n"
-		"0:\n"
-		: "+d" (r0), "+d" (rc)
-		: "d" (r1), "a" (addr)
-		: "cc", "memory");
-
-	return rc;
 }
 
 /* Returns true if we are running under z/VM 6.x */
@@ -121,11 +101,11 @@ static void test_priv(void)
 	report_prefix_push("sske");
 	expect_pgm_int();
 	enter_pstate();
-	set_storage_key(page0, 0x30, 0);
+	set_storage_key(pagebuf, 0x30, 0);
 	check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
 	report_prefix_pop();
 
-	skey.val = get_storage_key(page0);
+	skey.val = get_storage_key(pagebuf);
 	report("skey did not change on exception", skey.str.acc != 3);
 
 	report_prefix_push("iske");
@@ -135,7 +115,7 @@ static void test_priv(void)
 	} else {
 		expect_pgm_int();
 		enter_pstate();
-		get_storage_key(page0);
+		get_storage_key(pagebuf);
 		check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
 	}
 	report_prefix_pop();
@@ -146,10 +126,15 @@ static void test_priv(void)
 int main(void)
 {
 	report_prefix_push("skey");
+	if (test_facility(169)) {
+		report_skip("storage key removal facility is active");
+		goto done;
+	}
 	test_priv();
 	test_set();
 	test_set_mb();
 	test_chg();
+done:
 	report_prefix_pop();
 	return report_summary();
 }

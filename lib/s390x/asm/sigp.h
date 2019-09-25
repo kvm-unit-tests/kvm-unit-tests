@@ -46,14 +46,32 @@
 
 #ifndef __ASSEMBLER__
 
-static inline void sigp_stop(void)
+
+static inline int sigp(uint16_t addr, uint8_t order, unsigned long parm,
+		       uint32_t *status)
 {
-	register unsigned long status asm ("1") = 0;
-	register unsigned long cpu asm ("2") = 0;
+	register unsigned long reg1 asm ("1") = parm;
+	int cc;
 
 	asm volatile(
-		"	sigp %0,%1,0(%2)\n"
-		: "+d" (status)  : "d" (cpu), "d" (SIGP_STOP) : "cc");
+		"	sigp	%1,%2,0(%3)\n"
+		"	ipm	%0\n"
+		"	srl	%0,28\n"
+		: "=d" (cc), "+d" (reg1) : "d" (addr), "a" (order) : "cc");
+	if (status)
+		*status = reg1;
+	return cc;
+}
+
+static inline int sigp_retry(uint16_t addr, uint8_t order, unsigned long parm,
+			     uint32_t *status)
+{
+	int cc;
+
+	do {
+		cc = sigp(addr, order, parm, status);
+	} while (cc == 2);
+	return cc;
 }
 
 #endif /* __ASSEMBLER__ */

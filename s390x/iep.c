@@ -43,6 +43,7 @@ static void test_iep(void)
 	report_prefix_pop();
 	unprotect_page(iepbuf, PAGE_ENTRY_IEP);
 	ctl_clear_bit(0, 20);
+	free_page(iepbuf);
 }
 
 int main(void)

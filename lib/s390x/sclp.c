@@ -14,6 +14,8 @@
 #include <asm/page.h>
 #include <asm/arch_def.h>
 #include <asm/interrupt.h>
+#include <asm/barrier.h>
+#include <asm/spinlock.h>
 #include "sclp.h"
 #include <alloc_phys.h>
 #include <alloc_page.h>
@@ -25,6 +27,8 @@ static uint64_t max_ram_size;
 static uint64_t ram_size;
 
 char _sccb[PAGE_SIZE] __attribute__((__aligned__(4096)));
+static volatile bool sclp_busy;
+static struct spinlock sclp_lock;
 
 static void mem_init(phys_addr_t mem_end)
 {
@@ -41,17 +45,62 @@ static void mem_init(phys_addr_t mem_end)
 	page_alloc_ops_enable();
 }
 
+static void sclp_setup_int(void)
+{
+	uint64_t mask;
+
+	ctl_set_bit(0, 9);
+
+	mask = extract_psw_mask();
+	mask |= PSW_MASK_EXT;
+	load_psw_mask(mask);
+}
+
+void sclp_handle_ext(void)
+{
+	ctl_clear_bit(0, 9);
+	spin_lock(&sclp_lock);
+	sclp_busy = false;
+	spin_unlock(&sclp_lock);
+}
+
+void sclp_wait_busy(void)
+{
+	while (sclp_busy)
+		mb();
+}
+
+void sclp_mark_busy(void)
+{
+	/*
+	 * With multiple CPUs we might need to wait for another CPU's
+	 * request before grabbing the busy indication.
+	 */
+	while (true) {
+		sclp_wait_busy();
+		spin_lock(&sclp_lock);
+		if (!sclp_busy) {
+			sclp_busy = true;
+			spin_unlock(&sclp_lock);
+			return;
+		}
+		spin_unlock(&sclp_lock);
+	}
+}
+
 static void sclp_read_scp_info(ReadInfo *ri, int length)
 {
 	unsigned int commands[] = { SCLP_CMDW_READ_SCP_INFO_FORCED,
 				    SCLP_CMDW_READ_SCP_INFO };
-	int i;
+	int i, cc;
 
 	for (i = 0; i < ARRAY_SIZE(commands); i++) {
+		sclp_mark_busy();
 		memset(&ri->h, 0, sizeof(ri->h));
 		ri->h.length = length;
 
-		if (sclp_service_call(commands[i], ri))
+		cc = sclp_service_call(commands[i], ri);
+		if (cc)
 			break;
 		if (ri->h.response_code == SCLP_RC_NORMAL_READ_COMPLETION)
 			return;
@@ -66,12 +115,14 @@ int sclp_service_call(unsigned int command, void *sccb)
 {
 	int cc;
 
+	sclp_setup_int();
 	asm volatile(
 		"       .insn   rre,0xb2200000,%1,%2\n"  /* servc %1,%2 */
 		"       ipm     %0\n"
 		"       srl     %0,28"
 		: "=&d" (cc) : "d" (command), "a" (__pa(sccb))
 		: "cc", "memory");
+	sclp_wait_busy();
 	if (cc == 3)
 		return -1;
 	if (cc == 2)
