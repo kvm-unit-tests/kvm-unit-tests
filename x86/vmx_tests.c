@@ -6720,59 +6720,62 @@ static void test_host_ctl_regs(void)
 	vmcs_write(HOST_CR3, cr3_saved);
 }
 
-static void test_efer_bit(u32 fld, const char * fld_name, u32 ctrl_fld,
-			   u64 ctrl_bit, u64 efer_bit,
-			   const char *efer_bit_name)
+static void test_efer_one(u32 fld, const char * fld_name, u64 efer,
+			  u32 ctrl_fld, u64 ctrl,
+			  int i, const char *efer_bit_name)
+{
+	bool ok;
+
+	ok = true;
+	if (ctrl & EXI_LOAD_EFER) {
+		if (!!(efer & EFER_LMA) != !!(ctrl & EXI_HOST_64))
+			ok = false;
+		if (!!(efer & EFER_LME) != !!(ctrl & EXI_HOST_64))
+			ok = false;
+	}
+
+	vmcs_write(ctrl_fld, ctrl);
+	vmcs_write(fld, efer);
+	report_prefix_pushf("%s %s bit turned %s, controls %s",
+			    fld_name, efer_bit_name,
+			    (i & 1) ? "on" : "off",
+			    (i & 2) ? "on" : "off");
+
+	if (ok)
+		test_vmx_vmlaunch(0, false);
+	else
+		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
+				  false);
+	report_prefix_pop();
+}
+
+static void test_efer_bit(u32 fld, const char * fld_name,
+			  u32 ctrl_fld, u64 ctrl_bit, u64 efer_bit,
+			  const char *efer_bit_name)
 {
 	u64 efer_saved = vmcs_read(fld);
 	u32 ctrl_saved = vmcs_read(ctrl_fld);
-	u64 host_addr_size = ctrl_saved & EXI_HOST_64;
-	u64 efer;
+	int i;
 
-	vmcs_write(ctrl_fld, ctrl_saved & ~ctrl_bit);
-	efer = efer_saved & ~efer_bit;
-	vmcs_write(fld, efer);
-	report_prefix_pushf("%s bit turned off, %s %lx", efer_bit_name,
-			    fld_name, efer);
-	test_vmx_vmlaunch(0, false);
-	report_prefix_pop();
+	for (i = 0; i < 4; i++) {
+		u64 efer = efer_saved & ~efer_bit;
+		u64 ctrl = ctrl_saved & ~ctrl_bit;
 
-	efer = efer_saved | efer_bit;
-	vmcs_write(fld, efer);
-	report_prefix_pushf("%s bit turned on, %s %lx", efer_bit_name,
-			    fld_name, efer);
-	test_vmx_vmlaunch(0, false);
-	report_prefix_pop();
+		if (i & 1)
+			efer |= efer_bit;
+		if (i & 2)
+			ctrl |= ctrl_bit;
 
-	vmcs_write(ctrl_fld, ctrl_saved | ctrl_bit);
-	efer = efer_saved & ~efer_bit;
-	vmcs_write(fld, efer);
-	report_prefix_pushf("%s bit turned off, %s %lx", efer_bit_name,
-			    fld_name, efer);
-	if (host_addr_size)
-		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
-				  false);
-	else
-		test_vmx_vmlaunch(0, false);
-	report_prefix_pop();
-
-	efer = efer_saved | efer_bit;
-	vmcs_write(fld, efer);
-	report_prefix_pushf("%s bit turned on, %s %lx", efer_bit_name,
-			    fld_name, efer);
-	if (host_addr_size)
-		test_vmx_vmlaunch(0, false);
-	else
-		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
-				  false);
-	report_prefix_pop();
+		test_efer_one(fld, fld_name, efer, ctrl_fld, ctrl,
+			      i, efer_bit_name);
+	}
 
 	vmcs_write(ctrl_fld, ctrl_saved);
 	vmcs_write(fld, efer_saved);
 }
 
 static void test_efer(u32 fld, const char * fld_name, u32 ctrl_fld,
-		      u64 ctrl_bit)
+		      u64 ctrl_bit1, u64 ctrl_bit2)
 {
 	u64 efer_saved = vmcs_read(fld);
 	u32 ctrl_saved = vmcs_read(ctrl_fld);
@@ -6783,10 +6786,19 @@ static void test_efer(u32 fld, const char * fld_name, u32 ctrl_fld,
 	if (cpu_has_efer_nx())
 		efer_reserved_bits &= ~EFER_NX;
 
+	if (!ctrl_bit1) {
+		printf("\"Load-IA32-EFER\" exit control not supported\n");
+		goto test_entry_exit_mode;
+	}
+
+	report_prefix_pushf("%s %lx", fld_name, efer_saved);
+	test_vmx_vmlaunch(0, false);
+	report_prefix_pop();
+
 	/*
 	 * Check reserved bits
 	 */
-	vmcs_write(ctrl_fld, ctrl_saved & ~ctrl_bit);
+	vmcs_write(ctrl_fld, ctrl_saved & ~ctrl_bit1);
 	for (i = 0; i < 64; i++) {
 		if ((1ull << i) & efer_reserved_bits) {
 			efer = efer_saved | (1ull << i);
@@ -6797,15 +6809,14 @@ static void test_efer(u32 fld, const char * fld_name, u32 ctrl_fld,
 		}
 	}
 
-	vmcs_write(ctrl_fld, ctrl_saved | ctrl_bit);
+	vmcs_write(ctrl_fld, ctrl_saved | ctrl_bit1);
 	for (i = 0; i < 64; i++) {
 		if ((1ull << i) & efer_reserved_bits) {
 			efer = efer_saved | (1ull << i);
 			vmcs_write(fld, efer);
 			report_prefix_pushf("%s %lx", fld_name, efer);
-			test_vmx_vmlaunch(
-				VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
-				false);
+			test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD,
+					  false);
 			report_prefix_pop();
 		}
 	}
@@ -6816,28 +6827,39 @@ static void test_efer(u32 fld, const char * fld_name, u32 ctrl_fld,
 	/*
 	 * Check LMA and LME bits
 	 */
-	test_efer_bit(fld, fld_name, ctrl_fld, ctrl_bit, EFER_LMA,
+	test_efer_bit(fld, fld_name,
+		      ctrl_fld, ctrl_bit1,
+		      EFER_LMA,
 		      "EFER_LMA");
-	test_efer_bit(fld, fld_name, ctrl_fld, ctrl_bit, EFER_LME,
+	test_efer_bit(fld, fld_name,
+		      ctrl_fld, ctrl_bit1,
+		      EFER_LME,
+		      "EFER_LME");
+
+test_entry_exit_mode:
+	test_efer_bit(fld, fld_name,
+		      ctrl_fld, ctrl_bit2,
+		      EFER_LMA,
+		      "EFER_LMA");
+	test_efer_bit(fld, fld_name,
+		      ctrl_fld, ctrl_bit2,
+		      EFER_LME,
 		      "EFER_LME");
 }
 
 /*
- * If the â€œload IA32_EFERâ€ VM-exit control is 1, bits reserved in the
+ * If the 'load IA32_EFER' VM-exit control is 1, bits reserved in the
  * IA32_EFER MSR must be 0 in the field for that register. In addition,
  * the values of the LMA and LME bits in the field must each be that of
- * the â€œhost address-space sizeâ€ VM-exit control.
+ * the 'host address-space size' VM-exit control.
  *
  *  [Intel SDM]
  */
 static void test_host_efer(void)
 {
-	if (!(ctrl_exit_rev.clr & EXI_LOAD_EFER)) {
-		printf("\"Load-IA32-EFER\" exit control not supported\n");
-		return;
-	}
-
-	test_efer(HOST_EFER, "HOST_EFER", EXI_CONTROLS, EXI_LOAD_EFER);
+	test_efer(HOST_EFER, "HOST_EFER", EXI_CONTROLS, 
+		  ctrl_exit_rev.clr & EXI_LOAD_EFER,
+		  EXI_HOST_64);
 }
 
 /*
