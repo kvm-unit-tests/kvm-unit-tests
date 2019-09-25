@@ -6879,10 +6879,6 @@ static void test_pat(u32 field, const char * field_name, u32 ctrl_field,
 	int error;
 
 	vmcs_clear_bits(ctrl_field, ctrl_bit);
-	if (field == GUEST_PAT) {
-		vmx_set_test_stage(1);
-		test_set_guest(guest_state_test_main);
-	}
 
 	for (i = 0; i < 256; i = (i < PAT_VAL_LIMIT) ? i + 1 : i * 2) {
 		/* Test PAT0..PAT7 fields */
@@ -6940,15 +6936,6 @@ static void test_pat(u32 field, const char * field_name, u32 ctrl_field,
 			}
 
 		}
-	}
-
-	if (field == GUEST_PAT) {
-		/*
-		 * Let the guest finish execution
-		 */
-		vmx_set_test_stage(2);
-		vmcs_write(field, pat_saved);
-		enter_guest();
 	}
 
 	vmcs_write(ctrl_field, ctrl_saved);
@@ -7239,7 +7226,16 @@ static void test_load_guest_pat(void)
  */
 static void vmx_guest_state_area_test(void)
 {
+	vmx_set_test_stage(1);
+	test_set_guest(guest_state_test_main);
+
 	test_load_guest_pat();
+
+	/*
+	 * Let the guest finish execution
+	 */
+	vmx_set_test_stage(2);
+	enter_guest();
 }
 
 static bool valid_vmcs_for_vmentry(void)
