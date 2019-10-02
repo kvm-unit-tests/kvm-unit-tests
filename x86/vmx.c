@@ -1486,7 +1486,7 @@ static void test_vmx_caps(void)
 	report("MSR_IA32_VMX_MISC",
 	       (!(ctrl_cpu_rev[1].clr & CPU_URG) || val & (1ul << 5)) &&
 	       ((val >> 16) & 0x1ff) <= 256 &&
-	       (val & 0xc0007e00) == 0);
+	       (val & 0x80007e00) == 0);
 
 	for (n = 0; n < ARRAY_SIZE(vmx_ctl_msr); n++) {
 		ctrl.val = rdmsr(vmx_ctl_msr[n].index);
