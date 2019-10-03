@@ -618,6 +618,8 @@ enum vm_instruction_error_number {
 #define EPT_VLT_GUEST_USER	(1ull << 9)
 #define EPT_VLT_GUEST_RW	(1ull << 10)
 #define EPT_VLT_GUEST_EX	(1ull << 11)
+#define EPT_VLT_GUEST_MASK	(EPT_VLT_GUEST_USER | EPT_VLT_GUEST_RW | \
+				 EPT_VLT_GUEST_EX)
 
 #define MAGIC_VAL_1		0x12345678ul
 #define MAGIC_VAL_2		0x87654321ul

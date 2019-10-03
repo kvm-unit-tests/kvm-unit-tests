@@ -1409,6 +1409,13 @@ static int ept_exit_handler_common(bool have_ad)
 		}
 		return VMX_TEST_RESUME;
 	case VMX_EPT_VIOLATION:
+		/*
+		 * Exit-qualifications are masked not to account for advanced
+		 * VM-exit information. Once KVM supports this feature, this
+		 * masking should be removed.
+		 */
+		exit_qual &= ~EPT_VLT_GUEST_MASK;
+
 		switch(vmx_get_test_stage()) {
 		case 3:
 			check_ept_ad(pml4, guest_cr3, (unsigned long)data_page1, 0,
