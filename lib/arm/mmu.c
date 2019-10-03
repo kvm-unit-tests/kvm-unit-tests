@@ -217,3 +217,18 @@ unsigned long __phys_to_virt(phys_addr_t addr)
 	assert(!mmu_enabled() || __virt_to_phys(addr) == addr);
 	return addr;
 }
+
+void mmu_clear_user(unsigned long vaddr)
+{
+	pgd_t *pgtable;
+	pteval_t *pte;
+
+	if (!mmu_enabled())
+		return;
+
+	pgtable = current_thread_info()->pgtable;
+	pte = get_pte(pgtable, vaddr);
+
+	*pte &= ~PTE_USER;
+	flush_tlb_page(vaddr);
+}
