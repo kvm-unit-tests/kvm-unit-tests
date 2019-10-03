@@ -1066,7 +1066,7 @@ static bool npt_rsvd_pfwalk_check(struct test *test)
     pdpe[0] &= ~(1ULL << 8);
 
     return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-            && (test->vmcb->control.exit_info_1 == 0x200000006ULL);
+            && (test->vmcb->control.exit_info_1 == 0x20000000eULL);
 }
 
 static void npt_l1mmio_prepare(struct test *test)
