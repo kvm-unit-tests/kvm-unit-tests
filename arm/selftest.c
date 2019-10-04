@@ -43,13 +43,16 @@ static void check_setup(int argc, char **argv)
 			phys_addr_t memsize = PHYS_END - PHYS_OFFSET;
 			phys_addr_t expected = ((phys_addr_t)val)*1024*1024;
 
-			report("size = %" PRIu64 " MB", memsize == expected,
-							memsize/1024/1024);
+			report("memory size matches expectation",
+			       memsize == expected);
+			report_info("found %" PRIu64 " MB", memsize/1024/1024);
 			++nr_tests;
 
 		} else if (strcmp(argv[i], "smp") == 0) {
 
-			report("nr_cpus = %d", nr_cpus == (int)val, nr_cpus);
+			report("number of CPUs matches expectation",
+			       nr_cpus == (int)val);
+			report_info("found %d CPUs", nr_cpus);
 			++nr_tests;
 		}
 
