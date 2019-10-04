@@ -17,6 +17,8 @@
 #include <asm/smp.h>
 #include <asm/barrier.h>
 
+static cpumask_t ready, valid;
+
 static void __user_psci_system_off(void)
 {
 	psci_system_off();
@@ -341,8 +343,11 @@ static void cpu_report(void *data __unused)
 	uint64_t mpidr = get_mpidr();
 	int cpu = smp_processor_id();
 
-	report("CPU(%3d) mpidr=%010" PRIx64,
-		mpidr_to_cpu(mpidr) == cpu, cpu, mpidr);
+	if (mpidr_to_cpu(mpidr) == cpu)
+		cpumask_set_cpu(smp_processor_id(), &valid);
+	smp_wmb();		/* Paired with rmb in main(). */
+	cpumask_set_cpu(smp_processor_id(), &ready);
+	report_info("CPU%3d: MPIDR=%010" PRIx64, cpu, mpidr);
 }
 
 int main(int argc, char **argv)
@@ -371,6 +376,11 @@ int main(int argc, char **argv)
 
 		report("PSCI version", psci_check());
 		on_cpus(cpu_report, NULL);
+		while (!cpumask_full(&ready))
+			cpu_relax();
+		smp_rmb();		/* Paired with wmb in cpu_report(). */
+		report("MPIDR test on all CPUs", cpumask_full(&valid));
+		report_info("%d CPUs reported back", nr_cpus);
 
 	} else {
 		printf("Unknown subtest\n");
