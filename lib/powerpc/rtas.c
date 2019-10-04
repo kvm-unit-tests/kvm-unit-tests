@@ -46,9 +46,9 @@ void rtas_init(void)
 	prop = fdt_get_property(dt_fdt(), node,
 				"linux,rtas-entry", &len);
 	if (!prop) {
-		printf("%s: /rtas/linux,rtas-entry: %s\n",
-				__func__, fdt_strerror(len));
-		abort();
+		/* We don't have a qemu provided RTAS blob, enter_rtas
+		 * will use H_RTAS directly */
+		return;
 	}
 	data = (u32 *)prop->data;
 	rtas_entry = (unsigned long)fdt32_to_cpu(*data);

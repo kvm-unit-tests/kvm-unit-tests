@@ -24,6 +24,9 @@
 #define H_RANDOM		0x300
 #define H_SET_MODE		0x31C
 
+#define KVMPPC_HCALL_BASE	0xf000
+#define KVMPPC_H_RTAS		(KVMPPC_HCALL_BASE + 0x0)
+
 #ifndef __ASSEMBLY__
 /*
  * hcall_have_broken_sc1 checks if we're on a host with a broken sc1.

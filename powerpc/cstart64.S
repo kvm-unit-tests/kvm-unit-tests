@@ -121,13 +121,25 @@ halt:
 
 .globl enter_rtas
 enter_rtas:
+	LOAD_REG_ADDR(r11, rtas_entry)
+	ld	r10, 0(r11)
+
+	cmpdi	r10,0
+	bne	external_rtas
+
+	/* Use H_RTAS directly */
+	mr	r4,r3
+	lis	r3,KVMPPC_H_RTAS@h
+	ori	r3,r3,KVMPPC_H_RTAS@l
+	b	hcall
+
+external_rtas:
+	/* Use external RTAS blob */
 	mflr	r0
 	std	r0, 16(r1)
 
-	LOAD_REG_ADDR(r10, rtas_return_loc)
-	mtlr	r10
-	LOAD_REG_ADDR(r11, rtas_entry)
-	ld	r10, 0(r11)
+	LOAD_REG_ADDR(r11, rtas_return_loc)
+	mtlr	r11
 
 	mfmsr	r11
 	LOAD_REG_IMMEDIATE(r9, RTAS_MSR_MASK)
