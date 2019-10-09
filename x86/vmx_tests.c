@@ -5887,11 +5887,6 @@ static u64 virt_x2apic_mode_nibble1(u64 val)
 	return val & 0xf0;
 }
 
-static bool is_cmci_enabled(void)
-{
-	return rdmsr(MSR_IA32_MCG_CAP) & BIT_ULL(10);
-}
-
 static void virt_x2apic_mode_rd_expectation(
 	u32 reg, bool virt_x2apic_mode_on, bool disable_x2apic,
 	bool apic_register_virtualization, bool virtual_interrupt_delivery,
@@ -5900,9 +5895,6 @@ static void virt_x2apic_mode_rd_expectation(
 	bool readable =
 		!x2apic_reg_reserved(reg) &&
 		reg != APIC_EOI;
-
-	if (reg == APIC_CMCI && !is_cmci_enabled())
-		readable = false;
 
 	expectation->rd_exit_reason = VMX_VMCALL;
 	expectation->virt_fn = virt_x2apic_mode_identity;
@@ -5967,7 +5959,7 @@ static bool get_x2apic_wr_val(u32 reg, u64 *val)
 		*val = apic_read(reg);
 		break;
 	case APIC_CMCI:
-		if (!is_cmci_enabled())
+		if (!apic_lvt_entry_supported(6))
 			return false;
 		*val = apic_read(reg);
 		break;

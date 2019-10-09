@@ -70,6 +70,11 @@ static inline u32 x2apic_msr(u32 reg)
 	return APIC_BASE_MSR + (reg >> 4);
 }
 
+static inline bool apic_lvt_entry_supported(int idx)
+{
+	return GET_APIC_MAXLVT(apic_read(APIC_LVR)) >= idx;
+}
+
 static inline bool x2apic_reg_reserved(u32 reg)
 {
 	switch (reg) {
@@ -83,6 +88,8 @@ static inline bool x2apic_reg_reserved(u32 reg)
 	case 0x3a0 ... 0x3d0:
 	case 0x3f0:
 		return true;
+	case APIC_CMCI:
+		return !apic_lvt_entry_supported(6);
 	default:
 		return false;
 	}
