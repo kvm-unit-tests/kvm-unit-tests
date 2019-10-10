@@ -44,4 +44,10 @@ extern void phys_alloc_show(void);
  */
 extern void phys_alloc_get_unused(phys_addr_t *p_base, phys_addr_t *p_top);
 
+/*
+ * Search for memory that can only be used when the MMU is on, and reinitialize
+ * the physical memory allocator using it.
+ */
+extern void find_highmem(void);
+
 #endif /* _ALLOC_PHYS_H_ */

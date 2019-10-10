@@ -20,7 +20,8 @@ struct mbi_bootinfo {
 	u32 cmdline;
 	u32 mods_count;
 	u32 mods_addr;
-	u32 reserved[5];   /* 28-47 */
+	u32 reserved[4];   /* 28-43 */
+	u32 mmap_length;
 	u32 mmap_addr;
 	u32 reserved0[3];  /* 52-63 */
 	u32 bootloader;
@@ -34,6 +35,13 @@ struct mbi_module {
 	u32 unused;
 };
 
+struct mbi_mem {
+	u32 size;
+	u64 base_addr;
+	u64 length;
+	u32 type;
+} __attribute__((packed));
+
 #define ENV_SIZE 16384
 
 void setup_env(char *env, int size);
@@ -44,14 +52,55 @@ char *initrd;
 u32 initrd_size;
 
 static char env[ENV_SIZE];
+static struct mbi_bootinfo *bootinfo;
 
-void setup_multiboot(struct mbi_bootinfo *bootinfo)
+#define HUGEPAGE_SIZE (1 << 21)
+
+#ifdef __x86_64__
+void find_highmem(void)
+{
+	/* Memory above 4 GB is only supported on 64-bit systems.  */
+	if (!(bootinfo->flags & 64))
+	    	return;
+
+	u64 upper_end = bootinfo->mem_upper * 1024ull;
+	u64 best_start = (uintptr_t) &edata;
+	u64 best_end = upper_end;
+	bool found = false;
+
+	uintptr_t mmap = bootinfo->mmap_addr;
+	while (mmap < bootinfo->mmap_addr + bootinfo->mmap_length) {
+		struct mbi_mem *mem = (void *)mmap;
+		mmap += mem->size + 4;
+		if (mem->type != 1)
+			continue;
+		if (mem->base_addr <= (uintptr_t) &edata ||
+		    (mem->base_addr <= upper_end && mem->base_addr + mem->length <= upper_end))
+			continue;
+		if (mem->length < best_end - best_start)
+			continue;
+		best_start = mem->base_addr;
+		best_end = mem->base_addr + mem->length;
+		found = true;
+	}
+
+	if (found) {
+		best_start = (best_start + HUGEPAGE_SIZE - 1) & -HUGEPAGE_SIZE;
+		best_end = best_end & -HUGEPAGE_SIZE;
+		phys_alloc_init(best_start, best_end - best_start);
+	}
+}
+#endif
+
+void setup_multiboot(struct mbi_bootinfo *bi)
 {
 	struct mbi_module *mods;
 
-	/* TODO: use e820 */
-	u64 end_of_memory = bootinfo->mem_upper * 1024ull;
-	phys_alloc_init((uintptr_t) &edata, end_of_memory - (uintptr_t) &edata);
+	bootinfo = bi;
+
+	u64 best_start = (uintptr_t) &edata;
+	u64 best_end = bootinfo->mem_upper * 1024ull;
+	phys_alloc_init(best_start, best_end - best_start);
 
 	if (bootinfo->mods_count != 1)
 		return;

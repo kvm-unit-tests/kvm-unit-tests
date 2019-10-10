@@ -86,6 +86,10 @@ static struct alloc_ops vmalloc_ops = {
 	.align_min = PAGE_SIZE,
 };
 
+void __attribute__((__weak__)) find_highmem(void)
+{
+}
+
 void setup_vm()
 {
 	phys_addr_t base, top;
@@ -95,11 +99,24 @@ void setup_vm()
 
 	phys_alloc_get_unused(&base, &top);
 	assert(base != top || page_alloc_initialized());
+	/*
+	 * Give low memory immediately to the page allocator,
+	 * so that it can be used to allocate page tables.
+	 */
 	if (!page_alloc_initialized()) {
 		base = (base + PAGE_SIZE - 1) & -PAGE_SIZE;
 		top = top & -PAGE_SIZE;
 		free_pages(phys_to_virt(base), top - base);
 	}
+
+	find_highmem();
+	phys_alloc_get_unused(&base, &top);
 	page_root = setup_mmu(top);
+	if (base != top) {
+		base = (base + PAGE_SIZE - 1) & -PAGE_SIZE;
+		top = top & -PAGE_SIZE;
+		free_pages(phys_to_virt(base), top - base);
+	}
+
 	alloc_ops = &vmalloc_ops;
 }
