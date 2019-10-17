@@ -2,6 +2,8 @@
 #define USE_SERIAL
 #endif
 
+#define ARRAY_SIZE(_a) (sizeof(_a)/sizeof((_a)[0]))
+
 asm(".code16gcc");
 
 typedef unsigned char u8;
@@ -509,7 +511,7 @@ static void test_call(void)
 	u32 addr;
 
 	inregs = (struct regs){ 0 };
-	inregs.esp = (u32)esp;
+	inregs.esp = (u32)&esp[ARRAY_SIZE(esp)];
 
 	MK_INSN(call1, "mov $test_function, %eax \n\t"
 		       "call *%eax\n\t");
