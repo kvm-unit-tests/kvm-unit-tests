@@ -161,11 +161,10 @@ static void stimer_isr_auto_eoi(isr_regs_t *regs)
 
 static void stimer_start(struct stimer *timer,
                          bool auto_enable, bool periodic,
-                         u64 tick_100ns, int sint)
+                         u64 tick_100ns)
 {
     u64 config, count;
 
-    timer->sint = sint;
     atomic_set(&timer->fire_count, 0);
 
     config = 0;
@@ -173,7 +172,7 @@ static void stimer_start(struct stimer *timer,
         config |= HV_STIMER_PERIODIC;
     }
 
-    config |= ((u8)(sint & 0xFF)) << 16;
+    config |= ((u8)(timer->sint & 0xFF)) << 16;
     config |= HV_STIMER_ENABLE;
     if (auto_enable) {
         config |= HV_STIMER_AUTOENABLE;
@@ -218,18 +217,29 @@ static void synic_disable(void)
 
 static void stimer_test_prepare(void *ctx)
 {
+    int vcpu = smp_id();
+    struct svcpu *svcpu = &g_synic_vcpu[vcpu];
+    struct stimer *timer1, *timer2;
+
     write_cr3((ulong)ctx);
     synic_enable();
+
     synic_sint_create(SINT1_NUM, SINT1_VEC, false);
     synic_sint_create(SINT2_NUM, SINT2_VEC, true);
+
+    timer1 = &svcpu->timer[0];
+    timer2 = &svcpu->timer[1];
+
+    timer1->sint = SINT1_NUM;
+    timer2->sint = SINT2_NUM;
 }
 
 static void stimer_test_periodic(int vcpu, struct stimer *timer1,
                                  struct stimer *timer2)
 {
     /* Check periodic timers */
-    stimer_start(timer1, false, true, ONE_MS_IN_100NS, SINT1_NUM);
-    stimer_start(timer2, false, true, ONE_MS_IN_100NS, SINT2_NUM);
+    stimer_start(timer1, false, true, ONE_MS_IN_100NS);
+    stimer_start(timer2, false, true, ONE_MS_IN_100NS);
     while ((atomic_read(&timer1->fire_count) < 1000) ||
            (atomic_read(&timer2->fire_count) < 1000)) {
         pause();
@@ -242,7 +252,7 @@ static void stimer_test_periodic(int vcpu, struct stimer *timer1,
 static void stimer_test_one_shot(int vcpu, struct stimer *timer)
 {
     /* Check one-shot timer */
-    stimer_start(timer, false, false, ONE_MS_IN_100NS, SINT1_NUM);
+    stimer_start(timer, false, false, ONE_MS_IN_100NS);
     while (atomic_read(&timer->fire_count) < 1) {
         pause();
     }
@@ -253,7 +263,7 @@ static void stimer_test_one_shot(int vcpu, struct stimer *timer)
 static void stimer_test_auto_enable_one_shot(int vcpu, struct stimer *timer)
 {
     /* Check auto-enable one-shot timer */
-    stimer_start(timer, true, false, ONE_MS_IN_100NS, SINT1_NUM);
+    stimer_start(timer, true, false, ONE_MS_IN_100NS);
     while (atomic_read(&timer->fire_count) < 1) {
         pause();
     }
@@ -264,7 +274,7 @@ static void stimer_test_auto_enable_one_shot(int vcpu, struct stimer *timer)
 static void stimer_test_auto_enable_periodic(int vcpu, struct stimer *timer)
 {
     /* Check auto-enable periodic timer */
-    stimer_start(timer, true, true, ONE_MS_IN_100NS, SINT1_NUM);
+    stimer_start(timer, true, true, ONE_MS_IN_100NS);
     while (atomic_read(&timer->fire_count) < 1000) {
         pause();
     }
@@ -280,7 +290,7 @@ static void stimer_test_one_shot_busy(int vcpu, struct stimer *timer)
     msg->header.message_type = HVMSG_TIMER_EXPIRED;
     wmb();
 
-    stimer_start(timer, false, false, ONE_MS_IN_100NS, SINT1_NUM);
+    stimer_start(timer, false, false, ONE_MS_IN_100NS);
 
     do
         rmb();
