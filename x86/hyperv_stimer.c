@@ -163,20 +163,15 @@ static void stimer_start(struct stimer *timer,
                          bool auto_enable, bool periodic,
                          u64 tick_100ns)
 {
-    u64 config, count;
+    u64 count;
+    union hv_stimer_config config = {.as_uint64 = 0};
 
     atomic_set(&timer->fire_count, 0);
 
-    config = 0;
-    if (periodic) {
-        config |= HV_STIMER_PERIODIC;
-    }
-
-    config |= ((u8)(timer->sint & 0xFF)) << 16;
-    config |= HV_STIMER_ENABLE;
-    if (auto_enable) {
-        config |= HV_STIMER_AUTOENABLE;
-    }
+    config.periodic = periodic;
+    config.enable = 1;
+    config.auto_enable = auto_enable;
+    config.sintx = timer->sint;
 
     if (periodic) {
         count = tick_100ns;
@@ -186,9 +181,9 @@ static void stimer_start(struct stimer *timer,
 
     if (!auto_enable) {
         wrmsr(HV_X64_MSR_STIMER0_COUNT + timer->index*2, count);
-        wrmsr(HV_X64_MSR_STIMER0_CONFIG + timer->index*2, config);
+        wrmsr(HV_X64_MSR_STIMER0_CONFIG + timer->index*2, config.as_uint64);
     } else {
-        wrmsr(HV_X64_MSR_STIMER0_CONFIG + timer->index*2, config);
+        wrmsr(HV_X64_MSR_STIMER0_CONFIG + timer->index*2, config.as_uint64);
         wrmsr(HV_X64_MSR_STIMER0_COUNT + timer->index*2, count);
     }
 }

@@ -60,11 +60,23 @@
 #define HV_SYNIC_SINT_VECTOR_MASK               (0xFF)
 #define HV_SYNIC_SINT_COUNT                     16
 
-#define HV_STIMER_ENABLE                (1ULL << 0)
-#define HV_STIMER_PERIODIC              (1ULL << 1)
-#define HV_STIMER_LAZY                  (1ULL << 2)
-#define HV_STIMER_AUTOENABLE            (1ULL << 3)
-#define HV_STIMER_SINT(config)          (__u8)(((config) >> 16) & 0x0F)
+/*
+ * Synthetic timer configuration.
+ */
+union hv_stimer_config {
+	u64 as_uint64;
+	struct {
+		u64 enable:1;
+		u64 periodic:1;
+		u64 lazy:1;
+		u64 auto_enable:1;
+		u64 apic_vector:8;
+		u64 direct_mode:1;
+		u64 reserved_z0:3;
+		u64 sintx:4;
+		u64 reserved_z1:44;
+	};
+};
 
 #define HV_SYNIC_STIMER_COUNT           (4)
 
