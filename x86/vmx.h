@@ -492,9 +492,9 @@ enum vm_instruction_error_number {
 
 #define SAVE_GPR				\
 	"xchg %rax, regs\n\t"			\
-	"xchg %rbx, regs+0x8\n\t"		\
-	"xchg %rcx, regs+0x10\n\t"		\
-	"xchg %rdx, regs+0x18\n\t"		\
+	"xchg %rcx, regs+0x8\n\t"		\
+	"xchg %rdx, regs+0x10\n\t"		\
+	"xchg %rbx, regs+0x18\n\t"		\
 	"xchg %rbp, regs+0x28\n\t"		\
 	"xchg %rsi, regs+0x30\n\t"		\
 	"xchg %rdi, regs+0x38\n\t"		\
@@ -511,9 +511,9 @@ enum vm_instruction_error_number {
 
 #define SAVE_GPR_C				\
 	"xchg %%rax, regs\n\t"			\
-	"xchg %%rbx, regs+0x8\n\t"		\
-	"xchg %%rcx, regs+0x10\n\t"		\
-	"xchg %%rdx, regs+0x18\n\t"		\
+	"xchg %%rcx, regs+0x8\n\t"		\
+	"xchg %%rdx, regs+0x10\n\t"		\
+	"xchg %%rbx, regs+0x18\n\t"		\
 	"xchg %%rbp, regs+0x28\n\t"		\
 	"xchg %%rsi, regs+0x30\n\t"		\
 	"xchg %%rdi, regs+0x38\n\t"		\
