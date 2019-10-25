@@ -118,8 +118,8 @@ void handle_ext_int(void)
 {
 	if (!ext_int_expected &&
 	    lc->ext_int_code != EXT_IRQ_SERVICE_SIG) {
-		report_abort("Unexpected external call interrupt: at %#lx",
-			     lc->ext_old_psw.addr);
+		report_abort("Unexpected external call interrupt (code %#x): at %#lx",
+			     lc->ext_int_code, lc->ext_old_psw.addr);
 		return;
 	}
 
