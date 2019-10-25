@@ -167,3 +167,13 @@ void sclp_memory_setup(void)
 
 	mem_init(ram_size);
 }
+
+uint64_t get_ram_size(void)
+{
+	return ram_size;
+}
+
+uint64_t get_max_ram_size(void)
+{
+	return max_ram_size;
+}
