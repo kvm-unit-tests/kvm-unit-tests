@@ -29,7 +29,7 @@ asm ("pf_tss:\n"
         // no task on x86_64, save/restore caller-save regs
         "push %rax; push %rcx; push %rdx; push %rsi; push %rdi\n"
         "push %r8; push %r9; push %r10; push %r11\n"
-	"mov 9*8(%rsp),%rsi\n"
+	"mov 9*8(%rsp),%rdi\n"
 #endif
 	"call do_pf_tss\n"
 #ifdef __x86_64__
