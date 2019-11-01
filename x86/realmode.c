@@ -164,7 +164,10 @@ static void exec_in_big_real_mode(struct insn_desc *insn)
 		"and $-2, %[tmp] \n\t"
 		"mov %[tmp], %%cr0 \n\t"
 
-                "pushw %[save]+36; popfw \n\t"
+		/* Save ES, because it is clobbered by some tests. */
+		"pushw %%es \n\t"
+
+		"pushw %[save]+36; popfw \n\t"
 		"xchg %%eax, %[save]+0 \n\t"
 		"xchg %%ebx, %[save]+4 \n\t"
 		"xchg %%ecx, %[save]+8 \n\t"
@@ -189,6 +192,9 @@ static void exec_in_big_real_mode(struct insn_desc *insn)
 		/* Save EFLAGS in outregs*/
 		"pushfl \n\t"
 		"popl %[save]+36 \n\t"
+
+		/* Restore ES for future rep string operations. */
+		"popw %%es \n\t"
 
 		/* Restore DF for the harness code */
 		"cld\n\t"
@@ -1312,10 +1318,8 @@ static void test_lds_lss(void)
 		outregs.eax == (unsigned long)desc.address &&
 		outregs.ebx == desc.sel);
 
-	MK_INSN(les, "push %es\n\t"
-		     "les (%ebx), %eax\n\t"
-		     "mov %es, %ebx\n\t"
-		     "pop %es\n\t");
+	MK_INSN(les, "les (%ebx), %eax\n\t"
+		     "mov %es, %ebx\n\t");
 	exec_in_big_real_mode(&insn_les);
 	report("les", R_AX | R_BX,
 		outregs.eax == (unsigned long)desc.address &&
