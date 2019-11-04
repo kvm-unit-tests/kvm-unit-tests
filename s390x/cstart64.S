@@ -99,44 +99,18 @@ memsetxc:
 	lctlg	%c0, %c0, 0(%r1)
 	/* save fprs 0-15 + fpc */
 	la	%r1, GEN_LC_SW_INT_FPRS
-	std	%f0, 0(%r1)
-	std	%f1, 8(%r1)
-	std	%f2, 16(%r1)
-	std	%f3, 24(%r1)
-	std	%f4, 32(%r1)
-	std	%f5, 40(%r1)
-	std	%f6, 48(%r1)
-	std	%f7, 56(%r1)
-	std	%f8, 64(%r1)
-	std	%f9, 72(%r1)
-	std	%f10, 80(%r1)
-	std	%f11, 88(%r1)
-	std	%f12, 96(%r1)
-	std	%f13, 104(%r1)
-	std	%f14, 112(%r1)
-	std	%f15, 120(%r1)
+	.irp i, 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+	std	\i, \i * 8(%r1)
+	.endr
 	stfpc	GEN_LC_SW_INT_FPC
 	.endm
 
 	.macro RESTORE_REGS
 	/* restore fprs 0-15 + fpc */
 	la	%r1, GEN_LC_SW_INT_FPRS
-	ld	%f0, 0(%r1)
-	ld	%f1, 8(%r1)
-	ld	%f2, 16(%r1)
-	ld	%f3, 24(%r1)
-	ld	%f4, 32(%r1)
-	ld	%f5, 40(%r1)
-	ld	%f6, 48(%r1)
-	ld	%f7, 56(%r1)
-	ld	%f8, 64(%r1)
-	ld	%f9, 72(%r1)
-	ld	%f10, 80(%r1)
-	ld	%f11, 88(%r1)
-	ld	%f12, 96(%r1)
-	ld	%f13, 104(%r1)
-	ld	%f14, 112(%r1)
-	ld	%f15, 120(%r1)
+	.irp i, 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+	ld	\i, \i * 8(%r1)
+	.endr
 	lfpc	GEN_LC_SW_INT_FPC
 	/* restore cr0 */
 	lctlg	%c0, %c0, GEN_LC_SW_INT_CR0
