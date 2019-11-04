@@ -46,15 +46,17 @@ void *memalign(size_t alignment, size_t size)
 	uintptr_t blkalign;
 	uintptr_t mem;
 
-	assert(alloc_ops && alloc_ops->memalign);
-	if (alignment <= sizeof(uintptr_t))
-		alignment = sizeof(uintptr_t);
-	else
-		size += alignment - 1;
+	if (!size)
+		return NULL;
 
+	assert(alignment >= sizeof(void *) && is_power_of_2(alignment));
+	assert(alloc_ops && alloc_ops->memalign);
+
+	size += alignment - 1;
 	blkalign = MAX(alignment, alloc_ops->align_min);
 	size = ALIGN(size + METADATA_EXTRA, alloc_ops->align_min);
 	p = alloc_ops->memalign(blkalign, size);
+	assert(p);
 
 	/* Leave room for metadata before aligning the result.  */
 	mem = (uintptr_t)p + METADATA_EXTRA;
