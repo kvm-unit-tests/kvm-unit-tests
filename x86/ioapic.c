@@ -405,12 +405,73 @@ static void test_ioapic_self_reconfigure(void)
 	report("Reconfigure self", g_isr_84 == 1 && e.remote_irr == 0);
 }
 
+static volatile int g_isr_85;
+
+static void ioapic_isr_85(isr_regs_t *regs)
+{
+	++g_isr_85;
+	set_irq_line(0x0e, 0);
+	eoi();
+}
+
+static void test_ioapic_physical_destination_mode(void)
+{
+	ioapic_redir_entry_t e = {
+		.vector = 0x85,
+		.delivery_mode = 0,
+		.dest_mode = 0,
+		.dest_id = 0x1,
+		.trig_mode = TRIGGER_LEVEL,
+	};
+	handle_irq(0x85, ioapic_isr_85);
+	ioapic_write_redir(0xe, e);
+	set_irq_line(0x0e, 1);
+	do {
+		pause();
+	} while(g_isr_85 != 1);
+	report("ioapic physical destination mode", g_isr_85 == 1);
+}
+
+static volatile int g_isr_86;
+
+static void ioapic_isr_86(isr_regs_t *regs)
+{
+	++g_isr_86;
+	set_irq_line(0x0e, 0);
+	eoi();
+}
+
+static void test_ioapic_logical_destination_mode(void)
+{
+	/* Number of vcpus which are configured/set in dest_id */
+	int nr_vcpus = 3;
+	ioapic_redir_entry_t e = {
+		.vector = 0x86,
+		.delivery_mode = 0,
+		.dest_mode = 1,
+		.dest_id = 0xd,
+		.trig_mode = TRIGGER_LEVEL,
+	};
+	handle_irq(0x86, ioapic_isr_86);
+	ioapic_write_redir(0xe, e);
+	set_irq_line(0x0e, 1);
+	do {
+		pause();
+	} while(g_isr_86 < nr_vcpus);
+	report("ioapic logical destination mode", g_isr_86 == nr_vcpus);
+}
+
+static void update_cr3(void *cr3)
+{
+	write_cr3((ulong)cr3);
+}
 
 int main(void)
 {
 	setup_vm();
 	smp_init();
 
+	on_cpus(update_cr3, (void *)read_cr3());
 	mask_pic_interrupts();
 
 	if (enable_x2apic())
@@ -448,7 +509,11 @@ int main(void)
 		test_ioapic_edge_tmr_smp(true);
 
 		test_ioapic_self_reconfigure();
+		test_ioapic_physical_destination_mode();
 	}
+
+	if (cpu_count() > 3)
+		test_ioapic_logical_destination_mode();
 
 	return report_summary();
 }
