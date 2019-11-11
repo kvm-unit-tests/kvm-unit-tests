@@ -8425,8 +8425,29 @@ static void init_signal_test_thread(void *data)
 	/* Signal that CPU exited to VMX root mode */
 	vmx_set_test_stage(5);
 
-	/* Wait for signal to exit VMX operation */
+	/* Wait for BSP CPU to signal to exit VMX operation */
 	while (vmx_get_test_stage() != 6)
+		;
+
+	/* Exit VMX operation (i.e. exec VMXOFF) */
+	vmx_off();
+
+	/*
+	 * Signal to BSP CPU that we continue as usual as INIT signal
+	 * should have been consumed by VMX_INIT exit from guest
+	 */
+	vmx_set_test_stage(7);
+
+	/* Wait for BSP CPU to signal to enter VMX operation */
+	while (vmx_get_test_stage() != 8)
+		;
+	/* Enter VMX operation (i.e. exec VMXON) */
+	_vmx_on(ap_vmxon_region);
+	/* Signal to BSP we are in VMX operation */
+	vmx_set_test_stage(9);
+
+	/* Wait for BSP CPU to send INIT signal */
+	while (vmx_get_test_stage() != 10)
 		;
 
 	/* Exit VMX operation (i.e. exec VMXOFF) */
@@ -8509,9 +8530,29 @@ static void vmx_init_signal_test(void)
 	init_signal_test_thread_continued = false;
 	vmx_set_test_stage(6);
 
+	/* Wait reasonable amount of time for other CPU to exit VMX operation */
+	delay(INIT_SIGNAL_TEST_DELAY);
+	report("INIT signal consumed on VMX_INIT exit",
+		   vmx_get_test_stage() == 7);
+	/* No point to continue if we failed at this point */
+	if (vmx_get_test_stage() != 7)
+		return;
+
+	/* Signal other CPU to enter VMX operation */
+	vmx_set_test_stage(8);
+	/* Wait for other CPU to enter VMX operation */
+	while (vmx_get_test_stage() != 9)
+		;
+
+	/* Send INIT signal to other CPU */
+	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT,
+				   id_map[1]);
+	/* Signal other CPU we have sent INIT signal */
+	vmx_set_test_stage(10);
+
 	/*
 	 * Wait reasonable amount of time for other CPU
-	 * to run after INIT signal was processed
+	 * to exit VMX operation and process INIT signal
 	 */
 	delay(INIT_SIGNAL_TEST_DELAY);
 	report("INIT signal processed after exit VMX operation",
