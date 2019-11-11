@@ -94,7 +94,7 @@ memsetxc:
 	stmg	%r0, %r15, GEN_LC_SW_INT_GRS
 	/* save cr0 */
 	stctg	%c0, %c0, GEN_LC_SW_INT_CR0
-	/* load initial cr0 again */
+	/* load a cr0 that has the AFP control bit which enables all FPRs */
 	larl	%r1, initial_cr0
 	lctlg	%c0, %c0, 0(%r1)
 	/* save fprs 0-15 + fpc */
@@ -139,7 +139,7 @@ diag308_load_reset:
 	xgr	%r2, %r2
 	br	%r14
 	/* Success path */
-	/* We lost cr0 due to the reset */
+	/* load a cr0 that has the AFP control bit which enables all FPRs */
 0:	larl	%r1, initial_cr0
 	lctlg	%c0, %c0, 0(%r1)
 	RESTORE_REGS
