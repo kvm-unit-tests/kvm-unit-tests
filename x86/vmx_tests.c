@@ -8341,6 +8341,48 @@ static void vmx_apic_passthrough_thread_test(void)
 	vmx_apic_passthrough(true);
 }
 
+static void vmx_apic_passthrough_tpr_threshold_guest(void)
+{
+	cli();
+	apic_set_tpr(0);
+}
+
+static bool vmx_apic_passthrough_tpr_threshold_ipi_isr_fired;
+static void vmx_apic_passthrough_tpr_threshold_ipi_isr(isr_regs_t *regs)
+{
+	vmx_apic_passthrough_tpr_threshold_ipi_isr_fired = true;
+	eoi();
+}
+
+static void vmx_apic_passthrough_tpr_threshold_test(void)
+{
+	int ipi_vector = 0xe1;
+
+	disable_intercept_for_x2apic_msrs();
+	vmcs_clear_bits(PIN_CONTROLS, PIN_EXTINT);
+
+	/* Raise L0 TPR-threshold by queueing vector in LAPIC IRR */
+	cli();
+	apic_set_tpr((ipi_vector >> 4) + 1);
+	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL |
+			APIC_DM_FIXED | ipi_vector,
+			0);
+
+	test_set_guest(vmx_apic_passthrough_tpr_threshold_guest);
+	enter_guest();
+
+	report("TPR was zero by guest", apic_get_tpr() == 0);
+
+	/* Clean pending self-IPI */
+	vmx_apic_passthrough_tpr_threshold_ipi_isr_fired = false;
+	handle_irq(ipi_vector, vmx_apic_passthrough_tpr_threshold_ipi_isr);
+	sti();
+	asm volatile ("nop");
+	report("self-IPI fired", vmx_apic_passthrough_tpr_threshold_ipi_isr_fired);
+
+	report(__func__, 1);
+}
+
 static u64 init_signal_test_exit_reason;
 static bool init_signal_test_thread_continued;
 
@@ -9020,6 +9062,7 @@ struct vmx_test vmx_tests[] = {
 	/* APIC pass-through tests */
 	TEST(vmx_apic_passthrough_test),
 	TEST(vmx_apic_passthrough_thread_test),
+	TEST(vmx_apic_passthrough_tpr_threshold_test),
 	TEST(vmx_init_signal_test),
 	/* VMCS Shadowing tests */
 	TEST(vmx_vmcs_shadow_test),
