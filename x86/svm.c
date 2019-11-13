@@ -7,6 +7,8 @@
 #include "smp.h"
 #include "types.h"
 #include "alloc_page.h"
+#include "isr.h"
+#include "apic.h"
 
 #define SVM_EXIT_MAX_DR_INTERCEPT 0x3f
 
@@ -777,6 +779,13 @@ static int get_test_stage(struct test *test)
     return test->scratch;
 }
 
+static void set_test_stage(struct test *test, int s)
+{
+    barrier();
+    test->scratch = s;
+    barrier();
+}
+
 static void inc_test_stage(struct test *test)
 {
     barrier();
@@ -1295,6 +1304,88 @@ static bool lat_svm_insn_check(struct test *test)
             latclgi_min, clgi_sum / LATENCY_RUNS);
     return true;
 }
+
+bool pending_event_ipi_fired;
+bool pending_event_guest_run;
+
+static void pending_event_ipi_isr(isr_regs_t *regs)
+{
+    pending_event_ipi_fired = true;
+    eoi();
+}
+
+static void pending_event_prepare(struct test *test)
+{
+    int ipi_vector = 0xf1;
+
+    default_prepare(test);
+
+    pending_event_ipi_fired = false;
+
+    handle_irq(ipi_vector, pending_event_ipi_isr);
+
+    pending_event_guest_run = false;
+
+    test->vmcb->control.intercept |= (1ULL << INTERCEPT_INTR);
+    test->vmcb->control.int_ctl |= V_INTR_MASKING_MASK;
+
+    apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL |
+                  APIC_DM_FIXED | ipi_vector, 0);
+
+    set_test_stage(test, 0);
+}
+
+static void pending_event_test(struct test *test)
+{
+    pending_event_guest_run = true;
+}
+
+static bool pending_event_finished(struct test *test)
+{
+    switch (get_test_stage(test)) {
+    case 0:
+        if (test->vmcb->control.exit_code != SVM_EXIT_INTR) {
+            report("VMEXIT not due to pending interrupt. Exit reason 0x%x",
+            false, test->vmcb->control.exit_code);
+            return true;
+        }
+
+        test->vmcb->control.intercept &= ~(1ULL << INTERCEPT_INTR);
+        test->vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
+
+        if (pending_event_guest_run) {
+            report("Guest ran before host received IPI\n", false);
+            return true;
+        }
+
+        irq_enable();
+        asm volatile ("nop");
+        irq_disable();
+
+        if (!pending_event_ipi_fired) {
+            report("Pending interrupt not dispatched after IRQ enabled\n", false);
+            return true;
+        }
+        break;
+
+    case 1:
+        if (!pending_event_guest_run) {
+            report("Guest did not resume when no interrupt\n", false);
+            return true;
+        }
+        break;
+    }
+
+    inc_test_stage(test);
+
+    return get_test_stage(test) == 2;
+}
+
+static bool pending_event_check(struct test *test)
+{
+    return get_test_stage(test) == 2;
+}
+
 static struct test tests[] = {
     { "null", default_supported, default_prepare, null_test,
       default_finished, null_check },
@@ -1345,6 +1436,8 @@ static struct test tests[] = {
       latency_finished, latency_check },
     { "latency_svm_insn", default_supported, lat_svm_insn_prepare, null_test,
       lat_svm_insn_finished, lat_svm_insn_check },
+    { "pending_event", default_supported, pending_event_prepare,
+      pending_event_test, pending_event_finished, pending_event_check },
 };
 
 int main(int ac, char **av)
