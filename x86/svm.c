@@ -254,6 +254,7 @@ static void test_run(struct test *test, struct vmcb *vmcb)
     u64 vmcb_phys = virt_to_phys(vmcb);
     u64 guest_stack[10000];
 
+    irq_disable();
     test->vmcb = vmcb;
     test->prepare(test);
     vmcb->save.rip = (ulong)test_thunk;
@@ -269,7 +270,9 @@ static void test_run(struct test *test, struct vmcb *vmcb)
             "mov regs, %%r15\n\t"       // rax
             "mov %%r15, 0x1f8(%0)\n\t"
             LOAD_GPR_C
+            "sti \n\t"		// only used if V_INTR_MASKING=1
             "vmrun \n\t"
+            "cli \n\t"
             SAVE_GPR_C
             "mov 0x170(%0), %%r15\n\t"  // rflags
             "mov %%r15, regs+0x80\n\t"
@@ -284,6 +287,7 @@ static void test_run(struct test *test, struct vmcb *vmcb)
 	tsc_end = rdtsc();
         ++test->exits;
     } while (!test->finished(test));
+    irq_enable();
 
     report("%s", test->succeeded(test), test->name);
 }
@@ -301,7 +305,6 @@ static bool default_supported(void)
 static void default_prepare(struct test *test)
 {
     vmcb_ident(test->vmcb);
-    cli();
 }
 
 static bool default_finished(struct test *test)
