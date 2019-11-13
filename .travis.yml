@@ -1,75 +1,84 @@
 sudo: false
 dist: bionic
 language: c
-compiler:
-  - gcc
 cache: ccache
-addons:
-  apt:
-    packages:
-      # Cross Toolchains
-      - gcc-arm-linux-gnueabihf
-      - gcc-aarch64-linux-gnu
-      - gcc-powerpc64le-linux-gnu
-      - gcc-s390x-linux-gnu
-      # Run dependencies
-      - qemu-system
 git:
   submodules: false
 
 matrix:
   include:
-    - env:
+
+    - addons:
+        apt_packages: gcc qemu-system-x86
+      env:
       - CONFIG=""
       - BUILD_DIR="."
       - TESTS="vmexit_cpuid vmexit_mov_from_cr8 vmexit_mov_to_cr8 vmexit_ipi
              vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed"
 
-    - env:
+    - addons:
+        apt_packages: gcc qemu-system-x86
+      env:
       - CONFIG=""
       - BUILD_DIR="x86-builddir"
       - TESTS="ioapic-split ioapic smptest smptest3 eventinj msr port80 syscall
              tsc rmap_chain umip intel_iommu vmexit_inl_pmtimer vmexit_ipi_halt"
 
-    - env:
+    - addons:
+        apt_packages: gcc-arm-linux-gnueabihf qemu-system-arm
+      env:
       - CONFIG="--arch=arm --cross-prefix=arm-linux-gnueabihf-"
       - BUILD_DIR="."
       - TESTS="selftest-vectors-kernel selftest-vectors-user selftest-smp"
 
-    - env:
+    - addons:
+        apt_packages: gcc-arm-linux-gnueabihf qemu-system-arm
+      env:
       - CONFIG="--arch=arm --cross-prefix=arm-linux-gnueabihf-"
       - BUILD_DIR="arm-buildir"
       - TESTS="pci-test pmu gicv2-active gicv3-active psci selftest-setup"
 
-    - env:
+    - addons:
+        apt_packages: gcc-aarch64-linux-gnu qemu-system-aarch64
+      env:
       - CONFIG="--arch=arm64 --cross-prefix=aarch64-linux-gnu-"
       - BUILD_DIR="."
       - TESTS="selftest-vectors-kernel selftest-vectors-user selftest-smp"
 
-    - env:
+    - addons:
+        apt_packages: gcc-aarch64-linux-gnu qemu-system-aarch64
+      env:
       - CONFIG="--arch=arm64 --cross-prefix=aarch64-linux-gnu-"
       - BUILD_DIR="arm64-buildir"
       - TESTS="pci-test pmu gicv2-active gicv3-active psci timer selftest-setup"
 
-    - env:
+    - addons:
+        apt_packages: gcc-powerpc64le-linux-gnu qemu-system-ppc
+      env:
       - CONFIG="--arch=ppc64 --endian=little --cross-prefix=powerpc64le-linux-gnu-"
       - BUILD_DIR="."
       - TESTS="spapr_hcall emulator rtas-set-time-of-day"
       - ACCEL="tcg,cap-htm=off"
 
-    - env:
+    - addons:
+        apt_packages: gcc-powerpc64le-linux-gnu qemu-system-ppc
+      env:
       - CONFIG="--arch=ppc64 --endian=little --cross-prefix=powerpc64le-linux-gnu-"
       - BUILD_DIR="ppc64le-buildir"
       - TESTS="rtas-get-time-of-day rtas-get-time-of-day-base"
       - ACCEL="tcg,cap-htm=off"
 
-    - env:
+    - addons:
+        apt_packages: gcc-s390x-linux-gnu qemu-system-s390x
+      env:
       - CONFIG="--arch=s390x --cross-prefix=s390x-linux-gnu-"
       - BUILD_DIR="."
       - TESTS="diag10 diag308"
       - ACCEL="tcg,firmware=s390x/run"
 
-    - env:
+    - addons:
+        apt_packages: gcc-s390x-linux-gnu qemu-system-s390x
+      env:
       - CONFIG="--arch=s390x --cross-prefix=s390x-linux-gnu-"
       - BUILD_DIR="s390x-builddir"
       - TESTS="sieve"
