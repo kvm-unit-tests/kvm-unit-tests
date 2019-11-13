@@ -1,4 +1,4 @@
-sudo: false
+sudo: true
 dist: bionic
 language: c
 cache: ccache
@@ -13,16 +13,21 @@ matrix:
       env:
       - CONFIG=""
       - BUILD_DIR="."
-      - TESTS="vmexit_cpuid vmexit_mov_from_cr8 vmexit_mov_to_cr8 vmexit_ipi
-             vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed"
+      - TESTS="access asyncpf debug emulator ept hypercall hyperv_stimer
+               hyperv_synic idt_test intel_iommu ioapic ioapic-split
+               kvmclock_test msr pcid rdpru realmode rmap_chain s3 umip"
+      - ACCEL="kvm"
 
     - addons:
         apt_packages: gcc qemu-system-x86
       env:
       - CONFIG=""
       - BUILD_DIR="x86-builddir"
-      - TESTS="ioapic-split ioapic smptest smptest3 eventinj msr port80 syscall
-             tsc rmap_chain umip intel_iommu vmexit_inl_pmtimer vmexit_ipi_halt"
+      - TESTS="smptest smptest3 tsc tsc_adjust xsave vmexit_cpuid vmexit_vmcall
+               sieve vmexit_inl_pmtimer vmexit_ipi_halt vmexit_mov_from_cr8
+               vmexit_mov_to_cr8 vmexit_ple_round_robin vmexit_tscdeadline
+               vmexit_tscdeadline_immed  vmx_apic_passthrough_thread syscall"
+      - ACCEL="kvm"
 
     - addons:
         apt_packages: gcc-arm-linux-gnueabihf qemu-system-arm
@@ -85,6 +90,10 @@ matrix:
       - ACCEL="tcg,firmware=s390x/run"
 
 before_script:
+  - if [ "$ACCEL" = "kvm" ]; then
+      sudo chgrp kvm /usr/bin/qemu-system-* ;
+      sudo chmod g+s /usr/bin/qemu-system-* ;
+    fi
   - mkdir -p $BUILD_DIR && cd $BUILD_DIR
   - if [ -e ./configure ]; then ./configure $CONFIG ; fi
   - if [ -e ../configure ]; then ../configure $CONFIG ; fi
