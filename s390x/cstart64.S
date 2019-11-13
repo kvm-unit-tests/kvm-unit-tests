@@ -126,13 +126,18 @@ memsetxc:
 .globl diag308_load_reset
 diag308_load_reset:
 	SAVE_REGS
-	/* Save the first PSW word to the IPL PSW */
+	/* Backup current PSW mask, as we have to restore it on success */
 	epsw	%r0, %r1
-	st	%r0, 0
-	/* Store the address and the bit for 31 bit addressing */
-	larl    %r0, 0f
-	oilh    %r0, 0x8000
-	st      %r0, 0x4
+	st	%r0, GEN_LC_SW_INT_PSW
+	st	%r1, GEN_LC_SW_INT_PSW + 4
+	/* Load reset psw mask (short psw, 64 bit) */
+	lg	%r0, reset_psw
+	/* Load the success label address */
+	larl    %r1, 0f
+	/* Or it to the mask */
+	ogr	%r0, %r1
+	/* Store it at the reset PSW location (real 0x0) */
+	stg	%r0, 0
 	/* Do the reset */
 	diag    %r0,%r2,0x308
 	/* Failure path */
@@ -144,7 +149,10 @@ diag308_load_reset:
 	lctlg	%c0, %c0, 0(%r1)
 	RESTORE_REGS
 	lhi	%r2, 1
-	br	%r14
+	larl	%r0, 1f
+	stg	%r0, GEN_LC_SW_INT_PSW + 8
+	lpswe	GEN_LC_SW_INT_PSW
+1:	br	%r14
 
 .globl smp_cpu_setup_state
 smp_cpu_setup_state:
@@ -184,6 +192,8 @@ svc_int:
 	lpswe	GEN_LC_SVC_OLD_PSW
 
 	.align	8
+reset_psw:
+	.quad	0x0008000180000000
 initial_psw:
 	.quad	0x0000000180000000, clear_bss_start
 pgm_int_psw:

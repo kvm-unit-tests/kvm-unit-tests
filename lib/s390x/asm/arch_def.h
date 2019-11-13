@@ -79,7 +79,8 @@ struct lowcore {
 	uint32_t	sw_int_fpc;			/* 0x0300 */
 	uint8_t		pad_0x0304[0x0308 - 0x0304];	/* 0x0304 */
 	uint64_t	sw_int_crs[16];			/* 0x0308 */
-	uint8_t		pad_0x0310[0x11b0 - 0x0388];	/* 0x0388 */
+	struct psw	sw_int_psw;			/* 0x0388 */
+	uint8_t		pad_0x0310[0x11b0 - 0x0398];	/* 0x0398 */
 	uint64_t	mcck_ext_sa_addr;		/* 0x11b0 */
 	uint8_t		pad_0x11b8[0x1200 - 0x11b8];	/* 0x11b8 */
 	uint64_t	fprs_sa[16];			/* 0x1200 */
@@ -98,6 +99,7 @@ struct lowcore {
 	uint8_t		pad_0x1400[0x1800 - 0x1400];	/* 0x1400 */
 	uint8_t		pgm_int_tdb[0x1900 - 0x1800];	/* 0x1800 */
 } __attribute__ ((__packed__));
+_Static_assert(sizeof(struct lowcore) == 0x1900, "Lowcore size");
 
 #define PGM_INT_CODE_OPERATION			0x01
 #define PGM_INT_CODE_PRIVILEGED_OPERATION	0x02
