@@ -30,6 +30,21 @@ matrix:
       - ACCEL="kvm"
 
     - addons:
+        apt_packages: gcc gcc-multilib qemu-system-x86
+      env:
+      - CONFIG="--arch=i386"
+      - BUILD_DIR="."
+      - TESTS="eventinj port80 sieve tsc taskswitch umip vmexit_ple_round_robin"
+
+    - addons:
+        apt_packages: gcc gcc-multilib qemu-system-x86
+      env:
+      - CONFIG="--arch=i386"
+      - BUILD_DIR="i386-builddir"
+      - TESTS="vmexit_mov_from_cr8 vmexit_ipi vmexit_ipi_halt vmexit_mov_to_cr8
+               vmexit_cpuid vmexit_tscdeadline vmexit_tscdeadline_immed"
+
+    - addons:
         apt_packages: gcc-arm-linux-gnueabihf qemu-system-arm
       env:
       - CONFIG="--arch=arm --cross-prefix=arm-linux-gnueabihf-"
