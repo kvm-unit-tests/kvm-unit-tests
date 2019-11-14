@@ -5023,13 +5023,28 @@ static void test_entry_msr_load(void)
 	test_vmx_valid_controls();
 }
 
+static struct vmx_state_area_test_data {
+	u32 msr;
+	u64 exp;
+	bool enabled;
+} vmx_state_area_test_data;
+
 static void guest_state_test_main(void)
 {
+	u64 obs;
+	struct vmx_state_area_test_data *data = &vmx_state_area_test_data;
+
 	while (1) {
-		if (vmx_get_test_stage() != 2)
-			vmcall();
-		else
+		if (vmx_get_test_stage() == 2)
 			break;
+
+		if (data->enabled) {
+			obs = rdmsr(data->msr);
+			report("Guest state is 0x%lx (expected 0x%lx)",
+			       data->exp == obs, obs, data->exp);
+		}
+
+		vmcall();
 	}
 
 	asm volatile("fnop");
