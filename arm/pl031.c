@@ -252,6 +252,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
+	report_prefix_push("pl031");
 	report(!check_id(), "Periph/PCell IDs match");
 	report(!check_ro(), "R/O fields are R/O");
 	report(!check_rtc_freq(), "RTC ticks at 1HZ");
