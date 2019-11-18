@@ -92,54 +92,28 @@ memsetxc:
 	.macro SAVE_REGS
 	/* save grs 0-15 */
 	stmg	%r0, %r15, GEN_LC_SW_INT_GRS
-	/* save cr0 */
-	stctg	%c0, %c0, GEN_LC_SW_INT_CR0
-	/* load initial cr0 again */
+	/* save crs 0-15 */
+	stctg	%c0, %c15, GEN_LC_SW_INT_CRS
+	/* load a cr0 that has the AFP control bit which enables all FPRs */
 	larl	%r1, initial_cr0
 	lctlg	%c0, %c0, 0(%r1)
 	/* save fprs 0-15 + fpc */
 	la	%r1, GEN_LC_SW_INT_FPRS
-	std	%f0, 0(%r1)
-	std	%f1, 8(%r1)
-	std	%f2, 16(%r1)
-	std	%f3, 24(%r1)
-	std	%f4, 32(%r1)
-	std	%f5, 40(%r1)
-	std	%f6, 48(%r1)
-	std	%f7, 56(%r1)
-	std	%f8, 64(%r1)
-	std	%f9, 72(%r1)
-	std	%f10, 80(%r1)
-	std	%f11, 88(%r1)
-	std	%f12, 96(%r1)
-	std	%f13, 104(%r1)
-	std	%f14, 112(%r1)
-	std	%f15, 120(%r1)
+	.irp i, 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+	std	\i, \i * 8(%r1)
+	.endr
 	stfpc	GEN_LC_SW_INT_FPC
 	.endm
 
 	.macro RESTORE_REGS
 	/* restore fprs 0-15 + fpc */
 	la	%r1, GEN_LC_SW_INT_FPRS
-	ld	%f0, 0(%r1)
-	ld	%f1, 8(%r1)
-	ld	%f2, 16(%r1)
-	ld	%f3, 24(%r1)
-	ld	%f4, 32(%r1)
-	ld	%f5, 40(%r1)
-	ld	%f6, 48(%r1)
-	ld	%f7, 56(%r1)
-	ld	%f8, 64(%r1)
-	ld	%f9, 72(%r1)
-	ld	%f10, 80(%r1)
-	ld	%f11, 88(%r1)
-	ld	%f12, 96(%r1)
-	ld	%f13, 104(%r1)
-	ld	%f14, 112(%r1)
-	ld	%f15, 120(%r1)
+	.irp i, 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+	ld	\i, \i * 8(%r1)
+	.endr
 	lfpc	GEN_LC_SW_INT_FPC
-	/* restore cr0 */
-	lctlg	%c0, %c0, GEN_LC_SW_INT_CR0
+	/* restore crs 0-15 */
+	lctlg	%c0, %c15, GEN_LC_SW_INT_CRS
 	/* restore grs 0-15 */
 	lmg	%r0, %r15, GEN_LC_SW_INT_GRS
 	.endm
@@ -152,31 +126,39 @@ memsetxc:
 .globl diag308_load_reset
 diag308_load_reset:
 	SAVE_REGS
-	/* Save the first PSW word to the IPL PSW */
+	/* Backup current PSW mask, as we have to restore it on success */
 	epsw	%r0, %r1
-	st	%r0, 0
-	/* Store the address and the bit for 31 bit addressing */
-	larl    %r0, 0f
-	oilh    %r0, 0x8000
-	st      %r0, 0x4
+	st	%r0, GEN_LC_SW_INT_PSW
+	st	%r1, GEN_LC_SW_INT_PSW + 4
+	/* Load reset psw mask (short psw, 64 bit) */
+	lg	%r0, reset_psw
+	/* Load the success label address */
+	larl    %r1, 0f
+	/* Or it to the mask */
+	ogr	%r0, %r1
+	/* Store it at the reset PSW location (real 0x0) */
+	stg	%r0, 0
 	/* Do the reset */
 	diag    %r0,%r2,0x308
 	/* Failure path */
 	xgr	%r2, %r2
 	br	%r14
 	/* Success path */
-	/* We lost cr0 due to the reset */
+	/* load a cr0 that has the AFP control bit which enables all FPRs */
 0:	larl	%r1, initial_cr0
 	lctlg	%c0, %c0, 0(%r1)
 	RESTORE_REGS
 	lhi	%r2, 1
-	br	%r14
+	larl	%r0, 1f
+	stg	%r0, GEN_LC_SW_INT_PSW + 8
+	lpswe	GEN_LC_SW_INT_PSW
+1:	br	%r14
 
 .globl smp_cpu_setup_state
 smp_cpu_setup_state:
 	xgr	%r1, %r1
 	lmg     %r0, %r15, GEN_LC_SW_INT_GRS
-	lctlg   %c0, %c0, GEN_LC_SW_INT_CR0
+	lctlg   %c0, %c0, GEN_LC_SW_INT_CRS
 	br	%r14
 
 pgm_int:
@@ -210,6 +192,8 @@ svc_int:
 	lpswe	GEN_LC_SVC_OLD_PSW
 
 	.align	8
+reset_psw:
+	.quad	0x0008000180000000
 initial_psw:
 	.quad	0x0000000180000000, clear_bss_start
 pgm_int_psw:

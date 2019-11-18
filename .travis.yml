@@ -1,61 +1,114 @@
-sudo: false
+sudo: true
 dist: bionic
 language: c
-compiler:
-  - gcc
 cache: ccache
-addons:
-  apt:
-    packages:
-      # Cross Toolchains
-      - gcc-arm-linux-gnueabihf
-      - gcc-aarch64-linux-gnu
-      - gcc-powerpc64le-linux-gnu
-      - gcc-s390x-linux-gnu
-      # Run dependencies
-      - qemu-system
 git:
   submodules: false
-env:
-  matrix:
-    - CONFIG=""
-      BUILD_DIR="."
-      TESTS="vmexit_cpuid vmexit_mov_from_cr8 vmexit_mov_to_cr8 vmexit_ipi
-             vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed"
-    - CONFIG=""
-      BUILD_DIR="x86-builddir"
-      TESTS="ioapic-split ioapic smptest smptest3 eventinj msr port80 syscall
-             tsc rmap_chain umip intel_iommu vmexit_inl_pmtimer vmexit_ipi_halt"
-    - CONFIG="--arch=arm --cross-prefix=arm-linux-gnueabihf-"
-      BUILD_DIR="."
-      TESTS="selftest-vectors-kernel selftest-vectors-user selftest-smp"
-    - CONFIG="--arch=arm --cross-prefix=arm-linux-gnueabihf-"
-      BUILD_DIR="arm-buildir"
-      TESTS="pci-test pmu gicv2-active gicv3-active psci selftest-setup"
-    - CONFIG="--arch=arm64 --cross-prefix=aarch64-linux-gnu-"
-      BUILD_DIR="."
-      TESTS="selftest-vectors-kernel selftest-vectors-user selftest-smp"
-    - CONFIG="--arch=arm64 --cross-prefix=aarch64-linux-gnu-"
-      BUILD_DIR="arm64-buildir"
-      TESTS="pci-test pmu gicv2-active gicv3-active psci timer selftest-setup"
-    - CONFIG="--arch=ppc64 --endian=little --cross-prefix=powerpc64le-linux-gnu-"
-      BUILD_DIR="."
-      TESTS="spapr_hcall emulator rtas-set-time-of-day"
-      ACCEL="tcg,cap-htm=off"
-    - CONFIG="--arch=ppc64 --endian=little --cross-prefix=powerpc64le-linux-gnu-"
-      BUILD_DIR="ppc64le-buildir"
-      TESTS="rtas-get-time-of-day rtas-get-time-of-day-base"
-      ACCEL="tcg,cap-htm=off"
-    - CONFIG="--arch=s390x --cross-prefix=s390x-linux-gnu-"
-      BUILD_DIR="."
-      TESTS="diag10 diag308"
-      ACCEL="tcg,firmware=s390x/run"
-    - CONFIG="--arch=s390x --cross-prefix=s390x-linux-gnu-"
-      BUILD_DIR="s390x-builddir"
-      TESTS="sieve"
-      ACCEL="tcg,firmware=s390x/run"
+
+matrix:
+  include:
+
+    - addons:
+        apt_packages: gcc qemu-system-x86
+      env:
+      - CONFIG=""
+      - BUILD_DIR="."
+      - TESTS="access asyncpf debug emulator ept hypercall hyperv_stimer
+               hyperv_synic idt_test intel_iommu ioapic ioapic-split
+               kvmclock_test msr pcid rdpru realmode rmap_chain s3 umip"
+      - ACCEL="kvm"
+
+    - addons:
+        apt_packages: gcc qemu-system-x86
+      env:
+      - CONFIG=""
+      - BUILD_DIR="x86-builddir"
+      - TESTS="smptest smptest3 tsc tsc_adjust xsave vmexit_cpuid vmexit_vmcall
+               sieve vmexit_inl_pmtimer vmexit_ipi_halt vmexit_mov_from_cr8
+               vmexit_mov_to_cr8 vmexit_ple_round_robin vmexit_tscdeadline
+               vmexit_tscdeadline_immed  vmx_apic_passthrough_thread syscall"
+      - ACCEL="kvm"
+
+    - addons:
+        apt_packages: gcc gcc-multilib qemu-system-x86
+      env:
+      - CONFIG="--arch=i386"
+      - BUILD_DIR="."
+      - TESTS="eventinj port80 sieve tsc taskswitch umip vmexit_ple_round_robin"
+
+    - addons:
+        apt_packages: gcc gcc-multilib qemu-system-x86
+      env:
+      - CONFIG="--arch=i386"
+      - BUILD_DIR="i386-builddir"
+      - TESTS="vmexit_mov_from_cr8 vmexit_ipi vmexit_ipi_halt vmexit_mov_to_cr8
+               vmexit_cpuid vmexit_tscdeadline vmexit_tscdeadline_immed"
+
+    - addons:
+        apt_packages: gcc-arm-linux-gnueabihf qemu-system-arm
+      env:
+      - CONFIG="--arch=arm --cross-prefix=arm-linux-gnueabihf-"
+      - BUILD_DIR="."
+      - TESTS="selftest-vectors-kernel selftest-vectors-user selftest-smp"
+
+    - addons:
+        apt_packages: gcc-arm-linux-gnueabihf qemu-system-arm
+      env:
+      - CONFIG="--arch=arm --cross-prefix=arm-linux-gnueabihf-"
+      - BUILD_DIR="arm-buildir"
+      - TESTS="pci-test pmu gicv2-active gicv3-active psci selftest-setup"
+
+    - addons:
+        apt_packages: gcc-aarch64-linux-gnu qemu-system-aarch64
+      env:
+      - CONFIG="--arch=arm64 --cross-prefix=aarch64-linux-gnu-"
+      - BUILD_DIR="."
+      - TESTS="selftest-vectors-kernel selftest-vectors-user selftest-smp"
+
+    - addons:
+        apt_packages: gcc-aarch64-linux-gnu qemu-system-aarch64
+      env:
+      - CONFIG="--arch=arm64 --cross-prefix=aarch64-linux-gnu-"
+      - BUILD_DIR="arm64-buildir"
+      - TESTS="pci-test pmu gicv2-active gicv3-active psci timer selftest-setup"
+
+    - addons:
+        apt_packages: gcc-powerpc64le-linux-gnu qemu-system-ppc
+      env:
+      - CONFIG="--arch=ppc64 --endian=little --cross-prefix=powerpc64le-linux-gnu-"
+      - BUILD_DIR="."
+      - TESTS="spapr_hcall emulator rtas-set-time-of-day"
+      - ACCEL="tcg,cap-htm=off"
+
+    - addons:
+        apt_packages: gcc-powerpc64le-linux-gnu qemu-system-ppc
+      env:
+      - CONFIG="--arch=ppc64 --endian=little --cross-prefix=powerpc64le-linux-gnu-"
+      - BUILD_DIR="ppc64le-buildir"
+      - TESTS="rtas-get-time-of-day rtas-get-time-of-day-base"
+      - ACCEL="tcg,cap-htm=off"
+
+    - addons:
+        apt_packages: gcc-s390x-linux-gnu qemu-system-s390x
+      env:
+      - CONFIG="--arch=s390x --cross-prefix=s390x-linux-gnu-"
+      - BUILD_DIR="."
+      - TESTS="diag10 diag308"
+      - ACCEL="tcg,firmware=s390x/run"
+
+    - addons:
+        apt_packages: gcc-s390x-linux-gnu qemu-system-s390x
+      env:
+      - CONFIG="--arch=s390x --cross-prefix=s390x-linux-gnu-"
+      - BUILD_DIR="s390x-builddir"
+      - TESTS="sieve"
+      - ACCEL="tcg,firmware=s390x/run"
 
 before_script:
+  - if [ "$ACCEL" = "kvm" ]; then
+      sudo chgrp kvm /usr/bin/qemu-system-* ;
+      sudo chmod g+s /usr/bin/qemu-system-* ;
+    fi
   - mkdir -p $BUILD_DIR && cd $BUILD_DIR
   - if [ -e ./configure ]; then ./configure $CONFIG ; fi
   - if [ -e ../configure ]; then ../configure $CONFIG ; fi
@@ -63,3 +116,4 @@ script:
   - make -j3
   - ACCEL="${ACCEL:-tcg}" ./run_tests.sh -v $TESTS | tee results.txt
   - if grep -q FAIL results.txt ; then exit 1 ; fi
+  - if ! grep -q PASS results.txt ; then exit 1 ; fi
