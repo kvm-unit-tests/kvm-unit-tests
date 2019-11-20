@@ -1,5 +1,5 @@
 : "${RUNTIME_arch_run?}"
-: ${MAX_SMP:=$(getconf _NPROCESSORS_CONF)}
+: ${MAX_SMP:=$(getconf _NPROCESSORS_ONLN)}
 : ${TIMEOUT:=90s}
 
 PASS() { echo -ne "\e[32mPASS\e[0m"; }
