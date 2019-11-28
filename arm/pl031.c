@@ -143,8 +143,8 @@ static void irq_handler(struct pt_regs *regs)
 		report(readl(&pl031->ris) == 1, "  RTC RIS == 1");
 		report(readl(&pl031->mis) == 1, "  RTC MIS == 1");
 
-		/* Writing any value should clear IRQ status */
-		writel(0x80000000ULL, &pl031->icr);
+		/* Writing one to bit zero should clear IRQ status */
+		writel(1, &pl031->icr);
 
 		report(readl(&pl031->ris) == 0, "  RTC RIS == 0");
 		report(readl(&pl031->mis) == 0, "  RTC MIS == 0");
