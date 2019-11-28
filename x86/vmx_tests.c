@@ -1148,6 +1148,11 @@ static void ept_disable_ad_bits(void)
 	vmcs_write(EPTP, eptp);
 }
 
+static int ept_ad_enabled(void)
+{
+	return eptp & EPTP_AD_FLAG;
+}
+
 static void ept_enable_ad_bits_or_skip_test(void)
 {
 	if (!ept_ad_bits_supported())
@@ -2515,6 +2520,8 @@ static void ept_access_paddr(unsigned long ept_access, unsigned long pte_ad,
 	unsigned long *ptep;
 	unsigned long gpa;
 	unsigned long orig_epte;
+	unsigned long epte;
+	int i;
 
 	/* Modify the guest PTE mapping data->gva according to @pte_ad.  */
 	ptep = get_pte_level(current_page_table(), data->gva, /*level=*/1);
@@ -2551,6 +2558,17 @@ static void ept_access_paddr(unsigned long ept_access, unsigned long pte_ad,
 		do_ept_access_op(op);
 	} else {
 		do_ept_access_op(op);
+		if (ept_ad_enabled()) {
+			for (i = EPT_PAGE_LEVEL; i > 0; i--) {
+				TEST_ASSERT(get_ept_pte(pml4, gpa, i, &epte));
+				TEST_ASSERT(epte & EPT_ACCESS_FLAG);
+				if (i == 1)
+					TEST_ASSERT(epte & EPT_DIRTY_FLAG);
+				else
+					TEST_ASSERT_EQ(epte & EPT_DIRTY_FLAG, 0);
+			}
+		}
+
 		ept_untwiddle(gpa, /*level=*/1, orig_epte);
 	}
 
