@@ -9041,7 +9041,99 @@ static void vmx_vmcs_shadow_test(void)
 	enter_guest();
 }
 
+/*
+ * This test monitors the difference between a guest RDTSC instruction
+ * and the IA32_TIME_STAMP_COUNTER MSR value stored in the VMCS12
+ * VM-exit MSR-store list when taking a VM-exit on the instruction
+ * following RDTSC.
+ */
+#define RDTSC_DIFF_ITERS 100000
+#define RDTSC_DIFF_FAILS 100
+#define HOST_CAPTURED_GUEST_TSC_DIFF_THRESHOLD 750
 
+/*
+ * Set 'use TSC offsetting' and set the guest offset to the
+ * inverse of the host's current TSC value, so that the guest starts running
+ * with an effective TSC value of 0.
+ */
+static void reset_guest_tsc_to_zero(void)
+{
+	TEST_ASSERT_MSG(ctrl_cpu_rev[0].clr & CPU_USE_TSC_OFFSET,
+			"Expected support for 'use TSC offsetting'");
+
+	vmcs_set_bits(CPU_EXEC_CTRL0, CPU_USE_TSC_OFFSET);
+	vmcs_write(TSC_OFFSET, -rdtsc());
+}
+
+static void rdtsc_vmexit_diff_test_guest(void)
+{
+	int i;
+
+	for (i = 0; i < RDTSC_DIFF_ITERS; i++)
+		/* Ensure rdtsc is the last instruction before the vmcall. */
+		asm volatile("rdtsc; vmcall" : : : "eax", "edx");
+}
+
+/*
+ * This function only considers the "use TSC offsetting" VM-execution
+ * control.  It does not handle "use TSC scaling" (because the latter
+ * isn't available to the host today.)
+ */
+static unsigned long long host_time_to_guest_time(unsigned long long t)
+{
+	TEST_ASSERT(!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
+		    !(vmcs_read(CPU_EXEC_CTRL1) & CPU_USE_TSC_SCALING));
+
+	if (vmcs_read(CPU_EXEC_CTRL0) & CPU_USE_TSC_OFFSET)
+		t += vmcs_read(TSC_OFFSET);
+
+	return t;
+}
+
+static unsigned long long rdtsc_vmexit_diff_test_iteration(void)
+{
+	unsigned long long guest_tsc, host_to_guest_tsc;
+
+	enter_guest();
+	skip_exit_vmcall();
+	guest_tsc = (u32) regs.rax + (regs.rdx << 32);
+	host_to_guest_tsc = host_time_to_guest_time(exit_msr_store[0].value);
+
+	return host_to_guest_tsc - guest_tsc;
+}
+
+static void rdtsc_vmexit_diff_test(void)
+{
+	int fail = 0;
+	int i;
+
+	test_set_guest(rdtsc_vmexit_diff_test_guest);
+
+	reset_guest_tsc_to_zero();
+
+	/*
+	 * Set up the VMCS12 VM-exit MSR-store list to store just one
+	 * MSR: IA32_TIME_STAMP_COUNTER. Note that the value stored is
+	 * in the host time domain (i.e., it is not adjusted according
+	 * to the TSC multiplier and TSC offset fields in the VMCS12,
+	 * as a guest RDTSC would be.)
+	 */
+	exit_msr_store = alloc_page();
+	exit_msr_store[0].index = MSR_IA32_TSC;
+	vmcs_write(EXI_MSR_ST_CNT, 1);
+	vmcs_write(EXIT_MSR_ST_ADDR, virt_to_phys(exit_msr_store));
+
+	for (i = 0; i < RDTSC_DIFF_ITERS; i++) {
+		if (rdtsc_vmexit_diff_test_iteration() >=
+		    HOST_CAPTURED_GUEST_TSC_DIFF_THRESHOLD)
+			fail++;
+	}
+
+	enter_guest();
+
+	report("RDTSC to VM-exit delta too high in %d of %d iterations",
+	       fail < RDTSC_DIFF_FAILS, fail, RDTSC_DIFF_ITERS);
+}
 
 static int invalid_msr_init(struct vmcs *vmcs)
 {
@@ -9308,5 +9400,6 @@ struct vmx_test vmx_tests[] = {
 	/* Atomic MSR switch tests. */
 	TEST(atomic_switch_max_msrs_test),
 	TEST(atomic_switch_overflow_msrs_test),
+	TEST(rdtsc_vmexit_diff_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };

@@ -420,6 +420,7 @@ enum Ctrl1 {
 	CPU_SHADOW_VMCS		= 1ul << 14,
 	CPU_RDSEED		= 1ul << 16,
 	CPU_PML                 = 1ul << 17,
+	CPU_USE_TSC_SCALING	= 1ul << 25,
 };
 
 enum Intr_type {
