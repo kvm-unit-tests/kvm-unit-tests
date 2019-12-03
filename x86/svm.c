@@ -44,6 +44,8 @@ u64 runs;
 u8 *io_bitmap;
 u8 io_bitmap_area[16384];
 
+u8 set_host_if;
+
 #define MSR_BITMAP_SIZE 8192
 
 u8 *msr_bitmap;
@@ -258,6 +260,7 @@ static void test_run(struct test *test, struct vmcb *vmcb)
 
     irq_disable();
     test->vmcb = vmcb;
+    set_host_if = 1;
     test->prepare(test);
     vmcb->save.rip = (ulong)test_thunk;
     vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
@@ -266,21 +269,24 @@ static void test_run(struct test *test, struct vmcb *vmcb)
         tsc_start = rdtsc();
         asm volatile (
             "clgi \n\t"
+            "cmpb $0, set_host_if\n\t"
+            "jz 1f\n\t"
+            "sti \n\t"
+            "1: \n\t"
             "vmload \n\t"
             "mov regs+0x80, %%r15\n\t"  // rflags
             "mov %%r15, 0x170(%0)\n\t"
             "mov regs, %%r15\n\t"       // rax
             "mov %%r15, 0x1f8(%0)\n\t"
             LOAD_GPR_C
-            "sti \n\t"		// only used if V_INTR_MASKING=1
             "vmrun \n\t"
-            "cli \n\t"
             SAVE_GPR_C
             "mov 0x170(%0), %%r15\n\t"  // rflags
             "mov %%r15, regs+0x80\n\t"
             "mov 0x1f8(%0), %%r15\n\t"  // rax
             "mov %%r15, regs\n\t"
             "vmsave \n\t"
+            "cli \n\t"
             "stgi"
             : : "a"(vmcb_phys)
             : "rbx", "rcx", "rdx", "rsi",
@@ -1386,6 +1392,98 @@ static bool pending_event_check(struct test *test)
     return get_test_stage(test) == 2;
 }
 
+static void pending_event_prepare_vmask(struct test *test)
+{
+    default_prepare(test);
+
+    pending_event_ipi_fired = false;
+
+    set_host_if = 0;
+
+    handle_irq(0xf1, pending_event_ipi_isr);
+
+    apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL |
+              APIC_DM_FIXED | 0xf1, 0);
+
+    set_test_stage(test, 0);
+}
+
+static void pending_event_test_vmask(struct test *test)
+{
+    if (pending_event_ipi_fired == true) {
+        set_test_stage(test, -1);
+        report(false, "Interrupt preceeded guest");
+        vmmcall();
+    }
+
+    irq_enable();
+    asm volatile ("nop");
+    irq_disable();
+
+    if (pending_event_ipi_fired != true) {
+        set_test_stage(test, -1);
+        report(false, "Interrupt not triggered by guest");
+    }
+
+    vmmcall();
+
+    irq_enable();
+    asm volatile ("nop");
+    irq_disable();
+}
+
+static bool pending_event_finished_vmask(struct test *test)
+{
+    if ( test->vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+        report(false, "VM_EXIT return to host is not EXIT_VMMCALL exit reason 0x%x",
+               test->vmcb->control.exit_code);
+        return true;
+    }
+
+    switch (get_test_stage(test)) {
+    case 0:
+        test->vmcb->save.rip += 3;
+
+        pending_event_ipi_fired = false;
+
+        test->vmcb->control.int_ctl |= V_INTR_MASKING_MASK;
+
+        apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL |
+              APIC_DM_FIXED | 0xf1, 0);
+
+        break;
+
+    case 1:
+        if (pending_event_ipi_fired == true) {
+            report(false, "Interrupt triggered by guest");
+            return true;
+        }
+
+        irq_enable();
+        asm volatile ("nop");
+        irq_disable();
+
+        if (pending_event_ipi_fired != true) {
+            report(false, "Interrupt not triggered by host");
+            return true;
+        }
+
+        break;
+
+    default:
+        return true;
+    }
+
+    inc_test_stage(test);
+
+    return get_test_stage(test) == 2;
+}
+
+static bool pending_event_check_vmask(struct test *test)
+{
+    return get_test_stage(test) == 2;
+}
+
 static struct test tests[] = {
     { "null", default_supported, default_prepare, null_test,
       default_finished, null_check },
@@ -1438,6 +1536,9 @@ static struct test tests[] = {
       lat_svm_insn_finished, lat_svm_insn_check },
     { "pending_event", default_supported, pending_event_prepare,
       pending_event_test, pending_event_finished, pending_event_check },
+    { "pending_event_vmask", default_supported, pending_event_prepare_vmask,
+      pending_event_test_vmask, pending_event_finished_vmask,
+      pending_event_check_vmask },
 };
 
 int main(int ac, char **av)
