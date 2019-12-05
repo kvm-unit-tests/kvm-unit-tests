@@ -34,15 +34,19 @@ matrix:
       env:
       - CONFIG="--arch=i386"
       - BUILD_DIR="."
-      - TESTS="eventinj port80 sieve tsc taskswitch umip vmexit_ple_round_robin"
+      - TESTS="asyncpf hyperv_stimer hyperv_synic kvmclock_test msr pmu realmode
+               s3 sieve smap smptest smptest3 taskswitch taskswitch2 tsc_adjust"
+      - ACCEL="kvm"
 
     - addons:
         apt_packages: gcc gcc-multilib qemu-system-x86
       env:
       - CONFIG="--arch=i386"
       - BUILD_DIR="i386-builddir"
-      - TESTS="vmexit_mov_from_cr8 vmexit_ipi vmexit_ipi_halt vmexit_mov_to_cr8
-               vmexit_cpuid vmexit_tscdeadline vmexit_tscdeadline_immed"
+      - TESTS="tsx-ctrl umip vmexit_cpuid vmexit_ipi vmexit_ipi_halt
+               vmexit_mov_from_cr8 vmexit_mov_to_cr8 vmexit_ple_round_robin
+               vmexit_tscdeadline vmexit_tscdeadline_immed vmexit_vmcall"
+      - ACCEL="kvm"
 
     - addons:
         apt_packages: gcc-arm-linux-gnueabihf qemu-system-arm
