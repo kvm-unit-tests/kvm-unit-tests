@@ -64,7 +64,7 @@ build-x86_64:
  - ./configure --arch=x86_64
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     ioapic-split ioapic smptest smptest3 vmexit_cpuid vmexit_mov_from_cr8
+     smptest smptest3 vmexit_cpuid vmexit_mov_from_cr8
      vmexit_mov_to_cr8 vmexit_inl_pmtimer  vmexit_ipi vmexit_ipi_halt
      vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed
      eventinj msr port80 setjmp syscall tsc rmap_chain umip intel_iommu
