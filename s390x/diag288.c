@@ -101,7 +101,7 @@ static void test_bite(void)
 		     "0:	nop\n"
 		     "		j	0b\n"
 		     "1:");
-	report("restart", true);
+	report(true, "restart");
 }
 
 int main(void)

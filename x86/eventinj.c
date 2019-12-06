@@ -226,7 +226,7 @@ int main(void)
 	asm volatile ("divl %3": "=a"(res)
 		      : "d"(0), "a"(1500), "m"(test_divider));
 	printf("Result is %d\n", res);
-	report("DE exception", res == 150);
+	report(res == 150, "DE exception");
 
 	/* generate soft exception (BP) that will fault on IDT and stack */
 	test_count = 0;
@@ -236,7 +236,7 @@ int main(void)
 	flush_stack();
 	asm volatile ("int $3");
 	printf("After int 3\n");
-	report("BP exception", test_count == 1);
+	report(test_count == 1, "BP exception");
 
 #ifndef __x86_64__
 	/* generate soft exception (OF) that will fault on IDT */
@@ -246,7 +246,7 @@ int main(void)
 	printf("Try into\n");
 	asm volatile ("addb $127, %b0\ninto"::"a"(127));
 	printf("After into\n");
-	report("OF exception", test_count == 1);
+	report(test_count == 1, "OF exception");
 
 	/* generate soft exception (OF) using two bit instruction that will
 	   fault on IDT */
@@ -256,7 +256,7 @@ int main(void)
 	printf("Try into\n");
 	asm volatile ("addb $127, %b0\naddr16 into"::"a"(127));
 	printf("After into\n");
-	report("2 byte OF exception", test_count == 1);
+	report(test_count == 1, "2 byte OF exception");
 #endif
 
 	/* generate HW interrupt that will fault on IDT */
@@ -268,7 +268,7 @@ int main(void)
 	io_delay();
 	irq_disable();
 	printf("After vec 33 to self\n");
-	report("vec 33", test_count == 1);
+	report(test_count == 1, "vec 33");
 
 	/* generate soft interrupt that will fault on IDT and stack */
 	test_count = 0;
@@ -277,7 +277,7 @@ int main(void)
 	flush_stack();
 	asm volatile ("int $33");
 	printf("After int $33\n");
-	report("int $33", test_count == 1);
+	report(test_count == 1, "int $33");
 
 	/* Inject two HW interrupt than open iterrupt windows. Both interrupt
 	   will fault on IDT access */
@@ -291,7 +291,7 @@ int main(void)
 	asm volatile("nop");
 	irq_disable();
 	printf("After vec 32 and 33 to self\n");
-	report("vec 32/33", test_count == 2);
+	report(test_count == 2, "vec 32/33");
 
 
 	/* Inject HW interrupt, do sti and than (while in irq shadow) inject
@@ -306,7 +306,7 @@ int main(void)
 	asm volatile ("sti; int $33");
 	irq_disable();
 	printf("After vec 32 and int $33\n");
-	report("vec 32/int $33", test_count == 2);
+	report(test_count == 2, "vec 32/int $33");
 
 	/* test that TPR is honored */
 	test_count = 0;
@@ -320,7 +320,7 @@ int main(void)
 	io_delay();
 	apic_write(APIC_TASKPRI, 0x2 << 4);
 	printf("After 33/62 TPR test\n");
-	report("TPR", test_count == 1);
+	report(test_count == 1, "TPR");
 	apic_write(APIC_TASKPRI, 0x0);
 	while(test_count != 2); /* wait for second irq */
 	irq_disable();
@@ -334,7 +334,7 @@ int main(void)
 	flush_stack();
 	asm volatile ("int $33");
 	printf("After int33\n");
-	report("NP exception", test_count == 2);
+	report(test_count == 2, "NP exception");
 
 	/* generate NMI that will fault on IDT */
 	test_count = 0;
@@ -349,7 +349,7 @@ int main(void)
 	irq_enable();
 	asm volatile ("nop");
 	irq_disable();
-	report("NMI", test_count == 2);
+	report(test_count == 2, "NMI");
 
 	/* generate NMI that will fault on IRET */
 	printf("Before NMI IRET test\n");
@@ -364,7 +364,7 @@ int main(void)
 	asm volatile ("nop");
 	irq_disable();
 	printf("After NMI to self\n");
-	report("NMI", test_count == 2);
+	report(test_count == 2, "NMI");
 	stack_phys = (ulong)virt_to_phys(alloc_page());
 	stack_va = alloc_vpage();
 
@@ -384,7 +384,7 @@ int main(void)
 		      : "d"(0), "a"(1500), "m"(test_divider));
 	restore_stack();
 	printf("Result is %d\n", res);
-	report("DE PF exceptions", res == 150);
+	report(res == 150, "DE PF exceptions");
 
 	/* Generate NP and PF exceptions serially */
 	printf("Before NP test\n");
@@ -402,7 +402,7 @@ int main(void)
 	asm volatile ("int $33");
 	restore_stack();
 	printf("After int33\n");
-	report("NP PF exceptions", test_count == 2);
+	report(test_count == 2, "NP PF exceptions");
 
 	pt = alloc_page();
 	cr3 = (void*)read_cr3();
@@ -426,7 +426,7 @@ int main(void)
 	asm volatile("int $33");
 	restore_stack();
 	printf("After int 33 with shadowed stack\n");
-	report("int 33 with shadowed stack", test_count == 1);
+	report(test_count == 1, "int 33 with shadowed stack");
 
 	return report_summary();
 }

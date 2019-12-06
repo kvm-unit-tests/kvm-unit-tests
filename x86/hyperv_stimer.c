@@ -96,7 +96,7 @@ static void process_stimer_msg(struct svcpu *svcpu,
 
     if (msg->header.message_type != HVMSG_TIMER_EXPIRED &&
         msg->header.message_type != HVMSG_NONE) {
-        report("invalid Hyper-V SynIC msg type", false);
+        report(false, "invalid Hyper-V SynIC msg type");
         report_summary();
         abort();
     }
@@ -106,7 +106,7 @@ static void process_stimer_msg(struct svcpu *svcpu,
     }
 
     if (msg->header.payload_size < sizeof(*payload)) {
-        report("invalid Hyper-V SynIC msg payload size", false);
+        report(false, "invalid Hyper-V SynIC msg payload size");
         report_summary();
         abort();
     }
@@ -114,7 +114,7 @@ static void process_stimer_msg(struct svcpu *svcpu,
     /* Now process timer expiration message */
 
     if (payload->timer_index >= ARRAY_SIZE(svcpu->timer)) {
-        report("invalid Hyper-V SynIC timer index", false);
+        report(false, "invalid Hyper-V SynIC timer index");
         report_summary();
         abort();
     }
@@ -234,7 +234,7 @@ static void stimer_test_periodic(int vcpu, struct stimer *timer1,
            (atomic_read(&timer2->fire_count) < 1000)) {
         pause();
     }
-    report("Hyper-V SynIC periodic timers test vcpu %d", true, vcpu);
+    report(true, "Hyper-V SynIC periodic timers test vcpu %d", vcpu);
     stimer_shutdown(timer1);
     stimer_shutdown(timer2);
 }
@@ -246,7 +246,7 @@ static void stimer_test_one_shot(int vcpu, struct stimer *timer)
     while (atomic_read(&timer->fire_count) < 1) {
         pause();
     }
-    report("Hyper-V SynIC one-shot test vcpu %d", true, vcpu);
+    report(true, "Hyper-V SynIC one-shot test vcpu %d", vcpu);
     stimer_shutdown(timer);
 }
 
@@ -257,7 +257,8 @@ static void stimer_test_auto_enable_one_shot(int vcpu, struct stimer *timer)
     while (atomic_read(&timer->fire_count) < 1) {
         pause();
     }
-    report("Hyper-V SynIC auto-enable one-shot timer test vcpu %d", true, vcpu);
+    report(true, "Hyper-V SynIC auto-enable one-shot timer test vcpu %d",
+           vcpu);
     stimer_shutdown(timer);
 }
 
@@ -268,7 +269,8 @@ static void stimer_test_auto_enable_periodic(int vcpu, struct stimer *timer)
     while (atomic_read(&timer->fire_count) < 1000) {
         pause();
     }
-    report("Hyper-V SynIC auto-enable periodic timer test vcpu %d", true, vcpu);
+    report(true, "Hyper-V SynIC auto-enable periodic timer test vcpu %d",
+           vcpu);
     stimer_shutdown(timer);
 }
 
@@ -286,8 +288,8 @@ static void stimer_test_one_shot_busy(int vcpu, struct stimer *timer)
         rmb();
     while (!msg->header.message_flags.msg_pending);
 
-    report("no timer fired while msg slot busy: vcpu %d",
-           !atomic_read(&timer->fire_count), vcpu);
+    report(!atomic_read(&timer->fire_count),
+           "no timer fired while msg slot busy: vcpu %d", vcpu);
 
     msg->header.message_type = HVMSG_NONE;
     wmb();
@@ -296,7 +298,7 @@ static void stimer_test_one_shot_busy(int vcpu, struct stimer *timer)
     while (atomic_read(&timer->fire_count) < 1) {
         pause();
     }
-    report("timer resumed when msg slot released: vcpu %d", true, vcpu);
+    report(true, "timer resumed when msg slot released: vcpu %d", vcpu);
 
     stimer_shutdown(timer);
 }
@@ -354,17 +356,17 @@ int main(int ac, char **av)
 {
 
     if (!synic_supported()) {
-        report("Hyper-V SynIC is not supported", true);
+        report(true, "Hyper-V SynIC is not supported");
         goto done;
     }
 
     if (!stimer_supported()) {
-        report("Hyper-V SynIC timers are not supported", true);
+        report(true, "Hyper-V SynIC timers are not supported");
         goto done;
     }
 
     if (!hv_time_ref_counter_supported()) {
-        report("Hyper-V time reference counter is not supported", true);
+        report(true, "Hyper-V time reference counter is not supported");
         goto done;
     }
 

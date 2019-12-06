@@ -292,36 +292,36 @@ int main(int ac, char **av)
 		on_cpu(i, setup_cpu, (void *)read_cr3());
 
 	ncpus_ok = run_test(ncpus, 0, WAIT_CYCLES, do_msg, msg_ok);
-	report("send message to self: %d/%d",
-	       ncpus_ok == ncpus, ncpus_ok, ncpus);
+	report(ncpus_ok == ncpus, "send message to self: %d/%d", ncpus_ok,
+	       ncpus);
 
 	run_test(ncpus, 0, 0, clear_msg, NULL);
 
 	ncpus_ok = run_test(ncpus, 1, WAIT_CYCLES, do_msg, msg_ok);
-	report("send message to another cpu: %d/%d",
-	       ncpus_ok == ncpus, ncpus_ok, ncpus);
+	report(ncpus_ok == ncpus, "send message to another cpu: %d/%d",
+	       ncpus_ok, ncpus);
 
 	ncpus_ok = run_test(ncpus, 1, WAIT_CYCLES, do_msg, msg_busy);
-	report("send message to busy slot: %d/%d",
-	       ncpus_ok == ncpus, ncpus_ok, ncpus);
+	report(ncpus_ok == ncpus, "send message to busy slot: %d/%d",
+	       ncpus_ok, ncpus);
 
 	ncpus_ok = run_test(ncpus, 0, WAIT_CYCLES, clear_msg, msg_ok);
-	report("receive pending message: %d/%d",
-	       ncpus_ok == ncpus, ncpus_ok, ncpus);
+	report(ncpus_ok == ncpus, "receive pending message: %d/%d", ncpus_ok,
+	       ncpus);
 
 	ncpus_ok = run_test(ncpus, 0, WAIT_CYCLES, do_evt, evt_ok);
-	report("signal event on self: %d/%d",
-	       ncpus_ok == ncpus, ncpus_ok, ncpus);
+	report(ncpus_ok == ncpus, "signal event on self: %d/%d", ncpus_ok,
+	       ncpus);
 
 	run_test(ncpus, 0, 0, clear_evt, NULL);
 
 	ncpus_ok = run_test(ncpus, 1, WAIT_CYCLES, do_evt, evt_ok);
-	report("signal event on another cpu: %d/%d",
-	       ncpus_ok == ncpus, ncpus_ok, ncpus);
+	report(ncpus_ok == ncpus, "signal event on another cpu: %d/%d",
+	       ncpus_ok, ncpus);
 
 	ncpus_ok = run_test(ncpus, 1, WAIT_CYCLES, do_evt, evt_busy);
-	report("signal event already set: %d/%d",
-	       ncpus_ok == ncpus, ncpus_ok, ncpus);
+	report(ncpus_ok == ncpus, "signal event already set: %d/%d", ncpus_ok,
+	       ncpus);
 
 	for (i = 0; i < ncpus; i++)
 		on_cpu(i, teardown_cpu, NULL);

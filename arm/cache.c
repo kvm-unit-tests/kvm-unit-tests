@@ -88,7 +88,7 @@ static void check_code_generation(bool dcache_clean, bool icache_inval)
 		success &= (ret == 0x66);
 	}
 
-	report("code generation", success);
+	report(success, "code generation");
 }
 
 int main(int argc, char **argv)

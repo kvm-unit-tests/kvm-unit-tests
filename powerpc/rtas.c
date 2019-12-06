@@ -45,21 +45,21 @@ static void check_get_time_of_day(unsigned long start)
 	unsigned long t1, t2, count;
 
 	ret = rtas_token("get-time-of-day", &token);
-	report("token available", ret == 0);
+	report(ret == 0, "token available");
 	if (ret)
 		return;
 
 	ret = rtas_call(token, 0, 8, now);
-	report("execution", ret == 0);
+	report(ret == 0, "execution");
 
-	report("second",  now[5] >= 0 && now[5] <= 59);
-	report("minute", now[4] >= 0 && now[4] <= 59);
-	report("hour", now[3] >= 0 && now[3] <= 23);
-	report("day", now[2] >= 1 && now[2] <= 31);
-	report("month", now[1] >= 1 && now[1] <= 12);
-	report("year", now[0] >= 1970);
-	report("accuracy (< 3s)", mktime(now[0], now[1], now[2],
-					 now[3], now[4], now[5]) - start < 3);
+	report(now[5] >= 0 && now[5] <= 59, "second");
+	report(now[4] >= 0 && now[4] <= 59, "minute");
+	report(now[3] >= 0 && now[3] <= 23, "hour");
+	report(now[2] >= 1 && now[2] <= 31, "day");
+	report(now[1] >= 1 && now[1] <= 12, "month");
+	report(now[0] >= 1970, "year");
+	report(mktime(now[0], now[1], now[2], now[3], now[4], now[5]) - start < 3,
+	       "accuracy (< 3s)");
 
 	ret = rtas_call(token, 0, 8, now);
 	t1 = mktime(now[0], now[1], now[2], now[3], now[4], now[5]);
@@ -69,7 +69,7 @@ static void check_get_time_of_day(unsigned long start)
 		t2 = mktime(now[0], now[1], now[2], now[3], now[4], now[5]);
 		count++;
 	} while (t1 + DELAY > t2 && count < MAX_LOOP);
-	report("running", t1 + DELAY <= t2);
+	report(t1 + DELAY <= t2, "running");
 }
 
 static void check_set_time_of_day(void)
@@ -80,24 +80,24 @@ static void check_set_time_of_day(void)
 	unsigned long t1, t2, count;
 
 	ret = rtas_token("set-time-of-day", &stod_token);
-	report("token available", ret == 0);
+	report(ret == 0, "token available");
 	if (ret)
 		return;
 
 	/* 23:59:59 28/2/2000 */
 
 	ret = rtas_call(stod_token, 7, 1, NULL, 2000, 2, 28, 23, 59, 59);
-	report("execution", ret == 0);
+	report(ret == 0, "execution");
 
 	/* check it has worked */
 	ret = rtas_token("get-time-of-day", &gtod_token);
 	assert(ret == 0);
 	ret = rtas_call(gtod_token, 0, 8, date);
-	report("re-read", ret == 0);
+	report(ret == 0, "re-read");
 	t1 = mktime(2000, 2, 28, 23, 59, 59);
 	t2 = mktime(date[0], date[1], date[2],
 		    date[3], date[4], date[5]);
-	report("result", t2 - t1 < 2);
+	report(t2 - t1 < 2, "result");
 
 	/* check it is running */
 	count = 0;
@@ -107,7 +107,7 @@ static void check_set_time_of_day(void)
 			    date[3], date[4], date[5]);
 		count++;
 	} while (t1 + DELAY > t2 && count < MAX_LOOP);
-	report("running", t1 + DELAY <= t2);
+	report(t1 + DELAY <= t2, "running");
 }
 
 int main(int argc, char **argv)

@@ -38,22 +38,22 @@ int main(int ac, char **av)
 	return 0;
     }
 
-    report("TSX_CTRL should be 0", rdmsr(MSR_IA32_TSX_CTRL) == 0);
-    report("Transactions do not abort", try_transaction());
+    report(rdmsr(MSR_IA32_TSX_CTRL) == 0, "TSX_CTRL should be 0");
+    report(try_transaction(), "Transactions do not abort");
 
     wrmsr(MSR_IA32_TSX_CTRL, TSX_CTRL_CPUID_CLEAR);
-    report("TSX_CTRL hides RTM", !this_cpu_has(X86_FEATURE_RTM));
-    report("TSX_CTRL hides HLE", !this_cpu_has(X86_FEATURE_HLE));
+    report(!this_cpu_has(X86_FEATURE_RTM), "TSX_CTRL hides RTM");
+    report(!this_cpu_has(X86_FEATURE_HLE), "TSX_CTRL hides HLE");
 
     /* Microcode might hide HLE unconditionally */
     wrmsr(MSR_IA32_TSX_CTRL, 0);
-    report("TSX_CTRL=0 unhides RTM", this_cpu_has(X86_FEATURE_RTM));
+    report(this_cpu_has(X86_FEATURE_RTM), "TSX_CTRL=0 unhides RTM");
 
     wrmsr(MSR_IA32_TSX_CTRL, TSX_CTRL_RTM_DISABLE);
-    report("TSX_CTRL causes transactions to abort", !try_transaction());
+    report(!try_transaction(), "TSX_CTRL causes transactions to abort");
 
     wrmsr(MSR_IA32_TSX_CTRL, 0);
-    report("TSX_CTRL=0 causes transactions to succeed", try_transaction());
+    report(try_transaction(), "TSX_CTRL=0 causes transactions to succeed");
 
     return report_summary();
 }

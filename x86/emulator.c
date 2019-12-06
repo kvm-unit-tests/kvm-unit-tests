@@ -42,7 +42,7 @@ static void test_stringio(void)
 		     : : "i"((short)TESTDEV_IO_PORT),
 		       "S"(st1), "c"(sizeof(st1) - 1));
 	asm volatile("inb %1, %0\n\t" : "=a"(r) : "i"((short)TESTDEV_IO_PORT));
-	report("outsb up", r == st1[sizeof(st1) - 2]); /* last char */
+	report(r == st1[sizeof(st1) - 2], "outsb up"); /* last char */
 
 	asm volatile("std \n\t"
 		     "movw %0, %%dx \n\t"
@@ -51,7 +51,7 @@ static void test_stringio(void)
 		       "S"(st1 + sizeof(st1) - 2), "c"(sizeof(st1) - 1));
 	asm volatile("cld \n\t" : : );
 	asm volatile("in %1, %0\n\t" : "=a"(r) : "i"((short)TESTDEV_IO_PORT));
-	report("outsb down", r == st1[0]);
+	report(r == st1[0], "outsb down");
 }
 
 static void test_cmps_one(unsigned char *m1, unsigned char *m3)
@@ -64,67 +64,68 @@ static void test_cmps_one(unsigned char *m1, unsigned char *m3)
 		     "repe/cmpsb"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
-	report("repe/cmpsb (1)", rcx == 0 && rsi == m1 + 30 && rdi == m3 + 30);
+	report(rcx == 0 && rsi == m1 + 30 && rdi == m3 + 30, "repe/cmpsb (1)");
 
 	rsi = m1; rdi = m3; rcx = 30;
 	asm volatile("or $1, %[tmp]\n\t" // clear ZF
 		     "repe/cmpsb"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
-	report("repe/cmpsb (1.zf)", rcx == 0 && rsi == m1 + 30 && rdi == m3 + 30);
+	report(rcx == 0 && rsi == m1 + 30 && rdi == m3 + 30,
+	       "repe/cmpsb (1.zf)");
 
 	rsi = m1; rdi = m3; rcx = 15;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
 		     "repe/cmpsw"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
-	report("repe/cmpsw (1)", rcx == 0 && rsi == m1 + 30 && rdi == m3 + 30);
+	report(rcx == 0 && rsi == m1 + 30 && rdi == m3 + 30, "repe/cmpsw (1)");
 
 	rsi = m1; rdi = m3; rcx = 7;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
 		     "repe/cmpsl"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
-	report("repe/cmpll (1)", rcx == 0 && rsi == m1 + 28 && rdi == m3 + 28);
+	report(rcx == 0 && rsi == m1 + 28 && rdi == m3 + 28, "repe/cmpll (1)");
 
 	rsi = m1; rdi = m3; rcx = 4;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
 		     "repe/cmpsq"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
-	report("repe/cmpsq (1)", rcx == 0 && rsi == m1 + 32 && rdi == m3 + 32);
+	report(rcx == 0 && rsi == m1 + 32 && rdi == m3 + 32, "repe/cmpsq (1)");
 
 	rsi = m1; rdi = m3; rcx = 130;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
 		     "repe/cmpsb"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
-	report("repe/cmpsb (2)",
-	       rcx == 29 && rsi == m1 + 101 && rdi == m3 + 101);
+	report(rcx == 29 && rsi == m1 + 101 && rdi == m3 + 101,
+	       "repe/cmpsb (2)");
 
 	rsi = m1; rdi = m3; rcx = 65;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
 		     "repe/cmpsw"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
-	report("repe/cmpsw (2)",
-	       rcx == 14 && rsi == m1 + 102 && rdi == m3 + 102);
+	report(rcx == 14 && rsi == m1 + 102 && rdi == m3 + 102,
+	       "repe/cmpsw (2)");
 
 	rsi = m1; rdi = m3; rcx = 32;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
 		     "repe/cmpsl"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
-	report("repe/cmpll (2)",
-	       rcx == 6 && rsi == m1 + 104 && rdi == m3 + 104);
+	report(rcx == 6 && rsi == m1 + 104 && rdi == m3 + 104,
+	       "repe/cmpll (2)");
 
 	rsi = m1; rdi = m3; rcx = 16;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
 		     "repe/cmpsq"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
-	report("repe/cmpsq (2)",
-	       rcx == 3 && rsi == m1 + 104 && rdi == m3 + 104);
+	report(rcx == 3 && rsi == m1 + 104 && rdi == m3 + 104,
+	       "repe/cmpsq (2)");
 
 }
 
@@ -150,35 +151,35 @@ static void test_scas(void *mem)
 
     di = mem;
     asm ("scasb; setz %0" : "=rm"(z), "+D"(di) : "a"(0xff11));
-    report("scasb match", di == mem + 1 && z);
+    report(di == mem + 1 && z, "scasb match");
 
     di = mem;
     asm ("scasb; setz %0" : "=rm"(z), "+D"(di) : "a"(0xff54));
-    report("scasb mismatch", di == mem + 1 && !z);
+    report(di == mem + 1 && !z, "scasb mismatch");
 
     di = mem;
     asm ("scasw; setz %0" : "=rm"(z), "+D"(di) : "a"(0xff2211));
-    report("scasw match", di == mem + 2 && z);
+    report(di == mem + 2 && z, "scasw match");
 
     di = mem;
     asm ("scasw; setz %0" : "=rm"(z), "+D"(di) : "a"(0xffdd11));
-    report("scasw mismatch", di == mem + 2 && !z);
+    report(di == mem + 2 && !z, "scasw mismatch");
 
     di = mem;
     asm ("scasl; setz %0" : "=rm"(z), "+D"(di) : "a"(0xff44332211ul));
-    report("scasd match", di == mem + 4 && z);
+    report(di == mem + 4 && z, "scasd match");
 
     di = mem;
     asm ("scasl; setz %0" : "=rm"(z), "+D"(di) : "a"(0x45332211));
-    report("scasd mismatch", di == mem + 4 && !z);
+    report(di == mem + 4 && !z, "scasd mismatch");
 
     di = mem;
     asm ("scasq; setz %0" : "=rm"(z), "+D"(di) : "a"(0x77665544332211ul));
-    report("scasq match", di == mem + 8 && z);
+    report(di == mem + 8 && z, "scasq match");
 
     di = mem;
     asm ("scasq; setz %0" : "=rm"(z), "+D"(di) : "a"(3));
-    report("scasq mismatch", di == mem + 8 && !z);
+    report(di == mem + 8 && !z, "scasq mismatch");
 }
 
 static void test_cr8(void)
@@ -189,7 +190,7 @@ static void test_cr8(void)
 	src = 3;
 	asm volatile("mov %[src], %%cr8; mov %%cr8, %[dst]"
 		     : [dst]"+r"(dst), [src]"+r"(src));
-	report("mov %%cr8", dst == 3 && src == 3);
+	report(dst == 3 && src == 3, "mov %%cr8");
 }
 
 static void test_push(void *mem)
@@ -214,10 +215,10 @@ static void test_push(void *mem)
 		       [reg]"r"(-17l), [mem]"r"(&memw)
 		     : "memory");
 
-	report("push $imm8", stack_top[-1] == -7ul);
-	report("push %%reg", stack_top[-2] == -17ul);
-	report("push mem", stack_top[-3] == 0x123456789abcdeful);
-	report("push $imm", stack_top[-4] == -7070707);
+	report(stack_top[-1] == -7ul, "push $imm8");
+	report(stack_top[-2] == -17ul, "push %%reg");
+	report(stack_top[-3] == 0x123456789abcdeful, "push mem");
+	report(stack_top[-4] == -7070707, "push $imm");
 }
 
 static void test_pop(void *mem)
@@ -232,7 +233,7 @@ static void test_pop(void *mem)
 	asm volatile("pushq %[val] \n\t"
 		     "popq (%[mem])"
 		     : : [val]"m"(memw), [mem]"r"(mem) : "memory");
-	report("pop mem", *(unsigned long *)mem == memw);
+	report(*(unsigned long *)mem == memw, "pop mem");
 
 	memw = 7 - memw;
 	asm volatile("mov %%rsp, %[tmp] \n\t"
@@ -243,7 +244,7 @@ static void test_pop(void *mem)
 		     : [tmp]"=&r"(tmp), [tmp2]"=m"(tmp2)
 		     : [val]"r"(memw), [stack_top]"r"(stack_top)
 		     : "memory");
-	report("pop mem (2)", tmp2 == memw);
+	report(tmp2 == memw, "pop mem (2)");
 
 	memw = 129443 - memw;
 	asm volatile("mov %%rsp, %[tmp] \n\t"
@@ -254,7 +255,7 @@ static void test_pop(void *mem)
 		     : [tmp]"=&r"(tmp), [tmp2]"=r"(tmp2)
 		     : [val]"r"(memw), [stack_top]"r"(stack_top)
 		     : "memory");
-	report("pop reg", tmp2 == memw);
+	report(tmp2 == memw, "pop reg");
 
 	asm volatile("mov %%rsp, %[tmp] \n\t"
 		     "mov %[stack_top], %%rsp \n\t"
@@ -264,7 +265,7 @@ static void test_pop(void *mem)
 		     "1: mov %[tmp], %%rsp"
 		     : [tmp]"=&r"(tmp) : [stack_top]"r"(stack_top)
 		     : "memory");
-	report("ret", 1);
+	report(1, "ret");
 
 	stack_top[-1] = 0x778899;
 	asm volatile("mov %[stack_top], %%r8 \n\t"
@@ -277,7 +278,7 @@ static void test_pop(void *mem)
 		     "mov %%r8, %[tmp3]"
 		     : [tmp]"=&r"(tmp), [tmp3]"=&r"(tmp3) : [stack_top]"r"(stack_top-1)
 		     : "memory", "r8", "r9");
-	report("leave", tmp == (ulong)stack_top && tmp3 == 0x778899);
+	report(tmp == (ulong)stack_top && tmp3 == 0x778899, "leave");
 
 	rbp = 0xaa55aa55bb66bb66ULL;
 	rsp = (unsigned long)stack_top;
@@ -291,10 +292,10 @@ static void test_pop(void *mem)
 		     "xchg %%r8, %[rsp] \n\t"
 		     "xchg %%r9, %[rbp]"
 		     : [rsp]"+a"(rsp), [rbp]"+b"(rbp) : : "memory", "r8", "r9");
-	report("enter",
-	       rsp == (unsigned long)stack_top - 8 - 0x1238
+	report(rsp == (unsigned long)stack_top - 8 - 0x1238
 	       && rbp == (unsigned long)stack_top - 8
-	       && stack_top[-1] == 0xaa55aa55bb66bb66ULL);
+	       && stack_top[-1] == 0xaa55aa55bb66bb66ULL,
+	       "enter");
 }
 
 static void test_ljmp(void *mem)
@@ -307,7 +308,7 @@ static void test_ljmp(void *mem)
     asm volatile ("rex64/ljmp *%0"::"m"(*m));
     res = 0;
 jmpf:
-    report("ljmp", res);
+    report(res, "ljmp");
 }
 
 static void test_incdecnotneg(void *mem)
@@ -318,36 +319,36 @@ static void test_incdecnotneg(void *mem)
     *m = 0;
 
     asm volatile ("incl %0":"+m"(*m));
-    report("incl",  *m == 1);
+    report(*m == 1, "incl");
     asm volatile ("decl %0":"+m"(*m));
-    report("decl",  *m == 0);
+    report(*m == 0, "decl");
     asm volatile ("incb %0":"+m"(*m));
-    report("incb",  *m == 1);
+    report(*m == 1, "incb");
     asm volatile ("decb %0":"+m"(*m));
-    report("decb",  *m == 0);
+    report(*m == 0, "decb");
 
     asm volatile ("lock incl %0":"+m"(*m));
-    report("lock incl",  *m == 1);
+    report(*m == 1, "lock incl");
     asm volatile ("lock decl %0":"+m"(*m));
-    report("lock decl",  *m == 0);
+    report(*m == 0, "lock decl");
     asm volatile ("lock incb %0":"+m"(*m));
-    report("lock incb",  *m == 1);
+    report(*m == 1, "lock incb");
     asm volatile ("lock decb %0":"+m"(*m));
-    report("lock decb",  *m == 0);
+    report(*m == 0, "lock decb");
 
     *m = v;
 
     asm ("lock negq %0" : "+m"(*m)); v = -v;
-    report("lock negl", *m == v);
+    report(*m == v, "lock negl");
     asm ("lock notq %0" : "+m"(*m)); v = ~v;
-    report("lock notl", *m == v);
+    report(*m == v, "lock notl");
 
     *mb = vb;
 
     asm ("lock negb %0" : "+m"(*mb)); vb = -vb;
-    report("lock negb", *mb == vb);
+    report(*mb == vb, "lock negb");
     asm ("lock notb %0" : "+m"(*mb)); vb = ~vb;
-    report("lock notb", *mb == vb);
+    report(*mb == vb, "lock notb");
 }
 
 static void test_smsw(uint64_t *h_mem)
@@ -359,7 +360,7 @@ static void test_smsw(uint64_t *h_mem)
 	msw_orig = read_cr0();
 
 	asm("smsw %0" : "=r"(msw));
-	report("smsw (1)", msw == msw_orig);
+	report(msw == msw_orig, "smsw (1)");
 
 	memset(mem, 0, 16);
 	pmsw = (void *)mem;
@@ -368,13 +369,13 @@ static void test_smsw(uint64_t *h_mem)
 	for (i = 0; i < 8; ++i)
 		if (i != 4 && pmsw[i])
 			zero = 0;
-	report("smsw (2)", msw == pmsw[4] && zero);
+	report(msw == pmsw[4] && zero, "smsw (2)");
 
 	/* Trigger exit on smsw */
 	*h_mem = 0x12345678abcdeful;
 	asm volatile("smsw %0" : "+m"(*h_mem));
-	report("smsw (3)", msw == (unsigned short)*h_mem &&
-		(*h_mem & ~0xfffful) == 0x12345678ab0000ul);
+	report(msw == (unsigned short)*h_mem &&
+	       (*h_mem & ~0xfffful) == 0x12345678ab0000ul, "smsw (3)");
 }
 
 static void test_lmsw(void)
@@ -388,18 +389,18 @@ static void test_lmsw(void)
 	msw = cr0 ^ 8;
 	asm("lmsw %0" : : "r"(msw));
 	printf("before %lx after %lx\n", cr0, read_cr0());
-	report("lmsw (1)", (cr0 ^ read_cr0()) == 8);
+	report((cr0 ^ read_cr0()) == 8, "lmsw (1)");
 
 	pmsw = (void *)mem;
 	*pmsw = cr0;
 	asm("lmsw %0" : : "m"(*pmsw));
 	printf("before %lx after %lx\n", cr0, read_cr0());
-	report("lmsw (2)", cr0 == read_cr0());
+	report(cr0 == read_cr0(), "lmsw (2)");
 
 	/* lmsw can't clear cr0.pe */
 	msw = (cr0 & ~1ul) ^ 4;  /* change EM to force trap */
 	asm("lmsw %0" : : "r"(msw));
-	report("lmsw (3)", (cr0 ^ read_cr0()) == 4 && (cr0 & 1));
+	report((cr0 ^ read_cr0()) == 4 && (cr0 & 1), "lmsw (3)");
 
 	/* back to normal */
 	msw = cr0;
@@ -419,8 +420,8 @@ static void test_xchg(void *mem)
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
 		     : "memory", "rax");
-	report("xchg reg, r/m (1)",
-	       rax == 0xfedcba98765432ef && *memq == 0x123456789abcd10);
+	report(rax == 0xfedcba98765432ef && *memq == 0x123456789abcd10,
+	       "xchg reg, r/m (1)");
 
 	asm volatile("mov $0x123456789abcdef, %%rax\n\t"
 		     "mov %%rax, (%[memq])\n\t"
@@ -430,8 +431,8 @@ static void test_xchg(void *mem)
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
 		     : "memory", "rax");
-	report("xchg reg, r/m (2)",
-	       rax == 0xfedcba987654cdef && *memq == 0x123456789ab3210);
+	report(rax == 0xfedcba987654cdef && *memq == 0x123456789ab3210,
+	       "xchg reg, r/m (2)");
 
 	asm volatile("mov $0x123456789abcdef, %%rax\n\t"
 		     "mov %%rax, (%[memq])\n\t"
@@ -441,8 +442,8 @@ static void test_xchg(void *mem)
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
 		     : "memory", "rax");
-	report("xchg reg, r/m (3)",
-	       rax == 0x89abcdef && *memq == 0x123456776543210);
+	report(rax == 0x89abcdef && *memq == 0x123456776543210,
+	       "xchg reg, r/m (3)");
 
 	asm volatile("mov $0x123456789abcdef, %%rax\n\t"
 		     "mov %%rax, (%[memq])\n\t"
@@ -452,8 +453,8 @@ static void test_xchg(void *mem)
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
 		     : "memory", "rax");
-	report("xchg reg, r/m (4)",
-	       rax == 0x123456789abcdef && *memq == 0xfedcba9876543210);
+	report(rax == 0x123456789abcdef && *memq == 0xfedcba9876543210,
+	       "xchg reg, r/m (4)");
 }
 
 static void test_xadd(void *mem)
@@ -469,8 +470,8 @@ static void test_xadd(void *mem)
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
 		     : "memory", "rax");
-	report("xadd reg, r/m (1)",
-	       rax == 0xfedcba98765432ef && *memq == 0x123456789abcdff);
+	report(rax == 0xfedcba98765432ef && *memq == 0x123456789abcdff,
+	       "xadd reg, r/m (1)");
 
 	asm volatile("mov $0x123456789abcdef, %%rax\n\t"
 		     "mov %%rax, (%[memq])\n\t"
@@ -480,8 +481,8 @@ static void test_xadd(void *mem)
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
 		     : "memory", "rax");
-	report("xadd reg, r/m (2)",
-	       rax == 0xfedcba987654cdef && *memq == 0x123456789abffff);
+	report(rax == 0xfedcba987654cdef && *memq == 0x123456789abffff,
+	       "xadd reg, r/m (2)");
 
 	asm volatile("mov $0x123456789abcdef, %%rax\n\t"
 		     "mov %%rax, (%[memq])\n\t"
@@ -491,8 +492,8 @@ static void test_xadd(void *mem)
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
 		     : "memory", "rax");
-	report("xadd reg, r/m (3)",
-	       rax == 0x89abcdef && *memq == 0x1234567ffffffff);
+	report(rax == 0x89abcdef && *memq == 0x1234567ffffffff,
+	       "xadd reg, r/m (3)");
 
 	asm volatile("mov $0x123456789abcdef, %%rax\n\t"
 		     "mov %%rax, (%[memq])\n\t"
@@ -502,8 +503,8 @@ static void test_xadd(void *mem)
 		     : [rax]"=r"(rax)
 		     : [memq]"r"(memq)
 		     : "memory", "rax");
-	report("xadd reg, r/m (4)",
-	       rax == 0x123456789abcdef && *memq == 0xffffffffffffffff);
+	report(rax == 0x123456789abcdef && *memq == 0xffffffffffffffff,
+	       "xadd reg, r/m (4)");
 }
 
 static void test_btc(void *mem)
@@ -515,14 +516,14 @@ static void test_btc(void *mem)
 	asm ("btcl $32, %0" :: "m"(a[0]) : "memory");
 	asm ("btcl $1, %0" :: "m"(a[1]) : "memory");
 	asm ("btcl %1, %0" :: "m"(a[0]), "r"(66) : "memory");
-	report("btcl imm8, r/m", a[0] == 1 && a[1] == 2 && a[2] == 4);
+	report(a[0] == 1 && a[1] == 2 && a[2] == 4, "btcl imm8, r/m");
 
 	asm ("btcl %1, %0" :: "m"(a[3]), "r"(-1) : "memory");
-	report("btcl reg, r/m", a[0] == 1 && a[1] == 2 && a[2] == 0x80000004);
+	report(a[0] == 1 && a[1] == 2 && a[2] == 0x80000004, "btcl reg, r/m");
 
 	asm ("btcq %1, %0" : : "m"(a[2]), "r"(-1l) : "memory");
-	report("btcq reg, r/m", a[0] == 1 && a[1] == 0x80000002 &&
-		a[2] == 0x80000004 && a[3] == 0);
+	report(a[0] == 1 && a[1] == 0x80000002 && a[2] == 0x80000004 && a[3] == 0,
+	       "btcq reg, r/m");
 }
 
 static void test_bsfbsr(void *mem)
@@ -534,37 +535,37 @@ static void test_bsfbsr(void *mem)
 
 	*memw = 0xc000;
 	asm("bsfw %[mem], %[a]" : [a]"=a"(ax) : [mem]"m"(*memw));
-	report("bsfw r/m, reg", ax == 14);
+	report(ax == 14, "bsfw r/m, reg");
 
 	*meml = 0xc0000000;
 	asm("bsfl %[mem], %[a]" : [a]"=a"(eax) : [mem]"m"(*meml));
-	report("bsfl r/m, reg", eax == 30);
+	report(eax == 30, "bsfl r/m, reg");
 
 	*memq = 0xc00000000000;
 	asm("bsfq %[mem], %[a]" : [a]"=a"(rax) : [mem]"m"(*memq));
-	report("bsfq r/m, reg", rax == 46);
+	report(rax == 46, "bsfq r/m, reg");
 
 	*memq = 0;
 	asm("bsfq %[mem], %[a]; setz %[z]"
 	    : [a]"=a"(rax), [z]"=rm"(z) : [mem]"m"(*memq));
-	report("bsfq r/m, reg", z == 1);
+	report(z == 1, "bsfq r/m, reg");
 
 	*memw = 0xc000;
 	asm("bsrw %[mem], %[a]" : [a]"=a"(ax) : [mem]"m"(*memw));
-	report("bsrw r/m, reg", ax == 15);
+	report(ax == 15, "bsrw r/m, reg");
 
 	*meml = 0xc0000000;
 	asm("bsrl %[mem], %[a]" : [a]"=a"(eax) : [mem]"m"(*meml));
-	report("bsrl r/m, reg", eax == 31);
+	report(eax == 31, "bsrl r/m, reg");
 
 	*memq = 0xc00000000000;
 	asm("bsrq %[mem], %[a]" : [a]"=a"(rax) : [mem]"m"(*memq));
-	report("bsrq r/m, reg", rax == 47);
+	report(rax == 47, "bsrq r/m, reg");
 
 	*memq = 0;
 	asm("bsrq %[mem], %[a]; setz %[z]"
 	    : [a]"=a"(rax), [z]"=rm"(z) : [mem]"m"(*memq));
-	report("bsrq r/m, reg", z == 1);
+	report(z == 1, "bsrq r/m, reg");
 }
 
 static void test_imul(ulong *mem)
@@ -573,39 +574,39 @@ static void test_imul(ulong *mem)
 
     *mem = 51; a = 0x1234567812345678UL;
     asm ("imulw %1, %%ax" : "+a"(a) : "m"(*mem));
-    report("imul ax, mem", a == 0x12345678123439e8);
+    report(a == 0x12345678123439e8, "imul ax, mem");
 
     *mem = 51; a = 0x1234567812345678UL;
     asm ("imull %1, %%eax" : "+a"(a) : "m"(*mem));
-    report("imul eax, mem", a == 0xa06d39e8);
+    report(a == 0xa06d39e8, "imul eax, mem");
 
     *mem = 51; a = 0x1234567812345678UL;
     asm ("imulq %1, %%rax" : "+a"(a) : "m"(*mem));
-    report("imul rax, mem", a == 0xA06D39EBA06D39E8UL);
+    report(a == 0xA06D39EBA06D39E8UL, "imul rax, mem");
 
     *mem  = 0x1234567812345678UL; a = 0x8765432187654321L;
     asm ("imulw $51, %1, %%ax" : "+a"(a) : "m"(*mem));
-    report("imul ax, mem, imm8", a == 0x87654321876539e8);
+    report(a == 0x87654321876539e8, "imul ax, mem, imm8");
 
     *mem = 0x1234567812345678UL;
     asm ("imull $51, %1, %%eax" : "+a"(a) : "m"(*mem));
-    report("imul eax, mem, imm8", a == 0xa06d39e8);
+    report(a == 0xa06d39e8, "imul eax, mem, imm8");
 
     *mem = 0x1234567812345678UL;
     asm ("imulq $51, %1, %%rax" : "+a"(a) : "m"(*mem));
-    report("imul rax, mem, imm8", a == 0xA06D39EBA06D39E8UL);
+    report(a == 0xA06D39EBA06D39E8UL, "imul rax, mem, imm8");
 
     *mem  = 0x1234567812345678UL; a = 0x8765432187654321L;
     asm ("imulw $311, %1, %%ax" : "+a"(a) : "m"(*mem));
-    report("imul ax, mem, imm", a == 0x8765432187650bc8);
+    report(a == 0x8765432187650bc8, "imul ax, mem, imm");
 
     *mem = 0x1234567812345678UL;
     asm ("imull $311, %1, %%eax" : "+a"(a) : "m"(*mem));
-    report("imul eax, mem, imm", a == 0x1d950bc8);
+    report(a == 0x1d950bc8, "imul eax, mem, imm");
 
     *mem = 0x1234567812345678UL;
     asm ("imulq $311, %1, %%rax" : "+a"(a) : "m"(*mem));
-    report("imul rax, mem, imm", a == 0x1D950BDE1D950BC8L);
+    report(a == 0x1D950BDE1D950BC8L, "imul rax, mem, imm");
 }
 
 static void test_muldiv(long *mem)
@@ -616,26 +617,26 @@ static void test_muldiv(long *mem)
     *mem = 0; a = 1; d = 2;
     asm (ASM_TRY("1f") "divq %3; movb $0, %2; 1:"
 	 : "+a"(a), "+d"(d), "+q"(ex) : "m"(*mem));
-    report("divq (fault)", a == 1 && d == 2 && ex);
+    report(a == 1 && d == 2 && ex, "divq (fault)");
 
     *mem = 987654321098765UL; a = 123456789012345UL; d = 123456789012345UL;
     asm (ASM_TRY("1f") "divq %3; movb $0, %2; 1:"
 	 : "+a"(a), "+d"(d), "+q"(ex) : "m"(*mem));
-    report("divq (1)",
-	   a == 0x1ffffffb1b963b33ul && d == 0x273ba4384ede2ul && !ex);
+    report(a == 0x1ffffffb1b963b33ul && d == 0x273ba4384ede2ul && !ex,
+           "divq (1)");
     aa = 0x1111111111111111; dd = 0x2222222222222222;
     *mem = 0x3333333333333333; a = aa; d = dd;
     asm("mulb %2" : "+a"(a), "+d"(d) : "m"(*mem));
-    report("mulb mem", a == 0x1111111111110363 && d == dd);
+    report(a == 0x1111111111110363 && d == dd, "mulb mem");
     *mem = 0x3333333333333333; a = aa; d = dd;
     asm("mulw %2" : "+a"(a), "+d"(d) : "m"(*mem));
-    report("mulw mem", a == 0x111111111111c963 && d == 0x2222222222220369);
+    report(a == 0x111111111111c963 && d == 0x2222222222220369, "mulw mem");
     *mem = 0x3333333333333333; a = aa; d = dd;
     asm("mull %2" : "+a"(a), "+d"(d) : "m"(*mem));
-    report("mull mem", a == 0x962fc963 && d == 0x369d036);
+    report(a == 0x962fc963 && d == 0x369d036, "mull mem");
     *mem = 0x3333333333333333; a = aa; d = dd;
     asm("mulq %2" : "+a"(a), "+d"(d) : "m"(*mem));
-    report("mulq mem", a == 0x2fc962fc962fc963 && d == 0x369d0369d0369d0);
+    report(a == 0x2fc962fc962fc963 && d == 0x369d0369d0369d0, "mulq mem");
 }
 
 typedef unsigned __attribute__((vector_size(16))) sse128;
@@ -665,24 +666,24 @@ static __attribute__((target("sse"))) void test_sse(sse_union *mem)
     write_cr4(read_cr4() | 0x200); /* OSFXSR */
     v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
     asm("movdqu %1, %0" : "=m"(*mem) : "x"(v.sse));
-    report("movdqu (read)", sseeq(&v, mem));
+    report(sseeq(&v, mem), "movdqu (read)");
     mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
     asm("movdqu %1, %0" : "=x"(v.sse) : "m"(*mem));
-    report("movdqu (write)", sseeq(mem, &v));
+    report(sseeq(mem, &v), "movdqu (write)");
 
     v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
     asm("movaps %1, %0" : "=m"(*mem) : "x"(v.sse));
-    report("movaps (read)", sseeq(mem, &v));
+    report(sseeq(mem, &v), "movaps (read)");
     mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
     asm("movaps %1, %0" : "=x"(v.sse) : "m"(*mem));
-    report("movaps (write)", sseeq(&v, mem));
+    report(sseeq(&v, mem), "movaps (write)");
 
     v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
     asm("movapd %1, %0" : "=m"(*mem) : "x"(v.sse));
-    report("movapd (read)", sseeq(mem, &v));
+    report(sseeq(mem, &v), "movapd (read)");
     mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
     asm("movapd %1, %0" : "=x"(v.sse) : "m"(*mem));
-    report("movapd (write)", sseeq(&v, mem));
+    report(sseeq(&v, mem), "movapd (write)");
 }
 
 static void test_mmx(uint64_t *mem)
@@ -693,10 +694,10 @@ static void test_mmx(uint64_t *mem)
     asm volatile("fninit");
     v = 0x0102030405060708ULL;
     asm("movq %1, %0" : "=m"(*mem) : "y"(v));
-    report("movq (mmx, read)", v == *mem);
+    report(v == *mem, "movq (mmx, read)");
     *mem = 0x8070605040302010ull;
     asm("movq %1, %0" : "=y"(v) : "m"(*mem));
-    report("movq (mmx, write)", v == *mem);
+    report(v == *mem, "movq (mmx, write)");
 }
 
 static void test_rip_relative(unsigned *mem, char *insn_ram)
@@ -711,17 +712,17 @@ static void test_rip_relative(unsigned *mem, char *insn_ram)
 
     *mem = 0;
     asm("callq *%1" : "+m"(*mem) : "r"(insn_ram));
-    report("movb $imm, 0(%%rip)", *mem == 0x10000);
+    report(*mem == 0x10000, "movb $imm, 0(%%rip)");
 }
 
 static void test_shld_shrd(u32 *mem)
 {
     *mem = 0x12345678;
     asm("shld %2, %1, %0" : "+m"(*mem) : "r"(0xaaaaaaaaU), "c"((u8)3));
-    report("shld (cl)", *mem == ((0x12345678 << 3) | 5));
+    report(*mem == ((0x12345678 << 3) | 5), "shld (cl)");
     *mem = 0x12345678;
     asm("shrd %2, %1, %0" : "+m"(*mem) : "r"(0x55555555U), "c"((u8)3));
-    report("shrd (cl)", *mem == ((0x12345678 >> 3) | (5u << 29)));
+    report(*mem == ((0x12345678 >> 3) | (5u << 29)), "shrd (cl)");
 }
 
 static void test_cmov(u32 *mem)
@@ -733,7 +734,7 @@ static void test_cmov(u32 *mem)
 	     "cmovnel (%[mem]), %%eax\n\t"
 	     "movq %%rax, %[val]\n\t"
 	     : [val]"=r"(val) : [mem]"r"(mem) : "%rax", "cc");
-	report("cmovnel", val == 0x12345678ul);
+	report(val == 0x12345678ul, "cmovnel");
 }
 
 static unsigned long rip_advance;
@@ -760,7 +761,7 @@ static void test_mmx_movq_mf(uint64_t *mem)
     asm(KVM_FEP "movq_start: movq %mm0, (%rax); movq_end:");
     /* exit MMX mode */
     asm volatile("fnclex; emms");
-    report("movq mmx generates #MF", exceptions == 1);
+    report(exceptions == 1, "movq mmx generates #MF");
     handle_exception(MF_VECTOR, 0);
 }
 
@@ -774,7 +775,7 @@ static void test_jmp_noncanonical(uint64_t *mem)
 	rip_advance = &nc_jmp_end - &nc_jmp_start;
 	handle_exception(GP_VECTOR, advance_rip_and_note_exception);
 	asm volatile ("nc_jmp_start: jmp *%0; nc_jmp_end:" : : "m"(*mem));
-	report("jump to non-canonical address", exceptions == 1);
+	report(exceptions == 1, "jump to non-canonical address");
 	handle_exception(GP_VECTOR, 0);
 }
 
@@ -783,7 +784,7 @@ static void test_movabs(uint64_t *mem)
     /* mov $0x9090909090909090, %rcx */
     unsigned long rcx;
     asm(KVM_FEP "mov $0x9090909090909090, %0" : "=c" (rcx) : "0" (0));
-    report("64-bit mov imm2", rcx == 0x9090909090909090);
+    report(rcx == 0x9090909090909090, "64-bit mov imm2");
 }
 
 static void test_smsw_reg(uint64_t *mem)
@@ -793,14 +794,14 @@ static void test_smsw_reg(uint64_t *mem)
 	const unsigned long in_rax = 0x1234567890abcdeful;
 
 	asm(KVM_FEP "smsww %w0\n\t" : "=a" (rax) : "0" (in_rax));
-	report("16-bit smsw reg", (u16)rax == (u16)cr0 &&
-				  rax >> 16 == in_rax >> 16);
+	report((u16)rax == (u16)cr0 && rax >> 16 == in_rax >> 16,
+	       "16-bit smsw reg");
 
 	asm(KVM_FEP "smswl %k0\n\t" : "=a" (rax) : "0" (in_rax));
-	report("32-bit smsw reg", rax == (u32)cr0);
+	report(rax == (u32)cr0, "32-bit smsw reg");
 
 	asm(KVM_FEP "smswq %q0\n\t" : "=a" (rax) : "0" (in_rax));
-	report("64-bit smsw reg", rax == cr0);
+	report(rax == cr0, "64-bit smsw reg");
 }
 
 static void test_nop(uint64_t *mem)
@@ -808,7 +809,7 @@ static void test_nop(uint64_t *mem)
 	unsigned long rax;
 	const unsigned long in_rax = 0x1234567890abcdeful;
 	asm(KVM_FEP "nop\n\t" : "=a" (rax) : "0" (in_rax));
-	report("nop", rax == in_rax);
+	report(rax == in_rax, "nop");
 }
 
 static void test_mov_dr(uint64_t *mem)
@@ -819,7 +820,7 @@ static void test_mov_dr(uint64_t *mem)
 	unsigned long dr6_fixed_1 = rtm_support ? 0xfffe0ff0ul : 0xffff0ff0ul;
 	asm(KVM_FEP "movq %0, %%dr6\n\t"
 	    KVM_FEP "movq %%dr6, %0\n\t" : "=a" (rax) : "a" (in_rax));
-	report("mov_dr6", rax == dr6_fixed_1);
+	report(rax == dr6_fixed_1, "mov_dr6");
 }
 
 static void test_push16(uint64_t *mem)
@@ -834,7 +835,7 @@ static void test_push16(uint64_t *mem)
 			"movq %[rsp1], %%rsp\n\t" :
 			[rsp1]"=r"(rsp1), [rsp2]"=r"(rsp2), [r]"=r"(r)
 			: [v]"m"(*mem) : "memory");
-	report("push16", rsp1 == rsp2);
+	report(rsp1 == rsp2, "push16");
 }
 
 static void test_crosspage_mmio(volatile uint8_t *mem)
@@ -845,9 +846,9 @@ static void test_crosspage_mmio(volatile uint8_t *mem)
     mem[4095] = 0x99;
     mem[4096] = 0x77;
     asm volatile("mov %1, %0" : "=r"(w) : "m"(*pw) : "memory");
-    report("cross-page mmio read", w == 0x7799);
+    report(w == 0x7799, "cross-page mmio read");
     asm volatile("mov %1, %0" : "=m"(*pw) : "r"((uint16_t)0x88aa));
-    report("cross-page mmio write", mem[4095] == 0xaa && mem[4096] == 0x88);
+    report(mem[4095] == 0xaa && mem[4096] == 0x88, "cross-page mmio write");
 }
 
 static void test_string_io_mmio(volatile uint8_t *mem)
@@ -859,7 +860,7 @@ static void test_string_io_mmio(volatile uint8_t *mem)
 
 	asm volatile ("cld; rep insb" : : "d" (TESTDEV_IO_PORT), "D" (mmio), "c" (1024));
 
-	report("string_io_mmio", mmio[1023] == 0x99);
+	report(mmio[1023] == 0x99, "string_io_mmio");
 }
 
 /* kvm doesn't allow lidt/lgdt from mmio, so the test is disabled */
@@ -878,7 +879,8 @@ static void test_lgdt_lidt(volatile uint8_t *mem)
     sgdt(&fresh);
     lgdt(&orig);
     sti();
-    report("lgdt (long address)", orig.limit == fresh.limit && orig.base == fresh.base);
+    report(orig.limit == fresh.limit && orig.base == fresh.base,
+           "lgdt (long address)");
 
     sidt(&orig);
     *(struct descriptor_table_ptr *)mem = (struct descriptor_table_ptr) {
@@ -890,7 +892,8 @@ static void test_lgdt_lidt(volatile uint8_t *mem)
     sidt(&fresh);
     lidt(&orig);
     sti();
-    report("lidt (long address)", orig.limit == fresh.limit && orig.base == fresh.base);
+    report(orig.limit == fresh.limit && orig.base == fresh.base,
+           "lidt (long address)");
 }
 #endif
 
@@ -909,14 +912,15 @@ static void test_sreg(volatile uint16_t *mem)
     // check for null segment load
     *mem = 0;
     asm volatile("mov %0, %%ss" : : "m"(*mem));
-    report("mov null, %%ss", read_ss() == 0);
+    report(read_ss() == 0, "mov null, %%ss");
 
     // check for exception when ss.rpl != cpl on null segment load
     exceptions = 0;
     handle_exception(GP_VECTOR, ss_bad_rpl);
     *mem = 3;
     asm volatile("mov %0, %%ss; ss_bad_rpl_cont:" : : "m"(*mem));
-    report("mov null, %%ss (with ss.rpl != cpl)", exceptions == 1 && read_ss() == 0);
+    report(exceptions == 1 && read_ss() == 0,
+           "mov null, %%ss (with ss.rpl != cpl)");
     handle_exception(GP_VECTOR, 0);
     write_ss(ss);
 }
@@ -941,7 +945,7 @@ static void test_lldt(volatile uint16_t *mem)
     asm volatile("lldt %0" : : "m"(*mem));
     lgdt(&orig_gdt);
     sti();
-    report("lldt", sldt() == *mem);
+    report(sldt() == *mem, "lldt");
 }
 #endif
 
@@ -958,32 +962,32 @@ static void test_ltr(volatile uint16_t *mem)
     *trp &= ~busy_mask;
     *mem = tr;
     asm volatile("ltr %0" : : "m"(*mem) : "memory");
-    report("ltr", str() == tr && (*trp & busy_mask));
+    report(str() == tr && (*trp & busy_mask), "ltr");
 }
 
 static void test_simplealu(u32 *mem)
 {
     *mem = 0x1234;
     asm("or %1, %0" : "+m"(*mem) : "r"(0x8001));
-    report("or", *mem == 0x9235);
+    report(*mem == 0x9235, "or");
     asm("add %1, %0" : "+m"(*mem) : "r"(2));
-    report("add", *mem == 0x9237);
+    report(*mem == 0x9237, "add");
     asm("xor %1, %0" : "+m"(*mem) : "r"(0x1111));
-    report("xor", *mem == 0x8326);
+    report(*mem == 0x8326, "xor");
     asm("sub %1, %0" : "+m"(*mem) : "r"(0x26));
-    report("sub", *mem == 0x8300);
+    report(*mem == 0x8300, "sub");
     asm("clc; adc %1, %0" : "+m"(*mem) : "r"(0x100));
-    report("adc(0)", *mem == 0x8400);
+    report(*mem == 0x8400, "adc(0)");
     asm("stc; adc %1, %0" : "+m"(*mem) : "r"(0x100));
-    report("adc(0)", *mem == 0x8501);
+    report(*mem == 0x8501, "adc(0)");
     asm("clc; sbb %1, %0" : "+m"(*mem) : "r"(0));
-    report("sbb(0)", *mem == 0x8501);
+    report(*mem == 0x8501, "sbb(0)");
     asm("stc; sbb %1, %0" : "+m"(*mem) : "r"(0));
-    report("sbb(1)", *mem == 0x8500);
+    report(*mem == 0x8500, "sbb(1)");
     asm("and %1, %0" : "+m"(*mem) : "r"(0xfe77));
-    report("and", *mem == 0x8400);
+    report(*mem == 0x8400, "and");
     asm("test %1, %0" : "+m"(*mem) : "r"(0xf000));
-    report("test", *mem == 0x8400);
+    report(*mem == 0x8400, "test");
 }
 
 static void illegal_movbe_handler(struct ex_regs *regs)
@@ -1005,7 +1009,7 @@ static void test_illegal_movbe(void)
 	handle_exception(UD_VECTOR, illegal_movbe_handler);
 	asm volatile(".byte 0x0f; .byte 0x38; .byte 0xf0; .byte 0xc0;\n\t"
 		     " bad_movbe_cont:" : : : "rax");
-	report("illegal movbe", exceptions == 1);
+	report(exceptions == 1, "illegal movbe");
 	handle_exception(UD_VECTOR, 0);
 }
 
@@ -1042,7 +1046,7 @@ int main(void)
 		     : [t2]"=r"(t2)
 		     : [t1]"r"(t1), [mem]"r"(mem)
 		     : "memory");
-	report("mov reg, r/m (1)", t2 == 0x123456789abcdef);
+	report(t2 == 0x123456789abcdef, "mov reg, r/m (1)");
 
 	test_simplealu(mem);
 	test_cmps(mem);

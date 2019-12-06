@@ -268,7 +268,7 @@ static void pmccntr64_test(void)
 	if (pmu_version == 0x3) {
 		if (ERRATA(9e3f7a296940)) {
 			write_sysreg(0xdead, PMCCNTR64);
-			report("pmccntr64", read_sysreg(PMCCNTR64) == 0xdead);
+			report(read_sysreg(PMCCNTR64) == 0xdead, "pmccntr64");
 		} else
 			report_skip("Skipping unsafe pmccntr64 test. Set ERRATA_9e3f7a296940=y to enable.");
 	}
@@ -297,9 +297,10 @@ int main(int argc, char *argv[])
 
 	report_prefix_push("pmu");
 
-	report("Control register", check_pmcr());
-	report("Monotonically increasing cycle count", check_cycles_increase());
-	report("Cycle/instruction ratio", check_cpi(cpi));
+	report(check_pmcr(), "Control register");
+	report(check_cycles_increase(),
+	       "Monotonically increasing cycle count");
+	report(check_cpi(cpi), "Cycle/instruction ratio");
 
 	pmccntr64_test();
 

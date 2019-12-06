@@ -29,7 +29,7 @@ static int invpcid_checking(unsigned long type, void *desc)
 static void test_cpuid_consistency(int pcid_enabled, int invpcid_enabled)
 {
     int passed = !(!pcid_enabled && invpcid_enabled);
-    report("CPUID consistency", passed);
+    report(passed, "CPUID consistency");
 }
 
 static void test_pcid_enabled(void)
@@ -56,7 +56,7 @@ static void test_pcid_enabled(void)
     passed = 1;
 
 report:
-    report("Test on PCID when enabled", passed);
+    report(passed, "Test on PCID when enabled");
 }
 
 static void test_pcid_disabled(void)
@@ -71,7 +71,7 @@ static void test_pcid_disabled(void)
     passed = 1;
 
 report:
-    report("Test on PCID when disabled", passed);
+    report(passed, "Test on PCID when disabled");
 }
 
 static void test_invpcid_enabled(void)
@@ -108,7 +108,7 @@ static void test_invpcid_enabled(void)
     passed = 1;
 
 report:
-    report("Test on INVPCID when enabled", passed);
+    report(passed, "Test on INVPCID when enabled");
 }
 
 static void test_invpcid_disabled(void)
@@ -123,7 +123,7 @@ static void test_invpcid_disabled(void)
     passed = 1;
 
 report:
-    report("Test on INVPCID when disabled", passed);
+    report(passed, "Test on INVPCID when disabled");
 }
 
 int main(int ac, char **av)

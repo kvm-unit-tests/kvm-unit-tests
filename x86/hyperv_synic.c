@@ -90,7 +90,7 @@ static void synic_test_prepare(void *ctx)
     }
     r = rdmsr(HV_X64_MSR_EOM);
     if (r != 0) {
-        report("Hyper-V SynIC test, EOM read %#" PRIx64, false, r);
+        report(false, "Hyper-V SynIC test, EOM read %#" PRIx64, r);
         return;
     }
 
@@ -177,7 +177,7 @@ int main(int ac, char **av)
             ok &= atomic_read(&isr_enter_count[i]) == 16;
         }
 
-        report("Hyper-V SynIC test", ok);
+        report(ok, "Hyper-V SynIC test");
     } else {
         printf("Hyper-V SynIC is not supported");
     }

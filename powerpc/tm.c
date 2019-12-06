@@ -127,7 +127,7 @@ static void test_h_cede_tm(int argc, char **argv)
 		mdelay(5);
 	}
 
-	report("H_CEDE TM", i == 500);
+	report(i == 500, "H_CEDE TM");
 }
 
 struct {
@@ -150,8 +150,8 @@ int main(int argc, char **argv)
 		report_skip("TM is not available");
 		goto done;
 	}
-	report("TM available in all 'ibm,pa-features' properties",
-	       cpus_with_tm == nr_cpus);
+	report(cpus_with_tm == nr_cpus,
+	       "TM available in all 'ibm,pa-features' properties");
 
 	all = argc == 1 || !strcmp(argv[1], "all");
 

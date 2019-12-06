@@ -291,7 +291,7 @@ static void test_run(struct test *test, struct vmcb *vmcb)
     } while (!test->finished(test));
     irq_enable();
 
-    report("%s", test->succeeded(test), test->name);
+    report(test->succeeded(test), "%s", test->name);
 }
 
 static bool smp_supported(void)
@@ -439,7 +439,7 @@ static void test_dr_intercept(struct test *test)
         }
 
         if (test->scratch != i) {
-            report("dr%u read intercept", false, i);
+            report(false, "dr%u read intercept", i);
             failcnt++;
         }
     }
@@ -475,7 +475,7 @@ static void test_dr_intercept(struct test *test)
         }
 
         if (test->scratch != i) {
-            report("dr%u write intercept", false, i);
+            report(false, "dr%u write intercept", i);
             failcnt++;
         }
     }
@@ -573,7 +573,7 @@ static void test_msr_intercept(struct test *test)
 
         /* Check that a read intercept occurred for MSR at msr_index */
         if (test->scratch != msr_index)
-            report("MSR 0x%lx read intercept", false, msr_index);
+            report(false, "MSR 0x%lx read intercept", msr_index);
 
         /*
          * Poor man approach to generate a value that
@@ -585,7 +585,7 @@ static void test_msr_intercept(struct test *test)
 
         /* Check that a write intercept occurred for MSR with msr_value */
         if (test->scratch != msr_value)
-            report("MSR 0x%lx write intercept", false, msr_index);
+            report(false, "MSR 0x%lx write intercept", msr_index);
     }
 
     test->scratch = -2;
@@ -860,7 +860,7 @@ static void test_ioio(struct test *test)
     return;
 
 fail:
-    report("stage %d", false, get_test_stage(test));
+    report(false, "stage %d", get_test_stage(test));
     test->scratch = -1;
 }
 
@@ -935,7 +935,7 @@ static void sel_cr0_bug_test(struct test *test)
      * are not in guest-mode anymore so we can't trigger an intercept.
      * Trigger a tripple-fault for now.
      */
-    report("sel_cr0 test. Can not recover from this - exiting", false);
+    report(false, "sel_cr0 test. Can not recover from this - exiting");
     exit(report_summary());
 }
 
@@ -1345,8 +1345,8 @@ static bool pending_event_finished(struct test *test)
     switch (get_test_stage(test)) {
     case 0:
         if (test->vmcb->control.exit_code != SVM_EXIT_INTR) {
-            report("VMEXIT not due to pending interrupt. Exit reason 0x%x",
-            false, test->vmcb->control.exit_code);
+            report(false, "VMEXIT not due to pending interrupt. Exit reason 0x%x",
+                   test->vmcb->control.exit_code);
             return true;
         }
 
@@ -1354,7 +1354,7 @@ static bool pending_event_finished(struct test *test)
         test->vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
 
         if (pending_event_guest_run) {
-            report("Guest ran before host received IPI\n", false);
+            report(false, "Guest ran before host received IPI\n");
             return true;
         }
 
@@ -1363,14 +1363,14 @@ static bool pending_event_finished(struct test *test)
         irq_disable();
 
         if (!pending_event_ipi_fired) {
-            report("Pending interrupt not dispatched after IRQ enabled\n", false);
+            report(false, "Pending interrupt not dispatched after IRQ enabled\n");
             return true;
         }
         break;
 
     case 1:
         if (!pending_event_guest_run) {
-            report("Guest did not resume when no interrupt\n", false);
+            report(false, "Guest did not resume when no interrupt\n");
             return true;
         }
         break;

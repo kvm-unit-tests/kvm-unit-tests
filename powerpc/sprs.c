@@ -299,8 +299,9 @@ int main(int argc, char **argv)
 	puts("Checking SPRs...\n");
 	for (i = 0; i < 1024; i++) {
 		if (before[i] != 0 || after[i] != 0)
-			report("SPR %d:\t%#018lx <==> %#018lx",
-				before[i] == after[i], i, before[i], after[i]);
+			report(before[i] == after[i],
+			       "SPR %d:\t%#018lx <==> %#018lx", i, before[i],
+			       after[i]);
 	}
 
 	return report_summary();

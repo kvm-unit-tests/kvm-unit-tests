@@ -78,21 +78,21 @@ static void test_function_code(uint64_t addr)
 	uint64_t urc = 0;
 	int cc = sthyi((uint64_t)pagebuf, 42, &urc, 0, 2);
 
-	report("Illegal fcode", cc == 3 && urc == CODE_UNSUPP);
+	report(cc == 3 && urc == CODE_UNSUPP, "Illegal fcode");
 }
 
 static void test_fcode0_hdr(struct sthyi_hdr_sctn *hdr)
 {
 	report_prefix_push("Header");
 
-	report("length", hdr->INFHDLN >= sizeof(*hdr) && !(hdr->INFHDLN % 8));
-	report("Machine sctn length", (hdr->INFMLEN >= sizeof(struct sthyi_mach_sctn)
-				       && !(hdr->INFMLEN % 8)));
-	report("Partition section length", (hdr->INFPLEN >= sizeof(struct sthyi_par_sctn)
-					    && !(hdr->INFPLEN % 8)));
+	report(hdr->INFHDLN >= sizeof(*hdr) && !(hdr->INFHDLN % 8), "length");
+	report((hdr->INFMLEN >= sizeof(struct sthyi_mach_sctn) && !(hdr->INFMLEN % 8)),
+	       "Machine sctn length");
+	report((hdr->INFPLEN >= sizeof(struct sthyi_par_sctn) && !(hdr->INFPLEN % 8)),
+	       "Partition section length");
 
-	report("Machine offset", hdr->INFMOFF >= hdr->INFHDLN);
-	report("Partition offset", hdr->INFPOFF >= hdr->INFHDLN);
+	report(hdr->INFMOFF >= hdr->INFHDLN, "Machine offset");
+	report(hdr->INFPOFF >= hdr->INFHDLN, "Partition offset");
 	report_prefix_pop();
 }
 
@@ -102,18 +102,22 @@ static void test_fcode0_mach(struct sthyi_mach_sctn *mach)
 
 	report_prefix_push("Machine");
 	if (mach->INFMVAL1 & MACH_ID_VLD) {
-		report("type", memcmp(mach->INFMTYPE, null_buf, sizeof(mach->INFMTYPE)));
-		report("manufacturer", memcmp(mach->INFMMANU, null_buf, sizeof(mach->INFMMANU)));
-		report("sequence", memcmp(mach->INFMSEQ, null_buf, sizeof(mach->INFMSEQ)));
-		report("plant", memcmp(mach->INFMPMAN, null_buf, sizeof(mach->INFMPMAN)));
+		report(memcmp(mach->INFMTYPE, null_buf, sizeof(mach->INFMTYPE)),
+		       "type");
+		report(memcmp(mach->INFMMANU, null_buf, sizeof(mach->INFMMANU)),
+		       "manufacturer");
+		report(memcmp(mach->INFMSEQ, null_buf, sizeof(mach->INFMSEQ)),
+		       "sequence");
+		report(memcmp(mach->INFMPMAN, null_buf, sizeof(mach->INFMPMAN)),
+		       "plant");
 	}
 
 	if (mach->INFMVAL1 & MACH_NAME_VLD)
-		report("name", memcmp(mach->INFMNAME, null_buf,
-				      sizeof(mach->INFMNAME)));
+		report(memcmp(mach->INFMNAME, null_buf, sizeof(mach->INFMNAME)),
+		       "name");
 
 	if (mach->INFMVAL1 & MACH_CNT_VLD)
-		report("core counts", sum);
+		report(sum, "core counts");
 	report_prefix_pop();
 }
 
@@ -123,11 +127,12 @@ static void test_fcode0_par(struct sthyi_par_sctn *par)
 
 	report_prefix_push("Partition");
 	if (par->INFPVAL1 & PART_CNT_VLD)
-		report("core counts", sum);
+		report(sum, "core counts");
 
 	if (par->INFPVAL1 & PART_STSI_SUC) {
-		report("number", par->INFPPNUM);
-		report("name", memcmp(par->INFPPNAM, null_buf, sizeof(par->INFPPNAM)));
+		report(par->INFPPNUM, "number");
+		report(memcmp(par->INFPPNAM, null_buf, sizeof(par->INFPPNAM)),
+		       "name");
 	}
 	report_prefix_pop();
 }

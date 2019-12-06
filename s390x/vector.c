@@ -49,7 +49,7 @@ static void test_add(void)
 		     : [v3]  "=Q" (prm.c)
 		     : [v1]  "Q" (prm.a), [v2]  "Q" (prm.b)
 		     : "v0", "v1", "v2", "memory");
-	report("adding 21", prm.c == 42);
+	report(prm.c == 42, "adding 21");
 }
 
 /* z14 vector extension test */
@@ -75,7 +75,7 @@ static void test_ext1_nand(void)
 		     : [v3]  "=Q" (prm.c)
 		     : [v1]  "Q" (prm.a), [v2]  "Q" (prm.b)
 		     : "v0", "v1", "v2", "memory");
-	report("nand ff", !prm.c);
+	report(!prm.c, "nand ff");
 }
 
 /* z14 bcd extension test */
@@ -102,7 +102,7 @@ static void test_bcd_add(void)
 		     : [v3]  "=Q" (prm.c)
 		     : [v1]  "Q" (prm.a), [v2]  "Q" (prm.b)
 		     : "v0", "v1", "v2", "memory");
-	report("bcd add 21", prm.c == 0x42c);
+	report(prm.c == 0x42c, "bcd add 21");
 }
 
 static void init(void)

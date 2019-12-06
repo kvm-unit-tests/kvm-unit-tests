@@ -16,7 +16,7 @@ static void test_rdtscp(u64 aux)
 
        wrmsr(MSR_TSC_AUX, aux);
        rdtscp(&ecx);
-       report("Test RDTSCP %" PRIu64, ecx == aux, aux);
+       report(ecx == aux, "Test RDTSCP %" PRIu64, aux);
 }
 
 static void test_rdpid(u64 aux)
@@ -25,7 +25,7 @@ static void test_rdpid(u64 aux)
 
        wrmsr(MSR_TSC_AUX, aux);
        asm (".byte 0xf3, 0x0f, 0xc7, 0xf8" : "=a" (eax));
-       report("Test rdpid %%eax %" PRId64, eax == aux, aux);
+       report(eax == aux, "Test rdpid %%eax %" PRId64, aux);
 }
 
 int main(void)

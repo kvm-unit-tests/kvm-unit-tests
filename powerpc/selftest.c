@@ -28,13 +28,13 @@ static void check_setup(int argc, char **argv)
 			phys_addr_t memsize = PHYSICAL_END - PHYSICAL_START;
 			phys_addr_t expected = ((phys_addr_t)val)*1024*1024;
 
-			report("size = %" PRIu64 " MB", memsize == expected,
+			report(memsize == expected, "size = %" PRIu64 " MB",
 							memsize/1024/1024);
 			++nr_tests;
 
 		} else if (strcmp(argv[i], "smp") == 0) {
 
-			report("nr_cpus = %d", nr_cpus == (int)val, nr_cpus);
+			report(nr_cpus == (int)val, "nr_cpus = %d", nr_cpus);
 			++nr_tests;
 		}
 

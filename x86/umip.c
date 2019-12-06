@@ -73,18 +73,18 @@ static void test_umip_nogp(const char *msg)
     puts(msg);
 
     do_smsw();
-    report("no exception from smsw", gp_count == 0);
+    report(gp_count == 0, "no exception from smsw");
     do_sgdt();
-    report("no exception from sgdt", gp_count == 0);
+    report(gp_count == 0, "no exception from sgdt");
     do_sidt();
-    report("no exception from sidt", gp_count == 0);
+    report(gp_count == 0, "no exception from sidt");
     do_sldt();
-    report("no exception from sldt", gp_count == 0);
+    report(gp_count == 0, "no exception from sldt");
     do_str();
-    report("no exception from str", gp_count == 0);
+    report(gp_count == 0, "no exception from str");
     if (read_cs() & 3) {
         do_movcr();
-        report("exception from mov %%cr0, %%eax", gp_count == 1);
+        report(gp_count == 1, "exception from mov %%cr0, %%eax");
     }
 }
 
@@ -95,19 +95,19 @@ static void test_umip_gp(const char *msg)
 #if 0
     /* Skip this, because it cannot be emulated correctly.  */
     do_smsw();
-    report("exception from smsw", gp_count == 1);
+    report(gp_count == 1, "exception from smsw");
 #endif
     do_sgdt();
-    report("exception from sgdt", gp_count == 1);
+    report(gp_count == 1, "exception from sgdt");
     do_sidt();
-    report("exception from sidt", gp_count == 1);
+    report(gp_count == 1, "exception from sidt");
     do_sldt();
-    report("exception from sldt", gp_count == 1);
+    report(gp_count == 1, "exception from sldt");
     do_str();
-    report("exception from str", gp_count == 1);
+    report(gp_count == 1, "exception from str");
     if (read_cs() & 3) {
         do_movcr();
-        report("exception from mov %%cr0, %%eax", gp_count == 1);
+        report(gp_count == 1, "exception from mov %%cr0, %%eax");
     }
 }
 

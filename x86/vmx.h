@@ -844,7 +844,7 @@ void __abort_test(void);
 #define TEST_ASSERT(cond) \
 do { \
 	if (!(cond)) { \
-		report("%s:%d: Assertion failed: %s", 0, \
+		report(0, "%s:%d: Assertion failed: %s", \
 		       __FILE__, __LINE__, #cond); \
 		dump_stack(); \
 		__abort_test(); \
@@ -855,7 +855,7 @@ do { \
 #define TEST_ASSERT_MSG(cond, fmt, args...) \
 do { \
 	if (!(cond)) { \
-		report("%s:%d: Assertion failed: %s\n" fmt, 0, \
+		report(0, "%s:%d: Assertion failed: %s\n" fmt, \
 		       __FILE__, __LINE__, #cond, ##args); \
 		dump_stack(); \
 		__abort_test(); \
@@ -872,9 +872,10 @@ do { \
 		char _bin_b[BINSTR_SZ]; \
 		binstr(_a, _bin_a); \
 		binstr(_b, _bin_b); \
-		report("%s:%d: %s failed: (%s) == (%s)\n" \
+		report(0, \
+		       "%s:%d: %s failed: (%s) == (%s)\n" \
 		       "\tLHS: %#018lx - %s - %lu\n" \
-		       "\tRHS: %#018lx - %s - %lu%s" fmt, 0, \
+		       "\tRHS: %#018lx - %s - %lu%s" fmt, \
 		       __FILE__, __LINE__, \
 		       assertion ? "Assertion" : "Expectation", a_str, b_str, \
 		       (unsigned long) _a, _bin_a, (unsigned long) _a, \

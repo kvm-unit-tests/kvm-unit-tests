@@ -88,7 +88,7 @@ static void check_acked(const char *testname, cpumask_t *mask)
 			}
 		}
 		if (nr_pass == nr_cpus) {
-			report("%s", !bad, testname);
+			report(!bad, "%s", testname);
 			if (i)
 				report_info("took more than %d ms", i * 100);
 			return;
@@ -107,7 +107,7 @@ static void check_acked(const char *testname, cpumask_t *mask)
 		}
 	}
 
-	report("%s", false, testname);
+	report(false, "%s", testname);
 	report_info("Timed-out (5s). ACKS: missing=%d extra=%d unexpected=%d",
 		    missing, extra, unexpected);
 }
@@ -354,7 +354,7 @@ static void test_typer_v2(uint32_t reg)
 	int nr_gic_cpus = ((reg >> 5) & 0x7) + 1;
 
 	report_info("nr_cpus=%d", nr_cpus);
-	report("all CPUs have interrupts", nr_cpus == nr_gic_cpus);
+	report(nr_cpus == nr_gic_cpus, "all CPUs have interrupts");
 }
 
 #define BYTE(reg32, byte) (((reg32) >> ((byte) * 8)) & 0xff)
@@ -373,7 +373,7 @@ static void test_byte_access(void *base_addr, u32 pattern, u32 mask)
 	bool res;
 
 	res = (reg == (BYTE(pattern, 1) & (mask >> 8)));
-	report("byte reads successful", res);
+	report(res, "byte reads successful");
 	if (!res)
 		report_info("byte 1 of 0x%08x => 0x%02x", pattern & mask, reg);
 
@@ -381,7 +381,7 @@ static void test_byte_access(void *base_addr, u32 pattern, u32 mask)
 	writeb(BYTE(pattern, 2), base_addr + 2);
 	reg = readl(base_addr);
 	res = (reg == (pattern & mask));
-	report("byte writes successful", res);
+	report(res, "byte writes successful");
 	if (!res)
 		report_info("writing 0x%02x into bytes 2 => 0x%08x",
 			    BYTE(pattern, 2), reg);
@@ -404,34 +404,34 @@ static void test_priorities(int nr_irqs, void *priptr)
 	pri_mask = readl(first_spi);
 
 	reg = ~pri_mask;
-	report("consistent priority masking",
-	       (((reg >> 16) == (reg & 0xffff)) &&
-	        ((reg & 0xff) == ((reg >> 8) & 0xff))));
+	report((((reg >> 16) == (reg & 0xffff)) &&
+	        ((reg & 0xff) == ((reg >> 8) & 0xff))),
+	       "consistent priority masking");
 	report_info("priority mask is 0x%08x", pri_mask);
 
 	reg = reg & 0xff;
 	for (pri_bits = 8; reg & 1; reg >>= 1, pri_bits--)
 		;
-	report("implements at least 4 priority bits", pri_bits >= 4);
+	report(pri_bits >= 4, "implements at least 4 priority bits");
 	report_info("%d priority bits implemented", pri_bits);
 
 	pattern = 0;
 	writel(pattern, first_spi);
-	report("clearing priorities", readl(first_spi) == pattern);
+	report(readl(first_spi) == pattern, "clearing priorities");
 
 	/* setting all priorities to their max valus was tested above */
 
-	report("accesses beyond limit RAZ/WI",
-	       test_readonly_32(priptr + nr_irqs, true));
+	report(test_readonly_32(priptr + nr_irqs, true),
+	       "accesses beyond limit RAZ/WI");
 
 	writel(pattern, priptr + nr_irqs - 4);
-	report("accessing last SPIs",
-	       readl(priptr + nr_irqs - 4) == (pattern & pri_mask));
+	report(readl(priptr + nr_irqs - 4) == (pattern & pri_mask),
+	       "accessing last SPIs");
 
 	pattern = 0xff7fbf3f;
 	writel(pattern, first_spi);
-	report("priorities are preserved",
-	       readl(first_spi) == (pattern & pri_mask));
+	report(readl(first_spi) == (pattern & pri_mask),
+	       "priorities are preserved");
 
 	/* The PRIORITY registers are byte accessible. */
 	test_byte_access(first_spi, pattern, pri_mask);
@@ -458,20 +458,20 @@ static void test_targets(int nr_irqs)
 	/* Check that bits for non implemented CPUs are RAZ/WI. */
 	if (nr_cpus < 8) {
 		writel(0xffffffff, targetsptr + GIC_FIRST_SPI);
-		report("bits for non-existent CPUs masked",
-		       !(readl(targetsptr + GIC_FIRST_SPI) & ~cpu_mask));
+		report(!(readl(targetsptr + GIC_FIRST_SPI) & ~cpu_mask),
+		       "bits for non-existent CPUs masked");
 		report_info("%d non-existent CPUs", 8 - nr_cpus);
 	} else {
 		report_skip("CPU masking (all CPUs implemented)");
 	}
 
-	report("accesses beyond limit RAZ/WI",
-	       test_readonly_32(targetsptr + nr_irqs, true));
+	report(test_readonly_32(targetsptr + nr_irqs, true),
+	       "accesses beyond limit RAZ/WI");
 
 	pattern = 0x0103020f;
 	writel(pattern, targetsptr + GIC_FIRST_SPI);
 	reg = readl(targetsptr + GIC_FIRST_SPI);
-	report("register content preserved", reg == (pattern & cpu_mask));
+	report(reg == (pattern & cpu_mask), "register content preserved");
 	if (reg != (pattern & cpu_mask))
 		report_info("writing %08x reads back as %08x",
 			    pattern & cpu_mask, reg);
@@ -509,13 +509,13 @@ static void gic_test_mmio(void)
 
 	report_info("IIDR: 0x%08x", readl(gic_dist_base + GICD_IIDR));
 
-	report("GICD_TYPER is read-only",
-	       test_readonly_32(gic_dist_base + GICD_TYPER, false));
-	report("GICD_IIDR is read-only",
-	       test_readonly_32(gic_dist_base + GICD_IIDR, false));
+	report(test_readonly_32(gic_dist_base + GICD_TYPER, false),
+               "GICD_TYPER is read-only");
+	report(test_readonly_32(gic_dist_base + GICD_IIDR, false),
+               "GICD_IIDR is read-only");
 
 	reg = readl(idreg);
-	report("ICPIDR2 is read-only", test_readonly_32(idreg, false));
+	report(test_readonly_32(idreg, false), "ICPIDR2 is read-only");
 	report_info("value of ICPIDR2: 0x%08x", reg);
 
 	test_priorities(nr_irqs, gic_dist_base + GICD_IPRIORITYR);

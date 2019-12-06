@@ -140,14 +140,14 @@ static void irq_handler(struct pt_regs *regs)
 	gic_write_eoir(irqstat);
 
 	if (irqnr == pl031_irq) {
-		report("  RTC RIS == 1", readl(&pl031->ris) == 1);
-		report("  RTC MIS == 1", readl(&pl031->mis) == 1);
+		report(readl(&pl031->ris) == 1, "  RTC RIS == 1");
+		report(readl(&pl031->mis) == 1, "  RTC MIS == 1");
 
 		/* Writing any value should clear IRQ status */
 		writel(0x80000000ULL, &pl031->icr);
 
-		report("  RTC RIS == 0", readl(&pl031->ris) == 0);
-		report("  RTC MIS == 0", readl(&pl031->mis) == 0);
+		report(readl(&pl031->ris) == 0, "  RTC RIS == 0");
+		report(readl(&pl031->mis) == 0, "  RTC MIS == 0");
 		irq_triggered = true;
 	} else {
 		report_info("Unexpected interrupt: %d\n", irqnr);
@@ -178,18 +178,18 @@ static int check_rtc_irq(void)
 	/* Wait until 2 seconds are over */
 	while (get_cntvct() < target_tick) ;
 
-	report("  RTC IRQ not delivered without mask", !gic_irq_pending());
+	report(!gic_irq_pending(), "  RTC IRQ not delivered without mask");
 
 	/* Mask the IRQ so that it gets delivered */
 	writel(1, &pl031->imsc);
-	report("  RTC IRQ pending now", gic_irq_pending());
+	report(gic_irq_pending(), "  RTC IRQ pending now");
 
 	/* Enable retrieval of IRQ */
 	gic_irq_unmask();
 	local_irq_enable();
 
-	report("  IRQ triggered", irq_triggered);
-	report("  RTC IRQ not pending anymore", !gic_irq_pending());
+	report(irq_triggered, "  IRQ triggered");
+	report(!gic_irq_pending(), "  RTC IRQ not pending anymore");
 	if (!irq_triggered) {
 		report_info("  RTC RIS: %x", readl(&pl031->ris));
 		report_info("  RTC MIS: %x", readl(&pl031->mis));
@@ -252,10 +252,10 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	report("Periph/PCell IDs match", !check_id());
-	report("R/O fields are R/O", !check_ro());
-	report("RTC ticks at 1HZ", !check_rtc_freq());
-	report("RTC IRQ not pending yet", !gic_irq_pending());
+	report(!check_id(), "Periph/PCell IDs match");
+	report(!check_ro(), "R/O fields are R/O");
+	report(!check_rtc_freq(), "RTC ticks at 1HZ");
+	report(!gic_irq_pending(), "RTC IRQ not pending yet");
 	check_rtc_irq();
 
 	return report_summary();

@@ -70,14 +70,16 @@ static void check_smap_nowp(void)
 
 	init_test(0);
 	USER_VAR(test) = 0x99;
-	report("write from user page with SMAP=0, AC=0, WP=0, PTE.U=1 && PTE.W=0", pf_count == 0);
+	report(pf_count == 0,
+	       "write from user page with SMAP=0, AC=0, WP=0, PTE.U=1 && PTE.W=0");
 
 	write_cr4(read_cr4() | X86_CR4_SMAP);
 	write_cr3(read_cr3());
 
 	init_test(0);
 	(void)USER_VAR(test);
-	report("read from user page with SMAP=1, AC=0, WP=0, PTE.U=1 && PTE.W=0", pf_count == 1 && save == 0x99);
+	report(pf_count == 1 && save == 0x99,
+	       "read from user page with SMAP=1, AC=0, WP=0, PTE.U=1 && PTE.W=0");
 
 	/* Undo changes */
 	*get_pte(phys_to_virt(read_cr3()), USER_ADDR(test)) |= PT_WRITABLE_MASK;
@@ -124,28 +126,32 @@ int main(int ac, char **av)
 		init_test(i);
 		clac();
 		test = 42;
-		report("write to supervisor page", pf_count == 0 && test == 42);
+		report(pf_count == 0 && test == 42,
+		       "write to supervisor page");
 
 		init_test(i);
 		stac();
 		(void)USER_VAR(test);
-		report("read from user page with AC=1", pf_count == 0);
+		report(pf_count == 0, "read from user page with AC=1");
 
 		init_test(i);
 		clac();
 		(void)USER_VAR(test);
-		report("read from user page with AC=0", pf_count == 1 && save == 42);
+		report(pf_count == 1 && save == 42,
+		       "read from user page with AC=0");
 
 		init_test(i);
 		stac();
 		save = 0;
 		USER_VAR(test) = 43;
-		report("write to user page with AC=1", pf_count == 0 && test == 43);
+		report(pf_count == 0 && test == 43,
+		       "write to user page with AC=1");
 
 		init_test(i);
 		clac();
 		USER_VAR(test) = 44;
-		report("read from user page with AC=0", pf_count == 1 && test == 44 && save == 43);
+		report(pf_count == 1 && test == 44 && save == 43,
+		       "read from user page with AC=0");
 
 		init_test(i);
 		stac();
@@ -156,7 +162,8 @@ int main(int ac, char **av)
 		    "and $~(" xstr(USER_BASE) "), %"R "sp \n"
 		    "pop %"R "ax\n"
 		    "movl %eax, test");
-		report("write to user stack with AC=1", pf_count == 0 && test == 44);
+		report(pf_count == 0 && test == 44,
+		       "write to user stack with AC=1");
 
 		init_test(i);
 		clac();
@@ -167,7 +174,8 @@ int main(int ac, char **av)
 		    "and $~(" xstr(USER_BASE) "), %"R "sp \n"
 		    "pop %"R "ax\n"
 		    "movl %eax, test");
-		report("write to user stack with AC=0", pf_count == 1 && test == 45 && save == -1);
+		report(pf_count == 1 && test == 45 && save == -1,
+		       "write to user stack with AC=0");
 
 		/* This would be trapped by SMEP */
 		init_test(i);
@@ -175,7 +183,7 @@ int main(int ac, char **av)
 		asm("jmp 1f + "xstr(USER_BASE)" \n"
 		    "1: jmp 2f - "xstr(USER_BASE)" \n"
 		    "2:");
-		report("executing on user page with AC=0", pf_count == 0);
+		report(pf_count == 0, "executing on user page with AC=0");
 	}
 
 	check_smap_nowp();

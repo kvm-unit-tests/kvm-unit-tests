@@ -27,8 +27,8 @@ int main(void)
 	if (ret == -1)
 		report_skip("No PCI test device");
 	else
-		report("PCI test device passed %d/%d tests",
-			ret >= NR_TESTS, ret > 0 ? ret : 0, NR_TESTS);
+		report(ret >= NR_TESTS, "PCI test device passed %d/%d tests",
+		       ret > 0 ? ret : 0, NR_TESTS);
 
 	return report_summary();
 }

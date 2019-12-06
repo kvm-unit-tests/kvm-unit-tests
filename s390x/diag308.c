@@ -29,12 +29,12 @@ static void test_priv(void)
 extern int diag308_load_reset(u64);
 static void test_subcode0(void)
 {
-	report("load modified clear done", diag308_load_reset(0));
+	report(diag308_load_reset(0), "load modified clear done");
 }
 
 static void test_subcode1(void)
 {
-	report("load normal reset done", diag308_load_reset(1));
+	report(diag308_load_reset(1), "load normal reset done");
 }
 
 /* Expect a specification exception when using an uneven register */

@@ -19,7 +19,7 @@ int main(int ac, char **av)
 	if (this_cpu_has(X86_FEATURE_RDPRU))
 		report_skip("RDPRU raises #UD");
 	else
-		report("RDPRU raises #UD", rdpru_checking() == UD_VECTOR);
+		report(rdpru_checking() == UD_VECTOR, "RDPRU raises #UD");
 
 	return report_summary();
 }

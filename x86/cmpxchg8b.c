@@ -14,7 +14,7 @@ static void test_cmpxchg8b(u32 *mem)
         "lock cmpxchg8b (%0)\n"
         "pop %%ebx" : : "D" (mem),
         "d" (2), "a" (1), "c" (4), [ebx_val] "i" (3) : "memory");
-    report("cmpxchg8b", mem[0] == 3 && mem[1] == 4);
+    report(mem[0] == 3 && mem[1] == 4, "cmpxchg8b");
 }
 
 int main(void)

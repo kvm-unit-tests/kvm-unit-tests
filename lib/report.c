@@ -104,18 +104,18 @@ static void va_report(const char *msg_fmt,
 	spin_unlock(&lock);
 }
 
-void report(const char *msg_fmt, bool pass, ...)
+void report(bool pass, const char *msg_fmt, ...)
 {
 	va_list va;
-	va_start(va, pass);
+	va_start(va, msg_fmt);
 	va_report(msg_fmt, pass, false, false, va);
 	va_end(va);
 }
 
-void report_xfail(const char *msg_fmt, bool xfail, bool pass, ...)
+void report_xfail(bool xfail, bool pass, const char *msg_fmt, ...)
 {
 	va_list va;
-	va_start(va, pass);
+	va_start(va, msg_fmt);
 	va_report(msg_fmt, pass, xfail, false, va);
 	va_end(va);
 }

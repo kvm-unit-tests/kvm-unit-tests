@@ -55,12 +55,12 @@ static inline void vmcall(void)
 
 static void basic_guest_main(void)
 {
-	report("Basic VMX test", 1);
+	report(1, "Basic VMX test");
 }
 
 static int basic_exit_handler(void)
 {
-	report("Basic VMX test", 0);
+	report(0, "Basic VMX test");
 	print_vmexit_info();
 	return VMX_TEST_EXIT;
 }
@@ -70,7 +70,7 @@ static void vmenter_main(void)
 	u64 rax;
 	u64 rsp, resume_rsp;
 
-	report("test vmlaunch", 1);
+	report(1, "test vmlaunch");
 
 	asm volatile(
 		"mov %%rsp, %0\n\t"
@@ -80,7 +80,7 @@ static void vmenter_main(void)
 		"mov %%rsp, %2\n\t"
 		: "=r"(rsp), "=r"(rax), "=r"(resume_rsp)
 		: "g"(0xABCD));
-	report("test vmresume", (rax == 0xFFFF) && (rsp == resume_rsp));
+	report((rax == 0xFFFF) && (rsp == resume_rsp), "test vmresume");
 }
 
 static int vmenter_exit_handler(void)
@@ -93,14 +93,14 @@ static int vmenter_exit_handler(void)
 	switch (reason) {
 	case VMX_VMCALL:
 		if (regs.rax != 0xABCD) {
-			report("test vmresume", 0);
+			report(0, "test vmresume");
 			return VMX_TEST_VMEXIT;
 		}
 		regs.rax = 0xFFFF;
 		vmcs_write(GUEST_RIP, guest_rip + 3);
 		return VMX_TEST_RESUME;
 	default:
-		report("test vmresume", 0);
+		report(0, "test vmresume");
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -168,18 +168,17 @@ static int preemption_timer_exit_handler(void)
 		switch (vmx_get_test_stage()) {
 		case 1:
 		case 2:
-			report("busy-wait for preemption timer",
-			       ((rdtsc() - tsc_val) >> preempt_scale) >=
-			       preempt_val);
+			report(((rdtsc() - tsc_val) >> preempt_scale) >= preempt_val,
+			       "busy-wait for preemption timer");
 			vmx_set_test_stage(3);
 			vmcs_write(PREEMPT_TIMER_VALUE, preempt_val);
 			return VMX_TEST_RESUME;
 		case 3:
 			guest_halted =
 				(vmcs_read(GUEST_ACTV_STATE) == ACTV_HLT);
-			report("preemption timer during hlt",
-			       ((rdtsc() - tsc_val) >> preempt_scale) >=
-			       preempt_val && guest_halted);
+			report(((rdtsc() - tsc_val) >> preempt_scale) >= preempt_val
+			        && guest_halted,
+			       "preemption timer during hlt");
 			vmx_set_test_stage(4);
 			vmcs_write(PIN_CONTROLS,
 				   vmcs_read(PIN_CONTROLS) & ~PIN_PREEMPT);
@@ -188,11 +187,11 @@ static int preemption_timer_exit_handler(void)
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 			return VMX_TEST_RESUME;
 		case 4:
-			report("preemption timer with 0 value",
-			       saved_rip == guest_rip);
+			report(saved_rip == guest_rip,
+			       "preemption timer with 0 value");
 			break;
 		default:
-			report("Invalid stage.", false);
+			report(false, "Invalid stage.");
 			print_vmexit_info();
 			break;
 		}
@@ -201,8 +200,8 @@ static int preemption_timer_exit_handler(void)
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		switch (vmx_get_test_stage()) {
 		case 0:
-			report("Keep preemption value",
-			       vmcs_read(PREEMPT_TIMER_VALUE) == preempt_val);
+			report(vmcs_read(PREEMPT_TIMER_VALUE) == preempt_val,
+			       "Keep preemption value");
 			vmx_set_test_stage(1);
 			vmcs_write(PREEMPT_TIMER_VALUE, preempt_val);
 			ctrl_exit = (vmcs_read(EXI_CONTROLS) |
@@ -210,16 +209,16 @@ static int preemption_timer_exit_handler(void)
 			vmcs_write(EXI_CONTROLS, ctrl_exit);
 			return VMX_TEST_RESUME;
 		case 1:
-			report("Save preemption value",
-			       vmcs_read(PREEMPT_TIMER_VALUE) < preempt_val);
+			report(vmcs_read(PREEMPT_TIMER_VALUE) < preempt_val,
+			       "Save preemption value");
 			return VMX_TEST_RESUME;
 		case 2:
-			report("busy-wait for preemption timer", 0);
+			report(0, "busy-wait for preemption timer");
 			vmx_set_test_stage(3);
 			vmcs_write(PREEMPT_TIMER_VALUE, preempt_val);
 			return VMX_TEST_RESUME;
 		case 3:
-			report("preemption timer during hlt", 0);
+			report(0, "preemption timer during hlt");
 			vmx_set_test_stage(4);
 			/* fall through */
 		case 4:
@@ -229,18 +228,19 @@ static int preemption_timer_exit_handler(void)
 			saved_rip = guest_rip + insn_len;
 			return VMX_TEST_RESUME;
 		case 5:
-			report("preemption timer with 0 value (vmcall stage 5)", 0);
+			report(0,
+			       "preemption timer with 0 value (vmcall stage 5)");
 			break;
 		default:
 			// Should not reach here
-			report("unexpected stage, %d", false,
+			report(false, "unexpected stage, %d",
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
 		}
 		break;
 	default:
-		report("Unknown exit reason, %ld", false, reason);
+		report(false, "Unknown exit reason, %ld", reason);
 		print_vmexit_info();
 	}
 	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_PREEMPT);
@@ -324,7 +324,7 @@ static void test_ctrl_pat_main(void)
 		printf("\tENT_LOAD_PAT is not supported.\n");
 	else {
 		if (guest_ia32_pat != 0) {
-			report("Entry load PAT", 0);
+			report(0, "Entry load PAT");
 			return;
 		}
 	}
@@ -332,7 +332,7 @@ static void test_ctrl_pat_main(void)
 	vmcall();
 	guest_ia32_pat = rdmsr(MSR_IA32_CR_PAT);
 	if (ctrl_enter_rev.clr & ENT_LOAD_PAT)
-		report("Entry load PAT", guest_ia32_pat == ia32_pat);
+		report(guest_ia32_pat == ia32_pat, "Entry load PAT");
 }
 
 static int test_ctrl_pat_exit_handler(void)
@@ -350,12 +350,13 @@ static int test_ctrl_pat_exit_handler(void)
 			printf("\tEXI_SAVE_PAT is not supported\n");
 			vmcs_write(GUEST_PAT, 0x6);
 		} else {
-			report("Exit save PAT", guest_pat == 0x6);
+			report(guest_pat == 0x6, "Exit save PAT");
 		}
 		if (!(ctrl_exit_rev.clr & EXI_LOAD_PAT))
 			printf("\tEXI_LOAD_PAT is not supported\n");
 		else
-			report("Exit load PAT", rdmsr(MSR_IA32_CR_PAT) == ia32_pat);
+			report(rdmsr(MSR_IA32_CR_PAT) == ia32_pat,
+			       "Exit load PAT");
 		vmcs_write(GUEST_PAT, ia32_pat);
 		vmcs_write(GUEST_RIP, guest_rip + 3);
 		return VMX_TEST_RESUME;
@@ -391,7 +392,7 @@ static void test_ctrl_efer_main(void)
 		printf("\tENT_LOAD_EFER is not supported.\n");
 	else {
 		if (guest_ia32_efer != (ia32_efer ^ EFER_NX)) {
-			report("Entry load EFER", 0);
+			report(0, "Entry load EFER");
 			return;
 		}
 	}
@@ -399,7 +400,7 @@ static void test_ctrl_efer_main(void)
 	vmcall();
 	guest_ia32_efer = rdmsr(MSR_EFER);
 	if (ctrl_enter_rev.clr & ENT_LOAD_EFER)
-		report("Entry load EFER", guest_ia32_efer == ia32_efer);
+		report(guest_ia32_efer == ia32_efer, "Entry load EFER");
 }
 
 static int test_ctrl_efer_exit_handler(void)
@@ -417,13 +418,14 @@ static int test_ctrl_efer_exit_handler(void)
 			printf("\tEXI_SAVE_EFER is not supported\n");
 			vmcs_write(GUEST_EFER, ia32_efer);
 		} else {
-			report("Exit save EFER", guest_efer == ia32_efer);
+			report(guest_efer == ia32_efer, "Exit save EFER");
 		}
 		if (!(ctrl_exit_rev.clr & EXI_LOAD_EFER)) {
 			printf("\tEXI_LOAD_EFER is not supported\n");
 			wrmsr(MSR_EFER, ia32_efer ^ EFER_NX);
 		} else {
-			report("Exit load EFER", rdmsr(MSR_EFER) == (ia32_efer ^ EFER_NX));
+			report(rdmsr(MSR_EFER) == (ia32_efer ^ EFER_NX),
+			       "Exit load EFER");
 		}
 		vmcs_write(GUEST_PAT, ia32_efer);
 		vmcs_write(GUEST_RIP, guest_rip + 3);
@@ -445,13 +447,13 @@ static void cr_shadowing_main(void)
 	vmx_set_test_stage(0);
 	guest_cr0 = read_cr0();
 	if (vmx_get_test_stage() == 1)
-		report("Read through CR0", 0);
+		report(0, "Read through CR0");
 	else
 		vmcall();
 	vmx_set_test_stage(1);
 	guest_cr4 = read_cr4();
 	if (vmx_get_test_stage() == 2)
-		report("Read through CR4", 0);
+		report(0, "Read through CR4");
 	else
 		vmcall();
 	// Test write through
@@ -460,13 +462,13 @@ static void cr_shadowing_main(void)
 	vmx_set_test_stage(2);
 	write_cr0(guest_cr0);
 	if (vmx_get_test_stage() == 3)
-		report("Write throuth CR0", 0);
+		report(0, "Write throuth CR0");
 	else
 		vmcall();
 	vmx_set_test_stage(3);
 	write_cr4(guest_cr4);
 	if (vmx_get_test_stage() == 4)
-		report("Write through CR4", 0);
+		report(0, "Write through CR4");
 	else
 		vmcall();
 	// Test read shadow
@@ -474,22 +476,22 @@ static void cr_shadowing_main(void)
 	vmcall();
 	cr0 = read_cr0();
 	if (vmx_get_test_stage() != 5)
-		report("Read shadowing CR0", cr0 == guest_cr0);
+		report(cr0 == guest_cr0, "Read shadowing CR0");
 	vmx_set_test_stage(5);
 	cr4 = read_cr4();
 	if (vmx_get_test_stage() != 6)
-		report("Read shadowing CR4", cr4 == guest_cr4);
+		report(cr4 == guest_cr4, "Read shadowing CR4");
 	// Test write shadow (same value with shadow)
 	vmx_set_test_stage(6);
 	write_cr0(guest_cr0);
 	if (vmx_get_test_stage() == 7)
-		report("Write shadowing CR0 (same value with shadow)", 0);
+		report(0, "Write shadowing CR0 (same value with shadow)");
 	else
 		vmcall();
 	vmx_set_test_stage(7);
 	write_cr4(guest_cr4);
 	if (vmx_get_test_stage() == 8)
-		report("Write shadowing CR4 (same value with shadow)", 0);
+		report(0, "Write shadowing CR4 (same value with shadow)");
 	else
 		vmcall();
 	// Test write shadow (different value)
@@ -499,28 +501,32 @@ static void cr_shadowing_main(void)
 		"mov %%rsi, %%cr0\n\t"
 		::"m"(tmp)
 		:"rsi", "memory", "cc");
-	report("Write shadowing different X86_CR0_TS", vmx_get_test_stage() == 9);
+	report(vmx_get_test_stage() == 9,
+	       "Write shadowing different X86_CR0_TS");
 	vmx_set_test_stage(9);
 	tmp = guest_cr0 ^ X86_CR0_MP;
 	asm volatile("mov %0, %%rsi\n\t"
 		"mov %%rsi, %%cr0\n\t"
 		::"m"(tmp)
 		:"rsi", "memory", "cc");
-	report("Write shadowing different X86_CR0_MP", vmx_get_test_stage() == 10);
+	report(vmx_get_test_stage() == 10,
+	       "Write shadowing different X86_CR0_MP");
 	vmx_set_test_stage(10);
 	tmp = guest_cr4 ^ X86_CR4_TSD;
 	asm volatile("mov %0, %%rsi\n\t"
 		"mov %%rsi, %%cr4\n\t"
 		::"m"(tmp)
 		:"rsi", "memory", "cc");
-	report("Write shadowing different X86_CR4_TSD", vmx_get_test_stage() == 11);
+	report(vmx_get_test_stage() == 11,
+	       "Write shadowing different X86_CR4_TSD");
 	vmx_set_test_stage(11);
 	tmp = guest_cr4 ^ X86_CR4_DE;
 	asm volatile("mov %0, %%rsi\n\t"
 		"mov %%rsi, %%cr4\n\t"
 		::"m"(tmp)
 		:"rsi", "memory", "cc");
-	report("Write shadowing different X86_CR4_DE", vmx_get_test_stage() == 12);
+	report(vmx_get_test_stage() == 12,
+	       "Write shadowing different X86_CR4_DE");
 }
 
 static int cr_shadowing_exit_handler(void)
@@ -538,16 +544,20 @@ static int cr_shadowing_exit_handler(void)
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
-			report("Read through CR0", guest_cr0 == vmcs_read(GUEST_CR0));
+			report(guest_cr0 == vmcs_read(GUEST_CR0),
+			       "Read through CR0");
 			break;
 		case 1:
-			report("Read through CR4", guest_cr4 == vmcs_read(GUEST_CR4));
+			report(guest_cr4 == vmcs_read(GUEST_CR4),
+			       "Read through CR4");
 			break;
 		case 2:
-			report("Write through CR0", guest_cr0 == vmcs_read(GUEST_CR0));
+			report(guest_cr0 == vmcs_read(GUEST_CR0),
+			       "Write through CR0");
 			break;
 		case 3:
-			report("Write through CR4", guest_cr4 == vmcs_read(GUEST_CR4));
+			report(guest_cr4 == vmcs_read(GUEST_CR4),
+			       "Write through CR4");
 			break;
 		case 4:
 			guest_cr0 = vmcs_read(GUEST_CR0) ^ (X86_CR0_TS | X86_CR0_MP);
@@ -558,16 +568,16 @@ static int cr_shadowing_exit_handler(void)
 			vmcs_write(CR4_READ_SHADOW, guest_cr4 & (X86_CR4_TSD | X86_CR4_DE));
 			break;
 		case 6:
-			report("Write shadowing CR0 (same value)",
-					guest_cr0 == (vmcs_read(GUEST_CR0) ^ (X86_CR0_TS | X86_CR0_MP)));
+			report(guest_cr0 == (vmcs_read(GUEST_CR0) ^ (X86_CR0_TS | X86_CR0_MP)),
+			       "Write shadowing CR0 (same value)");
 			break;
 		case 7:
-			report("Write shadowing CR4 (same value)",
-					guest_cr4 == (vmcs_read(GUEST_CR4) ^ (X86_CR4_TSD | X86_CR4_DE)));
+			report(guest_cr4 == (vmcs_read(GUEST_CR4) ^ (X86_CR4_TSD | X86_CR4_DE)),
+			       "Write shadowing CR4 (same value)");
 			break;
 		default:
 			// Should not reach here
-			report("unexpected stage, %d", false,
+			report(false, "unexpected stage, %d",
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -577,19 +587,19 @@ static int cr_shadowing_exit_handler(void)
 	case VMX_CR:
 		switch (vmx_get_test_stage()) {
 		case 4:
-			report("Read shadowing CR0", 0);
+			report(0, "Read shadowing CR0");
 			vmx_inc_test_stage();
 			break;
 		case 5:
-			report("Read shadowing CR4", 0);
+			report(0, "Read shadowing CR4");
 			vmx_inc_test_stage();
 			break;
 		case 6:
-			report("Write shadowing CR0 (same value)", 0);
+			report(0, "Write shadowing CR0 (same value)");
 			vmx_inc_test_stage();
 			break;
 		case 7:
-			report("Write shadowing CR4 (same value)", 0);
+			report(0, "Write shadowing CR4 (same value)");
 			vmx_inc_test_stage();
 			break;
 		case 8:
@@ -606,7 +616,7 @@ static int cr_shadowing_exit_handler(void)
 			break;
 		default:
 			// Should not reach here
-			report("unexpected stage, %d", false,
+			report(false, "unexpected stage, %d",
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -614,7 +624,7 @@ static int cr_shadowing_exit_handler(void)
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		report("Unknown exit reason, %ld", false, reason);
+		report(false, "Unknown exit reason, %ld", reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -641,47 +651,47 @@ static void iobmp_main(void)
 	vmx_set_test_stage(0);
 	inb(0x5000);
 	outb(0x0, 0x5000);
-	report("I/O bitmap - I/O pass", vmx_get_test_stage() == 0);
+	report(vmx_get_test_stage() == 0, "I/O bitmap - I/O pass");
 	// test IO width, in/out
 	((u8 *)io_bitmap_a)[0] = 0xFF;
 	vmx_set_test_stage(2);
 	inb(0x0);
-	report("I/O bitmap - trap in", vmx_get_test_stage() == 3);
+	report(vmx_get_test_stage() == 3, "I/O bitmap - trap in");
 	vmx_set_test_stage(3);
 	outw(0x0, 0x0);
-	report("I/O bitmap - trap out", vmx_get_test_stage() == 4);
+	report(vmx_get_test_stage() == 4, "I/O bitmap - trap out");
 	vmx_set_test_stage(4);
 	inl(0x0);
-	report("I/O bitmap - I/O width, long", vmx_get_test_stage() == 5);
+	report(vmx_get_test_stage() == 5, "I/O bitmap - I/O width, long");
 	// test low/high IO port
 	vmx_set_test_stage(5);
 	((u8 *)io_bitmap_a)[0x5000 / 8] = (1 << (0x5000 % 8));
 	inb(0x5000);
-	report("I/O bitmap - I/O port, low part", vmx_get_test_stage() == 6);
+	report(vmx_get_test_stage() == 6, "I/O bitmap - I/O port, low part");
 	vmx_set_test_stage(6);
 	((u8 *)io_bitmap_b)[0x1000 / 8] = (1 << (0x1000 % 8));
 	inb(0x9000);
-	report("I/O bitmap - I/O port, high part", vmx_get_test_stage() == 7);
+	report(vmx_get_test_stage() == 7, "I/O bitmap - I/O port, high part");
 	// test partial pass
 	vmx_set_test_stage(7);
 	inl(0x4FFF);
-	report("I/O bitmap - partial pass", vmx_get_test_stage() == 8);
+	report(vmx_get_test_stage() == 8, "I/O bitmap - partial pass");
 	// test overrun
 	vmx_set_test_stage(8);
 	memset(io_bitmap_a, 0x0, PAGE_SIZE);
 	memset(io_bitmap_b, 0x0, PAGE_SIZE);
 	inl(0xFFFF);
-	report("I/O bitmap - overrun", vmx_get_test_stage() == 9);
+	report(vmx_get_test_stage() == 9, "I/O bitmap - overrun");
 	vmx_set_test_stage(9);
 	vmcall();
 	outb(0x0, 0x0);
-	report("I/O bitmap - ignore unconditional exiting",
-	       vmx_get_test_stage() == 9);
+	report(vmx_get_test_stage() == 9,
+	       "I/O bitmap - ignore unconditional exiting");
 	vmx_set_test_stage(10);
 	vmcall();
 	outb(0x0, 0x0);
-	report("I/O bitmap - unconditional exiting",
-	       vmx_get_test_stage() == 11);
+	report(vmx_get_test_stage() == 11,
+	       "I/O bitmap - unconditional exiting");
 }
 
 static int iobmp_exit_handler(void)
@@ -702,21 +712,22 @@ static int iobmp_exit_handler(void)
 			vmx_inc_test_stage();
 			break;
 		case 2:
-			report("I/O bitmap - I/O width, byte",
-					(exit_qual & VMX_IO_SIZE_MASK) == _VMX_IO_BYTE);
-			report("I/O bitmap - I/O direction, in", exit_qual & VMX_IO_IN);
+			report((exit_qual & VMX_IO_SIZE_MASK) == _VMX_IO_BYTE,
+			       "I/O bitmap - I/O width, byte");
+			report(exit_qual & VMX_IO_IN,
+			       "I/O bitmap - I/O direction, in");
 			vmx_inc_test_stage();
 			break;
 		case 3:
-			report("I/O bitmap - I/O width, word",
-					(exit_qual & VMX_IO_SIZE_MASK) == _VMX_IO_WORD);
-			report("I/O bitmap - I/O direction, out",
-					!(exit_qual & VMX_IO_IN));
+			report((exit_qual & VMX_IO_SIZE_MASK) == _VMX_IO_WORD,
+			       "I/O bitmap - I/O width, word");
+			report(!(exit_qual & VMX_IO_IN),
+			       "I/O bitmap - I/O direction, out");
 			vmx_inc_test_stage();
 			break;
 		case 4:
-			report("I/O bitmap - I/O width, long",
-					(exit_qual & VMX_IO_SIZE_MASK) == _VMX_IO_LONG);
+			report((exit_qual & VMX_IO_SIZE_MASK) == _VMX_IO_LONG,
+			       "I/O bitmap - I/O width, long");
 			vmx_inc_test_stage();
 			break;
 		case 5:
@@ -743,7 +754,7 @@ static int iobmp_exit_handler(void)
 			break;
 		default:
 			// Should not reach here
-			report("unexpected stage, %d", false,
+			report(false, "unexpected stage, %d",
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -764,7 +775,7 @@ static int iobmp_exit_handler(void)
 			break;
 		default:
 			// Should not reach here
-			report("unexpected stage, %d", false,
+			report(false, "unexpected stage, %d",
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -958,7 +969,8 @@ static void insn_intercept_main(void)
 			/* skip hlt, it stalls the guest and is tested below */
 			if (insn_table[cur_insn].insn_func != insn_hlt)
 				insn_table[cur_insn].insn_func();
-			report("execute %s", vmx_get_test_stage() == cur_insn * 2,
+			report(vmx_get_test_stage() == cur_insn * 2,
+					"execute %s",
 					insn_table[cur_insn].name);
 		} else if (insn_table[cur_insn].type != INSN_ALWAYS_TRAP)
 			printf("\tCPU_CTRL%d.CPU_%s always traps.\n",
@@ -968,7 +980,8 @@ static void insn_intercept_main(void)
 		vmcall();
 
 		insn_table[cur_insn].insn_func();
-		report("intercept %s", vmx_get_test_stage() == cur_insn * 2 + 1,
+		report(vmx_get_test_stage() == cur_insn * 2 + 1,
+				"intercept %s",
 				insn_table[cur_insn].name);
 
 		vmx_set_test_stage(cur_insn * 2 + 1);
@@ -1179,16 +1192,16 @@ static void ept_common(void)
 	vmx_set_test_stage(0);
 	if (*((u32 *)data_page2) != MAGIC_VAL_1 ||
 			*((u32 *)data_page1) != MAGIC_VAL_1)
-		report("EPT basic framework - read", 0);
+		report(0, "EPT basic framework - read");
 	else {
 		*((u32 *)data_page2) = MAGIC_VAL_3;
 		vmcall();
 		if (vmx_get_test_stage() == 1) {
 			if (*((u32 *)data_page1) == MAGIC_VAL_3 &&
 					*((u32 *)data_page2) == MAGIC_VAL_2)
-				report("EPT basic framework", 1);
+				report(1, "EPT basic framework");
 			else
-				report("EPT basic framework - remap", 1);
+				report(1, "EPT basic framework - remap");
 		}
 	}
 	// Test EPT Misconfigurations
@@ -1196,34 +1209,34 @@ static void ept_common(void)
 	vmcall();
 	*((u32 *)data_page1) = MAGIC_VAL_1;
 	if (vmx_get_test_stage() != 2) {
-		report("EPT misconfigurations", 0);
+		report(0, "EPT misconfigurations");
 		goto t1;
 	}
 	vmx_set_test_stage(2);
 	vmcall();
 	*((u32 *)data_page1) = MAGIC_VAL_1;
-	report("EPT misconfigurations", vmx_get_test_stage() == 3);
+	report(vmx_get_test_stage() == 3, "EPT misconfigurations");
 t1:
 	// Test EPT violation
 	vmx_set_test_stage(3);
 	vmcall();
 	*((u32 *)data_page1) = MAGIC_VAL_1;
-	report("EPT violation - page permission", vmx_get_test_stage() == 4);
+	report(vmx_get_test_stage() == 4, "EPT violation - page permission");
 	// Violation caused by EPT paging structure
 	vmx_set_test_stage(4);
 	vmcall();
 	*((u32 *)data_page1) = MAGIC_VAL_2;
-	report("EPT violation - paging structure", vmx_get_test_stage() == 5);
+	report(vmx_get_test_stage() == 5, "EPT violation - paging structure");
 
 	// MMIO Read/Write
 	vmx_set_test_stage(5);
 	vmcall();
 
 	*(u32 volatile *)pci_physaddr;
-	report("MMIO EPT violation - read", vmx_get_test_stage() == 6);
+	report(vmx_get_test_stage() == 6, "MMIO EPT violation - read");
 
 	*(u32 volatile *)pci_physaddr = MAGIC_VAL_1;
-	report("MMIO EPT violation - write", vmx_get_test_stage() == 7);
+	report(vmx_get_test_stage() == 7, "MMIO EPT violation - write");
 }
 
 static void ept_main(void)
@@ -1232,11 +1245,11 @@ static void ept_main(void)
 
 	// Test EPT access to L1 MMIO
 	vmx_set_test_stage(7);
-	report("EPT - MMIO access", *((u32 *)0xfee00030UL) == apic_version);
+	report(*((u32 *)0xfee00030UL) == apic_version, "EPT - MMIO access");
 
 	// Test invalid operand for INVEPT
 	vmcall();
-	report("EPT - unsupported INVEPT", vmx_get_test_stage() == 8);
+	report(vmx_get_test_stage() == 8, "EPT - unsupported INVEPT");
 }
 
 static bool invept_test(int type, u64 eptp)
@@ -1285,7 +1298,7 @@ static int pml_exit_handler(void)
 			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page2);
 			break;
 		default:
-			report("unexpected stage, %d.", false,
+			report(false, "unexpected stage, %d.",
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -1297,7 +1310,7 @@ static int pml_exit_handler(void)
 		vmcs_write(GUEST_PML_INDEX, PML_INDEX - 1);
 		return VMX_TEST_RESUME;
 	default:
-		report("Unknown exit reason, %ld", false, reason);
+		report(false, "Unknown exit reason, %ld", reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1340,7 +1353,7 @@ static int ept_exit_handler_common(bool have_ad)
 						(unsigned long)data_page2,
 						EPT_RA | EPT_WA | EPT_EA);
 			} else
-				report("EPT basic framework - write", 0);
+				report(0, "EPT basic framework - write");
 			break;
 		case 1:
 			install_ept(pml4, (unsigned long)data_page1,
@@ -1383,7 +1396,7 @@ static int ept_exit_handler_common(bool have_ad)
 			break;
 		// Should not reach here
 		default:
-			report("ERROR - unexpected stage, %d.", false,
+			report(false, "ERROR - unexpected stage, %d.",
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -1402,7 +1415,7 @@ static int ept_exit_handler_common(bool have_ad)
 			break;
 		// Should not reach here
 		default:
-			report("ERROR - unexpected stage, %d.", false,
+			report(false, "ERROR - unexpected stage, %d.",
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -1458,14 +1471,14 @@ static int ept_exit_handler_common(bool have_ad)
 			break;
 		default:
 			// Should not reach here
-			report("ERROR : unexpected stage, %d", false,
+			report(false, "ERROR : unexpected stage, %d",
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
 		}
 		return VMX_TEST_RESUME;
 	default:
-		report("Unknown exit reason, %ld", false, reason);
+		report(false, "Unknown exit reason, %ld", reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1522,7 +1535,7 @@ static void pml_main(void)
 	vmx_set_test_stage(0);
 	*((u32 *)data_page2) = 0x1;
 	vmcall();
-	report("PML - Dirty GPA Logging", vmx_get_test_stage() == 1);
+	report(vmx_get_test_stage() == 1, "PML - Dirty GPA Logging");
 
 	while (vmx_get_test_stage() == 1) {
 		vmcall();
@@ -1530,7 +1543,7 @@ static void pml_main(void)
 		if (count++ > PML_INDEX)
 			break;
 	}
-	report("PML Full Event", vmx_get_test_stage() == 2);
+	report(vmx_get_test_stage() == 2, "PML Full Event");
 }
 
 static void eptad_main(void)
@@ -1582,13 +1595,13 @@ static void vpid_main(void)
 {
 	vmx_set_test_stage(0);
 	vmcall();
-	report("INVVPID SINGLE ADDRESS", vmx_get_test_stage() == 1);
+	report(vmx_get_test_stage() == 1, "INVVPID SINGLE ADDRESS");
 	vmx_set_test_stage(2);
 	vmcall();
-	report("INVVPID SINGLE", vmx_get_test_stage() == 3);
+	report(vmx_get_test_stage() == 3, "INVVPID SINGLE");
 	vmx_set_test_stage(4);
 	vmcall();
-	report("INVVPID ALL", vmx_get_test_stage() == 5);
+	report(vmx_get_test_stage() == 5, "INVVPID ALL");
 }
 
 static int vpid_exit_handler(void)
@@ -1617,7 +1630,7 @@ static int vpid_exit_handler(void)
 				vmx_inc_test_stage();
 			break;
 		default:
-			report("ERROR: unexpected stage, %d", false,
+			report(false, "ERROR: unexpected stage, %d",
 					vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -1625,7 +1638,7 @@ static int vpid_exit_handler(void)
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		report("Unknown exit reason, %ld", false, reason);
+		report(false, "Unknown exit reason, %ld", reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1661,7 +1674,7 @@ static void interrupt_main(void)
 	apic_write(APIC_TMICT, 1);
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
-	report("direct interrupt while running guest", timer_fired);
+	report(timer_fired, "direct interrupt while running guest");
 
 	apic_write(APIC_TMICT, 0);
 	irq_disable();
@@ -1670,7 +1683,7 @@ static void interrupt_main(void)
 	apic_write(APIC_TMICT, 1);
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
-	report("intercepted interrupt while running guest", timer_fired);
+	report(timer_fired, "intercepted interrupt while running guest");
 
 	irq_enable();
 	apic_write(APIC_TMICT, 0);
@@ -1682,8 +1695,8 @@ static void interrupt_main(void)
 
 	asm volatile ("sti; hlt");
 
-	report("direct interrupt + hlt",
-	       rdtsc() - start > 1000000 && timer_fired);
+	report(rdtsc() - start > 1000000 && timer_fired,
+	       "direct interrupt + hlt");
 
 	apic_write(APIC_TMICT, 0);
 	irq_disable();
@@ -1694,8 +1707,8 @@ static void interrupt_main(void)
 
 	asm volatile ("sti; hlt");
 
-	report("intercepted interrupt + hlt",
-	       rdtsc() - start > 10000 && timer_fired);
+	report(rdtsc() - start > 10000 && timer_fired,
+	       "intercepted interrupt + hlt");
 
 	apic_write(APIC_TMICT, 0);
 	irq_disable();
@@ -1708,8 +1721,8 @@ static void interrupt_main(void)
 	asm volatile ("nop");
 	vmcall();
 
-	report("direct interrupt + activity state hlt",
-	       rdtsc() - start > 10000 && timer_fired);
+	report(rdtsc() - start > 10000 && timer_fired,
+	       "direct interrupt + activity state hlt");
 
 	apic_write(APIC_TMICT, 0);
 	irq_disable();
@@ -1722,8 +1735,8 @@ static void interrupt_main(void)
 	asm volatile ("nop");
 	vmcall();
 
-	report("intercepted interrupt + activity state hlt",
-	       rdtsc() - start > 10000 && timer_fired);
+	report(rdtsc() - start > 10000 && timer_fired,
+	       "intercepted interrupt + activity state hlt");
 
 	apic_write(APIC_TMICT, 0);
 	irq_disable();
@@ -1733,13 +1746,14 @@ static void interrupt_main(void)
 	apic_write(APIC_TMICT, 1);
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
-	report("running a guest with interrupt acknowledgement set", timer_fired);
+	report(timer_fired,
+	       "running a guest with interrupt acknowledgement set");
 
 	apic_write(APIC_TMICT, 0);
 	irq_enable();
 	timer_fired = false;
 	vmcall();
-	report("Inject an event to a halted guest", timer_fired);
+	report(timer_fired, "Inject an event to a halted guest");
 }
 
 static int interrupt_exit_handler(void)
@@ -1796,7 +1810,7 @@ static int interrupt_exit_handler(void)
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 		return VMX_TEST_RESUME;
 	default:
-		report("Unknown exit reason, %ld", false, reason);
+		report(false, "Unknown exit reason, %ld", reason);
 		print_vmexit_info();
 	}
 
@@ -1833,7 +1847,7 @@ static void dbgctls_main(void)
 	debugctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	/* Commented out: KVM does not support DEBUGCTL so far */
 	(void)debugctl;
-	report("Load debug controls", dr7 == 0x404 /* && debugctl == 0x2 */);
+	report(dr7 == 0x404, "Load debug controls" /* && debugctl == 0x2 */);
 
 	dr7 = 0x408;
 	asm volatile("mov %0,%%dr7" : : "r" (dr7));
@@ -1841,7 +1855,7 @@ static void dbgctls_main(void)
 
 	vmx_set_test_stage(0);
 	vmcall();
-	report("Save debug controls", vmx_get_test_stage() == 1);
+	report(vmx_get_test_stage() == 1, "Save debug controls");
 
 	if (ctrl_enter_rev.set & ENT_LOAD_DBGCTLS ||
 	    ctrl_exit_rev.set & EXI_SAVE_DBGCTLS) {
@@ -1855,7 +1869,8 @@ static void dbgctls_main(void)
 	debugctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	/* Commented out: KVM does not support DEBUGCTL so far */
 	(void)debugctl;
-	report("Guest=host debug controls", dr7 == 0x402 /* && debugctl == 0x1 */);
+	report(dr7 == 0x402,
+	       "Guest=host debug controls" /* && debugctl == 0x1 */);
 
 	dr7 = 0x408;
 	asm volatile("mov %0,%%dr7" : : "r" (dr7));
@@ -1863,7 +1878,7 @@ static void dbgctls_main(void)
 
 	vmx_set_test_stage(3);
 	vmcall();
-	report("Don't save debug controls", vmx_get_test_stage() == 4);
+	report(vmx_get_test_stage() == 4, "Don't save debug controls");
 }
 
 static int dbgctls_exit_handler(void)
@@ -1909,7 +1924,7 @@ static int dbgctls_exit_handler(void)
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		report("Unknown exit reason, %d", false, reason);
+		report(false, "Unknown exit reason, %d", reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1946,8 +1961,8 @@ static int msr_switch_init(struct vmcs *vmcs)
 static void msr_switch_main(void)
 {
 	if (vmx_get_test_stage() == 1) {
-		report("VM entry MSR load",
-			rdmsr(MSR_KERNEL_GS_BASE) == MSR_MAGIC);
+		report(rdmsr(MSR_KERNEL_GS_BASE) == MSR_MAGIC,
+		       "VM entry MSR load");
 		vmx_set_test_stage(2);
 		wrmsr(MSR_KERNEL_GS_BASE, MSR_MAGIC + 1);
 		exit_msr_store[0].index = MSR_KERNEL_GS_BASE;
@@ -1963,10 +1978,10 @@ static int msr_switch_exit_handler(void)
 
 	reason = vmcs_read(EXI_REASON);
 	if (reason == VMX_VMCALL && vmx_get_test_stage() == 2) {
-		report("VM exit MSR store",
-			exit_msr_store[0].value == MSR_MAGIC + 1);
-		report("VM exit MSR load",
-			rdmsr(MSR_KERNEL_GS_BASE) == MSR_MAGIC + 2);
+		report(exit_msr_store[0].value == MSR_MAGIC + 1,
+		       "VM exit MSR store");
+		report(rdmsr(MSR_KERNEL_GS_BASE) == MSR_MAGIC + 2,
+		       "VM exit MSR load");
 		vmx_set_test_stage(3);
 		entry_msr_load[0].index = MSR_FS_BASE;
 		return VMX_TEST_RESUME;
@@ -1988,8 +2003,8 @@ static int msr_switch_entry_failure(struct vmentry_failure *failure)
 	reason = vmcs_read(EXI_REASON);
 	if (reason == (VMX_ENTRY_FAILURE | VMX_FAIL_MSR) &&
 	    vmx_get_test_stage() == 3) {
-		report("VM entry MSR load: try to load FS_BASE",
-			vmcs_read(EXI_QUALIFICATION) == 1);
+		report(vmcs_read(EXI_QUALIFICATION) == 1,
+		       "VM entry MSR load: try to load FS_BASE");
 		return VMX_TEST_VMEXIT;
 	}
 	printf("ERROR %s: unexpected stage=%u or reason=%lu\n",
@@ -2010,7 +2025,7 @@ static void vmmcall_main(void)
 		"vmmcall\n\t"
 		::: "rax");
 
-	report("VMMCALL", 0);
+	report(0, "VMMCALL");
 }
 
 static int vmmcall_exit_handler(void)
@@ -2021,14 +2036,14 @@ static int vmmcall_exit_handler(void)
 	switch (reason) {
 	case VMX_VMCALL:
 		printf("here\n");
-		report("VMMCALL triggers #UD", 0);
+		report(0, "VMMCALL triggers #UD");
 		break;
 	case VMX_EXC_NMI:
-		report("VMMCALL triggers #UD",
-		       (vmcs_read(EXI_INTR_INFO) & 0xff) == UD_VECTOR);
+		report((vmcs_read(EXI_INTR_INFO) & 0xff) == UD_VECTOR,
+		       "VMMCALL triggers #UD");
 		break;
 	default:
-		report("Unknown exit reason, %ld", false, reason);
+		report(false, "Unknown exit reason, %ld", reason);
 		print_vmexit_info();
 	}
 
@@ -2052,12 +2067,12 @@ static void disable_rdtscp_ud_handler(struct ex_regs *regs)
 {
 	switch (vmx_get_test_stage()) {
 	case 0:
-		report("RDTSCP triggers #UD", true);
+		report(true, "RDTSCP triggers #UD");
 		vmx_inc_test_stage();
 		regs->rip += 3;
 		break;
 	case 2:
-		report("RDPID triggers #UD", true);
+		report(true, "RDPID triggers #UD");
 		vmx_inc_test_stage();
 		regs->rip += 4;
 		break;
@@ -2088,7 +2103,7 @@ static int disable_rdtscp_exit_handler(void)
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
-			report("RDTSCP triggers #UD", false);
+			report(false, "RDTSCP triggers #UD");
 			vmx_inc_test_stage();
 			/* fallthrough */
 		case 1:
@@ -2096,13 +2111,13 @@ static int disable_rdtscp_exit_handler(void)
 			vmcs_write(GUEST_RIP, vmcs_read(GUEST_RIP) + 3);
 			return VMX_TEST_RESUME;
 		case 2:
-			report("RDPID triggers #UD", false);
+			report(false, "RDPID triggers #UD");
 			break;
 		}
 		break;
 
 	default:
-		report("Unknown exit reason, %d", false, reason);
+		report(false, "Unknown exit reason, %d", reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -2124,11 +2139,11 @@ static int int3_exit_handler(void)
 	u32 reason = vmcs_read(EXI_REASON);
 	u32 intr_info = vmcs_read(EXI_INTR_INFO);
 
-	report("L1 intercepts #BP", reason == VMX_EXC_NMI &&
-	       (intr_info & INTR_INFO_VALID_MASK) &&
+	report(reason == VMX_EXC_NMI && (intr_info & INTR_INFO_VALID_MASK) &&
 	       (intr_info & INTR_INFO_VECTOR_MASK) == BP_VECTOR &&
 	       ((intr_info & INTR_INFO_INTR_TYPE_MASK) >>
-		INTR_INFO_INTR_TYPE_SHIFT) == VMX_INTR_TYPE_SOFT_EXCEPTION);
+	        INTR_INFO_INTR_TYPE_SHIFT) == VMX_INTR_TYPE_SOFT_EXCEPTION,
+	       "L1 intercepts #BP");
 
 	return VMX_TEST_VMEXIT;
 }
@@ -2173,11 +2188,11 @@ static int into_exit_handler(void)
 	u32 reason = vmcs_read(EXI_REASON);
 	u32 intr_info = vmcs_read(EXI_INTR_INFO);
 
-	report("L1 intercepts #OF", reason == VMX_EXC_NMI &&
-	       (intr_info & INTR_INFO_VALID_MASK) &&
+	report(reason == VMX_EXC_NMI && (intr_info & INTR_INFO_VALID_MASK) &&
 	       (intr_info & INTR_INFO_VECTOR_MASK) == OF_VECTOR &&
 	       ((intr_info & INTR_INFO_INTR_TYPE_MASK) >>
-		INTR_INFO_INTR_TYPE_SHIFT) == VMX_INTR_TYPE_SOFT_EXCEPTION);
+	        INTR_INFO_INTR_TYPE_SHIFT) == VMX_INTR_TYPE_SOFT_EXCEPTION,
+	       "L1 intercepts #OF");
 
 	return VMX_TEST_VMEXIT;
 }
@@ -2190,7 +2205,7 @@ static void exit_monitor_from_l2_main(void)
 
 static int exit_monitor_from_l2_handler(void)
 {
-	report("The guest should have killed the VMM", false);
+	report(false, "The guest should have killed the VMM");
 	return VMX_TEST_EXIT;
 }
 
@@ -2224,7 +2239,7 @@ static void v2_null_test(void)
 {
 	test_set_guest(v2_null_test_guest);
 	enter_guest();
-	report(__func__, 1);
+	report(1, __func__);
 }
 
 static void v2_multiple_entries_test_guest(void)
@@ -2242,7 +2257,7 @@ static void v2_multiple_entries_test(void)
 	skip_exit_vmcall();
 	enter_guest();
 	TEST_ASSERT_EQ(vmx_get_test_stage(), 2);
-	report(__func__, 1);
+	report(1, __func__);
 }
 
 static int fixture_test_data = 1;
@@ -2273,7 +2288,7 @@ static void fixture_test_case1(void)
 	TEST_ASSERT_EQ(2, fixture_test_data);
 	enter_guest();
 	TEST_ASSERT_EQ(3, fixture_test_data);
-	report(__func__, 1);
+	report(1, __func__);
 }
 
 static void fixture_test_case2(void)
@@ -2282,7 +2297,7 @@ static void fixture_test_case2(void)
 	TEST_ASSERT_EQ(2, fixture_test_data);
 	enter_guest();
 	TEST_ASSERT_EQ(3, fixture_test_data);
-	report(__func__, 1);
+	report(1, __func__);
 }
 
 enum ept_access_op {
@@ -3158,11 +3173,11 @@ static void try_invvpid(u64 type, u64 vpid, u64 gla)
 	 */
 	vmcs_read(~0);
 	rc = invvpid(type, vpid, gla);
-	report("INVVPID type %ld VPID %lx GLA %lx %s",
-	       !rc == valid, type, vpid, gla,
+	report(!rc == valid, "INVVPID type %ld VPID %lx GLA %lx %s", type,
+	       vpid, gla,
 	       valid ? "passes" : "fails");
-	report("After %s INVVPID, VMX_INST_ERR is %ld (actual %ld)",
-	       vmcs_read(VMX_INST_ERROR) == expected,
+	report(vmcs_read(VMX_INST_ERROR) == expected,
+	       "After %s INVVPID, VMX_INST_ERR is %ld (actual %ld)",
 	       rc ? "failed" : "successful",
 	       expected, vmcs_read(VMX_INST_ERROR));
 }
@@ -3201,7 +3216,7 @@ static void invvpid_test_gp(void)
 
 	fault = test_for_exception(GP_VECTOR, &ds_invvpid,
 				   (void *)NONCANONICAL);
-	report("INVVPID with non-canonical DS operand raises #GP", fault);
+	report(fault, "INVVPID with non-canonical DS operand raises #GP");
 }
 
 static void invvpid_test_ss(void)
@@ -3210,7 +3225,7 @@ static void invvpid_test_ss(void)
 
 	fault = test_for_exception(SS_VECTOR, &ss_invvpid,
 				   (void *)NONCANONICAL);
-	report("INVVPID with non-canonical SS operand raises #SS", fault);
+	report(fault, "INVVPID with non-canonical SS operand raises #SS");
 }
 
 static void invvpid_test_pf(void)
@@ -3219,7 +3234,7 @@ static void invvpid_test_pf(void)
 	bool fault;
 
 	fault = test_for_exception(PF_VECTOR, &ds_invvpid, vpage);
-	report("INVVPID with unmapped operand raises #PF", fault);
+	report(fault, "INVVPID with unmapped operand raises #PF");
 }
 
 static void try_compat_invvpid(void *unused)
@@ -3249,7 +3264,7 @@ static void invvpid_test_compatibility_mode(void)
 	bool fault;
 
 	fault = test_for_exception(UD_VECTOR, &try_compat_invvpid, NULL);
-	report("Compatibility mode INVVPID raises #UD", fault);
+	report(fault, "Compatibility mode INVVPID raises #UD");
 }
 
 static void invvpid_test_not_in_vmx_operation(void)
@@ -3258,7 +3273,7 @@ static void invvpid_test_not_in_vmx_operation(void)
 
 	TEST_ASSERT(!vmx_off());
 	fault = test_for_exception(UD_VECTOR, &ds_invvpid, NULL);
-	report("INVVPID outside of VMX operation raises #UD", fault);
+	report(fault, "INVVPID outside of VMX operation raises #UD");
 	TEST_ASSERT(!vmx_on());
 }
 
@@ -3364,12 +3379,13 @@ static void test_vmx_vmlaunch(u32 xerror)
 	bool success = vmlaunch_succeeds();
 	u32 vmx_inst_err;
 
-	report("vmlaunch %s", success == !xerror,
+	report(success == !xerror, "vmlaunch %s",
 	       !xerror ? "succeeds" : "fails");
 	if (!success && xerror) {
 		vmx_inst_err = vmcs_read(VMX_INST_ERROR);
-		report("VMX inst error is %d (actual %d)",
-		       vmx_inst_err == xerror, xerror, vmx_inst_err);
+		report(vmx_inst_err == xerror,
+		       "VMX inst error is %d (actual %d)", xerror,
+		       vmx_inst_err);
 	}
 }
 
@@ -3506,8 +3522,8 @@ static void test_secondary_processor_based_ctls(void)
 	 */
 	vmcs_write(CPU_EXEC_CTRL0, primary & ~CPU_SECONDARY);
 	vmcs_write(CPU_EXEC_CTRL1, ~0);
-	report("Secondary processor-based controls ignored",
-	       vmlaunch_succeeds());
+	report(vmlaunch_succeeds(),
+	       "Secondary processor-based controls ignored");
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	vmcs_write(CPU_EXEC_CTRL0, primary);
 }
@@ -5040,8 +5056,9 @@ static void guest_state_test_main(void)
 
 		if (data->enabled) {
 			obs = rdmsr(data->msr);
-			report("Guest state is 0x%lx (expected 0x%lx)",
-			       data->exp == obs, obs, data->exp);
+			report(data->exp == obs,
+			       "Guest state is 0x%lx (expected 0x%lx)",
+			       obs, data->exp);
 		}
 
 		vmcall();
@@ -5065,7 +5082,7 @@ static void report_guest_state_test(const char *test, u32 xreason,
 {
 	u32 reason = vmcs_read(EXI_REASON);
 
-	report("%s, %s %lx", reason == xreason, test, field_name, field);
+	report(reason == xreason, "%s, %s %lx", test, field_name, field);
 	advance_guest_state_test();
 }
 
@@ -5514,8 +5531,8 @@ static void apic_reg_virt_guest(void)
 				u32 want = virt_fn(val);
 				u32 got = virt_fn(ret);
 
-				report("read 0x%x, expected 0x%x.",
-				       got == want, got, want);
+				report(got == want,
+				       "read 0x%x, expected 0x%x.", got, want);
 			}
 		} else if (op == APIC_OP_XAPIC_WR) {
 			vmx_xapic_write(apic_access_address, reg, val);
@@ -5568,14 +5585,15 @@ static void test_xapic_rd(
 		u32 apic_page_offset = vmcs_read(EXI_QUALIFICATION) & 0xfff;
 
 		assert_exit_reason(exit_reason_want);
-		report("got APIC access exit @ page offset 0x%03x, want 0x%03x",
-		       apic_page_offset == reg, apic_page_offset, reg);
+		report(apic_page_offset == reg,
+		       "got APIC access exit @ page offset 0x%03x, want 0x%03x",
+		       apic_page_offset, reg);
 		skip_exit_insn();
 
 		/* Reenter guest so it can consume/check rcx and exit again. */
 		enter_guest();
 	} else if (exit_reason_want != VMX_VMCALL) {
-		report("Oops, bad exit expectation: %u.", false,
+		report(false, "Oops, bad exit expectation: %u.",
 		       exit_reason_want);
 	}
 
@@ -5621,16 +5639,17 @@ static void test_xapic_wr(
 		u32 apic_page_offset = vmcs_read(EXI_QUALIFICATION) & 0xfff;
 
 		assert_exit_reason(exit_reason_want);
-		report("got APIC access exit @ page offset 0x%03x, want 0x%03x",
-		       apic_page_offset == reg, apic_page_offset, reg);
+		report(apic_page_offset == reg,
+		       "got APIC access exit @ page offset 0x%03x, want 0x%03x",
+		       apic_page_offset, reg);
 		skip_exit_insn();
 
 		/* Reenter guest so it can consume/check rcx and exit again. */
 		enter_guest();
 	} else if (exit_reason_want == VMX_APIC_WRITE) {
 		assert_exit_reason(exit_reason_want);
-		report("got APIC write exit @ page offset 0x%03x; val is 0x%x, want 0x%x",
-		       virtual_apic_page[apic_reg_index(reg)] == val,
+		report(virtual_apic_page[apic_reg_index(reg)] == val,
+		       "got APIC write exit @ page offset 0x%03x; val is 0x%x, want 0x%x",
 		       apic_reg_index(reg),
 		       virtual_apic_page[apic_reg_index(reg)], val);
 		checked = true;
@@ -5638,7 +5657,7 @@ static void test_xapic_wr(
 		/* Reenter guest so it can consume/check rcx and exit again. */
 		enter_guest();
 	} else if (exit_reason_want != VMX_VMCALL) {
-		report("Oops, bad exit expectation: %u.", false,
+		report(false, "Oops, bad exit expectation: %u.",
 		       exit_reason_want);
 	}
 
@@ -5648,15 +5667,17 @@ static void test_xapic_wr(
 		u32 got = virtual_apic_page[apic_reg_index(reg)];
 		got = expectation->virt_fn(got);
 
-		report("exitless write; val is 0x%x, want 0x%x",
-		       got == want, got, want);
+		report(got == want, "exitless write; val is 0x%x, want 0x%x",
+		       got, want);
 	} else if (!expectation->virtualize_apic_accesses && !checked) {
 		u32 got = apic_access_address[apic_reg_index(reg)];
 
-		report("non-virtualized write; val is 0x%x, want 0x%x",
-		       got == val, got, val);
+		report(got == val,
+		       "non-virtualized write; val is 0x%x, want 0x%x", got,
+		       val);
 	} else if (!expectation->virtualize_apic_accesses && checked) {
-		report("Non-virtualized write was prematurely checked!", false);
+		report(false,
+		       "Non-virtualized write was prematurely checked!");
 	}
 
 	skip_exit_vmcall();
@@ -5815,7 +5836,7 @@ static void apic_reg_virt_test(void)
 			ok = apic_reg_virt_exit_expectation(
 				reg, apic_reg_virt_config, &expectation);
 			if (!ok) {
-				report("Malformed test.", false);
+				report(false, "Malformed test.");
 				break;
 			}
 
@@ -6316,16 +6337,17 @@ static void virt_x2apic_mode_guest(void)
 				u64 want = virt_fn(val);
 				u64 got = virt_fn(ret);
 
-				report("APIC read; got 0x%lx, want 0x%lx.",
-				       got == want, got, want);
+				report(got == want,
+				       "APIC read; got 0x%lx, want 0x%lx.",
+				       got, want);
 			}
 		} else if (op == X2APIC_OP_WR) {
 			vmx_x2apic_write(reg, val);
 		}
 
 		if (should_gp) {
-			report("x2APIC op triggered GP.",
-			       handle_x2apic_gp_ran);
+			report(handle_x2apic_gp_ran,
+			       "x2APIC op triggered GP.");
 			teardown_x2apic_gp_handler(old_handler);
 		}
 
@@ -6363,7 +6385,7 @@ static void test_x2apic_rd(
 	enter_guest();
 
 	if (exit_reason_want != VMX_VMCALL) {
-		report("Oops, bad exit expectation: %u.", false,
+		report(false, "Oops, bad exit expectation: %u.",
 		       exit_reason_want);
 	}
 
@@ -6420,21 +6442,21 @@ static void test_x2apic_wr(
 		irq_enable();
 		asm volatile ("nop");
 		irq_disable();
-		report("Got pending interrupt after IRQ enabled.",
-		       handle_x2apic_ipi_ran);
+		report(handle_x2apic_ipi_ran,
+		       "Got pending interrupt after IRQ enabled.");
 
 		enter_guest();
 	} else if (exit_reason_want == VMX_APIC_WRITE) {
 		assert_exit_reason(exit_reason_want);
-		report("got APIC write exit @ page offset 0x%03x; val is 0x%x, want 0x%lx",
-		       virtual_apic_page[apic_reg_index(reg)] == val,
+		report(virtual_apic_page[apic_reg_index(reg)] == val,
+		       "got APIC write exit @ page offset 0x%03x; val is 0x%x, want 0x%lx",
 		       apic_reg_index(reg),
 		       virtual_apic_page[apic_reg_index(reg)], val);
 
 		/* Reenter guest so it can consume/check rcx and exit again. */
 		enter_guest();
 	} else if (exit_reason_want != VMX_VMCALL) {
-		report("Oops, bad exit expectation: %u.", false,
+		report(false, "Oops, bad exit expectation: %u.",
 		       exit_reason_want);
 	}
 
@@ -6443,8 +6465,8 @@ static void test_x2apic_wr(
 		u64 want = val;
 		u32 got = virtual_apic_page[apic_reg_index(reg)];
 
-		report("x2APIC write; got 0x%x, want 0x%lx",
-		       got == want, got, want);
+		report(got == want, "x2APIC write; got 0x%x, want 0x%lx", got,
+		       want);
 	} else if (expectation->wr_behavior == X2APIC_ACCESS_PASSED_THROUGH) {
 		if (!expectation->wr_only) {
 			u32 got = apic_read(reg);
@@ -6473,11 +6495,12 @@ static void test_x2apic_wr(
 			}
 
 			ok = got == val;
-			report("non-virtualized write; val is 0x%x, want 0x%lx",
-			       ok, got, val);
+			report(ok,
+			       "non-virtualized write; val is 0x%x, want 0x%lx",
+			       got, val);
 			apic_write(reg, restore_val);
 		} else {
-			report("non-virtualized and write-only OK", true);
+			report(true, "non-virtualized and write-only OK");
 		}
 	}
 	skip_exit_insn();
@@ -6742,10 +6765,12 @@ static void test_efer_vmlaunch(u32 fld, bool ok)
 	} else {
 		if (ok) {
 			enter_guest();
-			report("vmlaunch succeeds", vmcs_read(EXI_REASON) == VMX_VMCALL);
+			report(vmcs_read(EXI_REASON) == VMX_VMCALL,
+			       "vmlaunch succeeds");
 		} else {
 			enter_guest_with_invalid_guest_state();
-			report("vmlaunch fails", vmcs_read(EXI_REASON) == (VMX_ENTRY_FAILURE | VMX_FAIL_STATE));
+			report(vmcs_read(EXI_REASON) == (VMX_ENTRY_FAILURE | VMX_FAIL_STATE),
+			       "vmlaunch fails");
 		}
 		advance_guest_state_test();
 	}
@@ -7071,12 +7096,14 @@ static void test_pgc_vmlaunch(u32 xerror, u32 xreason, bool xfail, bool host)
 		obs = rdmsr(data->msr);
 		if (!success) {
 			inst_err = vmcs_read(VMX_INST_ERROR);
-			report("vmlaunch failed, VMX Inst Error is %d (expected %d)",
-			       xerror == inst_err, inst_err, xerror);
+			report(xerror == inst_err, "vmlaunch failed, "
+			       "VMX Inst Error is %d (expected %d)",
+			       inst_err, xerror);
 		} else {
-			report("Host state is 0x%lx (expected 0x%lx)",
-			       !data->enabled || data->exp == obs, obs, data->exp);
-			report("vmlaunch succeeded", success != xfail);
+			report(!data->enabled || data->exp == obs,
+			       "Host state is 0x%lx (expected 0x%lx)",
+			       obs, data->exp);
+			report(success != xfail, "vmlaunch succeeded");
 		}
 	} else {
 		if (xfail) {
@@ -7503,12 +7530,12 @@ static void try_vmentry_in_movss_shadow(void)
 			      : "rdx", "cc", "memory");
 	vm_inst_err = vmcs_read(VMX_INST_ERROR);
 
-	report("Early VM-entry failure", early_failure);
-	report("RFLAGS[8:0] is %x (actual %x)", flags == expected_flags,
+	report(early_failure, "Early VM-entry failure");
+	report(flags == expected_flags, "RFLAGS[8:0] is %x (actual %x)",
 	       expected_flags, flags);
 	if (valid_vmcs)
-		report("VM-instruction error is %d (actual %d)",
-		       vm_inst_err == VMXERR_ENTRY_EVENTS_BLOCKED_BY_MOV_SS,
+		report(vm_inst_err == VMXERR_ENTRY_EVENTS_BLOCKED_BY_MOV_SS,
+		       "VM-instruction error is %d (actual %d)",
 		       VMXERR_ENTRY_EVENTS_BLOCKED_BY_MOV_SS, vm_inst_err);
 }
 
@@ -7610,7 +7637,7 @@ static void check_nm_exit(const char *test)
 	const u32 expected = INTR_INFO_VALID_MASK | INTR_TYPE_HARD_EXCEPTION |
 		NM_VECTOR;
 
-	report("%s", reason == VMX_EXC_NMI && intr_info == expected, test);
+	report(reason == VMX_EXC_NMI && intr_info == expected, "%s", test);
 }
 
 /*
@@ -7701,21 +7728,21 @@ static void vmx_pending_event_test_core(bool guest_hlt)
 	enter_guest();
 
 	assert_exit_reason(VMX_EXTINT);
-	report("Guest did not run before host received IPI",
-		   !vmx_pending_event_guest_run);
+	report(!vmx_pending_event_guest_run,
+	       "Guest did not run before host received IPI");
 
 	irq_enable();
 	asm volatile ("nop");
 	irq_disable();
-	report("Got pending interrupt after IRQ enabled",
-		   vmx_pending_event_ipi_fired);
+	report(vmx_pending_event_ipi_fired,
+	       "Got pending interrupt after IRQ enabled");
 
 	if (guest_hlt)
 		vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 
 	enter_guest();
-	report("Guest finished running when no interrupt",
-		   vmx_pending_event_guest_run);
+	report(vmx_pending_event_guest_run,
+	       "Guest finished running when no interrupt");
 }
 
 static void vmx_pending_event_test(void)
@@ -7749,9 +7776,9 @@ static void verify_nmi_window_exit(u64 rip)
 {
 	u32 exit_reason = vmcs_read(EXI_REASON);
 
-	report("Exit reason (%d) is 'NMI window'",
-	       exit_reason == VMX_NMI_WINDOW, exit_reason);
-	report("RIP (%#lx) is %#lx", vmcs_read(GUEST_RIP) == rip,
+	report(exit_reason == VMX_NMI_WINDOW,
+	       "Exit reason (%d) is 'NMI window'", exit_reason);
+	report(vmcs_read(GUEST_RIP) == rip, "RIP (%#lx) is %#lx",
 	       vmcs_read(GUEST_RIP), rip);
 	vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 }
@@ -7822,8 +7849,8 @@ static void vmx_nmi_window_test(void)
 	vmcs_write(GUEST_INTR_STATE, GUEST_INTR_STATE_NMI);
 	enter_guest();
 	verify_nmi_window_exit(nop_addr + 1);
-	report("#DB handler executed once (actual %d times)",
-	       vmx_window_test_db_count == 1,
+	report(vmx_window_test_db_count == 1,
+	       "#DB handler executed once (actual %d times)",
 	       vmx_window_test_db_count);
 	report_prefix_pop();
 
@@ -7883,9 +7910,9 @@ static void verify_intr_window_exit(u64 rip)
 {
 	u32 exit_reason = vmcs_read(EXI_REASON);
 
-	report("Exit reason (%d) is 'interrupt window'",
-	       exit_reason == VMX_INTR_WINDOW, exit_reason);
-	report("RIP (%#lx) is %#lx", vmcs_read(GUEST_RIP) == rip,
+	report(exit_reason == VMX_INTR_WINDOW,
+	       "Exit reason (%d) is 'interrupt window'", exit_reason);
+	report(vmcs_read(GUEST_RIP) == rip, "RIP (%#lx) is %#lx",
 	       vmcs_read(GUEST_RIP), rip);
 	vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 }
@@ -8065,12 +8092,12 @@ static void vmx_store_tsc_test(void)
 	enter_guest();
 	high = rdtsc();
 
-	report("RDTSC value in the guest (%lu) is in range [%lu, %lu]",
-	       low + GUEST_TSC_OFFSET <= guest_tsc &&
+	report(low + GUEST_TSC_OFFSET <= guest_tsc &&
 	       guest_tsc <= high + GUEST_TSC_OFFSET,
+	       "RDTSC value in the guest (%lu) is in range [%lu, %lu]",
 	       guest_tsc, low + GUEST_TSC_OFFSET, high + GUEST_TSC_OFFSET);
-	report("IA32_TSC value saved in the VM-exit MSR-store list (%lu) is in range [%lu, %lu]",
-	       low <= msr_entry.value && msr_entry.value <= high,
+	report(low <= msr_entry.value && msr_entry.value <= high,
+	       "IA32_TSC value saved in the VM-exit MSR-store list (%lu) is in range [%lu, %lu]",
 	       msr_entry.value, low, high);
 }
 
@@ -8139,17 +8166,18 @@ static void check_db_exit(bool xfail_qual, bool xfail_dr6, bool xfail_pdbg,
 	const u32 expected_intr_info = INTR_INFO_VALID_MASK |
 		INTR_TYPE_HARD_EXCEPTION | DB_VECTOR;
 
-	report("Expected #DB VM-exit",
-	       reason == VMX_EXC_NMI && intr_info == expected_intr_info);
-	report("Expected RIP %p (actual %lx)", (u64)expected_rip == guest_rip,
+	report(reason == VMX_EXC_NMI && intr_info == expected_intr_info,
+	       "Expected #DB VM-exit");
+	report((u64)expected_rip == guest_rip, "Expected RIP %p (actual %lx)",
 	       expected_rip, guest_rip);
-	report_xfail("Expected pending debug exceptions 0 (actual %lx)",
-		     xfail_pdbg, 0 == guest_pending_dbg, guest_pending_dbg);
-	report_xfail("Expected exit qualification %lx (actual %lx)", xfail_qual,
-		     expected_exit_qual == exit_qual,
+	report_xfail(xfail_pdbg, 0 == guest_pending_dbg,
+		     "Expected pending debug exceptions 0 (actual %lx)",
+		     guest_pending_dbg);
+	report_xfail(xfail_qual, expected_exit_qual == exit_qual,
+		     "Expected exit qualification %lx (actual %lx)",
 		     expected_exit_qual, exit_qual);
-	report_xfail("Expected DR6 %lx (actual %lx)", xfail_dr6,
-		     expected_dr6 == dr6, expected_dr6, dr6);
+	report_xfail(xfail_dr6, expected_dr6 == dr6,
+		     "Expected DR6 %lx (actual %lx)", expected_dr6, dr6);
 	dismiss_db();
 }
 
@@ -8368,7 +8396,7 @@ static void vmx_eoi_bitmap_ioapic_scan_test(void)
 
 	/* Let L2 finish */
 	enter_guest();
-	report(__func__, 1);
+	report(1, __func__);
 }
 
 #define HLT_WITH_RVI_VECTOR		(0xf1)
@@ -8409,7 +8437,7 @@ static void vmx_hlt_with_rvi_test(void)
 	vmcs_write(GUEST_INT_STATUS, HLT_WITH_RVI_VECTOR);
 	enter_guest();
 
-	report("Interrupt raised in guest", vmx_hlt_with_rvi_guest_isr_fired);
+	report(vmx_hlt_with_rvi_guest_isr_fired, "Interrupt raised in guest");
 }
 
 static void set_irq_line_thread(void *data)
@@ -8496,7 +8524,7 @@ static void vmx_apic_passthrough(bool set_irq_line_from_thread)
 
 	/* Let L2 finish */
 	enter_guest();
-	report(__func__, 1);
+	report(1, __func__);
 }
 
 static void vmx_apic_passthrough_test(void)
@@ -8539,16 +8567,16 @@ static void vmx_apic_passthrough_tpr_threshold_test(void)
 	test_set_guest(vmx_apic_passthrough_tpr_threshold_guest);
 	enter_guest();
 
-	report("TPR was zero by guest", apic_get_tpr() == 0);
+	report(apic_get_tpr() == 0, "TPR was zero by guest");
 
 	/* Clean pending self-IPI */
 	vmx_apic_passthrough_tpr_threshold_ipi_isr_fired = false;
 	handle_irq(ipi_vector, vmx_apic_passthrough_tpr_threshold_ipi_isr);
 	sti();
 	asm volatile ("nop");
-	report("self-IPI fired", vmx_apic_passthrough_tpr_threshold_ipi_isr_fired);
+	report(vmx_apic_passthrough_tpr_threshold_ipi_isr_fired, "self-IPI fired");
 
-	report(__func__, 1);
+	report(1, __func__);
 }
 
 static u64 init_signal_test_exit_reason;
@@ -8667,8 +8695,8 @@ static void vmx_init_signal_test(void)
 	 * VMX operation
 	 */
 	delay(INIT_SIGNAL_TEST_DELAY);
-	report("INIT signal blocked when CPU in VMX operation",
-		   vmx_get_test_stage() == 3);
+	report(vmx_get_test_stage() == 3,
+	       "INIT signal blocked when CPU in VMX operation");
 	/* No point to continue if we failed at this point */
 	if (vmx_get_test_stage() != 3)
 		return;
@@ -8682,11 +8710,11 @@ static void vmx_init_signal_test(void)
 	 */
 	delay(INIT_SIGNAL_TEST_DELAY);
 	if (vmx_get_test_stage() != 5) {
-		report("Pending INIT signal didn't result in VMX exit", false);
+		report(false, "Pending INIT signal didn't result in VMX exit");
 		return;
 	}
-	report("INIT signal during VMX non-root mode result in exit-reason %s (%lu)",
-			init_signal_test_exit_reason == VMX_INIT,
+	report(init_signal_test_exit_reason == VMX_INIT,
+			"INIT signal during VMX non-root mode result in exit-reason %s (%lu)",
 			exit_reason_description(init_signal_test_exit_reason),
 			init_signal_test_exit_reason);
 
@@ -8700,8 +8728,8 @@ static void vmx_init_signal_test(void)
 
 	/* Wait reasonable amount of time for other CPU to exit VMX operation */
 	delay(INIT_SIGNAL_TEST_DELAY);
-	report("INIT signal consumed on VMX_INIT exit",
-		   vmx_get_test_stage() == 7);
+	report(vmx_get_test_stage() == 7,
+	       "INIT signal consumed on VMX_INIT exit");
 	/* No point to continue if we failed at this point */
 	if (vmx_get_test_stage() != 7)
 		return;
@@ -8723,8 +8751,8 @@ static void vmx_init_signal_test(void)
 	 * to exit VMX operation and process INIT signal
 	 */
 	delay(INIT_SIGNAL_TEST_DELAY);
-	report("INIT signal processed after exit VMX operation",
-		   !init_signal_test_thread_continued);
+	report(!init_signal_test_thread_continued,
+	       "INIT signal processed after exit VMX operation");
 
 	/*
 	 * TODO: Send SIPI to other CPU to sipi_entry (See x86/cstart64.S)
@@ -8867,9 +8895,9 @@ static void vmcs_shadow_test_field(u8 *bitmap[2], u64 field)
 		set_bit(field, bitmap[ACCESS_VMWRITE]);
 	}
 	vmcs_shadow_test_access(bitmap, ACCESS_VMWRITE);
-	report("not shadowed for VMWRITE", c->reason == VMX_VMWRITE);
+	report(c->reason == VMX_VMWRITE, "not shadowed for VMWRITE");
 	vmcs_shadow_test_access(bitmap, ACCESS_VMREAD);
-	report("not shadowed for VMREAD", c->reason == VMX_VMREAD);
+	report(c->reason == VMX_VMREAD, "not shadowed for VMREAD");
 	report_prefix_pop();
 
 	if (field >> VMCS_FIELD_RESERVED_SHIFT)
@@ -8882,20 +8910,21 @@ static void vmcs_shadow_test_field(u8 *bitmap[2], u64 field)
 	if (good_shadow)
 		value = vmwrite_to_shadow(field, MAGIC_VAL_1 + field);
 	vmcs_shadow_test_access(bitmap, ACCESS_VMWRITE);
-	report("not shadowed for VMWRITE", c->reason == VMX_VMWRITE);
+	report(c->reason == VMX_VMWRITE, "not shadowed for VMWRITE");
 	vmcs_shadow_test_access(bitmap, ACCESS_VMREAD);
 	vmx_inst_error = vmcs_read(VMX_INST_ERROR);
-	report("shadowed for VMREAD (in %ld cycles)", c->reason == VMX_VMCALL,
+	report(c->reason == VMX_VMCALL, "shadowed for VMREAD (in %ld cycles)",
 	       c->time);
-	report("ALU flags after VMREAD (%lx) are as expected (%lx)",
-	       c->flags == flags[ACCESS_VMREAD],
+	report(c->flags == flags[ACCESS_VMREAD],
+	       "ALU flags after VMREAD (%lx) are as expected (%lx)",
 	       c->flags, flags[ACCESS_VMREAD]);
 	if (good_shadow)
-		report("value read from shadow (%lx) is as expected (%lx)",
-		       c->value == value, c->value, value);
+		report(c->value == value,
+		       "value read from shadow (%lx) is as expected (%lx)",
+		       c->value, value);
 	else if (shadow != (struct vmcs *)-1ull && flags[ACCESS_VMREAD])
-		report("VMX_INST_ERROR (%d) is as expected (%d)",
-		       vmx_inst_error == VMXERR_UNSUPPORTED_VMCS_COMPONENT,
+		report(vmx_inst_error == VMXERR_UNSUPPORTED_VMCS_COMPONENT,
+		       "VMX_INST_ERROR (%d) is as expected (%d)",
 		       vmx_inst_error, VMXERR_UNSUPPORTED_VMCS_COMPONENT);
 	report_prefix_pop();
 
@@ -8907,22 +8936,24 @@ static void vmcs_shadow_test_field(u8 *bitmap[2], u64 field)
 		vmwrite_to_shadow(field, MAGIC_VAL_1 + field);
 	vmcs_shadow_test_access(bitmap, ACCESS_VMWRITE);
 	vmx_inst_error = vmcs_read(VMX_INST_ERROR);
-	report("shadowed for VMWRITE (in %ld cycles)", c->reason == VMX_VMCALL,
+	report(c->reason == VMX_VMCALL,
+		"shadowed for VMWRITE (in %ld cycles)",
 		c->time);
-	report("ALU flags after VMWRITE (%lx) are as expected (%lx)",
-	       c->flags == flags[ACCESS_VMREAD],
+	report(c->flags == flags[ACCESS_VMREAD],
+	       "ALU flags after VMWRITE (%lx) are as expected (%lx)",
 	       c->flags, flags[ACCESS_VMREAD]);
 	if (good_shadow) {
 		value = vmread_from_shadow(field);
-		report("shadow VMCS value (%lx) is as expected (%lx)",
-		       value == 0, value, 0ul);
+		report(value == 0,
+		       "shadow VMCS value (%lx) is as expected (%lx)", value,
+		       0ul);
 	} else if (shadow != (struct vmcs *)-1ull && flags[ACCESS_VMWRITE]) {
-		report("VMX_INST_ERROR (%d) is as expected (%d)",
-		       vmx_inst_error == VMXERR_UNSUPPORTED_VMCS_COMPONENT,
+		report(vmx_inst_error == VMXERR_UNSUPPORTED_VMCS_COMPONENT,
+		       "VMX_INST_ERROR (%d) is as expected (%d)",
 		       vmx_inst_error, VMXERR_UNSUPPORTED_VMCS_COMPONENT);
 	}
 	vmcs_shadow_test_access(bitmap, ACCESS_VMREAD);
-	report("not shadowed for VMREAD", c->reason == VMX_VMREAD);
+	report(c->reason == VMX_VMREAD, "not shadowed for VMREAD");
 	report_prefix_pop();
 
 	/* Permit shadowed VMREAD and VMWRITE. */
@@ -8933,33 +8964,36 @@ static void vmcs_shadow_test_field(u8 *bitmap[2], u64 field)
 		vmwrite_to_shadow(field, MAGIC_VAL_1 + field);
 	vmcs_shadow_test_access(bitmap, ACCESS_VMWRITE);
 	vmx_inst_error = vmcs_read(VMX_INST_ERROR);
-	report("shadowed for VMWRITE (in %ld cycles)", c->reason == VMX_VMCALL,
+	report(c->reason == VMX_VMCALL,
+		"shadowed for VMWRITE (in %ld cycles)",
 		c->time);
-	report("ALU flags after VMWRITE (%lx) are as expected (%lx)",
-	       c->flags == flags[ACCESS_VMREAD],
+	report(c->flags == flags[ACCESS_VMREAD],
+	       "ALU flags after VMWRITE (%lx) are as expected (%lx)",
 	       c->flags, flags[ACCESS_VMREAD]);
 	if (good_shadow) {
 		value = vmread_from_shadow(field);
-		report("shadow VMCS value (%lx) is as expected (%lx)",
-		       value == 0, value, 0ul);
+		report(value == 0,
+		       "shadow VMCS value (%lx) is as expected (%lx)", value,
+		       0ul);
 	} else if (shadow != (struct vmcs *)-1ull && flags[ACCESS_VMWRITE]) {
-		report("VMX_INST_ERROR (%d) is as expected (%d)",
-		       vmx_inst_error == VMXERR_UNSUPPORTED_VMCS_COMPONENT,
+		report(vmx_inst_error == VMXERR_UNSUPPORTED_VMCS_COMPONENT,
+		       "VMX_INST_ERROR (%d) is as expected (%d)",
 		       vmx_inst_error, VMXERR_UNSUPPORTED_VMCS_COMPONENT);
 	}
 	vmcs_shadow_test_access(bitmap, ACCESS_VMREAD);
 	vmx_inst_error = vmcs_read(VMX_INST_ERROR);
-	report("shadowed for VMREAD (in %ld cycles)", c->reason == VMX_VMCALL,
+	report(c->reason == VMX_VMCALL, "shadowed for VMREAD (in %ld cycles)",
 	       c->time);
-	report("ALU flags after VMREAD (%lx) are as expected (%lx)",
-	       c->flags == flags[ACCESS_VMREAD],
+	report(c->flags == flags[ACCESS_VMREAD],
+	       "ALU flags after VMREAD (%lx) are as expected (%lx)",
 	       c->flags, flags[ACCESS_VMREAD]);
 	if (good_shadow)
-		report("value read from shadow (%lx) is as expected (%lx)",
-		       c->value == 0, c->value, 0ul);
+		report(c->value == 0,
+		       "value read from shadow (%lx) is as expected (%lx)",
+		       c->value, 0ul);
 	else if (shadow != (struct vmcs *)-1ull && flags[ACCESS_VMREAD])
-		report("VMX_INST_ERROR (%d) is as expected (%d)",
-		       vmx_inst_error == VMXERR_UNSUPPORTED_VMCS_COMPONENT,
+		report(vmx_inst_error == VMXERR_UNSUPPORTED_VMCS_COMPONENT,
+		       "VMX_INST_ERROR (%d) is as expected (%d)",
 		       vmx_inst_error, VMXERR_UNSUPPORTED_VMCS_COMPONENT);
 	report_prefix_pop();
 
@@ -9131,8 +9165,9 @@ static void rdtsc_vmexit_diff_test(void)
 
 	enter_guest();
 
-	report("RDTSC to VM-exit delta too high in %d of %d iterations",
-	       fail < RDTSC_DIFF_FAILS, fail, RDTSC_DIFF_ITERS);
+	report(fail < RDTSC_DIFF_FAILS,
+	       "RDTSC to VM-exit delta too high in %d of %d iterations",
+	       fail, RDTSC_DIFF_ITERS);
 }
 
 static int invalid_msr_init(struct vmcs *vmcs)
@@ -9158,12 +9193,12 @@ static int invalid_msr_init(struct vmcs *vmcs)
 
 static void invalid_msr_main(void)
 {
-	report("Invalid MSR load", 0);
+	report(0, "Invalid MSR load");
 }
 
 static int invalid_msr_exit_handler(void)
 {
-	report("Invalid MSR load", 0);
+	report(0, "Invalid MSR load");
 	print_vmexit_info();
 	return VMX_TEST_EXIT;
 }
@@ -9173,7 +9208,7 @@ static int invalid_msr_entry_failure(struct vmentry_failure *failure)
 	ulong reason;
 
 	reason = vmcs_read(EXI_REASON);
-	report("Invalid MSR load", reason == (0x80000000u | VMX_FAIL_MSR));
+	report(reason == (0x80000000u | VMX_FAIL_MSR), "Invalid MSR load");
 	return VMX_TEST_VMEXIT;
 }
 
@@ -9274,12 +9309,12 @@ static void atomic_switch_msrs_test(int count)
 
 		exit_reason = vmcs_read(EXI_REASON);
 		exit_reason_want = VMX_FAIL_MSR | VMX_ENTRY_FAILURE;
-		report("exit_reason, %u, is %u.",
-		       exit_reason == exit_reason_want, exit_reason,
+		report(exit_reason == exit_reason_want,
+		       "exit_reason, %u, is %u.", exit_reason,
 		       exit_reason_want);
 
 		exit_qual = vmcs_read(EXI_QUALIFICATION);
-		report("exit_qual, %u, is %u.", exit_qual == max_allowed + 1,
+		report(exit_qual == max_allowed + 1, "exit_qual, %u, is %u.",
 		       exit_qual, max_allowed + 1);
 	}
 

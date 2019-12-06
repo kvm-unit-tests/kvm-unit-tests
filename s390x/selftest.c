@@ -26,7 +26,7 @@ static void test_fp(void)
 		"	std %1, %0\n"
 		: "=m" (c) : "f" (a), "m" (b));
 
-	report("3.0/2.0 == 1.5", c == 1.5);
+	report(c == 1.5, "3.0/2.0 == 1.5");
 }
 
 static void test_pgm_int(void)
@@ -49,11 +49,12 @@ static void test_malloc(void)
 	*tmp2 = 123456789;
 	mb();
 
-	report("malloc: got vaddr", (uintptr_t)tmp & 0xf000000000000000ul);
-	report("malloc: access works", *tmp == 123456789);
-	report("malloc: got 2nd vaddr", (uintptr_t)tmp2 & 0xf000000000000000ul);
-	report("malloc: access works", (*tmp2 == 123456789));
-	report("malloc: addresses differ", tmp != tmp2);
+	report((uintptr_t)tmp & 0xf000000000000000ul, "malloc: got vaddr");
+	report(*tmp == 123456789, "malloc: access works");
+	report((uintptr_t)tmp2 & 0xf000000000000000ul,
+	       "malloc: got 2nd vaddr");
+	report((*tmp2 == 123456789), "malloc: access works");
+	report(tmp != tmp2, "malloc: addresses differ");
 
 	expect_pgm_int();
 	configure_dat(0);
@@ -69,11 +70,11 @@ int main(int argc, char**argv)
 {
 	report_prefix_push("selftest");
 
-	report("true", true);
-	report("argc == 3", argc == 3);
-	report("argv[0] == PROGNAME", !strcmp(argv[0], "s390x/selftest.elf"));
-	report("argv[1] == test", !strcmp(argv[1], "test"));
-	report("argv[2] == 123", !strcmp(argv[2], "123"));
+	report(true, "true");
+	report(argc == 3, "argc == 3");
+	report(!strcmp(argv[0], "s390x/selftest.elf"), "argv[0] == PROGNAME");
+	report(!strcmp(argv[1], "test"), "argv[1] == test");
+	report(!strcmp(argv[2], "123"), "argv[2] == 123");
 
 	setup_vm();
 

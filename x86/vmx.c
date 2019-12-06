@@ -358,11 +358,12 @@ static void test_vmwrite_vmread(void)
 	assert(!make_vmcs_current(vmcs));
 
 	set_all_vmcs_fields(0x42);
-	report("VMWRITE/VMREAD", __check_all_vmcs_fields(0x42, &max_index));
+	report(__check_all_vmcs_fields(0x42, &max_index), "VMWRITE/VMREAD");
 
 	vmcs_enum_max = rdmsr(MSR_IA32_VMX_VMCS_ENUM) & VMCS_FIELD_INDEX_MASK;
-	report("VMX_VMCS_ENUM.MAX_INDEX expected at least: %x, actual: %x",
-		vmcs_enum_max >= max_index, max_index, vmcs_enum_max);
+	report(vmcs_enum_max >= max_index,
+	       "VMX_VMCS_ENUM.MAX_INDEX expected at least: %x, actual: %x",
+	       max_index, vmcs_enum_max);
 
 	assert(!vmcs_clear(vmcs));
 	free_page(vmcs);
@@ -377,15 +378,15 @@ static void test_vmcs_high(void)
 	assert(!make_vmcs_current(vmcs));
 
 	vmcs_write(TSC_OFFSET, 0x0123456789ABCDEFull);
-	report("VMREAD TSC_OFFSET after VMWRITE TSC_OFFSET",
-	       vmcs_read(TSC_OFFSET) == 0x0123456789ABCDEFull);
-	report("VMREAD TSC_OFFSET_HI after VMWRITE TSC_OFFSET",
-	       vmcs_read(TSC_OFFSET_HI) == 0x01234567ull);
+	report(vmcs_read(TSC_OFFSET) == 0x0123456789ABCDEFull,
+	       "VMREAD TSC_OFFSET after VMWRITE TSC_OFFSET");
+	report(vmcs_read(TSC_OFFSET_HI) == 0x01234567ull,
+	       "VMREAD TSC_OFFSET_HI after VMWRITE TSC_OFFSET");
 	vmcs_write(TSC_OFFSET_HI, 0x76543210ul);
-	report("VMREAD TSC_OFFSET_HI after VMWRITE TSC_OFFSET_HI",
-	       vmcs_read(TSC_OFFSET_HI) == 0x76543210ul);
-	report("VMREAD TSC_OFFSET after VMWRITE TSC_OFFSET_HI",
-	       vmcs_read(TSC_OFFSET) == 0x7654321089ABCDEFull);
+	report(vmcs_read(TSC_OFFSET_HI) == 0x76543210ul,
+	       "VMREAD TSC_OFFSET_HI after VMWRITE TSC_OFFSET_HI");
+	report(vmcs_read(TSC_OFFSET) == 0x7654321089ABCDEFull,
+	       "VMREAD TSC_OFFSET after VMWRITE TSC_OFFSET_HI");
 
 	assert(!vmcs_clear(vmcs));
 	free_page(vmcs);
@@ -416,33 +417,33 @@ static void test_vmcs_lifecycle(void)
 	VMCLEAR(0);
 	VMPTRLD(0);
 	set_all_vmcs_fields(0);
-	report("current:VMCS0 active:[VMCS0]", check_all_vmcs_fields(0));
+	report(check_all_vmcs_fields(0), "current:VMCS0 active:[VMCS0]");
 
 	VMCLEAR(0);
 	VMPTRLD(0);
-	report("current:VMCS0 active:[VMCS0]", check_all_vmcs_fields(0));
+	report(check_all_vmcs_fields(0), "current:VMCS0 active:[VMCS0]");
 
 	VMCLEAR(1);
-	report("current:VMCS0 active:[VMCS0]", check_all_vmcs_fields(0));
+	report(check_all_vmcs_fields(0), "current:VMCS0 active:[VMCS0]");
 
 	VMPTRLD(1);
 	set_all_vmcs_fields(1);
-	report("current:VMCS1 active:[VMCS0,VCMS1]", check_all_vmcs_fields(1));
+	report(check_all_vmcs_fields(1), "current:VMCS1 active:[VMCS0,VCMS1]");
 
 	VMPTRLD(0);
-	report("current:VMCS0 active:[VMCS0,VCMS1]", check_all_vmcs_fields(0));
+	report(check_all_vmcs_fields(0), "current:VMCS0 active:[VMCS0,VCMS1]");
 	VMPTRLD(1);
-	report("current:VMCS1 active:[VMCS0,VCMS1]", check_all_vmcs_fields(1));
+	report(check_all_vmcs_fields(1), "current:VMCS1 active:[VMCS0,VCMS1]");
 	VMPTRLD(1);
-	report("current:VMCS1 active:[VMCS0,VCMS1]", check_all_vmcs_fields(1));
+	report(check_all_vmcs_fields(1), "current:VMCS1 active:[VMCS0,VCMS1]");
 
 	VMCLEAR(0);
-	report("current:VMCS1 active:[VCMS1]", check_all_vmcs_fields(1));
+	report(check_all_vmcs_fields(1), "current:VMCS1 active:[VCMS1]");
 
 	/* VMPTRLD should not erase VMWRITEs to the current VMCS */
 	set_all_vmcs_fields(2);
 	VMPTRLD(1);
-	report("current:VMCS1 active:[VCMS1]", check_all_vmcs_fields(2));
+	report(check_all_vmcs_fields(2), "current:VMCS1 active:[VCMS1]");
 
 	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
 		VMCLEAR(i);
@@ -654,14 +655,16 @@ static void test_vmclear_flushing(void)
 	assert(!vmcs_clear(vmcs[0]));
 	memcpy(vmcs[1], vmcs[0], basic.size);
 	assert(!make_vmcs_current(vmcs[1]));
-	report("test vmclear flush (current VMCS)", check_all_vmcs_fields(0x86));
+	report(check_all_vmcs_fields(0x86),
+	       "test vmclear flush (current VMCS)");
 
 	set_all_vmcs_fields(0x87);
 	assert(!make_vmcs_current(vmcs[0]));
 	assert(!vmcs_clear(vmcs[1]));
 	memcpy(vmcs[2], vmcs[1], basic.size);
 	assert(!make_vmcs_current(vmcs[2]));
-	report("test vmclear flush (!current VMCS)", check_all_vmcs_fields(0x87));
+	report(check_all_vmcs_fields(0x87),
+	       "test vmclear flush (!current VMCS)");
 
 	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
 		assert(!vmcs_clear(vmcs[i]));
@@ -683,22 +686,21 @@ static void test_vmclear(void)
 
 	/* Unaligned page access */
 	tmp_root = (struct vmcs *)((intptr_t)vmcs_root + 1);
-	report("test vmclear with unaligned vmcs",
-	       vmcs_clear(tmp_root) == 1);
+	report(vmcs_clear(tmp_root) == 1, "test vmclear with unaligned vmcs");
 
 	/* gpa bits beyond physical address width are set*/
 	tmp_root = (struct vmcs *)((intptr_t)vmcs_root |
 				   ((u64)1 << (width+1)));
-	report("test vmclear with vmcs address bits set beyond physical address width",
-	       vmcs_clear(tmp_root) == 1);
+	report(vmcs_clear(tmp_root) == 1,
+	       "test vmclear with vmcs address bits set beyond physical address width");
 
 	/* Pass VMXON region */
 	tmp_root = (struct vmcs *)bsp_vmxon_region;
-	report("test vmclear with vmxon region",
-	       vmcs_clear(tmp_root) == 1);
+	report(vmcs_clear(tmp_root) == 1, "test vmclear with vmxon region");
 
 	/* Valid VMCS */
-	report("test vmclear with valid vmcs region", vmcs_clear(vmcs_root) == 0);
+	report(vmcs_clear(vmcs_root) == 0,
+	       "test vmclear with valid vmcs region");
 
 	test_vmclear_flushing();
 }
@@ -955,8 +957,9 @@ void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
 		if (!bad_pt_ad) {
 			bad_pt_ad |= (ept_pte & (EPT_ACCESS_FLAG|EPT_DIRTY_FLAG)) != expected_pt_ad;
 			if (bad_pt_ad)
-				report("EPT - guest level %d page table A=%d/D=%d",
-				       false, l,
+				report(false,
+				       "EPT - guest level %d page table A=%d/D=%d",
+				       l,
 				       !!(expected_pt_ad & EPT_ACCESS_FLAG),
 				       !!(expected_pt_ad & EPT_DIRTY_FLAG));
 		}
@@ -970,8 +973,7 @@ void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
 	}
 
 	if (!bad_pt_ad)
-		report("EPT - guest page table structures A=%d/D=%d",
-		       true,
+		report(true, "EPT - guest page table structures A=%d/D=%d",
 		       !!(expected_pt_ad & EPT_ACCESS_FLAG),
 		       !!(expected_pt_ad & EPT_DIRTY_FLAG));
 
@@ -980,11 +982,11 @@ void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
 	gpa = (pt[offset] & PT_ADDR_MASK) | (guest_addr & offset_in_page);
 
 	if (!get_ept_pte(pml4, gpa, 1, &ept_pte)) {
-		report("EPT - guest physical address is not mapped", false);
+		report(false, "EPT - guest physical address is not mapped");
 		return;
 	}
-	report("EPT - guest physical address A=%d/D=%d",
-	       (ept_pte & (EPT_ACCESS_FLAG|EPT_DIRTY_FLAG)) == expected_gpa_ad,
+	report((ept_pte & (EPT_ACCESS_FLAG | EPT_DIRTY_FLAG)) == expected_gpa_ad,
+	       "EPT - guest physical address A=%d/D=%d",
 	       !!(expected_gpa_ad & EPT_ACCESS_FLAG),
 	       !!(expected_gpa_ad & EPT_DIRTY_FLAG));
 }
@@ -1344,12 +1346,12 @@ static int test_vmx_feature_control(void)
 	}
 
 	wrmsr(MSR_IA32_FEATURE_CONTROL, 0);
-	report("test vmxon with FEATURE_CONTROL cleared",
-	       test_for_exception(GP_VECTOR, &do_vmxon_off, NULL));
+	report(test_for_exception(GP_VECTOR, &do_vmxon_off, NULL),
+	       "test vmxon with FEATURE_CONTROL cleared");
 
 	wrmsr(MSR_IA32_FEATURE_CONTROL, FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX);
-	report("test vmxon without FEATURE_CONTROL lock",
-	       test_for_exception(GP_VECTOR, &do_vmxon_off, NULL));
+	report(test_for_exception(GP_VECTOR, &do_vmxon_off, NULL),
+	       "test vmxon without FEATURE_CONTROL lock");
 
 	wrmsr(MSR_IA32_FEATURE_CONTROL,
 		  FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX |
@@ -1358,10 +1360,10 @@ static int test_vmx_feature_control(void)
 	ia32_feature_control = rdmsr(MSR_IA32_FEATURE_CONTROL);
 	vmx_enabled =
 		ia32_feature_control & FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX;
-	report("test enable VMX in FEATURE_CONTROL", vmx_enabled);
+	report(vmx_enabled, "test enable VMX in FEATURE_CONTROL");
 
-	report("test FEATURE_CONTROL lock bit",
-	       test_for_exception(GP_VECTOR, &do_write_feature_control, NULL));
+	report(test_for_exception(GP_VECTOR, &do_write_feature_control, NULL),
+	       "test FEATURE_CONTROL lock bit");
 
 	return !vmx_enabled;
 }
@@ -1375,7 +1377,7 @@ static int test_vmxon(void)
 	/* Unaligned page access */
 	vmxon_region = (u64 *)((intptr_t)bsp_vmxon_region + 1);
 	ret1 = _vmx_on(vmxon_region);
-	report("test vmxon with unaligned vmxon region", ret1);
+	report(ret1, "test vmxon with unaligned vmxon region");
 	if (!ret1) {
 		ret = 1;
 		goto out;
@@ -1384,7 +1386,7 @@ static int test_vmxon(void)
 	/* gpa bits beyond physical address width are set*/
 	vmxon_region = (u64 *)((intptr_t)bsp_vmxon_region | ((u64)1 << (width+1)));
 	ret1 = _vmx_on(vmxon_region);
-	report("test vmxon with bits set beyond physical address width", ret1);
+	report(ret1, "test vmxon with bits set beyond physical address width");
 	if (!ret1) {
 		ret = 1;
 		goto out;
@@ -1393,7 +1395,7 @@ static int test_vmxon(void)
 	/* invalid revision indentifier */
 	*bsp_vmxon_region = 0xba9da9;
 	ret1 = vmx_on();
-	report("test vmxon with invalid revision identifier", ret1);
+	report(ret1, "test vmxon with invalid revision identifier");
 	if (!ret1) {
 		ret = 1;
 		goto out;
@@ -1402,7 +1404,7 @@ static int test_vmxon(void)
 	/* and finally a valid region */
 	*bsp_vmxon_region = basic.revision;
 	ret = vmx_on();
-	report("test vmxon with valid vmxon region", !ret);
+	report(!ret, "test vmxon with valid vmxon region");
 
 out:
 	return ret;
@@ -1418,25 +1420,26 @@ static void test_vmptrld(void)
 
 	/* Unaligned page access */
 	tmp_root = (struct vmcs *)((intptr_t)vmcs + 1);
-	report("test vmptrld with unaligned vmcs",
-	       make_vmcs_current(tmp_root) == 1);
+	report(make_vmcs_current(tmp_root) == 1,
+	       "test vmptrld with unaligned vmcs");
 
 	/* gpa bits beyond physical address width are set*/
 	tmp_root = (struct vmcs *)((intptr_t)vmcs |
 				   ((u64)1 << (width+1)));
-	report("test vmptrld with vmcs address bits set beyond physical address width",
-	       make_vmcs_current(tmp_root) == 1);
+	report(make_vmcs_current(tmp_root) == 1,
+	       "test vmptrld with vmcs address bits set beyond physical address width");
 
 	/* Pass VMXON region */
 	assert(!vmcs_clear(vmcs));
 	assert(!make_vmcs_current(vmcs));
 	tmp_root = (struct vmcs *)bsp_vmxon_region;
-	report("test vmptrld with vmxon region",
-	       make_vmcs_current(tmp_root) == 1);
-	report("test vmptrld with vmxon region vm-instruction error",
-	       vmcs_read(VMX_INST_ERROR) == VMXERR_VMPTRLD_VMXON_POINTER);
+	report(make_vmcs_current(tmp_root) == 1,
+	       "test vmptrld with vmxon region");
+	report(vmcs_read(VMX_INST_ERROR) == VMXERR_VMPTRLD_VMXON_POINTER,
+	       "test vmptrld with vmxon region vm-instruction error");
 
-	report("test vmptrld with valid vmcs region", make_vmcs_current(vmcs) == 0);
+	report(make_vmcs_current(vmcs) == 0,
+	       "test vmptrld with valid vmcs region");
 }
 
 static void test_vmptrst(void)
@@ -1447,7 +1450,7 @@ static void test_vmptrst(void)
 	vmcs1 = alloc_page();
 	init_vmcs(&vmcs1);
 	ret = vmcs_save(&vmcs2);
-	report("test vmptrst", (!ret) && (vmcs1 == vmcs2));
+	report((!ret) && (vmcs1 == vmcs2), "test vmptrst");
 }
 
 struct vmx_ctl_msr {
@@ -1476,17 +1479,17 @@ static void test_vmx_caps(void)
 
 	printf("\nTest suite: VMX capability reporting\n");
 
-	report("MSR_IA32_VMX_BASIC",
-	       (basic.revision & (1ul << 31)) == 0 &&
+	report((basic.revision & (1ul << 31)) == 0 &&
 	       basic.size > 0 && basic.size <= 4096 &&
 	       (basic.type == 0 || basic.type == 6) &&
-	       basic.reserved1 == 0 && basic.reserved2 == 0);
+	       basic.reserved1 == 0 && basic.reserved2 == 0,
+	       "MSR_IA32_VMX_BASIC");
 
 	val = rdmsr(MSR_IA32_VMX_MISC);
-	report("MSR_IA32_VMX_MISC",
-	       (!(ctrl_cpu_rev[1].clr & CPU_URG) || val & (1ul << 5)) &&
+	report((!(ctrl_cpu_rev[1].clr & CPU_URG) || val & (1ul << 5)) &&
 	       ((val >> 16) & 0x1ff) <= 256 &&
-	       (val & 0x80007e00) == 0);
+	       (val & 0x80007e00) == 0,
+	       "MSR_IA32_VMX_MISC");
 
 	for (n = 0; n < ARRAY_SIZE(vmx_ctl_msr); n++) {
 		ctrl.val = rdmsr(vmx_ctl_msr[n].index);
@@ -1498,27 +1501,27 @@ static void test_vmx_caps(void)
 			ok = ctrl.clr == true_ctrl.clr;
 			ok = ok && ctrl.set == (true_ctrl.set | default1);
 		}
-		report("%s", ok, vmx_ctl_msr[n].name);
+		report(ok, "%s", vmx_ctl_msr[n].name);
 	}
 
 	fixed0 = rdmsr(MSR_IA32_VMX_CR0_FIXED0);
 	fixed1 = rdmsr(MSR_IA32_VMX_CR0_FIXED1);
-	report("MSR_IA32_VMX_IA32_VMX_CR0_FIXED0/1",
-	       ((fixed0 ^ fixed1) & ~fixed1) == 0);
+	report(((fixed0 ^ fixed1) & ~fixed1) == 0,
+	       "MSR_IA32_VMX_IA32_VMX_CR0_FIXED0/1");
 
 	fixed0 = rdmsr(MSR_IA32_VMX_CR4_FIXED0);
 	fixed1 = rdmsr(MSR_IA32_VMX_CR4_FIXED1);
-	report("MSR_IA32_VMX_IA32_VMX_CR4_FIXED0/1",
-	       ((fixed0 ^ fixed1) & ~fixed1) == 0);
+	report(((fixed0 ^ fixed1) & ~fixed1) == 0,
+	       "MSR_IA32_VMX_IA32_VMX_CR4_FIXED0/1");
 
 	val = rdmsr(MSR_IA32_VMX_VMCS_ENUM);
-	report("MSR_IA32_VMX_VMCS_ENUM",
-	       (val & VMCS_FIELD_INDEX_MASK) >= 0x2a &&
-	       (val & 0xfffffffffffffc01Ull) == 0);
+	report((val & VMCS_FIELD_INDEX_MASK) >= 0x2a &&
+	       (val & 0xfffffffffffffc01Ull) == 0,
+	       "MSR_IA32_VMX_VMCS_ENUM");
 
 	val = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
-	report("MSR_IA32_VMX_EPT_VPID_CAP",
-	       (val & 0xfffff07ef98cbebeUll) == 0);
+	report((val & 0xfffff07ef98cbebeUll) == 0,
+	       "MSR_IA32_VMX_EPT_VPID_CAP");
 }
 
 /* This function can only be called in guest */
@@ -1724,7 +1727,7 @@ static int test_run(struct vmx_test *test)
 		int ret = 0;
 		if (test->init || test->guest_main || test->exit_handler ||
 		    test->syscall_handler) {
-			report("V2 test cannot specify V1 callbacks.", 0);
+			report(0, "V2 test cannot specify V1 callbacks.");
 			ret = 1;
 		}
 		if (ret)
@@ -1769,7 +1772,7 @@ static int test_run(struct vmx_test *test)
 		run_teardown_step(&teardown_steps[--teardown_count]);
 
 	if (launched && !guest_finished)
-		report("Guest didn't run to completion.", 0);
+		report(0, "Guest didn't run to completion.");
 
 out:
 	if (vmx_off()) {
@@ -1871,11 +1874,11 @@ void enter_guest_with_bad_controls(void)
 			"Called enter_guest() after guest returned.");
 
 	__enter_guest(ABORT_ON_INVALID_GUEST_STATE, &failure);
-	report("failure occurred early", failure.early);
-	report("FLAGS set correctly",
-	       (failure.flags & VMX_ENTRY_FLAGS) == X86_EFLAGS_ZF);
-	report("VM-Inst Error # is %d (VM entry with invalid control field(s))",
-	       vmcs_read(VMX_INST_ERROR) == VMXERR_ENTRY_INVALID_CONTROL_FIELD,
+	report(failure.early, "failure occurred early");
+	report((failure.flags & VMX_ENTRY_FLAGS) == X86_EFLAGS_ZF,
+               "FLAGS set correctly");
+	report(vmcs_read(VMX_INST_ERROR) == VMXERR_ENTRY_INVALID_CONTROL_FIELD,
+	       "VM-Inst Error # is %d (VM entry with invalid control field(s))",
 	       VMXERR_ENTRY_INVALID_CONTROL_FIELD);
 
 	/*
@@ -1975,7 +1978,7 @@ int main(int argc, const char *argv[])
 			goto exit;
 	} else {
 		if (vmx_on()) {
-			report("vmxon", 0);
+			report(0, "vmxon");
 			goto exit;
 		}
 	}
@@ -2006,7 +2009,7 @@ int main(int argc, const char *argv[])
 	}
 
 	if (!matched)
-		report("command line didn't match any tests!", matched);
+		report(matched, "command line didn't match any tests!");
 
 exit:
 	return report_summary();

@@ -135,12 +135,12 @@ int main(void)
 
 	report_info("PSCI version %d.%d", PSCI_VERSION_MAJOR(ver),
 					  PSCI_VERSION_MINOR(ver));
-	report("invalid-function", psci_invalid_function());
-	report("affinity-info-on", psci_affinity_info_on());
-	report("affinity-info-off", psci_affinity_info_off());
+	report(psci_invalid_function(), "invalid-function");
+	report(psci_affinity_info_on(), "affinity-info-on");
+	report(psci_affinity_info_off(), "affinity-info-off");
 
 	if (ERRATA(6c7a5dce22b3))
-		report("cpu-on", psci_cpu_on_test());
+		report(psci_cpu_on_test(), "cpu-on");
 	else
 		report_skip("Skipping unsafe cpu-on test. Set ERRATA_6c7a5dce22b3=y to enable.");
 
@@ -148,7 +148,7 @@ done:
 #if 0
 	report_summary();
 	psci_invoke(PSCI_0_2_FN_SYSTEM_OFF, 0, 0, 0);
-	report("system-off", false);
+	report(false, "system-off");
 	return 1; /* only reaches here if system-off fails */
 #else
 	return report_summary();

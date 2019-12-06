@@ -21,11 +21,11 @@ static uint8_t pagebuf[PAGE_SIZE * 2] __attribute__((aligned(PAGE_SIZE * 2)));
 static void test_facilities(void)
 {
 	report_prefix_push("facilities");
-	report("!10", !test_facility(10));
-	report("!14", !test_facility(14));
-	report("!66", !test_facility(66));
-	report("!145", !test_facility(145));
-	report("!149", !test_facility(140));
+	report(!test_facility(10), "!10");
+	report(!test_facility(14), "!14");
+	report(!test_facility(66), "!66");
+	report(!test_facility(145), "!145");
+	report(!test_facility(140), "!149");
 	report_prefix_pop();
 }
 

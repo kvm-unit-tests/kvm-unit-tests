@@ -45,15 +45,15 @@ static void check_setup(int argc, char **argv)
 			phys_addr_t memsize = PHYS_END - PHYS_OFFSET;
 			phys_addr_t expected = ((phys_addr_t)val)*1024*1024;
 
-			report("memory size matches expectation",
-			       memsize == expected);
+			report(memsize == expected,
+			       "memory size matches expectation");
 			report_info("found %" PRIu64 " MB", memsize/1024/1024);
 			++nr_tests;
 
 		} else if (strcmp(argv[i], "smp") == 0) {
 
-			report("number of CPUs matches expectation",
-			       nr_cpus == (int)val);
+			report(nr_cpus == (int)val,
+			       "number of CPUs matches expectation");
 			report_info("found %d CPUs", nr_cpus);
 			++nr_tests;
 		}
@@ -296,8 +296,8 @@ static void user_psci_system_off(struct pt_regs *regs, unsigned int esr)
 
 static void check_vectors(void *arg __unused)
 {
-	report("und", check_und());
-	report("svc", check_svc());
+	report(check_und(), "und");
+	report(check_svc(), "svc");
 	if (is_user()) {
 #ifdef __arm__
 		install_exception_handler(EXCPTN_UND, user_psci_system_off);
@@ -374,12 +374,12 @@ int main(int argc, char **argv)
 
 	} else if (strcmp(argv[1], "smp") == 0) {
 
-		report("PSCI version", psci_check());
+		report(psci_check(), "PSCI version");
 		on_cpus(cpu_report, NULL);
 		while (!cpumask_full(&ready))
 			cpu_relax();
 		smp_rmb();		/* Paired with wmb in cpu_report(). */
-		report("MPIDR test on all CPUs", cpumask_full(&valid));
+		report(cpumask_full(&valid), "MPIDR test on all CPUs");
 		report_info("%d CPUs reported back", nr_cpus);
 
 	} else {

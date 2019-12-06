@@ -44,7 +44,7 @@ static void test_start(void)
 	while (!testflag) {
 		mb();
 	}
-	report("start", 1);
+	report(1, "start");
 }
 
 static void test_stop(void)
@@ -56,7 +56,7 @@ static void test_stop(void)
 	 * implementation
 	 */
 	while (!smp_cpu_stopped(1)) {}
-	report("stop", 1);
+	report(1, "stop");
 }
 
 static void test_stop_store_status(void)
@@ -69,8 +69,8 @@ static void test_stop_store_status(void)
 	lc->grs_sa[15] = 0;
 	smp_cpu_stop_store_status(1);
 	mb();
-	report("prefix", lc->prefix_sa == (uint32_t)(uintptr_t)cpu->lowcore);
-	report("stack", lc->grs_sa[15]);
+	report(lc->prefix_sa == (uint32_t)(uintptr_t)cpu->lowcore, "prefix");
+	report(lc->grs_sa[15], "stack");
 	report_prefix_pop();
 }
 
@@ -85,8 +85,9 @@ static void test_store_status(void)
 	report_prefix_push("running");
 	smp_cpu_restart(1);
 	sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, &r);
-	report("incorrect state", r == SIGP_STATUS_INCORRECT_STATE);
-	report("status not written", !memcmp(status, (void*)status + PAGE_SIZE, PAGE_SIZE));
+	report(r == SIGP_STATUS_INCORRECT_STATE, "incorrect state");
+	report(!memcmp(status, (void *)status + PAGE_SIZE, PAGE_SIZE),
+	       "status not written");
 	report_prefix_pop();
 
 	memset(status, 0, PAGE_SIZE);
@@ -94,7 +95,7 @@ static void test_store_status(void)
 	smp_cpu_stop(1);
 	sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, NULL);
 	while (!status->prefix) { mb(); }
-	report("status written", 1);
+	report(1, "status written");
 	free_pages(status, PAGE_SIZE * 2);
 	report_prefix_pop();
 
@@ -113,7 +114,7 @@ static void ecall(void)
 	load_psw_mask(mask);
 	testflag = 1;
 	while (lc->ext_int_code != 0x1202) { mb(); }
-	report("ecall", 1);
+	report(1, "ecall");
 	testflag= 1;
 }
 
@@ -148,7 +149,7 @@ static void emcall(void)
 	load_psw_mask(mask);
 	testflag= 1;
 	while (lc->ext_int_code != 0x1201) { mb(); }
-	report("ecall", 1);
+	report(1, "ecall");
 	testflag = 1;
 }
 
@@ -186,19 +187,19 @@ static void test_reset_initial(void)
 	sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, NULL);
 
 	report_prefix_push("clear");
-	report("psw", !status->psw.mask && !status->psw.addr);
-	report("prefix", !status->prefix);
-	report("fpc", !status->fpc);
-	report("cpu timer", !status->cputm);
-	report("todpr", !status->todpr);
+	report(!status->psw.mask && !status->psw.addr, "psw");
+	report(!status->prefix, "prefix");
+	report(!status->fpc, "fpc");
+	report(!status->cputm, "cpu timer");
+	report(!status->todpr, "todpr");
 	report_prefix_pop();
 
 	report_prefix_push("initialized");
-	report("cr0 == 0xE0", status->crs[0] == 0xE0UL);
-	report("cr14 == 0xC2000000", status->crs[14] == 0xC2000000UL);
+	report(status->crs[0] == 0xE0UL, "cr0 == 0xE0");
+	report(status->crs[14] == 0xC2000000UL, "cr14 == 0xC2000000");
 	report_prefix_pop();
 
-	report("cpu stopped", smp_cpu_stopped(1));
+	report(smp_cpu_stopped(1), "cpu stopped");
 	free_pages(status, PAGE_SIZE);
 	report_prefix_pop();
 }
@@ -214,7 +215,7 @@ static void test_reset(void)
 	smp_cpu_setup(1, psw);
 
 	sigp_retry(1, SIGP_CPU_RESET, 0, NULL);
-	report("cpu stopped", smp_cpu_stopped(1));
+	report(smp_cpu_stopped(1), "cpu stopped");
 	report_prefix_pop();
 }
 

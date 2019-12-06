@@ -45,7 +45,7 @@ static void test_4k_key(void)
 	pfmf(r1.val, pagebuf);
 	skey.val = get_storage_key(pagebuf);
 	skey.val &= SKEY_ACC | SKEY_FP;
-	report("set storage keys", skey.val == 0x30);
+	report(skey.val == 0x30, "set storage keys");
 out:
 	report_prefix_pop();
 }
@@ -75,7 +75,7 @@ static void test_1m_key(void)
 			break;
 		}
 	}
-	report("set storage keys", rp);
+	report(rp, "set storage keys");
 out:
 	report_prefix_pop();
 }
@@ -91,7 +91,8 @@ static void test_4k_clear(void)
 	report_prefix_push("4K");
 	memset(pagebuf, 42, PAGE_SIZE);
 	pfmf(r1.val, pagebuf);
-	report("clear memory", !memcmp(pagebuf, pagebuf + PAGE_SIZE, PAGE_SIZE));
+	report(!memcmp(pagebuf, pagebuf + PAGE_SIZE, PAGE_SIZE),
+	       "clear memory");
 	report_prefix_pop();
 }
 
@@ -110,7 +111,7 @@ static void test_1m_clear(void)
 	pfmf(r1.val, pagebuf);
 	for (i = 0; i < PAGE_SIZE * 256; i++)
 		sum |= pagebuf[i];
-	report("clear memory", !sum);
+	report(!sum, "clear memory");
 	report_prefix_pop();
 }
 

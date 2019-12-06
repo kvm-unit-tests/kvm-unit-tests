@@ -234,7 +234,7 @@ static void check_gp_counter(struct pmu_event *evt)
 	for (i = 0; i < num_counters; i++, cnt.ctr++) {
 		cnt.count = 0;
 		measure(&cnt, 1);
-		report("%s-%d", verify_event(cnt.count, evt), evt->name, i);
+		report(verify_event(cnt.count, evt), "%s-%d", evt->name, i);
 	}
 }
 
@@ -261,7 +261,8 @@ static void check_fixed_counters(void)
 		cnt.count = 0;
 		cnt.ctr = fixed_events[i].unit_sel;
 		measure(&cnt, 1);
-		report("fixed-%d", verify_event(cnt.count, &fixed_events[i]), i);
+		report(verify_event(cnt.count, &fixed_events[i]), "fixed-%d",
+		       i);
 	}
 }
 
@@ -293,7 +294,7 @@ static void check_counters_many(void)
 		if (!verify_counter(&cnt[i]))
 			break;
 
-	report("all counters", i == n);
+	report(i == n, "all counters");
 }
 
 static void check_counter_overflow(void)
@@ -330,13 +331,13 @@ static void check_counter_overflow(void)
 			cnt.config &= ~EVNTSEL_INT;
 		idx = event_to_global_idx(&cnt);
 		measure(&cnt, 1);
-		report("cntr-%d", cnt.count == 1, i);
+		report(cnt.count == 1, "cntr-%d", i);
 		status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
-		report("status-%d", status & (1ull << idx), i);
+		report(status & (1ull << idx), "status-%d", i);
 		wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL, status);
 		status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
-		report("status clear-%d", !(status & (1ull << idx)), i);
-		report("irq-%d", check_irq() == (i % 2), i);
+		report(!(status & (1ull << idx)), "status clear-%d", i);
+		report(check_irq() == (i % 2), "irq-%d", i);
 	}
 
 	report_prefix_pop();
@@ -351,7 +352,7 @@ static void check_gp_counter_cmask(void)
 	};
 	cnt.config |= (0x2 << EVNTSEL_CMASK_SHIFT);
 	measure(&cnt, 1);
-	report("cmask", cnt.count < gp_events[1].min);
+	report(cnt.count < gp_events[1].min, "cmask");
 }
 
 static void do_rdpmc_fast(void *ptr)
@@ -391,13 +392,13 @@ static void check_rdpmc(void)
 		x &= (1ull << eax.split.bit_width) - 1;
 
 		wrmsr(MSR_IA32_PERFCTR0 + i, val);
-		report("cntr-%d", rdpmc(i) == x, i);
+		report(rdpmc(i) == x, "cntr-%d", i);
 
 		exc = test_for_exception(GP_VECTOR, do_rdpmc_fast, &cnt);
 		if (exc)
 			report_skip("fast-%d", i);
 		else
-			report("fast-%d", cnt.count == (u32)val, i);
+			report(cnt.count == (u32)val, "fast-%d", i);
 	}
 	for (i = 0; i < edx.split.num_counters_fixed; i++) {
 		uint64_t x = val & ((1ull << edx.split.bit_width_fixed) - 1);
@@ -407,13 +408,13 @@ static void check_rdpmc(void)
 		};
 
 		wrmsr(MSR_CORE_PERF_FIXED_CTR0 + i, x);
-		report("fixed cntr-%d", rdpmc(i | (1 << 30)) == x, i);
+		report(rdpmc(i | (1 << 30)) == x, "fixed cntr-%d", i);
 
 		exc = test_for_exception(GP_VECTOR, do_rdpmc_fast, &cnt);
 		if (exc)
 			report_skip("fixed fast-%d", i);
 		else
-			report("fixed fast-%d", cnt.count == (u32)x, i);
+			report(cnt.count == (u32)x, "fixed fast-%d", i);
 	}
 
 	report_prefix_pop();

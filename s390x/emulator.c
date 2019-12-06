@@ -28,10 +28,10 @@ static inline void __test_spm_ipm(uint8_t cc, uint8_t key)
 		      "ipm %0\n"
 		      : "+r"(out) : "r"(in) : "cc");
 
-	report("bit 32 and 33 set to zero", !(out & 0xc0000000UL));
-	report("bit 0-31, 40-63 unchanged",
-		(out & ~0xff000000ULL) == ~0xff000000ULL);
-	report("cc and key applied", !((in ^ out) & 0x3f000000UL));
+	report(!(out & 0xc0000000UL), "bit 32 and 33 set to zero");
+	report((out & ~0xff000000ULL) == ~0xff000000ULL,
+	       "bit 0-31, 40-63 unchanged");
+	report(!((in ^ out) & 0x3f000000UL), "cc and key applied");
 
 	report_prefix_pop();
 }
@@ -165,7 +165,7 @@ static inline void __test_basic_cpacf_opcode(unsigned int opcode)
 		report_skip("not available");
 		return;
 	}
-	report("query indicated in query", cpacf_query_func(opcode, 0));
+	report(cpacf_query_func(opcode, 0), "query indicated in query");
 
 	switch (opcode) {
 	case CPACF_KMCTR:
@@ -272,8 +272,8 @@ static void test_dxc(void)
 		     : : "r"(0) : "memory");
 	check_pgm_int_code(PGM_INT_CODE_DATA);
 
-	report("dxc in LC", lc->dxc_vxc == 0xff);
-	report("dxc in FPC", get_fpc_dxc() == 0xff);
+	report(lc->dxc_vxc == 0xff, "dxc in LC");
+	report(get_fpc_dxc() == 0xff, "dxc in FPC");
 	report_prefix_pop();
 
 	/* DXC (0xff) is to be stored in LC only on a trap (CRT) without AFP */
@@ -289,8 +289,8 @@ static void test_dxc(void)
 	afp_enable();
 	check_pgm_int_code(PGM_INT_CODE_DATA);
 
-	report("dxc in LC", lc->dxc_vxc == 0xff);
-	report("dxc not in FPC", get_fpc_dxc() == 0);
+	report(lc->dxc_vxc == 0xff, "dxc in LC");
+	report(get_fpc_dxc() == 0, "dxc not in FPC");
 	report_prefix_pop();
 }
 

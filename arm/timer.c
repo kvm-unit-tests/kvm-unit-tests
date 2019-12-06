@@ -222,19 +222,19 @@ static void test_timer(struct timer_info *info)
 	info->write_cval(later);
 	info->write_ctl(ARCH_TIMER_CTL_ENABLE);
 	isb();
-	report("not pending before", !gic_timer_pending(info));
+	report(!gic_timer_pending(info), "not pending before");
 
 	info->write_cval(now - 1);
 	isb();
-	report("interrupt signal pending", gic_timer_pending(info));
+	report(gic_timer_pending(info), "interrupt signal pending");
 
 	/* Disable the timer again and prepare to take interrupts */
 	info->write_ctl(0);
 	set_timer_irq_enabled(info, true);
-	report("interrupt signal no longer pending", !gic_timer_pending(info));
+	report(!gic_timer_pending(info), "interrupt signal no longer pending");
 
-	report("latency within 10 ms", test_cval_10msec(info));
-	report("interrupt received", info->irq_received);
+	report(test_cval_10msec(info), "latency within 10 ms");
+	report(info->irq_received, "interrupt received");
 
 	/* Disable the timer again */
 	info->write_ctl(0);
@@ -248,8 +248,8 @@ static void test_timer(struct timer_info *info)
 	wfi();
 	local_irq_enable();
 	left = info->read_tval();
-	report("interrupt received after TVAL/WFI", info->irq_received);
-	report("timer has expired", left < 0);
+	report(info->irq_received, "interrupt received after TVAL/WFI");
+	report(left < 0, "timer has expired");
 	report_info("TVAL is %d ticks", left);
 }
 
@@ -297,7 +297,7 @@ static void test_init(void)
 	if (ptimer_unsupported && !ERRATA(7b6b46311a85)) {
 		report_skip("Skipping ptimer tests. Set ERRATA_7b6b46311a85=y to enable.");
 	} else if (ptimer_unsupported) {
-		report("ptimer: read CNTP_CTL_EL0", false);
+		report(false, "ptimer: read CNTP_CTL_EL0");
 		report_info("ptimer: skipping remaining tests");
 	}
 

@@ -112,7 +112,7 @@ static void check_test(int ncpus)
 	for (i = ncpus - 1; i >= 0; i--)
 		pass &= ok[i];
 
-	report("TSC reference precision test", pass);
+	report(pass, "TSC reference precision test");
 }
 
 static void hv_perf_test(void *data)
@@ -159,8 +159,8 @@ int main(int ac, char **av)
 
 	hv_clock = alloc_page();
 	wrmsr(HV_X64_MSR_REFERENCE_TSC, (u64)(uintptr_t)hv_clock | 1);
-	report("MSR value after enabling",
-	       rdmsr(HV_X64_MSR_REFERENCE_TSC) == ((u64)(uintptr_t)hv_clock | 1));
+	report(rdmsr(HV_X64_MSR_REFERENCE_TSC) == ((u64)(uintptr_t)hv_clock | 1),
+	       "MSR value after enabling");
 
 	hvclock_get_time_values(&shadow, hv_clock);
 	if (shadow.tsc_sequence == 0 || shadow.tsc_sequence == 0xFFFFFFFF) {
@@ -189,7 +189,8 @@ int main(int ac, char **av)
 	perf_test(ncpus);
 
 	wrmsr(HV_X64_MSR_REFERENCE_TSC, 0LL);
-	report("MSR value after disabling", rdmsr(HV_X64_MSR_REFERENCE_TSC) == 0);
+	report(rdmsr(HV_X64_MSR_REFERENCE_TSC) == 0,
+	       "MSR value after disabling");
 
 	return nerr > 0 ? 1 : 0;
 }

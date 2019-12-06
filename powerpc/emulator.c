@@ -53,7 +53,7 @@ static void test_illegal(void)
 
 	asm volatile (".long 0");
 
-	report("exception", is_invalid == 8); /* illegal instruction */
+	report(is_invalid == 8, "exception"); /* illegal instruction */
 
 	report_prefix_pop();
 }
@@ -66,7 +66,7 @@ static void test_64bit(void)
 
 	asm("mfmsr %[msr]": [msr] "=r" (msr));
 
-	report("detected", msr & 0x8000000000000000UL);
+	report(msr & 0x8000000000000000UL, "detected");
 
 	report_prefix_pop();
 }
@@ -106,13 +106,13 @@ static void test_lswi(void)
 	 * mode, but QEMU does not support it. So in case we do not get an
 	 * exception, this is an expected failure and we run the other tests
 	 */
-	report_xfail("alignment", !alignment, alignment);
+	report_xfail(!alignment, alignment, "alignment");
 	if (alignment) {
 		report_prefix_pop();
 		return;
 	}
 #endif
-	report("partial", regs[0] == 0x01020300 && regs[1] == (uint64_t)-1);
+	report(regs[0] == 0x01020300 && regs[1] == (uint64_t)-1, "partial");
 
 	/* check NB = 0 ==> 32 bytes. */
 	asm volatile ("li r19,-1;"
@@ -142,11 +142,11 @@ static void test_lswi(void)
 		      "r11", "r12", "r13", "r14", "r15", "r16", "r17",
 		      "r18", "r19", "memory");
 
-	report("length", regs[0] == 0x01020304 && regs[1] == 0x05060708 &&
-			 regs[2] == 0x090a0b0c && regs[3] == 0x0d0e0f10 &&
-			 regs[4] == 0x11121314 && regs[5] == 0x15161718 &&
-			 regs[6] == 0x191a1b1c && regs[7] == 0x1d1e1f20 &&
-			 regs[8] == (uint64_t)-1);
+	report(regs[0] == 0x01020304 && regs[1] == 0x05060708 &&
+	       regs[2] == 0x090a0b0c && regs[3] == 0x0d0e0f10 &&
+	       regs[4] == 0x11121314 && regs[5] == 0x15161718 &&
+	       regs[6] == 0x191a1b1c && regs[7] == 0x1d1e1f20 &&
+	       regs[8] == (uint64_t)-1, "length");
 
 	/* check wrap around to r0 */
 	asm volatile ("li r31,-1;"
@@ -162,8 +162,8 @@ static void test_lswi(void)
 		      /* modify two registers from r31, wrap around to r0 */
 		      "r31", "r0", "memory");
 
-	report("wrap around to r0", regs[0] == 0x01020304 &&
-			            regs[1] == 0x05060708);
+	report(regs[0] == 0x01020304 && regs[1] == 0x05060708,
+	       "wrap around to r0");
 
 	/* check wrap around doesn't break RA */
 	asm volatile ("mr r29,r1\n"
@@ -189,7 +189,7 @@ static void test_lswi(void)
 	 * overwrite the register.
 	 * In all the cases, the register must stay untouched
 	 */
-	report("Don't overwrite Ra", regs[2] == (uint64_t)addr);
+	report(regs[2] == (uint64_t)addr, "Don't overwrite Ra");
 
 	report_prefix_pop();
 }
@@ -250,13 +250,13 @@ static void test_lswx(void)
 	 * mode, but QEMU does not support it. So in case we do not get an
 	 * exception, this is an expected failure and we run the other tests
 	 */
-	report_xfail("alignment", !alignment, alignment);
+	report_xfail(!alignment, alignment, "alignment");
 	if (alignment) {
 		report_prefix_pop();
 		return;
 	}
 #endif
-	report("partial", regs[0] == 0x01020300 && regs[1] == (uint64_t)-1);
+	report(regs[0] == 0x01020300 && regs[1] == (uint64_t)-1, "partial");
 
 	/* check an old know bug: the number of bytes is used as
 	 * the number of registers, so try 32 bytes.
@@ -290,11 +290,11 @@ static void test_lswx(void)
 		      "xer", "r11", "r12", "r13", "r14", "r15", "r16", "r17",
 		      "r18", "r19", "memory");
 
-	report("length", regs[0] == 0x01020304 && regs[1] == 0x05060708 &&
-			 regs[2] == 0x090a0b0c && regs[3] == 0x0d0e0f10 &&
-			 regs[4] == 0x11121314 && regs[5] == 0x15161718 &&
-			 regs[6] == 0x191a1b1c && regs[7] == 0x1d1e1f20 &&
-			 regs[8] == (uint64_t)-1);
+	report(regs[0] == 0x01020304 && regs[1] == 0x05060708 &&
+	       regs[2] == 0x090a0b0c && regs[3] == 0x0d0e0f10 &&
+	       regs[4] == 0x11121314 && regs[5] == 0x15161718 &&
+	       regs[6] == 0x191a1b1c && regs[7] == 0x1d1e1f20 &&
+	       regs[8] == (uint64_t)-1, "length");
 
 	/* check wrap around to r0 */
 
@@ -312,8 +312,8 @@ static void test_lswx(void)
 		      /* modify two registers from r31, wrap around to r0 */
 		      "xer", "r31", "r0", "memory");
 
-	report("wrap around to r0", regs[0] == 0x01020304 &&
-			            regs[1] == 0x05060708);
+	report(regs[0] == 0x01020304 && regs[1] == 0x05060708,
+	       "wrap around to r0");
 
 	/* check wrap around to r0 over RB doesn't break RB */
 
@@ -342,7 +342,7 @@ static void test_lswx(void)
 	 * overwrite the register.
 	 * In all the cases, the register must stay untouched
 	 */
-	report("Don't overwrite Rb", regs[1] == (uint64_t)addr);
+	report(regs[1] == (uint64_t)addr, "Don't overwrite Rb");
 
 	report_prefix_pop();
 }

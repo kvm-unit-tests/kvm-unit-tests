@@ -26,6 +26,6 @@ int main(void)
     for (i = 0; i < ncpus; ++i)
 	on_cpu(i, ipi_test, (void *)(long)i);
 
-    report("IPI to each CPU", nipis == ncpus);
+    report(nipis == ncpus, "IPI to each CPU");
     return report_summary();
 }

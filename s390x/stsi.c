@@ -70,10 +70,10 @@ static inline unsigned long stsi_get_fc(void *addr)
 
 static void test_fc(void)
 {
-	report("invalid fc",  stsi(pagebuf, 7, 0, 0) == 3);
-	report("invalid selector 1", stsi(pagebuf, 1, 0, 1) == 3);
-	report("invalid selector 2", stsi(pagebuf, 1, 1, 0) == 3);
-	report("query fc >= 2",  stsi_get_fc(pagebuf) >= 2);
+	report(stsi(pagebuf, 7, 0, 0) == 3, "invalid fc");
+	report(stsi(pagebuf, 1, 0, 1) == 3, "invalid selector 1");
+	report(stsi(pagebuf, 1, 1, 0) == 3, "invalid selector 2");
+	report(stsi_get_fc(pagebuf) >= 2, "query fc >= 2");
 }
 
 int main(void)

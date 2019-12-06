@@ -71,10 +71,12 @@ int main(int ac, char **av)
 	topmost[4093] = 0x0f;
 	topmost[4094] = 0x01;
 	topmost[4095] = 0xc1;
-	report("VMCALL on edge of canonical address space (intel)", test_edge());
+	report(test_edge(),
+	       "VMCALL on edge of canonical address space (intel)");
 
 	topmost[4095] = 0xd9;
-	report("VMMCALL on edge of canonical address space (AMD)", test_edge());
+	report(test_edge(),
+	       "VMMCALL on edge of canonical address space (AMD)");
 #endif
 
 	return report_summary();

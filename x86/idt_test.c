@@ -31,11 +31,11 @@ int main(void)
     printf("Starting IDT test\n");
     setup_idt();
     r = test_gp(&rflags_rf);
-    report("Testing #GP", r == GP_VECTOR);
-    report("Testing #GP rflags.rf", rflags_rf);
+    report(r == GP_VECTOR, "Testing #GP");
+    report(rflags_rf, "Testing #GP rflags.rf");
     r = test_ud2(&rflags_rf);
-    report("Testing #UD", r == UD_VECTOR);
-    report("Testing #UD rflags.rf", rflags_rf);
+    report(r == UD_VECTOR, "Testing #UD");
+    report(rflags_rf, "Testing #UD rflags.rf");
 
     return report_summary();
 }

@@ -47,6 +47,6 @@ void test_run(struct fault_test *test)
 {
 	bool passed = fault_test(&(test->arg));
 
-	report("%s", passed, test->name);
+	report(passed, "%s", test->name);
 }
 

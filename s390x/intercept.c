@@ -33,7 +33,7 @@ static void test_stpx(void)
 		" spx	%0\n"
 		: "+Q"(old_prefix), "+Q"(tst_prefix)
 		: "Q"(new_prefix));
-	report("store prefix", old_prefix == 0 && tst_prefix == new_prefix);
+	report(old_prefix == 0 && tst_prefix == new_prefix, "store prefix");
 
 	expect_pgm_int();
 	low_prot_enable();
@@ -71,7 +71,7 @@ static void test_spx(void)
 		: "+Q"(old_prefix)
 		: "Q"(new_prefix)
 		: "memory");
-	report("stfl to new prefix", pagebuf[GEN_LC_STFL] != 0);
+	report(pagebuf[GEN_LC_STFL] != 0, "stfl to new prefix");
 
 	expect_pgm_int();
 	asm volatile(" spx 0(%0) " : : "r"(1));
@@ -88,7 +88,7 @@ static void test_stap(void)
 	uint16_t cpuid = 0xffff;
 
 	asm volatile ("stap %0\n" : "+Q"(cpuid));
-	report("get cpu address", cpuid != 0xffff);
+	report(cpuid != 0xffff, "get cpu address");
 
 	expect_pgm_int();
 	low_prot_enable();
@@ -111,9 +111,9 @@ static void test_stidp(void)
 	struct cpuid id = {};
 
 	asm volatile ("stidp %0\n" : "+Q"(id));
-	report("type set", id.type);
-	report("version valid", !id.version || id.version == 0xff);
-	report("reserved bits not set", !id.reserved);
+	report(id.type, "type set");
+	report(!id.version || id.version == 0xff, "version valid");
+	report(!id.reserved, "reserved bits not set");
 
 	expect_pgm_int();
 	low_prot_enable();
@@ -145,8 +145,8 @@ static void test_testblock(void)
 		: "=d" (cc)
 		: "a"(pagebuf + 0x123)
 		: "memory", "0", "cc");
-	report("page cleared",
-	       cc == 0 && pagebuf[0] == 0 &&  pagebuf[PAGE_SIZE - 1] == 0);
+	report(cc == 0 && pagebuf[0] == 0 && pagebuf[PAGE_SIZE - 1] == 0,
+	       "page cleared");
 
 	expect_pgm_int();
 	low_prot_enable();

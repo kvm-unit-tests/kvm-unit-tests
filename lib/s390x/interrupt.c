@@ -46,8 +46,9 @@ uint16_t clear_pgm_int(void)
 void check_pgm_int_code(uint16_t code)
 {
 	mb();
-	report("Program interrupt: expected(%d) == received(%d)",
-	       code == lc->pgm_int_code, code, lc->pgm_int_code);
+	report(code == lc->pgm_int_code,
+	       "Program interrupt: expected(%d) == received(%d)", code,
+	       lc->pgm_int_code);
 }
 
 static void fixup_pgm_int(void)

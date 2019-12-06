@@ -121,7 +121,7 @@ static void test_load(void)
 
 	guarded = 0;
 	v = load_guarded(&gs_area);
-	report("load guarded %ld", guarded, v);
+	report(guarded, "load guarded %ld", v);
 	guarded = 0;
 }
 

@@ -35,8 +35,7 @@ static void test_set_mb(void)
 
 	ret1.val = get_storage_key(end - PAGE_SIZE) & (SKEY_ACC | SKEY_FP);
 	ret2.val = get_storage_key(end - PAGE_SIZE * 2) & (SKEY_ACC | SKEY_FP);
-	report("multi block",
-	       ret1.val == ret2.val && ret1.val == skey.val);
+	report(ret1.val == ret2.val && ret1.val == skey.val, "multi block");
 }
 
 static void test_chg(void)
@@ -48,7 +47,7 @@ static void test_chg(void)
 	skey1.val = get_storage_key(pagebuf);
 	pagebuf[0] = 3;
 	skey2.val = get_storage_key(pagebuf);
-	report("chg bit test", !skey1.str.ch && skey2.str.ch);
+	report(!skey1.str.ch && skey2.str.ch, "chg bit test");
 }
 
 static void test_set(void)
@@ -64,8 +63,8 @@ static void test_set(void)
 	 * CH are set by the machine for memory references and changes
 	 * and hence might change between a set and a get.
 	 */
-	report("set key test",
-	       skey.str.acc == ret.str.acc && skey.str.fp == ret.str.fp);
+	report(skey.str.acc == ret.str.acc && skey.str.fp == ret.str.fp,
+	       "set key test");
 }
 
 /* Returns true if we are running under z/VM 6.x */
@@ -106,7 +105,7 @@ static void test_priv(void)
 	report_prefix_pop();
 
 	skey.val = get_storage_key(pagebuf);
-	report("skey did not change on exception", skey.str.acc != 3);
+	report(skey.str.acc != 3, "skey did not change on exception");
 
 	report_prefix_push("iske");
 	if (is_zvm6) {

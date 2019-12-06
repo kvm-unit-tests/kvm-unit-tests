@@ -39,18 +39,18 @@ static void test_h_set_sprg0(int argc, char **argv)
 
 	rc = hcall(H_SET_SPRG0, 0xcafebabedeadbeefULL);
 	sprg0 = mfspr(SPR_SPRG0);
-	report("sprg0 = 0xcafebabedeadbeef",
-		rc == H_SUCCESS && sprg0 == 0xcafebabedeadbeefULL);
+	report(rc == H_SUCCESS && sprg0 == 0xcafebabedeadbeefULL,
+	       "sprg0 = 0xcafebabedeadbeef");
 
 	rc = hcall(H_SET_SPRG0, 0xaaaaaaaa55555555ULL);
 	sprg0 = mfspr(SPR_SPRG0);
-	report("sprg0 = 0xaaaaaaaa55555555",
-		rc == H_SUCCESS && sprg0 == 0xaaaaaaaa55555555ULL);
+	report(rc == H_SUCCESS && sprg0 == 0xaaaaaaaa55555555ULL,
+	       "sprg0 = 0xaaaaaaaa55555555");
 
 	rc = hcall(H_SET_SPRG0, sprg0_orig);
 	sprg0 = mfspr(SPR_SPRG0);
-	report("sprg0 = %#" PRIx64,
-		rc == H_SUCCESS && sprg0 == sprg0_orig, sprg0_orig);
+	report(rc == H_SUCCESS && sprg0 == sprg0_orig, "sprg0 = %#" PRIx64,
+	       sprg0_orig);
 }
 
 /**
@@ -72,23 +72,23 @@ static void test_h_page_init(int argc, char **argv)
 
 	memset(dst, 0xaa, PAGE_SIZE);
 	rc = hcall(H_PAGE_INIT, H_ZERO_PAGE, dst, src);
-	report("h_zero_page", rc == H_SUCCESS && *(uint64_t*)dst == 0);
+	report(rc == H_SUCCESS && *(uint64_t *)dst == 0, "h_zero_page");
 
 	*(uint64_t*)src = 0xbeefc0dedeadcafeULL;
 	rc = hcall(H_PAGE_INIT, H_COPY_PAGE, dst, src);
-	report("h_copy_page",
-		rc == H_SUCCESS && *(uint64_t*)dst == 0xbeefc0dedeadcafeULL);
+	report(rc == H_SUCCESS && *(uint64_t *)dst == 0xbeefc0dedeadcafeULL,
+	       "h_copy_page");
 
 	*(uint64_t*)src = 0x9abcdef012345678ULL;
 	rc = hcall(H_PAGE_INIT, H_COPY_PAGE|H_ZERO_PAGE, dst, src);
-	report("h_copy_page+h_zero_page",
-		rc == H_SUCCESS &&  *(uint64_t*)dst == 0x9abcdef012345678ULL);
+	report(rc == H_SUCCESS && *(uint64_t *)dst == 0x9abcdef012345678ULL,
+	       "h_copy_page+h_zero_page");
 
 	rc = hcall(H_PAGE_INIT, H_ZERO_PAGE, dst + 0x123, src);
-	report("h_zero_page unaligned dst", rc == H_PARAMETER);
+	report(rc == H_PARAMETER, "h_zero_page unaligned dst");
 
 	rc = hcall(H_PAGE_INIT, H_COPY_PAGE, dst, src + 0x123);
-	report("h_copy_page unaligned src", rc == H_PARAMETER);
+	report(rc == H_PARAMETER, "h_copy_page unaligned src");
 }
 
 static int h_random(uint64_t *val)
@@ -122,7 +122,7 @@ static void test_h_random(int argc, char **argv)
 		report_skip("h-call is not available");
 		return;
 	}
-	report("h-call can be used successfully", rc == H_SUCCESS);
+	report(rc == H_SUCCESS, "h-call can be used successfully");
 
 	val0 = 0ULL;
 	val1 = ~0ULL;
@@ -136,7 +136,7 @@ static void test_h_random(int argc, char **argv)
 		val1 &= rval;
 	} while (i-- > 0 && (val0 != ~0ULL || val1 != 0ULL));
 
-	report("no stuck bits", rc == H_SUCCESS && val0 == ~0ULL && val1 == 0);
+	report(rc == H_SUCCESS && val0 == ~0ULL && val1 == 0, "no stuck bits");
 }
 
 struct {

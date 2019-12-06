@@ -56,7 +56,7 @@ static void vtd_test_dmar(void)
 	 * Check data match between 0-3 bytes and 4-7 bytes of the
 	 * page.
 	 */
-	report(VTD_TEST_DMAR_4B, *((uint32_t *)page + 1) == DMA_TEST_WORD);
+	report(*((uint32_t *)page + 1) == DMA_TEST_WORD, VTD_TEST_DMAR_4B);
 
 	free_page(page);
 
@@ -102,7 +102,7 @@ static void vtd_test_ir(void)
 	edu_reg_writel(dev, EDU_REG_INTR_RAISE, 0);
 
 	/* We are good as long as we reach here */
-	report(VTD_TEST_IR_IOAPIC, edu_intr_recved == true);
+	report(edu_intr_recved == true, VTD_TEST_IR_IOAPIC);
 
 	/*
 	 * Setup EDU PCI device MSI, using interrupt remapping. By
@@ -125,7 +125,7 @@ static void vtd_test_ir(void)
 		cpu_relax();
 
 	/* We are good as long as we reach here */
-	report(VTD_TEST_IR_MSI, edu_intr_recved == true);
+	report(edu_intr_recved == true, VTD_TEST_IR_MSI);
 
 	report_prefix_pop();
 }
@@ -139,15 +139,16 @@ int main(int argc, char *argv[])
 
 	report_prefix_push("vtd_init");
 
-	report("fault status check", vtd_readl(DMAR_FSTS_REG) == 0);
-	report("QI enablement", vtd_readl(DMAR_GSTS_REG) & VTD_GCMD_QI);
-	report("DMAR table setup", vtd_readl(DMAR_GSTS_REG) & VTD_GCMD_ROOT);
-	report("IR table setup", vtd_readl(DMAR_GSTS_REG) & VTD_GCMD_IR_TABLE);
-	report("DMAR enablement", vtd_readl(DMAR_GSTS_REG) & VTD_GCMD_DMAR);
-	report("IR enablement", vtd_readl(DMAR_GSTS_REG) & VTD_GCMD_IR);
-	report("DMAR support 39 bits address width",
-	       vtd_readq(DMAR_CAP_REG) & VTD_CAP_SAGAW);
-	report("DMAR support huge pages", vtd_readq(DMAR_CAP_REG) & VTD_CAP_SLLPS);
+	report(vtd_readl(DMAR_FSTS_REG) == 0, "fault status check");
+	report(vtd_readl(DMAR_GSTS_REG) & VTD_GCMD_QI, "QI enablement");
+	report(vtd_readl(DMAR_GSTS_REG) & VTD_GCMD_ROOT, "DMAR table setup");
+	report(vtd_readl(DMAR_GSTS_REG) & VTD_GCMD_IR_TABLE, "IR table setup");
+	report(vtd_readl(DMAR_GSTS_REG) & VTD_GCMD_DMAR, "DMAR enablement");
+	report(vtd_readl(DMAR_GSTS_REG) & VTD_GCMD_IR, "IR enablement");
+	report(vtd_readq(DMAR_CAP_REG) & VTD_CAP_SAGAW,
+	       "DMAR support 39 bits address width");
+	report(vtd_readq(DMAR_CAP_REG) & VTD_CAP_SLLPS,
+	       "DMAR support huge pages");
 
 	report_prefix_pop();
 

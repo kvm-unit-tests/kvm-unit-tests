@@ -81,25 +81,25 @@ int main(int ac, char **av)
 
 	extern unsigned char sw_bp;
 	asm volatile("int3; sw_bp:");
-	report("#BP", bp_addr == (unsigned long)&sw_bp);
+	report(bp_addr == (unsigned long)&sw_bp, "#BP");
 
 	n = 0;
 	extern unsigned char hw_bp1;
 	set_dr0(&hw_bp1);
 	set_dr7(0x00000402);
 	asm volatile("hw_bp1: nop");
-	report("hw breakpoint (test that dr6.BS is not set)",
-	       n == 1 &&
-	       db_addr[0] == ((unsigned long)&hw_bp1) && dr6[0] == 0xffff0ff1);
+	report(n == 1 &&
+	       db_addr[0] == ((unsigned long)&hw_bp1) && dr6[0] == 0xffff0ff1,
+	       "hw breakpoint (test that dr6.BS is not set)");
 
 	n = 0;
 	extern unsigned char hw_bp2;
 	set_dr0(&hw_bp2);
 	set_dr6(0x00004002);
 	asm volatile("hw_bp2: nop");
-	report("hw breakpoint (test that dr6.BS is not cleared)",
-	       n == 1 &&
-	       db_addr[0] == ((unsigned long)&hw_bp2) && dr6[0] == 0xffff4ff1);
+	report(n == 1 &&
+	       db_addr[0] == ((unsigned long)&hw_bp2) && dr6[0] == 0xffff4ff1,
+	       "hw breakpoint (test that dr6.BS is not cleared)");
 
 	n = 0;
 	set_dr6(0);
@@ -114,11 +114,11 @@ int main(int ac, char **av)
 		"push %%rax\n\t"
 		"popf\n\t"
 		: "=r" (start) : : "rax");
-	report("single step",
-	       n == 3 &&
-	       db_addr[0] == start+1+6 && dr6[0] == 0xffff4ff0 &&
-	       db_addr[1] == start+1+6+1 && dr6[1] == 0xffff4ff0 &&
-	       db_addr[2] == start+1+6+1+1 && dr6[2] == 0xffff4ff0);
+	report(n == 3 &&
+	       db_addr[0] == start + 1 + 6 && dr6[0] == 0xffff4ff0 &&
+	       db_addr[1] == start + 1 + 6 + 1 && dr6[1] == 0xffff4ff0 &&
+	       db_addr[2] == start + 1 + 6 + 1 + 1 && dr6[2] == 0xffff4ff0,
+	       "single step");
 
 	/*
 	 * cpuid and rdmsr (among others) trigger VM exits and are then
@@ -141,15 +141,15 @@ int main(int ac, char **av)
 		"rdmsr\n\t"
 		"popf\n\t"
 		: "=r" (start) : : "rax", "ebx", "ecx", "edx");
-	report("single step emulated instructions",
-	       n == 7 &&
-	       db_addr[0] == start+1+6 && dr6[0] == 0xffff4ff0 &&
-	       db_addr[1] == start+1+6+1 && dr6[1] == 0xffff4ff0 &&
-	       db_addr[2] == start+1+6+1+3 && dr6[2] == 0xffff4ff0 &&
-	       db_addr[3] == start+1+6+1+3+2 && dr6[3] == 0xffff4ff0 &&
-	       db_addr[4] == start+1+6+1+3+2+5 && dr6[4] == 0xffff4ff0 &&
-	       db_addr[5] == start+1+6+1+3+2+5+2 && dr6[5] == 0xffff4ff0 &&
-	       db_addr[6] == start+1+6+1+3+2+5+2+1 && dr6[6] == 0xffff4ff0);
+	report(n == 7 &&
+	       db_addr[0] == start + 1 + 6 && dr6[0] == 0xffff4ff0 &&
+	       db_addr[1] == start + 1 + 6 + 1 && dr6[1] == 0xffff4ff0 &&
+	       db_addr[2] == start + 1 + 6 + 1 + 3 && dr6[2] == 0xffff4ff0 &&
+	       db_addr[3] == start + 1 + 6 + 1 + 3 + 2 && dr6[3] == 0xffff4ff0 &&
+	       db_addr[4] == start + 1 + 6 + 1 + 3 + 2 + 5 && dr6[4] == 0xffff4ff0 &&
+	       db_addr[5] == start + 1 + 6 + 1 + 3 + 2 + 5 + 2 && dr6[5] == 0xffff4ff0 &&
+	       db_addr[6] == start + 1 + 6 + 1 + 3 + 2 + 5 + 2 + 1 && dr6[6] == 0xffff4ff0,
+	       "single step emulated instructions");
 
 	n = 0;
 	set_dr1((void *)&value);
@@ -160,9 +160,9 @@ int main(int ac, char **av)
 		"mov $42,%%rax\n\t"
 		"mov %%rax,%0\n\t; hw_wp1:"
 		: "=m" (value) : : "rax");
-	report("hw watchpoint (test that dr6.BS is not cleared)",
-	       n == 1 &&
-	       db_addr[0] == ((unsigned long)&hw_wp1) && dr6[0] == 0xffff4ff2);
+	report(n == 1 &&
+	       db_addr[0] == ((unsigned long)&hw_wp1) && dr6[0] == 0xffff4ff2,
+	       "hw watchpoint (test that dr6.BS is not cleared)");
 
 	n = 0;
 	set_dr6(0);
@@ -172,18 +172,17 @@ int main(int ac, char **av)
 		"mov $42,%%rax\n\t"
 		"mov %%rax,%0\n\t; hw_wp2:"
 		: "=m" (value) : : "rax");
-	report("hw watchpoint (test that dr6.BS is not set)",
-	       n == 1 &&
-	       db_addr[0] == ((unsigned long)&hw_wp2) && dr6[0] == 0xffff0ff2);
+	report(n == 1 &&
+	       db_addr[0] == ((unsigned long)&hw_wp2) && dr6[0] == 0xffff0ff2,
+	       "hw watchpoint (test that dr6.BS is not set)");
 
 	n = 0;
 	set_dr6(0);
 	extern unsigned char sw_icebp;
 	asm volatile(".byte 0xf1; sw_icebp:");
-	report("icebp",
-	       n == 1 &&
-	       db_addr[0] == (unsigned long)&sw_icebp &&
-	       dr6[0] == 0xffff0ff0);
+	report(n == 1 &&
+	       db_addr[0] == (unsigned long)&sw_icebp && dr6[0] == 0xffff0ff0,
+	       "icebp");
 
 	set_dr7(0x400);
 	value = KERNEL_DS;
@@ -203,7 +202,7 @@ int main(int ac, char **av)
 		"mov %0,%%ss\n\t"
 		".byte 0x2e, 0x2e, 0xf1"
 		: "=m" (value) : : "rax");
-	report("MOV SS + watchpoint + ICEBP", n == 3);
+	report(n == 3, "MOV SS + watchpoint + ICEBP");
 
 	/*
 	 * Here the #DB handler is invoked twice, once as a software exception
@@ -215,7 +214,7 @@ int main(int ac, char **av)
 		"mov %0,%%ss\n\t"
 		"int $1"
 		: "=m" (value) : : "rax");
-	report("MOV SS + watchpoint + int $1", n == 7);
+	report(n == 7, "MOV SS + watchpoint + int $1");
 
 	/*
 	 * Here the #DB and #BP handlers are invoked once each.
@@ -228,7 +227,7 @@ int main(int ac, char **av)
 		"sw_bp2:"
 		: "=m" (value) : : "rax");
 	extern unsigned char sw_bp2;
-	report("MOV SS + watchpoint + INT3",
-	       n == 3 && bp_addr == (unsigned long)&sw_bp2);
+	report(n == 3 && bp_addr == (unsigned long)&sw_bp2,
+	       "MOV SS + watchpoint + INT3");
 	return report_summary();
 }

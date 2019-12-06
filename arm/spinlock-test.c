@@ -67,7 +67,7 @@ static void test_spinlock(void *data __unused)
 
 		lock_ops.unlock(&global_lock);
 	}
-	report("CPU%d: Done - Errors: %d", errors == 0, cpu, errors);
+	report(errors == 0, "CPU%d: Done - Errors: %d", cpu, errors);
 }
 
 int main(int argc, char **argv)

@@ -22,8 +22,8 @@ static void ioapic_reg_version(void)
 	data_write = data_read ^ 0xffffffff;
 
 	ioapic_write_reg(version_offset, data_write);
-	report("version register read only test",
-	       data_read == ioapic_read_reg(version_offset));
+	report(data_read == ioapic_read_reg(version_offset),
+	       "version register read only test");
 }
 
 static void ioapic_reg_id(void)
@@ -38,8 +38,7 @@ static void ioapic_reg_id(void)
 	ioapic_write_reg(id_offset, data_write);
 
 	diff = data_read ^ ioapic_read_reg(id_offset);
-	report("id register only bits [24:27] writable",
-	       diff == 0x0f000000);
+	report(diff == 0x0f000000, "id register only bits [24:27] writable");
 }
 
 static void ioapic_arbitration_id(void)
@@ -52,12 +51,12 @@ static void ioapic_arbitration_id(void)
 	write = 0x0f000000;
 
 	ioapic_write_reg(id_offset, write);
-	report("arbitration register set by id",
-	       ioapic_read_reg(arb_offset) == write);
+	report(ioapic_read_reg(arb_offset) == write,
+	       "arbitration register set by id");
 
 	ioapic_write_reg(arb_offset, 0x0);
-	report("arbtration register read only",
-               ioapic_read_reg(arb_offset) == write);
+	report(ioapic_read_reg(arb_offset) == write,
+	       "arbtration register read only");
 }
 
 static volatile int g_isr_76;
@@ -74,7 +73,7 @@ static void test_ioapic_edge_intr(void)
 	ioapic_set_redir(0x0e, 0x76, TRIGGER_EDGE);
 	toggle_irq_line(0x0e);
 	asm volatile ("nop");
-	report("edge triggered intr", g_isr_76 == 1);
+	report(g_isr_76 == 1, "edge triggered intr");
 }
 
 static volatile int g_isr_77;
@@ -92,7 +91,7 @@ static void test_ioapic_level_intr(void)
 	ioapic_set_redir(0x0e, 0x77, TRIGGER_LEVEL);
 	set_irq_line(0x0e, 1);
 	asm volatile ("nop");
-	report("level triggered intr", g_isr_77 == 1);
+	report(g_isr_77 == 1, "level triggered intr");
 }
 
 static int g_78, g_66, g_66_after_78;
@@ -125,8 +124,8 @@ static void test_ioapic_simultaneous(void)
 	toggle_irq_line(0x0e);
 	irq_enable();
 	asm volatile ("nop");
-	report("ioapic simultaneous edge interrupts",
-	       g_66 && g_78 && g_66_after_78 && g_66_rip == g_78_rip);
+	report(g_66 && g_78 && g_66_after_78 && g_66_rip == g_78_rip,
+	       "ioapic simultaneous edge interrupts");
 }
 
 static volatile int g_tmr_79 = -1;
@@ -147,8 +146,8 @@ static void test_ioapic_edge_tmr(bool expected_tmr_before)
 	tmr_before = apic_read_bit(APIC_TMR, 0x79);
 	toggle_irq_line(0x0e);
 	asm volatile ("nop");
-	report("TMR for ioapic edge interrupts (expected %s)",
-	       tmr_before == expected_tmr_before && !g_tmr_79,
+	report(tmr_before == expected_tmr_before && !g_tmr_79,
+	       "TMR for ioapic edge interrupts (expected %s)",
 	       expected_tmr_before ? "true" : "false");
 }
 
@@ -161,8 +160,8 @@ static void test_ioapic_level_tmr(bool expected_tmr_before)
 	tmr_before = apic_read_bit(APIC_TMR, 0x79);
 	set_irq_line(0x0e, 1);
 	asm volatile ("nop");
-	report("TMR for ioapic level interrupts (expected %s)",
-	       tmr_before == expected_tmr_before && g_tmr_79,
+	report(tmr_before == expected_tmr_before && g_tmr_79,
+	       "TMR for ioapic level interrupts (expected %s)",
 	       expected_tmr_before ? "true" : "false");
 }
 
@@ -187,8 +186,8 @@ static void test_ioapic_edge_tmr_smp(bool expected_tmr_before)
 	i = 0;
 	while(g_tmr_79 == -1) i++;
 	printf("%d iterations before interrupt received\n", i);
-	report("TMR for ioapic edge interrupts (expected %s)",
-	       tmr_before == expected_tmr_before && !g_tmr_79,
+	report(tmr_before == expected_tmr_before && !g_tmr_79,
+	       "TMR for ioapic edge interrupts (expected %s)",
 	       expected_tmr_before ? "true" : "false");
 }
 
@@ -212,8 +211,8 @@ static void test_ioapic_level_tmr_smp(bool expected_tmr_before)
 	i = 0;
 	while(g_tmr_79 == -1) i++;
 	printf("%d iterations before interrupt received\n", i);
-	report("TMR for ioapic level interrupts (expected %s)",
-	       tmr_before == expected_tmr_before && g_tmr_79,
+	report(tmr_before == expected_tmr_before && g_tmr_79,
+	       "TMR for ioapic level interrupts (expected %s)",
 	       expected_tmr_before ? "true" : "false");
 }
 
@@ -236,7 +235,7 @@ static void test_ioapic_level_coalesce(void)
 	ioapic_set_redir(0x0e, 0x98, TRIGGER_LEVEL);
 	set_irq_line(0x0e, 1);
 	asm volatile ("nop");
-	report("coalesce simultaneous level interrupts", g_isr_98 == 1);
+	report(g_isr_98 == 1, "coalesce simultaneous level interrupts");
 }
 
 static int g_isr_99;
@@ -255,7 +254,7 @@ static void test_ioapic_level_sequential(void)
 	set_irq_line(0x0e, 1);
 	set_irq_line(0x0e, 1);
 	asm volatile ("nop");
-	report("sequential level interrupts", g_isr_99 == 2);
+	report(g_isr_99 == 2, "sequential level interrupts");
 }
 
 static volatile int g_isr_9a;
@@ -287,7 +286,7 @@ static void test_ioapic_level_retrigger(void)
 
 	asm volatile ("sti");
 
-	report("retriggered level interrupts without masking", g_isr_9a == 2);
+	report(g_isr_9a == 2, "retriggered level interrupts without masking");
 }
 
 static volatile int g_isr_81;
@@ -309,13 +308,13 @@ static void test_ioapic_edge_mask(void)
 	set_irq_line(0x0e, 0);
 
 	asm volatile ("nop");
-	report("masked level interrupt", g_isr_81 == 0);
+	report(g_isr_81 == 0, "masked level interrupt");
 
 	set_mask(0x0e, false);
 	set_irq_line(0x0e, 1);
 
 	asm volatile ("nop");
-	report("unmasked level interrupt", g_isr_81 == 1);
+	report(g_isr_81 == 1, "unmasked level interrupt");
 }
 
 static volatile int g_isr_82;
@@ -336,12 +335,12 @@ static void test_ioapic_level_mask(void)
 	set_irq_line(0x0e, 1);
 
 	asm volatile ("nop");
-	report("masked level interrupt", g_isr_82 == 0);
+	report(g_isr_82 == 0, "masked level interrupt");
 
 	set_mask(0x0e, false);
 
 	asm volatile ("nop");
-	report("unmasked level interrupt", g_isr_82 == 1);
+	report(g_isr_82 == 1, "unmasked level interrupt");
 }
 
 static volatile int g_isr_83;
@@ -362,7 +361,7 @@ static void test_ioapic_level_retrigger_mask(void)
 	asm volatile ("nop");
 	set_mask(0x0e, false);
 	asm volatile ("nop");
-	report("retriggered level interrupts with mask", g_isr_83 == 2);
+	report(g_isr_83 == 2, "retriggered level interrupts with mask");
 
 	set_irq_line(0x0e, 0);
 	set_mask(0x0e, false);
@@ -402,7 +401,7 @@ static void test_ioapic_self_reconfigure(void)
 	ioapic_write_redir(0xe, e);
 	set_irq_line(0x0e, 1);
 	e = ioapic_read_redir(0xe);
-	report("Reconfigure self", g_isr_84 == 1 && e.remote_irr == 0);
+	report(g_isr_84 == 1 && e.remote_irr == 0, "Reconfigure self");
 }
 
 static volatile int g_isr_85;
@@ -429,7 +428,7 @@ static void test_ioapic_physical_destination_mode(void)
 	do {
 		pause();
 	} while(g_isr_85 != 1);
-	report("ioapic physical destination mode", g_isr_85 == 1);
+	report(g_isr_85 == 1, "ioapic physical destination mode");
 }
 
 static volatile int g_isr_86;
@@ -458,7 +457,7 @@ static void test_ioapic_logical_destination_mode(void)
 	do {
 		pause();
 	} while(g_isr_86 < nr_vcpus);
-	report("ioapic logical destination mode", g_isr_86 == nr_vcpus);
+	report(g_isr_86 == nr_vcpus, "ioapic logical destination mode");
 }
 
 static void update_cr3(void *cr3)

@@ -124,7 +124,7 @@ static void test_kernel_mode_int(void)
 	printf("Triggering nmi 2\n");
 	asm volatile ("int $2");
 	printf("Return from nmi %d\n", test_count);
-	report("NMI int $2", test_count == 1);
+	report(test_count == 1, "NMI int $2");
 
 	/* test that external NMI triggers task gate */
 	test_count = 0;
@@ -133,7 +133,7 @@ static void test_kernel_mode_int(void)
 	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
 	io_delay();
 	printf("Return from APIC nmi\n");
-	report("NMI external", test_count == 1);
+	report(test_count == 1, "NMI external");
 
 	/* test that external interrupt triggesr task gate */
 	test_count = 0;
@@ -144,7 +144,7 @@ static void test_kernel_mode_int(void)
 	io_delay();
 	irq_disable();
 	printf("Return from APIC IRQ\n");
-	report("IRQ external", test_count == 1);
+	report(test_count == 1, "IRQ external");
 
 	/* test that HW exception triggesr task gate */
 	set_intr_task_gate(0, de_tss);
@@ -152,7 +152,7 @@ static void test_kernel_mode_int(void)
 	asm volatile ("divl %3": "=a"(res)
 		      : "d"(0), "a"(1500), "m"(test_divider));
 	printf("Result is %d\n", res);
-	report("DE exeption", res == 150);
+	report(res == 150, "DE exeption");
 
 	/* test if call HW exeption DE by int $0 triggers task gate */
 	test_count = 0;
@@ -160,7 +160,7 @@ static void test_kernel_mode_int(void)
 	printf("Call int 0\n");
 	asm volatile ("int $0");
 	printf("Return from int 0\n");
-	report("int $0", test_count == 1);
+	report(test_count == 1, "int $0");
 
 	/* test if HW exception OF triggers task gate */
 	test_count = 0;
@@ -168,7 +168,7 @@ static void test_kernel_mode_int(void)
 	printf("Call into\n");
 	asm volatile ("addb $127, %b0\ninto"::"a"(127));
 	printf("Return from into\n");
-	report("OF exeption", test_count);
+	report(test_count, "OF exeption");
 
 	/* test if HW exception BP triggers task gate */
 	test_count = 0;
@@ -176,7 +176,7 @@ static void test_kernel_mode_int(void)
 	printf("Call int 3\n");
 	asm volatile ("int $3");
 	printf("Return from int 3\n");
-	report("BP exeption", test_count == 1);
+	report(test_count == 1, "BP exeption");
 
 	/*
 	 * test that PF triggers task gate and error code is placed on
@@ -189,7 +189,7 @@ static void test_kernel_mode_int(void)
 	printf("Access unmapped page\n");
 	*fault_addr = 0;
 	printf("Return from pf tss\n");
-	report("PF exeption", test_count == 1);
+	report(test_count == 1, "PF exeption");
 }
 
 static void test_gdt_task_gate(void)
@@ -202,12 +202,12 @@ static void test_gdt_task_gate(void)
 	   incorrect instruction length calculation */
 	asm volatile("lcall $" xstr(TSS_INTR) ", $0xf4f4f4f4");
 	printf("Return from call\n");
-	report("lcall", test_count == 1);
+	report(test_count == 1, "lcall");
 
 	/* call the same task again and check that it restarted after iret */
 	test_count = 0;
 	asm volatile("lcall $" xstr(TSS_INTR) ", $0xf4f4f4f4");
-	report("lcall2", test_count == 2);
+	report(test_count == 2, "lcall2");
 
 	/* test that calling a task by ljmp works */
 	test_count = 0;
@@ -215,7 +215,7 @@ static void test_gdt_task_gate(void)
 	printf("Jumping to a task by ljmp\n");
 	asm volatile ("ljmp $" xstr(TSS_INTR) ", $0xf4f4f4f4");
 	printf("Jump back succeeded\n");
-	report("ljmp", test_count == 1);
+	report(test_count == 1, "ljmp");
 }
 
 static void test_vm86_switch(void)
@@ -260,7 +260,7 @@ static void test_vm86_switch(void)
         "popf\n"
         "iret\n"
     );
-    report("VM86", 1);
+    report(1, "VM86");
 }
 
 #define IOPL_SHIFT 12
@@ -277,7 +277,7 @@ static void test_conforming_switch(void)
 	tss_intr.eflags |= 3 << IOPL_SHIFT;
 	set_gdt_entry(CONFORM_CS_SEL, 0, 0xffffffff, 0x9f, 0xc0);
 	asm volatile("lcall $" xstr(TSS_INTR) ", $0xf4f4f4f4");
-	report("lcall with cs.rpl != cs.dpl", test_count == 1);
+	report(test_count == 1, "lcall with cs.rpl != cs.dpl");
 }
 
 int main(void)

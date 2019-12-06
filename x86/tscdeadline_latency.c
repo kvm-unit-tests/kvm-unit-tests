@@ -34,7 +34,7 @@ static void test_lapic_existence(void)
 
     lvr = apic_read(APIC_LVR);
     printf("apic version: %x\n", lvr);
-    report("apic existence", (u16)lvr == 0x14);
+    report((u16)lvr == 0x14, "apic existence");
 }
 
 #define TSC_DEADLINE_TIMER_VECTOR 0xef

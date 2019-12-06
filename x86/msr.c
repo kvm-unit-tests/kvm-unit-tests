@@ -91,7 +91,7 @@ static void test_msr_rw(int msr_index, unsigned long long input, unsigned long l
         printf("testing %s: output = %#x:%#x expected = %#x:%#x\n", sptr,
                (u32)(r >> 32), (u32)r, (u32)(expected >> 32), (u32)expected);
     }
-    report("%s", expected == r, sptr);
+    report(expected == r, "%s", sptr);
 }
 
 int main(int ac, char **av)

@@ -17,7 +17,7 @@ static void test_syscall_lazy_load(void)
     asm volatile("pushf; syscall; syscall_target: popf" : "=c"(tmp) : : "r11");
     write_ss(ss);
     // will crash horribly if broken
-    report("MSR_*STAR eager loading", true);
+    report(true, "MSR_*STAR eager loading");
 }
 
 /*
@@ -95,7 +95,7 @@ static void test_syscall_tf(void)
     if (code_segment_upon_db != USER_CS32) {
         printf("wrong CS (%#04x)!\n", code_segment_upon_db);
     }
-    report("syscall TF handling", code_segment_upon_db == USER_CS32);
+    report(code_segment_upon_db == USER_CS32, "syscall TF handling");
 }
 
 int main(int ac, char **av)

@@ -36,21 +36,21 @@ int main(int ac, char **av)
 	expected = !this_cpu_has(X86_FEATURE_CLFLUSH); /* CLFLUSH */
 	ud = 0;
 	asm volatile("clflush (%0)" : : "b" (&target));
-	report("clflush (%s)", ud == expected, expected ? "ABSENT" : "present");
+	report(ud == expected, "clflush (%s)", expected ? "ABSENT" : "present");
 
 	expected = !this_cpu_has(X86_FEATURE_XMM); /* SSE */
 	ud = 0;
 	asm volatile("sfence");
-	report("sfence (%s)", ud == expected, expected ? "ABSENT" : "present");
+	report(ud == expected, "sfence (%s)", expected ? "ABSENT" : "present");
 
 	expected = !this_cpu_has(X86_FEATURE_XMM2); /* SSE2 */
 	ud = 0;
 	asm volatile("lfence");
-	report("lfence (%s)", ud == expected, expected ? "ABSENT" : "present");
+	report(ud == expected, "lfence (%s)", expected ? "ABSENT" : "present");
 
 	ud = 0;
 	asm volatile("mfence");
-	report("mfence (%s)", ud == expected, expected ? "ABSENT" : "present");
+	report(ud == expected, "mfence (%s)", expected ? "ABSENT" : "present");
 
 	/* 4-byte instructions: */
 	isize = 4;
@@ -59,26 +59,27 @@ int main(int ac, char **av)
 	ud = 0;
 	/* clflushopt (%rbx): */
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0x3b" : : "b" (&target));
-	report("clflushopt (%s)", ud == expected, expected ? "ABSENT" : "present");
+	report(ud == expected, "clflushopt (%s)",
+	       expected ? "ABSENT" : "present");
 
 	expected = !this_cpu_has(X86_FEATURE_CLWB); /* CLWB */
 	ud = 0;
 	/* clwb (%rbx): */
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0x33" : : "b" (&target));
-	report("clwb (%s)", ud == expected, expected ? "ABSENT" : "present");
+	report(ud == expected, "clwb (%s)", expected ? "ABSENT" : "present");
 
 	ud = 0;
 	/* clwb requires a memory operand, the following is NOT a valid
 	 * CLWB instruction (modrm == 0xF0).
 	 */
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0xf0");
-	report("invalid clwb", ud);
+	report(ud, "invalid clwb");
 
 	expected = !this_cpu_has(X86_FEATURE_PCOMMIT); /* PCOMMIT */
 	ud = 0;
 	/* pcommit: */
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0xf8");
-	report("pcommit (%s)", ud == expected, expected ? "ABSENT" : "present");
+	report(ud == expected, "pcommit (%s)", expected ? "ABSENT" : "present");
 
 	return report_summary();
 }

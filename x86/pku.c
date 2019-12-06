@@ -96,42 +96,48 @@ int main(int ac, char **av)
     set_cr0_wp(1);
     write_pkru(pkru_ad);
     test = 21;
-    report("write to supervisor page when pkru is ad and wp == 1", pf_count == 0 && test == 21);
+    report(pf_count == 0 && test == 21,
+           "write to supervisor page when pkru is ad and wp == 1");
 
     init_test();
     set_cr0_wp(0);
     write_pkru(pkru_ad);
     test = 22;
-    report("write to supervisor page when pkru is ad and wp == 0", pf_count == 0 && test == 22);
+    report(pf_count == 0 && test == 22,
+           "write to supervisor page when pkru is ad and wp == 0");
 
     init_test();
     set_cr0_wp(1);
     write_pkru(pkru_wd);
     test = 23;
-    report("write to supervisor page when pkru is wd and wp == 1", pf_count == 0 && test == 23);
+    report(pf_count == 0 && test == 23,
+           "write to supervisor page when pkru is wd and wp == 1");
 
     init_test();
     set_cr0_wp(0);
     write_pkru(pkru_wd);
     test = 24;
-    report("write to supervisor page when pkru is wd and wp == 0", pf_count == 0 && test == 24);
+    report(pf_count == 0 && test == 24,
+           "write to supervisor page when pkru is wd and wp == 0");
 
     init_test();
     write_pkru(pkru_wd);
     set_cr0_wp(0);
     USER_VAR(test) = 25;
-    report("write to user page when pkru is wd and wp == 0", pf_count == 0 && test == 25);
+    report(pf_count == 0 && test == 25,
+           "write to user page when pkru is wd and wp == 0");
 
     init_test();
     write_pkru(pkru_wd);
     set_cr0_wp(1);
     USER_VAR(test) = 26;
-    report("write to user page when pkru is wd and wp == 1", pf_count == 1 && test == 26 && save == 25);
+    report(pf_count == 1 && test == 26 && save == 25,
+           "write to user page when pkru is wd and wp == 1");
 
     init_test();
     write_pkru(pkru_ad);
     (void)USER_VAR(test);
-    report("read from user page when pkru is ad", pf_count == 1 && save == 26);
+    report(pf_count == 1 && save == 26, "read from user page when pkru is ad");
 
     // TODO: implicit kernel access from ring 3 (e.g. int)
 

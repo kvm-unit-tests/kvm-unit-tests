@@ -47,7 +47,7 @@ int main(void)
 	report_prefix_push("dependency");
 	for (i = 0; i < ARRAY_SIZE(dep); i++) {
 		if (test_facility(dep[i][0])) {
-			report("%d implies %d", test_facility(dep[i][1]),
+			report(test_facility(dep[i][1]), "%d implies %d",
 				dep[i][0], dep[i][1]);
 		} else {
 			report_skip("facility %d not present", dep[i][0]);

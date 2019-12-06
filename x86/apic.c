@@ -16,7 +16,7 @@ static void test_lapic_existence(void)
 
     version = (u8)apic_read(APIC_LVR);
     printf("apic version: %x\n", version);
-    report("apic existence", version >= 0x10 && version <= 0x15);
+    report(version >= 0x10 && version <= 0x15, "apic existence");
 }
 
 #define TSC_DEADLINE_TIMER_VECTOR 0xef
@@ -37,8 +37,8 @@ static void __test_tsc_deadline_timer(void)
 
     wrmsr(MSR_IA32_TSCDEADLINE, rdmsr(MSR_IA32_TSC));
     asm volatile ("nop");
-    report("tsc deadline timer", tdt_count == 1);
-    report("tsc deadline timer clearing", rdmsr(MSR_IA32_TSCDEADLINE) == 0);
+    report(tdt_count == 1, "tsc deadline timer");
+    report(rdmsr(MSR_IA32_TSCDEADLINE) == 0, "tsc deadline timer clearing");
 }
 
 static int enable_tsc_deadline_timer(void)
@@ -82,22 +82,22 @@ static void test_enable_x2apic(void)
         printf("x2apic enabled\n");
 
         apicbase = orig_apicbase & ~(APIC_EN | APIC_EXTD);
-        report("x2apic enabled to invalid state",
-               test_write_apicbase_exception(apicbase | APIC_EXTD));
-        report("x2apic enabled to apic enabled",
-               test_write_apicbase_exception(apicbase | APIC_EN));
+        report(test_write_apicbase_exception(apicbase | APIC_EXTD),
+               "x2apic enabled to invalid state");
+        report(test_write_apicbase_exception(apicbase | APIC_EN),
+               "x2apic enabled to apic enabled");
 
-        report("x2apic enabled to disabled state",
-               !test_write_apicbase_exception(apicbase | 0));
-        report("disabled to invalid state",
-               test_write_apicbase_exception(apicbase | APIC_EXTD));
-        report("disabled to x2apic enabled",
-               test_write_apicbase_exception(apicbase | APIC_EN | APIC_EXTD));
+        report(!test_write_apicbase_exception(apicbase | 0),
+               "x2apic enabled to disabled state");
+        report(test_write_apicbase_exception(apicbase | APIC_EXTD),
+               "disabled to invalid state");
+        report(test_write_apicbase_exception(apicbase | APIC_EN | APIC_EXTD),
+               "disabled to x2apic enabled");
 
-        report("apic disabled to apic enabled",
-               !test_write_apicbase_exception(apicbase | APIC_EN));
-        report("apic enabled to invalid state",
-               test_write_apicbase_exception(apicbase | APIC_EXTD));
+        report(!test_write_apicbase_exception(apicbase | APIC_EN),
+               "apic disabled to apic enabled");
+        report(test_write_apicbase_exception(apicbase | APIC_EXTD),
+               "apic enabled to invalid state");
 
         if (orig_apicbase & APIC_EXTD)
             enable_x2apic();
@@ -112,8 +112,8 @@ static void test_enable_x2apic(void)
     } else {
         printf("x2apic not detected\n");
 
-        report("enable unsupported x2apic",
-               test_write_apicbase_exception(APIC_EN | APIC_EXTD));
+        report(test_write_apicbase_exception(APIC_EN | APIC_EXTD),
+               "enable unsupported x2apic");
     }
 }
 
@@ -124,11 +124,11 @@ static void verify_disabled_apic_mmio(void)
     u32 cr8 = read_cr8();
 
     memset((void *)APIC_DEFAULT_PHYS_BASE, 0xff, PAGE_SIZE);
-    report("*0xfee00030: %x", *lvr == ~0, *lvr);
-    report("CR8: %lx", read_cr8() == cr8, read_cr8());
+    report(*lvr == ~0, "*0xfee00030: %x", *lvr);
+    report(read_cr8() == cr8, "CR8: %lx", read_cr8());
     write_cr8(cr8 ^ MAX_TPR);
-    report("CR8: %lx", read_cr8() == (cr8 ^ MAX_TPR), read_cr8());
-    report("*0xfee00080: %x", *tpr == ~0, *tpr);
+    report(read_cr8() == (cr8 ^ MAX_TPR), "CR8: %lx", read_cr8());
+    report(*tpr == ~0, "*0xfee00080: %x", *tpr);
     write_cr8(cr8);
 }
 
@@ -144,26 +144,27 @@ static void test_apic_disable(void)
     assert_msg(orig_apicbase & APIC_EN, "APIC not enabled.");
 
     disable_apic();
-    report("Local apic disabled", !(rdmsr(MSR_IA32_APICBASE) & APIC_EN));
-    report("CPUID.1H:EDX.APIC[bit 9] is clear", !this_cpu_has(X86_FEATURE_APIC));
+    report(!(rdmsr(MSR_IA32_APICBASE) & APIC_EN), "Local apic disabled");
+    report(!this_cpu_has(X86_FEATURE_APIC),
+           "CPUID.1H:EDX.APIC[bit 9] is clear");
     verify_disabled_apic_mmio();
 
     reset_apic();
-    report("Local apic enabled in xAPIC mode",
-	   (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == APIC_EN);
-    report("CPUID.1H:EDX.APIC[bit 9] is set", this_cpu_has(X86_FEATURE_APIC));
-    report("*0xfee00030: %x", *lvr == apic_version, *lvr);
-    report("*0xfee00080: %x", *tpr == cr8, *tpr);
+    report((rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == APIC_EN,
+           "Local apic enabled in xAPIC mode");
+    report(this_cpu_has(X86_FEATURE_APIC), "CPUID.1H:EDX.APIC[bit 9] is set");
+    report(*lvr == apic_version, "*0xfee00030: %x", *lvr);
+    report(*tpr == cr8, "*0xfee00080: %x", *tpr);
     write_cr8(cr8 ^ MAX_TPR);
-    report("*0xfee00080: %x", *tpr == (cr8 ^ MAX_TPR) << 4, *tpr);
+    report(*tpr == (cr8 ^ MAX_TPR) << 4, "*0xfee00080: %x", *tpr);
     write_cr8(cr8);
 
     if (enable_x2apic()) {
 	apic_write(APIC_SPIV, 0x1ff);
-	report("Local apic enabled in x2APIC mode",
-	   (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) ==
-	   (APIC_EN | APIC_EXTD));
-	report("CPUID.1H:EDX.APIC[bit 9] is set", this_cpu_has(X86_FEATURE_APIC));
+	report((rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == (APIC_EN | APIC_EXTD),
+               "Local apic enabled in x2APIC mode");
+	report(this_cpu_has(X86_FEATURE_APIC),
+               "CPUID.1H:EDX.APIC[bit 9] is set");
 	verify_disabled_apic_mmio();
 	if (!(orig_apicbase & APIC_EXTD))
 	    reset_apic();
@@ -184,16 +185,16 @@ static void test_apicbase(void)
 
     report_prefix_push("apicbase");
 
-    report("relocate apic",
-           *(volatile u32 *)(ALTERNATE_APIC_BASE + APIC_LVR) == lvr);
+    report(*(volatile u32 *)(ALTERNATE_APIC_BASE + APIC_LVR) == lvr,
+           "relocate apic");
 
     value = orig_apicbase | (1UL << cpuid_maxphyaddr());
-    report("reserved physaddr bits",
-           test_for_exception(GP_VECTOR, do_write_apicbase, &value));
+    report(test_for_exception(GP_VECTOR, do_write_apicbase, &value),
+           "reserved physaddr bits");
 
     value = orig_apicbase | 1;
-    report("reserved low bits",
-           test_for_exception(GP_VECTOR, do_write_apicbase, &value));
+    report(test_for_exception(GP_VECTOR, do_write_apicbase, &value),
+           "reserved low bits");
 
     wrmsr(MSR_IA32_APICBASE, orig_apicbase);
     apic_write(APIC_SPIV, 0x1ff);
@@ -217,29 +218,29 @@ static void __test_apic_id(void * unused)
         reset_apic();
 
     id = apic_id();
-    report("xapic id matches cpuid", initial_xapic_id == id);
+    report(initial_xapic_id == id, "xapic id matches cpuid");
 
     newid = (id + 1) << 24;
-    report("writeable xapic id",
-            !test_for_exception(GP_VECTOR, do_write_apic_id, &newid) &&
-	    (id == apic_id() || id + 1 == apic_id()));
+    report(!test_for_exception(GP_VECTOR, do_write_apic_id, &newid) &&
+           (id == apic_id() || id + 1 == apic_id()),
+           "writeable xapic id");
 
     if (!enable_x2apic())
         goto out;
 
-    report("non-writeable x2apic id",
-            test_for_exception(GP_VECTOR, do_write_apic_id, &newid));
-    report("sane x2apic id", initial_xapic_id == (apic_id() & 0xff));
+    report(test_for_exception(GP_VECTOR, do_write_apic_id, &newid),
+           "non-writeable x2apic id");
+    report(initial_xapic_id == (apic_id() & 0xff), "sane x2apic id");
 
     /* old QEMUs do not set initial x2APIC ID */
-    report("x2apic id matches cpuid",
-           initial_xapic_id == (initial_x2apic_id & 0xff) &&
-           initial_x2apic_id == apic_id());
+    report(initial_xapic_id == (initial_x2apic_id & 0xff) && 
+           initial_x2apic_id == apic_id(),
+           "x2apic id matches cpuid");
 
 out:
     reset_apic();
 
-    report("correct xapic id after reset", initial_xapic_id == apic_id());
+    report(initial_xapic_id == apic_id(), "correct xapic id after reset");
 
     /* old KVMs do not reset xAPIC ID */
     if (id != apic_id())
@@ -279,7 +280,7 @@ static void test_self_ipi(void)
         pause();
     } while (rdtsc() - start < 1000000000 && ipi_count == 0);
 
-    report("self ipi", ipi_count == 1);
+    report(ipi_count == 1, "self ipi");
 }
 
 volatile int nmi_counter_private, nmi_counter, nmi_hlt_counter, sti_loop_active;
@@ -343,7 +344,7 @@ static void test_sti_nmi(void)
 	}
     }
     sti_loop_active = 0;
-    report("nmi-after-sti", nmi_hlt_counter == 0);
+    report(nmi_hlt_counter == 0, "nmi-after-sti");
 }
 
 static volatile bool nmi_done, nmi_flushed;
@@ -417,7 +418,7 @@ static void test_multiple_nmi(void)
 	}
     }
     nmi_done = true;
-    report("multiple nmi", ok);
+    report(ok, "multiple nmi");
 }
 
 static void pending_nmi_handler(isr_regs_t *regs)
@@ -445,7 +446,7 @@ static void test_pending_nmi(void)
         if (nmi_received != 2)
             break;
     }
-    report("pending nmi", nmi_received == 2);
+    report(nmi_received == 2, "pending nmi");
 }
 
 static volatile int lvtt_counter = 0;
@@ -485,8 +486,8 @@ static void test_apic_timer_one_shot(void)
      * cases, the following should satisfy on all modern
      * processors.
      */
-    report("APIC LVT timer one shot", (lvtt_counter == 1) &&
-           (tsc2 - tsc1 >= interval));
+    report((lvtt_counter == 1) && (tsc2 - tsc1 >= interval),
+           "APIC LVT timer one shot");
 }
 
 static atomic_t broadcast_counter;
@@ -527,11 +528,11 @@ static void test_physical_broadcast(void)
 	printf("starting broadcast (%s)\n", enable_x2apic() ? "x2apic" : "xapic");
 	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_FIXED | APIC_INT_ASSERT |
 			BROADCAST_VECTOR, broadcast_address);
-	report("APIC physical broadcast address", broadcast_received(ncpus));
+	report(broadcast_received(ncpus), "APIC physical broadcast address");
 
 	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_FIXED | APIC_INT_ASSERT |
 			BROADCAST_VECTOR | APIC_DEST_ALLINC, 0);
-	report("APIC physical broadcast shorthand", broadcast_received(ncpus));
+	report(broadcast_received(ncpus), "APIC physical broadcast shorthand");
 }
 
 static void wait_until_tmcct_common(uint32_t initial_count, bool stop_when_half, bool should_wrap_around)
@@ -583,15 +584,15 @@ static void test_apic_change_mode(void)
 
 	apic_change_mode(APIC_LVT_TIMER_PERIODIC);
 
-	report("TMICT value reset", apic_read(APIC_TMICT) == tmict);
+	report(apic_read(APIC_TMICT) == tmict, "TMICT value reset");
 
 	/* Testing one-shot */
 	apic_change_mode(APIC_LVT_TIMER_ONESHOT);
 	apic_write(APIC_TMICT, tmict);
-	report("TMCCT should have a non-zero value", apic_read(APIC_TMCCT));
+	report(apic_read(APIC_TMCCT), "TMCCT should have a non-zero value");
 
 	wait_until_tmcct_is_zero(tmict, false);
-	report("TMCCT should have reached 0", !apic_read(APIC_TMCCT));
+	report(!apic_read(APIC_TMCCT), "TMCCT should have reached 0");
 
 	/*
 	 * Write TMICT before changing mode from one-shot to periodic TMCCT should
@@ -600,20 +601,22 @@ static void test_apic_change_mode(void)
 	apic_write(APIC_TMICT, tmict);
 	wait_until_tmcct_is_zero(tmict, true);
 	apic_change_mode(APIC_LVT_TIMER_PERIODIC);
-	report("TMCCT should have a non-zero value", apic_read(APIC_TMCCT));
+	report(apic_read(APIC_TMCCT), "TMCCT should have a non-zero value");
 
 	/*
 	 * After the change of mode, the counter should not be reset and continue
 	 * counting down from where it was
 	 */
-	report("TMCCT should not be reset to TMICT value", apic_read(APIC_TMCCT) < (tmict / 2));
+	report(apic_read(APIC_TMCCT) < (tmict / 2),
+	       "TMCCT should not be reset to TMICT value");
 	/*
 	 * Specifically wait for timer wrap around and skip 0.
 	 * Under KVM lapic there is a possibility that a small amount of consecutive
 	 * TMCCR reads return 0 while hrtimer is reset in an async callback
 	 */
 	wait_until_tmcct_wrap_around(tmict, false);
-	report("TMCCT should be reset to the initial-count", apic_read(APIC_TMCCT) > (tmict / 2));
+	report(apic_read(APIC_TMCCT) > (tmict / 2),
+	       "TMCCT should be reset to the initial-count");
 
 	wait_until_tmcct_is_zero(tmict, true);
 	/*
@@ -621,13 +624,14 @@ static void test_apic_change_mode(void)
 	 * TMCCT should be > 0 and count-down to 0
 	 */
 	apic_change_mode(APIC_LVT_TIMER_ONESHOT);
-	report("TMCCT should not be reset to init", apic_read(APIC_TMCCT) < (tmict / 2));
+	report(apic_read(APIC_TMCCT) < (tmict / 2),
+	       "TMCCT should not be reset to init");
 	wait_until_tmcct_is_zero(tmict, false);
-	report("TMCCT should have reach zero", !apic_read(APIC_TMCCT));
+	report(!apic_read(APIC_TMCCT), "TMCCT should have reach zero");
 
 	/* now tmcct == 0 and tmict != 0 */
 	apic_change_mode(APIC_LVT_TIMER_PERIODIC);
-	report("TMCCT should stay at zero", !apic_read(APIC_TMCCT));
+	report(!apic_read(APIC_TMCCT), "TMCCT should stay at zero");
 }
 
 #define KVM_HC_SEND_IPI 10
@@ -638,7 +642,7 @@ static void test_pv_ipi(void)
     unsigned long a0 = 0xFFFFFFFF, a1 = 0, a2 = 0xFFFFFFFF, a3 = 0x0;
 
     asm volatile("vmcall" : "=a"(ret) :"a"(KVM_HC_SEND_IPI), "b"(a0), "c"(a1), "d"(a2), "S"(a3));
-    report("PV IPIs testing", !ret);
+    report(!ret, "PV IPIs testing");
 }
 
 int main(void)
