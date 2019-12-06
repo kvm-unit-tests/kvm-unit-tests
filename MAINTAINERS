@@ -54,7 +54,6 @@ Descriptions of section entries:
 Maintainers
 -----------
 M: Paolo Bonzini <pbonzini@redhat.com>
-M: Radim Krčmář <rkrcmar@redhat.com>
 L: kvm@vger.kernel.org
 T: git://git.kernel.org/pub/scm/virt/kvm/kvm-unit-tests.git
 
@@ -88,7 +87,6 @@ F: lib/s390x/*
 
 X86
 M: Paolo Bonzini <pbonzini@redhat.com>
-M: Radim Krčmář <rkrcmar@redhat.com>
 L: kvm@vger.kernel.org
 F: x86/*
 F: lib/x86/*
