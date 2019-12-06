@@ -7259,24 +7259,52 @@ static void test_vmcs_field(u64 field, const char *field_name, u32 bit_start,
 	vmcs_write(field, field_saved);
 }
 
-static void test_canonical(u64 field, const char * field_name)
+static void test_canonical(u64 field, const char * field_name, bool host)
 {
 	u64 addr_saved = vmcs_read(field);
 
-	report_prefix_pushf("%s %lx", field_name, addr_saved);
 	if (is_canonical(addr_saved)) {
-		test_vmx_vmlaunch(0);
-		report_prefix_pop();
+		if (host) {
+			report_prefix_pushf("%s %lx", field_name, addr_saved);
+			test_vmx_vmlaunch(0);
+			report_prefix_pop();
+		} else {
+			enter_guest();
+			report_guest_state_test("%s",
+						VMX_VMCALL, addr_saved,
+						"GUEST_XXXXXXX");
+		}
 
 		vmcs_write(field, NONCANONICAL);
-		report_prefix_pushf("%s %llx", field_name, NONCANONICAL);
-		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+
+		if (host) {
+			report_prefix_pushf("%s %llx", field_name, NONCANONICAL);
+			test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+			report_prefix_pop();
+		} else {
+			enter_guest_with_invalid_guest_state();
+			report_guest_state_test("ENT_LOAD_PAT "
+					        "enabled",
+					        VMX_FAIL_STATE | VMX_ENTRY_FAILURE,
+					        addr_saved,
+					        "GUEST_PAT");
+		}
 
 		vmcs_write(field, addr_saved);
 	} else {
-		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+		if (host) {
+			report_prefix_pushf("%s %llx", field_name, NONCANONICAL);
+			test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+			report_prefix_pop();
+		} else {
+			enter_guest_with_invalid_guest_state();
+			report_guest_state_test("ENT_LOAD_PAT "
+					        "enabled",
+					        VMX_FAIL_STATE | VMX_ENTRY_FAILURE,
+					        addr_saved,
+					        "GUEST_PAT");
+		}
 	}
-	report_prefix_pop();
 }
 
 #define TEST_RPL_TI_FLAGS(reg, name)				\
@@ -7337,9 +7365,9 @@ static void test_host_segment_regs(void)
 	/*
 	 * Base address for FS, GS and TR must be canonical
 	 */
-	test_canonical(HOST_BASE_FS, "HOST_BASE_FS");
-	test_canonical(HOST_BASE_GS, "HOST_BASE_GS");
-	test_canonical(HOST_BASE_TR, "HOST_BASE_TR");
+	test_canonical(HOST_BASE_FS, "HOST_BASE_FS", true);
+	test_canonical(HOST_BASE_GS, "HOST_BASE_GS", true);
+	test_canonical(HOST_BASE_TR, "HOST_BASE_TR", true);
 #endif
 }
 
@@ -7350,8 +7378,8 @@ static void test_host_segment_regs(void)
 static void test_host_desc_tables(void)
 {
 #ifdef __x86_64__
-	test_canonical(HOST_BASE_GDTR, "HOST_BASE_GDTR");
-	test_canonical(HOST_BASE_IDTR, "HOST_BASE_IDTR");
+	test_canonical(HOST_BASE_GDTR, "HOST_BASE_GDTR", true);
+	test_canonical(HOST_BASE_IDTR, "HOST_BASE_IDTR", true);
 #endif
 }
 
