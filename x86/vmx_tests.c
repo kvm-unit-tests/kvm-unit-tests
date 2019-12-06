@@ -7246,9 +7246,9 @@ static void test_canonical(u64 field, const char * field_name, bool host)
 			report_prefix_pop();
 		} else {
 			enter_guest();
-			report_guest_state_test("%s",
+			report_guest_state_test("Test canonical address",
 						VMX_VMCALL, addr_saved,
-						"GUEST_XXXXXXX");
+						field_name);
 		}
 
 		vmcs_write(field, NONCANONICAL);
@@ -7259,11 +7259,9 @@ static void test_canonical(u64 field, const char * field_name, bool host)
 			report_prefix_pop();
 		} else {
 			enter_guest_with_invalid_guest_state();
-			report_guest_state_test("ENT_LOAD_PAT "
-					        "enabled",
+			report_guest_state_test("Test canonical address",
 					        VMX_FAIL_STATE | VMX_ENTRY_FAILURE,
-					        addr_saved,
-					        "GUEST_PAT");
+					        NONCANONICAL, field_name);
 		}
 
 		vmcs_write(field, addr_saved);
@@ -7274,11 +7272,9 @@ static void test_canonical(u64 field, const char * field_name, bool host)
 			report_prefix_pop();
 		} else {
 			enter_guest_with_invalid_guest_state();
-			report_guest_state_test("ENT_LOAD_PAT "
-					        "enabled",
+			report_guest_state_test("Test canonical address",
 					        VMX_FAIL_STATE | VMX_ENTRY_FAILURE,
-					        addr_saved,
-					        "GUEST_PAT");
+					        NONCANONICAL, field_name);
 		}
 	}
 }
@@ -7476,6 +7472,13 @@ static void vmx_guest_state_area_test(void)
 {
 	vmx_set_test_stage(1);
 	test_set_guest(guest_state_test_main);
+
+	/*
+	 * The IA32_SYSENTER_ESP field and the IA32_SYSENTER_EIP field
+	 * must each contain a canonical address.
+	 */
+	test_canonical(GUEST_SYSENTER_ESP, "GUEST_SYSENTER_ESP", false);
+	test_canonical(GUEST_SYSENTER_EIP, "GUEST_SYSENTER_EIP", false);
 
 	test_load_guest_pat();
 	test_guest_efer();
