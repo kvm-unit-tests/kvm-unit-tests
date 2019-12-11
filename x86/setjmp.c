@@ -9,18 +9,18 @@ static const int expected[] = {
 
 int main(void)
 {
-    volatile int index = 0;
-    jmp_buf j;
-    int i;
+	volatile int index = 0;
+	jmp_buf j;
+	int i;
 
-    i = setjmp(j);
-    if (expected[index] != i) {
-	    printf("FAIL: actual %d / expected %d\n", i, expected[index]);
-	    return -1;
-    }
-    index++;
-    if (i + 1 < NUM_LONGJMPS)
-	    longjmp(j, i + 1);
+	i = setjmp(j);
+	if (expected[index] != i) {
+		printf("FAIL: actual %d / expected %d\n", i, expected[index]);
+		return -1;
+	}
+	index++;
+	if (i + 1 < NUM_LONGJMPS)
+		longjmp(j, i + 1);
 
-    return 0;
+	return 0;
 }
