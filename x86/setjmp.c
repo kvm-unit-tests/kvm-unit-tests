@@ -14,13 +14,11 @@ int main(void)
 	int i;
 
 	i = setjmp(j);
-	if (expected[index] != i) {
-		printf("FAIL: actual %d / expected %d\n", i, expected[index]);
-		return -1;
-	}
+	report(expected[index] == i, "actual %d == expected %d",
+	       i, expected[index]);
 	index++;
 	if (i + 1 < NUM_LONGJMPS)
 		longjmp(j, i + 1);
 
-	return 0;
+	return report_summary();
 }

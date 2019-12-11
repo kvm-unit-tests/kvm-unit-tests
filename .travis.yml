@@ -15,7 +15,7 @@ matrix:
       - BUILD_DIR="."
       - TESTS="access asyncpf debug emulator ept hypercall hyperv_stimer
                hyperv_synic idt_test intel_iommu ioapic ioapic-split
-               kvmclock_test msr pcid rdpru realmode rmap_chain s3 umip"
+               kvmclock_test msr pcid rdpru realmode rmap_chain s3 setjmp umip"
       - ACCEL="kvm"
 
     - addons:
@@ -45,7 +45,7 @@ matrix:
       - BUILD_DIR="i386-builddir"
       - TESTS="tsx-ctrl umip vmexit_cpuid vmexit_ipi vmexit_ipi_halt
                vmexit_mov_from_cr8 vmexit_mov_to_cr8 vmexit_ple_round_robin
-               vmexit_tscdeadline vmexit_tscdeadline_immed vmexit_vmcall"
+               vmexit_tscdeadline vmexit_tscdeadline_immed vmexit_vmcall setjmp"
       - ACCEL="kvm"
 
     - addons:

@@ -67,7 +67,7 @@ build-x86_64:
      ioapic-split ioapic smptest smptest3 vmexit_cpuid vmexit_mov_from_cr8
      vmexit_mov_to_cr8 vmexit_inl_pmtimer  vmexit_ipi vmexit_ipi_halt
      vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed
-     eventinj msr port80 syscall tsc rmap_chain umip intel_iommu
+     eventinj msr port80 setjmp syscall tsc rmap_chain umip intel_iommu
      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
@@ -77,6 +77,6 @@ build-i386:
  - ./configure --arch=i386
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     eventinj port80 sieve tsc taskswitch taskswitch2 umip
+     eventinj port80 setjmp sieve tsc taskswitch taskswitch2 umip
      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
