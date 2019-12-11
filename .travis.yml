@@ -43,7 +43,7 @@ matrix:
       env:
       - CONFIG="--arch=i386"
       - BUILD_DIR="i386-builddir"
-      - TESTS="tsx-ctrl umip vmexit_cpuid vmexit_ipi vmexit_ipi_halt
+      - TESTS="cmpxchg8b tsx-ctrl umip vmexit_cpuid vmexit_ipi vmexit_ipi_halt
                vmexit_mov_from_cr8 vmexit_mov_to_cr8 vmexit_ple_round_robin
                vmexit_tscdeadline vmexit_tscdeadline_immed vmexit_vmcall setjmp"
       - ACCEL="kvm"
