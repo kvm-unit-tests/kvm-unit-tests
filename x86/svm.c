@@ -44,8 +44,6 @@ u64 runs;
 u8 *io_bitmap;
 u8 io_bitmap_area[16384];
 
-u8 set_host_if;
-
 #define MSR_BITMAP_SIZE 8192
 
 u8 *msr_bitmap;
@@ -261,7 +259,6 @@ static void test_run(struct test *test, struct vmcb *vmcb)
 
     irq_disable();
     test->vmcb = vmcb;
-    set_host_if = 1;
     test->prepare(test);
     vmcb->save.rip = (ulong)test_thunk;
     vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
@@ -324,8 +321,6 @@ static void default_prepare(struct test *test)
 
 static void default_prepare_gif_clear(struct test *test)
 {
-    if (!set_host_if)
-        asm("cli");
 }
 
 static bool default_finished(struct test *test)
@@ -1411,14 +1406,17 @@ static void pending_event_prepare_vmask(struct test *test)
 
     pending_event_ipi_fired = false;
 
-    set_host_if = 0;
-
     handle_irq(0xf1, pending_event_ipi_isr);
 
     apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL |
               APIC_DM_FIXED | 0xf1, 0);
 
     set_test_stage(test, 0);
+}
+
+static void pending_event_prepare_gif_clear_vmask(struct test *test)
+{
+    asm("cli");
 }
 
 static void pending_event_test_vmask(struct test *test)
@@ -1574,7 +1572,7 @@ static struct test tests[] = {
       default_prepare_gif_clear,
       pending_event_test, pending_event_finished, pending_event_check },
     { "pending_event_vmask", default_supported, pending_event_prepare_vmask,
-      default_prepare_gif_clear,
+      pending_event_prepare_gif_clear_vmask,
       pending_event_test_vmask, pending_event_finished_vmask,
       pending_event_check_vmask },
 };
