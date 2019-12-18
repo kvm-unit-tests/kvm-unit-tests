@@ -192,6 +192,7 @@ struct test {
     const char *name;
     bool (*supported)(void);
     void (*prepare)(struct test *test);
+    void (*prepare_gif_clear)(struct test *test);
     void (*guest_func)(struct test *test);
     bool (*finished)(struct test *test);
     bool (*succeeded)(struct test *test);
@@ -266,31 +267,36 @@ static void test_run(struct test *test, struct vmcb *vmcb)
     vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
     regs.rdi = (ulong)test;
     do {
+        struct test *the_test = test;
+        u64 the_vmcb = vmcb_phys;
         tsc_start = rdtsc();
         asm volatile (
             "clgi;\n\t" // semi-colon needed for LLVM compatibility
-            "cmpb $0, set_host_if\n\t"
-            "jz 1f\n\t"
             "sti \n\t"
-            "1: \n\t"
-            "vmload \n\t"
-            "vmload %0\n\t"
+            "call *%c[PREPARE_GIF_CLEAR](%[test]) \n \t"
+            "mov %[vmcb_phys], %%rax \n\t"
+            "vmload %%rax\n\t"
             "mov regs+0x80, %%r15\n\t"  // rflags
-            "mov %%r15, 0x170(%0)\n\t"
+            "mov %%r15, 0x170(%%rax)\n\t"
             "mov regs, %%r15\n\t"       // rax
-            "mov %%r15, 0x1f8(%0)\n\t"
+            "mov %%r15, 0x1f8(%%rax)\n\t"
             LOAD_GPR_C
-            "vmrun %0\n\t"
+            "vmrun %%rax\n\t"
             SAVE_GPR_C
-            "mov 0x170(%0), %%r15\n\t"  // rflags
+            "mov 0x170(%%rax), %%r15\n\t"  // rflags
             "mov %%r15, regs+0x80\n\t"
-            "mov 0x1f8(%0), %%r15\n\t"  // rax
+            "mov 0x1f8(%%rax), %%r15\n\t"  // rax
             "mov %%r15, regs\n\t"
-            "vmsave %0\n\t"
+            "vmsave %%rax\n\t"
             "cli \n\t"
             "stgi"
-            : : "a"(vmcb_phys)
-            : "rbx", "rcx", "rdx", "rsi",
+            : // inputs clobbered by the guest:
+	      "+D" (the_test),            // first argument register
+	      "+b" (the_vmcb)             // callee save register!
+            : [test] "0" (the_test),
+	      [vmcb_phys] "1"(the_vmcb),
+	      [PREPARE_GIF_CLEAR] "i" (offsetof(struct test, prepare_gif_clear))
+            : "rax", "rcx", "rdx", "rsi",
               "r8", "r9", "r10", "r11" , "r12", "r13", "r14", "r15",
               "memory");
 	tsc_end = rdtsc();
@@ -314,6 +320,12 @@ static bool default_supported(void)
 static void default_prepare(struct test *test)
 {
     vmcb_ident(test->vmcb);
+}
+
+static void default_prepare_gif_clear(struct test *test)
+{
+    if (!set_host_if)
+        asm("cli");
 }
 
 static bool default_finished(struct test *test)
@@ -1486,58 +1498,83 @@ static bool pending_event_check_vmask(struct test *test)
 }
 
 static struct test tests[] = {
-    { "null", default_supported, default_prepare, null_test,
+    { "null", default_supported, default_prepare,
+      default_prepare_gif_clear, null_test,
       default_finished, null_check },
-    { "vmrun", default_supported, default_prepare, test_vmrun,
+    { "vmrun", default_supported, default_prepare,
+      default_prepare_gif_clear, test_vmrun,
        default_finished, check_vmrun },
-    { "ioio", default_supported, prepare_ioio, test_ioio,
+    { "ioio", default_supported, prepare_ioio,
+       default_prepare_gif_clear, test_ioio,
        ioio_finished, check_ioio },
     { "vmrun intercept check", default_supported, prepare_no_vmrun_int,
-      null_test, default_finished, check_no_vmrun_int },
-    { "cr3 read intercept", default_supported, prepare_cr3_intercept,
+      default_prepare_gif_clear, null_test, default_finished,
+      check_no_vmrun_int },
+    { "cr3 read intercept", default_supported,
+      prepare_cr3_intercept, default_prepare_gif_clear,
       test_cr3_intercept, default_finished, check_cr3_intercept },
     { "cr3 read nointercept", default_supported, default_prepare,
-      test_cr3_intercept, default_finished, check_cr3_nointercept },
+      default_prepare_gif_clear, test_cr3_intercept, default_finished,
+      check_cr3_nointercept },
     { "cr3 read intercept emulate", smp_supported,
-      prepare_cr3_intercept_bypass, test_cr3_intercept_bypass,
-      default_finished, check_cr3_intercept },
+      prepare_cr3_intercept_bypass, default_prepare_gif_clear,
+      test_cr3_intercept_bypass, default_finished, check_cr3_intercept },
     { "dr intercept check", default_supported, prepare_dr_intercept,
-      test_dr_intercept, dr_intercept_finished, check_dr_intercept },
-    { "next_rip", next_rip_supported, prepare_next_rip, test_next_rip,
+      default_prepare_gif_clear, test_dr_intercept, dr_intercept_finished,
+      check_dr_intercept },
+    { "next_rip", next_rip_supported, prepare_next_rip,
+      default_prepare_gif_clear, test_next_rip,
       default_finished, check_next_rip },
     { "msr intercept check", default_supported, prepare_msr_intercept,
-       test_msr_intercept, msr_intercept_finished, check_msr_intercept },
-    { "mode_switch", default_supported, prepare_mode_switch, test_mode_switch,
+      default_prepare_gif_clear, test_msr_intercept,
+      msr_intercept_finished, check_msr_intercept },
+    { "mode_switch", default_supported, prepare_mode_switch,
+      default_prepare_gif_clear, test_mode_switch,
        mode_switch_finished, check_mode_switch },
-    { "asid_zero", default_supported, prepare_asid_zero, test_asid_zero,
+    { "asid_zero", default_supported, prepare_asid_zero,
+      default_prepare_gif_clear, test_asid_zero,
        default_finished, check_asid_zero },
-    { "sel_cr0_bug", default_supported, sel_cr0_bug_prepare, sel_cr0_bug_test,
+    { "sel_cr0_bug", default_supported, sel_cr0_bug_prepare,
+      default_prepare_gif_clear, sel_cr0_bug_test,
        sel_cr0_bug_finished, sel_cr0_bug_check },
-    { "npt_nx", npt_supported, npt_nx_prepare, null_test,
-	    default_finished, npt_nx_check },
-    { "npt_us", npt_supported, npt_us_prepare, npt_us_test,
-	    default_finished, npt_us_check },
-    { "npt_rsvd", npt_supported, npt_rsvd_prepare, null_test,
-	    default_finished, npt_rsvd_check },
-    { "npt_rw", npt_supported, npt_rw_prepare, npt_rw_test,
-	    default_finished, npt_rw_check },
-    { "npt_rsvd_pfwalk", npt_supported, npt_rsvd_pfwalk_prepare, null_test,
-	    default_finished, npt_rsvd_pfwalk_check },
-    { "npt_rw_pfwalk", npt_supported, npt_rw_pfwalk_prepare, null_test,
-	    default_finished, npt_rw_pfwalk_check },
-    { "npt_l1mmio", npt_supported, npt_l1mmio_prepare, npt_l1mmio_test,
-	    default_finished, npt_l1mmio_check },
-    { "npt_rw_l1mmio", npt_supported, npt_rw_l1mmio_prepare, npt_rw_l1mmio_test,
-	    default_finished, npt_rw_l1mmio_check },
-    { "tsc_adjust", default_supported, tsc_adjust_prepare, tsc_adjust_test,
-       default_finished, tsc_adjust_check },
-    { "latency_run_exit", default_supported, latency_prepare, latency_test,
+    { "npt_nx", npt_supported, npt_nx_prepare,
+      default_prepare_gif_clear, null_test,
+      default_finished, npt_nx_check },
+    { "npt_us", npt_supported, npt_us_prepare,
+      default_prepare_gif_clear, npt_us_test,
+      default_finished, npt_us_check },
+    { "npt_rsvd", npt_supported, npt_rsvd_prepare,
+      default_prepare_gif_clear, null_test,
+      default_finished, npt_rsvd_check },
+    { "npt_rw", npt_supported, npt_rw_prepare,
+      default_prepare_gif_clear, npt_rw_test,
+      default_finished, npt_rw_check },
+    { "npt_rsvd_pfwalk", npt_supported, npt_rsvd_pfwalk_prepare,
+      default_prepare_gif_clear, null_test,
+      default_finished, npt_rsvd_pfwalk_check },
+    { "npt_rw_pfwalk", npt_supported, npt_rw_pfwalk_prepare,
+      default_prepare_gif_clear, null_test,
+      default_finished, npt_rw_pfwalk_check },
+    { "npt_l1mmio", npt_supported, npt_l1mmio_prepare,
+      default_prepare_gif_clear, npt_l1mmio_test,
+      default_finished, npt_l1mmio_check },
+    { "npt_rw_l1mmio", npt_supported, npt_rw_l1mmio_prepare,
+      default_prepare_gif_clear, npt_rw_l1mmio_test,
+      default_finished, npt_rw_l1mmio_check },
+    { "tsc_adjust", default_supported, tsc_adjust_prepare,
+      default_prepare_gif_clear, tsc_adjust_test,
+      default_finished, tsc_adjust_check },
+    { "latency_run_exit", default_supported, latency_prepare,
+      default_prepare_gif_clear, latency_test,
       latency_finished, latency_check },
-    { "latency_svm_insn", default_supported, lat_svm_insn_prepare, null_test,
+    { "latency_svm_insn", default_supported, lat_svm_insn_prepare,
+      default_prepare_gif_clear, null_test,
       lat_svm_insn_finished, lat_svm_insn_check },
     { "pending_event", default_supported, pending_event_prepare,
+      default_prepare_gif_clear,
       pending_event_test, pending_event_finished, pending_event_check },
     { "pending_event_vmask", default_supported, pending_event_prepare_vmask,
+      default_prepare_gif_clear,
       pending_event_test_vmask, pending_event_finished_vmask,
       pending_event_check_vmask },
 };
