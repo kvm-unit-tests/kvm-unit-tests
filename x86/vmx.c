@@ -348,6 +348,34 @@ static bool check_all_vmcs_fields(u8 cookie)
 	return __check_all_vmcs_fields(cookie, NULL);
 }
 
+static u32 find_vmcs_max_index(void)
+{
+	u32 idx, width, type, enc;
+	u64 actual;
+	int ret;
+
+	/* scan backwards and stop when found */
+	for (idx = (1 << 9) - 1; idx >= 0; idx--) {
+
+		/* try all combinations of width and type */
+		for (type = 0; type < (1 << 2); type++) {
+			for (width = 0; width < (1 << 2) ; width++) {
+				enc = (idx << VMCS_FIELD_INDEX_SHIFT) |
+				      (type << VMCS_FIELD_TYPE_SHIFT) |
+				      (width << VMCS_FIELD_WIDTH_SHIFT);
+
+				ret = vmcs_read_checking(enc, &actual);
+				assert(!(ret & X86_EFLAGS_CF));
+				if (!(ret & X86_EFLAGS_ZF))
+					return idx;
+			}
+		}
+	}
+	/* some VMCS fields should exist */
+	assert(0);
+	return 0;
+}
+
 static void test_vmwrite_vmread(void)
 {
 	struct vmcs *vmcs = alloc_page();
@@ -358,11 +386,13 @@ static void test_vmwrite_vmread(void)
 	assert(!make_vmcs_current(vmcs));
 
 	set_all_vmcs_fields(0x42);
-	report(__check_all_vmcs_fields(0x42, &max_index), "VMWRITE/VMREAD");
+	report(check_all_vmcs_fields(0x42), "VMWRITE/VMREAD");
 
-	vmcs_enum_max = rdmsr(MSR_IA32_VMX_VMCS_ENUM) & VMCS_FIELD_INDEX_MASK;
-	report(vmcs_enum_max >= max_index,
-	       "VMX_VMCS_ENUM.MAX_INDEX expected at least: %x, actual: %x",
+	vmcs_enum_max = (rdmsr(MSR_IA32_VMX_VMCS_ENUM) & VMCS_FIELD_INDEX_MASK)
+			>> VMCS_FIELD_INDEX_SHIFT;
+	max_index = find_vmcs_max_index();
+	report(vmcs_enum_max == max_index,
+	       "VMX_VMCS_ENUM.MAX_INDEX expected: %x, actual: %x",
 	       max_index, vmcs_enum_max);
 
 	assert(!vmcs_clear(vmcs));
