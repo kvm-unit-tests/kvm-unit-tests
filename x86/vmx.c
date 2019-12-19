@@ -281,11 +281,10 @@ static void set_vmcs_field(struct vmcs_field *f, u8 cookie)
 	vmcs_write(f->encoding, vmcs_field_value(f, cookie));
 }
 
-static bool check_vmcs_field(struct vmcs_field *f, u8 cookie, u32 *max_index)
+static bool check_vmcs_field(struct vmcs_field *f, u8 cookie)
 {
 	u64 expected;
 	u64 actual;
-	u32 index;
 	int ret;
 
 	if (f->encoding == VMX_INST_ERROR) {
@@ -298,12 +297,6 @@ static bool check_vmcs_field(struct vmcs_field *f, u8 cookie, u32 *max_index)
 	/* Skip VMCS fields that aren't recognized by the CPU */
 	if (ret & X86_EFLAGS_ZF)
 		return true;
-
-	if (max_index) {
-		index = f->encoding & VMCS_FIELD_INDEX_MASK;
-		if (index > *max_index)
-			*max_index = index;
-	}
 
 	if (vmcs_field_readonly(f)) {
 		printf("Skipping read-only field %lx\n", f->encoding);
@@ -330,22 +323,17 @@ static void set_all_vmcs_fields(u8 cookie)
 		set_vmcs_field(&vmcs_fields[i], cookie);
 }
 
-static bool __check_all_vmcs_fields(u8 cookie, u32 *max_index)
+static bool check_all_vmcs_fields(u8 cookie)
 {
 	bool pass = true;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(vmcs_fields); i++) {
-		if (!check_vmcs_field(&vmcs_fields[i], cookie, max_index))
+		if (!check_vmcs_field(&vmcs_fields[i], cookie))
 			pass = false;
 	}
 
 	return pass;
-}
-
-static bool check_all_vmcs_fields(u8 cookie)
-{
-	return __check_all_vmcs_fields(cookie, NULL);
 }
 
 static u32 find_vmcs_max_index(void)
