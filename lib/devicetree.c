@@ -225,7 +225,7 @@ int dt_for_each_cpu_node(void (*func)(int fdtnode, u64 regval, void *info),
 
 		prop = fdt_get_property(fdt, cpu, "device_type", &len);
 		if (prop == NULL)
-			return len;
+			continue;
 
 		if (len != 4 || strcmp((char *)prop->data, "cpu"))
 			continue;
