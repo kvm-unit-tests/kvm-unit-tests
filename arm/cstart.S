@@ -166,6 +166,10 @@ halt:
 .equ	NMRR,	0xff000004		@ MAIR1 (from Linux kernel)
 .globl asm_mmu_enable
 asm_mmu_enable:
+	/* TLBIALL */
+	mcr	p15, 0, r2, c8, c7, 0
+	dsb	nsh
+
 	/* TTBCR */
 	ldr	r2, =(TTBCR_EAE | 				\
 		      TTBCR_SH0_SHARED | 			\
