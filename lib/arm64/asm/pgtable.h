@@ -18,6 +18,8 @@
 #include <asm/page.h>
 #include <asm/pgtable-hwdef.h>
 
+#include <linux/compiler.h>
+
 /*
  * We can convert va <=> pa page table addresses with simple casts
  * because we always allocate their pages with alloc_page(), and
@@ -66,8 +68,9 @@ static inline pte_t *pte_alloc_one(void)
 static inline pte_t *pte_alloc(pmd_t *pmd, unsigned long addr)
 {
 	if (pmd_none(*pmd)) {
-		pte_t *pte = pte_alloc_one();
-		pmd_val(*pmd) = pgtable_pa(pte) | PMD_TYPE_TABLE;
+		pmd_t entry;
+		pmd_val(entry) = pgtable_pa(pte_alloc_one()) | PMD_TYPE_TABLE;
+		WRITE_ONCE(*pmd, entry);
 	}
 	return pte_offset(pmd, addr);
 }

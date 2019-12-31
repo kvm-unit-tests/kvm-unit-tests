@@ -17,6 +17,8 @@
 #include <asm/pgtable-hwdef.h>
 #include <asm/pgtable.h>
 
+#include <linux/compiler.h>
+
 extern unsigned long etext;
 
 pgd_t *mmu_idmap;
@@ -86,7 +88,7 @@ static pteval_t *install_pte(pgd_t *pgtable, uintptr_t vaddr, pteval_t pte)
 {
 	pteval_t *p_pte = get_pte(pgtable, vaddr);
 
-	*p_pte = pte;
+	WRITE_ONCE(*p_pte, pte);
 	flush_tlb_page(vaddr);
 	return p_pte;
 }
@@ -131,12 +133,15 @@ void mmu_set_range_sect(pgd_t *pgtable, uintptr_t virt_offset,
 	phys_addr_t paddr = phys_start & PGDIR_MASK;
 	uintptr_t vaddr = virt_offset & PGDIR_MASK;
 	uintptr_t virt_end = phys_end - paddr + vaddr;
+	pgd_t *pgd;
+	pgd_t entry;
 
 	for (; vaddr < virt_end; vaddr += PGDIR_SIZE, paddr += PGDIR_SIZE) {
-		pgd_t *pgd = pgd_offset(pgtable, vaddr);
-		pgd_val(*pgd) = paddr;
-		pgd_val(*pgd) |= PMD_TYPE_SECT | PMD_SECT_AF | PMD_SECT_S;
-		pgd_val(*pgd) |= pgprot_val(prot);
+		pgd_val(entry) = paddr;
+		pgd_val(entry) |= PMD_TYPE_SECT | PMD_SECT_AF | PMD_SECT_S;
+		pgd_val(entry) |= pgprot_val(prot);
+		pgd = pgd_offset(pgtable, vaddr);
+		WRITE_ONCE(*pgd, entry);
 		flush_tlb_page(vaddr);
 	}
 }
@@ -210,6 +215,7 @@ void mmu_clear_user(unsigned long vaddr)
 {
 	pgd_t *pgtable;
 	pteval_t *pte;
+	pteval_t entry;
 
 	if (!mmu_enabled())
 		return;
@@ -217,6 +223,7 @@ void mmu_clear_user(unsigned long vaddr)
 	pgtable = current_thread_info()->pgtable;
 	pte = get_pte(pgtable, vaddr);
 
-	*pte &= ~PTE_USER;
+	entry = *pte & ~PTE_USER;
+	WRITE_ONCE(*pte, entry);
 	flush_tlb_page(vaddr);
 }

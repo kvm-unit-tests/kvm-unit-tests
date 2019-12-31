@@ -19,6 +19,8 @@
  * because we always allocate their pages with alloc_page(), and
  * alloc_page() always returns identity mapped pages.
  */
+#include <linux/compiler.h>
+
 #define pgtable_va(x)		((void *)(unsigned long)(x))
 #define pgtable_pa(x)		((unsigned long)(x))
 
@@ -58,8 +60,9 @@ static inline pmd_t *pmd_alloc_one(void)
 static inline pmd_t *pmd_alloc(pgd_t *pgd, unsigned long addr)
 {
 	if (pgd_none(*pgd)) {
-		pmd_t *pmd = pmd_alloc_one();
-		pgd_val(*pgd) = pgtable_pa(pmd) | PMD_TYPE_TABLE;
+		pgd_t entry;
+		pgd_val(entry) = pgtable_pa(pmd_alloc_one()) | PMD_TYPE_TABLE;
+		WRITE_ONCE(*pgd, entry);
 	}
 	return pmd_offset(pgd, addr);
 }
@@ -84,8 +87,9 @@ static inline pte_t *pte_alloc_one(void)
 static inline pte_t *pte_alloc(pmd_t *pmd, unsigned long addr)
 {
 	if (pmd_none(*pmd)) {
-		pte_t *pte = pte_alloc_one();
-		pmd_val(*pmd) = pgtable_pa(pte) | PMD_TYPE_TABLE;
+		pmd_t entry;
+		pmd_val(entry) = pgtable_pa(pte_alloc_one()) | PMD_TYPE_TABLE;
+		WRITE_ONCE(*pmd, entry);
 	}
 	return pte_offset(pmd, addr);
 }
