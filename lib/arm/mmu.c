@@ -211,19 +211,31 @@ unsigned long __phys_to_virt(phys_addr_t addr)
 	return addr;
 }
 
-void mmu_clear_user(unsigned long vaddr)
+void mmu_clear_user(pgd_t *pgtable, unsigned long vaddr)
 {
-	pgd_t *pgtable;
-	pteval_t *pte;
-	pteval_t entry;
+	pgd_t *pgd;
+	pmd_t *pmd;
+	pte_t *pte;
 
 	if (!mmu_enabled())
 		return;
 
-	pgtable = current_thread_info()->pgtable;
-	pte = get_pte(pgtable, vaddr);
+	pgd = pgd_offset(pgtable, vaddr);
+	assert(pgd_valid(*pgd));
+	pmd = pmd_offset(pgd, vaddr);
+	assert(pmd_valid(*pmd));
 
-	entry = *pte & ~PTE_USER;
+	if (pmd_huge(*pmd)) {
+		pmd_t entry = __pmd(pmd_val(*pmd) & ~PMD_SECT_USER);
+		WRITE_ONCE(*pmd, entry);
+		goto out_flush_tlb;
+	}
+
+	pte = pte_offset(pmd, vaddr);
+	assert(pte_valid(*pte));
+	pte_t entry = __pte(pte_val(*pte) & ~PTE_USER);
 	WRITE_ONCE(*pte, entry);
+
+out_flush_tlb:
 	flush_tlb_page(vaddr);
 }

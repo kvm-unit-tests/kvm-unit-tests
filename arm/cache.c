@@ -2,6 +2,7 @@
 #include <alloc_page.h>
 #include <asm/mmu.h>
 #include <asm/processor.h>
+#include <asm/thread_info.h>
 
 #define NTIMES			(1 << 16)
 
@@ -47,7 +48,7 @@ static void check_code_generation(bool dcache_clean, bool icache_inval)
 	bool success;
 
 	/* Make sure we can execute from a writable page */
-	mmu_clear_user((unsigned long)code);
+	mmu_clear_user(current_thread_info()->pgtable, (unsigned long)code);
 
 	sctlr = read_sysreg(sctlr_el1);
 	if (sctlr & SCTLR_EL1_WXN) {

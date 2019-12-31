@@ -29,6 +29,13 @@
 #define pmd_none(pmd)		(!pmd_val(pmd))
 #define pte_none(pte)		(!pte_val(pte))
 
+#define pgd_valid(pgd)		(pgd_val(pgd) & PGD_VALID)
+#define pmd_valid(pmd)		(pmd_val(pmd) & PMD_SECT_VALID)
+#define pte_valid(pte)		(pte_val(pte) & L_PTE_VALID)
+
+#define pmd_huge(pmd)	\
+	((pmd_val(pmd) & PMD_TYPE_MASK) == PMD_TYPE_SECT)
+
 #define pgd_index(addr) \
 	(((addr) >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1))
 #define pgd_offset(pgtable, addr) ((pgtable) + pgd_index(addr))

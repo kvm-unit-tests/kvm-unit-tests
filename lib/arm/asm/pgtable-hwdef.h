@@ -14,6 +14,8 @@
 #define PGDIR_SIZE		(_AC(1,UL) << PGDIR_SHIFT)
 #define PGDIR_MASK		(~((1 << PGDIR_SHIFT) - 1))
 
+#define PGD_VALID		(_AT(pgdval_t, 1) << 0)
+
 #define PTRS_PER_PTE		512
 #define PTRS_PER_PMD		512
 
@@ -54,6 +56,7 @@
 #define PMD_TYPE_FAULT		(_AT(pmdval_t, 0) << 0)
 #define PMD_TYPE_TABLE		(_AT(pmdval_t, 3) << 0)
 #define PMD_TYPE_SECT		(_AT(pmdval_t, 1) << 0)
+#define PMD_SECT_VALID		(_AT(pmdval_t, 1) << 0)
 #define PMD_TABLE_BIT		(_AT(pmdval_t, 1) << 1)
 #define PMD_BIT4		(_AT(pmdval_t, 0))
 #define PMD_DOMAIN(x)		(_AT(pmdval_t, 0))
