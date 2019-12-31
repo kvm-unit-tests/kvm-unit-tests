@@ -108,4 +108,12 @@
 #define PHYS_MASK_SHIFT		(40)
 #define PHYS_MASK		((_AC(1, ULL) << PHYS_MASK_SHIFT) - 1)
 
+#define TTBCR_IRGN0_WBWA	(_AC(1, UL) << 8)
+#define TTBCR_ORGN0_WBWA	(_AC(1, UL) << 10)
+#define TTBCR_SH0_SHARED	(_AC(3, UL) << 12)
+#define TTBCR_IRGN1_WBWA	(_AC(1, UL) << 24)
+#define TTBCR_ORGN1_WBWA	(_AC(1, UL) << 26)
+#define TTBCR_SH1_SHARED	(_AC(3, UL) << 28)
+#define TTBCR_EAE		(_AC(1, UL) << 31)
+
 #endif /* _ASMARM_PGTABLE_HWDEF_H_ */

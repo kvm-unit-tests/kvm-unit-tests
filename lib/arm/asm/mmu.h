@@ -31,8 +31,8 @@ static inline void flush_tlb_all(void)
 
 static inline void flush_tlb_page(unsigned long vaddr)
 {
-	/* TLBIMVAA */
-	asm volatile("mcr p15, 0, %0, c8, c7, 3" :: "r" (vaddr));
+	/* TLBIMVAAIS */
+	asm volatile("mcr p15, 0, %0, c8, c3, 3" :: "r" (vaddr));
 	dsb();
 	isb();
 }

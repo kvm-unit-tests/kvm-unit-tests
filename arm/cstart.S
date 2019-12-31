@@ -9,6 +9,7 @@
 #include <auxinfo.h>
 #include <asm/thread_info.h>
 #include <asm/asm-offsets.h>
+#include <asm/pgtable-hwdef.h>
 #include <asm/ptrace.h>
 #include <asm/sysreg.h>
 
@@ -166,9 +167,11 @@ halt:
 .globl asm_mmu_enable
 asm_mmu_enable:
 	/* TTBCR */
-	mrc	p15, 0, r2, c2, c0, 2
-	orr	r2, #(1 << 31)		@ TTB_EAE
+	ldr	r2, =(TTBCR_EAE | 				\
+		      TTBCR_SH0_SHARED | 			\
+		      TTBCR_IRGN0_WBWA | TTBCR_ORGN0_WBWA)
 	mcr	p15, 0, r2, c2, c0, 2
+	isb
 
 	/* MAIR */
 	ldr	r2, =PRRR
