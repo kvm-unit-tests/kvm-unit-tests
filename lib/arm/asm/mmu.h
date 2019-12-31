@@ -17,9 +17,10 @@
 
 static inline void local_flush_tlb_all(void)
 {
+	dsb(nshst);
 	/* TLBIALL */
 	asm volatile("mcr p15, 0, %0, c8, c7, 0" :: "r" (0));
-	dsb();
+	dsb(nsh);
 	isb();
 }
 
@@ -31,9 +32,10 @@ static inline void flush_tlb_all(void)
 
 static inline void flush_tlb_page(unsigned long vaddr)
 {
+	dsb(ishst);
 	/* TLBIMVAAIS */
 	asm volatile("mcr p15, 0, %0, c8, c3, 3" :: "r" (vaddr));
-	dsb();
+	dsb(ish);
 	isb();
 }
 
