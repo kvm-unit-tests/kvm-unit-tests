@@ -14,6 +14,8 @@
 #define PGDIR_SIZE		(_AC(1,UL) << PGDIR_SHIFT)
 #define PGDIR_MASK		(~((1 << PGDIR_SHIFT) - 1))
 
+#define PGD_VALID		(_AT(pgdval_t, 1) << 0)
+
 #define PTRS_PER_PTE		512
 #define PTRS_PER_PMD		512
 
@@ -54,6 +56,7 @@
 #define PMD_TYPE_FAULT		(_AT(pmdval_t, 0) << 0)
 #define PMD_TYPE_TABLE		(_AT(pmdval_t, 3) << 0)
 #define PMD_TYPE_SECT		(_AT(pmdval_t, 1) << 0)
+#define PMD_SECT_VALID		(_AT(pmdval_t, 1) << 0)
 #define PMD_TABLE_BIT		(_AT(pmdval_t, 1) << 1)
 #define PMD_BIT4		(_AT(pmdval_t, 0))
 #define PMD_DOMAIN(x)		(_AT(pmdval_t, 0))
@@ -107,5 +110,13 @@
  */
 #define PHYS_MASK_SHIFT		(40)
 #define PHYS_MASK		((_AC(1, ULL) << PHYS_MASK_SHIFT) - 1)
+
+#define TTBCR_IRGN0_WBWA	(_AC(1, UL) << 8)
+#define TTBCR_ORGN0_WBWA	(_AC(1, UL) << 10)
+#define TTBCR_SH0_SHARED	(_AC(3, UL) << 12)
+#define TTBCR_IRGN1_WBWA	(_AC(1, UL) << 24)
+#define TTBCR_ORGN1_WBWA	(_AC(1, UL) << 26)
+#define TTBCR_SH1_SHARED	(_AC(3, UL) << 28)
+#define TTBCR_EAE		(_AC(1, UL) << 31)
 
 #endif /* _ASMARM_PGTABLE_HWDEF_H_ */

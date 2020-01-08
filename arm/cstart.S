@@ -9,6 +9,7 @@
 #include <auxinfo.h>
 #include <asm/thread_info.h>
 #include <asm/asm-offsets.h>
+#include <asm/pgtable-hwdef.h>
 #include <asm/ptrace.h>
 #include <asm/sysreg.h>
 
@@ -50,10 +51,11 @@ start:
 	mov	r0, r2
 	push	{r0-r1}
 
-	/* set up vector table and mode stacks */
+	/* set up vector table, mode stacks, and enable the VFP */
 	mov	r0, lr			@ lr is stack top (see above),
 					@ which is the exception stacks base
 	bl	exceptions_init
+	bl	enable_vfp
 
 	/* complete setup */
 	pop	{r0-r1}
@@ -100,6 +102,16 @@ exceptions_init:
 	isb
 	mov	pc, lr
 
+enable_vfp:
+	/* Enable full access to CP10 and CP11: */
+	mov	r0, #(3 << 22 | 3 << 20)
+	mcr	p15, 0, r0, c1, c0, 2
+	isb
+	/* Set the FPEXC.EN bit to enable Advanced SIMD and VFP: */
+	mov	r0, #(1 << 30)
+	vmsr	fpexc, r0
+	mov	pc, lr
+
 .text
 
 .global get_mmu_off
@@ -130,6 +142,7 @@ secondary_entry:
 	ldr	r0, [r1]
 	mov	sp, r0
 	bl	exceptions_init
+	bl	enable_vfp
 
 	/* finish init in C code */
 	bl	secondary_cinit
@@ -153,10 +166,16 @@ halt:
 .equ	NMRR,	0xff000004		@ MAIR1 (from Linux kernel)
 .globl asm_mmu_enable
 asm_mmu_enable:
+	/* TLBIALL */
+	mcr	p15, 0, r2, c8, c7, 0
+	dsb	nsh
+
 	/* TTBCR */
-	mrc	p15, 0, r2, c2, c0, 2
-	orr	r2, #(1 << 31)		@ TTB_EAE
+	ldr	r2, =(TTBCR_EAE | 				\
+		      TTBCR_SH0_SHARED | 			\
+		      TTBCR_IRGN0_WBWA | TTBCR_ORGN0_WBWA)
 	mcr	p15, 0, r2, c2, c0, 2
+	isb
 
 	/* MAIR */
 	ldr	r2, =PRRR

@@ -17,6 +17,8 @@
 #include <asm/pgtable-hwdef.h>
 #include <asm/pgtable.h>
 
+#include <linux/compiler.h>
+
 extern unsigned long etext;
 
 pgd_t *mmu_idmap;
@@ -57,7 +59,6 @@ void mmu_enable(pgd_t *pgtable)
 	struct thread_info *info = current_thread_info();
 
 	asm_mmu_enable(__pa(pgtable));
-	flush_tlb_all();
 
 	info->pgtable = pgtable;
 	mmu_mark_enabled(info->cpu);
@@ -66,22 +67,15 @@ void mmu_enable(pgd_t *pgtable)
 extern void asm_mmu_disable(void);
 void mmu_disable(void)
 {
+	unsigned long sp = current_stack_pointer;
 	int cpu = current_thread_info()->cpu;
+
+	assert_msg(__virt_to_phys(sp) == sp,
+			"Attempting to disable MMU with non-identity mapped stack");
 
 	mmu_mark_disabled(cpu);
 
 	asm_mmu_disable();
-}
-
-static void flush_entry(pgd_t *pgtable, uintptr_t vaddr)
-{
-	pgd_t *pgd = pgd_offset(pgtable, vaddr);
-	pmd_t *pmd = pmd_offset(pgd, vaddr);
-
-	flush_dcache_addr((ulong)pgd);
-	flush_dcache_addr((ulong)pmd);
-	flush_dcache_addr((ulong)pte_offset(pmd, vaddr));
-	flush_tlb_page(vaddr);
 }
 
 static pteval_t *get_pte(pgd_t *pgtable, uintptr_t vaddr)
@@ -97,8 +91,8 @@ static pteval_t *install_pte(pgd_t *pgtable, uintptr_t vaddr, pteval_t pte)
 {
 	pteval_t *p_pte = get_pte(pgtable, vaddr);
 
-	*p_pte = pte;
-	flush_entry(pgtable, vaddr);
+	WRITE_ONCE(*p_pte, pte);
+	flush_tlb_page(vaddr);
 	return p_pte;
 }
 
@@ -142,13 +136,15 @@ void mmu_set_range_sect(pgd_t *pgtable, uintptr_t virt_offset,
 	phys_addr_t paddr = phys_start & PGDIR_MASK;
 	uintptr_t vaddr = virt_offset & PGDIR_MASK;
 	uintptr_t virt_end = phys_end - paddr + vaddr;
+	pgd_t *pgd;
+	pgd_t entry;
 
 	for (; vaddr < virt_end; vaddr += PGDIR_SIZE, paddr += PGDIR_SIZE) {
-		pgd_t *pgd = pgd_offset(pgtable, vaddr);
-		pgd_val(*pgd) = paddr;
-		pgd_val(*pgd) |= PMD_TYPE_SECT | PMD_SECT_AF | PMD_SECT_S;
-		pgd_val(*pgd) |= pgprot_val(prot);
-		flush_dcache_addr((ulong)pgd);
+		pgd_val(entry) = paddr;
+		pgd_val(entry) |= PMD_TYPE_SECT | PMD_SECT_AF | PMD_SECT_S;
+		pgd_val(entry) |= pgprot_val(prot);
+		pgd = pgd_offset(pgtable, vaddr);
+		WRITE_ONCE(*pgd, entry);
 		flush_tlb_page(vaddr);
 	}
 }
@@ -218,17 +214,31 @@ unsigned long __phys_to_virt(phys_addr_t addr)
 	return addr;
 }
 
-void mmu_clear_user(unsigned long vaddr)
+void mmu_clear_user(pgd_t *pgtable, unsigned long vaddr)
 {
-	pgd_t *pgtable;
-	pteval_t *pte;
+	pgd_t *pgd;
+	pmd_t *pmd;
+	pte_t *pte;
 
 	if (!mmu_enabled())
 		return;
 
-	pgtable = current_thread_info()->pgtable;
-	pte = get_pte(pgtable, vaddr);
+	pgd = pgd_offset(pgtable, vaddr);
+	assert(pgd_valid(*pgd));
+	pmd = pmd_offset(pgd, vaddr);
+	assert(pmd_valid(*pmd));
 
-	*pte &= ~PTE_USER;
+	if (pmd_huge(*pmd)) {
+		pmd_t entry = __pmd(pmd_val(*pmd) & ~PMD_SECT_USER);
+		WRITE_ONCE(*pmd, entry);
+		goto out_flush_tlb;
+	}
+
+	pte = pte_offset(pmd, vaddr);
+	assert(pte_valid(*pte));
+	pte_t entry = __pte(pte_val(*pte) & ~PTE_USER);
+	WRITE_ONCE(*pte, entry);
+
+out_flush_tlb:
 	flush_tlb_page(vaddr);
 }

@@ -72,6 +72,7 @@ static void test_spinlock(void *data __unused)
 
 int main(int argc, char **argv)
 {
+	report_prefix_push("spinlock");
 	if (argc > 1 && strcmp(argv[1], "bad") != 0) {
 		lock_ops.lock = gcc_builtin_lock;
 		lock_ops.unlock = gcc_builtin_unlock;

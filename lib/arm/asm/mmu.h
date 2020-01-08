@@ -17,28 +17,34 @@
 
 static inline void local_flush_tlb_all(void)
 {
+	dsb(nshst);
 	/* TLBIALL */
 	asm volatile("mcr p15, 0, %0, c8, c7, 0" :: "r" (0));
-	dsb();
+	dsb(nsh);
 	isb();
 }
 
 static inline void flush_tlb_all(void)
 {
-	//TODO
-	local_flush_tlb_all();
+	dsb(ishst);
+	/* TLBIALLIS */
+	asm volatile("mcr p15, 0, %0, c8, c3, 0" :: "r" (0));
+	dsb(ish);
+	isb();
 }
 
 static inline void flush_tlb_page(unsigned long vaddr)
 {
-	/* TLBIMVAA */
-	asm volatile("mcr p15, 0, %0, c8, c7, 3" :: "r" (vaddr));
-	dsb();
+	dsb(ishst);
+	/* TLBIMVAAIS */
+	asm volatile("mcr p15, 0, %0, c8, c3, 3" :: "r" (vaddr));
+	dsb(ish);
 	isb();
 }
 
 static inline void flush_dcache_addr(unsigned long vaddr)
 {
+	/* DCCIMVAC */
 	asm volatile("mcr p15, 0, %0, c7, c14, 1" :: "r" (vaddr));
 }
 

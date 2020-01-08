@@ -14,9 +14,12 @@
  * This work is licensed under the terms of the GNU GPL, version 2.
  */
 #include <alloc.h>
+#include <alloc_page.h>
 #include <asm/setup.h>
 #include <asm/page.h>
 #include <asm/pgtable-hwdef.h>
+
+#include <linux/compiler.h>
 
 /*
  * We can convert va <=> pa page table addresses with simple casts
@@ -29,6 +32,13 @@
 #define pgd_none(pgd)		(!pgd_val(pgd))
 #define pmd_none(pmd)		(!pmd_val(pmd))
 #define pte_none(pte)		(!pte_val(pte))
+
+#define pgd_valid(pgd)		(pgd_val(pgd) & PGD_VALID)
+#define pmd_valid(pmd)		(pmd_val(pmd) & PMD_SECT_VALID)
+#define pte_valid(pte)		(pte_val(pte) & PTE_VALID)
+
+#define pmd_huge(pmd)	\
+	((pmd_val(pmd) & PMD_TYPE_MASK) == PMD_TYPE_SECT)
 
 #define pgd_index(addr) \
 	(((addr) >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1))
@@ -66,8 +76,9 @@ static inline pte_t *pte_alloc_one(void)
 static inline pte_t *pte_alloc(pmd_t *pmd, unsigned long addr)
 {
 	if (pmd_none(*pmd)) {
-		pte_t *pte = pte_alloc_one();
-		pmd_val(*pmd) = pgtable_pa(pte) | PMD_TYPE_TABLE;
+		pmd_t entry;
+		pmd_val(entry) = pgtable_pa(pte_alloc_one()) | PMD_TYPE_TABLE;
+		WRITE_ONCE(*pmd, entry);
 	}
 	return pte_offset(pmd, addr);
 }

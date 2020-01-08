@@ -159,9 +159,8 @@ halt:
 
 .globl asm_mmu_enable
 asm_mmu_enable:
-	ic	iallu			// I+BTB cache invalidate
-	tlbi	vmalle1is		// invalidate I + D TLBs
-	dsb	ish
+	tlbi	vmalle1			// invalidate I + D TLBs
+	dsb	nsh
 
 	/* TCR */
 	ldr	x1, =TCR_TxSZ(VA_BITS) |		\
