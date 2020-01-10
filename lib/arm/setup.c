@@ -24,6 +24,8 @@
 
 #include "io.h"
 
+#define NR_INITIAL_MEM_REGIONS 16
+
 extern unsigned long stacktop;
 
 char *initrd;
@@ -32,7 +34,8 @@ u32 initrd_size;
 u64 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (u64)~0 };
 int nr_cpus;
 
-struct mem_region mem_regions[NR_MEM_REGIONS];
+static struct mem_region __initial_mem_regions[NR_INITIAL_MEM_REGIONS + 1];
+struct mem_region *mem_regions = __initial_mem_regions;
 phys_addr_t __phys_offset, __phys_end;
 
 int mpidr_to_cpu(uint64_t mpidr)
@@ -65,41 +68,66 @@ static void cpu_init(void)
 	set_cpu_online(0, true);
 }
 
+unsigned int mem_region_get_flags(phys_addr_t paddr)
+{
+	struct mem_region *r;
+
+	for (r = mem_regions; r->end; ++r) {
+		if (paddr >= r->start && paddr < r->end)
+			return r->flags;
+	}
+
+	return MR_F_UNKNOWN;
+}
+
 static void mem_init(phys_addr_t freemem_start)
 {
-	struct dt_pbus_reg regs[NR_MEM_REGIONS];
+	struct dt_pbus_reg regs[NR_INITIAL_MEM_REGIONS];
 	struct mem_region primary, mem = {
 		.start = (phys_addr_t)-1,
 	};
 	phys_addr_t base, top;
-	int nr_regs, i;
+	int nr_regs, nr_io = 0, i;
 
-	nr_regs = dt_get_memory_params(regs, NR_MEM_REGIONS);
+	/*
+	 * mach-virt I/O regions:
+	 *   - The first 1G (arm/arm64)
+	 *   - 512M at 256G (arm64, arm uses highmem=off)
+	 *   - 512G at 512G (arm64, arm uses highmem=off)
+	 */
+	mem_regions[nr_io++] = (struct mem_region){ 0, (1ul << 30), MR_F_IO };
+#ifdef __aarch64__
+	mem_regions[nr_io++] = (struct mem_region){ (1ul << 38), (1ul << 38) | (1ul << 29), MR_F_IO };
+	mem_regions[nr_io++] = (struct mem_region){ (1ul << 39), (1ul << 40), MR_F_IO };
+#endif
+
+	nr_regs = dt_get_memory_params(regs, NR_INITIAL_MEM_REGIONS - nr_io);
 	assert(nr_regs > 0);
 
 	primary = (struct mem_region){ 0 };
 
 	for (i = 0; i < nr_regs; ++i) {
-		mem_regions[i].start = regs[i].addr;
-		mem_regions[i].end = regs[i].addr + regs[i].size;
+		struct mem_region *r = &mem_regions[nr_io + i];
+
+		r->start = regs[i].addr;
+		r->end = regs[i].addr + regs[i].size;
 
 		/*
 		 * pick the region we're in for our primary region
 		 */
-		if (freemem_start >= mem_regions[i].start
-				&& freemem_start < mem_regions[i].end) {
-			mem_regions[i].flags |= MR_F_PRIMARY;
-			primary = mem_regions[i];
+		if (freemem_start >= r->start && freemem_start < r->end) {
+			r->flags |= MR_F_PRIMARY;
+			primary = *r;
 		}
 
 		/*
 		 * set the lowest and highest addresses found,
 		 * ignoring potential gaps
 		 */
-		if (mem_regions[i].start < mem.start)
-			mem.start = mem_regions[i].start;
-		if (mem_regions[i].end > mem.end)
-			mem.end = mem_regions[i].end;
+		if (r->start < mem.start)
+			mem.start = r->start;
+		if (r->end > mem.end)
+			mem.end = r->end;
 	}
 	assert(primary.end != 0);
 	assert(!(mem.start & ~PHYS_MASK) && !((mem.end - 1) & ~PHYS_MASK));
