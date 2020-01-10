@@ -74,24 +74,22 @@ static bool svc_works;
  * that causes an exception. The test handler will check that its
  * capture of the current register state matches the capture done
  * here.
- *
- * NOTE: update clobber list if passed insns needs more than r0,r1
  */
-#define test_exception(pre_insns, excptn_insn, post_insns)	\
-	asm volatile(						\
-		pre_insns "\n"					\
-		"mov	r0, %0\n"				\
-		"stmia	r0, { r0-lr }\n"			\
-		"mrs	r1, cpsr\n"				\
-		"str	r1, [r0, #" xstr(S_PSR) "]\n"		\
-		"mov	r1, #-1\n"				\
-		"str	r1, [r0, #" xstr(S_OLD_R0) "]\n"	\
-		"add	r1, pc, #8\n"				\
-		"str	r1, [r0, #" xstr(S_R1) "]\n"		\
-		"str	r1, [r0, #" xstr(S_PC) "]\n"		\
-		excptn_insn "\n"				\
-		post_insns "\n"					\
-	:: "r" (&expected_regs) : "r0", "r1")
+#define test_exception(pre_insns, excptn_insn, post_insns, clobbers...)	\
+	asm volatile(							\
+		pre_insns "\n"						\
+		"mov	r0, %0\n"					\
+		"stmia	r0, { r0-lr }\n"				\
+		"mrs	r1, cpsr\n"					\
+		"str	r1, [r0, #" xstr(S_PSR) "]\n"			\
+		"mov	r1, #-1\n"					\
+		"str	r1, [r0, #" xstr(S_OLD_R0) "]\n"		\
+		"add	r1, pc, #8\n"					\
+		"str	r1, [r0, #" xstr(S_R1) "]\n"			\
+		"str	r1, [r0, #" xstr(S_PC) "]\n"			\
+		excptn_insn "\n"					\
+		post_insns "\n"						\
+	:: "r" (&expected_regs) : "r0", "r1", ##clobbers)
 
 static bool check_regs(struct pt_regs *regs)
 {
@@ -119,7 +117,7 @@ static bool check_und(void)
 	install_exception_handler(EXCPTN_UND, und_handler);
 
 	/* issue an instruction to a coprocessor we don't have */
-	test_exception("", "mcr p2, 0, r0, c0, c0", "");
+	test_exception("", "mcr p2, 0, r0, c0, c0", "", "r0");
 
 	install_exception_handler(EXCPTN_UND, NULL);
 
@@ -156,7 +154,8 @@ static bool check_svc(void)
 			"push	{ r0,lr }\n",
 			"svc	#123\n",
 			"pop	{ r0,lr }\n"
-			"msr	spsr_cxsf, r0\n"
+			"msr	spsr_cxsf, r0\n",
+			"r0", "lr"
 		);
 	} else {
 		test_exception("", "svc #123", "");
@@ -178,41 +177,39 @@ static void user_psci_system_off(struct pt_regs *regs)
  * that causes an exception. The test handler will check that its
  * capture of the current register state matches the capture done
  * here.
- *
- * NOTE: update clobber list if passed insns needs more than x0,x1
  */
-#define test_exception(pre_insns, excptn_insn, post_insns)	\
-	asm volatile(						\
-		pre_insns "\n"					\
-		"mov	x1, %0\n"				\
-		"ldr	x0, [x1, #" xstr(S_PSTATE) "]\n"	\
-		"mrs	x1, nzcv\n"				\
-		"orr	w0, w0, w1\n"				\
-		"mov	x1, %0\n"				\
-		"str	w0, [x1, #" xstr(S_PSTATE) "]\n"	\
-		"mov	x0, sp\n"				\
-		"str	x0, [x1, #" xstr(S_SP) "]\n"		\
-		"adr	x0, 1f\n"				\
-		"str	x0, [x1, #" xstr(S_PC) "]\n"		\
-		"stp	 x2,  x3, [x1,  #16]\n"			\
-		"stp	 x4,  x5, [x1,  #32]\n"			\
-		"stp	 x6,  x7, [x1,  #48]\n"			\
-		"stp	 x8,  x9, [x1,  #64]\n"			\
-		"stp	x10, x11, [x1,  #80]\n"			\
-		"stp	x12, x13, [x1,  #96]\n"			\
-		"stp	x14, x15, [x1, #112]\n"			\
-		"stp	x16, x17, [x1, #128]\n"			\
-		"stp	x18, x19, [x1, #144]\n"			\
-		"stp	x20, x21, [x1, #160]\n"			\
-		"stp	x22, x23, [x1, #176]\n"			\
-		"stp	x24, x25, [x1, #192]\n"			\
-		"stp	x26, x27, [x1, #208]\n"			\
-		"stp	x28, x29, [x1, #224]\n"			\
-		"str	x30, [x1, #" xstr(S_LR) "]\n"		\
-		"stp	 x0,  x1, [x1]\n"			\
-	"1:"	excptn_insn "\n"				\
-		post_insns "\n"					\
-	:: "r" (&expected_regs) : "x0", "x1")
+#define test_exception(pre_insns, excptn_insn, post_insns, clobbers...)	\
+	asm volatile(							\
+		pre_insns "\n"						\
+		"mov	x1, %0\n"					\
+		"ldr	x0, [x1, #" xstr(S_PSTATE) "]\n"		\
+		"mrs	x1, nzcv\n"					\
+		"orr	w0, w0, w1\n"					\
+		"mov	x1, %0\n"					\
+		"str	w0, [x1, #" xstr(S_PSTATE) "]\n"		\
+		"mov	x0, sp\n"					\
+		"str	x0, [x1, #" xstr(S_SP) "]\n"			\
+		"adr	x0, 1f\n"					\
+		"str	x0, [x1, #" xstr(S_PC) "]\n"			\
+		"stp	 x2,  x3, [x1,  #16]\n"				\
+		"stp	 x4,  x5, [x1,  #32]\n"				\
+		"stp	 x6,  x7, [x1,  #48]\n"				\
+		"stp	 x8,  x9, [x1,  #64]\n"				\
+		"stp	x10, x11, [x1,  #80]\n"				\
+		"stp	x12, x13, [x1,  #96]\n"				\
+		"stp	x14, x15, [x1, #112]\n"				\
+		"stp	x16, x17, [x1, #128]\n"				\
+		"stp	x18, x19, [x1, #144]\n"				\
+		"stp	x20, x21, [x1, #160]\n"				\
+		"stp	x22, x23, [x1, #176]\n"				\
+		"stp	x24, x25, [x1, #192]\n"				\
+		"stp	x26, x27, [x1, #208]\n"				\
+		"stp	x28, x29, [x1, #224]\n"				\
+		"str	x30, [x1, #" xstr(S_LR) "]\n"			\
+		"stp	 x0,  x1, [x1]\n"				\
+	"1:"	excptn_insn "\n"					\
+		post_insns "\n"						\
+	:: "r" (&expected_regs) : "x0", "x1", ##clobbers)
 
 static bool check_regs(struct pt_regs *regs)
 {
@@ -260,7 +257,7 @@ static bool check_und(void)
 	install_exception_handler(v, ESR_EL1_EC_UNKNOWN, unknown_handler);
 
 	/* try to read an el2 sysreg from el0/1 */
-	test_exception("", "mrs x0, sctlr_el2", "");
+	test_exception("", "mrs x0, sctlr_el2", "", "x0");
 
 	install_exception_handler(v, ESR_EL1_EC_UNKNOWN, NULL);
 
