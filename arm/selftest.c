@@ -8,6 +8,7 @@
 #include <libcflat.h>
 #include <util.h>
 #include <devicetree.h>
+#include <vmalloc.h>
 #include <asm/setup.h>
 #include <asm/ptrace.h>
 #include <asm/asm-offsets.h>
@@ -15,6 +16,7 @@
 #include <asm/thread_info.h>
 #include <asm/psci.h>
 #include <asm/smp.h>
+#include <asm/mmu.h>
 #include <asm/barrier.h>
 
 static cpumask_t ready, valid;
@@ -65,9 +67,43 @@ static void check_setup(int argc, char **argv)
 		report_abort("missing input");
 }
 
+unsigned long check_pabt_invalid_paddr;
+static bool check_pabt_init(void)
+{
+	phys_addr_t highest_end = 0;
+	unsigned long vaddr;
+	struct mem_region *r;
+
+	/*
+	 * We need a physical address that isn't backed by anything. Without
+	 * fully parsing the device tree there's no way to be certain of any
+	 * address, but an unknown address immediately following the highest
+	 * memory region has a reasonable chance. This is because we can
+	 * assume that that memory region could have been larger, if the user
+	 * had configured more RAM, and therefore no MMIO region should be
+	 * there.
+	 */
+	for (r = mem_regions; r->end; ++r) {
+		if (r->flags & MR_F_IO)
+			continue;
+		if (r->end > highest_end)
+			highest_end = PAGE_ALIGN(r->end);
+	}
+
+	if (mem_region_get_flags(highest_end) != MR_F_UNKNOWN)
+		return false;
+
+	vaddr = (unsigned long)vmap(highest_end, PAGE_SIZE);
+	mmu_clear_user(current_thread_info()->pgtable, vaddr);
+	check_pabt_invalid_paddr = vaddr;
+
+	return true;
+}
+
 static struct pt_regs expected_regs;
 static bool und_works;
 static bool svc_works;
+static bool pabt_works;
 #if defined(__arm__)
 /*
  * Capture the current register state and execute an instruction
@@ -164,6 +200,30 @@ static bool check_svc(void)
 	install_exception_handler(EXCPTN_SVC, NULL);
 
 	return svc_works;
+}
+
+static void pabt_handler(struct pt_regs *regs)
+{
+	expected_regs.ARM_lr = expected_regs.ARM_pc;
+	expected_regs.ARM_pc = expected_regs.ARM_r9;
+
+	pabt_works = check_regs(regs);
+
+	regs->ARM_pc = regs->ARM_lr;
+}
+
+static bool check_pabt(void)
+{
+	install_exception_handler(EXCPTN_PABT, pabt_handler);
+
+	test_exception("ldr	r9, =check_pabt_invalid_paddr\n"
+		       "ldr	r9, [r9]\n",
+		       "blx	r9\n",
+		       "", "r9", "lr");
+
+	install_exception_handler(EXCPTN_PABT, NULL);
+
+	return pabt_works;
 }
 
 static void user_psci_system_off(struct pt_regs *regs)
@@ -285,6 +345,35 @@ static bool check_svc(void)
 	return svc_works;
 }
 
+static void pabt_handler(struct pt_regs *regs, unsigned int esr)
+{
+	bool is_extabt = (esr & ESR_EL1_FSC_MASK) == ESR_EL1_FSC_EXTABT;
+
+	expected_regs.regs[30] = expected_regs.pc + 4;
+	expected_regs.pc = expected_regs.regs[9];
+
+	pabt_works = check_regs(regs) && is_extabt;
+
+	regs->pc = regs->regs[30];
+}
+
+static bool check_pabt(void)
+{
+	enum vector v = check_vector_prep();
+
+	install_exception_handler(v, ESR_EL1_EC_IABT_EL1, pabt_handler);
+
+	test_exception("adrp	x9, check_pabt_invalid_paddr\n"
+		       "add	x9, x9, :lo12:check_pabt_invalid_paddr\n"
+		       "ldr	x9, [x9]\n",
+		       "blr	x9\n",
+		       "", "x9", "x30");
+
+	install_exception_handler(v, ESR_EL1_EC_IABT_EL1, NULL);
+
+	return pabt_works;
+}
+
 static void user_psci_system_off(struct pt_regs *regs, unsigned int esr)
 {
 	__user_psci_system_off();
@@ -302,6 +391,11 @@ static void check_vectors(void *arg __unused)
 		install_exception_handler(EL0_SYNC_64, ESR_EL1_EC_UNKNOWN,
 					  user_psci_system_off);
 #endif
+	} else {
+		if (!check_pabt_init())
+			report_skip("Couldn't guess an invalid physical address");
+		else
+			report(check_pabt(), "pabt");
 	}
 	exit(report_summary());
 }
