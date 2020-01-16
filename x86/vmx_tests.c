@@ -7443,6 +7443,49 @@ static void vmx_host_state_area_test(void)
 }
 
 /*
+ * If the "load debug controls" VM-entry control is 1, bits 63:32 in
+ * the DR7 field must be 0.
+ *
+ * [Intel SDM]
+ */
+static void test_guest_dr7(void)
+{
+	u32 ent_saved = vmcs_read(ENT_CONTROLS);
+	u64 dr7_saved = vmcs_read(GUEST_DR7);
+	u64 val;
+	int i;
+
+	if (ctrl_enter_rev.set & ENT_LOAD_DBGCTLS) {
+		vmcs_clear_bits(ENT_CONTROLS, ENT_LOAD_DBGCTLS);
+		for (i = 0; i < 64; i++) {
+			val = 1ull << i;
+			vmcs_write(GUEST_DR7, val);
+			enter_guest();
+			report_guest_state_test("ENT_LOAD_DBGCTLS disabled",
+						VMX_VMCALL, val, "GUEST_DR7");
+		}
+	}
+	if (ctrl_enter_rev.clr & ENT_LOAD_DBGCTLS) {
+		vmcs_set_bits(ENT_CONTROLS, ENT_LOAD_DBGCTLS);
+		for (i = 0; i < 64; i++) {
+			val = 1ull << i;
+			vmcs_write(GUEST_DR7, val);
+			if (i < 32)
+				enter_guest();
+			else
+				enter_guest_with_invalid_guest_state();
+			report_guest_state_test("ENT_LOAD_DBGCTLS enabled",
+						i < 32 ? VMX_VMCALL :
+						VMX_ENTRY_FAILURE |
+						VMX_FAIL_STATE,
+						val, "GUEST_DR7");
+		}
+	}
+	vmcs_write(GUEST_DR7, dr7_saved);
+	vmcs_write(ENT_CONTROLS, ent_saved);
+}
+
+/*
  *  If the "load IA32_PAT" VM-entry control is 1, the value of the field
  *  for the IA32_PAT MSR must be one that could be written by WRMSR
  *  without fault at CPL 0. Specifically, each of the 8 bytes in the
@@ -7480,6 +7523,7 @@ static void vmx_guest_state_area_test(void)
 	test_canonical(GUEST_SYSENTER_ESP, "GUEST_SYSENTER_ESP", false);
 	test_canonical(GUEST_SYSENTER_EIP, "GUEST_SYSENTER_EIP", false);
 
+	test_guest_dr7();
 	test_load_guest_pat();
 	test_guest_efer();
 	test_load_guest_perf_global_ctrl();
