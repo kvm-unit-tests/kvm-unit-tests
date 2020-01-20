@@ -52,6 +52,17 @@ ACCEL=name environment variable:
 
     ACCEL=kvm ./x86-run ./x86/msr.flat
 
+# Tests configuration file
+
+The test case may need specific runtime configurations, for
+example, extra QEMU parameters and time to execute limited, the
+runner script reads those information from a configuration file found
+at ./ARCH/unittests.cfg.
+
+The configuration file also contain the groups (if any) each test belong
+to.  So that a given group can be executed by specifying its name in the
+runner's -g option.
+
 # Unit test inputs
 
 Unit tests use QEMU's '-append args...' parameter for command line
