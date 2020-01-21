@@ -13,15 +13,19 @@
 extern u64 cpus[NR_CPUS];	/* per-cpu IDs (MPIDRs) */
 extern int nr_cpus;
 
-#define NR_MEM_REGIONS		8
 #define MR_F_PRIMARY		(1U << 0)
+#define MR_F_IO			(1U << 1)
+#define MR_F_UNKNOWN		(1U << 31)
+
 struct mem_region {
 	phys_addr_t start;
 	phys_addr_t end;
 	unsigned int flags;
 };
-extern struct mem_region mem_regions[NR_MEM_REGIONS];
+extern struct mem_region *mem_regions;
 extern phys_addr_t __phys_offset, __phys_end;
+
+extern unsigned int mem_region_get_flags(phys_addr_t paddr);
 
 #define PHYS_OFFSET		(__phys_offset)
 #define PHYS_END		(__phys_end)

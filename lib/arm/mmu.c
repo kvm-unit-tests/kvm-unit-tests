@@ -152,6 +152,7 @@ void mmu_set_range_sect(pgd_t *pgtable, uintptr_t virt_offset,
 void *setup_mmu(phys_addr_t phys_end)
 {
 	uintptr_t code_end = (uintptr_t)&etext;
+	struct mem_region *r;
 
 	/* 0G-1G = I/O, 1G-3G = identity, 3G-4G = vmalloc */
 	if (phys_end > (3ul << 30))
@@ -163,23 +164,12 @@ void *setup_mmu(phys_addr_t phys_end)
 
 	mmu_idmap = alloc_page();
 
-	/*
-	 * mach-virt I/O regions:
-	 *   - The first 1G (arm/arm64)
-	 *   - 512M at 256G (arm64, arm uses highmem=off)
-	 *   - 512G at 512G (arm64, arm uses highmem=off)
-	 */
-	mmu_set_range_sect(mmu_idmap,
-		0, 0, (1ul << 30),
-		__pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
-#ifdef __aarch64__
-	mmu_set_range_sect(mmu_idmap,
-		(1ul << 38), (1ul << 38), (1ul << 38) | (1ul << 29),
-		__pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
-	mmu_set_range_sect(mmu_idmap,
-		(1ul << 39), (1ul << 39), (1ul << 40),
-		__pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
-#endif
+	for (r = mem_regions; r->end; ++r) {
+		if (!(r->flags & MR_F_IO))
+			continue;
+		mmu_set_range_sect(mmu_idmap, r->start, r->start, r->end,
+				   __pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
+	}
 
 	/* armv8 requires code shared between EL1 and EL0 to be read-only */
 	mmu_set_range_ptes(mmu_idmap, PHYS_OFFSET,
