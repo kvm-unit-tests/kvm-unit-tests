@@ -3,7 +3,6 @@
 srcdir=$(cd "$(dirname "$0")"; pwd)
 prefix=/usr/local
 cc=gcc
-cxx=g++
 ld=ld
 objcopy=objcopy
 objdump=objdump
@@ -30,7 +29,6 @@ usage() {
 	                           or kvmtool, default is qemu) (arm/arm64 only)
 	    --cross-prefix=PREFIX  cross compiler prefix
 	    --cc=CC		   c compiler to use ($cc)
-	    --cxx=CXX		   c++ compiler to use ($cxx)
 	    --ld=LD		   ld linker to use ($ld)
 	    --prefix=PREFIX        where to install things ($prefix)
 	    --endian=ENDIAN        endianness to compile for (little or big, ppc64 only)
@@ -71,9 +69,6 @@ while [[ "$1" = -* ]]; do
 	    ;;
 	--cc)
 	    cc="$arg"
-	    ;;
-	--cxx)
-	    cxx="$arg"
 	    ;;
 	--ld)
 	    ld="$arg"
@@ -149,16 +144,6 @@ EOF
 u32_long=$("$cross_prefix$cc" -E lib-test.c | grep -v '^#' | grep -q long && echo yes)
 rm -f lib-test.c
 
-# api/: check for dependent 32 bit libraries and gnu++11 support
-if [ "$testdir" = "x86" ]; then
-    echo 'int main () {}' > lib-test.c
-    if $cc -m32 -o /dev/null -lstdc++ -lpthread -lrt lib-test.c &> /dev/null &&
-       $cxx -m32 -o /dev/null -std=gnu++11 lib-test.c &> /dev/null; then
-        api=yes
-    fi
-    rm -f lib-test.c
-fi
-
 # Are we in a separate build tree? If so, link the Makefile
 # and shared stuff so that 'make' and run_tests.sh work.
 if test ! -e Makefile; then
@@ -199,13 +184,11 @@ ARCH=$arch
 ARCH_NAME=$arch_name
 PROCESSOR=$processor
 CC=$cross_prefix$cc
-CXX=$cross_prefix$cxx
 LD=$cross_prefix$ld
 OBJCOPY=$cross_prefix$objcopy
 OBJDUMP=$cross_prefix$objdump
 AR=$cross_prefix$ar
 ADDR2LINE=$cross_prefix$addr2line
-API=$api
 TEST_DIR=$testdir
 FIRMWARE=$firmware
 ENDIAN=$endian
