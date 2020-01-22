@@ -9161,9 +9161,6 @@ static void vmx_vmcs_shadow_test(void)
  */
 static void reset_guest_tsc_to_zero(void)
 {
-	TEST_ASSERT_MSG(ctrl_cpu_rev[0].clr & CPU_USE_TSC_OFFSET,
-			"Expected support for 'use TSC offsetting'");
-
 	vmcs_set_bits(CPU_EXEC_CTRL0, CPU_USE_TSC_OFFSET);
 	vmcs_write(TSC_OFFSET, -rdtsc());
 }
@@ -9209,6 +9206,9 @@ static void rdtsc_vmexit_diff_test(void)
 {
 	int fail = 0;
 	int i;
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_USE_TSC_OFFSET))
+		test_skip("CPU doesn't support the 'use TSC offsetting' processor-based VM-execution control.\n");
 
 	test_set_guest(rdtsc_vmexit_diff_test_guest);
 
