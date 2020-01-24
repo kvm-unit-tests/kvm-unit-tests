@@ -9795,6 +9795,7 @@ static unsigned long long rdtsc_vmexit_diff_test_iteration(void)
 
 static void rdtsc_vmexit_diff_test(void)
 {
+	unsigned long long delta;
 	int fail = 0;
 	int i;
 
@@ -9817,17 +9818,17 @@ static void rdtsc_vmexit_diff_test(void)
 	vmcs_write(EXI_MSR_ST_CNT, 1);
 	vmcs_write(EXIT_MSR_ST_ADDR, virt_to_phys(exit_msr_store));
 
-	for (i = 0; i < RDTSC_DIFF_ITERS; i++) {
-		if (rdtsc_vmexit_diff_test_iteration() >=
-		    HOST_CAPTURED_GUEST_TSC_DIFF_THRESHOLD)
+	for (i = 0; i < RDTSC_DIFF_ITERS && fail < RDTSC_DIFF_FAILS; i++) {
+		delta = rdtsc_vmexit_diff_test_iteration();
+		if (delta >= HOST_CAPTURED_GUEST_TSC_DIFF_THRESHOLD)
 			fail++;
 	}
 
 	enter_guest();
 
 	report(fail < RDTSC_DIFF_FAILS,
-	       "RDTSC to VM-exit delta too high in %d of %d iterations",
-	       fail, RDTSC_DIFF_ITERS);
+	       "RDTSC to VM-exit delta too high in %d of %d iterations, last = %llu",
+	       fail, i, delta);
 }
 
 static int invalid_msr_init(struct vmcs *vmcs)
