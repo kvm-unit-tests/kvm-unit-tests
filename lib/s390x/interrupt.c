@@ -106,10 +106,13 @@ static void fixup_pgm_int(void)
 
 void handle_pgm_int(void)
 {
-	if (!pgm_int_expected)
+	if (!pgm_int_expected) {
+		/* Force sclp_busy to false, otherwise we will loop forever */
+		sclp_handle_ext();
 		report_abort("Unexpected program interrupt: %d at %#lx, ilen %d\n",
 			     lc->pgm_int_code, lc->pgm_old_psw.addr,
 			     lc->pgm_int_id);
+	}
 
 	pgm_int_expected = false;
 	fixup_pgm_int();

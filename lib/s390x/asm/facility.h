@@ -24,7 +24,7 @@ static inline bool test_facility(int nr)
 
 static inline void stfl(void)
 {
-	asm volatile("	stfl	0(0)\n");
+	asm volatile("	stfl	0(0)\n" : : : "memory");
 }
 
 static inline void stfle(uint8_t *fac, unsigned int len)
