@@ -55,8 +55,8 @@ COMMON_CFLAGS += -Wignored-qualifiers -Werror
 
 frame-pointer-flag=-f$(if $(KEEP_FRAME_POINTER),no-,)omit-frame-pointer
 fomit_frame_pointer := $(call cc-option, $(frame-pointer-flag), "")
-fnostack_protector := $(call cc-option, -fno-stack-protector, "")
-fnostack_protector_all := $(call cc-option, -fno-stack-protector-all, "")
+fno_stack_protector := $(call cc-option, -fno-stack-protector, "")
+fno_stack_protector_all := $(call cc-option, -fno-stack-protector-all, "")
 wno_frame_address := $(call cc-option, -Wno-frame-address, "")
 fno_pic := $(call cc-option, -fno-pic, "")
 no_pie := $(call cc-option, -no-pie, "")
