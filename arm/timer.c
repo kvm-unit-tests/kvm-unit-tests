@@ -8,6 +8,7 @@
 #include <libcflat.h>
 #include <devicetree.h>
 #include <errata.h>
+#include <asm/delay.h>
 #include <asm/processor.h>
 #include <asm/gic.h>
 #include <asm/io.h>
@@ -16,6 +17,14 @@
 #define ARCH_TIMER_CTL_IMASK   (1 << 1)
 #define ARCH_TIMER_CTL_ISTATUS (1 << 2)
 
+enum gic_state {
+	GIC_STATE_INACTIVE,
+	GIC_STATE_PENDING,
+	GIC_STATE_ACTIVE,
+	GIC_STATE_ACTIVE_PENDING,
+};
+
+static void *gic_isactiver;
 static void *gic_ispendr;
 static void *gic_isenabler;
 static void *gic_icenabler;
@@ -174,9 +183,28 @@ static void irq_handler(struct pt_regs *regs)
 	info->irq_received = true;
 }
 
-static bool gic_timer_pending(struct timer_info *info)
+static enum gic_state gic_timer_state(struct timer_info *info)
 {
-	return readl(gic_ispendr) & (1 << PPI(info->irq));
+	enum gic_state state = GIC_STATE_INACTIVE;
+	int i;
+	bool pending, active;
+
+	/* Wait for up to 1s for the GIC to sample the interrupt. */
+	for (i = 0; i < 10; i++) {
+		pending = readl(gic_ispendr) & (1 << PPI(info->irq));
+		active = readl(gic_isactiver) & (1 << PPI(info->irq));
+		if (!active && !pending)
+			state = GIC_STATE_INACTIVE;
+		if (pending)
+			state = GIC_STATE_PENDING;
+		if (active)
+			state = GIC_STATE_ACTIVE;
+		if (active && pending)
+			state = GIC_STATE_ACTIVE_PENDING;
+		mdelay(100);
+	}
+
+	return state;
 }
 
 static bool test_cval_10msec(struct timer_info *info)
@@ -225,15 +253,18 @@ static void test_timer(struct timer_info *info)
 	/* Enable the timer, but schedule it for much later */
 	info->write_cval(later);
 	info->write_ctl(ARCH_TIMER_CTL_ENABLE);
-	report(!gic_timer_pending(info), "not pending before");
+	report(gic_timer_state(info) == GIC_STATE_INACTIVE,
+			"not pending before");
 
 	info->write_cval(now - 1);
-	report(gic_timer_pending(info), "interrupt signal pending");
+	report(gic_timer_state(info) == GIC_STATE_PENDING,
+			"interrupt signal pending");
 
 	/* Disable the timer again and prepare to take interrupts */
 	info->write_ctl(0);
 	set_timer_irq_enabled(info, true);
-	report(!gic_timer_pending(info), "interrupt signal no longer pending");
+	report(gic_timer_state(info) == GIC_STATE_INACTIVE,
+			"interrupt signal no longer pending");
 
 	report(test_cval_10msec(info), "latency within 10 ms");
 	report(info->irq_received, "interrupt received");
@@ -307,11 +338,13 @@ static void test_init(void)
 
 	switch (gic_version()) {
 	case 2:
+		gic_isactiver = gicv2_dist_base() + GICD_ISACTIVER;
 		gic_ispendr = gicv2_dist_base() + GICD_ISPENDR;
 		gic_isenabler = gicv2_dist_base() + GICD_ISENABLER;
 		gic_icenabler = gicv2_dist_base() + GICD_ICENABLER;
 		break;
 	case 3:
+		gic_isactiver = gicv3_sgi_base() + GICD_ISACTIVER;
 		gic_ispendr = gicv3_sgi_base() + GICD_ISPENDR;
 		gic_isenabler = gicv3_sgi_base() + GICR_ISENABLER0;
 		gic_icenabler = gicv3_sgi_base() + GICR_ICENABLER0;
