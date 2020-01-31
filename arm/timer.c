@@ -183,6 +183,13 @@ static void irq_handler(struct pt_regs *regs)
 	info->irq_received = true;
 }
 
+/* Check that the timer condition is met. */
+static bool timer_pending(struct timer_info *info)
+{
+	return (info->read_ctl() & ARCH_TIMER_CTL_ENABLE) &&
+		(info->read_ctl() & ARCH_TIMER_CTL_ISTATUS);
+}
+
 static enum gic_state gic_timer_state(struct timer_info *info)
 {
 	enum gic_state state = GIC_STATE_INACTIVE;
@@ -220,7 +227,7 @@ static bool test_cval_10msec(struct timer_info *info)
 	info->write_ctl(ARCH_TIMER_CTL_ENABLE);
 
 	/* Wait for the timer to fire */
-	while (!(info->read_ctl() & ARCH_TIMER_CTL_ISTATUS))
+	while (!timer_pending(info))
 		;
 
 	/* It fired, check how long it took */
@@ -253,17 +260,17 @@ static void test_timer(struct timer_info *info)
 	/* Enable the timer, but schedule it for much later */
 	info->write_cval(later);
 	info->write_ctl(ARCH_TIMER_CTL_ENABLE);
-	report(gic_timer_state(info) == GIC_STATE_INACTIVE,
+	report(!timer_pending(info) && gic_timer_state(info) == GIC_STATE_INACTIVE,
 			"not pending before");
 
 	info->write_cval(now - 1);
-	report(gic_timer_state(info) == GIC_STATE_PENDING,
+	report(timer_pending(info) && gic_timer_state(info) == GIC_STATE_PENDING,
 			"interrupt signal pending");
 
 	/* Disable the timer again and prepare to take interrupts */
 	info->write_ctl(0);
 	set_timer_irq_enabled(info, true);
-	report(gic_timer_state(info) == GIC_STATE_INACTIVE,
+	report(!timer_pending(info) && gic_timer_state(info) == GIC_STATE_INACTIVE,
 			"interrupt signal no longer pending");
 
 	report(test_cval_10msec(info), "latency within 10 ms");
