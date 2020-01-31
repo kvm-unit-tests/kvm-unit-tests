@@ -9,6 +9,11 @@
 #include <asm/sysreg.h>
 #include <asm/barrier.h>
 
+#define CTR_DMINLINE_SHIFT	16
+#define CTR_DMINLINE_MASK	(0xf << 16)
+#define CTR_DMINLINE(x)	\
+	(((x) & CTR_DMINLINE_MASK) >> CTR_DMINLINE_SHIFT)
+
 enum vector {
 	EXCPTN_RST,
 	EXCPTN_UND,
@@ -64,6 +69,7 @@ extern bool is_user(void);
 
 #define CNTVCT		__ACCESS_CP15_64(1, c14)
 #define CNTFRQ		__ACCESS_CP15(c14, 0, c0, 0)
+#define CTR		__ACCESS_CP15(c0, 0, c0, 1)
 
 static inline u64 get_cntvct(void)
 {
@@ -75,5 +81,12 @@ static inline u32 get_cntfrq(void)
 {
 	return read_sysreg(CNTFRQ);
 }
+
+static inline u32 get_ctr(void)
+{
+	return read_sysreg(CTR);
+}
+
+extern u32 dcache_line_size;
 
 #endif /* _ASMARM_PROCESSOR_H_ */
