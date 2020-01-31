@@ -79,13 +79,14 @@ static void cpu_on_secondary_entry(void)
 	cpumask_set_cpu(cpu, &cpu_on_ready);
 	while (!cpu_on_start)
 		cpu_relax();
-	cpu_on_ret[cpu] = psci_cpu_on(cpus[1], __pa(cpu_psci_cpu_die));
+	cpu_on_ret[cpu] = psci_cpu_on(cpus[1], __pa(halt));
 	cpumask_set_cpu(cpu, &cpu_on_done);
 }
 
 static bool psci_cpu_on_test(void)
 {
 	bool failed = false;
+	int ret_success = 0;
 	int cpu;
 
 	cpumask_set_cpu(1, &cpu_on_ready);
@@ -104,7 +105,7 @@ static bool psci_cpu_on_test(void)
 	cpu_on_start = 1;
 	smp_mb();
 
-	cpu_on_ret[0] = psci_cpu_on(cpus[1], __pa(cpu_psci_cpu_die));
+	cpu_on_ret[0] = psci_cpu_on(cpus[1], __pa(halt));
 	cpumask_set_cpu(0, &cpu_on_done);
 
 	while (!cpumask_full(&cpu_on_done))
@@ -113,10 +114,17 @@ static bool psci_cpu_on_test(void)
 	for_each_present_cpu(cpu) {
 		if (cpu == 1)
 			continue;
-		if (cpu_on_ret[cpu] != PSCI_RET_SUCCESS && cpu_on_ret[cpu] != PSCI_RET_ALREADY_ON) {
+		if (cpu_on_ret[cpu] == PSCI_RET_SUCCESS) {
+			ret_success++;
+		} else if (cpu_on_ret[cpu] != PSCI_RET_ALREADY_ON) {
 			report_info("unexpected cpu_on return value: caller=CPU%d, ret=%d", cpu, cpu_on_ret[cpu]);
 			failed = true;
 		}
+	}
+
+	if (ret_success != 1) {
+		report_info("got %d CPU_ON success", ret_success);
+		failed = true;
 	}
 
 	return !failed;
