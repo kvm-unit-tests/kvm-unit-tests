@@ -30,6 +30,7 @@ static void ptimer_unsupported_handler(struct pt_regs *regs, unsigned int esr)
 
 static u64 read_vtimer_counter(void)
 {
+	isb();
 	return read_sysreg(cntvct_el0);
 }
 
@@ -68,6 +69,7 @@ static void write_vtimer_ctl(u64 val)
 
 static u64 read_ptimer_counter(void)
 {
+	isb();
 	return read_sysreg(cntpct_el0);
 }
 
