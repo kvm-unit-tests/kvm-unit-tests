@@ -125,7 +125,7 @@ static void ecall(void)
 	load_psw_mask(mask);
 	set_flag(1);
 	while (lc->ext_int_code != 0x1202) { mb(); }
-	report(1, "ecall");
+	report(1, "received");
 	set_flag(1);
 }
 
@@ -160,7 +160,7 @@ static void emcall(void)
 	load_psw_mask(mask);
 	set_flag(1);
 	while (lc->ext_int_code != 0x1201) { mb(); }
-	report(1, "ecall");
+	report(1, "received");
 	set_flag(1);
 }
 
