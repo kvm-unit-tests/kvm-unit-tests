@@ -860,7 +860,7 @@ static int check_smep_andnot_wp(ac_pool_t *pool)
 	ac_test_t at1;
 	int err_prepare_andnot_wp, err_smep_andnot_wp;
 
-	if (!this_cpu_has(X86_FEATURE_INVPCID_SINGLE)) {
+	if (!this_cpu_has(X86_FEATURE_SMEP)) {
 	    return 1;
 	}
 
@@ -955,7 +955,7 @@ static int ac_test_run(void)
 	}
     }
 
-    if (!this_cpu_has(X86_FEATURE_INVPCID_SINGLE)) {
+    if (!this_cpu_has(X86_FEATURE_SMEP)) {
 	tests++;
 	if (set_cr4_smep(1) == GP_VECTOR) {
             successes++;
