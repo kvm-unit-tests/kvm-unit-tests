@@ -420,6 +420,21 @@ static void check_rdpmc(void)
 	report_prefix_pop();
 }
 
+static void check_running_counter_wrmsr(void)
+{
+	pmu_counter_t evt = {
+		.ctr = MSR_IA32_PERFCTR0,
+		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel,
+		.count = 0,
+	};
+
+	start_event(&evt);
+	loop();
+	wrmsr(MSR_IA32_PERFCTR0, 0);
+	stop_event(&evt);
+	report(evt.count < gp_events[1].min, "running counter wrmsr");
+}
+
 int main(int ac, char **av)
 {
 	struct cpuid id = cpuid(10);
@@ -454,6 +469,7 @@ int main(int ac, char **av)
 	check_counters_many();
 	check_counter_overflow();
 	check_gp_counter_cmask();
+	check_running_counter_wrmsr();
 
 	return report_summary();
 }
