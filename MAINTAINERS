@@ -80,7 +80,7 @@ F: lib/ppc64/*
 S390X
 M: Thomas Huth <thuth@redhat.com>
 M: David Hildenbrand <david@redhat.com>
-R: Janosch Frank <frankja@linux.ibm.com>
+M: Janosch Frank <frankja@linux.ibm.com>
 L: kvm@vger.kernel.org
 F: s390x/*
 F: lib/s390x/*
