@@ -46,6 +46,6 @@ void exit(int code)
 	smp_teardown();
 	printf("\nEXIT: STATUS=%d\n", ((code) << 1) | 1);
 	while (1) {
-		sigp(0, SIGP_STOP, 0, NULL);
+		sigp(stap(), SIGP_STOP, 0, NULL);
 	}
 }

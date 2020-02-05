@@ -119,5 +119,4 @@ before_script:
 script:
   - make -j3
   - ACCEL="${ACCEL:-tcg}" ./run_tests.sh -v $TESTS | tee results.txt
-  - if grep -q FAIL results.txt ; then exit 1 ; fi
-  - if ! grep -q PASS results.txt ; then exit 1 ; fi
+  - grep -q PASS results.txt && ! grep -q FAIL results.txt
