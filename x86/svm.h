@@ -324,5 +324,55 @@ struct __attribute__ ((__packed__)) vmcb {
 
 #define SVM_CR0_SELECTIVE_MASK (X86_CR0_TS | X86_CR0_MP)
 
-#endif
+#define MSR_BITMAP_SIZE 8192
 
+struct svm_test {
+	const char *name;
+	bool (*supported)(void);
+	void (*prepare)(struct svm_test *test);
+	void (*prepare_gif_clear)(struct svm_test *test);
+	void (*guest_func)(struct svm_test *test);
+	bool (*finished)(struct svm_test *test);
+	bool (*succeeded)(struct svm_test *test);
+	struct vmcb *vmcb;
+	int exits;
+	ulong scratch;
+};
+
+struct regs {
+	u64 rax;
+	u64 rbx;
+	u64 rcx;
+	u64 rdx;
+	u64 cr2;
+	u64 rbp;
+	u64 rsi;
+	u64 rdi;
+	u64 r8;
+	u64 r9;
+	u64 r10;
+	u64 r11;
+	u64 r12;
+	u64 r13;
+	u64 r14;
+	u64 r15;
+	u64 rflags;
+};
+
+u64 *npt_get_pte(u64 address);
+u64 *npt_get_pde(u64 address);
+u64 *npt_get_pdpe(void);
+bool smp_supported(void);
+bool default_supported(void);
+void default_prepare(struct svm_test *test);
+void default_prepare_gif_clear(struct svm_test *test);
+bool default_finished(struct svm_test *test);
+bool npt_supported(void);
+int get_test_stage(struct svm_test *test);
+void set_test_stage(struct svm_test *test, int s);
+void inc_test_stage(struct svm_test *test);
+void vmcb_ident(struct vmcb *vmcb);
+struct regs get_regs(void);
+void vmmcall(void);
+
+#endif
