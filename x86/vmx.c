@@ -1674,8 +1674,27 @@ static void test_vmx_caps(void)
 	       (val & 0xfffffffffffffc01Ull) == 0,
 	       "MSR_IA32_VMX_VMCS_ENUM");
 
+	fixed0 = -1ull;
+	fixed0 &= ~(EPT_CAP_WT |
+		    EPT_CAP_PWL4 |
+		    EPT_CAP_UC |
+		    EPT_CAP_WB |
+		    EPT_CAP_2M_PAGE |
+		    EPT_CAP_1G_PAGE |
+		    EPT_CAP_INVEPT |
+		    EPT_CAP_AD_FLAG |
+		    EPT_CAP_ADV_EPT_INFO |
+		    EPT_CAP_INVEPT_SINGLE |
+		    EPT_CAP_INVEPT_ALL |
+		    VPID_CAP_INVVPID |
+		    (1ull << 39) |
+		    VPID_CAP_INVVPID_ADDR |
+		    VPID_CAP_INVVPID_CXTGLB |
+		    VPID_CAP_INVVPID_ALL |
+		    VPID_CAP_INVVPID_CXTLOC);
+
 	val = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
-	report((val & 0xfffff07ef98cbebeUll) == 0,
+	report((val & fixed0) == 0,
 	       "MSR_IA32_VMX_EPT_VPID_CAP");
 }
 
