@@ -1677,6 +1677,7 @@ static void test_vmx_caps(void)
 	fixed0 = -1ull;
 	fixed0 &= ~(EPT_CAP_WT |
 		    EPT_CAP_PWL4 |
+		    EPT_CAP_PWL5 |
 		    EPT_CAP_UC |
 		    EPT_CAP_WB |
 		    EPT_CAP_2M_PAGE |
