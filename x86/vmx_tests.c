@@ -4970,6 +4970,162 @@ static void test_vmx_preemption_timer(void)
 	vmcs_write(EXI_CONTROLS, saved_exit);
 }
 
+extern unsigned char test_mtf1;
+extern unsigned char test_mtf2;
+extern unsigned char test_mtf3;
+
+__attribute__((noclone)) static void test_mtf_guest(void)
+{
+	asm ("vmcall;\n\t"
+	     "out %al, $0x80;\n\t"
+	     "test_mtf1:\n\t"
+	     "vmcall;\n\t"
+	     "out %al, $0x80;\n\t"
+	     "test_mtf2:\n\t"
+	     /*
+	      * Prepare for the 'MOV CR3' test. Attempt to induce a
+	      * general-protection fault by moving a non-canonical address into
+	      * CR3. The 'MOV CR3' instruction does not take an imm64 operand,
+	      * so we must MOV the desired value into a register first.
+	      *
+	      * MOV RAX is done before the VMCALL such that MTF is only enabled
+	      * for the instruction under test.
+	      */
+	     "mov $0x8000000000000000, %rax;\n\t"
+	     "vmcall;\n\t"
+	     "mov %rax, %cr3;\n\t"
+	     "test_mtf3:\n\t"
+	     "vmcall;\n\t"
+	     /*
+	      * ICEBP/INT1 instruction. Though the instruction is now
+	      * documented, don't rely on assemblers enumerating the
+	      * instruction. Resort to hand assembly.
+	      */
+	     ".byte 0xf1;\n\t");
+}
+
+static void test_mtf_gp_handler(struct ex_regs *regs)
+{
+	regs->rip = (unsigned long) &test_mtf3;
+}
+
+static void test_mtf_db_handler(struct ex_regs *regs)
+{
+}
+
+static void enable_mtf(void)
+{
+	u32 ctrl0 = vmcs_read(CPU_EXEC_CTRL0);
+
+	vmcs_write(CPU_EXEC_CTRL0, ctrl0 | CPU_MTF);
+}
+
+static void disable_mtf(void)
+{
+	u32 ctrl0 = vmcs_read(CPU_EXEC_CTRL0);
+
+	vmcs_write(CPU_EXEC_CTRL0, ctrl0 & ~CPU_MTF);
+}
+
+static void enable_tf(void)
+{
+	unsigned long rflags = vmcs_read(GUEST_RFLAGS);
+
+	vmcs_write(GUEST_RFLAGS, rflags | X86_EFLAGS_TF);
+}
+
+static void disable_tf(void)
+{
+	unsigned long rflags = vmcs_read(GUEST_RFLAGS);
+
+	vmcs_write(GUEST_RFLAGS, rflags & ~X86_EFLAGS_TF);
+}
+
+static void report_mtf(const char *insn_name, unsigned long exp_rip)
+{
+	unsigned long rip = vmcs_read(GUEST_RIP);
+
+	assert_exit_reason(VMX_MTF);
+	report(rip == exp_rip, "MTF VM-exit after %s instruction. RIP: 0x%lx (expected 0x%lx)",
+	       insn_name, rip, exp_rip);
+}
+
+static void vmx_mtf_test(void)
+{
+	unsigned long pending_dbg;
+	handler old_gp, old_db;
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_MTF)) {
+		printf("CPU does not support the 'monitor trap flag' processor-based VM-execution control.\n");
+		return;
+	}
+
+	test_set_guest(test_mtf_guest);
+
+	/* Expect an MTF VM-exit after OUT instruction */
+	enter_guest();
+	skip_exit_vmcall();
+
+	enable_mtf();
+	enter_guest();
+	report_mtf("OUT", (unsigned long) &test_mtf1);
+	disable_mtf();
+
+	/*
+	 * Concurrent #DB trap and MTF on instruction boundary. Expect MTF
+	 * VM-exit with populated 'pending debug exceptions' VMCS field.
+	 */
+	enter_guest();
+	skip_exit_vmcall();
+
+	enable_mtf();
+	enable_tf();
+
+	enter_guest();
+	report_mtf("OUT", (unsigned long) &test_mtf2);
+	pending_dbg = vmcs_read(GUEST_PENDING_DEBUG);
+	report(pending_dbg & DR_STEP,
+	       "'pending debug exceptions' field after MTF VM-exit: 0x%lx (expected 0x%lx)",
+	       pending_dbg, (unsigned long) DR_STEP);
+
+	disable_mtf();
+	disable_tf();
+	vmcs_write(GUEST_PENDING_DEBUG, 0);
+
+	/*
+	 * #GP exception takes priority over MTF. Expect MTF VM-exit with RIP
+	 * advanced to first instruction of #GP handler.
+	 */
+	enter_guest();
+	skip_exit_vmcall();
+
+	old_gp = handle_exception(GP_VECTOR, test_mtf_gp_handler);
+
+	enable_mtf();
+	enter_guest();
+	report_mtf("MOV CR3", (unsigned long) get_idt_addr(&boot_idt[GP_VECTOR]));
+	disable_mtf();
+
+	/*
+	 * Concurrent MTF and privileged software exception (i.e. ICEBP/INT1).
+	 * MTF should follow the delivery of #DB trap, though the SDM doesn't
+	 * provide clear indication of the relative priority.
+	 */
+	enter_guest();
+	skip_exit_vmcall();
+
+	handle_exception(GP_VECTOR, old_gp);
+	old_db = handle_exception(DB_VECTOR, test_mtf_db_handler);
+
+	enable_mtf();
+	enter_guest();
+	report_mtf("INT1", (unsigned long) get_idt_addr(&boot_idt[DB_VECTOR]));
+	disable_mtf();
+
+	enter_guest();
+	handle_exception(DB_VECTOR, old_db);
+}
+
 /*
  * Tests for VM-execution control fields
  */
@@ -9505,5 +9661,6 @@ struct vmx_test vmx_tests[] = {
 	TEST(atomic_switch_max_msrs_test),
 	TEST(atomic_switch_overflow_msrs_test),
 	TEST(rdtsc_vmexit_diff_test),
+	TEST(vmx_mtf_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
