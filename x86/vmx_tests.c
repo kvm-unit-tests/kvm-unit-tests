@@ -4782,8 +4782,8 @@ static void test_eptp_ad_bit(u64 eptp, bool ctrl)
  *
  *     - The EPT memory type (bits 2:0) must be a value supported by the
  *	 processor as indicated in the IA32_VMX_EPT_VPID_CAP MSR.
- *     - Bits 5:3 (1 less than the EPT page-walk length) must be 3,
- *	 indicating an EPT page-walk length of 4.
+ *     - Bits 5:3 (1 less than the EPT page-walk length) must indicate a
+ *	 supported EPT page-walk length.
  *     - Bit 6 (enable bit for accessed and dirty flags for EPT) must be
  *	 0 if bit 21 of the IA32_VMX_EPT_VPID_CAP MSR is read as 0,
  *	 indicating that the processor does not support accessed and dirty
@@ -4822,6 +4822,9 @@ static void test_ept_eptp(void)
 		un_cache = true;
 	if (msr & EPT_CAP_WB)
 		wr_bk = true;
+
+	/* Support for 4-level EPT is mandatory. */
+	report(msr & EPT_CAP_PWL4, "4-level EPT support check");
 
 	primary |= CPU_SECONDARY;
 	vmcs_write(CPU_EXEC_CTRL0, primary);
@@ -4864,12 +4867,13 @@ static void test_ept_eptp(void)
 	eptp = (eptp & ~EPT_MEM_TYPE_MASK) | 6ul;
 
 	/*
-	 * Page walk length (bits 5:3)
+	 * Page walk length (bits 5:3).  Note, the value in VMCS.EPTP "is 1
+	 * less than the EPT page-walk length".
 	 */
 	for (i = 0; i < 8; i++) {
 		eptp = (eptp & ~EPTP_PG_WALK_LEN_MASK) |
 		    (i << EPTP_PG_WALK_LEN_SHIFT);
-		if (i == 3)
+		if (i == 3 || (i == 4 && (msr & EPT_CAP_PWL5)))
 			ctrl = true;
 		else
 			ctrl = false;
