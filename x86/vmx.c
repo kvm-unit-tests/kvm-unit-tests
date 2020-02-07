@@ -1687,7 +1687,6 @@ static void test_vmx_caps(void)
 		    EPT_CAP_INVEPT_SINGLE |
 		    EPT_CAP_INVEPT_ALL |
 		    VPID_CAP_INVVPID |
-		    (1ull << 39) |
 		    VPID_CAP_INVVPID_ADDR |
 		    VPID_CAP_INVVPID_CXTGLB |
 		    VPID_CAP_INVVPID_ALL |
