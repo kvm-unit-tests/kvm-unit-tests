@@ -47,6 +47,13 @@
 #ifndef __ASSEMBLY__
 #include <asm/cpumask.h>
 
+enum gic_state {
+	GIC_STATE_INACTIVE,
+	GIC_STATE_PENDING,
+	GIC_STATE_ACTIVE,
+	GIC_STATE_ACTIVE_PENDING,
+};
+
 /*
  * gic_init will try to find all known gics, and then
  * initialize the gic data for the one found.
