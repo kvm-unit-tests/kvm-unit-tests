@@ -146,3 +146,48 @@ void gic_ipi_send_mask(int irq, const cpumask_t *dest)
 	assert(gic_common_ops && gic_common_ops->ipi_send_mask);
 	gic_common_ops->ipi_send_mask(irq, dest);
 }
+
+enum gic_irq_state gic_irq_state(int irq)
+{
+	enum gic_irq_state state;
+	void *ispendr, *isactiver;
+	bool pending, active;
+	int offset, mask;
+
+	assert(gic_common_ops);
+	assert(irq < 1020);
+
+	switch (gic_version()) {
+	case 2:
+		ispendr = gicv2_dist_base() + GICD_ISPENDR;
+		isactiver = gicv2_dist_base() + GICD_ISACTIVER;
+		break;
+	case 3:
+		if (irq < GIC_NR_PRIVATE_IRQS) {
+			ispendr = gicv3_sgi_base() + GICR_ISPENDR0;
+			isactiver = gicv3_sgi_base() + GICR_ISACTIVER0;
+		} else {
+			ispendr = gicv3_dist_base() + GICD_ISPENDR;
+			isactiver = gicv3_dist_base() + GICD_ISACTIVER;
+		}
+		break;
+	default:
+		assert(0);
+	}
+
+	offset = irq / 32 * 4;
+	mask = 1 << (irq % 32);
+	pending = readl(ispendr + offset) & mask;
+	active = readl(isactiver + offset) & mask;
+
+	if (!active && !pending)
+		state = GIC_IRQ_STATE_INACTIVE;
+	if (pending)
+		state = GIC_IRQ_STATE_PENDING;
+	if (active)
+		state = GIC_IRQ_STATE_ACTIVE;
+	if (active && pending)
+		state = GIC_IRQ_STATE_ACTIVE_PENDING;
+
+	return state;
+}
