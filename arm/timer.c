@@ -351,8 +351,8 @@ static void test_init(void)
 		gic_icenabler = gicv2_dist_base() + GICD_ICENABLER;
 		break;
 	case 3:
-		gic_isactiver = gicv3_sgi_base() + GICD_ISACTIVER;
-		gic_ispendr = gicv3_sgi_base() + GICD_ISPENDR;
+		gic_isactiver = gicv3_sgi_base() + GICR_ISACTIVER0;
+		gic_ispendr = gicv3_sgi_base() + GICR_ISPENDR0;
 		gic_isenabler = gicv3_sgi_base() + GICR_ISENABLER0;
 		gic_icenabler = gicv3_sgi_base() + GICR_ICENABLER0;
 		break;
