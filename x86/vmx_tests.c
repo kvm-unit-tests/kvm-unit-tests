@@ -8332,7 +8332,7 @@ static void vmx_db_test(void)
 	 * modified DR6, but fails miserably.
 	 */
 	single_step_guest("Software synthesized single-step", starting_dr6, 0);
-	check_db_exit(true, true, false, &post_wbinvd, DR_STEP, starting_dr6);
+	check_db_exit(false, false, false, &post_wbinvd, DR_STEP, starting_dr6);
 
 	/*
 	 * L0 synthesized #DB trap for single-step in MOVSS shadow is
@@ -8342,7 +8342,7 @@ static void vmx_db_test(void)
 	 */
 	single_step_guest("Software synthesized single-step in MOVSS shadow",
 			  starting_dr6, BIT(12) | DR_STEP | DR_TRAP0);
-	check_db_exit(true, true, true, &post_movss_wbinvd, DR_STEP | DR_TRAP0,
+	check_db_exit(true, false, true, &post_movss_wbinvd, DR_STEP | DR_TRAP0,
 		      starting_dr6);
 
 	/*
