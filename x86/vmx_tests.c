@@ -3376,6 +3376,27 @@ static void test_vmx_vmlaunch(u32 xerror)
 	}
 }
 
+/*
+ * Try to launch the current VMCS, and expect one of two possible
+ * errors (or success) codes.
+ */
+static void test_vmx_vmlaunch2(u32 xerror1, u32 xerror2)
+{
+	bool success = vmlaunch_succeeds();
+	u32 vmx_inst_err;
+
+	if (!xerror1 == !xerror2)
+		report(success == !xerror1, "vmlaunch %s",
+		       !xerror1 ? "succeeds" : "fails");
+
+	if (!success && (xerror1 || xerror2)) {
+		vmx_inst_err = vmcs_read(VMX_INST_ERROR);
+		report(vmx_inst_err == xerror1 || vmx_inst_err == xerror2,
+		       "VMX inst error is %d or %d (actual %d)", xerror1,
+		       xerror2, vmx_inst_err);
+	}
+}
+
 static void test_vmx_invalid_controls(void)
 {
 	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_CONTROL_FIELD);
@@ -6882,7 +6903,8 @@ static void test_efer_vmlaunch(u32 fld, bool ok)
 		if (ok)
 			test_vmx_vmlaunch(0);
 		else
-			test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+			test_vmx_vmlaunch2(VMXERR_ENTRY_INVALID_CONTROL_FIELD,
+					VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
 	} else {
 		test_guest_state("EFER test", !ok, GUEST_EFER, "GUEST_EFER");
 	}
