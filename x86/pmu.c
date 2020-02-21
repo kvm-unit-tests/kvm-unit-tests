@@ -422,17 +422,34 @@ static void check_rdpmc(void)
 
 static void check_running_counter_wrmsr(void)
 {
+	uint64_t status;
 	pmu_counter_t evt = {
 		.ctr = MSR_IA32_PERFCTR0,
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel,
 		.count = 0,
 	};
 
+	report_prefix_push("running counter wrmsr");
+
 	start_event(&evt);
 	loop();
 	wrmsr(MSR_IA32_PERFCTR0, 0);
 	stop_event(&evt);
-	report(evt.count < gp_events[1].min, "running counter wrmsr");
+	report(evt.count < gp_events[1].min, "cntr");
+
+	/* clear status before overflow test */
+	wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL,
+	      rdmsr(MSR_CORE_PERF_GLOBAL_STATUS));
+
+	evt.count = 0;
+	start_event(&evt);
+	wrmsr(MSR_IA32_PERFCTR0, -1);
+	loop();
+	stop_event(&evt);
+	status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
+	report(status & 1, "status");
+
+	report_prefix_pop();
 }
 
 int main(int ac, char **av)
