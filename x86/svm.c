@@ -288,8 +288,8 @@ static void test_run(struct test *test, struct vmcb *vmcb)
             "cli \n\t"
             "stgi"
             : // inputs clobbered by the guest:
-	      "+D" (the_test),            // first argument register
-	      "+b" (the_vmcb)             // callee save register!
+	      "=D" (the_test),            // first argument register
+	      "=b" (the_vmcb)             // callee save register!
             : [test] "0" (the_test),
 	      [vmcb_phys] "1"(the_vmcb),
 	      [PREPARE_GIF_CLEAR] "i" (offsetof(struct test, prepare_gif_clear))
