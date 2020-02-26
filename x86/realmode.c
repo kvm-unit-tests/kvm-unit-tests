@@ -1644,7 +1644,7 @@ static void test_perf_memory_load(void)
 {
 	u32 cyc, tmp;
 
-	MK_INSN_PERF(perf_memory_load, "cmp $0, (%edi)");
+	MK_INSN_PERF(perf_memory_load, "cmpw $0, (%edi)");
 
 	init_inregs(&(struct regs){ .edi = (u32)&tmp });
 
@@ -1657,7 +1657,7 @@ static void test_perf_memory_store(void)
 {
 	u32 cyc, tmp;
 
-	MK_INSN_PERF(perf_memory_store, "mov %ax, (%edi)");
+	MK_INSN_PERF(perf_memory_store, "movw %ax, (%edi)");
 
 	init_inregs(&(struct regs){ .edi = (u32)&tmp });
 
@@ -1670,7 +1670,7 @@ static void test_perf_memory_rmw(void)
 {
 	u32 cyc, tmp;
 
-	MK_INSN_PERF(perf_memory_rmw, "add $1, (%edi)");
+	MK_INSN_PERF(perf_memory_rmw, "addw $1, (%edi)");
 
 	init_inregs(&(struct regs){ .edi = (u32)&tmp });
 

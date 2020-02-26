@@ -38,7 +38,7 @@ static void handle_db(struct ex_regs *regs)
 
 /* expects desired ring 3 flags in rax */
 asm("syscall32_target:\n"
-    "   cmp $0, code_segment_upon_db(%rip)\n"
+    "   cmpl $0, code_segment_upon_db(%rip)\n"
     "   jne back_to_test\n"
     "   mov %eax,%r11d\n"
     "   sysretl\n");
