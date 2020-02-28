@@ -4974,7 +4974,7 @@ extern unsigned char test_mtf1;
 extern unsigned char test_mtf2;
 extern unsigned char test_mtf3;
 
-__attribute__((noclone)) static void test_mtf_guest(void)
+static void test_mtf_guest(void)
 {
 	asm ("vmcall;\n\t"
 	     "out %al, $0x80;\n\t"
