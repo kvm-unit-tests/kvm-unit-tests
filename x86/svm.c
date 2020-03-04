@@ -1577,10 +1577,51 @@ static struct test tests[] = {
       pending_event_check_vmask },
 };
 
+int matched;
+
+static bool
+test_wanted(const char *name, char *filters[], int filter_count)
+{
+        int i;
+        bool positive = false;
+        bool match = false;
+        char clean_name[strlen(name) + 1];
+        char *c;
+        const char *n;
+
+        /* Replace spaces with underscores. */
+        n = name;
+        c = &clean_name[0];
+        do *c++ = (*n == ' ') ? '_' : *n;
+        while (*n++);
+
+        for (i = 0; i < filter_count; i++) {
+                const char *filter = filters[i];
+
+                if (filter[0] == '-') {
+                        if (simple_glob(clean_name, filter + 1))
+                                return false;
+                } else {
+                        positive = true;
+                        match |= simple_glob(clean_name, filter);
+                }
+        }
+
+        if (!positive || match) {
+                matched++;
+                return true;
+        } else {
+                return false;
+        }
+}
+
 int main(int ac, char **av)
 {
     int i, nr;
     struct vmcb *vmcb;
+
+    ac--;
+    av++;
 
     setup_vm();
     smp_init();
@@ -1596,10 +1637,13 @@ int main(int ac, char **av)
 
     nr = ARRAY_SIZE(tests);
     for (i = 0; i < nr; ++i) {
-        if (!tests[i].supported())
+        if (!test_wanted(tests[i].name, av, ac) || !tests[i].supported())
             continue;
         test_run(&tests[i], vmcb);
     }
+
+    if (!matched)
+        report(matched, "command line didn't match any tests!");
 
     return report_summary();
 }
