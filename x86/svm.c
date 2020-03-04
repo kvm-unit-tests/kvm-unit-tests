@@ -1400,7 +1400,7 @@ static bool pending_event_check(struct test *test)
     return get_test_stage(test) == 2;
 }
 
-static void pending_event_prepare_vmask(struct test *test)
+static void pending_event_cli_prepare(struct test *test)
 {
     default_prepare(test);
 
@@ -1414,12 +1414,12 @@ static void pending_event_prepare_vmask(struct test *test)
     set_test_stage(test, 0);
 }
 
-static void pending_event_prepare_gif_clear_vmask(struct test *test)
+static void pending_event_cli_prepare_gif_clear(struct test *test)
 {
     asm("cli");
 }
 
-static void pending_event_test_vmask(struct test *test)
+static void pending_event_cli_test(struct test *test)
 {
     if (pending_event_ipi_fired == true) {
         set_test_stage(test, -1);
@@ -1427,6 +1427,7 @@ static void pending_event_test_vmask(struct test *test)
         vmmcall();
     }
 
+    /* VINTR_MASKING is zero.  This should cause the IPI to fire.  */
     irq_enable();
     asm volatile ("nop");
     irq_disable();
@@ -1438,12 +1439,17 @@ static void pending_event_test_vmask(struct test *test)
 
     vmmcall();
 
+    /*
+     * Now VINTR_MASKING=1, but no interrupt is pending so
+     * the VINTR interception should be clear in VMCB02.  Check
+     * that L0 did not leave a stale VINTR in the VMCB.
+     */
     irq_enable();
     asm volatile ("nop");
     irq_disable();
 }
 
-static bool pending_event_finished_vmask(struct test *test)
+static bool pending_event_cli_finished(struct test *test)
 {
     if ( test->vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
         report(false, "VM_EXIT return to host is not EXIT_VMMCALL exit reason 0x%x",
@@ -1459,6 +1465,7 @@ static bool pending_event_finished_vmask(struct test *test)
 
         test->vmcb->control.int_ctl |= V_INTR_MASKING_MASK;
 
+	/* Now entering again with VINTR_MASKING=1.  */
         apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL |
               APIC_DM_FIXED | 0xf1, 0);
 
@@ -1490,7 +1497,7 @@ static bool pending_event_finished_vmask(struct test *test)
     return get_test_stage(test) == 2;
 }
 
-static bool pending_event_check_vmask(struct test *test)
+static bool pending_event_cli_check(struct test *test)
 {
     return get_test_stage(test) == 2;
 }
@@ -1571,10 +1578,10 @@ static struct test tests[] = {
     { "pending_event", default_supported, pending_event_prepare,
       default_prepare_gif_clear,
       pending_event_test, pending_event_finished, pending_event_check },
-    { "pending_event_vmask", default_supported, pending_event_prepare_vmask,
-      pending_event_prepare_gif_clear_vmask,
-      pending_event_test_vmask, pending_event_finished_vmask,
-      pending_event_check_vmask },
+    { "pending_event_cli", default_supported, pending_event_cli_prepare,
+      pending_event_cli_prepare_gif_clear,
+      pending_event_cli_test, pending_event_cli_finished,
+      pending_event_cli_check },
 };
 
 int matched;
