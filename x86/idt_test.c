@@ -1,4 +1,5 @@
 #include "libcflat.h"
+#include "processor.h"
 #include "desc.h"
 
 static int test_ud2(bool *rflags_rf)

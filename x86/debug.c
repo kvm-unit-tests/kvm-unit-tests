@@ -10,6 +10,7 @@
  */
 
 #include "libcflat.h"
+#include "processor.h"
 #include "desc.h"
 
 static volatile unsigned long bp_addr;

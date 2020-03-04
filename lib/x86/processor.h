@@ -15,6 +15,9 @@
 #  define S "4"
 #endif
 
+#define DB_VECTOR 1
+#define BP_VECTOR 3
+#define UD_VECTOR 6
 #define DF_VECTOR 8
 #define TS_VECTOR 10
 #define NP_VECTOR 11

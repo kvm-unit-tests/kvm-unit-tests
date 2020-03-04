@@ -91,11 +91,6 @@ typedef struct  __attribute__((packed)) {
     "1111:"
 #endif
 
-#define DB_VECTOR   1
-#define BP_VECTOR   3
-#define UD_VECTOR   6
-#define GP_VECTOR   13
-
 /*
  * selector     32-bit                        64-bit
  * 0x00         NULL descriptor               NULL descriptor
