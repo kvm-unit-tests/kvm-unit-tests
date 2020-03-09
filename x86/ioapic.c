@@ -432,10 +432,13 @@ static void test_ioapic_physical_destination_mode(void)
 }
 
 static volatile int g_isr_86;
+struct spinlock ioapic_lock;
 
 static void ioapic_isr_86(isr_regs_t *regs)
 {
+	spin_lock(&ioapic_lock);
 	++g_isr_86;
+	spin_unlock(&ioapic_lock);
 	set_irq_line(0x0e, 0);
 	eoi();
 }
@@ -501,6 +504,10 @@ int main(void)
 	test_ioapic_level_tmr(true);
 	test_ioapic_edge_tmr(true);
 
+	test_ioapic_physical_destination_mode();
+	if (cpu_count() > 3)
+		test_ioapic_logical_destination_mode();
+
 	if (cpu_count() > 1) {
 		test_ioapic_edge_tmr_smp(false);
 		test_ioapic_level_tmr_smp(false);
@@ -508,11 +515,7 @@ int main(void)
 		test_ioapic_edge_tmr_smp(true);
 
 		test_ioapic_self_reconfigure();
-		test_ioapic_physical_destination_mode();
 	}
-
-	if (cpu_count() > 3)
-		test_ioapic_logical_destination_mode();
 
 	return report_summary();
 }
