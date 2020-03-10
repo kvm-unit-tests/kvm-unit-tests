@@ -37,7 +37,7 @@ else
 	pc_testdev="-device testdev,chardev=testlog -chardev file,id=testlog,path=msr.out"
 fi
 
-command="${qemu} -nodefaults $pc_testdev -vnc none -serial stdio $pci_testdev"
+command="${qemu} --no-reboot -nodefaults $pc_testdev -vnc none -serial stdio $pci_testdev"
 command+=" -machine accel=$ACCEL -kernel"
 command="$(timeout_cmd) $command"
 
