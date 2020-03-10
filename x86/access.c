@@ -169,29 +169,33 @@ typedef struct {
 
 static void ac_test_show(ac_test_t *at);
 
+static unsigned long shadow_cr0;
+static unsigned long shadow_cr4;
+static unsigned long long shadow_efer;
+
 static void set_cr0_wp(int wp)
 {
-    unsigned long cr0 = read_cr0();
-    unsigned long old_cr0 = cr0;
+    unsigned long cr0 = shadow_cr0;
 
     cr0 &= ~CR0_WP_MASK;
     if (wp)
 	cr0 |= CR0_WP_MASK;
-    if (old_cr0 != cr0)
+    if (cr0 != shadow_cr0) {
         write_cr0(cr0);
+        shadow_cr0 = cr0;
+    }
 }
 
 static unsigned set_cr4_smep(int smep)
 {
-    unsigned long cr4 = read_cr4();
-    unsigned long old_cr4 = cr4;
+    unsigned long cr4 = shadow_cr4;
     extern u64 ptl2[];
     unsigned r;
 
     cr4 &= ~CR4_SMEP_MASK;
     if (smep)
 	cr4 |= CR4_SMEP_MASK;
-    if (old_cr4 == cr4)
+    if (cr4 == shadow_cr4)
         return 0;
 
     if (smep)
@@ -199,37 +203,39 @@ static unsigned set_cr4_smep(int smep)
     r = write_cr4_checking(cr4);
     if (r || !smep)
         ptl2[2] |= PT_USER_MASK;
+    if (!r)
+        shadow_cr4 = cr4;
     return r;
 }
 
 static void set_cr4_pke(int pke)
 {
-    unsigned long cr4 = read_cr4();
-    unsigned long old_cr4 = cr4;
+    unsigned long cr4 = shadow_cr4;
 
     cr4 &= ~X86_CR4_PKE;
     if (pke)
 	cr4 |= X86_CR4_PKE;
-    if (old_cr4 == cr4)
+    if (cr4 == shadow_cr4)
         return;
 
     /* Check that protection keys do not affect accesses when CR4.PKE=0.  */
-    if ((read_cr4() & X86_CR4_PKE) && !pke) {
+    if ((shadow_cr4 & X86_CR4_PKE) && !pke)
         write_pkru(0xfffffffc);
-    }
     write_cr4(cr4);
+    shadow_cr4 = cr4;
 }
 
 static void set_efer_nx(int nx)
 {
-    unsigned long long efer = rdmsr(MSR_EFER);
-    unsigned long long old_efer = efer;
+    unsigned long long efer = shadow_efer;
 
     efer &= ~EFER_NX_MASK;
     if (nx)
 	efer |= EFER_NX_MASK;
-    if (old_efer != efer)
+    if (efer != shadow_efer) {
         wrmsr(MSR_EFER, efer);
+        shadow_efer = efer;
+    }
 }
 
 static void ac_env_int(ac_pool_t *pool)
@@ -245,7 +251,7 @@ static void ac_env_int(ac_pool_t *pool)
 
 static void ac_test_init(ac_test_t *at, void *virt)
 {
-    wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX_MASK);
+    set_efer_nx(1);
     set_cr0_wp(1);
     at->flags = 0;
     at->virt = virt;
@@ -935,14 +941,17 @@ static int ac_test_run(void)
     printf("run\n");
     tests = successes = 0;
 
+    shadow_cr0 = read_cr0();
+    shadow_cr4 = read_cr4();
+    shadow_efer = rdmsr(MSR_EFER);
+
     if (this_cpu_has(X86_FEATURE_PKU)) {
         set_cr4_pke(1);
         set_cr4_pke(0);
         /* Now PKRU = 0xFFFFFFFF.  */
     } else {
-	unsigned long cr4 = read_cr4();
 	tests++;
-	if (write_cr4_checking(cr4 | X86_CR4_PKE) == GP_VECTOR) {
+	if (write_cr4_checking(shadow_cr4 | X86_CR4_PKE) == GP_VECTOR) {
             successes++;
             invalid_mask |= AC_PKU_AD_MASK;
             invalid_mask |= AC_PKU_WD_MASK;
@@ -996,8 +1005,8 @@ int main(void)
 
     if (this_cpu_has(X86_FEATURE_LA57)) {
         page_table_levels = 5;
-        setup_5level_page_table();
         printf("starting 5-level paging test.\n\n");
+        setup_5level_page_table();
         r = ac_test_run();
     }
 
