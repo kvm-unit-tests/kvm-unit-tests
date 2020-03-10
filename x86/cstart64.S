@@ -159,6 +159,9 @@ switch_to_5level:
 	bts $12, %eax
 	mov %eax, %cr4
 
+	mov $0x10, %ax
+	mov %ax, %ss
+
 	call enter_long_mode
 	jmpl $8, $lvl5
 
