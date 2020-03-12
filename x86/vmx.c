@@ -1632,21 +1632,6 @@ static int exit_handler(void)
 }
 
 /*
- * Called if vmlaunch or vmresume fails.
- *	@early    - failure due to "VMX controls and host-state area" (26.2)
- *	@vmlaunch - was this a vmlaunch or vmresume
- *	@rflags   - host rflags
- */
-static int
-entry_failure_handler(struct vmentry_failure *failure)
-{
-	if (current->entry_failure_handler)
-		return current->entry_failure_handler(failure);
-	else
-		return VMX_TEST_EXIT;
-}
-
-/*
  * Tries to enter the guest. Returns true if entry succeeded. Otherwise,
  * populates @failure.
  */
@@ -1704,8 +1689,10 @@ static int vmx_run(void)
 			 */
 			launched = 1;
 			ret = exit_handler();
+		} else if (current->entry_failure_handler) {
+			ret = current->entry_failure_handler(failure);
 		} else {
-			ret = entry_failure_handler(&failure);
+			ret = VMX_TEST_EXIT;
 		}
 
 		switch (ret) {
