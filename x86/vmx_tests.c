@@ -7411,6 +7411,11 @@ static void test_canonical(u64 field, const char * field_name, bool host)
 {
 	u64 addr_saved = vmcs_read(field);
 
+	/*
+	 * Use the existing value if possible.  Writing a random canonical
+	 * value is not an option as doing so would corrupt the field being
+	 * tested and likely hose the test.
+	 */
 	if (is_canonical(addr_saved)) {
 		if (host) {
 			report_prefix_pushf("%s %lx", field_name, addr_saved);
@@ -7422,33 +7427,22 @@ static void test_canonical(u64 field, const char * field_name, bool host)
 						VMX_VMCALL, addr_saved,
 						field_name);
 		}
-
-		vmcs_write(field, NONCANONICAL);
-
-		if (host) {
-			report_prefix_pushf("%s %llx", field_name, NONCANONICAL);
-			test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-			report_prefix_pop();
-		} else {
-			enter_guest_with_invalid_guest_state();
-			report_guest_state_test("Test canonical address",
-					        VMX_FAIL_STATE | VMX_ENTRY_FAILURE,
-					        NONCANONICAL, field_name);
-		}
-
-		vmcs_write(field, addr_saved);
-	} else {
-		if (host) {
-			report_prefix_pushf("%s %llx", field_name, NONCANONICAL);
-			test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-			report_prefix_pop();
-		} else {
-			enter_guest_with_invalid_guest_state();
-			report_guest_state_test("Test canonical address",
-					        VMX_FAIL_STATE | VMX_ENTRY_FAILURE,
-					        NONCANONICAL, field_name);
-		}
 	}
+
+	vmcs_write(field, NONCANONICAL);
+
+	if (host) {
+		report_prefix_pushf("%s %llx", field_name, NONCANONICAL);
+		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+		report_prefix_pop();
+	} else {
+		enter_guest_with_invalid_guest_state();
+		report_guest_state_test("Test non-canonical address",
+					VMX_FAIL_STATE | VMX_ENTRY_FAILURE,
+					NONCANONICAL, field_name);
+	}
+
+	vmcs_write(field, addr_saved);
 }
 
 #define TEST_RPL_TI_FLAGS(reg, name)				\
