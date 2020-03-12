@@ -1895,16 +1895,6 @@ void enter_guest_with_bad_controls(void)
 	report(vmcs_read(VMX_INST_ERROR) == VMXERR_ENTRY_INVALID_CONTROL_FIELD,
 	       "VM-Inst Error # is %d (VM entry with invalid control field(s))",
 	       VMXERR_ENTRY_INVALID_CONTROL_FIELD);
-
-	/*
-	 * This if statement shouldn't fire, as the entire premise of this
-	 * function is that VM entry is expected to fail, rather than succeed
-	 * and execute to termination. However, if the VM entry does
-	 * unexpectedly succeed, it's nice to check whether the guest has
-	 * terminated, to reduce the number of error messages.
-	 */
-	if (!result.vm_fail)
-		check_for_guest_termination();
 }
 
 void enter_guest(void)
