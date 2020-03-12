@@ -1553,15 +1553,10 @@ static void __attribute__((__used__)) hypercall(u32 hypercall_no)
 	asm volatile("vmcall\n\t");
 }
 
-static bool is_hypercall(void)
+static bool is_hypercall(union exit_reason exit_reason)
 {
-	ulong reason, hyper_bit;
-
-	reason = vmcs_read(EXI_REASON) & 0xff;
-	hyper_bit = hypercall_field & HYPERCALL_BIT;
-	if (reason == VMX_VMCALL && hyper_bit)
-		return true;
-	return false;
+	return exit_reason.basic == VMX_VMCALL &&
+	       (hypercall_field & HYPERCALL_BIT);
 }
 
 static int handle_hypercall(void)
@@ -1624,7 +1619,7 @@ static int exit_handler(union exit_reason exit_reason)
 
 	current->exits++;
 	regs.rflags = vmcs_read(GUEST_RFLAGS);
-	if (is_hypercall())
+	if (is_hypercall(exit_reason))
 		ret = handle_hypercall();
 	else
 		ret = current->exit_handler(exit_reason);
@@ -1816,9 +1811,9 @@ void test_set_guest(test_guest_func func)
 	v2_guest_main = func;
 }
 
-static void check_for_guest_termination(void)
+static void check_for_guest_termination(union exit_reason exit_reason)
 {
-	if (is_hypercall()) {
+	if (is_hypercall(exit_reason)) {
 		int ret;
 
 		ret = handle_hypercall();
@@ -1867,7 +1862,7 @@ void __enter_guest(u8 abort_flag, struct vmentry_result *result)
 	}
 
 	launched = 1;
-	check_for_guest_termination();
+	check_for_guest_termination(result->exit_reason);
 	return;
 
 do_abort:
