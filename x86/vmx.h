@@ -826,7 +826,7 @@ void enable_vmx(void);
 void init_vmx(u64 *vmxon_region);
 
 const char *exit_reason_description(u64 reason);
-void print_vmexit_info(void);
+void print_vmexit_info(union exit_reason exit_reason);
 void print_vmentry_failure_info(struct vmentry_result *result);
 void ept_sync(int type, u64 eptp);
 void vpid_sync(int type, u16 vpid);

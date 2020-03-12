@@ -585,17 +585,16 @@ const char *exit_reason_description(u64 reason)
 	return exit_reason_descriptions[reason] ? : "(unused)";
 }
 
-void print_vmexit_info()
+void print_vmexit_info(union exit_reason exit_reason)
 {
 	u64 guest_rip, guest_rsp;
-	ulong reason = vmcs_read(EXI_REASON) & 0xff;
 	ulong exit_qual = vmcs_read(EXI_QUALIFICATION);
 	guest_rip = vmcs_read(GUEST_RIP);
 	guest_rsp = vmcs_read(GUEST_RSP);
 	printf("VMEXIT info:\n");
-	printf("\tvmexit reason = %ld\n", reason);
+	printf("\tvmexit reason = %u\n", exit_reason.basic);
+	printf("\tfailed vmentry = %u\n", !!exit_reason.failed_vmentry);
 	printf("\texit qualification = %#lx\n", exit_qual);
-	printf("\tBit 31 of reason = %lx\n", (vmcs_read(EXI_REASON) >> 31) & 1);
 	printf("\tguest_rip = %#lx\n", guest_rip);
 	printf("\tRAX=%#lx    RBX=%#lx    RCX=%#lx    RDX=%#lx\n",
 		regs.rax, regs.rbx, regs.rcx, regs.rdx);
@@ -1708,7 +1707,7 @@ static int vmx_run(void)
 		}
 
 		if (result.entered)
-			print_vmexit_info();
+			print_vmexit_info(result.exit_reason);
 		else
 			print_vmentry_failure_info(&result);
 		abort();

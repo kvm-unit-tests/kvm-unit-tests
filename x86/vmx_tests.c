@@ -61,7 +61,7 @@ static void basic_guest_main(void)
 static int basic_exit_handler(union exit_reason exit_reason)
 {
 	report(0, "Basic VMX test");
-	print_vmexit_info();
+	print_vmexit_info(exit_reason);
 	return VMX_TEST_EXIT;
 }
 
@@ -98,7 +98,7 @@ static int vmenter_exit_handler(union exit_reason exit_reason)
 		return VMX_TEST_RESUME;
 	default:
 		report(0, "test vmresume");
-		print_vmexit_info();
+		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
 }
@@ -187,7 +187,7 @@ static int preemption_timer_exit_handler(union exit_reason exit_reason)
 			break;
 		default:
 			report(false, "Invalid stage.");
-			print_vmexit_info();
+			print_vmexit_info(exit_reason);
 			break;
 		}
 		break;
@@ -230,13 +230,13 @@ static int preemption_timer_exit_handler(union exit_reason exit_reason)
 			// Should not reach here
 			report(false, "unexpected stage, %d",
 			       vmx_get_test_stage());
-			print_vmexit_info();
+			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		break;
 	default:
 		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
-		print_vmexit_info();
+		print_vmexit_info(exit_reason);
 	}
 	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_PREEMPT);
 	return VMX_TEST_VMEXIT;
@@ -568,7 +568,7 @@ static int cr_shadowing_exit_handler(union exit_reason exit_reason)
 			// Should not reach here
 			report(false, "unexpected stage, %d",
 			       vmx_get_test_stage());
-			print_vmexit_info();
+			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
@@ -607,14 +607,14 @@ static int cr_shadowing_exit_handler(union exit_reason exit_reason)
 			// Should not reach here
 			report(false, "unexpected stage, %d",
 			       vmx_get_test_stage());
-			print_vmexit_info();
+			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
 		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
-		print_vmexit_info();
+		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
 }
@@ -744,7 +744,7 @@ static int iobmp_exit_handler(union exit_reason exit_reason)
 			// Should not reach here
 			report(false, "unexpected stage, %d",
 			       vmx_get_test_stage());
-			print_vmexit_info();
+			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
@@ -765,7 +765,7 @@ static int iobmp_exit_handler(union exit_reason exit_reason)
 			// Should not reach here
 			report(false, "unexpected stage, %d",
 			       vmx_get_test_stage());
-			print_vmexit_info();
+			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
@@ -1290,7 +1290,7 @@ static int pml_exit_handler(union exit_reason exit_reason)
 		default:
 			report(false, "unexpected stage, %d.",
 			       vmx_get_test_stage());
-			print_vmexit_info();
+			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
@@ -1301,7 +1301,7 @@ static int pml_exit_handler(union exit_reason exit_reason)
 		return VMX_TEST_RESUME;
 	default:
 		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
-		print_vmexit_info();
+		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
 }
@@ -1386,7 +1386,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 		default:
 			report(false, "ERROR - unexpected stage, %d.",
 			       vmx_get_test_stage());
-			print_vmexit_info();
+			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
@@ -1405,7 +1405,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 		default:
 			report(false, "ERROR - unexpected stage, %d.",
 			       vmx_get_test_stage());
-			print_vmexit_info();
+			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		return VMX_TEST_RESUME;
@@ -1461,13 +1461,13 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 			// Should not reach here
 			report(false, "ERROR : unexpected stage, %d",
 			       vmx_get_test_stage());
-			print_vmexit_info();
+			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		return VMX_TEST_RESUME;
 	default:
 		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
-		print_vmexit_info();
+		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
 }
@@ -1618,14 +1618,14 @@ static int vpid_exit_handler(union exit_reason exit_reason)
 		default:
 			report(false, "ERROR: unexpected stage, %d",
 					vmx_get_test_stage());
-			print_vmexit_info();
+			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
 		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
-		print_vmexit_info();
+		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
 }
@@ -1796,7 +1796,7 @@ static int interrupt_exit_handler(union exit_reason exit_reason)
 		return VMX_TEST_RESUME;
 	default:
 		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
-		print_vmexit_info();
+		print_vmexit_info(exit_reason);
 	}
 
 	return VMX_TEST_VMEXIT;
@@ -1909,7 +1909,7 @@ static int dbgctls_exit_handler(union exit_reason exit_reason)
 		return VMX_TEST_RESUME;
 	default:
 		report(false, "Unknown exit reason, %d", exit_reason.full);
-		print_vmexit_info();
+		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
 }
@@ -2020,7 +2020,7 @@ static int vmmcall_exit_handler(union exit_reason exit_reason)
 		break;
 	default:
 		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
-		print_vmexit_info();
+		print_vmexit_info(exit_reason);
 	}
 
 	return VMX_TEST_VMEXIT;
@@ -2092,7 +2092,7 @@ static int disable_rdtscp_exit_handler(union exit_reason exit_reason)
 
 	default:
 		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
-		print_vmexit_info();
+		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
 }
@@ -9349,7 +9349,7 @@ static void invalid_msr_main(void)
 static int invalid_msr_exit_handler(union exit_reason exit_reason)
 {
 	report(0, "Invalid MSR load");
-	print_vmexit_info();
+	print_vmexit_info(exit_reason);
 	return VMX_TEST_EXIT;
 }
 
