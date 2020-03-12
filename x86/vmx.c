@@ -607,11 +607,14 @@ void print_vmexit_info()
 		regs.r12, regs.r13, regs.r14, regs.r15);
 }
 
-void
-print_vmentry_failure_info(struct vmentry_failure *failure) {
-	if (failure->early) {
-		printf("Early %s failure: ", failure->instr);
-		switch (failure->flags & VMX_ENTRY_FLAGS) {
+void print_vmentry_failure_info(struct vmentry_result *result)
+{
+	if (result->entered)
+		return;
+
+	if (result->vm_fail) {
+		printf("VM-Fail on %s: ", result->instr);
+		switch (result->flags & VMX_ENTRY_FLAGS) {
 		case X86_EFLAGS_CF:
 			printf("current-VMCS pointer is not valid.\n");
 			break;
@@ -620,16 +623,15 @@ print_vmentry_failure_info(struct vmentry_failure *failure) {
 			       vmcs_read(VMX_INST_ERROR));
 			break;
 		default:
-			printf("unexpected flags %lx!\n", failure->flags);
+			printf("unexpected flags %lx!\n", result->flags);
 		}
 	} else {
-		u64 reason = vmcs_read(EXI_REASON);
 		u64 qual = vmcs_read(EXI_QUALIFICATION);
 
-		printf("Non-early %s failure (reason=%#lx, qual=%#lx): ",
-			failure->instr, reason, qual);
+		printf("VM-Exit failure on %s (reason=%#x, qual=%#lx): ",
+			result->instr, result->exit_reason.full, qual);
 
-		switch (reason & 0xff) {
+		switch (result->exit_reason.basic) {
 		case VMX_FAIL_STATE:
 			printf("invalid guest state\n");
 			break;
@@ -640,14 +642,14 @@ print_vmentry_failure_info(struct vmentry_failure *failure) {
 			printf("machine-check event\n");
 			break;
 		default:
-			printf("unexpected basic exit reason %ld\n",
-			       reason & 0xff);
+			printf("unexpected basic exit reason %u\n",
+			  result->exit_reason.basic);
 		}
 
-		if (!(reason & VMX_ENTRY_FAILURE))
+		if (!result->exit_reason.failed_vmentry)
 			printf("\tVMX_ENTRY_FAILURE BIT NOT SET!\n");
 
-		if (reason & 0x7fff0000)
+		if (result->exit_reason.full & 0x7fff0000)
 			printf("\tRESERVED BITS SET!\n");
 	}
 }
@@ -1632,12 +1634,12 @@ static int exit_handler(void)
 }
 
 /*
- * Tries to enter the guest. Returns true if entry succeeded. Otherwise,
- * populates @failure.
+ * Tries to enter the guest, populates @result with VM-Fail, VM-Exit, entered,
+ * etc...
  */
-static void vmx_enter_guest(struct vmentry_failure *failure)
+static void vmx_enter_guest(struct vmentry_result *result)
 {
-	failure->early = 0;
+	memset(result, 0, sizeof(*result));
 
 	in_guest = 1;
 	asm volatile (
@@ -1654,35 +1656,35 @@ static void vmx_enter_guest(struct vmentry_failure *failure)
 		SAVE_GPR_C
 		"pushf\n\t"
 		"pop %%rdi\n\t"
-		"mov %%rdi, %[failure_flags]\n\t"
-		"movl $1, %[failure_early]\n\t"
+		"mov %%rdi, %[vm_fail_flags]\n\t"
+		"movl $1, %[vm_fail]\n\t"
 		"jmp 3f\n\t"
 		"vmx_return:\n\t"
 		SAVE_GPR_C
 		"3: \n\t"
-		: [failure_early]"+m"(failure->early),
-		  [failure_flags]"=m"(failure->flags)
+		: [vm_fail]"+m"(result->vm_fail),
+		  [vm_fail_flags]"=m"(result->flags)
 		: [launched]"m"(launched), [HOST_RSP]"i"(HOST_RSP)
 		: "rdi", "memory", "cc"
 	);
 	in_guest = 0;
 
-	failure->vmlaunch = !launched;
-	failure->instr = launched ? "vmresume" : "vmlaunch";
+	result->vmlaunch = !launched;
+	result->instr = launched ? "vmresume" : "vmlaunch";
+	result->exit_reason.full = result->vm_fail ? 0xdead :
+						     vmcs_read(EXI_REASON);
+	result->entered = !result->vm_fail &&
+			  !result->exit_reason.failed_vmentry;
 }
 
 static int vmx_run(void)
 {
+	struct vmentry_result result;
+	u32 ret;
+
 	while (1) {
-		u32 ret;
-		bool entered;
-		struct vmentry_failure failure;
-
-		vmx_enter_guest(&failure);
-		entered = !failure.early &&
-			  !(vmcs_read(EXI_REASON) & VMX_ENTRY_FAILURE);
-
-		if (entered) {
+		vmx_enter_guest(&result);
+		if (result.entered) {
 			/*
 			 * VMCS isn't in "launched" state if there's been any
 			 * entry failure (early or otherwise).
@@ -1690,7 +1692,7 @@ static int vmx_run(void)
 			launched = 1;
 			ret = exit_handler();
 		} else if (current->entry_failure_handler) {
-			ret = current->entry_failure_handler(failure);
+			ret = current->entry_failure_handler(&result);
 		} else {
 			ret = VMX_TEST_EXIT;
 		}
@@ -1705,15 +1707,15 @@ static int vmx_run(void)
 			break;
 		default:
 			printf("ERROR : Invalid %s_handler return val %d.\n",
-			       entered ? "exit" : "entry_failure",
+			       result.entered ? "exit" : "entry_failure",
 			       ret);
 			break;
 		}
 
-		if (entered)
+		if (result.entered)
 			print_vmexit_info();
 		else
-			print_vmentry_failure_info(&failure);
+			print_vmentry_failure_info(&result);
 		abort();
 	}
 }
@@ -1845,7 +1847,7 @@ static void check_for_guest_termination(void)
  * Enters the guest (or launches it for the first time). Error to call once the
  * guest has returned (i.e., run past the end of its guest() function).
  */
-static void __enter_guest(u8 abort_flag, struct vmentry_failure *failure)
+static void __enter_guest(u8 abort_flag, struct vmentry_result *result)
 {
 	TEST_ASSERT_MSG(v2_guest_main,
 			"Never called test_set_guest_func!");
@@ -1853,24 +1855,32 @@ static void __enter_guest(u8 abort_flag, struct vmentry_failure *failure)
 	TEST_ASSERT_MSG(!guest_finished,
 			"Called enter_guest() after guest returned.");
 
-	vmx_enter_guest(failure);
-	if ((abort_flag & ABORT_ON_EARLY_VMENTRY_FAIL && failure->early) ||
-	    (abort_flag & ABORT_ON_INVALID_GUEST_STATE &&
-	    vmcs_read(EXI_REASON) & VMX_ENTRY_FAILURE)) {
+	vmx_enter_guest(result);
 
-		print_vmentry_failure_info(failure);
-		abort();
+	if (result->vm_fail) {
+		if (abort_flag & ABORT_ON_EARLY_VMENTRY_FAIL)
+			goto do_abort;
+		return;
+	}
+	if (result->exit_reason.failed_vmentry) {
+		if ((abort_flag & ABORT_ON_INVALID_GUEST_STATE) ||
+		    result->exit_reason.basic != VMX_FAIL_STATE)
+			goto do_abort;
+		return;
 	}
 
-	if (!failure->early && !(vmcs_read(EXI_REASON) & VMX_ENTRY_FAILURE)) {
-		launched = 1;
-		check_for_guest_termination();
-	}
+	launched = 1;
+	check_for_guest_termination();
+	return;
+
+do_abort:
+	print_vmentry_failure_info(result);
+	abort();
 }
 
 void enter_guest_with_bad_controls(void)
 {
-	struct vmentry_failure failure = {0};
+	struct vmentry_result result;
 
 	TEST_ASSERT_MSG(v2_guest_main,
 			"Never called test_set_guest_func!");
@@ -1878,10 +1888,10 @@ void enter_guest_with_bad_controls(void)
 	TEST_ASSERT_MSG(!guest_finished,
 			"Called enter_guest() after guest returned.");
 
-	__enter_guest(ABORT_ON_INVALID_GUEST_STATE, &failure);
-	report(failure.early, "failure occurred early");
-	report((failure.flags & VMX_ENTRY_FLAGS) == X86_EFLAGS_ZF,
-               "FLAGS set correctly");
+	__enter_guest(ABORT_ON_INVALID_GUEST_STATE, &result);
+	report(result.vm_fail, "VM-Fail occurred as expected");
+	report((result.flags & VMX_ENTRY_FLAGS) == X86_EFLAGS_ZF,
+               "FLAGS set correctly on VM-Fail");
 	report(vmcs_read(VMX_INST_ERROR) == VMXERR_ENTRY_INVALID_CONTROL_FIELD,
 	       "VM-Inst Error # is %d (VM entry with invalid control field(s))",
 	       VMXERR_ENTRY_INVALID_CONTROL_FIELD);
@@ -1893,23 +1903,23 @@ void enter_guest_with_bad_controls(void)
 	 * unexpectedly succeed, it's nice to check whether the guest has
 	 * terminated, to reduce the number of error messages.
 	 */
-	if (!failure.early)
+	if (!result.vm_fail)
 		check_for_guest_termination();
 }
 
 void enter_guest(void)
 {
-	struct vmentry_failure failure = {0};
+	struct vmentry_result result;
 
 	__enter_guest(ABORT_ON_EARLY_VMENTRY_FAIL |
-		      ABORT_ON_INVALID_GUEST_STATE, &failure);
+		      ABORT_ON_INVALID_GUEST_STATE, &result);
 }
 
 void enter_guest_with_invalid_guest_state(void)
 {
-	struct vmentry_failure failure = {0};
+	struct vmentry_result result;
 
-	__enter_guest(ABORT_ON_EARLY_VMENTRY_FAIL, &failure);
+	__enter_guest(ABORT_ON_EARLY_VMENTRY_FAIL, &result);
 }
 
 extern struct vmx_test vmx_tests[];
@@ -1923,6 +1933,8 @@ test_wanted(const char *name, const char *filters[], int filter_count)
 	char clean_name[strlen(name) + 1];
 	char *c;
 	const char *n;
+
+	printf("filter = %s, test = %s\n", filters[0], name);
 
 	/* Replace spaces with underscores. */
 	n = name;

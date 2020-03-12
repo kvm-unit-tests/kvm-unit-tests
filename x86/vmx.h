@@ -44,13 +44,38 @@ struct regs {
 	u64 rflags;
 };
 
-struct vmentry_failure {
-	/* Did a vmlaunch or vmresume fail? */
-	bool vmlaunch;
+struct vmentry_result {
 	/* Instruction mnemonic (for convenience). */
 	const char *instr;
-	/* Did the instruction return right away, or did we jump to HOST_RIP? */
-	bool early;
+	/* Did the test attempt vmlaunch or vmresume? */
+	bool vmlaunch;
+	/* Did the instruction VM-Fail? */
+	bool vm_fail;
+	/* Did the VM-Entry fully enter the guest? */
+	bool entered;
+	/* VM-Exit reason, valid iff !vm_fail */
+	union {
+		struct {
+			u32	basic			: 16;
+			u32	reserved16		: 1;
+			u32	reserved17		: 1;
+			u32	reserved18		: 1;
+			u32	reserved19		: 1;
+			u32	reserved20		: 1;
+			u32	reserved21		: 1;
+			u32	reserved22		: 1;
+			u32	reserved23		: 1;
+			u32	reserved24		: 1;
+			u32	reserved25		: 1;
+			u32	reserved26		: 1;
+			u32	enclave_mode		: 1;
+			u32	smi_pending_mtf		: 1;
+			u32	smi_from_vmx_root	: 1;
+			u32	reserved30		: 1;
+			u32	failed_vmentry		: 1;
+		};
+		u32 full;
+	} exit_reason;
 	/* Contents of [re]flags after failed entry. */
 	unsigned long flags;
 };
@@ -62,7 +87,7 @@ struct vmx_test {
 	int (*exit_handler)(void);
 	void (*syscall_handler)(u64 syscall_no);
 	struct regs guest_regs;
-	int (*entry_failure_handler)(struct vmentry_failure *failure);
+	int (*entry_failure_handler)(struct vmentry_result *result);
 	struct vmcs *vmcs;
 	int exits;
 	/* Alternative test interface. */
@@ -800,7 +825,7 @@ void init_vmx(u64 *vmxon_region);
 
 const char *exit_reason_description(u64 reason);
 void print_vmexit_info(void);
-void print_vmentry_failure_info(struct vmentry_failure *failure);
+void print_vmentry_failure_info(struct vmentry_result *result);
 void ept_sync(int type, u64 eptp);
 void vpid_sync(int type, u16 vpid);
 void install_ept_entry(unsigned long *pml4, int pte_level,

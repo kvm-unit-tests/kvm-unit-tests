@@ -1996,24 +1996,22 @@ static int msr_switch_exit_handler(void)
 	return VMX_TEST_EXIT;
 }
 
-static int msr_switch_entry_failure(struct vmentry_failure *failure)
+static int msr_switch_entry_failure(struct vmentry_result *result)
 {
-	ulong reason;
-
-	if (failure->early) {
-		printf("ERROR %s: early exit\n", __func__);
+	if (result->vm_fail) {
+		printf("ERROR %s: VM-Fail on %s\n", __func__, result->instr);
 		return VMX_TEST_EXIT;
 	}
 
-	reason = vmcs_read(EXI_REASON);
-	if (reason == (VMX_ENTRY_FAILURE | VMX_FAIL_MSR) &&
+	if (result->exit_reason.failed_vmentry &&
+	    result->exit_reason.basic == VMX_FAIL_MSR &&
 	    vmx_get_test_stage() == 3) {
 		report(vmcs_read(EXI_QUALIFICATION) == 1,
 		       "VM entry MSR load: try to load FS_BASE");
 		return VMX_TEST_VMEXIT;
 	}
-	printf("ERROR %s: unexpected stage=%u or reason=%lu\n",
-		__func__, vmx_get_test_stage(), reason);
+	printf("ERROR %s: unexpected stage=%u or reason=%x\n",
+		__func__, vmx_get_test_stage(), result->exit_reason.full);
 	return VMX_TEST_EXIT;
 }
 
@@ -9428,12 +9426,10 @@ static int invalid_msr_exit_handler(void)
 	return VMX_TEST_EXIT;
 }
 
-static int invalid_msr_entry_failure(struct vmentry_failure *failure)
+static int invalid_msr_entry_failure(struct vmentry_result *result)
 {
-	ulong reason;
-
-	reason = vmcs_read(EXI_REASON);
-	report(reason == (0x80000000u | VMX_FAIL_MSR), "Invalid MSR load");
+	report(result->exit_reason.failed_vmentry &&
+	       result->exit_reason.basic == VMX_FAIL_MSR, "Invalid MSR load");
 	return VMX_TEST_VMEXIT;
 }
 
