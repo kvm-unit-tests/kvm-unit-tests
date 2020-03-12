@@ -1840,14 +1840,11 @@ static void check_for_guest_termination(void)
 	}
 }
 
-#define        ABORT_ON_EARLY_VMENTRY_FAIL     0x1
-#define        ABORT_ON_INVALID_GUEST_STATE    0x2
-
 /*
  * Enters the guest (or launches it for the first time). Error to call once the
  * guest has returned (i.e., run past the end of its guest() function).
  */
-static void __enter_guest(u8 abort_flag, struct vmentry_result *result)
+void __enter_guest(u8 abort_flag, struct vmentry_result *result)
 {
 	TEST_ASSERT_MSG(v2_guest_main,
 			"Never called test_set_guest_func!");
@@ -1903,13 +1900,6 @@ void enter_guest(void)
 
 	__enter_guest(ABORT_ON_EARLY_VMENTRY_FAIL |
 		      ABORT_ON_INVALID_GUEST_STATE, &result);
-}
-
-void enter_guest_with_invalid_guest_state(void)
-{
-	struct vmentry_result result;
-
-	__enter_guest(ABORT_ON_EARLY_VMENTRY_FAIL, &result);
 }
 
 extern struct vmx_test vmx_tests[];
