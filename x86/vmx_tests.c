@@ -58,7 +58,7 @@ static void basic_guest_main(void)
 	report(1, "Basic VMX test");
 }
 
-static int basic_exit_handler(void)
+static int basic_exit_handler(union exit_reason exit_reason)
 {
 	report(0, "Basic VMX test");
 	print_vmexit_info();
@@ -83,14 +83,11 @@ static void vmenter_main(void)
 	report((rax == 0xFFFF) && (rsp == resume_rsp), "test vmresume");
 }
 
-static int vmenter_exit_handler(void)
+static int vmenter_exit_handler(union exit_reason exit_reason)
 {
-	u64 guest_rip;
-	ulong reason;
+	u64 guest_rip = vmcs_read(GUEST_RIP);
 
-	guest_rip = vmcs_read(GUEST_RIP);
-	reason = vmcs_read(EXI_REASON) & 0xff;
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		if (regs.rax != 0xABCD) {
 			report(0, "test vmresume");
@@ -152,18 +149,16 @@ static void preemption_timer_main(void)
 	vmcall();
 }
 
-static int preemption_timer_exit_handler(void)
+static int preemption_timer_exit_handler(union exit_reason exit_reason)
 {
 	bool guest_halted;
 	u64 guest_rip;
-	ulong reason;
 	u32 insn_len;
 	u32 ctrl_exit;
 
 	guest_rip = vmcs_read(GUEST_RIP);
-	reason = vmcs_read(EXI_REASON) & 0xff;
 	insn_len = vmcs_read(EXI_INST_LEN);
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_PREEMPT:
 		switch (vmx_get_test_stage()) {
 		case 1:
@@ -240,7 +235,7 @@ static int preemption_timer_exit_handler(void)
 		}
 		break;
 	default:
-		report(false, "Unknown exit reason, %ld", reason);
+		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info();
 	}
 	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_PREEMPT);
@@ -335,15 +330,13 @@ static void test_ctrl_pat_main(void)
 		report(guest_ia32_pat == ia32_pat, "Entry load PAT");
 }
 
-static int test_ctrl_pat_exit_handler(void)
+static int test_ctrl_pat_exit_handler(union exit_reason exit_reason)
 {
 	u64 guest_rip;
-	ulong reason;
 	u64 guest_pat;
 
 	guest_rip = vmcs_read(GUEST_RIP);
-	reason = vmcs_read(EXI_REASON) & 0xff;
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		guest_pat = vmcs_read(GUEST_PAT);
 		if (!(ctrl_exit_rev.clr & EXI_SAVE_PAT)) {
@@ -361,7 +354,7 @@ static int test_ctrl_pat_exit_handler(void)
 		vmcs_write(GUEST_RIP, guest_rip + 3);
 		return VMX_TEST_RESUME;
 	default:
-		printf("ERROR : Undefined exit reason, reason = %ld.\n", reason);
+		printf("ERROR : Unknown exit reason, 0x%x.\n", exit_reason.full);
 		break;
 	}
 	return VMX_TEST_VMEXIT;
@@ -403,15 +396,13 @@ static void test_ctrl_efer_main(void)
 		report(guest_ia32_efer == ia32_efer, "Entry load EFER");
 }
 
-static int test_ctrl_efer_exit_handler(void)
+static int test_ctrl_efer_exit_handler(union exit_reason exit_reason)
 {
 	u64 guest_rip;
-	ulong reason;
 	u64 guest_efer;
 
 	guest_rip = vmcs_read(GUEST_RIP);
-	reason = vmcs_read(EXI_REASON) & 0xff;
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		guest_efer = vmcs_read(GUEST_EFER);
 		if (!(ctrl_exit_rev.clr & EXI_SAVE_EFER)) {
@@ -431,7 +422,7 @@ static int test_ctrl_efer_exit_handler(void)
 		vmcs_write(GUEST_RIP, guest_rip + 3);
 		return VMX_TEST_RESUME;
 	default:
-		printf("ERROR : Undefined exit reason, reason = %ld.\n", reason);
+		printf("ERROR : Unknown exit reason, 0x%x.\n", exit_reason.full);
 		break;
 	}
 	return VMX_TEST_VMEXIT;
@@ -529,18 +520,16 @@ static void cr_shadowing_main(void)
 	       "Write shadowing different X86_CR4_DE");
 }
 
-static int cr_shadowing_exit_handler(void)
+static int cr_shadowing_exit_handler(union exit_reason exit_reason)
 {
 	u64 guest_rip;
-	ulong reason;
 	u32 insn_len;
 	u32 exit_qual;
 
 	guest_rip = vmcs_read(GUEST_RIP);
-	reason = vmcs_read(EXI_REASON) & 0xff;
 	insn_len = vmcs_read(EXI_INST_LEN);
 	exit_qual = vmcs_read(EXI_QUALIFICATION);
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
@@ -624,7 +613,7 @@ static int cr_shadowing_exit_handler(void)
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		report(false, "Unknown exit reason, %ld", reason);
+		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -694,17 +683,16 @@ static void iobmp_main(void)
 	       "I/O bitmap - unconditional exiting");
 }
 
-static int iobmp_exit_handler(void)
+static int iobmp_exit_handler(union exit_reason exit_reason)
 {
 	u64 guest_rip;
-	ulong reason, exit_qual;
+	ulong exit_qual;
 	u32 insn_len, ctrl_cpu0;
 
 	guest_rip = vmcs_read(GUEST_RIP);
-	reason = vmcs_read(EXI_REASON) & 0xff;
 	exit_qual = vmcs_read(EXI_QUALIFICATION);
 	insn_len = vmcs_read(EXI_INST_LEN);
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_IO:
 		switch (vmx_get_test_stage()) {
 		case 0:
@@ -784,7 +772,7 @@ static int iobmp_exit_handler(void)
 		return VMX_TEST_RESUME;
 	default:
 		printf("guest_rip = %#lx\n", guest_rip);
-		printf("\tERROR : Undefined exit reason, reason = %ld.\n", reason);
+		printf("\tERROR : Unknown exit reason, 0x%x\n", exit_reason.full);
 		break;
 	}
 	return VMX_TEST_VMEXIT;
@@ -989,22 +977,20 @@ static void insn_intercept_main(void)
 	}
 }
 
-static int insn_intercept_exit_handler(void)
+static int insn_intercept_exit_handler(union exit_reason exit_reason)
 {
 	u64 guest_rip;
-	u32 reason;
 	ulong exit_qual;
 	u32 insn_len;
 	u32 insn_info;
 	bool pass;
 
 	guest_rip = vmcs_read(GUEST_RIP);
-	reason = vmcs_read(EXI_REASON) & 0xff;
 	exit_qual = vmcs_read(EXI_QUALIFICATION);
 	insn_len = vmcs_read(EXI_INST_LEN);
 	insn_info = vmcs_read(EXI_INST_INFO);
 
-	if (reason == VMX_VMCALL) {
+	if (exit_reason.basic == VMX_VMCALL) {
 		u32 val = 0;
 
 		if (insn_table[cur_insn].type == INSN_CPU0)
@@ -1023,7 +1009,7 @@ static int insn_intercept_exit_handler(void)
 			vmcs_write(CPU_EXEC_CTRL1, val | ctrl_cpu_rev[1].set);
 	} else {
 		pass = (cur_insn * 2 == vmx_get_test_stage()) &&
-			insn_table[cur_insn].reason == reason;
+			insn_table[cur_insn].reason == exit_reason.full;
 		if (insn_table[cur_insn].test_field & FIELD_EXIT_QUAL &&
 		    insn_table[cur_insn].exit_qual != exit_qual)
 			pass = false;
@@ -1275,16 +1261,15 @@ static bool invept_test(int type, u64 eptp)
 	return true;
 }
 
-static int pml_exit_handler(void)
+static int pml_exit_handler(union exit_reason exit_reason)
 {
 	u16 index, count;
-	ulong reason = vmcs_read(EXI_REASON) & 0xff;
 	u64 *pmlbuf = pml_log;
 	u64 guest_rip = vmcs_read(GUEST_RIP);;
 	u64 guest_cr3 = vmcs_read(GUEST_CR3);
 	u32 insn_len = vmcs_read(EXI_INST_LEN);
 
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
@@ -1315,27 +1300,25 @@ static int pml_exit_handler(void)
 		vmcs_write(GUEST_PML_INDEX, PML_INDEX - 1);
 		return VMX_TEST_RESUME;
 	default:
-		report(false, "Unknown exit reason, %ld", reason);
+		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
 }
 
-static int ept_exit_handler_common(bool have_ad)
+static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 {
 	u64 guest_rip;
 	u64 guest_cr3;
-	ulong reason;
 	u32 insn_len;
 	u32 exit_qual;
 	static unsigned long data_page1_pte, data_page1_pte_pte, memaddr_pte;
 
 	guest_rip = vmcs_read(GUEST_RIP);
 	guest_cr3 = vmcs_read(GUEST_CR3);
-	reason = vmcs_read(EXI_REASON) & 0xff;
 	insn_len = vmcs_read(EXI_INST_LEN);
 	exit_qual = vmcs_read(EXI_QUALIFICATION);
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
@@ -1483,15 +1466,15 @@ static int ept_exit_handler_common(bool have_ad)
 		}
 		return VMX_TEST_RESUME;
 	default:
-		report(false, "Unknown exit reason, %ld", reason);
+		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
 }
 
-static int ept_exit_handler(void)
+static int ept_exit_handler(union exit_reason exit_reason)
 {
-	return ept_exit_handler_common(false);
+	return ept_exit_handler_common(exit_reason, false);
 }
 
 static int eptad_init(struct vmcs *vmcs)
@@ -1556,9 +1539,9 @@ static void eptad_main(void)
 	ept_common();
 }
 
-static int eptad_exit_handler(void)
+static int eptad_exit_handler(union exit_reason exit_reason)
 {
-	return ept_exit_handler_common(true);
+	return ept_exit_handler_common(exit_reason, true);
 }
 
 static bool invvpid_test(int type, u16 vpid)
@@ -1609,17 +1592,15 @@ static void vpid_main(void)
 	report(vmx_get_test_stage() == 5, "INVVPID ALL");
 }
 
-static int vpid_exit_handler(void)
+static int vpid_exit_handler(union exit_reason exit_reason)
 {
 	u64 guest_rip;
-	ulong reason;
 	u32 insn_len;
 
 	guest_rip = vmcs_read(GUEST_RIP);
-	reason = vmcs_read(EXI_REASON) & 0xff;
 	insn_len = vmcs_read(EXI_INST_LEN);
 
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		switch(vmx_get_test_stage()) {
 		case 0:
@@ -1643,7 +1624,7 @@ static int vpid_exit_handler(void)
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		report(false, "Unknown exit reason, %ld", reason);
+		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1761,13 +1742,12 @@ static void interrupt_main(void)
 	report(timer_fired, "Inject an event to a halted guest");
 }
 
-static int interrupt_exit_handler(void)
+static int interrupt_exit_handler(union exit_reason exit_reason)
 {
 	u64 guest_rip = vmcs_read(GUEST_RIP);
-	ulong reason = vmcs_read(EXI_REASON) & 0xff;
 	u32 insn_len = vmcs_read(EXI_INST_LEN);
 
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
@@ -1815,7 +1795,7 @@ static int interrupt_exit_handler(void)
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 		return VMX_TEST_RESUME;
 	default:
-		report(false, "Unknown exit reason, %ld", reason);
+		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info();
 	}
 
@@ -1886,9 +1866,8 @@ static void dbgctls_main(void)
 	report(vmx_get_test_stage() == 4, "Don't save debug controls");
 }
 
-static int dbgctls_exit_handler(void)
+static int dbgctls_exit_handler(union exit_reason exit_reason)
 {
-	unsigned int reason = vmcs_read(EXI_REASON) & 0xff;
 	u32 insn_len = vmcs_read(EXI_INST_LEN);
 	u64 guest_rip = vmcs_read(GUEST_RIP);
 	u64 dr7, debugctl;
@@ -1896,7 +1875,7 @@ static int dbgctls_exit_handler(void)
 	asm volatile("mov %%dr7,%0" : "=r" (dr7));
 	debugctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
@@ -1929,7 +1908,7 @@ static int dbgctls_exit_handler(void)
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		report(false, "Unknown exit reason, %d", reason);
+		report(false, "Unknown exit reason, %d", exit_reason.full);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1977,12 +1956,9 @@ static void msr_switch_main(void)
 	vmcall();
 }
 
-static int msr_switch_exit_handler(void)
+static int msr_switch_exit_handler(union exit_reason exit_reason)
 {
-	ulong reason;
-
-	reason = vmcs_read(EXI_REASON);
-	if (reason == VMX_VMCALL && vmx_get_test_stage() == 2) {
+	if (exit_reason.basic == VMX_VMCALL && vmx_get_test_stage() == 2) {
 		report(exit_msr_store[0].value == MSR_MAGIC + 1,
 		       "VM exit MSR store");
 		report(rdmsr(MSR_KERNEL_GS_BASE) == MSR_MAGIC + 2,
@@ -1991,8 +1967,8 @@ static int msr_switch_exit_handler(void)
 		entry_msr_load[0].index = MSR_FS_BASE;
 		return VMX_TEST_RESUME;
 	}
-	printf("ERROR %s: unexpected stage=%u or reason=%lu\n",
-		__func__, vmx_get_test_stage(), reason);
+	printf("ERROR %s: unexpected stage=%u or reason=0x%x\n",
+		__func__, vmx_get_test_stage(), exit_reason.full);
 	return VMX_TEST_EXIT;
 }
 
@@ -2031,12 +2007,9 @@ static void vmmcall_main(void)
 	report(0, "VMMCALL");
 }
 
-static int vmmcall_exit_handler(void)
+static int vmmcall_exit_handler(union exit_reason exit_reason)
 {
-	ulong reason;
-
-	reason = vmcs_read(EXI_REASON);
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		printf("here\n");
 		report(0, "VMMCALL triggers #UD");
@@ -2046,7 +2019,7 @@ static int vmmcall_exit_handler(void)
 		       "VMMCALL triggers #UD");
 		break;
 	default:
-		report(false, "Unknown exit reason, %ld", reason);
+		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info();
 	}
 
@@ -2098,11 +2071,9 @@ static void disable_rdtscp_main(void)
 	vmcall();
 }
 
-static int disable_rdtscp_exit_handler(void)
+static int disable_rdtscp_exit_handler(union exit_reason exit_reason)
 {
-	unsigned int reason = vmcs_read(EXI_REASON) & 0xff;
-
-	switch (reason) {
+	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
@@ -2120,7 +2091,7 @@ static int disable_rdtscp_exit_handler(void)
 		break;
 
 	default:
-		report(false, "Unknown exit reason, %d", reason);
+		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -2137,12 +2108,12 @@ static void int3_guest_main(void)
 	asm volatile ("int3");
 }
 
-static int int3_exit_handler(void)
+static int int3_exit_handler(union exit_reason exit_reason)
 {
-	u32 reason = vmcs_read(EXI_REASON);
 	u32 intr_info = vmcs_read(EXI_INTR_INFO);
 
-	report(reason == VMX_EXC_NMI && (intr_info & INTR_INFO_VALID_MASK) &&
+	report(exit_reason.basic == VMX_EXC_NMI &&
+	       (intr_info & INTR_INFO_VALID_MASK) &&
 	       (intr_info & INTR_INFO_VECTOR_MASK) == BP_VECTOR &&
 	       ((intr_info & INTR_INFO_INTR_TYPE_MASK) >>
 	        INTR_INFO_INTR_TYPE_SHIFT) == VMX_INTR_TYPE_SOFT_EXCEPTION,
@@ -2186,12 +2157,12 @@ into:
 	__builtin_unreachable();
 }
 
-static int into_exit_handler(void)
+static int into_exit_handler(union exit_reason exit_reason)
 {
-	u32 reason = vmcs_read(EXI_REASON);
 	u32 intr_info = vmcs_read(EXI_INTR_INFO);
 
-	report(reason == VMX_EXC_NMI && (intr_info & INTR_INFO_VALID_MASK) &&
+	report(exit_reason.basic == VMX_EXC_NMI &&
+	       (intr_info & INTR_INFO_VALID_MASK) &&
 	       (intr_info & INTR_INFO_VECTOR_MASK) == OF_VECTOR &&
 	       ((intr_info & INTR_INFO_INTR_TYPE_MASK) >>
 	        INTR_INFO_INTR_TYPE_SHIFT) == VMX_INTR_TYPE_SOFT_EXCEPTION,
@@ -2206,7 +2177,7 @@ static void exit_monitor_from_l2_main(void)
 	exit(0);
 }
 
-static int exit_monitor_from_l2_handler(void)
+static int exit_monitor_from_l2_handler(union exit_reason exit_reason)
 {
 	report(false, "The guest should have killed the VMM");
 	return VMX_TEST_EXIT;
@@ -9375,7 +9346,7 @@ static void invalid_msr_main(void)
 	report(0, "Invalid MSR load");
 }
 
-static int invalid_msr_exit_handler(void)
+static int invalid_msr_exit_handler(union exit_reason exit_reason)
 {
 	report(0, "Invalid MSR load");
 	print_vmexit_info();

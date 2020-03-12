@@ -1618,7 +1618,7 @@ void test_skip(const char *msg)
 	abort();
 }
 
-static int exit_handler(void)
+static int exit_handler(union exit_reason exit_reason)
 {
 	int ret;
 
@@ -1627,7 +1627,7 @@ static int exit_handler(void)
 	if (is_hypercall())
 		ret = handle_hypercall();
 	else
-		ret = current->exit_handler();
+		ret = current->exit_handler(exit_reason);
 	vmcs_write(GUEST_RFLAGS, regs.rflags);
 
 	return ret;
@@ -1690,7 +1690,7 @@ static int vmx_run(void)
 			 * entry failure (early or otherwise).
 			 */
 			launched = 1;
-			ret = exit_handler();
+			ret = exit_handler(result.exit_reason);
 		} else if (current->entry_failure_handler) {
 			ret = current->entry_failure_handler(&result);
 		} else {

@@ -44,6 +44,29 @@ struct regs {
 	u64 rflags;
 };
 
+union exit_reason {
+	struct {
+		u32	basic			: 16;
+		u32	reserved16		: 1;
+		u32	reserved17		: 1;
+		u32	reserved18		: 1;
+		u32	reserved19		: 1;
+		u32	reserved20		: 1;
+		u32	reserved21		: 1;
+		u32	reserved22		: 1;
+		u32	reserved23		: 1;
+		u32	reserved24		: 1;
+		u32	reserved25		: 1;
+		u32	reserved26		: 1;
+		u32	enclave_mode		: 1;
+		u32	smi_pending_mtf		: 1;
+		u32	smi_from_vmx_root	: 1;
+		u32	reserved30		: 1;
+		u32	failed_vmentry		: 1;
+	};
+	u32 full;
+};
+
 struct vmentry_result {
 	/* Instruction mnemonic (for convenience). */
 	const char *instr;
@@ -54,28 +77,7 @@ struct vmentry_result {
 	/* Did the VM-Entry fully enter the guest? */
 	bool entered;
 	/* VM-Exit reason, valid iff !vm_fail */
-	union {
-		struct {
-			u32	basic			: 16;
-			u32	reserved16		: 1;
-			u32	reserved17		: 1;
-			u32	reserved18		: 1;
-			u32	reserved19		: 1;
-			u32	reserved20		: 1;
-			u32	reserved21		: 1;
-			u32	reserved22		: 1;
-			u32	reserved23		: 1;
-			u32	reserved24		: 1;
-			u32	reserved25		: 1;
-			u32	reserved26		: 1;
-			u32	enclave_mode		: 1;
-			u32	smi_pending_mtf		: 1;
-			u32	smi_from_vmx_root	: 1;
-			u32	reserved30		: 1;
-			u32	failed_vmentry		: 1;
-		};
-		u32 full;
-	} exit_reason;
+	union exit_reason exit_reason;
 	/* Contents of [re]flags after failed entry. */
 	unsigned long flags;
 };
@@ -84,7 +86,7 @@ struct vmx_test {
 	const char *name;
 	int (*init)(struct vmcs *vmcs);
 	void (*guest_main)(void);
-	int (*exit_handler)(void);
+	int (*exit_handler)(union exit_reason exit_reason);
 	void (*syscall_handler)(u64 syscall_no);
 	struct regs guest_regs;
 	int (*entry_failure_handler)(struct vmentry_result *result);
