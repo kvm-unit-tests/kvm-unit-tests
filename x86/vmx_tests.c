@@ -7628,6 +7628,50 @@ static void test_load_guest_pat(void)
 	test_pat(GUEST_PAT, "GUEST_PAT", ENT_CONTROLS, ENT_LOAD_PAT);
 }
 
+#define MSR_IA32_BNDCFGS_RSVD_MASK	0x00000ffc
+
+/*
+ * If the â€œload IA32_BNDCFGSâ€ VM-entry control is 1, the following
+ * checks are performed on the field for the IA32_BNDCFGS MSR:
+ *
+ *   â€”  Bits reserved in the IA32_BNDCFGS MSR must be 0.
+ *   â€”  The linear address in bits 63:12 must be canonical.
+ *
+ *  [Intel SDM]
+ */
+static void test_load_guest_bndcfgs(void)
+{
+	u64 bndcfgs_saved = vmcs_read(GUEST_BNDCFGS);
+	u64 bndcfgs;
+
+	if (!(ctrl_enter_rev.clr & ENT_LOAD_BNDCFGS)) {
+		printf("\"Load-IA32-BNDCFGS\" entry control not supported\n");
+		return;
+	}
+
+	vmcs_clear_bits(ENT_CONTROLS, ENT_LOAD_BNDCFGS);
+
+	vmcs_write(GUEST_BNDCFGS, NONCANONICAL);
+	test_guest_state("ENT_LOAD_BNDCFGS disabled", false,
+			 GUEST_BNDCFGS, "GUEST_BNDCFGS");
+	bndcfgs = bndcfgs_saved | MSR_IA32_BNDCFGS_RSVD_MASK;
+	vmcs_write(GUEST_BNDCFGS, bndcfgs);
+	test_guest_state("ENT_LOAD_BNDCFGS disabled", false,
+			 GUEST_BNDCFGS, "GUEST_BNDCFGS");
+
+	vmcs_set_bits(ENT_CONTROLS, ENT_LOAD_BNDCFGS);
+
+	vmcs_write(GUEST_BNDCFGS, NONCANONICAL);
+	test_guest_state("ENT_LOAD_BNDCFGS enabled", true,
+			 GUEST_BNDCFGS, "GUEST_BNDCFGS");
+	bndcfgs = bndcfgs_saved | MSR_IA32_BNDCFGS_RSVD_MASK;
+	vmcs_write(GUEST_BNDCFGS, bndcfgs);
+	test_guest_state("ENT_LOAD_BNDCFGS enabled", true,
+			 GUEST_BNDCFGS, "GUEST_BNDCFGS");
+
+	vmcs_write(GUEST_BNDCFGS, bndcfgs_saved);
+}
+
 /*
  * Check that the virtual CPU checks the VMX Guest State Area as
  * documented in the Intel SDM.
@@ -7648,6 +7692,7 @@ static void vmx_guest_state_area_test(void)
 	test_load_guest_pat();
 	test_guest_efer();
 	test_load_guest_perf_global_ctrl();
+	test_load_guest_bndcfgs();
 
 	/*
 	 * Let the guest finish execution
