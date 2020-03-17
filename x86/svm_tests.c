@@ -1340,6 +1340,8 @@ static bool interrupt_check(struct svm_test *test)
     return get_test_stage(test) == 5;
 }
 
+#define TEST(name) { #name, .v2 = name }
+
 struct svm_test svm_tests[] = {
     { "null", default_supported, default_prepare,
       default_prepare_gif_clear, null_test,

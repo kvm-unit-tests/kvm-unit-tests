@@ -112,9 +112,16 @@ inline void vmmcall(void)
 	asm volatile ("vmmcall" : : : "memory");
 }
 
+static test_guest_func guest_main;
+
+void test_set_guest(test_guest_func func)
+{
+	guest_main = func;
+}
+
 static void test_thunk(struct svm_test *test)
 {
-	test->guest_func(test);
+	guest_main(test);
 	vmmcall();
 }
 
@@ -193,13 +200,48 @@ struct regs get_regs(void)
 
 #define LOAD_GPR_C      SAVE_GPR_C
 
-static void test_run(struct svm_test *test, struct vmcb *vmcb)
+struct svm_test *v2_test;
+struct vmcb *vmcb;
+
+#define ASM_VMRUN_CMD                           \
+                "vmload %%rax\n\t"              \
+                "mov regs+0x80, %%r15\n\t"      \
+                "mov %%r15, 0x170(%%rax)\n\t"   \
+                "mov regs, %%r15\n\t"           \
+                "mov %%r15, 0x1f8(%%rax)\n\t"   \
+                LOAD_GPR_C                      \
+                "vmrun %%rax\n\t"               \
+                SAVE_GPR_C                      \
+                "mov 0x170(%%rax), %%r15\n\t"   \
+                "mov %%r15, regs+0x80\n\t"      \
+                "mov 0x1f8(%%rax), %%r15\n\t"   \
+                "mov %%r15, regs\n\t"           \
+                "vmsave %%rax\n\t"              \
+
+u64 guest_stack[10000];
+
+int svm_vmrun(void)
+{
+	vmcb->save.rip = (ulong)test_thunk;
+	vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
+	regs.rdi = (ulong)v2_test;
+
+	asm volatile (
+		ASM_VMRUN_CMD
+		:
+		: "a" (virt_to_phys(vmcb))
+		: "memory");
+
+	return (vmcb->control.exit_code);
+}
+
+static void test_run(struct svm_test *test)
 {
 	u64 vmcb_phys = virt_to_phys(vmcb);
-	u64 guest_stack[10000];
 
 	irq_disable();
 	test->prepare(test);
+	guest_main = test->guest_func;
 	vmcb->save.rip = (ulong)test_thunk;
 	vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
 	regs.rdi = (ulong)test;
@@ -211,19 +253,7 @@ static void test_run(struct svm_test *test, struct vmcb *vmcb)
 			"sti \n\t"
 			"call *%c[PREPARE_GIF_CLEAR](%[test]) \n \t"
 			"mov %[vmcb_phys], %%rax \n\t"
-			"vmload %%rax\n\t"
-			"mov regs+0x80, %%r15\n\t"  // rflags
-			"mov %%r15, 0x170(%%rax)\n\t"
-			"mov regs, %%r15\n\t"       // rax
-			"mov %%r15, 0x1f8(%%rax)\n\t"
-			LOAD_GPR_C
-			"vmrun %%rax\n\t"
-			SAVE_GPR_C
-			"mov 0x170(%%rax), %%r15\n\t"  // rflags
-			"mov %%r15, regs+0x80\n\t"
-			"mov 0x1f8(%%rax), %%r15\n\t"  // rax
-			"mov %%r15, regs\n\t"
-			"vmsave %%rax\n\t"
+			ASM_VMRUN_CMD
 			"cli \n\t"
 			"stgi"
 			: // inputs clobbered by the guest:
@@ -357,9 +387,17 @@ int main(int ac, char **av)
 	vmcb = alloc_page();
 
 	for (; svm_tests[i].name != NULL; i++) {
-		if (!test_wanted(svm_tests[i].name, av, ac) || !svm_tests[i].supported())
+		if (!test_wanted(svm_tests[i].name, av, ac))
 			continue;
-		test_run(&svm_tests[i], vmcb);
+		if (svm_tests[i].supported && !svm_tests[i].supported())
+			continue;
+		if (svm_tests[i].v2 == NULL) {
+			test_run(&svm_tests[i]);
+		} else {
+			vmcb_ident(vmcb);
+			v2_test = &(svm_tests[i]);
+			svm_tests[i].v2();
+		}
 	}
 
 	if (!matched)
