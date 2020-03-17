@@ -1342,6 +1342,27 @@ static bool interrupt_check(struct svm_test *test)
 
 #define TEST(name) { #name, .v2 = name }
 
+/*
+ * v2 tests
+ */
+
+static void basic_guest_main(struct svm_test *test)
+{
+}
+
+static void svm_guest_state_test(void)
+{
+	u64 efer_saved = vmcb->save.efer;
+	u64 efer = efer_saved;
+
+	test_set_guest(basic_guest_main);
+	report (svm_vmrun() == SVM_EXIT_VMMCALL, "EFER.SVME: %lx", efer);
+	efer &= ~EFER_SVME;
+	vmcb->save.efer = efer;
+	report (svm_vmrun() == SVM_EXIT_ERR, "EFER.SVME: %lx", efer);
+	vmcb->save.efer = efer_saved;
+}
+
 struct svm_test svm_tests[] = {
     { "null", default_supported, default_prepare,
       default_prepare_gif_clear, null_test,
@@ -1425,5 +1446,6 @@ struct svm_test svm_tests[] = {
     { "interrupt", default_supported, interrupt_prepare,
       default_prepare_gif_clear, interrupt_test,
       interrupt_finished, interrupt_check },
+    TEST(svm_guest_state_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
