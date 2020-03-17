@@ -198,6 +198,7 @@ enum Encoding {
 	GUEST_PAT		= 0x2804ul,
 	GUEST_PERF_GLOBAL_CTRL	= 0x2808ul,
 	GUEST_PDPTE		= 0x280aul,
+	GUEST_BNDCFGS		= 0x2812ul,
 
 	/* 64-Bit Host State */
 	HOST_PAT		= 0x2c00ul,
@@ -400,6 +401,7 @@ enum Ctrl_ent {
 	ENT_LOAD_PERF		= 1UL << 13,
 	ENT_LOAD_PAT		= 1UL << 14,
 	ENT_LOAD_EFER		= 1UL << 15,
+	ENT_LOAD_BNDCFGS	= 1UL << 16
 };
 
 enum Ctrl_pin {
