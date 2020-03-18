@@ -42,33 +42,33 @@ static void null_test(struct svm_test *test)
 
 static bool null_check(struct svm_test *test)
 {
-    return test->vmcb->control.exit_code == SVM_EXIT_VMMCALL;
+    return vmcb->control.exit_code == SVM_EXIT_VMMCALL;
 }
 
 static void prepare_no_vmrun_int(struct svm_test *test)
 {
-    test->vmcb->control.intercept &= ~(1ULL << INTERCEPT_VMRUN);
+    vmcb->control.intercept &= ~(1ULL << INTERCEPT_VMRUN);
 }
 
 static bool check_no_vmrun_int(struct svm_test *test)
 {
-    return test->vmcb->control.exit_code == SVM_EXIT_ERR;
+    return vmcb->control.exit_code == SVM_EXIT_ERR;
 }
 
 static void test_vmrun(struct svm_test *test)
 {
-    asm volatile ("vmrun %0" : : "a"(virt_to_phys(test->vmcb)));
+    asm volatile ("vmrun %0" : : "a"(virt_to_phys(vmcb)));
 }
 
 static bool check_vmrun(struct svm_test *test)
 {
-    return test->vmcb->control.exit_code == SVM_EXIT_VMRUN;
+    return vmcb->control.exit_code == SVM_EXIT_VMRUN;
 }
 
 static void prepare_cr3_intercept(struct svm_test *test)
 {
     default_prepare(test);
-    test->vmcb->control.intercept_cr_read |= 1 << 3;
+    vmcb->control.intercept_cr_read |= 1 << 3;
 }
 
 static void test_cr3_intercept(struct svm_test *test)
@@ -78,7 +78,7 @@ static void test_cr3_intercept(struct svm_test *test)
 
 static bool check_cr3_intercept(struct svm_test *test)
 {
-    return test->vmcb->control.exit_code == SVM_EXIT_READ_CR3;
+    return vmcb->control.exit_code == SVM_EXIT_READ_CR3;
 }
 
 static bool check_cr3_nointercept(struct svm_test *test)
@@ -102,7 +102,7 @@ static void corrupt_cr3_intercept_bypass(void *_test)
 static void prepare_cr3_intercept_bypass(struct svm_test *test)
 {
     default_prepare(test);
-    test->vmcb->control.intercept_cr_read |= 1 << 3;
+    vmcb->control.intercept_cr_read |= 1 << 3;
     on_cpu_async(1, corrupt_cr3_intercept_bypass, test);
 }
 
@@ -122,8 +122,8 @@ static void test_cr3_intercept_bypass(struct svm_test *test)
 static void prepare_dr_intercept(struct svm_test *test)
 {
     default_prepare(test);
-    test->vmcb->control.intercept_dr_read = 0xff;
-    test->vmcb->control.intercept_dr_write = 0xff;
+    vmcb->control.intercept_dr_read = 0xff;
+    vmcb->control.intercept_dr_write = 0xff;
 }
 
 static void test_dr_intercept(struct svm_test *test)
@@ -207,7 +207,7 @@ static void test_dr_intercept(struct svm_test *test)
 
 static bool dr_intercept_finished(struct svm_test *test)
 {
-    ulong n = (test->vmcb->control.exit_code - SVM_EXIT_READ_DR0);
+    ulong n = (vmcb->control.exit_code - SVM_EXIT_READ_DR0);
 
     /* Only expect DR intercepts */
     if (n > (SVM_EXIT_MAX_DR_INTERCEPT - SVM_EXIT_READ_DR0))
@@ -223,7 +223,7 @@ static bool dr_intercept_finished(struct svm_test *test)
     test->scratch = (n % 16);
 
     /* Jump over MOV instruction */
-    test->vmcb->save.rip += 3;
+    vmcb->save.rip += 3;
 
     return false;
 }
@@ -240,7 +240,7 @@ static bool next_rip_supported(void)
 
 static void prepare_next_rip(struct svm_test *test)
 {
-    test->vmcb->control.intercept |= (1ULL << INTERCEPT_RDTSC);
+    vmcb->control.intercept |= (1ULL << INTERCEPT_RDTSC);
 }
 
 
@@ -256,7 +256,7 @@ static bool check_next_rip(struct svm_test *test)
     extern char exp_next_rip;
     unsigned long address = (unsigned long)&exp_next_rip;
 
-    return address == test->vmcb->control.next_rip;
+    return address == vmcb->control.next_rip;
 }
 
 extern u8 *msr_bitmap;
@@ -264,8 +264,8 @@ extern u8 *msr_bitmap;
 static void prepare_msr_intercept(struct svm_test *test)
 {
     default_prepare(test);
-    test->vmcb->control.intercept |= (1ULL << INTERCEPT_MSR_PROT);
-    test->vmcb->control.intercept_exceptions |= (1ULL << GP_VECTOR);
+    vmcb->control.intercept |= (1ULL << INTERCEPT_MSR_PROT);
+    vmcb->control.intercept_exceptions |= (1ULL << GP_VECTOR);
     memset(msr_bitmap, 0xff, MSR_BITMAP_SIZE);
 }
 
@@ -317,12 +317,12 @@ static void test_msr_intercept(struct svm_test *test)
 
 static bool msr_intercept_finished(struct svm_test *test)
 {
-    u32 exit_code = test->vmcb->control.exit_code;
+    u32 exit_code = vmcb->control.exit_code;
     u64 exit_info_1;
     u8 *opcode;
 
     if (exit_code == SVM_EXIT_MSR) {
-        exit_info_1 = test->vmcb->control.exit_info_1;
+        exit_info_1 = vmcb->control.exit_info_1;
     } else {
         /*
          * If #GP exception occurs instead, check that it was
@@ -332,7 +332,7 @@ static bool msr_intercept_finished(struct svm_test *test)
         if (exit_code != (SVM_EXIT_EXCP_BASE + GP_VECTOR))
             return true;
 
-        opcode = (u8 *)test->vmcb->save.rip;
+        opcode = (u8 *)vmcb->save.rip;
         if (opcode[0] != 0x0f)
             return true;
 
@@ -356,7 +356,7 @@ static bool msr_intercept_finished(struct svm_test *test)
     }
 
     /* Jump over RDMSR/WRMSR instruction */
-    test->vmcb->save.rip += 2;
+    vmcb->save.rip += 2;
 
     /*
      * Test whether the intercept was for RDMSR/WRMSR.
@@ -368,7 +368,7 @@ static bool msr_intercept_finished(struct svm_test *test)
      */
     if (exit_info_1)
         test->scratch =
-            ((get_regs().rdx << 32) | (test->vmcb->save.rax & 0xffffffff));
+            ((get_regs().rdx << 32) | (vmcb->save.rax & 0xffffffff));
     else
         test->scratch = get_regs().rcx;
 
@@ -383,7 +383,7 @@ static bool check_msr_intercept(struct svm_test *test)
 
 static void prepare_mode_switch(struct svm_test *test)
 {
-    test->vmcb->control.intercept_exceptions |= (1ULL << GP_VECTOR)
+    vmcb->control.intercept_exceptions |= (1ULL << GP_VECTOR)
                                              |  (1ULL << UD_VECTOR)
                                              |  (1ULL << DF_VECTOR)
                                              |  (1ULL << PF_VECTOR);
@@ -449,16 +449,16 @@ static bool mode_switch_finished(struct svm_test *test)
 {
     u64 cr0, cr4, efer;
 
-    cr0  = test->vmcb->save.cr0;
-    cr4  = test->vmcb->save.cr4;
-    efer = test->vmcb->save.efer;
+    cr0  = vmcb->save.cr0;
+    cr4  = vmcb->save.cr4;
+    efer = vmcb->save.efer;
 
     /* Only expect VMMCALL intercepts */
-    if (test->vmcb->control.exit_code != SVM_EXIT_VMMCALL)
+    if (vmcb->control.exit_code != SVM_EXIT_VMMCALL)
 	    return true;
 
     /* Jump over VMMCALL instruction */
-    test->vmcb->save.rip += 3;
+    vmcb->save.rip += 3;
 
     /* Do sanity checks */
     switch (test->scratch) {
@@ -493,7 +493,7 @@ extern u8 *io_bitmap;
 
 static void prepare_ioio(struct svm_test *test)
 {
-    test->vmcb->control.intercept |= (1ULL << INTERCEPT_IOIO_PROT);
+    vmcb->control.intercept |= (1ULL << INTERCEPT_IOIO_PROT);
     test->scratch = 0;
     memset(io_bitmap, 0, 8192);
     io_bitmap[8192] = 0xFF;
@@ -575,17 +575,17 @@ static bool ioio_finished(struct svm_test *test)
     unsigned port, size;
 
     /* Only expect IOIO intercepts */
-    if (test->vmcb->control.exit_code == SVM_EXIT_VMMCALL)
+    if (vmcb->control.exit_code == SVM_EXIT_VMMCALL)
         return true;
 
-    if (test->vmcb->control.exit_code != SVM_EXIT_IOIO)
+    if (vmcb->control.exit_code != SVM_EXIT_IOIO)
         return true;
 
     /* one step forward */
     test->scratch += 1;
 
-    port = test->vmcb->control.exit_info_1 >> 16;
-    size = (test->vmcb->control.exit_info_1 >> SVM_IOIO_SIZE_SHIFT) & 7;
+    port = vmcb->control.exit_info_1 >> 16;
+    size = (vmcb->control.exit_info_1 >> SVM_IOIO_SIZE_SHIFT) & 7;
 
     while (size--) {
         io_bitmap[port / 8] &= ~(1 << (port & 7));
@@ -603,7 +603,7 @@ static bool check_ioio(struct svm_test *test)
 
 static void prepare_asid_zero(struct svm_test *test)
 {
-    test->vmcb->control.asid = 0;
+    vmcb->control.asid = 0;
 }
 
 static void test_asid_zero(struct svm_test *test)
@@ -613,13 +613,13 @@ static void test_asid_zero(struct svm_test *test)
 
 static bool check_asid_zero(struct svm_test *test)
 {
-    return test->vmcb->control.exit_code == SVM_EXIT_ERR;
+    return vmcb->control.exit_code == SVM_EXIT_ERR;
 }
 
 static void sel_cr0_bug_prepare(struct svm_test *test)
 {
-    vmcb_ident(test->vmcb);
-    test->vmcb->control.intercept |= (1ULL << INTERCEPT_SELECTIVE_CR0);
+    vmcb_ident(vmcb);
+    vmcb->control.intercept |= (1ULL << INTERCEPT_SELECTIVE_CR0);
 }
 
 static bool sel_cr0_bug_finished(struct svm_test *test)
@@ -647,7 +647,7 @@ static void sel_cr0_bug_test(struct svm_test *test)
 
 static bool sel_cr0_bug_check(struct svm_test *test)
 {
-    return test->vmcb->control.exit_code == SVM_EXIT_CR0_SEL_WRITE;
+    return vmcb->control.exit_code == SVM_EXIT_CR0_SEL_WRITE;
 }
 
 static void npt_nx_prepare(struct svm_test *test)
@@ -655,7 +655,7 @@ static void npt_nx_prepare(struct svm_test *test)
 
     u64 *pte;
 
-    vmcb_ident(test->vmcb);
+    vmcb_ident(vmcb);
     pte = npt_get_pte((u64)null_test);
 
     *pte |= (1ULL << 63);
@@ -667,10 +667,10 @@ static bool npt_nx_check(struct svm_test *test)
 
     *pte &= ~(1ULL << 63);
 
-    test->vmcb->save.efer |= (1 << 11);
+    vmcb->save.efer |= (1 << 11);
 
-    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-           && (test->vmcb->control.exit_info_1 == 0x100000015ULL);
+    return (vmcb->control.exit_code == SVM_EXIT_NPF)
+           && (vmcb->control.exit_info_1 == 0x100000015ULL);
 }
 
 static void npt_us_prepare(struct svm_test *test)
@@ -678,7 +678,7 @@ static void npt_us_prepare(struct svm_test *test)
     u64 *pte;
 
     scratch_page = alloc_page();
-    vmcb_ident(test->vmcb);
+    vmcb_ident(vmcb);
     pte = npt_get_pte((u64)scratch_page);
 
     *pte &= ~(1ULL << 2);
@@ -695,8 +695,8 @@ static bool npt_us_check(struct svm_test *test)
 
     *pte |= (1ULL << 2);
 
-    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-           && (test->vmcb->control.exit_info_1 == 0x100000005ULL);
+    return (vmcb->control.exit_code == SVM_EXIT_NPF)
+           && (vmcb->control.exit_info_1 == 0x100000005ULL);
 }
 
 u64 save_pde;
@@ -705,7 +705,7 @@ static void npt_rsvd_prepare(struct svm_test *test)
 {
     u64 *pde;
 
-    vmcb_ident(test->vmcb);
+    vmcb_ident(vmcb);
     pde = npt_get_pde((u64) null_test);
 
     save_pde = *pde;
@@ -718,8 +718,8 @@ static bool npt_rsvd_check(struct svm_test *test)
 
     *pde = save_pde;
 
-    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-            && (test->vmcb->control.exit_info_1 == 0x10000001dULL);
+    return (vmcb->control.exit_code == SVM_EXIT_NPF)
+            && (vmcb->control.exit_info_1 == 0x10000001dULL);
 }
 
 static void npt_rw_prepare(struct svm_test *test)
@@ -727,7 +727,7 @@ static void npt_rw_prepare(struct svm_test *test)
 
     u64 *pte;
 
-    vmcb_ident(test->vmcb);
+    vmcb_ident(vmcb);
     pte = npt_get_pte(0x80000);
 
     *pte &= ~(1ULL << 1);
@@ -746,8 +746,8 @@ static bool npt_rw_check(struct svm_test *test)
 
     *pte |= (1ULL << 1);
 
-    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-           && (test->vmcb->control.exit_info_1 == 0x100000007ULL);
+    return (vmcb->control.exit_code == SVM_EXIT_NPF)
+           && (vmcb->control.exit_info_1 == 0x100000007ULL);
 }
 
 static void npt_rw_pfwalk_prepare(struct svm_test *test)
@@ -755,7 +755,7 @@ static void npt_rw_pfwalk_prepare(struct svm_test *test)
 
     u64 *pte;
 
-    vmcb_ident(test->vmcb);
+    vmcb_ident(vmcb);
     pte = npt_get_pte(read_cr3());
 
     *pte &= ~(1ULL << 1);
@@ -767,15 +767,15 @@ static bool npt_rw_pfwalk_check(struct svm_test *test)
 
     *pte |= (1ULL << 1);
 
-    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-           && (test->vmcb->control.exit_info_1 == 0x200000006ULL)
-	   && (test->vmcb->control.exit_info_2 == read_cr3());
+    return (vmcb->control.exit_code == SVM_EXIT_NPF)
+           && (vmcb->control.exit_info_1 == 0x200000006ULL)
+	   && (vmcb->control.exit_info_2 == read_cr3());
 }
 
 static void npt_rsvd_pfwalk_prepare(struct svm_test *test)
 {
     u64 *pdpe;
-    vmcb_ident(test->vmcb);
+    vmcb_ident(vmcb);
 
     pdpe = npt_get_pdpe();
     pdpe[0] |= (1ULL << 8);
@@ -786,13 +786,13 @@ static bool npt_rsvd_pfwalk_check(struct svm_test *test)
     u64 *pdpe = npt_get_pdpe();
     pdpe[0] &= ~(1ULL << 8);
 
-    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-            && (test->vmcb->control.exit_info_1 == 0x20000000eULL);
+    return (vmcb->control.exit_code == SVM_EXIT_NPF)
+            && (vmcb->control.exit_info_1 == 0x20000000eULL);
 }
 
 static void npt_l1mmio_prepare(struct svm_test *test)
 {
-    vmcb_ident(test->vmcb);
+    vmcb_ident(vmcb);
 }
 
 u32 nested_apic_version1;
@@ -819,7 +819,7 @@ static void npt_rw_l1mmio_prepare(struct svm_test *test)
 
     u64 *pte;
 
-    vmcb_ident(test->vmcb);
+    vmcb_ident(vmcb);
     pte = npt_get_pte(0xfee00080);
 
     *pte &= ~(1ULL << 1);
@@ -838,8 +838,8 @@ static bool npt_rw_l1mmio_check(struct svm_test *test)
 
     *pte |= (1ULL << 1);
 
-    return (test->vmcb->control.exit_code == SVM_EXIT_NPF)
-           && (test->vmcb->control.exit_info_1 == 0x100000007ULL);
+    return (vmcb->control.exit_code == SVM_EXIT_NPF)
+           && (vmcb->control.exit_info_1 == 0x100000007ULL);
 }
 
 #define TSC_ADJUST_VALUE    (1ll << 32)
@@ -849,7 +849,7 @@ static bool ok;
 static void tsc_adjust_prepare(struct svm_test *test)
 {
     default_prepare(test);
-    test->vmcb->control.tsc_offset = TSC_OFFSET_VALUE;
+    vmcb->control.tsc_offset = TSC_OFFSET_VALUE;
 
     wrmsr(MSR_IA32_TSC_ADJUST, -TSC_ADJUST_VALUE);
     int64_t adjust = rdmsr(MSR_IA32_TSC_ADJUST);
@@ -931,7 +931,7 @@ static bool latency_finished(struct svm_test *test)
 
     vmexit_sum += cycles;
 
-    test->vmcb->save.rip += 3;
+    vmcb->save.rip += 3;
 
     runs -= 1;
 
@@ -960,7 +960,7 @@ static void lat_svm_insn_prepare(struct svm_test *test)
 
 static bool lat_svm_insn_finished(struct svm_test *test)
 {
-    u64 vmcb_phys = virt_to_phys(test->vmcb);
+    u64 vmcb_phys = virt_to_phys(vmcb);
     u64 cycles;
 
     for ( ; runs != 0; runs--) {
@@ -1040,8 +1040,8 @@ static void pending_event_prepare(struct svm_test *test)
 
     pending_event_guest_run = false;
 
-    test->vmcb->control.intercept |= (1ULL << INTERCEPT_INTR);
-    test->vmcb->control.int_ctl |= V_INTR_MASKING_MASK;
+    vmcb->control.intercept |= (1ULL << INTERCEPT_INTR);
+    vmcb->control.int_ctl |= V_INTR_MASKING_MASK;
 
     apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL |
                   APIC_DM_FIXED | ipi_vector, 0);
@@ -1058,14 +1058,14 @@ static bool pending_event_finished(struct svm_test *test)
 {
     switch (get_test_stage(test)) {
     case 0:
-        if (test->vmcb->control.exit_code != SVM_EXIT_INTR) {
+        if (vmcb->control.exit_code != SVM_EXIT_INTR) {
             report(false, "VMEXIT not due to pending interrupt. Exit reason 0x%x",
-                   test->vmcb->control.exit_code);
+                   vmcb->control.exit_code);
             return true;
         }
 
-        test->vmcb->control.intercept &= ~(1ULL << INTERCEPT_INTR);
-        test->vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
+        vmcb->control.intercept &= ~(1ULL << INTERCEPT_INTR);
+        vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
 
         if (pending_event_guest_run) {
             report(false, "Guest ran before host received IPI\n");
@@ -1151,19 +1151,19 @@ static void pending_event_cli_test(struct svm_test *test)
 
 static bool pending_event_cli_finished(struct svm_test *test)
 {
-    if ( test->vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+    if ( vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
         report(false, "VM_EXIT return to host is not EXIT_VMMCALL exit reason 0x%x",
-               test->vmcb->control.exit_code);
+               vmcb->control.exit_code);
         return true;
     }
 
     switch (get_test_stage(test)) {
     case 0:
-        test->vmcb->save.rip += 3;
+        vmcb->save.rip += 3;
 
         pending_event_ipi_fired = false;
 
-        test->vmcb->control.int_ctl |= V_INTR_MASKING_MASK;
+        vmcb->control.int_ctl |= V_INTR_MASKING_MASK;
 
 	/* Now entering again with VINTR_MASKING=1.  */
         apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL |
@@ -1296,22 +1296,22 @@ static bool interrupt_finished(struct svm_test *test)
     switch (get_test_stage(test)) {
     case 0:
     case 2:
-        if (test->vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+        if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
             report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
-                   test->vmcb->control.exit_code);
+                   vmcb->control.exit_code);
             return true;
         }
-        test->vmcb->save.rip += 3;
+        vmcb->save.rip += 3;
 
-        test->vmcb->control.intercept |= (1ULL << INTERCEPT_INTR);
-        test->vmcb->control.int_ctl |= V_INTR_MASKING_MASK;
+        vmcb->control.intercept |= (1ULL << INTERCEPT_INTR);
+        vmcb->control.int_ctl |= V_INTR_MASKING_MASK;
         break;
 
     case 1:
     case 3:
-        if (test->vmcb->control.exit_code != SVM_EXIT_INTR) {
+        if (vmcb->control.exit_code != SVM_EXIT_INTR) {
             report(false, "VMEXIT not due to intr intercept. Exit reason 0x%x",
-                   test->vmcb->control.exit_code);
+                   vmcb->control.exit_code);
             return true;
         }
 
@@ -1319,8 +1319,8 @@ static bool interrupt_finished(struct svm_test *test)
         asm volatile ("nop");
         irq_disable();
 
-        test->vmcb->control.intercept &= ~(1ULL << INTERCEPT_INTR);
-        test->vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
+        vmcb->control.intercept &= ~(1ULL << INTERCEPT_INTR);
+        vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
         break;
 
     case 4:

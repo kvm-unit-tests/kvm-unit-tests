@@ -20,6 +20,8 @@ u64 *pde[4];
 u64 *pdpe;
 u64 *pml4e;
 
+struct vmcb *vmcb;
+
 u64 *npt_get_pte(u64 address)
 {
 	int i1, i2;
@@ -59,7 +61,7 @@ bool default_supported(void)
 
 void default_prepare(struct svm_test *test)
 {
-	vmcb_ident(test->vmcb);
+	vmcb_ident(vmcb);
 }
 
 void default_prepare_gif_clear(struct svm_test *test)
@@ -197,7 +199,6 @@ static void test_run(struct svm_test *test, struct vmcb *vmcb)
 	u64 guest_stack[10000];
 
 	irq_disable();
-	test->vmcb = vmcb;
 	test->prepare(test);
 	vmcb->save.rip = (ulong)test_thunk;
 	vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
@@ -298,8 +299,6 @@ static void setup_svm(void)
 	pml4e[0] = ((u64)pdpe) | 0x27;
 }
 
-extern struct svm_test svm_tests[];
-
 int matched;
 
 static bool
@@ -341,7 +340,6 @@ test_wanted(const char *name, char *filters[], int filter_count)
 int main(int ac, char **av)
 {
 	int i = 0;
-	struct vmcb *vmcb;
 
 	ac--;
 	av++;

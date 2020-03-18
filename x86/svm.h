@@ -334,7 +334,6 @@ struct svm_test {
 	void (*guest_func)(struct svm_test *test);
 	bool (*finished)(struct svm_test *test);
 	bool (*succeeded)(struct svm_test *test);
-	struct vmcb *vmcb;
 	int exits;
 	ulong scratch;
 };
@@ -374,5 +373,8 @@ void inc_test_stage(struct svm_test *test);
 void vmcb_ident(struct vmcb *vmcb);
 struct regs get_regs(void);
 void vmmcall(void);
+
+extern struct vmcb *vmcb;
+extern struct svm_test svm_tests[];
 
 #endif
