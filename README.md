@@ -15,6 +15,8 @@ To create the test images do:
 
 in this directory.  Test images are created in ./ARCH/\*.flat
 
+NOTE: GCC cross-compiler is required for [build on macOS](README.macOS.md).
+
 ## Standalone tests
 
 The tests can be built as standalone.  To create and use standalone tests do:
@@ -47,7 +49,7 @@ environment variable:
 
     QEMU=/tmp/qemu/x86_64-softmmu/qemu-system-x86_64 ./x86-run ./x86/msr.flat
 
-To select an accelerator, for example "kvm" or "tcg", specify the
+To select an accelerator, for example "kvm", "hvf" or "tcg", specify the
 ACCEL=name environment variable:
 
     ACCEL=kvm ./x86-run ./x86/msr.flat
@@ -78,7 +80,7 @@ which can then be accessed in the usual ways, e.g. VAL = getenv("KEY").
 Any key=val strings can be passed, but some have reserved meanings in
 the framework.  The list of reserved environment variables is below
 
-    QEMU_ACCEL                   either kvm or tcg
+    QEMU_ACCEL                   either kvm, hvf or tcg
     QEMU_VERSION_STRING          string of the form `qemu -h | head -1`
     KERNEL_VERSION_STRING        string of the form `uname -r`
 
