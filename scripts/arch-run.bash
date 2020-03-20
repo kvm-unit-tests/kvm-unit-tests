@@ -350,10 +350,21 @@ kvm_available ()
 		( [ "$HOST" = x86_64 ] && [ "$ARCH" = i386 ] )
 }
 
+hvf_available ()
+{
+	[ "$(sysctl -n kern.hv_support 2>/dev/null)" = "1" ] || return 1
+	[ "$HOST" = "$ARCH_NAME" ] ||
+		( [ "$HOST" = x86_64 ] && [ "$ARCH" = i386 ] )
+}
+
 get_qemu_accelerator ()
 {
 	if [ "$ACCEL" = "kvm" ] && ! kvm_available; then
 		echo "KVM is needed, but not available on this host" >&2
+		return 2
+	fi
+	if [ "$ACCEL" = "hvf" ] && ! hvf_available; then
+		echo "HVF is needed, but not available on this host" >&2
 		return 2
 	fi
 
@@ -361,6 +372,8 @@ get_qemu_accelerator ()
 		echo $ACCEL
 	elif kvm_available; then
 		echo kvm
+	elif hvf_available; then
+		echo hvf
 	else
 		echo tcg
 	fi
