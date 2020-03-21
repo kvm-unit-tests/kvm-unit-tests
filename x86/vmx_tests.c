@@ -9547,7 +9547,10 @@ static void atomic_switch_max_msrs_test(void)
 
 static void atomic_switch_overflow_msrs_test(void)
 {
-	atomic_switch_msrs_test(max_msr_list_size() + 1);
+	if (test_device_enabled())
+		atomic_switch_msrs_test(max_msr_list_size() + 1);
+	else
+		test_skip("Test is only supported on KVM");
 }
 
 #define TEST(name) { #name, .v2 = name }
