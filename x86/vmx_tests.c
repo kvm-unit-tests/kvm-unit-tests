@@ -1312,12 +1312,14 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 	u64 guest_cr3;
 	u32 insn_len;
 	u32 exit_qual;
-	static unsigned long data_page1_pte, data_page1_pte_pte, memaddr_pte;
+	static unsigned long data_page1_pte, data_page1_pte_pte, memaddr_pte,
+			     guest_pte_addr;
 
 	guest_rip = vmcs_read(GUEST_RIP);
 	guest_cr3 = vmcs_read(GUEST_CR3);
 	insn_len = vmcs_read(EXI_INST_LEN);
 	exit_qual = vmcs_read(EXI_QUALIFICATION);
+	pteval_t *ptep;
 	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
@@ -1364,12 +1366,11 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 4:
-			TEST_ASSERT(get_ept_pte(pml4, (unsigned long)data_page1,
-						2, &data_page1_pte));
-			data_page1_pte &= PAGE_MASK;
-			TEST_ASSERT(get_ept_pte(pml4, data_page1_pte,
-						2, &data_page1_pte_pte));
-			set_ept_pte(pml4, data_page1_pte, 2,
+			ptep = get_pte_level((pgd_t *)guest_cr3, data_page1, /*level=*/2);
+			guest_pte_addr = virt_to_phys(ptep) & PAGE_MASK;
+
+			TEST_ASSERT(get_ept_pte(pml4, guest_pte_addr, 2, &data_page1_pte_pte));
+			set_ept_pte(pml4, guest_pte_addr, 2,
 				data_page1_pte_pte & ~EPT_PRESENT);
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
@@ -1437,7 +1438,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 					  (have_ad ? EPT_VLT_WR : 0) |
 					  EPT_VLT_LADDR_VLD))
 				vmx_inc_test_stage();
-			set_ept_pte(pml4, data_page1_pte, 2,
+			set_ept_pte(pml4, guest_pte_addr, 2,
 				data_page1_pte_pte | (EPT_PRESENT));
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
