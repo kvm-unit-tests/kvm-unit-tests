@@ -814,6 +814,26 @@ static void test_int(void)
 	report("int 1", 0, 1);
 }
 
+static void test_sti_inhibit(void)
+{
+	init_inregs(NULL);
+
+	*(u32 *)(0x73 * 4) = 0x1000; /* Store IRQ 11 handler in the IDT */
+	*(u8 *)(0x1000) = 0xcf; /* 0x1000 contains an IRET instruction */
+
+	MK_INSN(sti_inhibit, "cli\n\t"
+			     "movw $0x200b, %dx\n\t"
+			     "movl $1, %eax\n\t"
+			     "outl %eax, %dx\n\t" /* Set IRQ11 */
+			     "movl $0, %eax\n\t"
+			     "outl %eax, %dx\n\t" /* Clear IRQ11 */
+			     "sti\n\t"
+			     "hlt\n\t");
+	exec_in_big_real_mode(&insn_sti_inhibit);
+
+	report("sti inhibit", ~0, 1);
+}
+
 static void test_imul(void)
 {
 	MK_INSN(imul8_1, "mov $2, %al\n\t"
@@ -1739,6 +1759,7 @@ void realmode_start(void)
 	test_xchg();
 	test_iret();
 	test_int();
+	test_sti_inhibit();
 	test_imul();
 	test_mul();
 	test_div();
