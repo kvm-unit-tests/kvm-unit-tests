@@ -87,6 +87,34 @@ void puts(const char *s)
 	spin_unlock(&uart_lock);
 }
 
+static int do_getchar(void)
+{
+	int c;
+
+	spin_lock(&uart_lock);
+	c = readb(uart0_base);
+	spin_unlock(&uart_lock);
+
+	return c ?: -1;
+}
+
+/*
+ * Minimalist implementation for migration completion detection.
+ * Without FIFOs enabled on the QEMU UART device we just read
+ * the data register: we cannot read more than 16 characters.
+ */
+int __getchar(void)
+{
+	int c = do_getchar();
+	static int count;
+
+	if (c != -1)
+		++count;
+
+	assert(count < 16);
+
+	return c;
+}
 
 /*
  * Defining halt to take 'code' as an argument guarantees that it will
