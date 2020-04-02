@@ -5,4 +5,5 @@
 9e3f7a296940    : 4.9                           : arm64: KVM: pmu: Fix AArch32 cycle counter access
 7b6b46311a85    : 4.11                          : KVM: arm/arm64: Emulate the EL1 phys timer registers
 6c7a5dce22b3    : 4.12                          : KVM: arm/arm64: fix races in kvm_psci_vcpu_on
+8c58be34494b    : 5.6                           : KVM: arm/arm64: vgic-its: Fix restoration of unmapped collections
 #---------------:-------------------------------:---------------------------------------------------
