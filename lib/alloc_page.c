@@ -155,7 +155,7 @@ static void *page_memalign(size_t alignment, size_t size)
 	if (!size)
 		return NULL;
 
-	order = is_power_of_2(n) ? fls(n) : fls(n) + 1;
+	order = get_order(n);
 
 	return alloc_pages(order);
 }
@@ -174,4 +174,9 @@ static struct alloc_ops page_alloc_ops = {
 void page_alloc_ops_enable(void)
 {
 	alloc_ops = &page_alloc_ops;
+}
+
+int get_order(size_t size)
+{
+	return is_power_of_2(size) ? fls(size) : fls(size) + 1;
 }
