@@ -168,4 +168,7 @@ extern void __its_send_sync(struct its_collection *col, bool verbose);
 #define its_send_movi_nv(dev, col, id)			__its_send_movi(dev, col, id, false)
 #define its_send_sync_nv(col)				__its_send_sync(col, false)
 
+extern struct its_device *its_get_device(u32 id);
+extern struct its_collection *its_get_collection(u32 id);
+
 #endif /* _ASMARM64_GIC_V3_ITS_H_ */
