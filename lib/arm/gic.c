@@ -9,6 +9,7 @@
 
 struct gicv2_data gicv2_data;
 struct gicv3_data gicv3_data;
+struct its_data its_data;
 
 struct gic_common_ops {
 	void (*enable_defaults)(void);
@@ -44,12 +45,13 @@ static const struct gic_common_ops gicv3_common_ops = {
  * Documentation/devicetree/bindings/interrupt-controller/arm,gic-v3.txt
  */
 static bool
-gic_get_dt_bases(const char *compatible, void **base1, void **base2)
+gic_get_dt_bases(const char *compatible, void **base1, void **base2, void **base3)
 {
 	struct dt_pbus_reg reg;
-	struct dt_device gic;
+	struct dt_device gic, its;
 	struct dt_bus bus;
-	int node, ret, i;
+	int node, subnode, ret, i, len;
+	const void *fdt = dt_fdt();
 
 	dt_bus_init_defaults(&bus);
 	dt_device_init(&gic, &bus, NULL);
@@ -74,19 +76,39 @@ gic_get_dt_bases(const char *compatible, void **base1, void **base2)
 		base2[i] = ioremap(reg.addr, reg.size);
 	}
 
+	if (!base3) {
+		assert(!strcmp(compatible, "arm,cortex-a15-gic"));
+		return true;
+	}
+
+	assert(!strcmp(compatible, "arm,gic-v3"));
+
+	dt_for_each_subnode(node, subnode) {
+		const struct fdt_property *prop;
+
+		prop = fdt_get_property(fdt, subnode, "compatible", &len);
+		if (!strcmp((char *)prop->data, "arm,gic-v3-its")) {
+			dt_device_bind_node(&its, subnode);
+			ret = dt_pbus_translate(&its, 0, &reg);
+			assert(ret == 0);
+			*base3 = ioremap(reg.addr, reg.size);
+			break;
+		}
+	}
+
 	return true;
 }
 
 int gicv2_init(void)
 {
 	return gic_get_dt_bases("arm,cortex-a15-gic",
-			&gicv2_data.dist_base, &gicv2_data.cpu_base);
+			&gicv2_data.dist_base, &gicv2_data.cpu_base, NULL);
 }
 
 int gicv3_init(void)
 {
 	return gic_get_dt_bases("arm,gic-v3", &gicv3_data.dist_base,
-			&gicv3_data.redist_bases[0]);
+			&gicv3_data.redist_bases[0], &its_data.base);
 }
 
 int gic_version(void)
@@ -100,10 +122,14 @@ int gic_version(void)
 
 int gic_init(void)
 {
-	if (gicv2_init())
+	if (gicv2_init()) {
 		gic_common_ops = &gicv2_common_ops;
-	else if (gicv3_init())
+	} else if (gicv3_init()) {
 		gic_common_ops = &gicv3_common_ops;
+#ifdef __aarch64__
+		its_init();
+#endif
+	}
 	return gic_version();
 }
 
