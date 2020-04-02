@@ -106,11 +106,66 @@ extern struct its_data its_data;
 #define GITS_BASER_TYPE_DEVICE		1
 #define GITS_BASER_TYPE_COLLECTION	4
 
+/*
+ * ITS commands
+ */
+#define GITS_CMD_MAPD			0x08
+#define GITS_CMD_MAPC			0x09
+#define GITS_CMD_MAPTI			0x0a
+#define GITS_CMD_MAPI			0x0b
+#define GITS_CMD_MOVI			0x01
+#define GITS_CMD_DISCARD		0x0f
+#define GITS_CMD_INV			0x0c
+#define GITS_CMD_MOVALL			0x0e
+#define GITS_CMD_INVALL			0x0d
+#define GITS_CMD_INT			0x03
+#define GITS_CMD_CLEAR			0x04
+#define GITS_CMD_SYNC			0x05
+
+struct its_cmd_block {
+	u64 raw_cmd[4];
+};
+
 extern void its_parse_typer(void);
 extern void its_init(void);
 extern int its_baser_lookup(int i, struct its_baser *baser);
 extern void its_enable_defaults(void);
 extern struct its_device *its_create_device(u32 dev_id, int nr_ites);
 extern struct its_collection *its_create_collection(u16 col_id, u32 target_pe);
+
+extern void __its_send_mapd(struct its_device *dev, int valid, bool verbose);
+extern void __its_send_mapc(struct its_collection *col, int valid, bool verbose);
+extern void __its_send_mapti(struct its_device *dev, u32 irq_id, u32 event_id,
+			     struct its_collection *col, bool verbose);
+extern void __its_send_int(struct its_device *dev, u32 event_id, bool verbose);
+extern void __its_send_inv(struct its_device *dev, u32 event_id, bool verbose);
+extern void __its_send_discard(struct its_device *dev, u32 event_id, bool verbose);
+extern void __its_send_clear(struct its_device *dev, u32 event_id, bool verbose);
+extern void __its_send_invall(struct its_collection *col, bool verbose);
+extern void __its_send_movi(struct its_device *dev, struct its_collection *col,
+			    u32 id, bool verbose);
+extern void __its_send_sync(struct its_collection *col, bool verbose);
+
+#define its_send_mapd(dev, valid)			__its_send_mapd(dev, valid, true)
+#define its_send_mapc(col, valid)			__its_send_mapc(col, valid, true)
+#define its_send_mapti(dev, irqid, eventid, col)	__its_send_mapti(dev, irqid, eventid, col, true)
+#define its_send_int(dev, eventid)			__its_send_int(dev, eventid, true)
+#define its_send_inv(dev, eventid)			__its_send_inv(dev, eventid, true)
+#define its_send_discard(dev, eventid)			__its_send_discard(dev, eventid, true)
+#define its_send_clear(dev, eventid)			__its_send_clear(dev, eventid, true)
+#define its_send_invall(col)				__its_send_invall(col, true)
+#define its_send_movi(dev, col, id)			__its_send_movi(dev, col, id, true)
+#define its_send_sync(col)				__its_send_sync(col, true)
+
+#define its_send_mapd_nv(dev, valid)			__its_send_mapd(dev, valid, false)
+#define its_send_mapc_nv(col, valid)			__its_send_mapc(col, valid, false)
+#define its_send_mapti_nv(dev, irqid, eventid, col)	__its_send_mapti(dev, irqid, eventid, col, false)
+#define its_send_int_nv(dev, eventid)			__its_send_int(dev, eventid, false)
+#define its_send_inv_nv(dev, eventid)			__its_send_inv(dev, eventid, false)
+#define its_send_discard_nv(dev, eventid)		__its_send_discard(dev, eventid, false)
+#define its_send_clear_nv(dev, eventid)			__its_send_clear(dev, eventidn false)
+#define its_send_invall_nv(col)				__its_send_invall(col, false)
+#define its_send_movi_nv(dev, col, id)			__its_send_movi(dev, col, id, false)
+#define its_send_sync_nv(col)				__its_send_sync(col, false)
 
 #endif /* _ASMARM64_GIC_V3_ITS_H_ */
