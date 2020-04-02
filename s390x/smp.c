@@ -182,6 +182,19 @@ static void test_emcall(void)
 	report_prefix_pop();
 }
 
+static void test_sense_running(void)
+{
+	report_prefix_push("sense_running");
+	/* we (CPU0) are running */
+	report(smp_sense_running_status(0), "CPU0 sense claims running");
+	/* stop the target CPU (CPU1) to speed up the not running case */
+	smp_cpu_stop(1);
+	/* Make sure to have at least one time with a not running indication */
+	while(smp_sense_running_status(1));
+	report(true, "CPU1 sense claims not running");
+	report_prefix_pop();
+}
+
 static void test_reset_initial(void)
 {
 	struct cpu_status *status = alloc_pages(0);
@@ -251,6 +264,7 @@ int main(void)
 	test_store_status();
 	test_ecall();
 	test_emcall();
+	test_sense_running();
 	test_reset();
 	test_reset_initial();
 	smp_cpu_destroy(1);
