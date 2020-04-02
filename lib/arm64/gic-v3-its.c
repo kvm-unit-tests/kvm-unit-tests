@@ -96,3 +96,16 @@ void its_init(void)
 	its_cmd_queue_init();
 }
 
+/* must be called after gicv3_enable_defaults */
+void its_enable_defaults(void)
+{
+	int cpu;
+
+	/* Allocate LPI config and pending tables */
+	gicv3_lpi_alloc_tables();
+
+	for_each_present_cpu(cpu)
+		gicv3_lpi_rdist_enable(cpu);
+
+	writel(GITS_CTLR_ENABLE, its_data.base + GITS_CTLR);
+}

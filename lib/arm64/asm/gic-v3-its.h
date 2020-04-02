@@ -92,5 +92,6 @@ extern struct its_data its_data;
 extern void its_parse_typer(void);
 extern void its_init(void);
 extern int its_baser_lookup(int i, struct its_baser *baser);
+extern void its_enable_defaults(void);
 
 #endif /* _ASMARM64_GIC_V3_ITS_H_ */
