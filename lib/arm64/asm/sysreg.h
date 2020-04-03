@@ -49,6 +49,12 @@
 	asm volatile("msr_s " xstr(r) ", %x0" : : "rZ" (__val));\
 } while (0)
 
+#define write_regn_el0(__reg, __n, __val) \
+	write_sysreg((__val), __reg ## __n ## _el0)
+
+#define read_regn_el0(__reg, __n) \
+	read_sysreg(__reg ## __n ## _el0)
+
 asm(
 "	.irp	num,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30\n"
 "	.equ	.L__reg_num_x\\num, \\num\n"
