@@ -147,6 +147,36 @@ void gic_ipi_send_mask(int irq, const cpumask_t *dest)
 	gic_common_ops->ipi_send_mask(irq, dest);
 }
 
+void gic_irq_set_clr_enable(int irq, bool enable)
+{
+	u32 offset, split = 32, shift = (irq % 32);
+	u32 reg, mask = BIT(shift);
+	void *base;
+
+	assert(irq < 1020);
+
+	switch (gic_version()) {
+	case 2:
+		offset = enable ? GICD_ISENABLER : GICD_ICENABLER;
+		base = gicv2_dist_base();
+		break;
+	case 3:
+		if (irq < 32) {
+			offset = enable ? GICR_ISENABLER0 : GICR_ICENABLER0;
+			base = gicv3_sgi_base();
+		} else {
+			offset = enable ? GICD_ISENABLER : GICD_ICENABLER;
+			base = gicv3_dist_base();
+		}
+		break;
+	default:
+		assert(0);
+	}
+	base += offset + (irq / split) * 4;
+	reg = readl(base);
+	writel(reg | mask, base);
+}
+
 enum gic_irq_state gic_irq_state(int irq)
 {
 	enum gic_irq_state state;
@@ -191,3 +221,4 @@ enum gic_irq_state gic_irq_state(int irq)
 
 	return state;
 }
+
