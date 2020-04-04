@@ -156,7 +156,11 @@ run_migration ()
 	echo > ${fifo}
 	wait $incoming_pid
 	ret=$?
-	wait
+
+	while (( $(jobs -r | wc -l) > 0 )); do
+		sleep 0.5
+	done
+
 	return $ret
 }
 
