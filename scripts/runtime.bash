@@ -77,7 +77,7 @@ function run()
     local opts="$5"
     local arch="$6"
     local check="${CHECK:-$7}"
-    local accel="${ACCEL:-$8}"
+    local accel="$8"
     local timeout="${9:-$TIMEOUT}" # unittests.cfg overrides the default
 
     if [ -z "$testname" ]; then
@@ -101,6 +101,13 @@ function run()
     if [ -n "$arch" ] && [ "$arch" != "$ARCH" ]; then
         print_result "SKIP" $testname "" "$arch only"
         return 2
+    fi
+
+    if [ -n "$accel" ] && [ -n "$ACCEL" ] && [ "$accel" != "$ACCEL" ]; then
+        print_result "SKIP" $testname "" "$accel only, but ACCEL=$ACCEL"
+        return 2
+    elif [ -n "$ACCEL" ]; then
+        accel="$ACCEL"
     fi
 
     # check a file for a particular value before running a test
