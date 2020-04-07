@@ -36,7 +36,7 @@ generate_test ()
 
 	echo "#!/usr/bin/env bash"
 	echo "export STANDALONE=yes"
-	echo "export ENVIRON_DEFAULT=yes"
+	echo "export ENVIRON_DEFAULT=$ENVIRON_DEFAULT"
 	echo "export HOST=\$(uname -m | sed -e 's/i.86/i386/;s/arm.*/arm/;s/ppc64.*/ppc64/')"
 	echo "export PRETTY_PRINT_STACKS=no"
 
@@ -59,7 +59,7 @@ generate_test ()
 		echo 'export FIRMWARE'
 	fi
 
-	if [ "$ERRATATXT" ]; then
+	if [ "$ENVIRON_DEFAULT" = "yes" ] && [ "$ERRATATXT" ]; then
 		temp_file ERRATATXT "$ERRATATXT"
 		echo 'export ERRATATXT'
 	fi
@@ -98,6 +98,11 @@ function mkstandalone()
 	chmod +x $standalone
 	echo Written $standalone.
 }
+
+if [ "$ENVIRON_DEFAULT" = "yes" ] && [ "$ERRATATXT" ] && [ ! -f "$ERRATATXT" ]; then
+	echo "$ERRATATXT not found. (ERRATATXT=$ERRATATXT)" >&2
+	exit 2
+fi
 
 trap 'rm -f $cfg' EXIT
 cfg=$(mktemp)

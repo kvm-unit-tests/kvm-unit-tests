@@ -28,9 +28,9 @@ run_qemu ()
 {
 	local stdout errors ret sig
 
+	initrd_create || return $?
 	echo -n "$@"
-	initrd_create &&
-		echo -n " #"
+	[ "$ENVIRON_DEFAULT" = "yes" ] && echo -n " #"
 	echo " $INITRD"
 
 	# stdout to {stdout}, stderr to $errors and stderr
@@ -195,59 +195,90 @@ search_qemu_binary ()
 
 initrd_create ()
 {
-	local ret
-
-	env_add_errata
-	ret=$?
+	if [ "$ENVIRON_DEFAULT" = "yes" ]; then
+		trap_exit_push 'rm -f $KVM_UNIT_TESTS_ENV; [ "$KVM_UNIT_TESTS_ENV_OLD" ] && export KVM_UNIT_TESTS_ENV="$KVM_UNIT_TESTS_ENV_OLD" || unset KVM_UNIT_TESTS_ENV; unset KVM_UNIT_TESTS_ENV_OLD'
+		[ -f "$KVM_UNIT_TESTS_ENV" ] && export KVM_UNIT_TESTS_ENV_OLD="$KVM_UNIT_TESTS_ENV"
+		export KVM_UNIT_TESTS_ENV=$(mktemp)
+		env_params
+		env_file
+		env_errata || return $?
+	fi
 
 	unset INITRD
 	[ -f "$KVM_UNIT_TESTS_ENV" ] && INITRD="-initrd $KVM_UNIT_TESTS_ENV"
 
-	return $ret
+	return 0
 }
 
-env_add_errata ()
+env_add_params ()
 {
-	local line errata ret=1
+	local p
 
-	if [ -f "$KVM_UNIT_TESTS_ENV" ] && grep -q '^ERRATA_' <(env); then
-		for line in $(grep '^ERRATA_' "$KVM_UNIT_TESTS_ENV"); do
-			errata=${line%%=*}
-			[ -n "${!errata}" ] && continue
+	for p in "$@"; do
+		if eval test -v $p; then
+			eval export "$p"
+		else
+			eval export "$p="
+		fi
+		grep "^$p=" <(env) >>$KVM_UNIT_TESTS_ENV
+	done
+}
+
+env_params ()
+{
+	local qemu have_qemu
+	local _ rest
+
+	qemu=$(search_qemu_binary) && have_qemu=1
+
+	if [ "$have_qemu" ]; then
+		if [ -n "$ACCEL" ] || [ -n "$QEMU_ACCEL" ]; then
+			[ -n "$ACCEL" ] && QEMU_ACCEL=$ACCEL
+		fi
+		QEMU_VERSION_STRING="$($qemu -h | head -1)"
+		IFS='[ .]' read -r _ _ _ QEMU_MAJOR QEMU_MINOR QEMU_MICRO rest <<<"$QEMU_VERSION_STRING"
+	fi
+	env_add_params QEMU_ACCEL QEMU_VERSION_STRING QEMU_MAJOR QEMU_MINOR QEMU_MICRO
+
+	KERNEL_VERSION_STRING=$(uname -r)
+	IFS=. read -r KERNEL_VERSION KERNEL_PATCHLEVEL rest <<<"$KERNEL_VERSION_STRING"
+	IFS=- read -r KERNEL_SUBLEVEL KERNEL_EXTRAVERSION <<<"$rest"
+	KERNEL_SUBLEVEL=${KERNEL_SUBLEVEL%%[!0-9]*}
+	KERNEL_EXTRAVERSION=${KERNEL_EXTRAVERSION%%[!0-9]*}
+	! [[ $KERNEL_SUBLEVEL =~ ^[0-9]+$ ]] && unset $KERNEL_SUBLEVEL
+	! [[ $KERNEL_EXTRAVERSION =~ ^[0-9]+$ ]] && unset $KERNEL_EXTRAVERSION
+	env_add_params KERNEL_VERSION_STRING KERNEL_VERSION KERNEL_PATCHLEVEL KERNEL_SUBLEVEL KERNEL_EXTRAVERSION
+}
+
+env_file ()
+{
+	local line var
+
+	[ ! -f "$KVM_UNIT_TESTS_ENV_OLD" ] && return
+
+	for line in $(grep -E '^[[:blank:]]*[[:alpha:]_][[:alnum:]_]*=' "$KVM_UNIT_TESTS_ENV_OLD"); do
+		var=${line%%=*}
+		if ! grep -q "^$var=" $KVM_UNIT_TESTS_ENV; then
 			eval export "$line"
-		done
-	elif [ ! -f "$KVM_UNIT_TESTS_ENV" ]; then
+			grep "^$var=" <(env) >>$KVM_UNIT_TESTS_ENV
+		fi
+	done
+}
+
+env_errata ()
+{
+	if [ "$ERRATATXT" ] && [ ! -f "$ERRATATXT" ]; then
+		echo "$ERRATATXT not found. (ERRATATXT=$ERRATATXT)" >&2
+		return 2
+	elif [ "$ERRATATXT" ]; then
 		env_generate_errata
 	fi
-
-	if grep -q '^ERRATA_' <(env); then
-		export KVM_UNIT_TESTS_ENV_OLD="$KVM_UNIT_TESTS_ENV"
-		export KVM_UNIT_TESTS_ENV=$(mktemp)
-		trap_exit_push 'rm -f $KVM_UNIT_TESTS_ENV; [ "$KVM_UNIT_TESTS_ENV_OLD" ] && export KVM_UNIT_TESTS_ENV="$KVM_UNIT_TESTS_ENV_OLD" || unset KVM_UNIT_TESTS_ENV; unset KVM_UNIT_TESTS_ENV_OLD'
-		[ -f "$KVM_UNIT_TESTS_ENV_OLD" ] && grep -v '^ERRATA_' "$KVM_UNIT_TESTS_ENV_OLD" > $KVM_UNIT_TESTS_ENV
-		grep '^ERRATA_' <(env) >> $KVM_UNIT_TESTS_ENV
-		ret=0
-	fi
-
-	return $ret
+	sort <(env | grep '^ERRATA_') <(grep '^ERRATA_' $KVM_UNIT_TESTS_ENV) | uniq -u >>$KVM_UNIT_TESTS_ENV
 }
 
 env_generate_errata ()
 {
-	local kernel_version_string=$(uname -r)
-	local kernel_version kernel_patchlevel kernel_sublevel kernel_extraversion
 	local line commit minver errata rest v p s x have
-
-	IFS=. read -r kernel_version kernel_patchlevel rest <<<"$kernel_version_string"
-	IFS=- read -r kernel_sublevel kernel_extraversion <<<"$rest"
-	kernel_sublevel=${kernel_sublevel%%[!0-9]*}
-	kernel_extraversion=${kernel_extraversion%%[!0-9]*}
-
-	! [[ $kernel_sublevel =~ ^[0-9]+$ ]] && unset $kernel_sublevel
-	! [[ $kernel_extraversion =~ ^[0-9]+$ ]] && unset $kernel_extraversion
-
-	[ "$ENVIRON_DEFAULT" != "yes" ] && return
-	[ ! -f "$ERRATATXT" ] && return
 
 	for line in $(grep -v '^#' "$ERRATATXT" | tr -d '[:blank:]' | cut -d: -f1,2); do
 		commit=${line%:*}
@@ -269,16 +300,16 @@ env_generate_errata ()
 		! [[ $s =~ ^[0-9]+$ ]] && unset $s
 		! [[ $x =~ ^[0-9]+$ ]] && unset $x
 
-		if (( $kernel_version > $v ||
-		      ($kernel_version == $v && $kernel_patchlevel > $p) )); then
+		if (( $KERNEL_VERSION > $v ||
+		      ($KERNEL_VERSION == $v && $KERNEL_PATCHLEVEL > $p) )); then
 			have=y
-		elif (( $kernel_version == $v && $kernel_patchlevel == $p )); then
-			if [ "$kernel_sublevel" ] && [ "$s" ]; then
-				if (( $kernel_sublevel > $s )); then
+		elif (( $KERNEL_VERSION == $v && $KERNEL_PATCHLEVEL == $p )); then
+			if [ "$KERNEL_SUBLEVEL" ] && [ "$s" ]; then
+				if (( $KERNEL_SUBLEVEL > $s )); then
 					have=y
-				elif (( $kernel_sublevel == $s )); then
-					if [ "$kernel_extraversion" ] && [ "$x" ]; then
-						if (( $kernel_extraversion >= $x )); then
+				elif (( $KERNEL_SUBLEVEL == $s )); then
+					if [ "$KERNEL_EXTRAVERSION" ] && [ "$x" ]; then
+						if (( $KERNEL_EXTRAVERSION >= $x )); then
 							have=y
 						else
 							have=n

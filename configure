@@ -17,6 +17,7 @@ environ_default=yes
 u32_long=
 vmm="qemu"
 errata_force=0
+erratatxt="errata.txt"
 
 usage() {
     cat <<-EOF
@@ -37,6 +38,8 @@ usage() {
 	    --[enable|disable]-default-environ
 	                           enable or disable the generation of a default environ when
 	                           no environ is provided by the user (enabled by default)
+	    --erratatxt=FILE       specify a file to use instead of errata.txt. Use
+	                           '--erratatxt=' to ensure no file is used.
 EOF
     exit 1
 }
@@ -85,6 +88,9 @@ while [[ "$1" = -* ]]; do
 	--disable-default-environ)
 	    environ_default=no
 	    ;;
+	--erratatxt)
+	    erratatxt="$arg"
+	    ;;
 	--help)
 	    usage
 	    ;;
@@ -93,6 +99,11 @@ while [[ "$1" = -* ]]; do
 	    ;;
     esac
 done
+
+if [ "$erratatxt" ] && [ ! -f "$erratatxt" ]; then
+    echo "erratatxt: $erratatxt does not exist or is not a regular file"
+    exit 1
+fi
 
 arch_name=$arch
 [ "$arch" = "aarch64" ] && arch="arm64"
@@ -194,7 +205,7 @@ FIRMWARE=$firmware
 ENDIAN=$endian
 PRETTY_PRINT_STACKS=$pretty_print_stacks
 ENVIRON_DEFAULT=$environ_default
-ERRATATXT=errata.txt
+ERRATATXT=$erratatxt
 U32_LONG_FMT=$u32_long
 EOF
 
