@@ -9,6 +9,7 @@
 #include "alloc_page.h"
 #include "isr.h"
 #include "apic.h"
+#include "delay.h"
 
 #define SVM_EXIT_MAX_DR_INTERCEPT 0x3f
 
@@ -1419,6 +1420,105 @@ static bool nmi_check(struct svm_test *test)
     return get_test_stage(test) == 3;
 }
 
+#define NMI_DELAY 100000000ULL
+
+static void nmi_message_thread(void *_test)
+{
+    struct svm_test *test = _test;
+
+    while (get_test_stage(test) != 1)
+        pause();
+
+    delay(NMI_DELAY);
+
+    apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, id_map[0]);
+
+    while (get_test_stage(test) != 2)
+        pause();
+
+    delay(NMI_DELAY);
+
+    apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, id_map[0]);
+}
+
+static void nmi_hlt_test(struct svm_test *test)
+{
+    long long start;
+
+    on_cpu_async(1, nmi_message_thread, test);
+
+    start = rdtsc();
+
+    set_test_stage(test, 1);
+
+    asm volatile ("hlt");
+
+    report((rdtsc() - start > NMI_DELAY) && nmi_fired,
+          "direct NMI + hlt");
+
+    if (!nmi_fired)
+        set_test_stage(test, -1);
+
+    nmi_fired = false;
+
+    vmmcall();
+
+    start = rdtsc();
+
+    set_test_stage(test, 2);
+
+    asm volatile ("hlt");
+
+    report((rdtsc() - start > NMI_DELAY) && nmi_fired,
+           "intercepted NMI + hlt");
+
+    if (!nmi_fired) {
+        report(nmi_fired, "intercepted pending NMI not dispatched");
+        set_test_stage(test, -1);
+    }
+
+    set_test_stage(test, 3);
+}
+
+static bool nmi_hlt_finished(struct svm_test *test)
+{
+    switch (get_test_stage(test)) {
+    case 1:
+        if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+            report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+        vmcb->save.rip += 3;
+
+        vmcb->control.intercept |= (1ULL << INTERCEPT_NMI);
+        break;
+
+    case 2:
+        if (vmcb->control.exit_code != SVM_EXIT_NMI) {
+            report(false, "VMEXIT not due to NMI intercept. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+
+        report(true, "NMI intercept while running guest");
+        break;
+
+    case 3:
+        break;
+
+    default:
+        return true;
+    }
+
+    return get_test_stage(test) == 3;
+}
+
+static bool nmi_hlt_check(struct svm_test *test)
+{
+    return get_test_stage(test) == 3;
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /*
@@ -1528,6 +1628,9 @@ struct svm_test svm_tests[] = {
     { "nmi", default_supported, nmi_prepare,
       default_prepare_gif_clear, nmi_test,
       nmi_finished, nmi_check },
+    { "nmi_hlt", smp_supported, nmi_prepare,
+      default_prepare_gif_clear, nmi_hlt_test,
+      nmi_hlt_finished, nmi_hlt_check },
     TEST(svm_guest_state_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
