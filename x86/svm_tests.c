@@ -1519,6 +1519,73 @@ static bool nmi_hlt_check(struct svm_test *test)
     return get_test_stage(test) == 3;
 }
 
+static volatile int count_exc = 0;
+
+static void my_isr(struct ex_regs *r)
+{
+        count_exc++;
+}
+
+static void exc_inject_prepare(struct svm_test *test)
+{
+	handle_exception(DE_VECTOR, my_isr);
+	handle_exception(NMI_VECTOR, my_isr);
+}
+
+
+static void exc_inject_test(struct svm_test *test)
+{
+    asm volatile ("vmmcall\n\tvmmcall\n\t");
+}
+
+static bool exc_inject_finished(struct svm_test *test)
+{
+    vmcb->save.rip += 3;
+
+    switch (get_test_stage(test)) {
+    case 0:
+        if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+            report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+        vmcb->control.event_inj = NMI_VECTOR | SVM_EVTINJ_TYPE_EXEPT | SVM_EVTINJ_VALID;
+        break;
+
+    case 1:
+        if (vmcb->control.exit_code != SVM_EXIT_ERR) {
+            report(false, "VMEXIT not due to error. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+        report(count_exc == 0, "exception with vector 2 not injected");
+        vmcb->control.event_inj = DE_VECTOR | SVM_EVTINJ_TYPE_EXEPT | SVM_EVTINJ_VALID;
+        break;
+
+    case 2:
+        if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+            report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+        report(count_exc == 1, "divide overflow exception injected");
+        report(!(vmcb->control.event_inj & SVM_EVTINJ_VALID), "eventinj.VALID cleared");
+        break;
+
+    default:
+        return true;
+    }
+
+    inc_test_stage(test);
+
+    return get_test_stage(test) == 3;
+}
+
+static bool exc_inject_check(struct svm_test *test)
+{
+    return count_exc == 1 && get_test_stage(test) == 3;
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /*
@@ -1615,6 +1682,9 @@ struct svm_test svm_tests[] = {
     { "latency_svm_insn", default_supported, lat_svm_insn_prepare,
       default_prepare_gif_clear, null_test,
       lat_svm_insn_finished, lat_svm_insn_check },
+    { "exc_inject", default_supported, exc_inject_prepare,
+      default_prepare_gif_clear, exc_inject_test,
+      exc_inject_finished, exc_inject_check },
     { "pending_event", default_supported, pending_event_prepare,
       default_prepare_gif_clear,
       pending_event_test, pending_event_finished, pending_event_check },
