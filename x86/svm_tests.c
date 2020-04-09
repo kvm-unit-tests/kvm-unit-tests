@@ -1340,6 +1340,85 @@ static bool interrupt_check(struct svm_test *test)
     return get_test_stage(test) == 5;
 }
 
+static volatile bool nmi_fired;
+
+static void nmi_handler(isr_regs_t *regs)
+{
+    nmi_fired = true;
+    apic_write(APIC_EOI, 0);
+}
+
+static void nmi_prepare(struct svm_test *test)
+{
+    default_prepare(test);
+    nmi_fired = false;
+    handle_irq(NMI_VECTOR, nmi_handler);
+    set_test_stage(test, 0);
+}
+
+static void nmi_test(struct svm_test *test)
+{
+    apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
+
+    report(nmi_fired, "direct NMI while running guest");
+
+    if (!nmi_fired)
+        set_test_stage(test, -1);
+
+    vmmcall();
+
+    nmi_fired = false;
+
+    apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
+
+    if (!nmi_fired) {
+        report(nmi_fired, "intercepted pending NMI not dispatched");
+        set_test_stage(test, -1);
+    }
+
+}
+
+static bool nmi_finished(struct svm_test *test)
+{
+    switch (get_test_stage(test)) {
+    case 0:
+        if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+            report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+        vmcb->save.rip += 3;
+
+        vmcb->control.intercept |= (1ULL << INTERCEPT_NMI);
+        break;
+
+    case 1:
+        if (vmcb->control.exit_code != SVM_EXIT_NMI) {
+            report(false, "VMEXIT not due to NMI intercept. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+
+        report(true, "NMI intercept while running guest");
+        break;
+
+    case 2:
+        break;
+
+    default:
+        return true;
+    }
+
+    inc_test_stage(test);
+
+    return get_test_stage(test) == 3;
+}
+
+static bool nmi_check(struct svm_test *test)
+{
+    return get_test_stage(test) == 3;
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /*
@@ -1446,6 +1525,9 @@ struct svm_test svm_tests[] = {
     { "interrupt", default_supported, interrupt_prepare,
       default_prepare_gif_clear, interrupt_test,
       interrupt_finished, interrupt_check },
+    { "nmi", default_supported, nmi_prepare,
+      default_prepare_gif_clear, nmi_test,
+      nmi_finished, nmi_check },
     TEST(svm_guest_state_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
