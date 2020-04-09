@@ -1598,15 +1598,41 @@ static void basic_guest_main(struct svm_test *test)
 
 static void svm_guest_state_test(void)
 {
+	test_set_guest(basic_guest_main);
+
+	/*
+	 * Un-setting EFER.SVME is illegal
+	 */
 	u64 efer_saved = vmcb->save.efer;
 	u64 efer = efer_saved;
 
-	test_set_guest(basic_guest_main);
 	report (svm_vmrun() == SVM_EXIT_VMMCALL, "EFER.SVME: %lx", efer);
 	efer &= ~EFER_SVME;
 	vmcb->save.efer = efer;
 	report (svm_vmrun() == SVM_EXIT_ERR, "EFER.SVME: %lx", efer);
 	vmcb->save.efer = efer_saved;
+
+	/*
+	 * Un-setting CR0.CD and setting CR0.NW is illegal combination
+	 */
+	u64 cr0_saved = vmcb->save.cr0;
+	u64 cr0 = cr0_saved;
+
+	cr0 |= X86_CR0_CD;
+	cr0 &= ~X86_CR0_NW;
+	vmcb->save.cr0 = cr0;
+	report (svm_vmrun() == SVM_EXIT_VMMCALL, "CR0: %lx", cr0);
+	cr0 |= X86_CR0_NW;
+	vmcb->save.cr0 = cr0;
+	report (svm_vmrun() == SVM_EXIT_VMMCALL, "CR0: %lx", cr0);
+	cr0 &= ~X86_CR0_NW;
+	cr0 &= ~X86_CR0_CD;
+	vmcb->save.cr0 = cr0;
+	report (svm_vmrun() == SVM_EXIT_VMMCALL, "CR0: %lx", cr0);
+	cr0 |= X86_CR0_NW;
+	vmcb->save.cr0 = cr0;
+	report (svm_vmrun() == SVM_EXIT_ERR, "CR0: %lx", cr0);
+	vmcb->save.cr0 = cr0_saved;
 }
 
 struct svm_test svm_tests[] = {
