@@ -8447,6 +8447,109 @@ static void vmx_preemption_timer_zero_test(void)
 	handle_exception(DB_VECTOR, old_db);
 }
 
+static u64 vmx_preemption_timer_tf_test_prev_rip;
+
+static void vmx_preemption_timer_tf_test_db_handler(struct ex_regs *regs)
+{
+	extern char vmx_preemption_timer_tf_test_endloop;
+
+	if (vmx_get_test_stage() == 2) {
+		/*
+		 * Stage 2 means that we're done, one way or another.
+		 * Arrange for the iret to drop us out of the wbinvd
+		 * loop and stop single-stepping.
+		 */
+		regs->rip = (u64)&vmx_preemption_timer_tf_test_endloop;
+		regs->rflags &= ~X86_EFLAGS_TF;
+	} else if (regs->rip == vmx_preemption_timer_tf_test_prev_rip) {
+		/*
+		 * The RIP should alternate between the wbinvd and the
+		 * jmp instruction in the code below. If we ever see
+		 * the same instruction twice in a row, that means a
+		 * single-step trap has been dropped. Let the
+		 * hypervisor know about the failure by executing a
+		 * VMCALL.
+		 */
+		vmcall();
+	}
+	vmx_preemption_timer_tf_test_prev_rip = regs->rip;
+}
+
+static void vmx_preemption_timer_tf_test_guest(void)
+{
+	/*
+	 * The hypervisor doesn't intercept WBINVD, so the loop below
+	 * shouldn't be a problem--it's just two instructions
+	 * executing in VMX non-root mode. However, when the
+	 * hypervisor is running in a virtual environment, the parent
+	 * hypervisor might intercept WBINVD and emulate it. If the
+	 * parent hypervisor is broken, the single-step trap after the
+	 * WBINVD might be lost.
+	 */
+	asm volatile("vmcall\n\t"
+		     "0: wbinvd\n\t"
+		     "1: jmp 0b\n\t"
+		     "vmx_preemption_timer_tf_test_endloop:");
+}
+
+/*
+ * Ensure that the delivery of a "VMX-preemption timer expired"
+ * VM-exit doesn't disrupt single-stepping in the guest. Note that
+ * passing this test doesn't ensure correctness, because the test will
+ * only fail if the VMX-preemtion timer fires at the right time (or
+ * the wrong time, as it were).
+ */
+static void vmx_preemption_timer_tf_test(void)
+{
+	handler old_db;
+	u32 reason;
+	int i;
+
+	if (!(ctrl_pin_rev.clr & PIN_PREEMPT)) {
+		report_skip("'Activate VMX-preemption timer' not supported");
+		return;
+	}
+
+	old_db = handle_exception(DB_VECTOR,
+				  vmx_preemption_timer_tf_test_db_handler);
+
+	test_set_guest(vmx_preemption_timer_tf_test_guest);
+
+	enter_guest();
+	skip_exit_vmcall();
+
+	vmx_set_test_stage(1);
+	vmcs_set_bits(PIN_CONTROLS, PIN_PREEMPT);
+	vmcs_write(PREEMPT_TIMER_VALUE, 50000);
+	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED | X86_EFLAGS_TF);
+
+	/*
+	 * The only exit we should see is "VMX-preemption timer
+	 * expired."  If we get a VMCALL exit, that means the #DB
+	 * handler has detected a missing single-step trap. It doesn't
+	 * matter where the guest RIP is when the VMX-preemption timer
+	 * expires (whether it's in the WBINVD loop or in the #DB
+	 * handler)--a single-step trap should never be discarded.
+	 */
+	for (i = 0; i < 10000; i++) {
+		enter_guest();
+		reason = (u32)vmcs_read(EXI_REASON);
+		if (reason == VMX_PREEMPT)
+			continue;
+		TEST_ASSERT(reason == VMX_VMCALL);
+		skip_exit_insn();
+		break;
+	}
+
+	report(reason == VMX_PREEMPT, "No single-step traps skipped");
+
+	vmx_set_test_stage(2);
+	vmcs_clear_bits(PIN_CONTROLS, PIN_PREEMPT);
+	enter_guest();
+
+	handle_exception(DB_VECTOR, old_db);
+}
+
 static void vmx_db_test_guest(void)
 {
 	/*
@@ -9752,6 +9855,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_pending_event_hlt_test),
 	TEST(vmx_store_tsc_test),
 	TEST(vmx_preemption_timer_zero_test),
+	TEST(vmx_preemption_timer_tf_test),
 	/* EPT access tests. */
 	TEST(ept_access_test_not_present),
 	TEST(ept_access_test_read_only),
