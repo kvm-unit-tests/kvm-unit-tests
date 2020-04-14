@@ -4964,6 +4964,7 @@ static void test_vmx_preemption_timer(void)
 extern unsigned char test_mtf1;
 extern unsigned char test_mtf2;
 extern unsigned char test_mtf3;
+extern unsigned char test_mtf4;
 
 static void test_mtf_guest(void)
 {
@@ -4992,7 +4993,10 @@ static void test_mtf_guest(void)
 	      * documented, don't rely on assemblers enumerating the
 	      * instruction. Resort to hand assembly.
 	      */
-	     ".byte 0xf1;\n\t");
+	     ".byte 0xf1;\n\t"
+	     "vmcall;\n\t"
+	     "test_mtf4:\n\t"
+	     "mov $0, %eax;\n\t");
 }
 
 static void test_mtf_gp_handler(struct ex_regs *regs)
@@ -5037,7 +5041,7 @@ static void report_mtf(const char *insn_name, unsigned long exp_rip)
 	unsigned long rip = vmcs_read(GUEST_RIP);
 
 	assert_exit_reason(VMX_MTF);
-	report(rip == exp_rip, "MTF VM-exit after %s instruction. RIP: 0x%lx (expected 0x%lx)",
+	report(rip == exp_rip, "MTF VM-exit after %s. RIP: 0x%lx (expected 0x%lx)",
 	       insn_name, rip, exp_rip);
 }
 
@@ -5114,7 +5118,12 @@ static void vmx_mtf_test(void)
 	disable_mtf();
 
 	enter_guest();
+	skip_exit_vmcall();
 	handle_exception(DB_VECTOR, old_db);
+	vmcs_write(ENT_INTR_INFO, INTR_INFO_VALID_MASK | INTR_TYPE_OTHER_EVENT);
+	enter_guest();
+	report_mtf("injected MTF", (unsigned long) &test_mtf4);
+	enter_guest();
 }
 
 /*
