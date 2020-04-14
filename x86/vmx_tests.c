@@ -8328,6 +8328,125 @@ static void vmx_store_tsc_test(void)
 	       msr_entry.value, low, high);
 }
 
+static void vmx_preemption_timer_zero_test_db_handler(struct ex_regs *regs)
+{
+}
+
+static void vmx_preemption_timer_zero_test_guest(void)
+{
+	while (vmx_get_test_stage() < 3)
+		vmcall();
+}
+
+static void vmx_preemption_timer_zero_activate_preemption_timer(void)
+{
+	vmcs_set_bits(PIN_CONTROLS, PIN_PREEMPT);
+	vmcs_write(PREEMPT_TIMER_VALUE, 0);
+}
+
+static void vmx_preemption_timer_zero_advance_past_vmcall(void)
+{
+	vmcs_clear_bits(PIN_CONTROLS, PIN_PREEMPT);
+	enter_guest();
+	skip_exit_vmcall();
+}
+
+static void vmx_preemption_timer_zero_inject_db(bool intercept_db)
+{
+	vmx_preemption_timer_zero_activate_preemption_timer();
+	vmcs_write(ENT_INTR_INFO, INTR_INFO_VALID_MASK |
+		   INTR_TYPE_HARD_EXCEPTION | DB_VECTOR);
+	vmcs_write(EXC_BITMAP, intercept_db ? 1 << DB_VECTOR : 0);
+	enter_guest();
+}
+
+static void vmx_preemption_timer_zero_set_pending_dbg(u32 exception_bitmap)
+{
+	vmx_preemption_timer_zero_activate_preemption_timer();
+	vmcs_write(GUEST_PENDING_DEBUG, BIT(12) | DR_TRAP1);
+	vmcs_write(EXC_BITMAP, exception_bitmap);
+	enter_guest();
+}
+
+static void vmx_preemption_timer_zero_expect_preempt_at_rip(u64 expected_rip)
+{
+	u32 reason = (u32)vmcs_read(EXI_REASON);
+	u64 guest_rip = vmcs_read(GUEST_RIP);
+
+	report(reason == VMX_PREEMPT && guest_rip == expected_rip,
+	       "Exit reason is 0x%x (expected 0x%x) and guest RIP is %lx (0x%lx expected).",
+	       reason, VMX_PREEMPT, guest_rip, expected_rip);
+}
+
+/*
+ * This test ensures that when the VMX preemption timer is zero at
+ * VM-entry, a VM-exit occurs after any event injection and after any
+ * pending debug exceptions are raised, but before execution of any
+ * guest instructions.
+ */
+static void vmx_preemption_timer_zero_test(void)
+{
+	u64 db_fault_address = (u64)get_idt_addr(&boot_idt[DB_VECTOR]);
+	handler old_db;
+	u32 reason;
+
+	if (!(ctrl_pin_rev.clr & PIN_PREEMPT)) {
+		report_skip("'Activate VMX-preemption timer' not supported");
+		return;
+	}
+
+	/*
+	 * Install a custom #DB handler that doesn't abort.
+	 */
+	old_db = handle_exception(DB_VECTOR,
+				  vmx_preemption_timer_zero_test_db_handler);
+
+	test_set_guest(vmx_preemption_timer_zero_test_guest);
+
+	/*
+	 * VMX-preemption timer should fire after event injection.
+	 */
+	vmx_set_test_stage(0);
+	vmx_preemption_timer_zero_inject_db(0);
+	vmx_preemption_timer_zero_expect_preempt_at_rip(db_fault_address);
+	vmx_preemption_timer_zero_advance_past_vmcall();
+
+	/*
+	 * VMX-preemption timer should fire after event injection.
+	 * Exception bitmap is irrelevant, since you can't intercept
+	 * an event that you injected.
+	 */
+	vmx_set_test_stage(1);
+	vmx_preemption_timer_zero_inject_db(1 << DB_VECTOR);
+	vmx_preemption_timer_zero_expect_preempt_at_rip(db_fault_address);
+	vmx_preemption_timer_zero_advance_past_vmcall();
+
+	/*
+	 * VMX-preemption timer should fire after pending debug exceptions
+	 * have delivered a #DB trap.
+	 */
+	vmx_set_test_stage(2);
+	vmx_preemption_timer_zero_set_pending_dbg(0);
+	vmx_preemption_timer_zero_expect_preempt_at_rip(db_fault_address);
+	vmx_preemption_timer_zero_advance_past_vmcall();
+
+	/*
+	 * VMX-preemption timer would fire after pending debug exceptions
+	 * have delivered a #DB trap, but in this case, the #DB trap is
+	 * intercepted.
+	 */
+	vmx_set_test_stage(3);
+	vmx_preemption_timer_zero_set_pending_dbg(1 << DB_VECTOR);
+	reason = (u32)vmcs_read(EXI_REASON);
+	report(reason == VMX_EXC_NMI, "Exit reason is 0x%x (expected 0x%x)",
+	       reason, VMX_EXC_NMI);
+
+	vmcs_clear_bits(PIN_CONTROLS, PIN_PREEMPT);
+	enter_guest();
+
+	handle_exception(DB_VECTOR, old_db);
+}
+
 static void vmx_db_test_guest(void)
 {
 	/*
@@ -9632,6 +9751,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_pending_event_test),
 	TEST(vmx_pending_event_hlt_test),
 	TEST(vmx_store_tsc_test),
+	TEST(vmx_preemption_timer_zero_test),
 	/* EPT access tests. */
 	TEST(ept_access_test_not_present),
 	TEST(ept_access_test_read_only),
