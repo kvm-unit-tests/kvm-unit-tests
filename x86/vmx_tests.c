@@ -3570,6 +3570,10 @@ static void test_cr3_targets(void)
 	for (i = 0; i <= supported_targets + 1; i++)
 		try_cr3_target_count(i, supported_targets);
 	vmcs_write(CR3_TARGET_COUNT, cr3_targets);
+
+	/* VMWRITE to nonexistent target fields should fail. */
+	for (i = supported_targets; i < 256; i++)
+		TEST_ASSERT(vmcs_write(CR3_TARGET_0 + i*2, 0));
 }
 
 /*
