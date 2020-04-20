@@ -1633,6 +1633,20 @@ static void svm_guest_state_test(void)
 	vmcb->save.cr0 = cr0;
 	report (svm_vmrun() == SVM_EXIT_ERR, "CR0: %lx", cr0);
 	vmcb->save.cr0 = cr0_saved;
+
+	/*
+	 * CR0[63:32] are not zero
+	 */
+	int i;
+
+	cr0 = cr0_saved;
+	for (i = 32; i < 63; i = i + 4) {
+		cr0 = cr0_saved | (1ull << i);
+		vmcb->save.cr0 = cr0;
+		report (svm_vmrun() == SVM_EXIT_ERR, "CR0[63:32]: %lx",
+		    cr0 >> 32);
+	}
+	vmcb->save.cr0 = cr0_saved;
 }
 
 struct svm_test svm_tests[] = {
