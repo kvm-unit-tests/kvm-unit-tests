@@ -504,7 +504,8 @@ int main(void)
 	test_ioapic_level_tmr(true);
 	test_ioapic_edge_tmr(true);
 
-	test_ioapic_physical_destination_mode();
+	if (cpu_count() > 1)
+		test_ioapic_physical_destination_mode();
 	if (cpu_count() > 3)
 		test_ioapic_logical_destination_mode();
 
