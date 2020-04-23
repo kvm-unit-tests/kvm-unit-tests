@@ -1316,6 +1316,11 @@ static bool interrupt_finished(struct svm_test *test)
             return true;
         }
 
+        /* The guest is not woken up from HLT and RIP still points to it.  */
+        if (get_test_stage(test) == 3) {
+            vmcb->save.rip++;
+        }
+
         irq_enable();
         asm volatile ("nop");
         irq_disable();
@@ -1500,6 +1505,9 @@ static bool nmi_hlt_finished(struct svm_test *test)
                    vmcb->control.exit_code);
             return true;
         }
+
+        /* The guest is not woken up from HLT and RIP still points to it.  */
+        vmcb->save.rip++;
 
         report(true, "NMI intercept while running guest");
         break;
