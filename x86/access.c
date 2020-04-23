@@ -16,7 +16,7 @@ typedef unsigned long pt_element_t;
 static int invalid_mask;
 static int page_table_levels;
 
-#define PT_BASE_ADDR_MASK ((pt_element_t)((((pt_element_t)1 << 40) - 1) & PAGE_MASK))
+#define PT_BASE_ADDR_MASK ((pt_element_t)((((pt_element_t)1 << 36) - 1) & PAGE_MASK))
 #define PT_PSE_BASE_ADDR_MASK (PT_BASE_ADDR_MASK & ~(1ull << 21))
 
 #define CR0_WP_MASK (1UL << 16)
@@ -47,6 +47,7 @@ enum {
     AC_PTE_DIRTY_BIT,
     AC_PTE_NX_BIT,
     AC_PTE_BIT51_BIT,
+    AC_PTE_BIT36_BIT,
 
     AC_PDE_PRESENT_BIT,
     AC_PDE_WRITABLE_BIT,
@@ -56,6 +57,7 @@ enum {
     AC_PDE_PSE_BIT,
     AC_PDE_NX_BIT,
     AC_PDE_BIT51_BIT,
+    AC_PDE_BIT36_BIT,
     AC_PDE_BIT13_BIT,
 
     AC_PKU_AD_BIT,
@@ -82,6 +84,7 @@ enum {
 #define AC_PTE_DIRTY_MASK     (1 << AC_PTE_DIRTY_BIT)
 #define AC_PTE_NX_MASK        (1 << AC_PTE_NX_BIT)
 #define AC_PTE_BIT51_MASK     (1 << AC_PTE_BIT51_BIT)
+#define AC_PTE_BIT36_MASK     (1 << AC_PTE_BIT36_BIT)
 
 #define AC_PDE_PRESENT_MASK   (1 << AC_PDE_PRESENT_BIT)
 #define AC_PDE_WRITABLE_MASK  (1 << AC_PDE_WRITABLE_BIT)
@@ -91,6 +94,7 @@ enum {
 #define AC_PDE_PSE_MASK       (1 << AC_PDE_PSE_BIT)
 #define AC_PDE_NX_MASK        (1 << AC_PDE_NX_BIT)
 #define AC_PDE_BIT51_MASK     (1 << AC_PDE_BIT51_BIT)
+#define AC_PDE_BIT36_MASK     (1 << AC_PDE_BIT36_BIT)
 #define AC_PDE_BIT13_MASK     (1 << AC_PDE_BIT13_BIT)
 
 #define AC_PKU_AD_MASK        (1 << AC_PKU_AD_BIT)
@@ -115,6 +119,7 @@ const char *ac_names[] = {
     [AC_PTE_DIRTY_BIT] = "pte.d",
     [AC_PTE_NX_BIT] = "pte.nx",
     [AC_PTE_BIT51_BIT] = "pte.51",
+    [AC_PTE_BIT36_BIT] = "pte.36",
     [AC_PDE_PRESENT_BIT] = "pde.p",
     [AC_PDE_ACCESSED_BIT] = "pde.a",
     [AC_PDE_WRITABLE_BIT] = "pde.rw",
@@ -123,6 +128,7 @@ const char *ac_names[] = {
     [AC_PDE_PSE_BIT] = "pde.pse",
     [AC_PDE_NX_BIT] = "pde.nx",
     [AC_PDE_BIT51_BIT] = "pde.51",
+    [AC_PDE_BIT36_BIT] = "pde.36",
     [AC_PDE_BIT13_BIT] = "pde.13",
     [AC_PKU_AD_BIT] = "pkru.ad",
     [AC_PKU_WD_BIT] = "pkru.wd",
@@ -295,6 +301,14 @@ static _Bool ac_test_legal(ac_test_t *at)
     if (!F(AC_PDE_PSE) && F(AC_PDE_BIT13))
         return false;
 
+    /*
+     * Shorten the test by avoiding testing too many reserved bit combinations
+     */
+    if ((F(AC_PDE_BIT51) + F(AC_PDE_BIT36) + F(AC_PDE_BIT13)) > 1)
+        return false;
+    if ((F(AC_PTE_BIT51) + F(AC_PTE_BIT36)) > 1)
+        return false;
+
     return true;
 }
 
@@ -381,7 +395,7 @@ static void ac_emulate_access(ac_test_t *at, unsigned flags)
         at->ignore_pde = PT_ACCESSED_MASK;
 
     pde_valid = F(AC_PDE_PRESENT)
-        && !F(AC_PDE_BIT51) && !F(AC_PDE_BIT13)
+        && !F(AC_PDE_BIT51) && !F(AC_PDE_BIT36) && !F(AC_PDE_BIT13)
         && !(F(AC_PDE_NX) && !F(AC_CPU_EFER_NX));
 
     if (!pde_valid) {
@@ -407,7 +421,7 @@ static void ac_emulate_access(ac_test_t *at, unsigned flags)
     at->expected_pde |= PT_ACCESSED_MASK;
 
     pte_valid = F(AC_PTE_PRESENT)
-        && !F(AC_PTE_BIT51)
+        && !F(AC_PTE_BIT51) && !F(AC_PTE_BIT36)
         && !(F(AC_PTE_NX) && !F(AC_CPU_EFER_NX));
 
     if (!pte_valid) {
@@ -516,6 +530,8 @@ static void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool,
 		pte |= PT64_NX_MASK;
 	    if (F(AC_PDE_BIT51))
 		pte |= 1ull << 51;
+	    if (F(AC_PDE_BIT36))
+                pte |= 1ull << 36;
 	    if (F(AC_PDE_BIT13))
 		pte |= 1ull << 13;
 	    at->pdep = &vroot[index];
@@ -538,6 +554,8 @@ static void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool,
 		pte |= PT64_NX_MASK;
 	    if (F(AC_PTE_BIT51))
 		pte |= 1ull << 51;
+	    if (F(AC_PTE_BIT36))
+                pte |= 1ull << 36;
 	    at->ptep = &vroot[index];
 	    break;
 	}
@@ -736,6 +754,7 @@ static void ac_test_show(ac_test_t *at)
 	    strcat(line, " ");
 	    strcat(line, ac_names[i]);
 	}
+
     strcat(line, ": ");
     printf("%s", line);
 }
@@ -944,6 +963,15 @@ static int ac_test_run(void)
     shadow_cr0 = read_cr0();
     shadow_cr4 = read_cr4();
     shadow_efer = rdmsr(MSR_EFER);
+
+    if (cpuid_maxphyaddr() >= 52) {
+        invalid_mask |= AC_PDE_BIT51_MASK;
+        invalid_mask |= AC_PTE_BIT51_MASK;
+    }
+    if (cpuid_maxphyaddr() >= 37) {
+        invalid_mask |= AC_PDE_BIT36_MASK;
+        invalid_mask |= AC_PTE_BIT36_MASK;
+    }
 
     if (this_cpu_has(X86_FEATURE_PKU)) {
         set_cr4_pke(1);
