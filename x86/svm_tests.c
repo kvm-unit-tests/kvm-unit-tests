@@ -1528,8 +1528,9 @@ static void my_isr(struct ex_regs *r)
 
 static void exc_inject_prepare(struct svm_test *test)
 {
-	handle_exception(DE_VECTOR, my_isr);
-	handle_exception(NMI_VECTOR, my_isr);
+    default_prepare(test);
+    handle_exception(DE_VECTOR, my_isr);
+    handle_exception(NMI_VECTOR, my_isr);
 }
 
 
