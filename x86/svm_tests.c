@@ -1480,6 +1480,7 @@ static void nmi_hlt_test(struct svm_test *test)
     if (!nmi_fired) {
         report(nmi_fired, "intercepted pending NMI not dispatched");
         set_test_stage(test, -1);
+        vmmcall();
     }
 
     set_test_stage(test, 3);
