@@ -16,6 +16,7 @@ struct msr_info {
 
 
 #define addr_64 0x0000123456789abcULL
+#define addr_ul (unsigned long)addr_64
 
 struct msr_info msr_info[] =
 {
@@ -23,10 +24,10 @@ struct msr_info msr_info[] =
       .val_pairs = {{ .valid = 1, .value = 0x1234, .expected = 0x1234}}
     },
     { .index = 0x00000175, .name = "MSR_IA32_SYSENTER_ESP",
-      .val_pairs = {{ .valid = 1, .value = addr_64, .expected = addr_64}}
+      .val_pairs = {{ .valid = 1, .value = addr_ul, .expected = addr_ul}}
     },
     { .index = 0x00000176, .name = "IA32_SYSENTER_EIP",
-      .val_pairs = {{ .valid = 1, .value = addr_64, .expected = addr_64}}
+      .val_pairs = {{ .valid = 1, .value = addr_ul, .expected = addr_ul}}
     },
     { .index = 0x000001a0, .name = "MSR_IA32_MISC_ENABLE",
       // reserved: 1:2, 4:6, 8:10, 13:15, 17, 19:21, 24:33, 35:63
