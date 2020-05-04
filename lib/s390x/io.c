@@ -19,7 +19,7 @@
 #include "smp.h"
 
 extern char ipl_args[];
-uint8_t stfl_bytes[NR_STFL_BYTES] __attribute__((aligned(8)));
+uint64_t stfl_doublewords[NB_STFL_DOUBLEWORDS];
 
 static struct spinlock lock;
 
