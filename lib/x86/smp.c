@@ -130,3 +130,19 @@ void smp_init(void)
 
     atomic_inc(&active_cpus);
 }
+
+static void do_reset_apic(void *data)
+{
+    reset_apic();
+}
+
+void smp_reset_apic(void)
+{
+    int i;
+
+    reset_apic();
+    for (i = 1; i < cpu_count(); ++i)
+        on_cpu(i, do_reset_apic, 0);
+
+    atomic_inc(&active_cpus);
+}

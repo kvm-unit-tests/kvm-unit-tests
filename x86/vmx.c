@@ -2081,7 +2081,7 @@ int main(int argc, const char *argv[])
 	hypercall_field = 0;
 
 	/* We want xAPIC mode to test MMIO passthrough from L1 (us) to L2.  */
-	reset_apic();
+	smp_reset_apic();
 
 	argv++;
 	argc--;

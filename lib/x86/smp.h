@@ -10,5 +10,6 @@ int cpus_active(void);
 void on_cpu(int cpu, void (*function)(void *data), void *data);
 void on_cpu_async(int cpu, void (*function)(void *data), void *data);
 void on_cpus(void (*function)(void *data), void *data);
+void smp_reset_apic(void);
 
 #endif
