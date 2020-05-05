@@ -1803,6 +1803,124 @@ static int interrupt_exit_handler(union exit_reason exit_reason)
 	return VMX_TEST_VMEXIT;
 }
 
+
+static volatile int nmi_fired;
+
+#define NMI_DELAY 100000000ULL
+
+static void nmi_isr(isr_regs_t *regs)
+{
+	nmi_fired = true;
+}
+
+static int nmi_hlt_init(struct vmcs *vmcs)
+{
+	msr_bmp_init();
+	handle_irq(NMI_VECTOR, nmi_isr);
+	vmcs_write(PIN_CONTROLS,
+		   vmcs_read(PIN_CONTROLS) & ~PIN_NMI);
+	vmcs_write(PIN_CONTROLS,
+		   vmcs_read(PIN_CONTROLS) & ~PIN_VIRT_NMI);
+	return VMX_TEST_START;
+}
+
+static void nmi_message_thread(void *data)
+{
+    while (vmx_get_test_stage() != 1)
+        pause();
+
+    delay(NMI_DELAY);
+    apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, id_map[0]);
+
+    while (vmx_get_test_stage() != 2)
+        pause();
+
+    delay(NMI_DELAY);
+    apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, id_map[0]);
+}
+
+static void nmi_hlt_main(void)
+{
+    long long start;
+
+    if (cpu_count() < 2) {
+        report_skip(__func__);
+        vmx_set_test_stage(-1);
+        return;
+    }
+
+    vmx_set_test_stage(0);
+    on_cpu_async(1, nmi_message_thread, NULL);
+    start = rdtsc();
+    vmx_set_test_stage(1);
+    asm volatile ("hlt");
+    report((rdtsc() - start > NMI_DELAY) && nmi_fired,
+            "direct NMI + hlt");
+    if (!nmi_fired)
+        vmx_set_test_stage(-1);
+    nmi_fired = false;
+
+    vmcall();
+
+    start = rdtsc();
+    vmx_set_test_stage(2);
+    asm volatile ("hlt");
+    report((rdtsc() - start > NMI_DELAY) && !nmi_fired,
+            "intercepted NMI + hlt");
+    if (nmi_fired) {
+        report(!nmi_fired, "intercepted NMI was dispatched");
+        vmx_set_test_stage(-1);
+        return;
+    }
+    vmx_set_test_stage(3);
+}
+
+static int nmi_hlt_exit_handler(union exit_reason exit_reason)
+{
+    u64 guest_rip = vmcs_read(GUEST_RIP);
+    u32 insn_len = vmcs_read(EXI_INST_LEN);
+
+    switch (vmx_get_test_stage()) {
+    case 1:
+        if (exit_reason.basic != VMX_VMCALL) {
+            report(false, "VMEXIT not due to vmcall. Exit reason 0x%x",
+                   exit_reason.full);
+            print_vmexit_info(exit_reason);
+            return VMX_TEST_VMEXIT;
+        }
+
+        vmcs_write(PIN_CONTROLS,
+               vmcs_read(PIN_CONTROLS) | PIN_NMI);
+        vmcs_write(PIN_CONTROLS,
+               vmcs_read(PIN_CONTROLS) | PIN_VIRT_NMI);
+        vmcs_write(GUEST_RIP, guest_rip + insn_len);
+        break;
+
+    case 2:
+        if (exit_reason.basic != VMX_EXC_NMI) {
+            report(false, "VMEXIT not due to NMI intercept. Exit reason 0x%x",
+                   exit_reason.full);
+            print_vmexit_info(exit_reason);
+            return VMX_TEST_VMEXIT;
+        }
+        report(true, "NMI intercept while running guest");
+        vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
+        break;
+
+    case 3:
+        break;
+
+    default:
+        return VMX_TEST_VMEXIT;
+    }
+
+    if (vmx_get_test_stage() == 3)
+        return VMX_TEST_VMEXIT;
+
+    return VMX_TEST_RESUME;
+}
+
+
 static int dbgctls_init(struct vmcs *vmcs)
 {
 	u64 dr7 = 0x402;
@@ -9813,6 +9931,8 @@ struct vmx_test vmx_tests[] = {
 	{ "VPID", vpid_init, vpid_main, vpid_exit_handler, NULL, {0} },
 	{ "interrupt", interrupt_init, interrupt_main,
 		interrupt_exit_handler, NULL, {0} },
+	{ "nmi_hlt", nmi_hlt_init, nmi_hlt_main,
+		nmi_hlt_exit_handler, NULL, {0} },
 	{ "debug controls", dbgctls_init, dbgctls_main, dbgctls_exit_handler,
 		NULL, {0} },
 	{ "MSR switch", msr_switch_init, msr_switch_main,
