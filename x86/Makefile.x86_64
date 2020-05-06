@@ -1,7 +1,9 @@
 cstart.o = $(TEST_DIR)/cstart64.o
 bits = 64
 ldarch = elf64-x86-64
-COMMON_CFLAGS += -mno-red-zone -mno-sse -mno-sse2
+
+fcf_protection_full := $(call cc-option, -fcf-protection=full,)
+COMMON_CFLAGS += -mno-red-zone -mno-sse -mno-sse2 $(fcf_protection_full)
 
 cflatobjs += lib/x86/setjmp64.o
 cflatobjs += lib/x86/intel-iommu.o
@@ -22,6 +24,10 @@ tests += $(TEST_DIR)/vmware_backdoors.flat
 tests += $(TEST_DIR)/rdpru.flat
 tests += $(TEST_DIR)/pks.flat
 tests += $(TEST_DIR)/pmu_lbr.flat
+
+ifneq ($(fcf_protection_full),)
+tests += $(TEST_DIR)/cet.flat
+endif
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 

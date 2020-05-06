@@ -209,6 +209,8 @@
 #define MSR_IA32_EBL_CR_POWERON		0x0000002a
 #define MSR_IA32_FEATURE_CONTROL        0x0000003a
 #define MSR_IA32_TSC_ADJUST		0x0000003b
+#define MSR_IA32_U_CET                  0x000006a0
+#define MSR_IA32_PL3_SSP                0x000006a7
 #define MSR_IA32_PKRS			0x000006e1
 
 #define FEATURE_CONTROL_LOCKED				(1<<0)

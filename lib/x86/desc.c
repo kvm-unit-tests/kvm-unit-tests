@@ -179,6 +179,7 @@ EX(mf, 16);
 EX_E(ac, 17);
 EX(mc, 18);
 EX(xm, 19);
+EX_E(cp, 21);
 
 asm (".pushsection .text \n\t"
      "__handle_exception: \n\t"
@@ -224,6 +225,7 @@ static void *idt_handlers[32] = {
 	[17] = &ac_fault,
 	[18] = &mc_fault,
 	[19] = &xm_fault,
+	[21] = &cp_fault,
 };
 
 void setup_idt(void)

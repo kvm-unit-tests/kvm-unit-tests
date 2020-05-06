@@ -51,6 +51,7 @@
 #define X86_CR4_SMEP	0x00100000
 #define X86_CR4_SMAP	0x00200000
 #define X86_CR4_PKE	0x00400000
+#define X86_CR4_CET	0x00800000
 #define X86_CR4_PKS	0x01000000
 
 #define X86_EFLAGS_CF    0x00000001
@@ -158,6 +159,8 @@ static inline u8 cpuid_maxphyaddr(void)
 #define	X86_FEATURE_PKU			(CPUID(0x7, 0, ECX, 3))
 #define	X86_FEATURE_LA57		(CPUID(0x7, 0, ECX, 16))
 #define	X86_FEATURE_RDPID		(CPUID(0x7, 0, ECX, 22))
+#define	X86_FEATURE_SHSTK		(CPUID(0x7, 0, ECX, 7))
+#define	X86_FEATURE_IBT			(CPUID(0x7, 0, EDX, 20))
 #define	X86_FEATURE_SPEC_CTRL		(CPUID(0x7, 0, EDX, 26))
 #define	X86_FEATURE_ARCH_CAPABILITIES	(CPUID(0x7, 0, EDX, 29))
 #define	X86_FEATURE_PKS			(CPUID(0x7, 0, ECX, 31))
