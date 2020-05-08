@@ -479,6 +479,29 @@ static inline unsigned long long rdtsc(void)
 	return r;
 }
 
+/*
+ * Per the advice in the SDM, volume 2, the sequence "mfence; lfence"
+ * executed immediately before rdtsc ensures that rdtsc will be
+ * executed only after all previous instructions have executed and all
+ * previous loads and stores are globally visible. In addition, the
+ * lfence immediately after rdtsc ensures that rdtsc will be executed
+ * prior to the execution of any subsequent instruction.
+ */
+static inline unsigned long long fenced_rdtsc(void)
+{
+	unsigned long long tsc;
+
+#ifdef __x86_64__
+	unsigned int eax, edx;
+
+	asm volatile ("mfence; lfence; rdtsc; lfence" : "=a"(eax), "=d"(edx));
+	tsc = eax | ((unsigned long long)edx << 32);
+#else
+	asm volatile ("mfence; lfence; rdtsc; lfence" : "=A"(tsc));
+#endif
+	return tsc;
+}
+
 static inline unsigned long long rdtscp(u32 *aux)
 {
        long long r;

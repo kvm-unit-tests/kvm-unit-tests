@@ -118,6 +118,27 @@ union vmx_ctrl_msr {
 	};
 };
 
+union vmx_misc {
+	u64 val;
+	struct {
+		u32 pt_bit:5,
+		    stores_lma:1,
+		    act_hlt:1,
+		    act_shutdown:1,
+		    act_wfsipi:1,
+		    :5,
+		    vmx_pt:1,
+		    smm_smbase:1,
+		    cr3_targets:9,
+		    msr_list_size:3,
+		    smm_mon_ctl:1,
+		    vmwrite_any:1,
+		    inject_len0:1,
+		    :1;
+		u32 mseg_revision;
+	};
+};
+
 union vmx_ept_vpid {
 	u64 val;
 	struct {

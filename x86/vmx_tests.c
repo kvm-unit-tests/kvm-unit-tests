@@ -8673,6 +8673,86 @@ static void vmx_preemption_timer_tf_test(void)
 	handle_exception(DB_VECTOR, old_db);
 }
 
+#define VMX_PREEMPTION_TIMER_EXPIRY_CYCLES 1000000
+
+static u64 vmx_preemption_timer_expiry_start;
+static u64 vmx_preemption_timer_expiry_finish;
+
+static void vmx_preemption_timer_expiry_test_guest(void)
+{
+	vmcall();
+	vmx_preemption_timer_expiry_start = fenced_rdtsc();
+
+	while (vmx_get_test_stage() == 0)
+		vmx_preemption_timer_expiry_finish = fenced_rdtsc();
+}
+
+/*
+ * Test that the VMX-preemption timer is not excessively delayed.
+ *
+ * Per the SDM, volume 3, VM-entry starts the VMX-preemption timer
+ * with the unsigned value in the VMX-preemption timer-value field,
+ * and the VMX-preemption timer counts down by 1 every time bit X in
+ * the TSC changes due to a TSC increment (where X is
+ * IA32_VMX_MISC[4:0]). If the timer counts down to zero in any state
+ * other than the wait-for-SIPI state, the logical processor
+ * transitions to the C0 C-state and causes a VM-exit.
+ *
+ * The guest code above reads the starting TSC after VM-entry. At this
+ * point, the VMX-preemption timer has already been activated. Next,
+ * the guest code reads the current TSC in a loop, storing the value
+ * read to memory.
+ *
+ * If the RDTSC in the loop reads a value past the VMX-preemption
+ * timer deadline, then the VMX-preemption timer VM-exit must be
+ * delivered before the next instruction retires. Even if a higher
+ * priority SMI is delivered first, the VMX-preemption timer VM-exit
+ * must be delivered before the next instruction retires. Hence, a TSC
+ * value past the VMX-preemption timer deadline might be read, but it
+ * cannot be stored. If a TSC value past the deadline *is* stored,
+ * then the architectural specification has been violated.
+ */
+static void vmx_preemption_timer_expiry_test(void)
+{
+	u32 preemption_timer_value;
+	union vmx_misc misc;
+	u64 tsc_deadline;
+	u32 reason;
+
+	if (!(ctrl_pin_rev.clr & PIN_PREEMPT)) {
+		report_skip("'Activate VMX-preemption timer' not supported");
+		return;
+	}
+
+	test_set_guest(vmx_preemption_timer_expiry_test_guest);
+
+	enter_guest();
+	skip_exit_vmcall();
+
+	misc.val = rdmsr(MSR_IA32_VMX_MISC);
+	preemption_timer_value =
+		VMX_PREEMPTION_TIMER_EXPIRY_CYCLES >> misc.pt_bit;
+
+	vmcs_set_bits(PIN_CONTROLS, PIN_PREEMPT);
+	vmcs_write(PREEMPT_TIMER_VALUE, preemption_timer_value);
+	vmx_set_test_stage(0);
+
+	enter_guest();
+	reason = (u32)vmcs_read(EXI_REASON);
+	TEST_ASSERT(reason == VMX_PREEMPT);
+
+	vmcs_clear_bits(PIN_CONTROLS, PIN_PREEMPT);
+	vmx_set_test_stage(1);
+	enter_guest();
+
+	tsc_deadline = ((vmx_preemption_timer_expiry_start >> misc.pt_bit) <<
+			misc.pt_bit) + (preemption_timer_value << misc.pt_bit);
+
+	report(vmx_preemption_timer_expiry_finish < tsc_deadline,
+	       "Last stored guest TSC (%lu) < TSC deadline (%lu)",
+	       vmx_preemption_timer_expiry_finish, tsc_deadline);
+}
+
 static void vmx_db_test_guest(void)
 {
 	/*
@@ -9981,6 +10061,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_store_tsc_test),
 	TEST(vmx_preemption_timer_zero_test),
 	TEST(vmx_preemption_timer_tf_test),
+	TEST(vmx_preemption_timer_expiry_test),
 	/* EPT access tests. */
 	TEST(ept_access_test_not_present),
 	TEST(ept_access_test_read_only),
