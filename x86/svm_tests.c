@@ -66,6 +66,52 @@ static bool check_vmrun(struct svm_test *test)
     return vmcb->control.exit_code == SVM_EXIT_VMRUN;
 }
 
+static void prepare_rsm_intercept(struct svm_test *test)
+{
+    default_prepare(test);
+    vmcb->control.intercept |= 1 << INTERCEPT_RSM;
+    vmcb->control.intercept_exceptions |= (1ULL << UD_VECTOR);
+}
+
+static void test_rsm_intercept(struct svm_test *test)
+{
+    asm volatile ("rsm" : : : "memory");
+}
+
+static bool check_rsm_intercept(struct svm_test *test)
+{
+    return get_test_stage(test) == 2;
+}
+
+static bool finished_rsm_intercept(struct svm_test *test)
+{
+    switch (get_test_stage(test)) {
+    case 0:
+        if (vmcb->control.exit_code != SVM_EXIT_RSM) {
+            report(false, "VMEXIT not due to rsm. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+        vmcb->control.intercept &= ~(1 << INTERCEPT_RSM);
+        inc_test_stage(test);
+        break;
+
+    case 1:
+        if (vmcb->control.exit_code != SVM_EXIT_EXCP_BASE + UD_VECTOR) {
+            report(false, "VMEXIT not due to #UD. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+        vmcb->save.rip += 2;
+        inc_test_stage(test);
+        break;
+
+    default:
+        return true;
+    }
+    return get_test_stage(test) == 2;
+}
+
 static void prepare_cr3_intercept(struct svm_test *test)
 {
     default_prepare(test);
@@ -1819,6 +1865,9 @@ struct svm_test svm_tests[] = {
     { "vmrun intercept check", default_supported, prepare_no_vmrun_int,
       default_prepare_gif_clear, null_test, default_finished,
       check_no_vmrun_int },
+    { "rsm", default_supported,
+      prepare_rsm_intercept, default_prepare_gif_clear,
+      test_rsm_intercept, finished_rsm_intercept, check_rsm_intercept },
     { "cr3 read intercept", default_supported,
       prepare_cr3_intercept, default_prepare_gif_clear,
       test_cr3_intercept, default_finished, check_cr3_intercept },
