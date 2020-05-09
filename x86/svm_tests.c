@@ -1596,6 +1596,153 @@ static bool exc_inject_check(struct svm_test *test)
     return count_exc == 1 && get_test_stage(test) == 3;
 }
 
+static volatile bool virq_fired;
+
+static void virq_isr(isr_regs_t *regs)
+{
+    virq_fired = true;
+}
+
+static void virq_inject_prepare(struct svm_test *test)
+{
+    handle_irq(0xf1, virq_isr);
+    default_prepare(test);
+    vmcb->control.int_ctl = V_INTR_MASKING_MASK | V_IRQ_MASK |
+                            (0x0f << V_INTR_PRIO_SHIFT); // Set to the highest priority
+    vmcb->control.int_vector = 0xf1;
+    virq_fired = false;
+    set_test_stage(test, 0);
+}
+
+static void virq_inject_test(struct svm_test *test)
+{
+    if (virq_fired) {
+        report(false, "virtual interrupt fired before L2 sti");
+        set_test_stage(test, -1);
+        vmmcall();
+    }
+
+    irq_enable();
+    asm volatile ("nop");
+    irq_disable();
+
+    if (!virq_fired) {
+        report(false, "virtual interrupt not fired after L2 sti");
+        set_test_stage(test, -1);
+    }
+
+    vmmcall();
+
+    if (virq_fired) {
+        report(false, "virtual interrupt fired before L2 sti after VINTR intercept");
+        set_test_stage(test, -1);
+        vmmcall();
+    }
+
+    irq_enable();
+    asm volatile ("nop");
+    irq_disable();
+
+    if (!virq_fired) {
+        report(false, "virtual interrupt not fired after return from VINTR intercept");
+        set_test_stage(test, -1);
+    }
+
+    vmmcall();
+
+    irq_enable();
+    asm volatile ("nop");
+    irq_disable();
+
+    if (virq_fired) {
+        report(false, "virtual interrupt fired when V_IRQ_PRIO less than V_TPR");
+        set_test_stage(test, -1);
+    }
+
+    vmmcall();
+    vmmcall();
+}
+
+static bool virq_inject_finished(struct svm_test *test)
+{
+    vmcb->save.rip += 3;
+
+    switch (get_test_stage(test)) {
+    case 0:
+        if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+            report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+        if (vmcb->control.int_ctl & V_IRQ_MASK) {
+            report(false, "V_IRQ not cleared on VMEXIT after firing");
+            return true;
+        }
+        virq_fired = false;
+        vmcb->control.intercept |= (1ULL << INTERCEPT_VINTR);
+        vmcb->control.int_ctl = V_INTR_MASKING_MASK | V_IRQ_MASK |
+                            (0x0f << V_INTR_PRIO_SHIFT);
+        break;
+
+    case 1:
+        if (vmcb->control.exit_code != SVM_EXIT_VINTR) {
+            report(false, "VMEXIT not due to vintr. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+        if (virq_fired) {
+            report(false, "V_IRQ fired before SVM_EXIT_VINTR");
+            return true;
+        }
+        vmcb->control.intercept &= ~(1ULL << INTERCEPT_VINTR);
+        break;
+
+    case 2:
+        if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+            report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+        virq_fired = false;
+        // Set irq to lower priority
+        vmcb->control.int_ctl = V_INTR_MASKING_MASK | V_IRQ_MASK |
+                            (0x08 << V_INTR_PRIO_SHIFT);
+        // Raise guest TPR
+        vmcb->control.int_ctl |= 0x0a & V_TPR_MASK;
+        break;
+
+    case 3:
+        if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+            report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+        vmcb->control.intercept |= (1ULL << INTERCEPT_VINTR);
+        break;
+
+    case 4:
+        // INTERCEPT_VINTR should be ignored because V_INTR_PRIO < V_TPR
+        if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+            report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
+                   vmcb->control.exit_code);
+            return true;
+        }
+        break;
+
+    default:
+        return true;
+    }
+
+    inc_test_stage(test);
+
+    return get_test_stage(test) == 5;
+}
+
+static bool virq_inject_check(struct svm_test *test)
+{
+    return get_test_stage(test) == 5;
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /*
@@ -1751,6 +1898,9 @@ struct svm_test svm_tests[] = {
     { "nmi_hlt", smp_supported, nmi_prepare,
       default_prepare_gif_clear, nmi_hlt_test,
       nmi_hlt_finished, nmi_hlt_check },
+    { "virq_inject", default_supported, virq_inject_prepare,
+      default_prepare_gif_clear, virq_inject_test,
+      virq_inject_finished, virq_inject_check },
     TEST(svm_guest_state_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
