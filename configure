@@ -17,7 +17,7 @@ environ_default=yes
 u32_long=
 vmm="qemu"
 errata_force=0
-erratatxt="errata.txt"
+erratatxt="$srcdir/errata.txt"
 
 usage() {
     cat <<-EOF
@@ -89,7 +89,8 @@ while [[ "$1" = -* ]]; do
 	    environ_default=no
 	    ;;
 	--erratatxt)
-	    erratatxt="$arg"
+	    erratatxt=
+	    [ "$arg" ] && erratatxt=$(eval realpath "$arg")
 	    ;;
 	--help)
 	    usage
@@ -169,9 +170,6 @@ if test ! -e Makefile; then
 
     echo "linking scripts..."
     ln -sf "$srcdir/scripts"
-
-    echo "linking errata.txt..."
-    ln -sf "$srcdir/errata.txt"
 fi
 
 # link lib/asm for the architecture
