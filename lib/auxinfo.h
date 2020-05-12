@@ -13,7 +13,6 @@ struct auxinfo {
 	unsigned long flags;
 };
 
-/* No extern!  Define a common symbol.  */
-struct auxinfo auxinfo;
+extern struct auxinfo auxinfo;
 #endif
 #endif
