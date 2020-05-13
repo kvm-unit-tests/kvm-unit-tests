@@ -8544,7 +8544,7 @@ static void vmx_preemption_timer_zero_test(void)
 	 * an event that you injected.
 	 */
 	vmx_set_test_stage(1);
-	vmx_preemption_timer_zero_inject_db(1 << DB_VECTOR);
+	vmx_preemption_timer_zero_inject_db(true);
 	vmx_preemption_timer_zero_expect_preempt_at_rip(db_fault_address);
 	vmx_preemption_timer_zero_advance_past_vmcall();
 
