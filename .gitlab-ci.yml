@@ -1,4 +1,4 @@
-image: fedora:30
+image: fedora:32
 
 before_script:
  - dnf update -y
@@ -77,6 +77,6 @@ build-i386:
  - ./configure --arch=i386
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     cmpxchg8b eventinj port80 setjmp sieve tsc taskswitch taskswitch2 umip
+     cmpxchg8b eventinj port80 setjmp sieve tsc taskswitch umip
      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
