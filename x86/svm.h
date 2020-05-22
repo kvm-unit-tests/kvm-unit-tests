@@ -324,6 +324,11 @@ struct __attribute__ ((__packed__)) vmcb {
 
 #define SVM_CR0_SELECTIVE_MASK (X86_CR0_TS | X86_CR0_MP)
 
+#define	SVM_CR0_RESERVED_MASK			0xffffffff00000000U
+#define	SVM_DR6_RESERVED_MASK			0xffffffffffff1ff0U
+#define	SVM_DR7_RESERVED_MASK			0xffffffff0000cc00U
+#define	SVM_EFER_RESERVED_MASK			0xffffffffffff0200U
+
 #define MSR_BITMAP_SIZE 8192
 
 struct svm_test {

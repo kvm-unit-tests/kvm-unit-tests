@@ -1895,6 +1895,24 @@ static void basic_guest_main(struct svm_test *test)
 {
 }
 
+
+#define SVM_TEST_REG_RESERVED_BITS(start, end, inc, str_name, reg, val,	\
+				   resv_mask)				\
+{									\
+        u64 tmp, mask;							\
+        int i;								\
+									\
+        for (i = start; i <= end; i = i + inc) {			\
+                mask = 1ull << i;					\
+                if (!(mask & resv_mask))				\
+                        continue;					\
+                tmp = val | mask;					\
+		reg = tmp;						\
+		report(svm_vmrun() == SVM_EXIT_ERR, "Test %s %d:%d: %lx",\
+		    str_name, end, start, tmp);				\
+        }								\
+}
+
 static void svm_guest_state_test(void)
 {
 	test_set_guest(basic_guest_main);
@@ -1936,16 +1954,38 @@ static void svm_guest_state_test(void)
 	/*
 	 * CR0[63:32] are not zero
 	 */
-	int i;
-
 	cr0 = cr0_saved;
-	for (i = 32; i < 63; i = i + 4) {
-		cr0 = cr0_saved | (1ull << i);
-		vmcb->save.cr0 = cr0;
-		report (svm_vmrun() == SVM_EXIT_ERR, "CR0[63:32]: %lx",
-		    cr0 >> 32);
-	}
+
+	SVM_TEST_REG_RESERVED_BITS(32, 63, 4, "CR0", vmcb->save.cr0, cr0_saved,
+	    SVM_CR0_RESERVED_MASK);
 	vmcb->save.cr0 = cr0_saved;
+
+	/*
+	 * DR6[63:32] and DR7[63:32] are MBZ
+	 */
+	u64 dr_saved = vmcb->save.dr6;
+
+	SVM_TEST_REG_RESERVED_BITS(32, 63, 4, "DR6", vmcb->save.dr6, dr_saved,
+	    SVM_DR6_RESERVED_MASK);
+	vmcb->save.dr6 = dr_saved;
+
+	dr_saved = vmcb->save.dr7;
+	SVM_TEST_REG_RESERVED_BITS(32, 63, 4, "DR7", vmcb->save.dr7, dr_saved,
+	    SVM_DR7_RESERVED_MASK);
+
+	vmcb->save.dr7 = dr_saved;
+
+	/*
+	 * EFER MBZ bits: 63:16, 9
+	 */
+	efer_saved = vmcb->save.efer;
+
+	SVM_TEST_REG_RESERVED_BITS(8, 9, 1, "EFER", vmcb->save.efer,
+	    efer_saved, SVM_EFER_RESERVED_MASK);
+	SVM_TEST_REG_RESERVED_BITS(16, 63, 4, "EFER", vmcb->save.efer,
+	    efer_saved, SVM_EFER_RESERVED_MASK);
+
+	vmcb->save.efer = efer_saved;
 }
 
 struct svm_test svm_tests[] = {
