@@ -207,7 +207,6 @@ struct regs get_regs(void)
 #define LOAD_GPR_C      SAVE_GPR_C
 
 struct svm_test *v2_test;
-struct vmcb *vmcb;
 
 #define ASM_VMRUN_CMD                           \
                 "vmload %%rax\n\t"              \
