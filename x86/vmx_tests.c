@@ -7840,6 +7840,23 @@ static void vmx_guest_state_area_test(void)
 	test_canonical(GUEST_BASE_IDTR, "GUEST_BASE_IDTR", false);
 #endif
 
+	u32 guest_desc_limit_saved = vmcs_read(GUEST_LIMIT_GDTR);
+	int i;
+	for (i = 16; i <= 31; i++) {
+		u32 tmp = guest_desc_limit_saved | (1ull << i);
+		vmcs_write(GUEST_LIMIT_GDTR, tmp);
+		test_guest_state("GUEST_LIMIT_GDTR", true, tmp, "GUEST_LIMIT_GDTR");
+	}
+	vmcs_write(GUEST_LIMIT_GDTR, guest_desc_limit_saved);
+
+	guest_desc_limit_saved = vmcs_read(GUEST_LIMIT_IDTR);
+	for (i = 16; i <= 31; i++) {
+		u32 tmp = guest_desc_limit_saved | (1ull << i);
+		vmcs_write(GUEST_LIMIT_IDTR, tmp);
+		test_guest_state("GUEST_LIMIT_IDTR", true, tmp, "GUEST_LIMIT_IDTR");
+	}
+	vmcs_write(GUEST_LIMIT_IDTR, guest_desc_limit_saved);
+
 	/*
 	 * Let the guest finish execution
 	 */
