@@ -7835,6 +7835,11 @@ static void vmx_guest_state_area_test(void)
 	test_load_guest_perf_global_ctrl();
 	test_load_guest_bndcfgs();
 
+#ifdef __x86_64__
+	test_canonical(GUEST_BASE_GDTR, "GUEST_BASE_GDTR", false);
+	test_canonical(GUEST_BASE_IDTR, "GUEST_BASE_IDTR", false);
+#endif
+
 	/*
 	 * Let the guest finish execution
 	 */
