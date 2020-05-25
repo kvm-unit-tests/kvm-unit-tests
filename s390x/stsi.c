@@ -129,11 +129,11 @@ static void test_3_2_2(void)
 	}
 
 	report(!memcmp(data->vm[0].uuid, uuid, sizeof(uuid)), "uuid");
-	report(data->vm[0].conf_cpus == smp_query_num_cpus(), "cpu # configured");
+	report(data->vm[0].conf_cpus == smp_query_num_cpus(), "cpu count configured");
 	report(data->vm[0].total_cpus ==
 	       data->vm[0].reserved_cpus + data->vm[0].conf_cpus,
-	       "cpu # total == conf + reserved");
-	report(data->vm[0].standby_cpus == 0, "cpu # standby");
+	       "cpu count total == conf + reserved");
+	report(data->vm[0].standby_cpus == 0, "cpu count standby");
 	report(!memcmp(data->vm[0].name, vm_name, sizeof(data->vm[0].name)),
 	       "VM name == kvm-unit-test");
 
