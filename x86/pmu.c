@@ -91,6 +91,9 @@ struct pmu_event {
 	{"fixed 3", MSR_CORE_PERF_FIXED_CTR0 + 2, 0.1*N, 30*N}
 };
 
+#define PMU_CAP_FW_WRITES	(1ULL << 13)
+static u64 gp_counter_base = MSR_IA32_PERFCTR0;
+
 static int num_counters;
 
 char *buf;
@@ -125,12 +128,13 @@ static bool check_irq(void)
 
 static bool is_gp(pmu_counter_t *evt)
 {
-	return evt->ctr < MSR_CORE_PERF_FIXED_CTR0;
+	return evt->ctr < MSR_CORE_PERF_FIXED_CTR0 ||
+		evt->ctr >= MSR_IA32_PMC0;
 }
 
 static int event_to_global_idx(pmu_counter_t *cnt)
 {
-	return cnt->ctr - (is_gp(cnt) ? MSR_IA32_PERFCTR0 :
+	return cnt->ctr - (is_gp(cnt) ? gp_counter_base :
 		(MSR_CORE_PERF_FIXED_CTR0 - FIXED_CNT_INDEX));
 }
 
@@ -226,7 +230,7 @@ static bool verify_counter(pmu_counter_t *cnt)
 static void check_gp_counter(struct pmu_event *evt)
 {
 	pmu_counter_t cnt = {
-		.ctr = MSR_IA32_PERFCTR0,
+		.ctr = gp_counter_base,
 		.config = EVNTSEL_OS | EVNTSEL_USR | evt->unit_sel,
 	};
 	int i;
@@ -276,7 +280,7 @@ static void check_counters_many(void)
 			continue;
 
 		cnt[n].count = 0;
-		cnt[n].ctr = MSR_IA32_PERFCTR0 + n;
+		cnt[n].ctr = gp_counter_base + n;
 		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR |
 			gp_events[i % ARRAY_SIZE(gp_events)].unit_sel;
 		n++;
@@ -302,7 +306,7 @@ static void check_counter_overflow(void)
 	uint64_t count;
 	int i;
 	pmu_counter_t cnt = {
-		.ctr = MSR_IA32_PERFCTR0,
+		.ctr = gp_counter_base,
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel /* instructions */,
 		.count = 0,
 	};
@@ -319,6 +323,8 @@ static void check_counter_overflow(void)
 		int idx;
 
 		cnt.count = 1 - count;
+		if (gp_counter_base == MSR_IA32_PMC0)
+			cnt.count &= (1ul << eax.split.bit_width) - 1;
 
 		if (i == num_counters) {
 			cnt.ctr = fixed_events[0].unit_sel;
@@ -346,7 +352,7 @@ static void check_counter_overflow(void)
 static void check_gp_counter_cmask(void)
 {
 	pmu_counter_t cnt = {
-		.ctr = MSR_IA32_PERFCTR0,
+		.ctr = gp_counter_base,
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel /* instructions */,
 		.count = 0,
 	};
@@ -369,7 +375,7 @@ static void do_rdpmc_fast(void *ptr)
 
 static void check_rdpmc(void)
 {
-	uint64_t val = 0x1f3456789ull;
+	uint64_t val = 0xff0123456789ull;
 	bool exc;
 	int i;
 
@@ -378,20 +384,23 @@ static void check_rdpmc(void)
 	for (i = 0; i < num_counters; i++) {
 		uint64_t x;
 		pmu_counter_t cnt = {
-			.ctr = MSR_IA32_PERFCTR0 + i,
+			.ctr = gp_counter_base + i,
 			.idx = i
 		};
 
-		/*
-		 * Only the low 32 bits are writable, and the value is
-		 * sign-extended.
-		 */
-		x = (uint64_t)(int64_t)(int32_t)val;
+	        /*
+	         * Without full-width writes, only the low 32 bits are writable,
+	         * and the value is sign-extended.
+	         */
+		if (gp_counter_base == MSR_IA32_PERFCTR0)
+			x = (uint64_t)(int64_t)(int32_t)val;
+		else
+			x = (uint64_t)(int64_t)val;
 
 		/* Mask according to the number of supported bits */
 		x &= (1ull << eax.split.bit_width) - 1;
 
-		wrmsr(MSR_IA32_PERFCTR0 + i, val);
+		wrmsr(gp_counter_base + i, val);
 		report(rdpmc(i) == x, "cntr-%d", i);
 
 		exc = test_for_exception(GP_VECTOR, do_rdpmc_fast, &cnt);
@@ -423,8 +432,9 @@ static void check_rdpmc(void)
 static void check_running_counter_wrmsr(void)
 {
 	uint64_t status;
+	uint64_t count;
 	pmu_counter_t evt = {
-		.ctr = MSR_IA32_PERFCTR0,
+		.ctr = gp_counter_base,
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel,
 		.count = 0,
 	};
@@ -433,7 +443,7 @@ static void check_running_counter_wrmsr(void)
 
 	start_event(&evt);
 	loop();
-	wrmsr(MSR_IA32_PERFCTR0, 0);
+	wrmsr(gp_counter_base, 0);
 	stop_event(&evt);
 	report(evt.count < gp_events[1].min, "cntr");
 
@@ -443,13 +453,79 @@ static void check_running_counter_wrmsr(void)
 
 	evt.count = 0;
 	start_event(&evt);
-	wrmsr(MSR_IA32_PERFCTR0, -1);
+
+	count = -1;
+	if (gp_counter_base == MSR_IA32_PMC0)
+		count &= (1ul << eax.split.bit_width) - 1;
+
+	wrmsr(gp_counter_base, count);
+
 	loop();
 	stop_event(&evt);
 	status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
 	report(status & 1, "status");
 
 	report_prefix_pop();
+}
+
+static void check_counters(void)
+{
+	check_gp_counters();
+	check_fixed_counters();
+	check_rdpmc();
+	check_counters_many();
+	check_counter_overflow();
+	check_gp_counter_cmask();
+	check_running_counter_wrmsr();
+}
+
+static void do_unsupported_width_counter_write(void *index)
+{
+	wrmsr(MSR_IA32_PMC0 + *((int *) index), 0xffffff0123456789ull);
+}
+
+static void  check_gp_counters_write_width(void)
+{
+	u64 val_64 = 0xffffff0123456789ull;
+	u64 val_32 = val_64 & ((1ul << 32) - 1);
+	u64 val_max_width = val_64 & ((1ul << eax.split.bit_width) - 1);
+	int i;
+
+	/*
+	 * MSR_IA32_PERFCTRn supports 64-bit writes,
+	 * but only the lowest 32 bits are valid.
+	 */
+	for (i = 0; i < num_counters; i++) {
+		wrmsr(MSR_IA32_PERFCTR0 + i, val_32);
+		assert(rdmsr(MSR_IA32_PERFCTR0 + i) == val_32);
+		assert(rdmsr(MSR_IA32_PMC0 + i) == val_32);
+
+		wrmsr(MSR_IA32_PERFCTR0 + i, val_max_width);
+		assert(rdmsr(MSR_IA32_PERFCTR0 + i) == val_32);
+		assert(rdmsr(MSR_IA32_PMC0 + i) == val_32);
+
+		wrmsr(MSR_IA32_PERFCTR0 + i, val_64);
+		assert(rdmsr(MSR_IA32_PERFCTR0 + i) == val_32);
+		assert(rdmsr(MSR_IA32_PMC0 + i) == val_32);
+	}
+
+	/*
+	 * MSR_IA32_PMCn supports writing values Ã¢â‚¬â€¹Ã¢â‚¬â€¹up to GP counter width,
+	 * and only the lowest bits of GP counter width are valid.
+	 */
+	for (i = 0; i < num_counters; i++) {
+		wrmsr(MSR_IA32_PMC0 + i, val_32);
+		assert(rdmsr(MSR_IA32_PMC0 + i) == val_32);
+		assert(rdmsr(MSR_IA32_PERFCTR0 + i) == val_32);
+
+		wrmsr(MSR_IA32_PMC0 + i, val_max_width);
+		assert(rdmsr(MSR_IA32_PMC0 + i) == val_max_width);
+		assert(rdmsr(MSR_IA32_PERFCTR0 + i) == val_max_width);
+
+		report(test_for_exception(GP_VECTOR,
+			do_unsupported_width_counter_write, &i),
+		"writing unsupported width to MSR_IA32_PMC%d raises #GP", i);
+	}
 }
 
 int main(int ac, char **av)
@@ -480,13 +556,14 @@ int main(int ac, char **av)
 
 	apic_write(APIC_LVTPC, PC_VECTOR);
 
-	check_gp_counters();
-	check_fixed_counters();
-	check_rdpmc();
-	check_counters_many();
-	check_counter_overflow();
-	check_gp_counter_cmask();
-	check_running_counter_wrmsr();
+	check_counters();
+
+	if (rdmsr(MSR_IA32_PERF_CAPABILITIES) & PMU_CAP_FW_WRITES) {
+		gp_counter_base = MSR_IA32_PMC0;
+		report_prefix_push("full-width writes");
+		check_counters();
+		check_gp_counters_write_width();
+	}
 
 	return report_summary();
 }
