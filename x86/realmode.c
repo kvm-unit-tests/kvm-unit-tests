@@ -649,24 +649,24 @@ static void test_push_pop(void)
 	MK_INSN(push_es, "mov $0x231, %bx\n\t" //Just write a dummy value to see if it gets overwritten
 			 "mov $0x123, %ax\n\t"
 			 "mov %ax, %es\n\t"
-			 "push %es\n\t"
+			 "pushw %es\n\t"
 			 "pop %bx \n\t"
 			 );
 	MK_INSN(pop_es, "push %ax\n\t"
-			"pop %es\n\t"
+			"popw %es\n\t"
 			"mov %es, %bx\n\t"
 			);
-	MK_INSN(push_pop_ss, "push %ss\n\t"
+	MK_INSN(push_pop_ss, "pushw %ss\n\t"
 			     "pushw %ax\n\t"
 			     "popw %ss\n\t"
 			     "mov %ss, %bx\n\t"
-			     "pop %ss\n\t"
+			     "popw %ss\n\t"
 			);
-	MK_INSN(push_pop_fs, "push %fs\n\t"
+	MK_INSN(push_pop_fs, "pushl %fs\n\t"
 			     "pushl %eax\n\t"
 			     "popl %fs\n\t"
 			     "mov %fs, %ebx\n\t"
-			     "pop %fs\n\t"
+			     "popl %fs\n\t"
 			);
 	MK_INSN(push_pop_high_esp_bits,
 		"xor $0x12340000, %esp \n\t"
@@ -752,7 +752,7 @@ static void test_iret(void)
 			"pushl %cs\n\t"
 			"call 1f\n\t" /* a near call will push eip onto the stack */
 			"jmp 2f\n\t"
-			"1: iret\n\t"
+			"1: iretl\n\t"
 			"2:\n\t"
 		     );
 
@@ -771,7 +771,7 @@ static void test_iret(void)
 			      "pushl %cs\n\t"
 			      "call 1f\n\t"
 			      "jmp 2f\n\t"
-			      "1: iret\n\t"
+			      "1: iretl\n\t"
 			      "2:\n\t");
 
 	MK_INSN(iret_flags16, "pushfw\n\t"
@@ -1340,10 +1340,10 @@ static void test_lds_lss(void)
 {
 	init_inregs(&(struct regs){ .ebx = (unsigned long)&desc });
 
-	MK_INSN(lds, "push %ds\n\t"
+	MK_INSN(lds, "pushl %ds\n\t"
 		     "lds (%ebx), %eax\n\t"
 		     "mov %ds, %ebx\n\t"
-		     "pop %ds\n\t");
+		     "popl %ds\n\t");
 	exec_in_big_real_mode(&insn_lds);
 	report("lds", R_AX | R_BX,
 		outregs.eax == (unsigned long)desc.address &&
@@ -1356,28 +1356,28 @@ static void test_lds_lss(void)
 		outregs.eax == (unsigned long)desc.address &&
 		outregs.ebx == desc.sel);
 
-	MK_INSN(lfs, "push %fs\n\t"
+	MK_INSN(lfs, "pushl %fs\n\t"
 		     "lfs (%ebx), %eax\n\t"
 		     "mov %fs, %ebx\n\t"
-		     "pop %fs\n\t");
+		     "popl %fs\n\t");
 	exec_in_big_real_mode(&insn_lfs);
 	report("lfs", R_AX | R_BX,
 		outregs.eax == (unsigned long)desc.address &&
 		outregs.ebx == desc.sel);
 
-	MK_INSN(lgs, "push %gs\n\t"
+	MK_INSN(lgs, "pushl %gs\n\t"
 		     "lgs (%ebx), %eax\n\t"
 		     "mov %gs, %ebx\n\t"
-		     "pop %gs\n\t");
+		     "popl %gs\n\t");
 	exec_in_big_real_mode(&insn_lgs);
 	report("lgs", R_AX | R_BX,
 		outregs.eax == (unsigned long)desc.address &&
 		outregs.ebx == desc.sel);
 
-	MK_INSN(lss, "push %ss\n\t"
+	MK_INSN(lss, "pushl %ss\n\t"
 		     "lss (%ebx), %eax\n\t"
 		     "mov %ss, %ebx\n\t"
-		     "pop %ss\n\t");
+		     "popl %ss\n\t");
 	exec_in_big_real_mode(&insn_lss);
 	report("lss", R_AX | R_BX,
 		outregs.eax == (unsigned long)desc.address &&
