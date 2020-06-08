@@ -581,7 +581,6 @@ int main(int ac, char **av)
 	struct pci_dev pcidev;
 	int ret;
 
-	smp_init();
 	setup_vm();
 	handle_irq(IPI_TEST_VECTOR, self_ipi_isr);
 	nr_cpus = cpu_count();

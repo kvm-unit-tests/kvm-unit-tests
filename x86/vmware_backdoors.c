@@ -183,7 +183,6 @@ static void check_vmware_backdoors(void)
 int main(int ac, char **av)
 {
 	setup_vm();
-	setup_idt();
 
 	check_vmware_backdoors();
 

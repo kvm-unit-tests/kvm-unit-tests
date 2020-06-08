@@ -58,7 +58,6 @@ int main(int ac, char **av)
 
 #ifdef __x86_64__
 	setup_vm();
-	setup_idt();
 	setup_alt_stack();
 	set_intr_alt_stack(13, gp_tss);
 

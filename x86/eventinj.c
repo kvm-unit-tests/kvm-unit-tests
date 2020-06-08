@@ -212,7 +212,6 @@ int main(void)
 	ulong *pt, *cr3, i;
 
 	setup_vm();
-	setup_idt();
 	setup_alt_stack();
 
 	handle_irq(32, tirq0);

@@ -19,8 +19,6 @@ int main(void)
     int ncpus;
     int i;
 
-    smp_init();
-
     ncpus = cpu_count();
     printf("found %d cpus\n", ncpus);
     for (i = 0; i < ncpus; ++i)

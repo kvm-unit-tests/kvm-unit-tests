@@ -336,7 +336,6 @@ static void stimer_test_all(void)
     int ncpus;
 
     setup_vm();
-    smp_init();
     enable_apic();
 
     ncpus = cpu_count();

@@ -533,7 +533,6 @@ int main(int ac, char **av)
 	struct cpuid id = cpuid(10);
 
 	setup_vm();
-	setup_idt();
 	handle_irq(PC_VECTOR, cnt_overflow);
 	buf = malloc(N*64);
 

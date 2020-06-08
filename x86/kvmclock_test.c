@@ -115,8 +115,6 @@ int main(int ac, char **av)
         if (ac > 3)
                 threshold = atol(av[3]);
 
-        smp_init();
-
         ncpus = cpu_count();
         if (ncpus > MAX_CPU)
                 report_abort("number cpus exceeds %d", MAX_CPU);

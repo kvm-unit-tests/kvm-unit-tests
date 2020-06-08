@@ -1027,7 +1027,6 @@ int main(void)
 	unsigned long t1, t2;
 
 	setup_vm();
-	setup_idt();
 	handle_exception(UD_VECTOR, record_no_fep);
 	asm(KVM_FEP "nop");
 	handle_exception(UD_VECTOR, 0);

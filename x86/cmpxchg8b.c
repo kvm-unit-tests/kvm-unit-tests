@@ -20,7 +20,6 @@ static void test_cmpxchg8b(u32 *mem)
 int main(void)
 {
 	setup_vm();
-	setup_idt();
 
 	test_cmpxchg8b(phys_to_virt(read_cr3()) + 4088);
 	return report_summary();

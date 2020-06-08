@@ -161,8 +161,9 @@ start32:
 	call load_tss
 	call mask_pic_interrupts
 	call enable_apic
-	call smp_init
+	call ap_init
 	call enable_x2apic
+	call smp_init
         push $__environ
         push $__argv
         push __argc
@@ -191,7 +192,7 @@ load_tss:
 	ltr %ax
 	ret
 
-smp_init:
+ap_init:
 	cld
 	lea sipi_entry, %esi
 	xor %edi, %edi
@@ -204,7 +205,6 @@ smp_init:
 1:	pause
 	cmpw %ax, cpu_online_count
 	jne 1b
-smp_init_done:
 	ret
 
 online_cpus:

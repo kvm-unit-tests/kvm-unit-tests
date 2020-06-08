@@ -100,7 +100,6 @@ static void test_syscall_tf(void)
 
 int main(int ac, char **av)
 {
-    setup_idt();
     test_syscall_lazy_load();
     test_syscall_tf();
 

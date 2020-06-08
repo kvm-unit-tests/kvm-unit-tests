@@ -471,7 +471,6 @@ static void update_cr3(void *cr3)
 int main(void)
 {
 	setup_vm();
-	smp_init();
 
 	on_cpus(update_cr3, (void *)read_cr3());
 	mask_pic_interrupts();

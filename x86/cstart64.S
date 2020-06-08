@@ -257,8 +257,9 @@ start64:
 	mov %rax, __args(%rip)
 	call __setup_args
 
-	call smp_init
+	call ap_init
 	call enable_x2apic
+	call smp_init
 
 	mov __argc(%rip), %edi
 	lea __argv(%rip), %rsi
@@ -308,7 +309,7 @@ load_tss:
 	ltr %ax
 	ret
 
-smp_init:
+ap_init:
 	cld
 	lea sipi_entry, %rsi
 	xor %rdi, %rdi
@@ -321,7 +322,6 @@ smp_init:
 1:	pause
 	cmpw %ax, cpu_online_count
 	jne 1b
-smp_init_done:
 	ret
 
 cpu_online_count:	.word 1

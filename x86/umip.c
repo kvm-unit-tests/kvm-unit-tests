@@ -172,7 +172,6 @@ int main(void)
 {
     extern unsigned char kernel_entry;
 
-    setup_idt();
     set_idt_entry(0x20, &kernel_entry, 3);
     handle_exception(13, gp_handler);
     set_iopl(3);

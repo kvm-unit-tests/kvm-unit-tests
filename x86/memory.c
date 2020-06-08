@@ -27,7 +27,6 @@ int main(int ac, char **av)
 {
 	int expected;
 
-	setup_idt();
 	handle_exception(UD_VECTOR, handle_ud);
 
 	/* 3-byte instructions: */

@@ -375,7 +375,6 @@ int main(int ac, char **av)
 	av++;
 
 	setup_vm();
-	smp_init();
 
 	if (!this_cpu_has(X86_FEATURE_SVM)) {
 		printf("SVM not availble\n");

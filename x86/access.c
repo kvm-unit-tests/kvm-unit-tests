@@ -1025,8 +1025,6 @@ int main(void)
 {
     int r;
 
-    setup_idt();
-
     printf("starting test\n\n");
     page_table_levels = 4;
     r = ac_test_run();

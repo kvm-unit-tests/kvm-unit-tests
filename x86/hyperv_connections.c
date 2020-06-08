@@ -272,7 +272,6 @@ int main(int ac, char **av)
 	}
 
 	setup_vm();
-	smp_init();
 	ncpus = cpu_count();
 	if (ncpus > MAX_CPUS)
 		report_abort("# cpus: %d > %d", ncpus, MAX_CPUS);

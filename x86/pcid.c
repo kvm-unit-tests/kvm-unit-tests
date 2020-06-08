@@ -130,8 +130,6 @@ int main(int ac, char **av)
 {
     int pcid_enabled = 0, invpcid_enabled = 0;
 
-    setup_idt();
-
     if (this_cpu_has(X86_FEATURE_PCID))
         pcid_enabled = 1;
     if (this_cpu_has(X86_FEATURE_INVPCID))

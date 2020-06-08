@@ -151,7 +151,6 @@ static void test_no_xsave(void)
 
 int main(void)
 {
-    setup_idt();
     if (this_cpu_has(X86_FEATURE_XSAVE)) {
         printf("CPU has XSAVE feature\n");
         test_xsave();

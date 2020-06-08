@@ -147,7 +147,6 @@ int main(int ac, char **av)
         bool ok;
 
         setup_vm();
-        smp_init();
         enable_apic();
 
         ncpus = cpu_count();

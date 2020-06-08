@@ -151,7 +151,6 @@ int main(int ac, char **av)
 	uint64_t ref1, ref2;
 
 	setup_vm();
-	smp_init();
 
 	ncpus = cpu_count();
 	if (ncpus > MAX_CPU)

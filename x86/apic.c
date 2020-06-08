@@ -648,7 +648,6 @@ static void test_pv_ipi(void)
 int main(void)
 {
     setup_vm();
-    smp_init();
 
     test_lapic_existence();
 

@@ -30,7 +30,6 @@ int main(void)
     bool rflags_rf;
 
     printf("Starting IDT test\n");
-    setup_idt();
     r = test_gp(&rflags_rf);
     report(r == GP_VECTOR, "Testing #GP");
     report(rflags_rf, "Testing #GP rflags.rf");

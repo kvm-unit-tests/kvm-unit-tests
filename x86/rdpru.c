@@ -14,8 +14,6 @@ static int rdpru_checking(void)
 
 int main(int ac, char **av)
 {
-	setup_idt();
-
 	if (this_cpu_has(X86_FEATURE_RDPRU))
 		report_skip("RDPRU raises #UD");
 	else

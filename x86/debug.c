@@ -76,7 +76,6 @@ int main(int ac, char **av)
 {
 	unsigned long start;
 
-	setup_idt();
 	handle_exception(DB_VECTOR, handle_db);
 	handle_exception(BP_VECTOR, handle_bp);
 

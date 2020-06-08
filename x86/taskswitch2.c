@@ -283,7 +283,6 @@ static void test_conforming_switch(void)
 int main(void)
 {
 	setup_vm();
-	setup_idt();
 	setup_tss32();
 
 	test_gdt_task_gate();
