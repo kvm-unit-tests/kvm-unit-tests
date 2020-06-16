@@ -487,7 +487,7 @@ static void do_unsupported_width_counter_write(void *index)
 static void  check_gp_counters_write_width(void)
 {
 	u64 val_64 = 0xffffff0123456789ull;
-	u64 val_32 = val_64 & ((1ul << 32) - 1);
+	u64 val_32 = val_64 & ((1ull << 32) - 1);
 	u64 val_max_width = val_64 & ((1ul << eax.split.bit_width) - 1);
 	int i;
 
