@@ -1,6 +1,7 @@
 cstart.o = $(TEST_DIR)/cstart.o
 bits = 32
 ldarch = elf32-i386
+COMMON_CFLAGS += -mno-sse -mno-sse2
 
 cflatobjs += lib/x86/setjmp32.o
 
