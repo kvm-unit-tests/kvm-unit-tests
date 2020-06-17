@@ -14,7 +14,7 @@
 #define USERMODE_STACK_SIZE	0x2000
 #define RET_TO_KERNEL_IRQ	0x20
 
-jmp_buf jmpbuf;
+static jmp_buf jmpbuf;
 
 static void restore_exec_to_jmpbuf(void)
 {

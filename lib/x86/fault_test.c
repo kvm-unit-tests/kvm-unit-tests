@@ -1,6 +1,6 @@
 #include "fault_test.h"
 
-jmp_buf jmpbuf;
+static jmp_buf jmpbuf;
 
 static void restore_exec_to_jmpbuf(void)
 {
