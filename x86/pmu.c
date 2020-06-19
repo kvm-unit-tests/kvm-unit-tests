@@ -324,11 +324,11 @@ static void check_counter_overflow(void)
 
 		cnt.count = 1 - count;
 		if (gp_counter_base == MSR_IA32_PMC0)
-			cnt.count &= (1ul << eax.split.bit_width) - 1;
+			cnt.count &= (1ull << eax.split.bit_width) - 1;
 
 		if (i == num_counters) {
 			cnt.ctr = fixed_events[0].unit_sel;
-			cnt.count &= (1ul << edx.split.bit_width_fixed) - 1;
+			cnt.count &= (1ull << edx.split.bit_width_fixed) - 1;
 		}
 
 		if (i % 2)
@@ -456,7 +456,7 @@ static void check_running_counter_wrmsr(void)
 
 	count = -1;
 	if (gp_counter_base == MSR_IA32_PMC0)
-		count &= (1ul << eax.split.bit_width) - 1;
+		count &= (1ull << eax.split.bit_width) - 1;
 
 	wrmsr(gp_counter_base, count);
 
@@ -488,7 +488,7 @@ static void  check_gp_counters_write_width(void)
 {
 	u64 val_64 = 0xffffff0123456789ull;
 	u64 val_32 = val_64 & ((1ull << 32) - 1);
-	u64 val_max_width = val_64 & ((1ul << eax.split.bit_width) - 1);
+	u64 val_max_width = val_64 & ((1ull << eax.split.bit_width) - 1);
 	int i;
 
 	/*
