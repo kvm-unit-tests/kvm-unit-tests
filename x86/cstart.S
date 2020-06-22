@@ -96,13 +96,13 @@ MSR_GS_BASE = 0xc0000101
 
 .globl start
 start:
+        mov $stacktop, %esp
         push %ebx
         call setup_multiboot
         call setup_libcflat
         mov mb_cmdline(%ebx), %eax
         mov %eax, __args
         call __setup_args
-        mov $stacktop, %esp
         setup_percpu_area
         call prepare_32
         jmpl $8, $start32
