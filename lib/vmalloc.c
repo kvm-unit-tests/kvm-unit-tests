@@ -20,10 +20,16 @@ static void *page_root;
 
 void *alloc_vpages(ulong nr)
 {
+	uintptr_t ptr;
+
 	spin_lock(&lock);
-	vfree_top -= PAGE_SIZE * nr;
+	ptr = (uintptr_t)vfree_top;
+	ptr -= PAGE_SIZE * nr;
+	vfree_top = (void *)ptr;
 	spin_unlock(&lock);
-	return vfree_top;
+
+	/* Cannot return vfree_top here, we are outside the lock! */
+	return (void *)ptr;
 }
 
 void *alloc_vpage(void)
