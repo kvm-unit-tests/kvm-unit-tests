@@ -37,11 +37,6 @@ void *alloc_vpage(void)
 	return alloc_vpages(1);
 }
 
-void init_alloc_vpage(void *top)
-{
-	vfree_top = top;
-}
-
 void *vmap(phys_addr_t phys, size_t size)
 {
 	void *mem, *p;
@@ -96,6 +91,14 @@ void __attribute__((__weak__)) find_highmem(void)
 {
 }
 
+void init_alloc_vpage(void *top)
+{
+	spin_lock(&lock);
+	assert(alloc_ops != &vmalloc_ops);
+	vfree_top = top;
+	spin_unlock(&lock);
+}
+
 void setup_vm()
 {
 	phys_addr_t base, top;
@@ -124,5 +127,8 @@ void setup_vm()
 		free_pages(phys_to_virt(base), top - base);
 	}
 
+	spin_lock(&lock);
+	assert(alloc_ops != &vmalloc_ops);
 	alloc_ops = &vmalloc_ops;
+	spin_unlock(&lock);
 }
