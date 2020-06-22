@@ -19,6 +19,8 @@ typedef unsigned long pgd_t;
 
 #ifndef __ASSEMBLY__
 
+#define PAGE_ALIGN(addr)        ALIGN(addr, PAGE_SIZE)
+
 #ifdef __x86_64__
 #define LARGE_PAGE_SIZE	(512 * PAGE_SIZE)
 #else
