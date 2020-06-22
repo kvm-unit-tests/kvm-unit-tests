@@ -1789,6 +1789,105 @@ static bool virq_inject_check(struct svm_test *test)
     return get_test_stage(test) == 5;
 }
 
+/*
+ * Detect nested guest RIP corruption as explained in kernel commit
+ * b6162e82aef19fee9c32cb3fe9ac30d9116a8c73
+ *
+ * In the assembly loop below 'ins' is executed while IO instructions
+ * are not intercepted; the instruction is emulated by L0.
+ *
+ * At the same time we are getting interrupts from the local APIC timer,
+ * and we do intercept them in L1
+ *
+ * If the interrupt happens on the insb instruction, L0 will VMexit, emulate
+ * the insb instruction and then it will inject the interrupt to L1 through
+ * a nested VMexit.  Due to a bug, it would leave pre-emulation values of RIP,
+ * RAX and RSP in the VMCB.
+ *
+ * In our intercept handler we detect the bug by checking that RIP is that of
+ * the insb instruction, but its memory operand has already been written.
+ * This means that insb was already executed.
+ */
+
+static volatile int isr_cnt = 0;
+static volatile uint8_t io_port_var = 0xAA;
+extern const char insb_instruction_label[];
+
+static void reg_corruption_isr(isr_regs_t *regs)
+{
+    isr_cnt++;
+    apic_write(APIC_EOI, 0);
+}
+
+static void reg_corruption_prepare(struct svm_test *test)
+{
+    default_prepare(test);
+    set_test_stage(test, 0);
+
+    vmcb->control.int_ctl = V_INTR_MASKING_MASK;
+    vmcb->control.intercept |= (1ULL << INTERCEPT_INTR);
+
+    handle_irq(TIMER_VECTOR, reg_corruption_isr);
+
+    /* set local APIC to inject external interrupts */
+    apic_write(APIC_TMICT, 0);
+    apic_write(APIC_TDCR, 0);
+    apic_write(APIC_LVTT, TIMER_VECTOR | APIC_LVT_TIMER_PERIODIC);
+    apic_write(APIC_TMICT, 1000);
+}
+
+static void reg_corruption_test(struct svm_test *test)
+{
+    /* this is endless loop, which is interrupted by the timer interrupt */
+    asm volatile (
+            "1:\n\t"
+            "movw $0x4d0, %%dx\n\t" // IO port
+            "lea %[io_port_var], %%rdi\n\t"
+            "movb $0xAA, %[io_port_var]\n\t"
+            "insb_instruction_label:\n\t"
+            "insb\n\t"
+            "jmp 1b\n\t"
+
+            : [io_port_var] "=m" (io_port_var)
+            : /* no inputs*/
+            : "rdx", "rdi"
+    );
+}
+
+static bool reg_corruption_finished(struct svm_test *test)
+{
+    if (isr_cnt == 10000) {
+        report(true,
+               "No RIP corruption detected after %d timer interrupts",
+               isr_cnt);
+        set_test_stage(test, 1);
+        return true;
+    }
+
+    if (vmcb->control.exit_code == SVM_EXIT_INTR) {
+
+        void* guest_rip = (void*)vmcb->save.rip;
+
+        irq_enable();
+        asm volatile ("nop");
+        irq_disable();
+
+        if (guest_rip == insb_instruction_label && io_port_var != 0xAA) {
+            report(false,
+                   "RIP corruption detected after %d timer interrupts",
+                   isr_cnt);
+            return true;
+        }
+
+    }
+    return false;
+}
+
+static bool reg_corruption_check(struct svm_test *test)
+{
+    return get_test_stage(test) == 1;
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /*
@@ -1950,6 +2049,9 @@ struct svm_test svm_tests[] = {
     { "virq_inject", default_supported, virq_inject_prepare,
       default_prepare_gif_clear, virq_inject_test,
       virq_inject_finished, virq_inject_check },
+    { "reg_corruption", default_supported, reg_corruption_prepare,
+      default_prepare_gif_clear, reg_corruption_test,
+      reg_corruption_finished, reg_corruption_check },
     TEST(svm_guest_state_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
