@@ -41,7 +41,7 @@ void *vmap(phys_addr_t phys, size_t size)
 	void *mem, *p;
 	unsigned pages;
 
-	size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+	size = PAGE_ALIGN(size);
 	pages = size / PAGE_SIZE;
 	mem = p = alloc_vpages(pages);
 
@@ -60,7 +60,7 @@ static void *vm_memalign(size_t alignment, size_t size)
 	unsigned pages;
 
 	assert(alignment <= PAGE_SIZE);
-	size = (size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+	size = PAGE_ALIGN(size);
 	pages = size / PAGE_SIZE;
 	mem = p = alloc_vpages(pages);
 	while (pages--) {
@@ -104,7 +104,7 @@ void setup_vm()
 	 * so that it can be used to allocate page tables.
 	 */
 	if (!page_alloc_initialized()) {
-		base = (base + PAGE_SIZE - 1) & -PAGE_SIZE;
+		base = PAGE_ALIGN(base);
 		top = top & -PAGE_SIZE;
 		free_pages(phys_to_virt(base), top - base);
 	}
@@ -113,7 +113,7 @@ void setup_vm()
 	phys_alloc_get_unused(&base, &top);
 	page_root = setup_mmu(top);
 	if (base != top) {
-		base = (base + PAGE_SIZE - 1) & -PAGE_SIZE;
+		base = PAGE_ALIGN(base);
 		top = top & -PAGE_SIZE;
 		free_pages(phys_to_virt(base), top - base);
 	}
