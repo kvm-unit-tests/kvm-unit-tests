@@ -39,7 +39,7 @@ extern void phys_alloc_show(void);
 /*
  * phys_alloc_get_unused allocates all remaining memory from the region
  * passed to phys_alloc_init, returning the newly allocated memory's base
- * and top addresses. phys_allo_get_unused will still return base and top
+ * and top addresses. phys_alloc_get_unused will still return base and top
  * when no free memory is remaining, but base will equal top.
  */
 extern void phys_alloc_get_unused(phys_addr_t *p_base, phys_addr_t *p_top);
