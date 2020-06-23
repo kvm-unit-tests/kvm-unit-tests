@@ -94,6 +94,15 @@ MSR_GS_BASE = 0xc0000101
 	wrmsr
 .endm
 
+.macro setup_segments
+	mov $0x10, %ax
+	mov %ax, %ds
+	mov %ax, %es
+	mov %ax, %fs
+	mov %ax, %gs
+	mov %ax, %ss
+.endm
+
 .globl start
 start:
         mov $stacktop, %esp
@@ -109,6 +118,7 @@ start:
 
 prepare_32:
         lgdtl gdt32_descr
+	setup_segments
 
 	mov %cr4, %eax
 	bts $4, %eax  // pse
@@ -133,12 +143,7 @@ save_id:
 	retl
 
 ap_start32:
-	mov $0x10, %ax
-	mov %ax, %ds
-	mov %ax, %es
-	mov %ax, %fs
-	mov %ax, %gs
-	mov %ax, %ss
+	setup_segments
 	mov $-4096, %esp
 	lock/xaddl %esp, smp_stacktop
 	setup_percpu_area
