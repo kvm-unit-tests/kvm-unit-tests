@@ -793,10 +793,8 @@ asm(
 	"insn_rdtsc: rdtsc;ret\n\t"
 	"insn_cr3_load: mov cr3,%rax; mov %rax,%cr3;ret\n\t"
 	"insn_cr3_store: mov %cr3,%rax;ret\n\t"
-#ifdef __x86_64__
 	"insn_cr8_load: xor %eax, %eax; mov %rax,%cr8;ret\n\t"
 	"insn_cr8_store: mov %cr8,%rax;ret\n\t"
-#endif
 	"insn_monitor: xor %eax, %eax; xor %ecx, %ecx; xor %edx, %edx; monitor;ret\n\t"
 	"insn_pause: pause;ret\n\t"
 	"insn_wbinvd: wbinvd;ret\n\t"
@@ -819,10 +817,8 @@ extern void insn_rdpmc(void);
 extern void insn_rdtsc(void);
 extern void insn_cr3_load(void);
 extern void insn_cr3_store(void);
-#ifdef __x86_64__
 extern void insn_cr8_load(void);
 extern void insn_cr8_store(void);
-#endif
 extern void insn_monitor(void);
 extern void insn_pause(void);
 extern void insn_wbinvd(void);
@@ -885,12 +881,10 @@ static struct insn_table insn_table[] = {
 		FIELD_EXIT_QUAL},
 	{"CR3 store", CPU_CR3_STORE, insn_cr3_store, INSN_CPU0, 28, 0x13, 0,
 		FIELD_EXIT_QUAL},
-#ifdef __x86_64__
 	{"CR8 load", CPU_CR8_LOAD, insn_cr8_load, INSN_CPU0, 28, 0x8, 0,
 		FIELD_EXIT_QUAL},
 	{"CR8 store", CPU_CR8_STORE, insn_cr8_store, INSN_CPU0, 28, 0x18, 0,
 		FIELD_EXIT_QUAL},
-#endif
 	{"MONITOR", CPU_MONITOR, insn_monitor, INSN_CPU0, 39, 0, 0, 0, &monitor_supported},
 	{"PAUSE", CPU_PAUSE, insn_pause, INSN_CPU0, 40, 0, 0, 0},
 	// Flags for Secondary Processor-Based VM-Execution Controls
@@ -7603,14 +7597,12 @@ static void test_host_segment_regs(void)
 
 	vmcs_write(HOST_SEL_SS, selector_saved);
 
-#ifdef __x86_64__
 	/*
 	 * Base address for FS, GS and TR must be canonical
 	 */
 	test_canonical(HOST_BASE_FS, "HOST_BASE_FS", true);
 	test_canonical(HOST_BASE_GS, "HOST_BASE_GS", true);
 	test_canonical(HOST_BASE_TR, "HOST_BASE_TR", true);
-#endif
 }
 
 /*
@@ -7619,10 +7611,8 @@ static void test_host_segment_regs(void)
  */
 static void test_host_desc_tables(void)
 {
-#ifdef __x86_64__
 	test_canonical(HOST_BASE_GDTR, "HOST_BASE_GDTR", true);
 	test_canonical(HOST_BASE_IDTR, "HOST_BASE_IDTR", true);
-#endif
 }
 
 /*
@@ -7835,10 +7825,8 @@ static void vmx_guest_state_area_test(void)
 	test_load_guest_perf_global_ctrl();
 	test_load_guest_bndcfgs();
 
-#ifdef __x86_64__
 	test_canonical(GUEST_BASE_GDTR, "GUEST_BASE_GDTR", false);
 	test_canonical(GUEST_BASE_IDTR, "GUEST_BASE_IDTR", false);
-#endif
 
 	u32 guest_desc_limit_saved = vmcs_read(GUEST_LIMIT_GDTR);
 	int i;
