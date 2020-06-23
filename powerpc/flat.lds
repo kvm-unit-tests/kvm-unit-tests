@@ -1,7 +1,17 @@
 
+PHDRS
+{
+    text PT_LOAD FLAGS(5);
+    data PT_LOAD FLAGS(6);
+}
+
 SECTIONS
 {
-    .text : { *(.init) *(.text) *(.text.*) }
+    .text : {
+        *(.init)
+        *(.text)
+        *(.text.*)
+    } :text
     . = ALIGN(64K);
     etext = .;
     .opd : { *(.opd) }
@@ -19,9 +29,12 @@ SECTIONS
     .data : {
         *(.data)
         *(.data.rel*)
-    }
+    } :data
     . = ALIGN(16);
-    .rodata : { *(.rodata) *(.rodata.*) }
+    .rodata : {
+        *(.rodata)
+        *(.rodata.*)
+    } :data
     . = ALIGN(16);
     .bss : { *(.bss) }
     . = ALIGN(256);

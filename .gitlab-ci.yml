@@ -1,4 +1,4 @@
-image: fedora:30
+image: fedora:32
 
 before_script:
  - dnf update -y
@@ -77,6 +77,19 @@ build-i386:
  - ./configure --arch=i386
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     cmpxchg8b eventinj port80 setjmp sieve tsc taskswitch taskswitch2 umip
+     cmpxchg8b eventinj port80 setjmp sieve tsc taskswitch umip
      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
+
+build-clang:
+ script:
+ - dnf install -y qemu-system-x86 clang
+ - ./configure --arch=x86_64 --cc=clang
+ - make -j2
+ - ACCEL=tcg ./run_tests.sh
+     smptest smptest3 vmexit_cpuid vmexit_mov_from_cr8
+     vmexit_mov_to_cr8 vmexit_inl_pmtimer  vmexit_ipi vmexit_ipi_halt
+     vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed
+     eventinj msr port80 setjmp syscall tsc rmap_chain umip intel_iommu
+     | tee results.txt
+ - grep -q PASS results.txt && ! grep -q FAIL results.txt

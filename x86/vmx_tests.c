@@ -2253,7 +2253,9 @@ static void into_guest_main(void)
 		.offset = (uintptr_t)&&into,
 		.selector = KERNEL_CS32,
 	};
-	register uintptr_t rsp asm("rsp");
+	uintptr_t rsp;
+
+	asm volatile ("mov %%rsp, %0" : "=r"(rsp));
 
 	if (fp.offset != (uintptr_t)&&into) {
 		printf("Code address too high.\n");
@@ -3349,7 +3351,9 @@ static void try_compat_invvpid(void *unused)
 		.offset = (uintptr_t)&&invvpid,
 		.selector = KERNEL_CS32,
 	};
-	register uintptr_t rsp asm("rsp");
+	uintptr_t rsp;
+
+	asm volatile ("mov %%rsp, %0" : "=r"(rsp));
 
 	TEST_ASSERT_MSG(fp.offset == (uintptr_t)&&invvpid,
 			"Code address too high.");
@@ -8544,7 +8548,7 @@ static void vmx_preemption_timer_zero_test(void)
 	 * an event that you injected.
 	 */
 	vmx_set_test_stage(1);
-	vmx_preemption_timer_zero_inject_db(1 << DB_VECTOR);
+	vmx_preemption_timer_zero_inject_db(true);
 	vmx_preemption_timer_zero_expect_preempt_at_rip(db_fault_address);
 	vmx_preemption_timer_zero_advance_past_vmcall();
 
