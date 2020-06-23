@@ -1,5 +1,6 @@
 #include "alloc.h"
 #include "asm/page.h"
+#include "bitops.h"
 
 void *malloc(size_t size)
 {
