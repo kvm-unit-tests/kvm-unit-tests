@@ -138,7 +138,7 @@ prepare_32:
 	mov %eax, %cr0
 	ret
 
-smp_stacktop:	.long 0xa0000
+smp_stacktop:	.long stacktop - 4096
 
 save_id:
 	movl $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
