@@ -4,8 +4,6 @@
 .globl boot_idt
 .global online_cpus
 
-boot_idt = 0
-
 ipi_vector = 0x20
 
 max_cpus = MAX_TEST_CPUS
@@ -29,6 +27,12 @@ i = 0
         .long 0x1e7 | (i << 22)
         i = i + 1
         .endr
+
+boot_idt:
+	.rept 256
+	.quad 0
+	.endr
+end_boot_idt:
 
 .globl gdt32
 gdt32:
@@ -71,7 +75,7 @@ tss:
 tss_end:
 
 idt_descr:
-	.word 16 * 256 - 1
+	.word end_boot_idt - boot_idt - 1
 	.long boot_idt
 
 .section .init
