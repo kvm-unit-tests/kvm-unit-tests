@@ -109,7 +109,11 @@ MSR_GS_BASE = 0xc0000101
 
 .globl start
 start:
+        lgdtl gdt32_descr
+        setup_segments
         mov $stacktop, %esp
+        setup_percpu_area
+
         push %ebx
         call setup_multiboot
         addl $4, %esp
@@ -117,14 +121,10 @@ start:
         mov mb_cmdline(%ebx), %eax
         mov %eax, __args
         call __setup_args
-        setup_percpu_area
         call prepare_32
         jmpl $8, $start32
 
 prepare_32:
-        lgdtl gdt32_descr
-	setup_segments
-
 	mov %cr4, %eax
 	bts $4, %eax  // pse
 	mov %eax, %cr4
