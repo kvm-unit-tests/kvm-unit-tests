@@ -112,6 +112,7 @@ start:
         mov $stacktop, %esp
         push %ebx
         call setup_multiboot
+        addl $4, %esp
         call setup_libcflat
         mov mb_cmdline(%ebx), %eax
         mov %eax, __args
