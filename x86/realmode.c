@@ -115,6 +115,10 @@ static int failed;
 static void exit(int code)
 {
 	outb(code, 0xf4);
+
+	while (1) {
+		asm volatile("hlt" ::: "memory");
+	}
 }
 
 struct regs {
