@@ -1799,6 +1799,7 @@ void realmode_start(void)
 unsigned long long r_gdt[] = { 0, 0x9b000000ffff, 0x93000000ffff };
 
 struct table_descr r_gdt_descr = { sizeof(r_gdt) - 1, &r_gdt };
+struct table_descr r_idt_descr = { 0x3ff, 0 };
 
 asm(
 	".section .init \n\t"
@@ -1819,6 +1820,7 @@ asm(
 	".text \n\t"
 	"start: \n\t"
 	"lgdt r_gdt_descr \n\t"
+	"lidt r_idt_descr \n\t"
 	"ljmp $8, $1f; 1: \n\t"
 	".code16gcc \n\t"
 	"mov $16, %eax \n\t"
