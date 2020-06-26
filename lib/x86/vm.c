@@ -154,8 +154,7 @@ void *setup_mmu(phys_addr_t end_of_memory)
     if (end_of_memory > (1ul << 31))
 	    end_of_memory = (1ul << 31);
 
-    /* 0 - 2G memory, 2G-3G valloc area, 3G-4G mmio */
-    setup_mmu_range(cr3, 0, end_of_memory);
+    setup_mmu_range(cr3, 0, (2ul << 30));
     setup_mmu_range(cr3, 3ul << 30, (1ul << 30));
     init_alloc_vpage((void*)(3ul << 30));
 #endif
