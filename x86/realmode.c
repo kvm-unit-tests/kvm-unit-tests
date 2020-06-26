@@ -1378,10 +1378,10 @@ static void test_lds_lss(void)
 		outregs.eax == (unsigned long)desc.address &&
 		outregs.ebx == desc.sel);
 
-	MK_INSN(lss, "pushl %ss\n\t"
+	MK_INSN(lss, "mov %ss, %dx\n\t"
 		     "lss (%ebx), %eax\n\t"
 		     "mov %ss, %ebx\n\t"
-		     "popl %ss\n\t");
+		     "mov %dx, %ss\n\t");
 	exec_in_big_real_mode(&insn_lss);
 	report("lss", R_AX | R_BX,
 		outregs.eax == (unsigned long)desc.address &&
