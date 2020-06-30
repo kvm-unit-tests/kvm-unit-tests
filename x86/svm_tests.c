@@ -1593,8 +1593,6 @@ static void exc_inject_test(struct svm_test *test)
 
 static bool exc_inject_finished(struct svm_test *test)
 {
-    vmcb->save.rip += 3;
-
     switch (get_test_stage(test)) {
     case 0:
         if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
@@ -1602,6 +1600,7 @@ static bool exc_inject_finished(struct svm_test *test)
                    vmcb->control.exit_code);
             return true;
         }
+        vmcb->save.rip += 3;
         vmcb->control.event_inj = NMI_VECTOR | SVM_EVTINJ_TYPE_EXEPT | SVM_EVTINJ_VALID;
         break;
 
@@ -1621,6 +1620,7 @@ static bool exc_inject_finished(struct svm_test *test)
                    vmcb->control.exit_code);
             return true;
         }
+        vmcb->save.rip += 3;
         report(count_exc == 1, "divide overflow exception injected");
         report(!(vmcb->control.event_inj & SVM_EVTINJ_VALID), "eventinj.VALID cleared");
         break;
