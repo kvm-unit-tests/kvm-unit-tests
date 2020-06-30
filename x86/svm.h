@@ -365,6 +365,7 @@ typedef void (*test_guest_func)(struct svm_test *);
 u64 *npt_get_pte(u64 address);
 u64 *npt_get_pde(u64 address);
 u64 *npt_get_pdpe(void);
+u64 *npt_get_pml4e(void);
 bool smp_supported(void);
 bool default_supported(void);
 void default_prepare(struct svm_test *test);

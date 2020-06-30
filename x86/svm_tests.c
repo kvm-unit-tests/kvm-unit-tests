@@ -824,13 +824,13 @@ static void npt_rsvd_pfwalk_prepare(struct svm_test *test)
     u64 *pdpe;
     vmcb_ident(vmcb);
 
-    pdpe = npt_get_pdpe();
+    pdpe = npt_get_pml4e();
     pdpe[0] |= (1ULL << 8);
 }
 
 static bool npt_rsvd_pfwalk_check(struct svm_test *test)
 {
-    u64 *pdpe = npt_get_pdpe();
+    u64 *pdpe = npt_get_pml4e();
     pdpe[0] &= ~(1ULL << 8);
 
     return (vmcb->control.exit_code == SVM_EXIT_NPF)

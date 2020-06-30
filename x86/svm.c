@@ -49,6 +49,11 @@ u64 *npt_get_pdpe(void)
 	return pdpe;
 }
 
+u64 *npt_get_pml4e(void)
+{
+	return pml4e;
+}
+
 bool smp_supported(void)
 {
 	return cpu_count() > 1;
