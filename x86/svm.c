@@ -170,6 +170,7 @@ void vmcb_ident(struct vmcb *vmcb)
 	if (npt_supported()) {
 		ctrl->nested_ctl = 1;
 		ctrl->nested_cr3 = (u64)pml4e;
+		ctrl->tlb_ctl = TLB_CONTROL_FLUSH_ALL_ASID;
 	}
 }
 
