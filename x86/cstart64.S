@@ -2,14 +2,11 @@
 #include "apic-defs.h"
 
 .globl boot_idt
-boot_idt = 0
 
 .globl idt_descr
 .globl tss_descr
 .globl gdt64_desc
 .globl online_cpus
-
-boot_idt = 0
 
 ipi_vector = 0x20
 
