@@ -893,6 +893,11 @@ static bool npt_rw_l1mmio_check(struct svm_test *test)
 #define TSC_OFFSET_VALUE    (~0ull << 48)
 static bool ok;
 
+static bool tsc_adjust_supported(void)
+{
+    return this_cpu_has(X86_FEATURE_TSC_ADJUST);
+}
+
 static void tsc_adjust_prepare(struct svm_test *test)
 {
     default_prepare(test);
@@ -2010,7 +2015,7 @@ struct svm_test svm_tests[] = {
     { "npt_rw_l1mmio", npt_supported, npt_rw_l1mmio_prepare,
       default_prepare_gif_clear, npt_rw_l1mmio_test,
       default_finished, npt_rw_l1mmio_check },
-    { "tsc_adjust", default_supported, tsc_adjust_prepare,
+    { "tsc_adjust", tsc_adjust_supported, tsc_adjust_prepare,
       default_prepare_gif_clear, tsc_adjust_test,
       default_finished, tsc_adjust_check },
     { "latency_run_exit", default_supported, latency_prepare,
