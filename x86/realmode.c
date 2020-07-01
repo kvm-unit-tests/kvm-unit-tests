@@ -77,6 +77,15 @@ static void serial_init(void)
 	lcr = inb(serial_iobase + 0x03);
 	lcr &= ~0x80;
 	outb(lcr, serial_iobase + 0x03);
+
+	/* IER: disable interrupts */
+	outb(0x00, serial_iobase + 0x01);
+	/* LCR: 8 bits, no parity, one stop bit */
+	outb(0x03, serial_iobase + 0x03);
+	/* FCR: disable FIFO queues */
+	outb(0x00, serial_iobase + 0x02);
+	/* MCR: RTS, DTR on */
+	outb(0x03, serial_iobase + 0x04);
 }
 #endif
 
