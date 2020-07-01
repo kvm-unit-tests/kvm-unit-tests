@@ -68,6 +68,11 @@ function print_result()
     fi
 }
 
+function find_word()
+{
+    grep -Fq " $1 " <<< " $2 "
+}
+
 function run()
 {
     local testname="$1"
@@ -84,15 +89,15 @@ function run()
         return
     fi
 
-    if [ -n "$only_tests" ] && ! grep -qw "$testname" <<<$only_tests; then
+    if [ -n "$only_tests" ] && ! find_word "$testname" "$only_tests"; then
         return
     fi
 
-    if [ -n "$only_group" ] && ! grep -qw "$only_group" <<<$groups; then
+    if [ -n "$only_group" ] && ! find_word "$only_group" "$groups"; then
         return
     fi
 
-    if [ -z "$only_group" ] && grep -qw "nodefault" <<<$groups &&
+    if [ -z "$only_group" ] && find_word nodefault "$groups" &&
             skip_nodefault; then
         print_result "SKIP" $testname "" "test marked as manual run only"
         return;
