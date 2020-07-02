@@ -22,12 +22,15 @@
 #include <asm/page.h>
 #include <asm/processor.h>
 #include <asm/smp.h>
+#include <asm/timer.h>
 
 #include "io.h"
 
 #define NR_INITIAL_MEM_REGIONS 16
 
 extern unsigned long stacktop;
+
+struct timer_state __timer_state;
 
 char *initrd;
 u32 initrd_size;
@@ -156,6 +159,43 @@ static void mem_init(phys_addr_t freemem_start)
 	page_alloc_ops_enable();
 }
 
+static void timer_save_state(void)
+{
+	const struct fdt_property *prop;
+	const void *fdt = dt_fdt();
+	int node, len;
+	u32 *data;
+
+	node = fdt_node_offset_by_compatible(fdt, -1, "arm,armv8-timer");
+	assert(node >= 0 || node == -FDT_ERR_NOTFOUND);
+
+	if (node == -FDT_ERR_NOTFOUND) {
+		__timer_state.ptimer.irq = -1;
+		__timer_state.vtimer.irq = -1;
+		return;
+	}
+
+	/*
+	 * From Linux devicetree timer binding documentation
+	 *
+	 * interrupts <type irq flags>:
+	 *	secure timer irq
+	 *	non-secure timer irq		(ptimer)
+	 *	virtual timer irq		(vtimer)
+	 *	hypervisor timer irq
+	 */
+	prop = fdt_get_property(fdt, node, "interrupts", &len);
+	assert(prop && len == (4 * 3 * sizeof(u32)));
+
+	data = (u32 *)prop->data;
+	assert(fdt32_to_cpu(data[3]) == 1 /* PPI */);
+	__timer_state.ptimer.irq = fdt32_to_cpu(data[4]);
+	__timer_state.ptimer.irq_flags = fdt32_to_cpu(data[5]);
+	assert(fdt32_to_cpu(data[6]) == 1 /* PPI */);
+	__timer_state.vtimer.irq = fdt32_to_cpu(data[7]);
+	__timer_state.vtimer.irq_flags = fdt32_to_cpu(data[8]);
+}
+
 void setup(const void *fdt)
 {
 	void *freemem = &stacktop;
@@ -211,6 +251,8 @@ void setup(const void *fdt)
 	io_init();
 
 	/* finish setup */
+	timer_save_state();
+
 	ret = dt_get_bootargs(&bootargs);
 	assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
 	setup_args_progname(bootargs);

@@ -8,14 +8,11 @@
 #include <libcflat.h>
 #include <devicetree.h>
 #include <errata.h>
+#include <asm/timer.h>
 #include <asm/delay.h>
 #include <asm/processor.h>
 #include <asm/gic.h>
 #include <asm/io.h>
-
-#define ARCH_TIMER_CTL_ENABLE  (1 << 0)
-#define ARCH_TIMER_CTL_IMASK   (1 << 1)
-#define ARCH_TIMER_CTL_ISTATUS (1 << 2)
 
 static void *gic_isenabler;
 static void *gic_icenabler;
@@ -108,7 +105,6 @@ static void write_ptimer_ctl(u64 val)
 
 struct timer_info {
 	u32 irq;
-	u32 irq_flags;
 	volatile bool irq_received;
 	u64 (*read_counter)(void);
 	u64 (*read_cval)(void);
@@ -304,23 +300,9 @@ static void test_ptimer(void)
 
 static void test_init(void)
 {
-	const struct fdt_property *prop;
-	const void *fdt = dt_fdt();
-	int node, len;
-	u32 *data;
-
-	node = fdt_node_offset_by_compatible(fdt, -1, "arm,armv8-timer");
-	assert(node >= 0);
-	prop = fdt_get_property(fdt, node, "interrupts", &len);
-	assert(prop && len == (4 * 3 * sizeof(u32)));
-
-	data = (u32 *)prop->data;
-	assert(fdt32_to_cpu(data[3]) == 1);
-	ptimer_info.irq = fdt32_to_cpu(data[4]);
-	ptimer_info.irq_flags = fdt32_to_cpu(data[5]);
-	assert(fdt32_to_cpu(data[6]) == 1);
-	vtimer_info.irq = fdt32_to_cpu(data[7]);
-	vtimer_info.irq_flags = fdt32_to_cpu(data[8]);
+	assert(TIMER_PTIMER_IRQ != -1 && TIMER_VTIMER_IRQ != -1);
+	ptimer_info.irq = TIMER_PTIMER_IRQ;
+	vtimer_info.irq = TIMER_VTIMER_IRQ;
 
 	install_exception_handler(EL1H_SYNC, ESR_EL1_EC_UNKNOWN, ptimer_unsupported_handler);
 	ptimer_info.read_ctl();
