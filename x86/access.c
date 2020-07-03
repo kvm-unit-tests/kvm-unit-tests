@@ -1004,6 +1004,18 @@ static int ac_test_run(void)
 	}
     }
 
+    /* Toggling LA57 in 64-bit mode (guaranteed for this test) is illegal. */
+    if (this_cpu_has(X86_FEATURE_LA57)) {
+        tests++;
+        if (write_cr4_checking(shadow_cr4 ^ X86_CR4_LA57) == GP_VECTOR)
+            successes++;
+
+        /* Force a VM-Exit on KVM, which doesn't intercept LA57 itself. */
+        tests++;
+        if (write_cr4_checking(shadow_cr4 ^ (X86_CR4_LA57 | X86_CR4_PSE)) == GP_VECTOR)
+            successes++;
+    }
+
     ac_env_int(&pool);
     ac_test_init(&at, (void *)(0x123400000000 + 16 * smp_id()));
     do {
