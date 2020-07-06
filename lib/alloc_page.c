@@ -21,7 +21,7 @@ bool page_alloc_initialized(void)
 	return freelist != 0;
 }
 
-void free_pages(void *mem, unsigned long size)
+void free_pages(void *mem, size_t size)
 {
 	void *old_freelist;
 	void *end;
@@ -53,7 +53,7 @@ void free_pages(void *mem, unsigned long size)
 	spin_unlock(&lock);
 }
 
-void free_pages_by_order(void *mem, unsigned long order)
+void free_pages_by_order(void *mem, unsigned int order)
 {
 	free_pages(mem, 1ul << (order + PAGE_SHIFT));
 }
@@ -79,7 +79,7 @@ void *alloc_page()
  * Allocates (1 << order) physically contiguous and naturally aligned pages.
  * Returns NULL if there's no memory left.
  */
-void *alloc_pages(unsigned long order)
+void *alloc_pages(unsigned int order)
 {
 	/* Generic list traversal. */
 	void *prev;
@@ -150,7 +150,7 @@ void free_page(void *page)
 static void *page_memalign(size_t alignment, size_t size)
 {
 	unsigned long n = ALIGN(size, PAGE_SIZE) >> PAGE_SHIFT;
-	unsigned long order;
+	unsigned int order;
 
 	if (!size)
 		return NULL;
