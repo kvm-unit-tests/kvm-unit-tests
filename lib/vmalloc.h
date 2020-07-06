@@ -5,6 +5,9 @@
 
 /* Allocate consecutive virtual pages (without backing) */
 extern void *alloc_vpages(ulong nr);
+/* Allocate consecutive and aligned virtual pages (without backing) */
+extern void *alloc_vpages_aligned(ulong nr, unsigned int alignment_order);
+
 /* Allocate one virtual page (without backing) */
 extern void *alloc_vpage(void);
 /* Set the top of the virtual address space */

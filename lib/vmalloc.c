@@ -12,24 +12,38 @@
 #include "alloc.h"
 #include "alloc_phys.h"
 #include "alloc_page.h"
+#include <bitops.h>
 #include "vmalloc.h"
 
 static struct spinlock lock;
 static void *vfree_top = 0;
 static void *page_root;
 
-void *alloc_vpages(ulong nr)
+/*
+ * Allocate a certain number of pages from the virtual address space (without
+ * physical backing).
+ *
+ * nr is the number of pages to allocate
+ * alignment_pages is the alignment of the allocation *in pages*
+ */
+void *alloc_vpages_aligned(ulong nr, unsigned int align_order)
 {
 	uintptr_t ptr;
 
 	spin_lock(&lock);
 	ptr = (uintptr_t)vfree_top;
 	ptr -= PAGE_SIZE * nr;
+	ptr &= GENMASK_ULL(63, PAGE_SHIFT + align_order);
 	vfree_top = (void *)ptr;
 	spin_unlock(&lock);
 
 	/* Cannot return vfree_top here, we are outside the lock! */
 	return (void *)ptr;
+}
+
+void *alloc_vpages(ulong nr)
+{
+	return alloc_vpages_aligned(nr, 0);
 }
 
 void *alloc_vpage(void)
@@ -55,17 +69,22 @@ void *vmap(phys_addr_t phys, size_t size)
 	return mem;
 }
 
+/*
+ * Allocate virtual memory, with the specified minimum alignment.
+ */
 static void *vm_memalign(size_t alignment, size_t size)
 {
+	phys_addr_t pa;
 	void *mem, *p;
-	size_t pages;
 
-	assert(alignment <= PAGE_SIZE);
-	size = PAGE_ALIGN(size);
-	pages = size / PAGE_SIZE;
-	mem = p = alloc_vpages(pages);
-	while (pages--) {
-		phys_addr_t pa = virt_to_phys(alloc_page());
+	assert(is_power_of_2(alignment));
+
+	size = PAGE_ALIGN(size) / PAGE_SIZE;
+	alignment = get_order(PAGE_ALIGN(alignment) / PAGE_SIZE);
+	mem = p = alloc_vpages_aligned(size, alignment);
+	while (size--) {
+		pa = virt_to_phys(alloc_page());
+		assert(pa);
 		install_page(page_root, pa, p);
 		p += PAGE_SIZE;
 	}
