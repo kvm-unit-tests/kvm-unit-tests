@@ -40,7 +40,7 @@ void *alloc_vpage(void)
 void *vmap(phys_addr_t phys, size_t size)
 {
 	void *mem, *p;
-	unsigned pages;
+	size_t pages;
 
 	size = PAGE_ALIGN(size);
 	pages = size / PAGE_SIZE;
@@ -58,7 +58,7 @@ void *vmap(phys_addr_t phys, size_t size)
 static void *vm_memalign(size_t alignment, size_t size)
 {
 	void *mem, *p;
-	unsigned pages;
+	size_t pages;
 
 	assert(alignment <= PAGE_SIZE);
 	size = PAGE_ALIGN(size);
