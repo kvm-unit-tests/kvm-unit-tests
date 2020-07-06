@@ -175,8 +175,3 @@ void page_alloc_ops_enable(void)
 {
 	alloc_ops = &page_alloc_ops;
 }
-
-unsigned int get_order(size_t size)
-{
-	return is_power_of_2(size) ? fls(size) : fls(size) + 1;
-}

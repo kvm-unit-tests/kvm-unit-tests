@@ -147,11 +147,6 @@ do {									\
 	}								\
 } while (0)
 
-static inline bool is_power_of_2(unsigned long n)
-{
-	return n && !(n & (n - 1));
-}
-
 /*
  * One byte per bit, a ' between each group of 4 bits, and a null terminator.
  */

@@ -74,4 +74,14 @@ static inline unsigned long fls(unsigned long word)
 }
 #endif
 
+static inline bool is_power_of_2(unsigned long n)
+{
+	return n && !(n & (n - 1));
+}
+
+static inline unsigned int get_order(size_t size)
+{
+	return size ? fls(size) + !is_power_of_2(size) : 0;
+}
+
 #endif

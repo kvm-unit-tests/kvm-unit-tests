@@ -15,6 +15,5 @@ void *alloc_pages(unsigned int order);
 void free_page(void *page);
 void free_pages(void *mem, size_t size);
 void free_pages_by_order(void *mem, unsigned int order);
-unsigned int get_order(size_t size);
 
 #endif
