@@ -235,7 +235,7 @@ int svm_vmrun(void)
 		ASM_VMRUN_CMD
 		:
 		: "a" (virt_to_phys(vmcb))
-		: "memory");
+		: "memory", "r15");
 
 	return (vmcb->control.exit_code);
 }
