@@ -325,6 +325,11 @@ struct __attribute__ ((__packed__)) vmcb {
 #define SVM_CR0_SELECTIVE_MASK (X86_CR0_TS | X86_CR0_MP)
 
 #define	SVM_CR0_RESERVED_MASK			0xffffffff00000000U
+#define	SVM_CR3_LEGACY_RESERVED_MASK		0xfe7U
+#define	SVM_CR3_LEGACY_PAE_RESERVED_MASK	0x7U
+#define	SVM_CR3_LONG_RESERVED_MASK		0xfff0000000000fe7U
+#define	SVM_CR4_LEGACY_RESERVED_MASK		0xff88f000U
+#define	SVM_CR4_RESERVED_MASK			0xffffffffff88f000U
 #define	SVM_DR6_RESERVED_MASK			0xffffffffffff1ff0U
 #define	SVM_DR7_RESERVED_MASK			0xffffffff0000cc00U
 #define	SVM_EFER_RESERVED_MASK			0xffffffffffff0200U
