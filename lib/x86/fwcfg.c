@@ -28,6 +28,10 @@ static void read_cfg_override(void)
 	if ((str = getenv("TEST_DEVICE")))
 		no_test_device = !atol(str);
 
+	if ((str = getenv("MEMLIMIT")))
+		fw_override[FW_CFG_MAX_RAM] = atol(str) * 1024 * 1024;
+
+
     fw_override_done = true;
 }
 

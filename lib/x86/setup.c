@@ -66,6 +66,9 @@ void find_highmem(void)
 	u64 upper_end = bootinfo->mem_upper * 1024ull;
 	u64 best_start = (uintptr_t) &edata;
 	u64 best_end = upper_end;
+	u64 max_end = fwcfg_get_u64(FW_CFG_MAX_RAM);
+	if (max_end == 0)
+		max_end = -1ull;
 	bool found = false;
 
 	uintptr_t mmap = bootinfo->mmap_addr;
@@ -79,8 +82,12 @@ void find_highmem(void)
 			continue;
 		if (mem->length < best_end - best_start)
 			continue;
+		if (mem->base_addr >= max_end)
+			continue;
 		best_start = mem->base_addr;
 		best_end = mem->base_addr + mem->length;
+		if (best_end > max_end)
+			best_end = max_end;
 		found = true;
 	}
 
