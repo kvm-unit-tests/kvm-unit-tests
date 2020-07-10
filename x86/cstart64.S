@@ -176,8 +176,7 @@ prepare_64:
 	setup_segments
 
 enter_long_mode:
-	mov %cr4, %eax
-	bts $5, %eax  // pae
+	mov $(1 << 5), %eax // pae
 	mov %eax, %cr4
 
 	mov pt_root, %eax
