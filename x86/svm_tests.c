@@ -815,7 +815,7 @@ static bool npt_rw_pfwalk_check(struct svm_test *test)
     *pte |= (1ULL << 1);
 
     return (vmcb->control.exit_code == SVM_EXIT_NPF)
-           && (vmcb->control.exit_info_1 == 0x200000006ULL)
+           && (vmcb->control.exit_info_1 == 0x200000007ULL)
 	   && (vmcb->control.exit_info_2 == read_cr3());
 }
 
@@ -834,7 +834,7 @@ static bool npt_rsvd_pfwalk_check(struct svm_test *test)
     pdpe[0] &= ~(1ULL << 8);
 
     return (vmcb->control.exit_code == SVM_EXIT_NPF)
-            && (vmcb->control.exit_info_1 == 0x20000000eULL);
+            && (vmcb->control.exit_info_1 == 0x20000000fULL);
 }
 
 static void npt_l1mmio_prepare(struct svm_test *test)
