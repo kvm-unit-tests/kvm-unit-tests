@@ -151,9 +151,6 @@ void *setup_mmu(phys_addr_t end_of_memory)
 
     setup_mmu_range(cr3, 0, end_of_memory);
 #else
-    if (end_of_memory > (1ul << 31))
-	    end_of_memory = (1ul << 31);
-
     setup_mmu_range(cr3, 0, (2ul << 30));
     setup_mmu_range(cr3, 3ul << 30, (1ul << 30));
     init_alloc_vpage((void*)(3ul << 30));
