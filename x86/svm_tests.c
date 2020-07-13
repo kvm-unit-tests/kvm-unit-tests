@@ -2007,38 +2007,14 @@ static void test_cr3(void)
 {
 	/*
 	 * CR3 MBZ bits based on different modes:
-	 *   [2:0]		    - legacy PAE
-	 *   [2:0], [11:5]	    - legacy non-PAE
-	 *   [2:0], [11:5], [63:52] - long mode
+	 *   [63:52] - long mode
 	 */
 	u64 cr3_saved = vmcb->save.cr3;
-	u64 cr4_saved = vmcb->save.cr4;
-	u64 cr4 = cr4_saved;
-	u64 efer_saved = vmcb->save.efer;
-	u64 efer = efer_saved;
 
-	efer &= ~EFER_LME;
-	vmcb->save.efer = efer;
-	cr4 |= X86_CR4_PAE;
-	vmcb->save.cr4 = cr4;
-	SVM_TEST_CR_RESERVED_BITS(0, 2, 1, 3, cr3_saved,
-	    SVM_CR3_LEGACY_PAE_RESERVED_MASK);
-
-	cr4 = cr4_saved & ~X86_CR4_PAE;
-	vmcb->save.cr4 = cr4;
-	SVM_TEST_CR_RESERVED_BITS(0, 11, 1, 3, cr3_saved,
-	    SVM_CR3_LEGACY_RESERVED_MASK);
-
-	cr4 |= X86_CR4_PAE;
-	vmcb->save.cr4 = cr4;
-	efer |= EFER_LME;
-	vmcb->save.efer = efer;
 	SVM_TEST_CR_RESERVED_BITS(0, 63, 1, 3, cr3_saved,
 	    SVM_CR3_LONG_RESERVED_MASK);
 
-	vmcb->save.cr4 = cr4_saved;
 	vmcb->save.cr3 = cr3_saved;
-	vmcb->save.efer = efer_saved;
 }
 
 static void test_cr4(void)
