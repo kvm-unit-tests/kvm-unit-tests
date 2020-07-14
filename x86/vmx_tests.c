@@ -5107,7 +5107,7 @@ static void test_mtf_guest(void)
 	      * MOV RAX is done before the VMCALL such that MTF is only enabled
 	      * for the instruction under test.
 	      */
-	     "mov $0x8000000000000000, %rax;\n\t"
+	     "mov $0xaaaaaaaaaaaaaaaa, %rax;\n\t"
 	     "vmcall;\n\t"
 	     "mov %rax, %cr3;\n\t"
 	     "test_mtf3:\n\t"
