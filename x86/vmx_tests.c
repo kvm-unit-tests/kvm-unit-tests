@@ -7673,6 +7673,11 @@ static void test_host_addr_size(void)
 		vmcs_write(ENT_CONTROLS, entry_ctrl_saved | ENT_GUEST_64);
 		vmcs_write(HOST_RIP, rip_saved);
 		vmcs_write(HOST_CR4, cr4_saved);
+
+		/* Restore host's active RIP and CR4 values. */
+		report_prefix_pushf("restore host state");
+		test_vmx_vmlaunch(0);
+		report_prefix_pop();
 	}
 }
 
