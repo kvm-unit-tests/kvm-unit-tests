@@ -125,7 +125,7 @@ start:
         jmpl $8, $start32
 
 prepare_32:
-	mov %(1 << 4), %eax // pse
+	mov $(1 << 4), %eax // pse
 	mov %eax, %cr4
 
 	mov $pt, %eax
