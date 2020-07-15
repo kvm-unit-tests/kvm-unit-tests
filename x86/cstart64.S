@@ -175,8 +175,12 @@ prepare_64:
 	lgdt gdt64_desc
 	setup_segments
 
+	xor %eax, %eax
+	mov %eax, %cr4
+
 enter_long_mode:
-	mov $(1 << 5), %eax // pae
+	mov %cr4, %eax
+	bts $5, %eax  // pae
 	mov %eax, %cr4
 
 	mov pt_root, %eax
