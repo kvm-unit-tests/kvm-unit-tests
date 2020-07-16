@@ -11,6 +11,8 @@
 #ifndef CSS_H
 #define CSS_H
 
+#define lowcore_ptr ((struct lowcore *)0x0)
+
 /* subchannel ID bit 16 must always be one */
 #define SCHID_ONE	0x00010000
 
@@ -62,9 +64,18 @@ struct orb {
 } __attribute__ ((aligned(4)));
 
 struct scsw {
+#define SCSW_SC_PENDING		0x00000001
+#define SCSW_SC_SECONDARY	0x00000002
+#define SCSW_SC_PRIMARY		0x00000004
+#define SCSW_SC_INTERMEDIATE	0x00000008
+#define SCSW_SC_ALERT		0x00000010
 	uint32_t ctrl;
 	uint32_t ccw_addr;
+#define SCSW_DEVS_DEV_END	0x04
+#define SCSW_DEVS_SCH_END	0x08
 	uint8_t  dev_stat;
+#define SCSW_SCHS_PCI	0x80
+#define SCSW_SCHS_IL	0x40
 	uint8_t  sch_stat;
 	uint16_t count;
 };
@@ -101,6 +112,19 @@ struct irb {
 	uint32_t ecw[8];
 	uint32_t emw[8];
 } __attribute__ ((aligned(4)));
+
+#define CCW_CMD_SENSE_ID	0xe4
+#define CSS_SENSEID_COMMON_LEN	8
+struct senseid {
+	/* common part */
+	uint8_t reserved;        /* always 0x'FF' */
+	uint16_t cu_type;        /* control unit type */
+	uint8_t cu_model;        /* control unit model */
+	uint16_t dev_type;       /* device type */
+	uint8_t dev_model;       /* device model */
+	uint8_t unused;          /* padding byte */
+	uint8_t padding[256 - 8]; /* Extended part */
+} __attribute__ ((aligned(4))) __attribute__ ((packed));
 
 /* CSS low level access functions */
 
@@ -256,4 +280,15 @@ int css_enumerate(void);
 
 #define IO_SCH_ISC      3
 int css_enable(int schid, int isc);
+
+/* Library functions */
+int start_ccw1_chain(unsigned int sid, struct ccw1 *ccw);
+int start_single_ccw(unsigned int sid, int code, void *data, int count,
+		     unsigned char flags);
+void css_irq_io(void);
+int css_residual_count(unsigned int schid);
+
+void enable_io_isc(uint8_t isc);
+int wait_and_check_io_completion(int schid);
+
 #endif

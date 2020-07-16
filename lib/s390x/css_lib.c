@@ -16,6 +16,7 @@
 #include <interrupt.h>
 #include <asm/arch_def.h>
 #include <asm/time.h>
+#include <asm/arch_def.h>
 
 #include <css.h>
 
@@ -140,4 +141,180 @@ retry:
 	report_info("msch: modifying sch %08x failed after %d retries. pmcw flags: %04x",
 		    schid, retry_count, pmcw->flags);
 	return -1;
+}
+
+static struct irb irb;
+
+void css_irq_io(void)
+{
+	int ret = 0;
+	char *flags;
+	int sid;
+
+	report_prefix_push("Interrupt");
+	sid = lowcore_ptr->subsys_id_word;
+	/* Lowlevel set the SID as interrupt parameter. */
+	if (lowcore_ptr->io_int_param != sid) {
+		report(0,
+		       "io_int_param: %x differs from subsys_id_word: %x",
+		       lowcore_ptr->io_int_param, sid);
+		goto pop;
+	}
+	report_info("subsys_id_word: %08x io_int_param %08x io_int_word %08x",
+			lowcore_ptr->subsys_id_word,
+			lowcore_ptr->io_int_param,
+			lowcore_ptr->io_int_word);
+	report_prefix_pop();
+
+	report_prefix_push("tsch");
+	ret = tsch(sid, &irb);
+	switch (ret) {
+	case 1:
+		dump_irb(&irb);
+		flags = dump_scsw_flags(irb.scsw.ctrl);
+		report(0,
+		       "I/O interrupt, but tsch returns CC 1 for subchannel %08x. SCSW flags: %s",
+		       sid, flags);
+		break;
+	case 2:
+		report(0, "tsch returns unexpected CC 2");
+		break;
+	case 3:
+		report(0, "tsch reporting sch %08x as not operational", sid);
+		break;
+	case 0:
+		/* Stay humble on success */
+		break;
+	}
+pop:
+	report_prefix_pop();
+	lowcore_ptr->io_old_psw.mask &= ~PSW_MASK_WAIT;
+}
+
+int start_ccw1_chain(unsigned int sid, struct ccw1 *ccw)
+{
+	struct orb orb = {
+		.intparm = sid,
+		.ctrl = ORB_CTRL_ISIC|ORB_CTRL_FMT|ORB_LPM_DFLT,
+		.cpa = (unsigned int) (unsigned long)ccw,
+	};
+
+	return ssch(sid, &orb);
+}
+
+/*
+ * In the future, we want to implement support for CCW chains;
+ * for that, we will need to work with ccw1 pointers.
+ */
+static struct ccw1 unique_ccw;
+
+int start_single_ccw(unsigned int sid, int code, void *data, int count,
+		     unsigned char flags)
+{
+	int cc;
+	struct ccw1 *ccw = &unique_ccw;
+
+	report_prefix_push("start_subchannel");
+	/* Build the CCW chain with a single CCW */
+	ccw->code = code;
+	ccw->flags = flags;
+	ccw->count = count;
+	ccw->data_address = (int)(unsigned long)data;
+
+	cc = start_ccw1_chain(sid, ccw);
+	if (cc) {
+		report(0, "cc = %d", cc);
+		report_prefix_pop();
+		return cc;
+	}
+	report_prefix_pop();
+	return 0;
+}
+
+/* wait_and_check_io_completion:
+ * @schid: the subchannel ID
+ *
+ * Makes the most common check to validate a successful I/O
+ * completion.
+ * Only report failures.
+ */
+int wait_and_check_io_completion(int schid)
+{
+	int ret = 0;
+
+	wait_for_interrupt(PSW_MASK_IO);
+
+	report_prefix_push("check I/O completion");
+
+	if (lowcore_ptr->io_int_param != schid) {
+		report(0, "interrupt parameter: expected %08x got %08x",
+		       schid, lowcore_ptr->io_int_param);
+		ret = -1;
+		goto end;
+	}
+
+	/* Verify that device status is valid */
+	if (!(irb.scsw.ctrl & SCSW_SC_PENDING)) {
+		report(0, "No status pending after interrupt. Subch Ctrl: %08x",
+		       irb.scsw.ctrl);
+		ret = -1;
+		goto end;
+	}
+
+	if (!(irb.scsw.ctrl & (SCSW_SC_SECONDARY | SCSW_SC_PRIMARY))) {
+		report(0, "Primary or secondary status missing. Subch Ctrl: %08x",
+		       irb.scsw.ctrl);
+		ret = -1;
+		goto end;
+	}
+
+	if (!(irb.scsw.dev_stat & (SCSW_DEVS_DEV_END | SCSW_DEVS_SCH_END))) {
+		report(0, "No device end or sch end. Dev. status: %02x",
+		       irb.scsw.dev_stat);
+		ret = -1;
+		goto end;
+	}
+
+	if (irb.scsw.sch_stat & ~SCSW_SCHS_IL) {
+		report_info("Unexpected Subch. status %02x", irb.scsw.sch_stat);
+		ret = -1;
+		goto end;
+	}
+
+end:
+	report_prefix_pop();
+	return ret;
+}
+
+/*
+ * css_residual_count
+ * Return the residual count, if it is valid.
+ *
+ * Return value:
+ * Success: the residual count
+ * Not meaningful: -1 (-1 can not be a valid count)
+ */
+int css_residual_count(unsigned int schid)
+{
+
+	if (!(irb.scsw.ctrl & (SCSW_SC_PENDING | SCSW_SC_PRIMARY)))
+		return -1;
+
+	if (irb.scsw.dev_stat)
+		if (irb.scsw.sch_stat & ~(SCSW_SCHS_PCI | SCSW_SCHS_IL))
+			return -1;
+
+	return irb.scsw.count;
+}
+
+/*
+ * enable_io_isc: setup ISC in Control Register 6
+ * @isc: The interruption Sub Class as a bitfield
+ */
+void enable_io_isc(uint8_t isc)
+{
+	uint64_t value;
+
+	value = (uint64_t)isc << 24;
+	lctlg(6, value);
 }
