@@ -15,6 +15,7 @@
 #include <string.h>
 #include <interrupt.h>
 #include <asm/arch_def.h>
+#include <asm/time.h>
 
 #include <css.h>
 
@@ -67,4 +68,76 @@ out:
 	report_info("Tested subchannels: %d, I/O subchannels: %d, I/O devices: %d",
 		    scn, scn_found, dev_found);
 	return schid;
+}
+
+/*
+ * css_enable: enable the subchannel with the specified ISC
+ * @schid: Subchannel Identifier
+ * @isc  : number of the interruption subclass to use
+ * Return value:
+ *   On success: 0
+ *   On error the CC of the faulty instruction
+ *      or -1 if the retry count is exceeded.
+ */
+int css_enable(int schid, int isc)
+{
+	struct pmcw *pmcw = &schib.pmcw;
+	int retry_count = 0;
+	uint16_t flags;
+	int cc;
+
+	/* Read the SCHIB for this subchannel */
+	cc = stsch(schid, &schib);
+	if (cc) {
+		report_info("stsch: sch %08x failed with cc=%d", schid, cc);
+		return cc;
+	}
+
+	flags = PMCW_ENABLE | (isc << PMCW_ISC_SHIFT);
+	if ((pmcw->flags & (PMCW_ISC_MASK | PMCW_ENABLE)) == flags) {
+		report_info("stsch: sch %08x already enabled", schid);
+		return 0;
+	}
+
+retry:
+	/* Update the SCHIB to enable the channel and set the ISC */
+	pmcw->flags &= ~PMCW_ISC_MASK;
+	pmcw->flags |= flags;
+
+	/* Tell the CSS we want to modify the subchannel */
+	cc = msch(schid, &schib);
+	if (cc) {
+		/*
+		 * If the subchannel is status pending or
+		 * if a function is in progress,
+		 * we consider both cases as errors.
+		 */
+		report_info("msch: sch %08x failed with cc=%d", schid, cc);
+		return cc;
+	}
+
+	/*
+	 * Read the SCHIB again to verify the enablement
+	 */
+	cc = stsch(schid, &schib);
+	if (cc) {
+		report_info("stsch: updating sch %08x failed with cc=%d",
+			    schid, cc);
+		return cc;
+	}
+
+	if ((pmcw->flags & flags) == flags) {
+		report_info("stsch: sch %08x successfully modified after %d retries",
+			    schid, retry_count);
+		return 0;
+	}
+
+	if (retry_count++ < MAX_ENABLE_RETRIES) {
+		mdelay(10); /* the hardware was not ready, give it some time */
+		goto retry;
+	}
+
+	report_info("msch: modifying sch %08x failed after %d retries. pmcw flags: %04x",
+		    schid, retry_count, pmcw->flags);
+	return -1;
 }

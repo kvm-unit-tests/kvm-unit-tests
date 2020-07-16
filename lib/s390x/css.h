@@ -71,8 +71,10 @@ struct scsw {
 
 struct pmcw {
 	uint32_t intparm;
-#define PMCW_DNV        0x0001
-#define PMCW_ENABLE     0x0080
+#define PMCW_DNV	0x0001
+#define PMCW_ENABLE	0x0080
+#define PMCW_ISC_MASK	0x3800
+#define PMCW_ISC_SHIFT	11
 	uint16_t flags;
 	uint16_t devnum;
 	uint8_t  lpm;
@@ -251,6 +253,7 @@ void dump_orb(struct orb *op);
 
 int css_enumerate(void);
 #define MAX_ENABLE_RETRIES      5
-int css_enable(int schid);
 
+#define IO_SCH_ISC      3
+int css_enable(int schid, int isc);
 #endif
