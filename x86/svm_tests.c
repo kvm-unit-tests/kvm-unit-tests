@@ -1965,6 +1965,43 @@ static bool init_startup_check(struct svm_test *test)
     return cpu_online_count == orig_cpu_count;
 }
 
+static volatile bool init_intercept;
+
+static void init_intercept_prepare(struct svm_test *test)
+{
+    init_intercept = false;
+    vmcb_ident(vmcb);
+    vmcb->control.intercept |= (1ULL << INTERCEPT_INIT);
+}
+
+static void init_intercept_test(struct svm_test *test)
+{
+    apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT, 0);
+}
+
+static bool init_intercept_finished(struct svm_test *test)
+{
+    vmcb->save.rip += 3;
+
+    if (vmcb->control.exit_code != SVM_EXIT_INIT) {
+        report(false, "VMEXIT not due to init intercept. Exit reason 0x%x",
+               vmcb->control.exit_code);
+
+        return true;
+        }
+
+    init_intercept = true;
+
+    report(true, "INIT to vcpu intercepted");
+
+    return true;
+}
+
+static bool init_intercept_check(struct svm_test *test)
+{
+    return init_intercept;
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /*
@@ -2392,6 +2429,9 @@ struct svm_test svm_tests[] = {
     { "svm_init_startup_test", smp_supported, init_startup_prepare,
       default_prepare_gif_clear, null_test,
       init_startup_finished, init_startup_check },
+    { "svm_init_intercept_test", smp_supported, init_intercept_prepare,
+      default_prepare_gif_clear, init_intercept_test,
+      init_intercept_finished, init_intercept_check, .on_vcpu = 2 },
     TEST(svm_cr4_osxsave_test),
     TEST(svm_guest_state_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
