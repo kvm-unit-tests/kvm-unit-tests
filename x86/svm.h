@@ -348,6 +348,8 @@ struct svm_test {
 	ulong scratch;
 	/* Alternative test interface. */
 	void (*v2)(void);
+	int on_vcpu;
+	bool on_vcpu_done;
 };
 
 struct regs {

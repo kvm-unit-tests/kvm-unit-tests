@@ -275,6 +275,17 @@ static void test_run(struct svm_test *test)
 	irq_enable();
 
 	report(test->succeeded(test), "%s", test->name);
+
+        if (test->on_vcpu)
+	    test->on_vcpu_done = true;
+}
+
+static void set_additional_vcpu_msr(void *msr_efer)
+{
+	void *hsave = alloc_page();
+
+	wrmsr(MSR_VM_HSAVE_PA, virt_to_phys(hsave));
+	wrmsr(MSR_EFER, (ulong)msr_efer | EFER_SVME | EFER_NX);
 }
 
 static void setup_svm(void)
@@ -293,6 +304,9 @@ static void setup_svm(void)
 
 	if (!npt_supported())
 		return;
+
+	for (i = 1; i < cpu_count(); i++)
+		on_cpu(i, (void *)set_additional_vcpu_msr, (void *)rdmsr(MSR_EFER));
 
 	printf("NPT detected - running all tests with NPT enabled\n");
 
@@ -396,7 +410,15 @@ int main(int ac, char **av)
 		if (svm_tests[i].supported && !svm_tests[i].supported())
 			continue;
 		if (svm_tests[i].v2 == NULL) {
-			test_run(&svm_tests[i]);
+			if (svm_tests[i].on_vcpu) {
+				if (cpu_count() <= svm_tests[i].on_vcpu)
+					continue;
+				on_cpu_async(svm_tests[i].on_vcpu, (void *)test_run, &svm_tests[i]);
+				while (!svm_tests[i].on_vcpu_done)
+					cpu_relax();
+			}
+			else
+				test_run(&svm_tests[i]);
 		} else {
 			vmcb_ident(vmcb);
 			v2_test = &(svm_tests[i]);

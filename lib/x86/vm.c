@@ -2,6 +2,7 @@
 #include "libcflat.h"
 #include "vmalloc.h"
 #include "alloc_page.h"
+#include "smp.h"
 
 pteval_t *install_pte(pgd_t *cr3,
 		      int pte_level,
@@ -139,9 +140,18 @@ static void setup_mmu_range(pgd_t *cr3, phys_addr_t start, size_t len)
 	install_pages(cr3, phys, max - phys, (void *)(ulong)phys);
 }
 
+static void set_additional_vcpu_vmregs(struct vm_vcpu_info *info)
+{
+	write_cr3(info->cr3);
+	write_cr4(info->cr4);
+	write_cr0(info->cr0);
+}
+
 void *setup_mmu(phys_addr_t end_of_memory)
 {
     pgd_t *cr3 = alloc_page();
+    struct vm_vcpu_info info;
+    int i;
 
     memset(cr3, 0, PAGE_SIZE);
 
@@ -166,6 +176,14 @@ void *setup_mmu(phys_addr_t end_of_memory)
     printf("cr0 = %lx\n", read_cr0());
     printf("cr3 = %lx\n", read_cr3());
     printf("cr4 = %lx\n", read_cr4());
+
+    info.cr3 = read_cr3();
+    info.cr4 = read_cr4();
+    info.cr0 = read_cr0();
+
+    for (i = 1; i < cpu_count(); i++)
+        on_cpu(i, (void *)set_additional_vcpu_vmregs, &info);
+
     return cr3;
 }
 

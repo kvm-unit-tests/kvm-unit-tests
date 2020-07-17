@@ -45,4 +45,11 @@ static inline void *current_page_table(void)
 
 void split_large_page(unsigned long *ptep, int level);
 void force_4k_page(void *addr);
+
+struct vm_vcpu_info {
+        u64 cr3;
+        u64 cr4;
+        u64 cr0;
+};
+
 #endif
