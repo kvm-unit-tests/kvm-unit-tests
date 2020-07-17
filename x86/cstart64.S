@@ -7,6 +7,7 @@
 .globl tss_descr
 .globl gdt64_desc
 .globl online_cpus
+.globl cpu_online_count
 
 ipi_vector = 0x20
 

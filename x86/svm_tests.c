@@ -17,6 +17,8 @@ static void *scratch_page;
 
 #define LATENCY_RUNS 1000000
 
+extern u16 cpu_online_count;
+
 u64 tsc_start;
 u64 tsc_end;
 
@@ -1911,6 +1913,58 @@ static bool reg_corruption_check(struct svm_test *test)
     return get_test_stage(test) == 1;
 }
 
+static void get_tss_entry(void *data)
+{
+    struct descriptor_table_ptr gdt;
+    struct segment_desc64 *gdt_table;
+    struct segment_desc64 *tss_entry;
+    u16 tr = 0;
+
+    sgdt(&gdt);
+    tr = str();
+    gdt_table = (struct segment_desc64 *) gdt.base;
+    tss_entry = &gdt_table[tr / sizeof(struct segment_desc64)];
+    *((struct segment_desc64 **)data) = tss_entry;
+}
+
+static int orig_cpu_count;
+
+static void init_startup_prepare(struct svm_test *test)
+{
+    struct segment_desc64 *tss_entry;
+    int i;
+
+    vmcb_ident(vmcb);
+
+    on_cpu(1, get_tss_entry, &tss_entry);
+
+    orig_cpu_count = cpu_online_count;
+
+    apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT,
+                   id_map[1]);
+
+    delay(100000000ULL);
+
+    --cpu_online_count;
+
+    *(uint64_t *)tss_entry &= ~DESC_BUSY;
+
+    apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_STARTUP, id_map[1]);
+
+    for (i = 0; i < 5 && cpu_online_count < orig_cpu_count; i++)
+       delay(100000000ULL);
+}
+
+static bool init_startup_finished(struct svm_test *test)
+{
+    return true;
+}
+
+static bool init_startup_check(struct svm_test *test)
+{
+    return cpu_online_count == orig_cpu_count;
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /*
@@ -2335,6 +2389,9 @@ struct svm_test svm_tests[] = {
     { "reg_corruption", default_supported, reg_corruption_prepare,
       default_prepare_gif_clear, reg_corruption_test,
       reg_corruption_finished, reg_corruption_check },
+    { "svm_init_startup_test", smp_supported, init_startup_prepare,
+      default_prepare_gif_clear, null_test,
+      init_startup_finished, init_startup_check },
     TEST(svm_cr4_osxsave_test),
     TEST(svm_guest_state_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
