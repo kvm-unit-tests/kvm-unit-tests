@@ -20,8 +20,11 @@
 #define FW_CFG_NUMA             0x0d
 #define FW_CFG_BOOT_MENU        0x0e
 #define FW_CFG_MAX_CPUS         0x0f
-#define FW_CFG_MAX_ENTRY        0x10
+
+/* Dummy entries used when running on bare metal */
 #define FW_CFG_MAX_RAM		0x11
+
+#define FW_CFG_NUM_ENTRIES      (FW_CFG_MAX_RAM + 1)
 
 #define FW_CFG_WRITE_CHANNEL    0x4000
 #define FW_CFG_ARCH_LOCAL       0x8000

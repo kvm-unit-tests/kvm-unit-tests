@@ -4,7 +4,7 @@
 
 static struct spinlock lock;
 
-static long fw_override[FW_CFG_MAX_ENTRY];
+static long fw_override[FW_CFG_NUM_ENTRIES];
 static bool fw_override_done;
 
 bool no_test_device;
@@ -15,7 +15,7 @@ static void read_cfg_override(void)
 	int i;
 
 	/* Initialize to negative value that would be considered as invalid */
-	for (i = 0; i < FW_CFG_MAX_ENTRY; i++)
+	for (i = 0; i < FW_CFG_NUM_ENTRIES; i++)
 		fw_override[i] = -1;
 
 	if ((str = getenv("NR_CPUS")))
@@ -44,7 +44,7 @@ static uint64_t fwcfg_get_u(uint16_t index, int bytes)
     if (!fw_override_done)
         read_cfg_override();
 
-    if (index < FW_CFG_MAX_ENTRY && fw_override[index] >= 0)
+    if (index < FW_CFG_NUM_ENTRIES && fw_override[index] >= 0)
 	    return fw_override[index];
 
     spin_lock(&lock);
