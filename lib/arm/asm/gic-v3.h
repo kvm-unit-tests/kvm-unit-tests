@@ -20,9 +20,12 @@
  */
 #define GICD_CTLR			0x0000
 #define GICD_CTLR_RWP			(1U << 31)
+#define GICD_CTLR_nASSGIreq		(1U << 8)
 #define GICD_CTLR_ARE_NS		(1U << 4)
 #define GICD_CTLR_ENABLE_G1A		(1U << 1)
 #define GICD_CTLR_ENABLE_G1		(1U << 0)
+
+#define GICD_TYPER2_nASSGIcap		(1U << 8)
 
 /* Re-Distributor registers, offsets from RD_base */
 #define GICR_TYPER			0x0008

@@ -26,6 +26,8 @@
 static u32 cntfrq;
 
 static volatile bool irq_ready, irq_received;
+static int nr_ipi_received;
+
 static void *vgic_dist_base;
 static void (*write_eoir)(u32 irqstat);
 
@@ -91,15 +93,55 @@ static void gic_prep_common(void)
 	assert(irq_ready);
 }
 
-static void ipi_prep(void)
+static bool ipi_prep(void)
 {
+	u32 val;
+
+	val = readl(vgic_dist_base + GICD_CTLR);
+	if (readl(vgic_dist_base + GICD_TYPER2) & GICD_TYPER2_nASSGIcap) {
+		/* nASSGIreq can be changed only when GICD is disabled */
+		val &= ~GICD_CTLR_ENABLE_G1A;
+		val &= ~GICD_CTLR_nASSGIreq;
+		writel(val, vgic_dist_base + GICD_CTLR);
+		gicv3_dist_wait_for_rwp();
+
+		val |= GICD_CTLR_ENABLE_G1A;
+		writel(val, vgic_dist_base + GICD_CTLR);
+		gicv3_dist_wait_for_rwp();
+	}
+
+	nr_ipi_received = 0;
 	gic_prep_common();
+	return true;
+}
+
+static bool ipi_hw_prep(void)
+{
+	u32 val;
+
+	val = readl(vgic_dist_base + GICD_CTLR);
+	if (readl(vgic_dist_base + GICD_TYPER2) & GICD_TYPER2_nASSGIcap) {
+		/* nASSGIreq can be changed only when GICD is disabled */
+		val &= ~GICD_CTLR_ENABLE_G1A;
+		val |= GICD_CTLR_nASSGIreq;
+		writel(val, vgic_dist_base + GICD_CTLR);
+		gicv3_dist_wait_for_rwp();
+
+		val |= GICD_CTLR_ENABLE_G1A;
+		writel(val, vgic_dist_base + GICD_CTLR);
+		gicv3_dist_wait_for_rwp();
+	} else {
+		return false;
+	}
+
+	nr_ipi_received = 0;
+	gic_prep_common();
+	return true;
 }
 
 static void ipi_exec(void)
 {
 	unsigned tries = 1 << 28;
-	static int received = 0;
 
 	irq_received = false;
 
@@ -109,9 +151,9 @@ static void ipi_exec(void)
 		cpu_relax();
 
 	if (irq_received)
-		++received;
+		++nr_ipi_received;
 
-	assert_msg(irq_received, "failed to receive IPI in time, but received %d successfully\n", received);
+	assert_msg(irq_received, "failed to receive IPI in time, but received %d successfully\n", nr_ipi_received);
 }
 
 static void hvc_exec(void)
@@ -147,7 +189,7 @@ static void eoi_exec(void)
 
 struct exit_test {
 	const char *name;
-	void (*prep)(void);
+	bool (*prep)(void);
 	void (*exec)(void);
 	bool run;
 };
@@ -158,6 +200,7 @@ static struct exit_test tests[] = {
 	{"mmio_read_vgic",	NULL,		mmio_read_vgic_exec,	true},
 	{"eoi",			NULL,		eoi_exec,		true},
 	{"ipi",			ipi_prep,	ipi_exec,		true},
+	{"ipi_hw",		ipi_hw_prep,	ipi_exec,		true},
 };
 
 struct ns_time {
@@ -181,9 +224,12 @@ static void loop_test(struct exit_test *test)
 	uint64_t start, end, total_ticks, ntimes = NTIMES;
 	struct ns_time total_ns, avg_ns;
 
-	if (test->prep)
-		test->prep();
-
+	if (test->prep) {
+		if(!test->prep()) {
+			printf("%s test skipped\n", test->name);
+			return;
+		}
+	}
 	isb();
 	start = read_sysreg(cntpct_el0);
 	while (ntimes--)
