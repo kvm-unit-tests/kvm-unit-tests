@@ -103,7 +103,9 @@ static void ipi_exec(void)
 	while (!ipi_received && tries--)
 		cpu_relax();
 
-	++received;
+	if (ipi_received)
+		++received;
+
 	assert_msg(ipi_received, "failed to receive IPI in time, but received %d successfully\n", received);
 }
 
