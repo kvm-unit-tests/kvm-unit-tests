@@ -258,6 +258,16 @@ static void timer_exec(void)
 	assert_msg(irq_received, "failed to receive PPI in time, but received %d successfully\n", received);
 }
 
+static void timer_post(uint64_t ntimes, uint64_t *total_ticks)
+{
+	/*
+	 * We use a 10msec timer to test the latency of PPI,
+	 * so we substract the ticks of 10msec to get the
+	 * actual latency
+	 */
+	*total_ticks -= ntimes * (cntfrq / 100);
+}
+
 static void hvc_exec(void)
 {
 	asm volatile("mov w0, #0x4b000000; hvc #0" ::: "w0");
@@ -306,7 +316,7 @@ static struct exit_test tests[] = {
 	{"ipi",			ipi_prep,	ipi_exec,		NULL,		65536,		true},
 	{"ipi_hw",		ipi_hw_prep,	ipi_exec,		NULL,		65536,		true},
 	{"lpi",			lpi_prep,	lpi_exec,		NULL,		65536,		true},
-	{"timer_10ms",		timer_prep,	timer_exec,		NULL,		256,		true},
+	{"timer_10ms",		timer_prep,	timer_exec,		timer_post,	256,		true},
 };
 
 struct ns_time {
