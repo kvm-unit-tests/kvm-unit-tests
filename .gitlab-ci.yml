@@ -105,3 +105,20 @@ build-clang:
      eventinj msr port80 setjmp syscall tsc rmap_chain umip intel_iommu
      | tee results.txt
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
+
+build-centos7:
+ image: centos:7
+ before_script:
+ - yum update -y
+ - yum install -y make python qemu-kvm gcc
+ script:
+ - mkdir build
+ - cd build
+ - ../configure --arch=x86_64 --disable-pretty-print-stacks
+ - make -j2
+ - ACCEL=tcg ./run_tests.sh
+     msr vmexit_cpuid vmexit_mov_from_cr8 vmexit_mov_to_cr8 vmexit_inl_pmtimer
+     vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed port80
+     setjmp sieve tsc rmap_chain umip
+     | tee results.txt
+ - grep -q PASS results.txt && ! grep -q FAIL results.txt
