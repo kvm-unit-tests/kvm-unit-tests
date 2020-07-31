@@ -22,8 +22,6 @@
 #include <asm/gic.h>
 #include <asm/gic-v3-its.h>
 
-#define NTIMES (1U << 16)
-
 static u32 cntfrq;
 
 static volatile bool irq_ready, irq_received;
@@ -234,17 +232,18 @@ struct exit_test {
 	const char *name;
 	bool (*prep)(void);
 	void (*exec)(void);
+	u32 times;
 	bool run;
 };
 
 static struct exit_test tests[] = {
-	{"hvc",			NULL,		hvc_exec,		true},
-	{"mmio_read_user",	NULL,		mmio_read_user_exec,	true},
-	{"mmio_read_vgic",	NULL,		mmio_read_vgic_exec,	true},
-	{"eoi",			NULL,		eoi_exec,		true},
-	{"ipi",			ipi_prep,	ipi_exec,		true},
-	{"ipi_hw",		ipi_hw_prep,	ipi_exec,		true},
-	{"lpi",			lpi_prep,	lpi_exec,		true},
+	{"hvc",			NULL,		hvc_exec,		65536,		true},
+	{"mmio_read_user",	NULL,		mmio_read_user_exec,	65536,		true},
+	{"mmio_read_vgic",	NULL,		mmio_read_vgic_exec,	65536,		true},
+	{"eoi",			NULL,		eoi_exec,		65536,		true},
+	{"ipi",			ipi_prep,	ipi_exec,		65536,		true},
+	{"ipi_hw",		ipi_hw_prep,	ipi_exec,		65536,		true},
+	{"lpi",			lpi_prep,	lpi_exec,		65536,		true},
 };
 
 struct ns_time {
@@ -265,7 +264,7 @@ static void ticks_to_ns_time(uint64_t ticks, struct ns_time *ns_time)
 
 static void loop_test(struct exit_test *test)
 {
-	uint64_t start, end, total_ticks, ntimes = NTIMES;
+	uint64_t start, end, total_ticks, ntimes = 0;
 	struct ns_time total_ns, avg_ns;
 
 	if (test->prep) {
@@ -276,15 +275,17 @@ static void loop_test(struct exit_test *test)
 	}
 	isb();
 	start = read_sysreg(cntpct_el0);
-	while (ntimes--)
+	while (ntimes < test->times) {
 		test->exec();
+		ntimes++;
+	}
 	isb();
 	end = read_sysreg(cntpct_el0);
 
 	total_ticks = end - start;
 	ticks_to_ns_time(total_ticks, &total_ns);
-	avg_ns.ns = total_ns.ns / NTIMES;
-	avg_ns.ns_frac = total_ns.ns_frac / NTIMES;
+	avg_ns.ns = total_ns.ns / ntimes;
+	avg_ns.ns_frac = total_ns.ns_frac / ntimes;
 
 	printf("%-30s%15" PRId64 ".%-15" PRId64 "%15" PRId64 ".%-15" PRId64 "\n",
 		test->name, total_ns.ns, total_ns.ns_frac, avg_ns.ns, avg_ns.ns_frac);
