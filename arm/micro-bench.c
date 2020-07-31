@@ -21,8 +21,10 @@
 #include <libcflat.h>
 #include <asm/gic.h>
 #include <asm/gic-v3-its.h>
+#include <asm/timer.h>
 
 #define NS_5_SECONDS (5 * 1000 * 1000 * 1000UL)
+
 static u32 cntfrq;
 
 static volatile bool irq_ready, irq_received;
@@ -33,9 +35,16 @@ static void (*write_eoir)(u32 irqstat);
 
 static void gic_irq_handler(struct pt_regs *regs)
 {
+	u32 irqstat = gic_read_iar();
 	irq_ready = false;
 	irq_received = true;
-	gic_write_eoir(gic_read_iar());
+	gic_write_eoir(irqstat);
+
+	if (irqstat == PPI(TIMER_VTIMER_IRQ)) {
+		write_sysreg((ARCH_TIMER_CTL_IMASK | ARCH_TIMER_CTL_ENABLE),
+			     cntv_ctl_el0);
+		isb();
+	}
 	irq_ready = true;
 }
 
@@ -198,6 +207,57 @@ static void lpi_exec(void)
 	assert_msg(irq_received, "failed to receive LPI in time, but received %d successfully\n", received);
 }
 
+static bool timer_prep(void)
+{
+	void *gic_isenabler;
+
+	gic_enable_defaults();
+	install_irq_handler(EL1H_IRQ, gic_irq_handler);
+	local_irq_enable();
+
+	switch (gic_version()) {
+	case 2:
+		gic_isenabler = gicv2_dist_base() + GICD_ISENABLER;
+		break;
+	case 3:
+		gic_isenabler = gicv3_sgi_base() + GICR_ISENABLER0;
+		break;
+	default:
+		assert_msg(0, "Unreachable");
+	}
+
+	writel(1 << PPI(TIMER_VTIMER_IRQ), gic_isenabler);
+	write_sysreg(ARCH_TIMER_CTL_ENABLE, cntv_ctl_el0);
+	isb();
+
+	gic_prep_common();
+	return true;
+}
+
+static void timer_exec(void)
+{
+	u64 before_timer;
+	u64 timer_10ms;
+	unsigned tries = 1 << 28;
+	static int received = 0;
+
+	irq_received = false;
+
+	before_timer = read_sysreg(cntvct_el0);
+	timer_10ms = cntfrq / 100;
+	write_sysreg(before_timer + timer_10ms, cntv_cval_el0);
+	write_sysreg(ARCH_TIMER_CTL_ENABLE, cntv_ctl_el0);
+	isb();
+
+	while (!irq_received && tries--)
+		cpu_relax();
+
+	if (irq_received)
+		++received;
+
+	assert_msg(irq_received, "failed to receive PPI in time, but received %d successfully\n", received);
+}
+
 static void hvc_exec(void)
 {
 	asm volatile("mov w0, #0x4b000000; hvc #0" ::: "w0");
@@ -245,6 +305,7 @@ static struct exit_test tests[] = {
 	{"ipi",			ipi_prep,	ipi_exec,		65536,		true},
 	{"ipi_hw",		ipi_hw_prep,	ipi_exec,		65536,		true},
 	{"lpi",			lpi_prep,	lpi_exec,		65536,		true},
+	{"timer_10ms",		timer_prep,	timer_exec,		256,		true},
 };
 
 struct ns_time {
