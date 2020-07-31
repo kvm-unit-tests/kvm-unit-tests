@@ -22,6 +22,7 @@
 #include <asm/gic.h>
 #include <asm/gic-v3-its.h>
 
+#define NS_5_SECONDS (5 * 1000 * 1000 * 1000UL)
 static u32 cntfrq;
 
 static volatile bool irq_ready, irq_received;
@@ -265,25 +266,28 @@ static void ticks_to_ns_time(uint64_t ticks, struct ns_time *ns_time)
 static void loop_test(struct exit_test *test)
 {
 	uint64_t start, end, total_ticks, ntimes = 0;
-	struct ns_time total_ns, avg_ns;
+	struct ns_time avg_ns, total_ns = {};
 
+	total_ticks = 0;
 	if (test->prep) {
 		if(!test->prep()) {
 			printf("%s test skipped\n", test->name);
 			return;
 		}
 	}
-	isb();
-	start = read_sysreg(cntpct_el0);
-	while (ntimes < test->times) {
-		test->exec();
-		ntimes++;
-	}
-	isb();
-	end = read_sysreg(cntpct_el0);
 
-	total_ticks = end - start;
-	ticks_to_ns_time(total_ticks, &total_ns);
+	while (ntimes < test->times && total_ns.ns < NS_5_SECONDS) {
+		isb();
+		start = read_sysreg(cntpct_el0);
+		test->exec();
+		isb();
+		end = read_sysreg(cntpct_el0);
+
+		ntimes++;
+		total_ticks += (end - start);
+		ticks_to_ns_time(total_ticks, &total_ns);
+	}
+
 	avg_ns.ns = total_ns.ns / ntimes;
 	avg_ns.ns_frac = total_ns.ns_frac / ntimes;
 
