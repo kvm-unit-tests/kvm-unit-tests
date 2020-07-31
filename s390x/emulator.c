@@ -14,6 +14,7 @@
 #include <asm/cpacf.h>
 #include <asm/interrupt.h>
 #include <asm/float.h>
+#include <linux/compiler.h>
 
 struct lowcore *lc = NULL;
 
@@ -46,7 +47,7 @@ static void test_spm_ipm(void)
 	__test_spm_ipm(0, 0);
 }
 
-static inline void __test_cpacf(unsigned int opcode, unsigned long func,
+static __always_inline void __test_cpacf(unsigned int opcode, unsigned long func,
 				unsigned int r1, unsigned int r2,
 				unsigned int r3)
 {
@@ -59,7 +60,7 @@ static inline void __test_cpacf(unsigned int opcode, unsigned long func,
 		         [r1] "i" (r1), [r2] "i" (r2), [r3] "i" (r3));
 }
 
-static inline void __test_cpacf_r1_odd(unsigned int opcode)
+static __always_inline void __test_cpacf_r1_odd(unsigned int opcode)
 {
 	report_prefix_push("r1 odd");
 	expect_pgm_int();
@@ -68,7 +69,7 @@ static inline void __test_cpacf_r1_odd(unsigned int opcode)
 	report_prefix_pop();
 }
 
-static inline void __test_cpacf_r1_null(unsigned int opcode)
+static __always_inline void __test_cpacf_r1_null(unsigned int opcode)
 {
 	report_prefix_push("r1 null");
 	expect_pgm_int();
@@ -77,7 +78,7 @@ static inline void __test_cpacf_r1_null(unsigned int opcode)
 	report_prefix_pop();
 }
 
-static inline void __test_cpacf_r2_odd(unsigned int opcode)
+static __always_inline void __test_cpacf_r2_odd(unsigned int opcode)
 {
 	report_prefix_push("r2 odd");
 	expect_pgm_int();
@@ -86,7 +87,7 @@ static inline void __test_cpacf_r2_odd(unsigned int opcode)
 	report_prefix_pop();
 }
 
-static inline void __test_cpacf_r2_null(unsigned int opcode)
+static __always_inline void __test_cpacf_r2_null(unsigned int opcode)
 {
 	report_prefix_push("r2 null");
 	expect_pgm_int();
@@ -95,7 +96,7 @@ static inline void __test_cpacf_r2_null(unsigned int opcode)
 	report_prefix_pop();
 }
 
-static inline void __test_cpacf_r3_odd(unsigned int opcode)
+static __always_inline void __test_cpacf_r3_odd(unsigned int opcode)
 {
 	report_prefix_push("r3 odd");
 	expect_pgm_int();
@@ -104,7 +105,7 @@ static inline void __test_cpacf_r3_odd(unsigned int opcode)
 	report_prefix_pop();
 }
 
-static inline void __test_cpacf_r3_null(unsigned int opcode)
+static __always_inline void __test_cpacf_r3_null(unsigned int opcode)
 {
 	report_prefix_push("r3 null");
 	expect_pgm_int();
@@ -113,7 +114,7 @@ static inline void __test_cpacf_r3_null(unsigned int opcode)
 	report_prefix_pop();
 }
 
-static inline void __test_cpacf_mod_bit(unsigned int opcode)
+static __always_inline void __test_cpacf_mod_bit(unsigned int opcode)
 {
 	report_prefix_push("mod bit");
 	expect_pgm_int();
@@ -122,7 +123,7 @@ static inline void __test_cpacf_mod_bit(unsigned int opcode)
 	report_prefix_pop();
 }
 
-static inline void __test_cpacf_invalid_func(unsigned int opcode)
+static __always_inline void __test_cpacf_invalid_func(unsigned int opcode)
 {
 	report_prefix_push("invalid subfunction");
 	expect_pgm_int();
@@ -137,7 +138,7 @@ static inline void __test_cpacf_invalid_func(unsigned int opcode)
 	report_prefix_pop();
 }
 
-static inline void __test_cpacf_invalid_parm(unsigned int opcode)
+static __always_inline void __test_cpacf_invalid_parm(unsigned int opcode)
 {
 	report_prefix_push("invalid parm address");
 	expect_pgm_int();
@@ -146,7 +147,7 @@ static inline void __test_cpacf_invalid_parm(unsigned int opcode)
 	report_prefix_pop();
 }
 
-static inline void __test_cpacf_protected_parm(unsigned int opcode)
+static __always_inline void __test_cpacf_protected_parm(unsigned int opcode)
 {
 	report_prefix_push("protected parm address");
 	expect_pgm_int();
@@ -157,7 +158,7 @@ static inline void __test_cpacf_protected_parm(unsigned int opcode)
 	report_prefix_pop();
 }
 
-static inline void __test_basic_cpacf_opcode(unsigned int opcode)
+static __always_inline void __test_basic_cpacf_opcode(unsigned int opcode)
 {
 	bool mod_bit_allowed = false;
 

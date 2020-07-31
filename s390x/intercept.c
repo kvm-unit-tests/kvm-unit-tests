@@ -14,6 +14,7 @@
 #include <asm/interrupt.h>
 #include <asm/page.h>
 #include <asm/facility.h>
+#include <asm/time.h>
 
 static uint8_t pagebuf[PAGE_SIZE * 2] __attribute__((aligned(PAGE_SIZE * 2)));
 
@@ -151,16 +152,6 @@ static void test_testblock(void)
 	expect_pgm_int();
 	asm volatile (" .insn	rre,0xb22c0000,0,%0\n" : : "r"(-4096L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
-}
-
-static uint64_t get_clock_ms(void)
-{
-	uint64_t clk;
-
-	asm volatile(" stck %0 " : : "Q"(clk) : "memory");
-
-	/* Bit 51 is incrememented each microsecond */
-	return (clk >> (63 - 51)) / 1000;
 }
 
 struct {

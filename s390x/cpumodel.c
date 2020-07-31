@@ -11,14 +11,19 @@
  */
 
 #include <asm/facility.h>
+#include <vm.h>
 
-static int dep[][2] = {
+static struct {
+	int facility;
+	int implied;
+	bool expected_tcg_fail;
+} dep[] = {
 	/* from SA22-7832-11 4-98 facility indications */
 	{   4,   3 },
 	{   5,   3 },
 	{   5,   4 },
 	{  19,  18 },
-	{  37,  42 },
+	{  37,  42, true },  /* TCG does not have DFP and won't get it soon */
 	{  43,  42 },
 	{  73,  49 },
 	{ 134, 129 },
@@ -46,11 +51,13 @@ int main(void)
 
 	report_prefix_push("dependency");
 	for (i = 0; i < ARRAY_SIZE(dep); i++) {
-		if (test_facility(dep[i][0])) {
-			report(test_facility(dep[i][1]), "%d implies %d",
-				dep[i][0], dep[i][1]);
+		if (test_facility(dep[i].facility)) {
+			report_xfail(dep[i].expected_tcg_fail && vm_is_tcg(),
+				     test_facility(dep[i].implied),
+				     "%d implies %d",
+				     dep[i].facility, dep[i].implied);
 		} else {
-			report_skip("facility %d not present", dep[i][0]);
+			report_skip("facility %d not present", dep[i].facility);
 		}
 	}
 	report_prefix_pop();
