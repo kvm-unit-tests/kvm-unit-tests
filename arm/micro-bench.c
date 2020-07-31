@@ -293,19 +293,20 @@ struct exit_test {
 	const char *name;
 	bool (*prep)(void);
 	void (*exec)(void);
+	void (*post)(uint64_t ntimes, uint64_t *total_ticks);
 	u32 times;
 	bool run;
 };
 
 static struct exit_test tests[] = {
-	{"hvc",			NULL,		hvc_exec,		65536,		true},
-	{"mmio_read_user",	NULL,		mmio_read_user_exec,	65536,		true},
-	{"mmio_read_vgic",	NULL,		mmio_read_vgic_exec,	65536,		true},
-	{"eoi",			NULL,		eoi_exec,		65536,		true},
-	{"ipi",			ipi_prep,	ipi_exec,		65536,		true},
-	{"ipi_hw",		ipi_hw_prep,	ipi_exec,		65536,		true},
-	{"lpi",			lpi_prep,	lpi_exec,		65536,		true},
-	{"timer_10ms",		timer_prep,	timer_exec,		256,		true},
+	{"hvc",			NULL,		hvc_exec,		NULL,		65536,		true},
+	{"mmio_read_user",	NULL,		mmio_read_user_exec,	NULL,		65536,		true},
+	{"mmio_read_vgic",	NULL,		mmio_read_vgic_exec,	NULL,		65536,		true},
+	{"eoi",			NULL,		eoi_exec,		NULL,		65536,		true},
+	{"ipi",			ipi_prep,	ipi_exec,		NULL,		65536,		true},
+	{"ipi_hw",		ipi_hw_prep,	ipi_exec,		NULL,		65536,		true},
+	{"lpi",			lpi_prep,	lpi_exec,		NULL,		65536,		true},
+	{"timer_10ms",		timer_prep,	timer_exec,		NULL,		256,		true},
 };
 
 struct ns_time {
@@ -346,6 +347,11 @@ static void loop_test(struct exit_test *test)
 
 		ntimes++;
 		total_ticks += (end - start);
+		ticks_to_ns_time(total_ticks, &total_ns);
+	}
+
+	if (test->post) {
+		test->post(ntimes, &total_ticks);
 		ticks_to_ns_time(total_ticks, &total_ns);
 	}
 
