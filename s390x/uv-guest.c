@@ -15,6 +15,7 @@
 #include <asm/interrupt.h>
 #include <asm/facility.h>
 #include <asm/uv.h>
+#include <sclp.h>
 
 static unsigned long page;
 
@@ -99,6 +100,10 @@ static void test_sharing(void)
 	uvcb.header.len = sizeof(uvcb);
 	cc = uv_call(0, (u64)&uvcb);
 	report(cc == 0 && uvcb.header.rc == UVC_RC_EXECUTED, "share");
+	uvcb.paddr = get_ram_size() + PAGE_SIZE;
+	cc = uv_call(0, (u64)&uvcb);
+	report(cc == 1 && uvcb.header.rc == 0x101, "invalid memory");
+	uvcb.paddr = page;
 	report_prefix_pop();
 
 	report_prefix_push("unshare");
