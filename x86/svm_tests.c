@@ -1988,7 +1988,51 @@ static void test_efer(void)
 	SVM_TEST_REG_RESERVED_BITS(16, 63, 4, "EFER", vmcb->save.efer,
 	    efer_saved, SVM_EFER_RESERVED_MASK);
 
+	/*
+	 * EFER.LME and CR0.PG are both set and CR4.PAE is zero.
+	 */
+	u64 cr0_saved = vmcb->save.cr0;
+	u64 cr0;
+	u64 cr4_saved = vmcb->save.cr4;
+	u64 cr4;
+
+	efer = efer_saved | EFER_LME;
+	vmcb->save.efer = efer;
+	cr0 = cr0_saved | X86_CR0_PG | X86_CR0_PE;
+	vmcb->save.cr0 = cr0;
+	cr4 = cr4_saved & ~X86_CR4_PAE;
+	vmcb->save.cr4 = cr4;
+	report(svm_vmrun() == SVM_EXIT_ERR, "EFER.LME=1 (%lx), "
+	    "CR0.PG=1 (%lx) and CR4.PAE=0 (%lx)", efer, cr0, cr4);
+
+	/*
+	 * EFER.LME and CR0.PG are both set and CR0.PE is zero.
+	 */
+	vmcb->save.cr4 = cr4_saved | X86_CR4_PAE;
+	cr0 &= ~X86_CR0_PE;
+	vmcb->save.cr0 = cr0;
+	report(svm_vmrun() == SVM_EXIT_ERR, "EFER.LME=1 (%lx), "
+	    "CR0.PG=1 and CR0.PE=0 (%lx)", efer, cr0);
+
+	/*
+	 * EFER.LME, CR0.PG, CR4.PAE, CS.L, and CS.D are all non-zero.
+	 */
+	u32 cs_attrib_saved = vmcb->save.cs.attrib;
+	u32 cs_attrib;
+
+	cr0 |= X86_CR0_PE;
+	vmcb->save.cr0 = cr0;
+	cs_attrib = cs_attrib_saved | SVM_SELECTOR_L_MASK |
+	    SVM_SELECTOR_DB_MASK;
+	vmcb->save.cs.attrib = cs_attrib;
+	report(svm_vmrun() == SVM_EXIT_ERR, "EFER.LME=1 (%lx), "
+	    "CR0.PG=1 (%lx), CR4.PAE=1 (%lx), CS.L=1 and CS.D=1 (%x)",
+	    efer, cr0, cr4, cs_attrib);
+
+	vmcb->save.cr0 = cr0_saved;
+	vmcb->save.cr4 = cr4_saved;
 	vmcb->save.efer = efer_saved;
+	vmcb->save.cs.attrib = cs_attrib_saved;
 }
 
 static void test_cr0(void)
