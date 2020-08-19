@@ -36,10 +36,18 @@ typedef unsigned long pgd_t;
 #define PT64_NX_MASK		(1ull << 63)
 #define PT_ADDR_MASK		GENMASK_ULL(51, 12)
 
+#define PDPTE64_PAGE_SIZE_MASK	  (1ull << 7)
+#define PDPTE64_RSVD_MASK	  GENMASK_ULL(51, cpuid_maxphyaddr())
+
 #define PT_AD_MASK              (PT_ACCESSED_MASK | PT_DIRTY_MASK)
+
+#define PAE_PDPTE_RSVD_MASK     (GENMASK_ULL(63, cpuid_maxphyaddr()) |	\
+				 GENMASK_ULL(8, 5) | GENMASK_ULL(2, 1))
+
 
 #ifdef __x86_64__
 #define	PAGE_LEVEL	4
+#define	PDPT_LEVEL	3
 #define	PGDIR_WIDTH	9
 #define	PGDIR_MASK	511
 #else
