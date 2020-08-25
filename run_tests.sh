@@ -88,18 +88,19 @@ if [[ $tap_output == "no" ]]; then
     postprocess_suite_output() { cat; }
 else
     process_test_output() {
+        local testname="$1"
         CR=$'\r'
         while read -r line; do
             line="${line%$CR}"
             case "${line:0:4}" in
                 PASS)
-                    echo "ok TEST_NUMBER - ${line#??????}" >&3
+                    echo "ok TEST_NUMBER - ${testname}: ${line#??????}" >&3
                     ;;
                 FAIL)
-                    echo "not ok TEST_NUMBER - ${line#??????}" >&3
+                    echo "not ok TEST_NUMBER - ${testname}: ${line#??????}" >&3
                     ;;
                 SKIP)
-                    echo "ok TEST_NUMBER - ${line#??????} # skip" >&3
+                    echo "ok TEST_NUMBER - ${testname}: ${line#??????} # skip" >&3
                     ;;
                 *)
                     ;;
@@ -121,12 +122,14 @@ else
     }
 fi
 
-RUNTIME_log_stderr () { process_test_output; }
+RUNTIME_log_stderr () { process_test_output "$1"; }
 RUNTIME_log_stdout () {
+    local testname="$1"
     if [ "$PRETTY_PRINT_STACKS" = "yes" ]; then
-        ./scripts/pretty_print_stacks.py $1 | process_test_output
+        local kernel="$2"
+        ./scripts/pretty_print_stacks.py "$kernel" | process_test_output "$testname"
     else
-        process_test_output
+        process_test_output "$testname"
     fi
 }
 
