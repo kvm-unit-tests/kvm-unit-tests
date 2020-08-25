@@ -140,10 +140,10 @@ function run()
     # extra_params in the config file may contain backticks that need to be
     # expanded, so use eval to start qemu.  Use "> >(foo)" instead of a pipe to
     # preserve the exit status.
-    summary=$(eval $cmdline 2> >(RUNTIME_log_stderr) \
-                             > >(tee >(RUNTIME_log_stdout $kernel) | extract_summary))
+    summary=$(eval $cmdline 2> >(RUNTIME_log_stderr $testname) \
+                             > >(tee >(RUNTIME_log_stdout $testname $kernel) | extract_summary))
     ret=$?
-    [ "$STANDALONE" != "yes" ] && echo > >(RUNTIME_log_stdout $kernel)
+    [ "$STANDALONE" != "yes" ] && echo > >(RUNTIME_log_stdout $testname $kernel)
 
     if [ $ret -eq 0 ]; then
         print_result "PASS" $testname "$summary"
