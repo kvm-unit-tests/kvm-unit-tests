@@ -53,9 +53,6 @@ skip_nodefault()
 
 function print_result()
 {
-    # output test results in a TAP format
-    # https://testanything.org/tap-version-13-specification.html
-
     local status="$1"
     local testname="$2"
     local summary="$3"
