@@ -720,6 +720,32 @@ static bool npt_nx_check(struct svm_test *test)
            && (vmcb->control.exit_info_1 == 0x100000015ULL);
 }
 
+static void npt_np_prepare(struct svm_test *test)
+{
+    u64 *pte;
+
+    scratch_page = alloc_page();
+    vmcb_ident(vmcb);
+    pte = npt_get_pte((u64)scratch_page);
+
+    *pte &= ~1ULL;
+}
+
+static void npt_np_test(struct svm_test *test)
+{
+    (void) *(volatile u64 *)scratch_page;
+}
+
+static bool npt_np_check(struct svm_test *test)
+{
+    u64 *pte = npt_get_pte((u64)scratch_page);
+
+    *pte |= 1ULL;
+
+    return (vmcb->control.exit_code == SVM_EXIT_NPF)
+           && (vmcb->control.exit_info_1 == 0x100000004ULL);
+}
+
 static void npt_us_prepare(struct svm_test *test)
 {
     u64 *pte;
@@ -2119,6 +2145,9 @@ struct svm_test svm_tests[] = {
     { "npt_nx", npt_supported, npt_nx_prepare,
       default_prepare_gif_clear, null_test,
       default_finished, npt_nx_check },
+    { "npt_np", npt_supported, npt_np_prepare,
+      default_prepare_gif_clear, npt_np_test,
+      default_finished, npt_np_check },
     { "npt_us", npt_supported, npt_us_prepare,
       default_prepare_gif_clear, npt_us_test,
       default_finished, npt_us_check },
