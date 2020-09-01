@@ -1,11 +1,10 @@
-sudo: true
 dist: bionic
 language: c
 cache: ccache
 git:
   submodules: false
 
-matrix:
+jobs:
   include:
 
     - addons:
