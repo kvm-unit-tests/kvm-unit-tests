@@ -78,7 +78,7 @@ static void pf_isr(struct ex_regs *r)
 			phys = 0;
 			break;
 		default:
-			report(false, "unexpected async pf reason %d", reason);
+			report(false, "unexpected async pf reason %" PRId32, reason);
 			break;
 	}
 }

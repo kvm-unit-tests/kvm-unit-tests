@@ -248,7 +248,7 @@ void pci_bar_print(struct pci_dev *dev, int bar_num)
 		printf("BAR#%d,%d [%" PRIx64 "-%" PRIx64 " ",
 		       bar_num, bar_num + 1, start, end);
 	} else {
-		printf("BAR#%d [%02x-%02x ",
+		printf("BAR#%d [%02" PRIx32 "-%02" PRIx32 " ",
 		       bar_num, (uint32_t)start, (uint32_t)end);
 	}
 

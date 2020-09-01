@@ -89,7 +89,8 @@ static void test_msr_rw(int msr_index, unsigned long long input, unsigned long l
     wrmsr(msr_index, input);
     r = rdmsr(msr_index);
     if (expected != r) {
-        printf("testing %s: output = %#x:%#x expected = %#x:%#x\n", sptr,
+        printf("testing %s: output = %#" PRIx32 ":%#" PRIx32
+	       " expected = %#" PRIx32 ":%#" PRIx32 "\n", sptr,
                (u32)(r >> 32), (u32)r, (u32)(expected >> 32), (u32)expected);
     }
     report(expected == r, "%s", sptr);

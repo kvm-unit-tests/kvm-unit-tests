@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 		*resume_vec++ = *addr;
 	printf("copy resume code from %p\n", &resume_start);
 
-	printf("PM1a event registers at %x\n", fadt->pm1a_evt_blk);
+	printf("PM1a event registers at %" PRIx32 "\n", fadt->pm1a_evt_blk);
 	outw(0x400, fadt->pm1a_evt_blk + 2);
 
 	/* Setup RTC alarm to wake up on the next second.  */
