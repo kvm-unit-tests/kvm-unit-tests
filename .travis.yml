@@ -18,6 +18,16 @@ jobs:
       - ACCEL="kvm"
 
     - addons:
+        apt_packages: clang-10 qemu-system-x86
+      env:
+      - CONFIG="--cc=clang-10"
+      - BUILD_DIR="."
+      - TESTS="access asyncpf debug emulator ept hypercall hyperv_stimer
+               hyperv_synic idt_test intel_iommu ioapic ioapic-split
+               kvmclock_test msr pcid rdpru rmap_chain s3 setjmp umip"
+      - ACCEL="kvm"
+
+    - addons:
         apt_packages: gcc qemu-system-x86
       env:
       - CONFIG=""
