@@ -108,6 +108,48 @@ matrix:
       - TESTS="sieve"
       - ACCEL="tcg,firmware=s390x/run"
 
+    - os: osx
+      osx_image: xcode11.6
+      addons:
+        homebrew:
+          packages:
+            - bash
+            - coreutils
+            - gnu-getopt
+            - qemu
+            - x86_64-elf-gcc
+      env:
+      - CONFIG="--cross-prefix=x86_64-elf-
+                --getopt=/usr/local/opt/gnu-getopt/bin/getopt"
+      - BUILD_DIR="build"
+      - TESTS="ioapic-split smptest smptest3 vmexit_cpuid vmexit_mov_from_cr8
+               vmexit_mov_to_cr8 vmexit_inl_pmtimer vmexit_ipi vmexit_ipi_halt
+               vmexit_ple_round_robin vmexit_tscdeadline
+               vmexit_tscdeadline_immed eventinj msr port80 setjmp
+               syscall tsc rmap_chain umip intel_iommu"
+      - ACCEL="tcg"
+
+    - os: osx
+      osx_image: xcode11.6
+      addons:
+        homebrew:
+          packages:
+            - bash
+            - coreutils
+            - gnu-getopt
+            - qemu
+            - i686-elf-gcc
+      env:
+      - CONFIG="--arch=i386 --cross-prefix=i686-elf-
+                --getopt=/usr/local/opt/gnu-getopt/bin/getopt"
+      - BUILD_DIR="build"
+      - TESTS="cmpxchg8b vmexit_cpuid vmexit_mov_from_cr8 vmexit_mov_to_cr8
+               vmexit_inl_pmtimer vmexit_ipi vmexit_ipi_halt
+               vmexit_ple_round_robin vmexit_tscdeadline
+               vmexit_tscdeadline_immed eventinj port80 setjmp tsc
+               taskswitch umip"
+      - ACCEL="tcg"
+
 before_script:
   - if [ "$ACCEL" = "kvm" ]; then
       sudo chgrp kvm /usr/bin/qemu-system-* ;
