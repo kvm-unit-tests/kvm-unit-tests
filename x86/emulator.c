@@ -61,71 +61,71 @@ static void test_cmps_one(unsigned char *m1, unsigned char *m3)
 
 	rsi = m1; rdi = m3; rcx = 30;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
-		     "repe/cmpsb"
+		     "repe cmpsb"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
 	report(rcx == 0 && rsi == m1 + 30 && rdi == m3 + 30, "repe/cmpsb (1)");
 
 	rsi = m1; rdi = m3; rcx = 30;
 	asm volatile("or $1, %[tmp]\n\t" // clear ZF
-		     "repe/cmpsb"
+		     "repe cmpsb"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
 	report(rcx == 0 && rsi == m1 + 30 && rdi == m3 + 30,
-	       "repe/cmpsb (1.zf)");
+	       "repe cmpsb (1.zf)");
 
 	rsi = m1; rdi = m3; rcx = 15;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
-		     "repe/cmpsw"
+		     "repe cmpsw"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
-	report(rcx == 0 && rsi == m1 + 30 && rdi == m3 + 30, "repe/cmpsw (1)");
+	report(rcx == 0 && rsi == m1 + 30 && rdi == m3 + 30, "repe cmpsw (1)");
 
 	rsi = m1; rdi = m3; rcx = 7;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
-		     "repe/cmpsl"
+		     "repe cmpsl"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
-	report(rcx == 0 && rsi == m1 + 28 && rdi == m3 + 28, "repe/cmpll (1)");
+	report(rcx == 0 && rsi == m1 + 28 && rdi == m3 + 28, "repe cmpll (1)");
 
 	rsi = m1; rdi = m3; rcx = 4;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
-		     "repe/cmpsq"
+		     "repe cmpsq"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
-	report(rcx == 0 && rsi == m1 + 32 && rdi == m3 + 32, "repe/cmpsq (1)");
+	report(rcx == 0 && rsi == m1 + 32 && rdi == m3 + 32, "repe cmpsq (1)");
 
 	rsi = m1; rdi = m3; rcx = 130;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
-		     "repe/cmpsb"
+		     "repe cmpsb"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
 	report(rcx == 29 && rsi == m1 + 101 && rdi == m3 + 101,
-	       "repe/cmpsb (2)");
+	       "repe cmpsb (2)");
 
 	rsi = m1; rdi = m3; rcx = 65;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
-		     "repe/cmpsw"
+		     "repe cmpsw"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
 	report(rcx == 14 && rsi == m1 + 102 && rdi == m3 + 102,
-	       "repe/cmpsw (2)");
+	       "repe cmpsw (2)");
 
 	rsi = m1; rdi = m3; rcx = 32;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
-		     "repe/cmpsl"
+		     "repe cmpsl"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
 	report(rcx == 6 && rsi == m1 + 104 && rdi == m3 + 104,
-	       "repe/cmpll (2)");
+	       "repe cmpll (2)");
 
 	rsi = m1; rdi = m3; rcx = 16;
 	asm volatile("xor %[tmp], %[tmp] \n\t"
-		     "repe/cmpsq"
+		     "repe cmpsq"
 		     : "+S"(rsi), "+D"(rdi), "+c"(rcx), [tmp]"=&r"(tmp)
 		     : : "cc");
 	report(rcx == 3 && rsi == m1 + 104 && rdi == m3 + 104,
-	       "repe/cmpsq (2)");
+	       "repe cmpsq (2)");
 
 }
 
@@ -304,8 +304,8 @@ static void test_ljmp(void *mem)
     volatile int res = 1;
 
     *(unsigned long**)m = &&jmpf;
-    asm volatile ("data16/mov %%cs, %0":"=m"(*(m + sizeof(unsigned long))));
-    asm volatile ("rex64/ljmp *%0"::"m"(*m));
+    asm volatile ("data16 mov %%cs, %0":"=m"(*(m + sizeof(unsigned long))));
+    asm volatile ("rex64 ljmp *%0"::"m"(*m));
     res = 0;
 jmpf:
     report(res, "ljmp");

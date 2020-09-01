@@ -149,7 +149,7 @@ save_id:
 ap_start32:
 	setup_segments
 	mov $-4096, %esp
-	lock/xaddl %esp, smp_stacktop
+	lock xaddl %esp, smp_stacktop
 	setup_percpu_area
 	call prepare_32
 	call reset_apic
@@ -206,7 +206,7 @@ ap_init:
 	lea sipi_entry, %esi
 	xor %edi, %edi
 	mov $(sipi_end - sipi_entry), %ecx
-	rep/movsb
+	rep movsb
 	mov $APIC_DEFAULT_PHYS_BASE, %eax
 	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT), APIC_ICR(%eax)
 	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_STARTUP), APIC_ICR(%eax)
