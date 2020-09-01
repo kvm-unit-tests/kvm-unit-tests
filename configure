@@ -15,6 +15,7 @@ endian=""
 pretty_print_stacks=yes
 environ_default=yes
 u32_long=
+wa_divide=
 vmm="qemu"
 errata_force=0
 erratatxt="$srcdir/errata.txt"
@@ -156,6 +157,16 @@ EOF
 u32_long=$("$cross_prefix$cc" -E lib-test.c | grep -v '^#' | grep -q long && echo yes)
 rm -f lib-test.c
 
+# check if slash can be used for division
+if [ "$arch" = "i386" ] || [ "$arch" = "x86_64" ]; then
+  cat << EOF > lib-test.S
+foo:
+    movl (8 / 2), %eax
+EOF
+  wa_divide=$("$cross_prefix$cc" -c lib-test.S >/dev/null 2>&1 || echo yes)
+  rm -f lib-test.{o,S}
+fi
+
 # Are we in a separate build tree? If so, link the Makefile
 # and shared stuff so that 'make' and run_tests.sh work.
 if test ! -e Makefile; then
@@ -205,6 +216,7 @@ PRETTY_PRINT_STACKS=$pretty_print_stacks
 ENVIRON_DEFAULT=$environ_default
 ERRATATXT=$erratatxt
 U32_LONG_FMT=$u32_long
+WA_DIVIDE=$wa_divide
 EOF
 
 cat <<EOF > lib/config.h

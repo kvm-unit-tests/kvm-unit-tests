@@ -29,6 +29,9 @@ $(libcflat): LDFLAGS += -nostdlib
 $(libcflat): CFLAGS += -ffreestanding -I $(SRCDIR)/lib -I lib
 
 COMMON_CFLAGS += -m$(bits)
+ifneq ($(WA_DIVIDE),)
+COMMON_CFLAGS += -Wa,--divide
+endif
 COMMON_CFLAGS += -O1
 
 # stack.o relies on frame pointers.
