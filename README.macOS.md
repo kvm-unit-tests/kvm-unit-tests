@@ -1,14 +1,54 @@
 # kvm-unit-tests on macOS
 
-Cross-compiler with ELF support is required for build of kvm-unit-tests on
-macOS.
+The tests can be used to validate TCG or HVF accel on macOS.
 
-## Building cross-compiler from source
+## Prerequisites
 
-A cross-compiler toolchain can be built from source using crosstool-ng. The
-latest released version of
+GNU getopt and coreutils should be installed prior to building and running the
+tests. They're available in [homebrew](https://brew.sh):
+```
+$ brew install coreutils
+$ brew install gnu-getopt
+```
+
+A cross-compiler with ELF support is required to build kvm-unit-tests on macOS.
+
+### Pre-built cross-compiler
+
+Binary packages of ELF cross-compilers for i386 and x86_64 target can be
+installed from homebrew:
+```
+$ brew install i686-elf-gcc
+$ brew install x86_64-elf-gcc
+```
+
+32-bit x86 tests can be built like that:
+```
+$ ./configure \
+  --getopt=/usr/local/opt/gnu-getopt/bin/getopt \
+  --arch=i386 \
+  --cross-prefix=i686-elf-
+$ make -j $(nproc)
+```
+
+64-bit x86 tests can be built likewise:
+```
+$ ./configure \
+  --getopt=/usr/local/opt/gnu-getopt/bin/getopt \
+  --arch=x86_64 \
+  --cross-prefix=x86_64-elf-
+$ make -j $(nproc)
+```
+
+Out-of-tree build can be used to make tests for both architectures
+simultaneously in separate build directories.
+
+### Building cross-compiler from source
+
+An alternative is to build cross-compiler toolchain from source using
+crosstool-ng. The latest released version of
 [crosstool-ng](https://github.com/crosstool-ng/crosstool-ng) can be installed
-using [homebrew](https://brew.sh)
+using homebrew:
 ```
 $ brew install crosstool-ng
 ```
@@ -30,18 +70,9 @@ $ ct-ng -C $X_BUILD_DIR build CT_PREFIX=$X_INSTALL_DIR
 
 Once compiled, the cross-compiler can be used to build the tests:
 ```
-$ ./configure --cross-prefix=$X_INSTALL_DIR/x86_64-unknown-linux-gnu/bin/x86_64-unknown-linux-gnu-
-$ make
-```
-
-## Pre-built cross-compiler
-
-x86_64-elf-gcc package in Homebrew provides pre-built cross-compiler but it
-fails to compile kvm-unit-tests.
-
-## Running the tests
-
-GNU coreutils should be installed prior to running the tests: 
-```
-$ brew install coreutils
+$ ./configure \
+  --getopt=/usr/local/opt/gnu-getopt/bin/getopt \
+  --arch=x86_64 \
+  --cross-prefix=$X_INSTALL_DIR/x86_64-unknown-linux-gnu/bin/x86_64-unknown-linux-gnu-
+$ make -j $(nproc)
 ```
