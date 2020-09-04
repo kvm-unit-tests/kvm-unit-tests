@@ -355,4 +355,18 @@ static inline int uv_set_se_hdr(uint64_t handle, void *hdr, size_t len)
 	return uv_call(0, (uint64_t)&uvcb);
 }
 
+static inline int uv_unp_page(uint64_t handle, uint64_t gaddr, uint64_t tweak1, uint64_t tweak2)
+{
+	struct uv_cb_unp uvcb = {
+		.header.cmd = UVC_CMD_UNPACK_IMG,
+		.header.len = sizeof(uvcb),
+		.guest_handle = handle,
+		.gaddr = gaddr,
+		.tweak[0] = tweak1,
+		.tweak[1] = tweak2,
+	};
+
+	return uv_call(0, (uint64_t)&uvcb);
+}
+
 #endif

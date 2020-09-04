@@ -203,6 +203,9 @@ union {
 struct vm_uv {
 	uint64_t vm_handle;
 	uint64_t vcpu_handle;
+	void *conf_base_stor;
+	void *conf_var_stor;
+	void *cpu_stor;
 };
 
 struct vm_save_regs {
