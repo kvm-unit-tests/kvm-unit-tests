@@ -67,6 +67,7 @@ cflatobjs += lib/s390x/vm.o
 cflatobjs += lib/s390x/css_dump.o
 cflatobjs += lib/s390x/css_lib.o
 cflatobjs += lib/s390x/malloc_io.o
+cflatobjs += lib/s390x/uv.o
 
 OBJDIRS += lib/s390x
 
