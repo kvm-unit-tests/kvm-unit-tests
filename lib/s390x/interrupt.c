@@ -11,6 +11,7 @@
 #include <asm/barrier.h>
 #include <sclp.h>
 #include <interrupt.h>
+#include <sie.h>
 
 static bool pgm_int_expected;
 static bool ext_int_expected;
@@ -57,6 +58,12 @@ void register_pgm_cleanup_func(void (*f)(void))
 
 static void fixup_pgm_int(void)
 {
+	/* If we have an error on SIE we directly move to sie_exit */
+	if (lc->pgm_old_psw.addr >= (uint64_t)&sie_entry &&
+	    lc->pgm_old_psw.addr <= (uint64_t)&sie_exit) {
+		lc->pgm_old_psw.addr = (uint64_t)&sie_exit;
+	}
+
 	switch (lc->pgm_int_code) {
 	case PGM_INT_CODE_PRIVILEGED_OPERATION:
 		/* Normal operation is in supervisor state, so this exception
