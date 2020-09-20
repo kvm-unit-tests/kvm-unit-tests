@@ -16,6 +16,7 @@
 
 static bool pgm_int_expected;
 static bool ext_int_expected;
+static void (*pgm_cleanup_func)(void);
 static struct lowcore *lc;
 
 void expect_pgm_int(void)
@@ -49,6 +50,11 @@ void check_pgm_int_code(uint16_t code)
 	report(code == lc->pgm_int_code,
 	       "Program interrupt: expected(%d) == received(%d)", code,
 	       lc->pgm_int_code);
+}
+
+void register_pgm_cleanup_func(void (*f)(void))
+{
+	pgm_cleanup_func = f;
 }
 
 static void fixup_pgm_int(void)
@@ -115,7 +121,11 @@ void handle_pgm_int(void)
 	}
 
 	pgm_int_expected = false;
-	fixup_pgm_int();
+
+	if (pgm_cleanup_func)
+		(*pgm_cleanup_func)();
+	else
+		fixup_pgm_int();
 }
 
 void handle_ext_int(void)
