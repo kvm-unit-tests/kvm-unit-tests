@@ -8229,6 +8229,53 @@ static void vmx_guest_state_area_test(void)
 	enter_guest();
 }
 
+extern void unrestricted_guest_main(void);
+asm (".code32\n"
+	"unrestricted_guest_main:\n"
+	"vmcall\n"
+	"nop\n"
+	"mov $1, %edi\n"
+	"call hypercall\n"
+	".code64\n");
+
+static void setup_unrestricted_guest(void)
+{
+	vmcs_write(GUEST_CR0, vmcs_read(GUEST_CR0) & ~(X86_CR0_PG));
+	vmcs_write(ENT_CONTROLS, vmcs_read(ENT_CONTROLS) & ~ENT_GUEST_64);
+	vmcs_write(GUEST_EFER, vmcs_read(GUEST_EFER) & ~EFER_LMA);
+	vmcs_write(GUEST_RIP, virt_to_phys(unrestricted_guest_main));
+}
+
+static void unsetup_unrestricted_guest(void)
+{
+	vmcs_write(GUEST_CR0, vmcs_read(GUEST_CR0) | X86_CR0_PG);
+	vmcs_write(ENT_CONTROLS, vmcs_read(ENT_CONTROLS) | ENT_GUEST_64);
+	vmcs_write(GUEST_EFER, vmcs_read(GUEST_EFER) | EFER_LMA);
+	vmcs_write(GUEST_RIP, (u64) phys_to_virt(vmcs_read(GUEST_RIP)));
+	vmcs_write(GUEST_RSP, (u64) phys_to_virt(vmcs_read(GUEST_RSP)));
+}
+
+/*
+ * If "unrestricted guest" secondary VM-execution control is set, guests
+ * can run in unpaged protected mode.
+ */
+static void vmentry_unrestricted_guest_test(void)
+{
+	test_set_guest(unrestricted_guest_main);
+	setup_unrestricted_guest();
+	if (setup_ept(false))
+		test_skip("EPT not supported");
+       vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | CPU_URG);
+       test_guest_state("Unrestricted guest test", false, CPU_URG, "CPU_URG");
+
+	/*
+	 * Let the guest finish execution as a regular guest
+	 */
+	unsetup_unrestricted_guest();
+	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) & ~CPU_URG);
+	enter_guest();
+}
+
 static bool valid_vmcs_for_vmentry(void)
 {
 	struct vmcs *current_vmcs = NULL;
@@ -10434,6 +10481,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_host_state_area_test),
 	TEST(vmx_guest_state_area_test),
 	TEST(vmentry_movss_shadow_test),
+	TEST(vmentry_unrestricted_guest_test),
 	/* APICv tests */
 	TEST(vmx_eoi_bitmap_ioapic_scan_test),
 	TEST(vmx_hlt_with_rvi_test),

@@ -895,6 +895,7 @@ bool ept_ad_bits_supported(void);
 void __enter_guest(u8 abort_flag, struct vmentry_result *result);
 void enter_guest(void);
 void enter_guest_with_bad_controls(void);
+void hypercall(u32 hypercall_no);
 
 typedef void (*test_guest_func)(void);
 typedef void (*test_teardown_func)(void *data);

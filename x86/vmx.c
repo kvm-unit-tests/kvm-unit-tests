@@ -1699,7 +1699,7 @@ static void test_vmx_caps(void)
 }
 
 /* This function can only be called in guest */
-static void __attribute__((__used__)) hypercall(u32 hypercall_no)
+void __attribute__((__used__)) hypercall(u32 hypercall_no)
 {
 	u64 val = 0;
 	val = (hypercall_no & HYPERCALL_MASK) | HYPERCALL_BIT;
