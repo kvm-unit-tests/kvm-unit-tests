@@ -34,6 +34,13 @@ EOF
 RUNTIME_arch_run="./$TEST_DIR/run"
 source scripts/runtime.bash
 
+# require enhanced getopt
+getopt -T > /dev/null
+if [ $? -ne 4 ]; then
+    echo "Enhanced getopt is not available, add it to your PATH?"
+    exit 1
+fi
+
 only_tests=""
 args=`getopt -u -o ag:htj:v -l all,group:,help,tap13,parallel:,verbose -- $*`
 [ $? -ne 0 ] && exit 2;
