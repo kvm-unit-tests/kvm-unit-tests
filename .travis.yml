@@ -128,8 +128,7 @@ jobs:
             - qemu
             - x86_64-elf-gcc
       env:
-      - CONFIG="--cross-prefix=x86_64-elf-
-                --getopt=/usr/local/opt/gnu-getopt/bin/getopt"
+      - CONFIG="--cross-prefix=x86_64-elf-"
       - BUILD_DIR="build"
       - TESTS="ioapic-split smptest smptest3 vmexit_cpuid vmexit_mov_from_cr8
                vmexit_mov_to_cr8 vmexit_inl_pmtimer vmexit_ipi vmexit_ipi_halt
@@ -137,6 +136,7 @@ jobs:
                vmexit_tscdeadline_immed eventinj msr port80 setjmp
                syscall tsc rmap_chain umip intel_iommu"
       - ACCEL="tcg"
+      - PATH="/usr/local/opt/gnu-getopt/bin:$PATH"
 
     - os: osx
       osx_image: xcode11.6
@@ -149,8 +149,7 @@ jobs:
             - qemu
             - i686-elf-gcc
       env:
-      - CONFIG="--arch=i386 --cross-prefix=i686-elf-
-                --getopt=/usr/local/opt/gnu-getopt/bin/getopt"
+      - CONFIG="--arch=i386 --cross-prefix=i686-elf-"
       - BUILD_DIR="build"
       - TESTS="cmpxchg8b vmexit_cpuid vmexit_mov_from_cr8 vmexit_mov_to_cr8
                vmexit_inl_pmtimer vmexit_ipi vmexit_ipi_halt
@@ -158,6 +157,7 @@ jobs:
                vmexit_tscdeadline_immed eventinj port80 setjmp tsc
                taskswitch umip"
       - ACCEL="tcg"
+      - PATH="/usr/local/opt/gnu-getopt/bin:$PATH"
 
 before_script:
   - if [ "$ACCEL" = "kvm" ]; then
