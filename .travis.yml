@@ -24,7 +24,7 @@ jobs:
       - BUILD_DIR="."
       - TESTS="access asyncpf debug emulator ept hypercall hyperv_stimer
                hyperv_synic idt_test intel_iommu ioapic ioapic-split
-               kvmclock_test msr pcid rdpru rmap_chain s3 setjmp umip"
+               kvmclock_test msr pcid rdpru realmode rmap_chain s3 setjmp umip"
       - ACCEL="kvm"
 
     - addons:

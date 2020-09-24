@@ -639,7 +639,7 @@ static void test_jcc_near(void)
 
 static void test_long_jmp(void)
 {
-	MK_INSN(long_jmp, "call 1f\n\t"
+	MK_INSN(long_jmp, "calll 1f\n\t"
 			  "jmp 2f\n\t"
 			  "1: jmp $0, $test_function\n\t"
 		          "2:\n\t");
@@ -728,26 +728,26 @@ static void test_null(void)
 
 static void test_pusha_popa(void)
 {
-	MK_INSN(pusha, "pusha\n\t"
-		       "pop %edi\n\t"
-		       "pop %esi\n\t"
-		       "pop %ebp\n\t"
-		       "add $4, %esp\n\t"
-		       "pop %ebx\n\t"
-		       "pop %edx\n\t"
-		       "pop %ecx\n\t"
-		       "pop %eax\n\t"
+	MK_INSN(pusha, "pushal\n\t"
+		       "popl %edi\n\t"
+		       "popl %esi\n\t"
+		       "popl %ebp\n\t"
+		       "addl $4, %esp\n\t"
+		       "popl %ebx\n\t"
+		       "popl %edx\n\t"
+		       "popl %ecx\n\t"
+		       "popl %eax\n\t"
 		       );
 
-	MK_INSN(popa, "push %eax\n\t"
-		      "push %ecx\n\t"
-		      "push %edx\n\t"
-		      "push %ebx\n\t"
-		      "push %esp\n\t"
-		      "push %ebp\n\t"
-		      "push %esi\n\t"
-		      "push %edi\n\t"
-		      "popa\n\t"
+	MK_INSN(popa, "pushl %eax\n\t"
+		      "pushl %ecx\n\t"
+		      "pushl %edx\n\t"
+		      "pushl %ebx\n\t"
+		      "pushl %esp\n\t"
+		      "pushl %ebp\n\t"
+		      "pushl %esi\n\t"
+		      "pushl %edi\n\t"
+		      "popal\n\t"
 		      );
 
 	init_inregs(&(struct regs){ .eax = 0, .ebx = 1, .ecx = 2, .edx = 3, .esi = 4, .edi = 5, .ebp = 6 });
@@ -761,9 +761,9 @@ static void test_pusha_popa(void)
 
 static void test_iret(void)
 {
-	MK_INSN(iret32, "pushf\n\t"
+	MK_INSN(iret32, "pushfl\n\t"
 			"pushl %cs\n\t"
-			"call 1f\n\t" /* a near call will push eip onto the stack */
+			"calll 1f\n\t" /* a near call will push eip onto the stack */
 			"jmp 2f\n\t"
 			"1: iretl\n\t"
 			"2:\n\t"
@@ -782,7 +782,7 @@ static void test_iret(void)
 			      "orl $0xffc18028, %eax\n\t"
 			      "pushl %eax\n\t"
 			      "pushl %cs\n\t"
-			      "call 1f\n\t"
+			      "calll 1f\n\t"
 			      "jmp 2f\n\t"
 			      "1: iretl\n\t"
 			      "2:\n\t");
