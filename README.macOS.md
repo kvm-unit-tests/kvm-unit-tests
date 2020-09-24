@@ -22,10 +22,14 @@ $ brew install i686-elf-gcc
 $ brew install x86_64-elf-gcc
 ```
 
-32-bit x86 tests can be built like that:
+Make enhanced getopt available in the current shell session:
+```
+export PATH="/usr/local/opt/gnu-getopt/bin:$PATH"
+```
+
+Then, 32-bit x86 tests can be built like that:
 ```
 $ ./configure \
-  --getopt=/usr/local/opt/gnu-getopt/bin/getopt \
   --arch=i386 \
   --cross-prefix=i686-elf-
 $ make -j $(nproc)
@@ -34,7 +38,6 @@ $ make -j $(nproc)
 64-bit x86 tests can be built likewise:
 ```
 $ ./configure \
-  --getopt=/usr/local/opt/gnu-getopt/bin/getopt \
   --arch=x86_64 \
   --cross-prefix=x86_64-elf-
 $ make -j $(nproc)
@@ -71,7 +74,6 @@ $ ct-ng -C $X_BUILD_DIR build CT_PREFIX=$X_INSTALL_DIR
 Once compiled, the cross-compiler can be used to build the tests:
 ```
 $ ./configure \
-  --getopt=/usr/local/opt/gnu-getopt/bin/getopt \
   --arch=x86_64 \
   --cross-prefix=$X_INSTALL_DIR/x86_64-unknown-linux-gnu/bin/x86_64-unknown-linux-gnu-
 $ make -j $(nproc)
