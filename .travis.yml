@@ -106,7 +106,8 @@ jobs:
       env:
       - CONFIG="--arch=s390x --cross-prefix=s390x-linux-gnu-"
       - BUILD_DIR="."
-      - TESTS="diag10 diag308"
+      - TESTS="cpumodel css diag10 diag288 diag308 emulator intercept sclp-1g
+          sclp-3g selftest-setup"
       - ACCEL="tcg,firmware=s390x/run"
 
     - addons:
@@ -114,7 +115,7 @@ jobs:
       env:
       - CONFIG="--arch=s390x --cross-prefix=s390x-linux-gnu-"
       - BUILD_DIR="s390x-builddir"
-      - TESTS="sieve"
+      - TESTS="sieve skey stsi vector"
       - ACCEL="tcg,firmware=s390x/run"
 
     - os: osx
