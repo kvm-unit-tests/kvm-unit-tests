@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [ -z "${BASH_VERSINFO[0]}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ] ; then
+    echo "Error: Bash version 4 or newer is required for the kvm-unit-tests"
+    exit 1
+fi
+
 srcdir=$(cd "$(dirname "$0")"; pwd)
 prefix=/usr/local
 cc=gcc
