@@ -165,8 +165,7 @@ before_script:
       sudo chmod g+s /usr/bin/qemu-system-* ;
     fi
   - mkdir -p $BUILD_DIR && cd $BUILD_DIR
-  - if [ -e ./configure ]; then ./configure $CONFIG ; fi
-  - if [ -e ../configure ]; then ../configure $CONFIG ; fi
+  - $TRAVIS_BUILD_DIR/configure $CONFIG
 script:
   - make -j3
   - ACCEL="${ACCEL:-tcg}" ./run_tests.sh -v $TESTS | tee results.txt
