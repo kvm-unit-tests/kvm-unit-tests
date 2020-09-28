@@ -118,7 +118,7 @@ function run()
     for check_param in "${check[@]}"; do
         path=${check_param%%=*}
         value=${check_param#*=}
-        if [ "$path" ] && [ "$(cat $path)" != "$value" ]; then
+        if [ -f "$path" ] && [ "$(cat $path)" != "$value" ]; then
             print_result "SKIP" $testname "" "$path not equal to $value"
             return 2
         fi
