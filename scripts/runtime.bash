@@ -115,14 +115,16 @@ function run()
     # check a file for a particular value before running a test
     # the check line can contain multiple files to check separated by a space
     # but each check parameter needs to be of the form <path>=<value>
-    for check_param in "${check[@]}"; do
-        path=${check_param%%=*}
-        value=${check_param#*=}
-        if [ -f "$path" ] && [ "$(cat $path)" != "$value" ]; then
-            print_result "SKIP" $testname "" "$path not equal to $value"
-            return 2
-        fi
-    done
+    if [ "$check" ]; then
+        for check_param in "${check[@]}"; do
+            path=${check_param%%=*}
+            value=${check_param#*=}
+            if ! [ -f "$path" ] || [ "$(cat $path)" != "$value" ]; then
+                print_result "SKIP" $testname "" "$path not equal to $value"
+                return 2
+            fi
+        done
+    fi
 
     last_line=$(premature_failure > >(tail -1)) && {
         print_result "SKIP" $testname "" "$last_line"
