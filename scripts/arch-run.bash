@@ -101,13 +101,13 @@ timeout_cmd ()
 
 qmp ()
 {
-	echo '{ "execute": "qmp_capabilities" }{ "execute":' "$2" '}' | nc -U $1
+	echo '{ "execute": "qmp_capabilities" }{ "execute":' "$2" '}' | ncat -U $1
 }
 
 run_migration ()
 {
-	if ! command -v nc >/dev/null 2>&1; then
-		echo "${FUNCNAME[0]} needs nc (netcat)" >&2
+	if ! command -v ncat >/dev/null 2>&1; then
+		echo "${FUNCNAME[0]} needs ncat (netcat)" >&2
 		return 2
 	fi
 
