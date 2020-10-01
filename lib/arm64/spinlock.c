@@ -24,7 +24,7 @@ void spin_lock(struct spinlock *lock)
 		asm volatile(
 		"1:	ldaxr	%w0, [%2]\n"
 		"	cbnz	%w0, 1b\n"
-		"	mov	%0, #1\n"
+		"	mov	%w0, #1\n"
 		"	stxr	%w1, %w0, [%2]\n"
 		: "=&r" (val), "=&r" (fail)
 		: "r" (&lock->v)
