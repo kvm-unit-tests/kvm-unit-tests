@@ -76,14 +76,21 @@ jobs:
       env:
       - CONFIG="--arch=arm64 --cross-prefix=aarch64-linux-gnu-"
       - BUILD_DIR="."
-      - TESTS="selftest-vectors-kernel selftest-vectors-user selftest-smp"
+      - TESTS="cache gicv2-active gicv2-ipi gicv3-active gicv3-ipi pci-test
+          pmu-cycle-counter pmu-event-counter-config pmu-sw-incr psci
+          selftest-setup selftest-smp selftest-vectors-kernel
+          selftest-vectors-user timer"
 
-    - addons:
-        apt_packages: gcc-aarch64-linux-gnu qemu-system-aarch64
+    - arch: arm64
+      addons:
+        apt_packages: clang-10 qemu-system-aarch64
+      compiler: clang
       env:
-      - CONFIG="--arch=arm64 --cross-prefix=aarch64-linux-gnu-"
+      - CONFIG="--arch=arm64 --cc=clang-10"
       - BUILD_DIR="arm64-buildir"
-      - TESTS="pci-test pmu gicv2-active gicv3-active psci timer selftest-setup"
+      - TESTS="cache gicv2-active gicv2-ipi gicv3-active gicv3-ipi pci-test
+          pmu-cycle-counter pmu-event-counter-config pmu-sw-incr selftest-setup
+          selftest-smp selftest-vectors-kernel selftest-vectors-user timer"
 
     - addons:
         apt_packages: gcc-powerpc64le-linux-gnu qemu-system-ppc
