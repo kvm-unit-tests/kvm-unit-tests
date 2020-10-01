@@ -90,7 +90,7 @@ jobs:
       env:
       - CONFIG="--arch=ppc64 --endian=little --cross-prefix=powerpc64le-linux-gnu-"
       - BUILD_DIR="."
-      - TESTS="spapr_hcall emulator rtas-set-time-of-day"
+      - TESTS="selftest-setup spapr_hcall emulator rtas-set-time-of-day"
       - ACCEL="tcg,cap-htm=off"
 
     - addons:
