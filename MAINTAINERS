@@ -61,7 +61,7 @@ Architecture Specific Code:
 ---------------------------
 
 ARM
-M: Drew Jones <drjones@redhat.com>
+M: Andrew Jones <drjones@redhat.com>
 L: kvm@vger.kernel.org
 L: kvmarm@lists.cs.columbia.edu
 F: arm/*
