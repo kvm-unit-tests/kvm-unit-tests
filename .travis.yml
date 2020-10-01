@@ -12,30 +12,30 @@ jobs:
       env:
       - CONFIG=""
       - BUILD_DIR="."
-      - TESTS="access asyncpf debug emulator ept hypercall hyperv_stimer
-               hyperv_synic idt_test intel_iommu ioapic ioapic-split
-               kvmclock_test msr pcid rdpru realmode rmap_chain s3 setjmp umip"
+      - TESTS="access asyncpf debug emulator ept hypercall hyperv_clock
+          hyperv_connections hyperv_stimer hyperv_synic idt_test intel_iommu
+          ioapic ioapic-split kvmclock_test memory msr pcid pcid-disabled
+          rdpru realmode rmap_chain s3 setjmp sieve smap smptest smptest3
+          syscall tsc tsc_adjust tsx-ctrl umip vmexit_cpuid vmexit_inl_pmtimer
+          vmexit_ipi vmexit_ipi_halt vmexit_mov_from_cr8 vmexit_mov_to_cr8
+          vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed
+          vmexit_vmcall vmx_apic_passthrough_thread xsave"
       - ACCEL="kvm"
 
     - addons:
         apt_packages: clang-10 qemu-system-x86
+      compiler: clang
       env:
       - CONFIG="--cc=clang-10"
-      - BUILD_DIR="."
-      - TESTS="access asyncpf debug emulator ept hypercall hyperv_stimer
-               hyperv_synic idt_test intel_iommu ioapic ioapic-split
-               kvmclock_test msr pcid rdpru realmode rmap_chain s3 setjmp umip"
-      - ACCEL="kvm"
-
-    - addons:
-        apt_packages: gcc qemu-system-x86
-      env:
-      - CONFIG=""
       - BUILD_DIR="x86-builddir"
-      - TESTS="smptest smptest3 tsc tsc_adjust xsave vmexit_cpuid vmexit_vmcall
-               sieve vmexit_inl_pmtimer vmexit_ipi_halt vmexit_mov_from_cr8
-               vmexit_mov_to_cr8 vmexit_ple_round_robin vmexit_tscdeadline
-               vmexit_tscdeadline_immed  vmx_apic_passthrough_thread syscall"
+      - TESTS="access asyncpf debug emulator ept hypercall hyperv_clock
+          hyperv_connections hyperv_stimer hyperv_synic idt_test intel_iommu
+          ioapic ioapic-split kvmclock_test memory msr pcid pcid-disabled
+          rdpru realmode rmap_chain s3 setjmp sieve smap smptest smptest3
+          syscall tsc tsc_adjust tsx-ctrl umip vmexit_cpuid vmexit_inl_pmtimer
+          vmexit_ipi vmexit_ipi_halt vmexit_mov_from_cr8 vmexit_mov_to_cr8
+          vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed
+          vmexit_vmcall vmx_apic_passthrough_thread xsave"
       - ACCEL="kvm"
 
     - addons:
