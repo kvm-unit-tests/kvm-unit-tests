@@ -43,8 +43,8 @@ jobs:
       env:
       - CONFIG="--arch=i386"
       - BUILD_DIR="."
-      - TESTS="asyncpf hyperv_stimer hyperv_synic kvmclock_test msr pmu realmode
-               s3 sieve smap smptest smptest3 taskswitch taskswitch2 tsc_adjust"
+      - TESTS="asyncpf kvmclock_test msr pmu realmode s3 setjmp sieve smap
+          smptest smptest3 taskswitch taskswitch2 tsc tsc_adjust tsx-ctrl umip"
       - ACCEL="kvm"
 
     - addons:
@@ -52,9 +52,9 @@ jobs:
       env:
       - CONFIG="--arch=i386"
       - BUILD_DIR="i386-builddir"
-      - TESTS="cmpxchg8b tsx-ctrl umip vmexit_cpuid vmexit_ipi vmexit_ipi_halt
-               vmexit_mov_from_cr8 vmexit_mov_to_cr8 vmexit_ple_round_robin
-               vmexit_tscdeadline vmexit_tscdeadline_immed vmexit_vmcall setjmp"
+      - TESTS="cmpxchg8b vmexit_vmcall vmexit_cpuid vmexit_ipi vmexit_ipi_halt
+          vmexit_mov_from_cr8 vmexit_mov_to_cr8 vmexit_ple_round_robin
+          vmexit_inl_pmtimer vmexit_tscdeadline vmexit_tscdeadline_immed"
       - ACCEL="kvm"
 
     - addons:
