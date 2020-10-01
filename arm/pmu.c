@@ -190,15 +190,16 @@ static inline uint8_t get_pmu_version(void)
  */
 static inline void precise_instrs_loop(int loop, uint32_t pmcr)
 {
+	uint64_t pmcr64 = pmcr;
 	asm volatile(
 	"	msr	pmcr_el0, %[pmcr]\n"
 	"	isb\n"
-	"1:	subs	%[loop], %[loop], #1\n"
+	"1:	subs	%w[loop], %w[loop], #1\n"
 	"	b.gt	1b\n"
 	"	msr	pmcr_el0, xzr\n"
 	"	isb\n"
 	: [loop] "+r" (loop)
-	: [pmcr] "r" (pmcr)
+	: [pmcr] "r" (pmcr64)
 	: "cc");
 }
 
@@ -268,8 +269,9 @@ static void test_event_introspection(void)
  * pmccntr read after this function returns the exact instructions executed
  * in the controlled block. Loads @loop times the data at @address into x9.
  */
-static void mem_access_loop(void *addr, int loop, uint32_t pmcr)
+static void mem_access_loop(void *addr, long loop, uint32_t pmcr)
 {
+	uint64_t pmcr64 = pmcr;
 asm volatile(
 	"       msr     pmcr_el0, %[pmcr]\n"
 	"       isb\n"
@@ -281,7 +283,7 @@ asm volatile(
 	"       msr     pmcr_el0, xzr\n"
 	"       isb\n"
 	:
-	: [addr] "r" (addr), [pmcr] "r" (pmcr), [loop] "r" (loop)
+	: [addr] "r" (addr), [pmcr] "r" (pmcr64), [loop] "r" (loop)
 	: "x9", "x10", "cc");
 }
 
