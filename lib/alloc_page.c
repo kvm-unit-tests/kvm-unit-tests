@@ -255,7 +255,7 @@ static void _free_pages(void *mem)
 	} while (coalesce(a, order, pfn, pfn2));
 }
 
-void free_pages(void *mem, size_t size)
+void free_pages(void *mem)
 {
 	spin_lock(&lock);
 	_free_pages(mem);

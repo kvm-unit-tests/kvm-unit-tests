@@ -163,8 +163,8 @@ int smp_cpu_destroy(uint16_t addr)
 	rc = smp_cpu_stop_nolock(addr, false);
 	if (!rc) {
 		cpu = smp_cpu_from_addr(addr);
-		free_pages(cpu->lowcore, 2 * PAGE_SIZE);
-		free_pages(cpu->stack, 4 * PAGE_SIZE);
+		free_pages(cpu->lowcore);
+		free_pages(cpu->stack);
 		cpu->lowcore = (void *)-1UL;
 		cpu->stack = (void *)-1UL;
 	}

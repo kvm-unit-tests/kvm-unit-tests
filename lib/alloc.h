@@ -24,7 +24,7 @@
 
 struct alloc_ops {
 	void *(*memalign)(size_t alignment, size_t size);
-	void (*free)(void *ptr, size_t size);
+	void (*free)(void *ptr);
 	size_t align_min;
 };
 

@@ -159,7 +159,7 @@ static void *vm_memalign(size_t alignment, size_t size)
 	return mem;
 }
 
-static void vm_free(void *mem, size_t size)
+static void vm_free(void *mem)
 {
 	struct metadata *m;
 	uintptr_t ptr, end;

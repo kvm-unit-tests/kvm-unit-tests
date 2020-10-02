@@ -143,7 +143,7 @@ static void test_store_status(void)
 	sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, NULL);
 	while (!status->prefix) { mb(); }
 	report(1, "status written");
-	free_pages(status, PAGE_SIZE * 2);
+	free_pages(status);
 	report_prefix_pop();
 	smp_cpu_stop(1);
 
@@ -276,7 +276,7 @@ static void test_reset_initial(void)
 	report_prefix_pop();
 
 	report(smp_cpu_stopped(1), "cpu stopped");
-	free_pages(status, PAGE_SIZE);
+	free_pages(status);
 	report_prefix_pop();
 }
 

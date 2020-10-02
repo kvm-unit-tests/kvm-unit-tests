@@ -61,18 +61,18 @@ void *alloc_pages(unsigned int order);
  * alloc_pages* functions.
  * The pointer must point to the start of the block.
  */
-void free_pages(void *mem, size_t size);
+void free_pages(void *mem);
 
 /* For backwards compatibility */
 static inline void free_page(void *mem)
 {
-	return free_pages(mem, 1);
+	return free_pages(mem);
 }
 
 /* For backwards compatibility */
 static inline void free_pages_by_order(void *mem, unsigned int order)
 {
-	free_pages(mem, 1ull << order);
+	free_pages(mem);
 }
 
 #endif
