@@ -23,13 +23,14 @@
 
 #define ORDER_MASK	0x3f
 #define ALLOC_MASK	0x40
+#define SPECIAL_MASK	0x80
 
 struct mem_area {
 	/* Physical frame number of the first usable frame in the area */
 	uintptr_t base;
 	/* Physical frame number of the first frame outside the area */
 	uintptr_t top;
-	/* Combination ALLOC_MASK and order */
+	/* Combination of SPECIAL_MASK, ALLOC_MASK, and order */
 	u8 *page_states;
 	/* One freelist for each possible block size, up to NLISTS */
 	struct linked_list freelists[NLISTS];
@@ -136,6 +137,16 @@ static void *page_memalign_order(struct mem_area *a, u8 al, u8 sz)
 	return res;
 }
 
+static struct mem_area *get_area(uintptr_t pfn)
+{
+	uintptr_t i;
+
+	for (i = 0; i < MAX_AREAS; i++)
+		if ((areas_mask & BIT(i)) && area_contains(areas + i, pfn))
+			return areas + i;
+	return NULL;
+}
+
 /*
  * Try to merge two blocks into a bigger one.
  * Returns true in case of a successful merge.
@@ -210,10 +221,7 @@ static void _free_pages(void *mem)
 	assert(IS_ALIGNED((uintptr_t)mem, PAGE_SIZE));
 
 	/* find which area this pointer belongs to*/
-	for (i = 0; !a && (i < MAX_AREAS); i++) {
-		if ((areas_mask & BIT(i)) && area_contains(areas + i, pfn))
-			a = areas + i;
-	}
+	a = get_area(pfn);
 	assert_msg(a, "memory does not belong to any area: %p", mem);
 
 	p = pfn - a->base;
@@ -259,6 +267,66 @@ void free_pages(void *mem)
 {
 	spin_lock(&lock);
 	_free_pages(mem);
+	spin_unlock(&lock);
+}
+
+static void *_alloc_page_special(uintptr_t addr)
+{
+	struct mem_area *a;
+	uintptr_t mask, i;
+
+	a = get_area(PFN(addr));
+	assert(a);
+	i = PFN(addr) - a->base;
+	if (a->page_states[i] & (ALLOC_MASK | SPECIAL_MASK))
+		return NULL;
+	while (a->page_states[i]) {
+		mask = GENMASK_ULL(63, PAGE_SHIFT + a->page_states[i]);
+		split(a, (void *)(addr & mask));
+	}
+	a->page_states[i] = SPECIAL_MASK;
+	return (void *)addr;
+}
+
+static void _free_page_special(uintptr_t addr)
+{
+	struct mem_area *a;
+	uintptr_t i;
+
+	a = get_area(PFN(addr));
+	assert(a);
+	i = PFN(addr) - a->base;
+	assert(a->page_states[i] == SPECIAL_MASK);
+	a->page_states[i] = ALLOC_MASK;
+	_free_pages((void *)addr);
+}
+
+void *alloc_pages_special(uintptr_t addr, size_t n)
+{
+	uintptr_t i;
+
+	assert(IS_ALIGNED(addr, PAGE_SIZE));
+	spin_lock(&lock);
+	for (i = 0; i < n; i++)
+		if (!_alloc_page_special(addr + i * PAGE_SIZE))
+			break;
+	if (i < n) {
+		for (n = 0 ; n < i; n++)
+			_free_page_special(addr + n * PAGE_SIZE);
+		addr = 0;
+	}
+	spin_unlock(&lock);
+	return (void *)addr;
+}
+
+void free_pages_special(uintptr_t addr, size_t n)
+{
+	uintptr_t i;
+
+	assert(IS_ALIGNED(addr, PAGE_SIZE));
+	spin_lock(&lock);
+	for (i = 0; i < n; i++)
+		_free_page_special(addr + i * PAGE_SIZE);
 	spin_unlock(&lock);
 }
 

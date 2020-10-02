@@ -75,4 +75,19 @@ static inline void free_pages_by_order(void *mem, unsigned int order)
 	free_pages(mem);
 }
 
+/*
+ * Allocates and reserves the specified memory range if possible.
+ * Returns NULL in case of failure.
+ */
+void *alloc_pages_special(uintptr_t addr, size_t npages);
+
+/*
+ * Frees a reserved memory range that had been reserved with
+ * alloc_pages_special.
+ * The memory range does not need to match a previous allocation
+ * exactly, it can also be a subset, in which case only the specified
+ * pages will be freed and unreserved.
+ */
+void free_pages_special(uintptr_t addr, size_t npages);
+
 #endif
