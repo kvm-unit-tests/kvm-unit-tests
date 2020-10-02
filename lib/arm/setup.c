@@ -155,7 +155,7 @@ static void mem_init(phys_addr_t freemem_start)
 	assert(sizeof(long) == 8 || !(base >> 32));
 	if (sizeof(long) != 8 && (top >> 32) != 0)
 		top = ((uint64_t)1 << 32);
-	free_pages((void *)(unsigned long)base, top - base);
+	page_alloc_init_area(0, base >> PAGE_SHIFT, top >> PAGE_SHIFT);
 	page_alloc_ops_enable();
 }
 

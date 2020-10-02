@@ -217,18 +217,19 @@ void setup_vm()
 	 * so that it can be used to allocate page tables.
 	 */
 	if (!page_alloc_initialized()) {
-		base = PAGE_ALIGN(base);
-		top = top & -PAGE_SIZE;
-		free_pages(phys_to_virt(base), top - base);
+		base = PAGE_ALIGN(base) >> PAGE_SHIFT;
+		top = top >> PAGE_SHIFT;
+		page_alloc_init_area(AREA_ANY_NUMBER, base, top);
+		page_alloc_ops_enable();
 	}
 
 	find_highmem();
 	phys_alloc_get_unused(&base, &top);
 	page_root = setup_mmu(top);
 	if (base != top) {
-		base = PAGE_ALIGN(base);
-		top = top & -PAGE_SIZE;
-		free_pages(phys_to_virt(base), top - base);
+		base = PAGE_ALIGN(base) >> PAGE_SHIFT;
+		top = top >> PAGE_SHIFT;
+		page_alloc_init_area(AREA_ANY_NUMBER, base, top);
 	}
 
 	spin_lock(&lock);

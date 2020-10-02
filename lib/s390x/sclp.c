@@ -37,11 +37,11 @@ static void mem_init(phys_addr_t mem_end)
 
 	phys_alloc_init(freemem_start, mem_end - freemem_start);
 	phys_alloc_get_unused(&base, &top);
-	base = (base + PAGE_SIZE - 1) & -PAGE_SIZE;
-	top = top & -PAGE_SIZE;
+	base = PAGE_ALIGN(base) >> PAGE_SHIFT;
+	top = top >> PAGE_SHIFT;
 
 	/* Make the pages available to the physical allocator */
-	free_pages((void *)(unsigned long)base, top - base);
+	page_alloc_init_area(AREA_ANY_NUMBER, base, top);
 	page_alloc_ops_enable();
 }
 
