@@ -1,0 +1,21 @@
+#ifndef MEMORY_AREAS_H
+#define MEMORY_AREAS_H
+
+#define AREA_NORMAL_PFN BIT(36-12)
+#define AREA_NORMAL_NUMBER 0
+#define AREA_NORMAL 1
+
+#define AREA_PAE_HIGH_PFN BIT(32-12)
+#define AREA_PAE_HIGH_NUMBER 1
+#define AREA_PAE_HIGH 2
+
+#define AREA_LOW_PFN 0
+#define AREA_LOW_NUMBER 2
+#define AREA_LOW 4
+
+#define AREA_PAE (AREA_PAE | AREA_LOW)
+
+#define AREA_ANY -1
+#define AREA_ANY_NUMBER 0xff
+
+#endif
