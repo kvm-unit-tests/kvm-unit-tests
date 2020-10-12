@@ -31,6 +31,7 @@
 #define NR_INITIAL_MEM_REGIONS 16
 
 extern unsigned long stacktop;
+extern unsigned long etext;
 
 struct timer_state __timer_state;
 
@@ -88,10 +89,12 @@ unsigned int mem_region_get_flags(phys_addr_t paddr)
 
 static void mem_init(phys_addr_t freemem_start)
 {
+	phys_addr_t code_end = (phys_addr_t)(unsigned long)&etext;
 	struct dt_pbus_reg regs[NR_INITIAL_MEM_REGIONS];
-	struct mem_region primary, mem = {
+	struct mem_region mem = {
 		.start = (phys_addr_t)-1,
 	};
+	struct mem_region *primary = NULL;
 	phys_addr_t base, top;
 	int nr_regs, nr_io = 0, i;
 
@@ -110,8 +113,6 @@ static void mem_init(phys_addr_t freemem_start)
 	nr_regs = dt_get_memory_params(regs, NR_INITIAL_MEM_REGIONS - nr_io);
 	assert(nr_regs > 0);
 
-	primary = (struct mem_region){ 0 };
-
 	for (i = 0; i < nr_regs; ++i) {
 		struct mem_region *r = &mem_regions[nr_io + i];
 
@@ -123,7 +124,7 @@ static void mem_init(phys_addr_t freemem_start)
 		 */
 		if (freemem_start >= r->start && freemem_start < r->end) {
 			r->flags |= MR_F_PRIMARY;
-			primary = *r;
+			primary = r;
 		}
 
 		/*
@@ -135,13 +136,25 @@ static void mem_init(phys_addr_t freemem_start)
 		if (r->end > mem.end)
 			mem.end = r->end;
 	}
-	assert(primary.end != 0);
+	assert(primary);
 	assert(!(mem.start & ~PHYS_MASK) && !((mem.end - 1) & ~PHYS_MASK));
 
-	__phys_offset = primary.start;	/* PHYS_OFFSET */
-	__phys_end = primary.end;	/* PHYS_END */
+	__phys_offset = primary->start;	/* PHYS_OFFSET */
+	__phys_end = primary->end;	/* PHYS_END */
 
-	phys_alloc_init(freemem_start, primary.end - freemem_start);
+	/* Split the primary region into two regions; code and data */
+	mem_regions[nr_io + i] = (struct mem_region){
+		.start = code_end,
+		.end = primary->end,
+		.flags = MR_F_PRIMARY,
+	};
+	*primary = (struct mem_region){
+		.start = primary->start,
+		.end = code_end,
+		.flags = MR_F_PRIMARY | MR_F_CODE,
+	};
+
+	phys_alloc_init(freemem_start, __phys_end - freemem_start);
 	phys_alloc_set_minimum_alignment(SMP_CACHE_BYTES);
 
 	phys_alloc_get_unused(&base, &top);
