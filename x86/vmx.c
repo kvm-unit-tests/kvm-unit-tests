@@ -1369,7 +1369,7 @@ static void init_vmcs_guest(void)
 	vmcs_write(GUEST_INTR_STATE, 0);
 }
 
-static int init_vmcs(struct vmcs **vmcs)
+int init_vmcs(struct vmcs **vmcs)
 {
 	*vmcs = alloc_page();
 	(*vmcs)->hdr.revision_id = basic.revision;

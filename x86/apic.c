@@ -318,11 +318,6 @@ static void nmi_handler(isr_regs_t *regs)
     nmi_hlt_counter += regs->rip == (ulong)post_sti;
 }
 
-static void update_cr3(void *cr3)
-{
-    write_cr3((ulong)cr3);
-}
-
 static void test_sti_nmi(void)
 {
     unsigned old_counter;

@@ -9888,6 +9888,143 @@ static void vmx_init_signal_test(void)
 	 */
 }
 
+#define SIPI_SIGNAL_TEST_DELAY	100000000ULL
+
+static void vmx_sipi_test_guest(void)
+{
+	if (apic_id() == 0) {
+		/* wait AP enter guest with activity=WAIT_SIPI */
+		while (vmx_get_test_stage() != 1)
+			;
+		delay(SIPI_SIGNAL_TEST_DELAY);
+
+		/* First SIPI signal */
+		apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_STARTUP | APIC_INT_ASSERT, id_map[1]);
+		report(1, "BSP(L2): Send first SIPI to cpu[%d]", id_map[1]);
+
+		/* wait AP enter guest */
+		while (vmx_get_test_stage() != 2)
+			;
+		delay(SIPI_SIGNAL_TEST_DELAY);
+
+		/* Second SIPI signal should be ignored since AP is not in WAIT_SIPI state */
+		apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_STARTUP | APIC_INT_ASSERT, id_map[1]);
+		report(1, "BSP(L2): Send second SIPI to cpu[%d]", id_map[1]);
+
+		/* Delay a while to check whether second SIPI would cause VMExit */
+		delay(SIPI_SIGNAL_TEST_DELAY);
+
+		/* Test is done, notify AP to exit test */
+		vmx_set_test_stage(3);
+
+		/* wait AP exit non-root mode */
+		while (vmx_get_test_stage() != 5)
+			;
+	} else {
+		/* wait BSP notify test is done */
+		while (vmx_get_test_stage() != 3)
+			;
+
+		/* AP exit guest */
+		vmx_set_test_stage(4);
+	}
+}
+
+static void sipi_test_ap_thread(void *data)
+{
+	struct vmcs *ap_vmcs;
+	u64 *ap_vmxon_region;
+	void *ap_stack, *ap_syscall_stack;
+	u64 cpu_ctrl_0 = CPU_SECONDARY;
+	u64 cpu_ctrl_1 = 0;
+
+	/* Enter VMX operation (i.e. exec VMXON) */
+	ap_vmxon_region = alloc_page();
+	enable_vmx();
+	init_vmx(ap_vmxon_region);
+	_vmx_on(ap_vmxon_region);
+	init_vmcs(&ap_vmcs);
+	make_vmcs_current(ap_vmcs);
+
+	/* Set stack for AP */
+	ap_stack = alloc_page();
+	ap_syscall_stack = alloc_page();
+	vmcs_write(GUEST_RSP, (u64)(ap_stack + PAGE_SIZE - 1));
+	vmcs_write(GUEST_SYSENTER_ESP, (u64)(ap_syscall_stack + PAGE_SIZE - 1));
+
+	/* passthrough lapic to L2 */
+	disable_intercept_for_x2apic_msrs();
+	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_EXTINT);
+	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | cpu_ctrl_0);
+	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | cpu_ctrl_1);
+
+	/* Set guest activity state to wait-for-SIPI state */
+	vmcs_write(GUEST_ACTV_STATE, ACTV_WAIT_SIPI);
+
+	vmx_set_test_stage(1);
+
+	/* AP enter guest */
+	enter_guest();
+
+	if (vmcs_read(EXI_REASON) == VMX_SIPI) {
+		report(1, "AP: Handle SIPI VMExit");
+		vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
+		vmx_set_test_stage(2);
+	} else {
+		report(0, "AP: Unexpected VMExit, reason=%ld", vmcs_read(EXI_REASON));
+		vmx_off();
+		return;
+	}
+
+	/* AP enter guest */
+	enter_guest();
+
+	report(vmcs_read(EXI_REASON) != VMX_SIPI,
+		"AP: should no SIPI VMExit since activity is not in WAIT_SIPI state");
+
+	/* notify BSP that AP is already exit from non-root mode */
+	vmx_set_test_stage(5);
+
+	/* Leave VMX operation */
+	vmx_off();
+}
+
+static void vmx_sipi_signal_test(void)
+{
+	if (!(rdmsr(MSR_IA32_VMX_MISC) & MSR_IA32_VMX_MISC_ACTIVITY_WAIT_SIPI)) {
+		printf("\tACTIVITY_WAIT_SIPI state is not supported.\n");
+		return;
+	}
+
+	if (cpu_count() < 2) {
+		report_skip(__func__);
+		return;
+	}
+
+	u64 cpu_ctrl_0 = CPU_SECONDARY;
+	u64 cpu_ctrl_1 = 0;
+
+	/* passthrough lapic to L2 */
+	disable_intercept_for_x2apic_msrs();
+	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_EXTINT);
+	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | cpu_ctrl_0);
+	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | cpu_ctrl_1);
+
+	test_set_guest(vmx_sipi_test_guest);
+
+	/* update CR3 on AP */
+	on_cpu(1, update_cr3, (void *)read_cr3());
+
+	/* start AP */
+	on_cpu_async(1, sipi_test_ap_thread, NULL);
+
+	vmx_set_test_stage(0);
+
+	/* BSP enter guest */
+	enter_guest();
+}
+
+
 enum vmcs_access {
 	ACCESS_VMREAD,
 	ACCESS_VMWRITE,
@@ -10525,6 +10662,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_apic_passthrough_thread_test),
 	TEST(vmx_apic_passthrough_tpr_threshold_test),
 	TEST(vmx_init_signal_test),
+	TEST(vmx_sipi_signal_test),
 	/* VMCS Shadowing tests */
 	TEST(vmx_vmcs_shadow_test),
 	/* Regression tests */

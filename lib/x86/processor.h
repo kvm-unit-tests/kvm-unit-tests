@@ -360,6 +360,11 @@ static inline ulong read_cr3(void)
     return val;
 }
 
+static inline void update_cr3(void *cr3)
+{
+    write_cr3((ulong)cr3);
+}
+
 static inline void write_cr4(ulong val)
 {
     asm volatile ("mov %0, %%cr4" : : "r"(val) : "memory");

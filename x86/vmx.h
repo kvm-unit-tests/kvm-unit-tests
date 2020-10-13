@@ -697,6 +697,8 @@ enum vm_entry_failure_code {
 
 #define ACTV_ACTIVE		0
 #define ACTV_HLT		1
+#define ACTV_SHUTDOWN		2
+#define ACTV_WAIT_SIPI		3
 
 /*
  * VMCS field encoding:
@@ -856,6 +858,7 @@ static inline bool invvpid(unsigned long type, u64 vpid, u64 gla)
 
 void enable_vmx(void);
 void init_vmx(u64 *vmxon_region);
+int init_vmcs(struct vmcs **vmcs);
 
 const char *exit_reason_description(u64 reason);
 void print_vmexit_info(union exit_reason exit_reason);

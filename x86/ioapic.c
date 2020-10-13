@@ -463,11 +463,6 @@ static void test_ioapic_logical_destination_mode(void)
 	report(g_isr_86 == nr_vcpus, "ioapic logical destination mode");
 }
 
-static void update_cr3(void *cr3)
-{
-	write_cr3((ulong)cr3);
-}
-
 int main(void)
 {
 	setup_vm();
