@@ -89,6 +89,6 @@ static inline u32 get_ctr(void)
 	return read_sysreg(CTR);
 }
 
-extern u32 dcache_line_size;
+extern unsigned long dcache_line_size;
 
 #endif /* _ASMARM_PROCESSOR_H_ */

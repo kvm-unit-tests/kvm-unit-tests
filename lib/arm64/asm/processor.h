@@ -115,7 +115,7 @@ static inline u64 get_ctr(void)
 	return read_sysreg(ctr_el0);
 }
 
-extern u32 dcache_line_size;
+extern unsigned long dcache_line_size;
 
 static inline unsigned long get_id_aa64mmfr0_el1(void)
 {

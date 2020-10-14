@@ -42,7 +42,7 @@ static struct mem_region __initial_mem_regions[NR_INITIAL_MEM_REGIONS + 1];
 struct mem_region *mem_regions = __initial_mem_regions;
 phys_addr_t __phys_offset, __phys_end;
 
-u32 dcache_line_size;
+unsigned long dcache_line_size;
 
 int mpidr_to_cpu(uint64_t mpidr)
 {
