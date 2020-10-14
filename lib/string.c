@@ -171,10 +171,13 @@ extern char **environ;
 char *getenv(const char *name)
 {
     char **envp = environ, *delim;
+    int len;
 
     while (*envp) {
         delim = strchr(*envp, '=');
-        if (delim && strncmp(name, *envp, delim - *envp) == 0)
+        assert(delim);
+        len = delim - *envp;
+        if (memcmp(name, *envp, len) == 0 && !name[len])
             return delim + 1;
         ++envp;
     }
