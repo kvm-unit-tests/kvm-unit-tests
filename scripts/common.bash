@@ -13,15 +13,17 @@ function for_each_unittest()
 	local check
 	local accel
 	local timeout
+	local rematch
 
 	exec {fd}<"$unittests"
 
 	while read -r -u $fd line; do
 		if [[ "$line" =~ ^\[(.*)\]$ ]]; then
+			rematch=${BASH_REMATCH[1]}
 			if [ -n "${testname}" ]; then
 				$(arch_cmd) "$cmd" "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$check" "$accel" "$timeout"
 			fi
-			testname=${BASH_REMATCH[1]}
+			testname=$rematch
 			smp=1
 			kernel=""
 			opts=""
