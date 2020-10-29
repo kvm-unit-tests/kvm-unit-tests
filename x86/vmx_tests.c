@@ -8416,6 +8416,39 @@ static void vmx_cr_load_test(void)
 	TEST_ASSERT(!write_cr4_checking(orig_cr4));
 }
 
+static void vmx_cr4_osxsave_test_guest(void)
+{
+	write_cr4(read_cr4() & ~X86_CR4_OSXSAVE);
+}
+
+/*
+ * Ensure that kvm recalculates the L1 guest's CPUID.01H:ECX.OSXSAVE
+ * after VM-exit from an L2 guest that sets CR4.OSXSAVE to a different
+ * value than in L1.
+ */
+static void vmx_cr4_osxsave_test(void)
+{
+	if (!this_cpu_has(X86_FEATURE_XSAVE)) {
+		report_skip("XSAVE not detected");
+		return;
+	}
+
+	if (!(read_cr4() & X86_CR4_OSXSAVE)) {
+		unsigned long cr4 = read_cr4() | X86_CR4_OSXSAVE;
+
+		write_cr4(cr4);
+		vmcs_write(GUEST_CR4, cr4);
+		vmcs_write(HOST_CR4, cr4);
+	}
+
+	TEST_ASSERT(cpuid_osxsave());
+
+	test_set_guest(vmx_cr4_osxsave_test_guest);
+	enter_guest();
+
+	TEST_ASSERT(cpuid_osxsave());
+}
+
 static void vmx_nm_test_guest(void)
 {
 	write_cr0(read_cr0() | X86_CR0_TS);
@@ -10496,6 +10529,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_vmcs_shadow_test),
 	/* Regression tests */
 	TEST(vmx_cr_load_test),
+	TEST(vmx_cr4_osxsave_test),
 	TEST(vmx_nm_test),
 	TEST(vmx_db_test),
 	TEST(vmx_nmi_window_test),
