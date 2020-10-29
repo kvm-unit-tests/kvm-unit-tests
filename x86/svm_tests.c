@@ -1917,6 +1917,40 @@ static bool reg_corruption_check(struct svm_test *test)
  * v2 tests
  */
 
+/*
+ * Ensure that kvm recalculates the L1 guest's CPUID.01H:ECX.OSXSAVE
+ * after VM-exit from an L2 guest that sets CR4.OSXSAVE to a different
+ * value than in L1.
+ */
+
+static void svm_cr4_osxsave_test_guest(struct svm_test *test)
+{
+	write_cr4(read_cr4() & ~X86_CR4_OSXSAVE);
+}
+
+static void svm_cr4_osxsave_test(void)
+{
+	if (!this_cpu_has(X86_FEATURE_XSAVE)) {
+		report_skip("XSAVE not detected");
+		return;
+	}
+
+	if (!(read_cr4() & X86_CR4_OSXSAVE)) {
+		unsigned long cr4 = read_cr4() | X86_CR4_OSXSAVE;
+
+		write_cr4(cr4);
+		vmcb->save.cr4 = cr4;
+	}
+
+	report(cpuid_osxsave(), "CPUID.01H:ECX.XSAVE set before VMRUN");
+
+	test_set_guest(svm_cr4_osxsave_test_guest);
+	report(svm_vmrun() == SVM_EXIT_VMMCALL,
+	       "svm_cr4_osxsave_test_guest finished with VMMCALL");
+
+	report(cpuid_osxsave(), "CPUID.01H:ECX.XSAVE set after VMRUN");
+}
+
 static void basic_guest_main(struct svm_test *test)
 {
 }
@@ -2301,6 +2335,7 @@ struct svm_test svm_tests[] = {
     { "reg_corruption", default_supported, reg_corruption_prepare,
       default_prepare_gif_clear, reg_corruption_test,
       reg_corruption_finished, reg_corruption_check },
+    TEST(svm_cr4_osxsave_test),
     TEST(svm_guest_state_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
