@@ -266,7 +266,7 @@ static void self_ipi_isr(isr_regs_t *regs)
     eoi();
 }
 
-static void test_self_ipi(void)
+static void __test_self_ipi(void)
 {
     u64 start = rdtsc();
     int vec = 0xf1;
@@ -279,8 +279,53 @@ static void test_self_ipi(void)
     do {
         pause();
     } while (rdtsc() - start < 1000000000 && ipi_count == 0);
+}
 
+static void test_self_ipi_xapic(void)
+{
+    u64 orig_apicbase = rdmsr(MSR_IA32_APICBASE);
+
+    report_prefix_push("self_ipi_xapic");
+
+    /* Reset to xAPIC mode. */
+    reset_apic();
+    report((rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == APIC_EN,
+           "Local apic enabled in xAPIC mode");
+
+    ipi_count = 0;
+    __test_self_ipi();
     report(ipi_count == 1, "self ipi");
+
+    /* Enable x2APIC mode if it was already enabled. */
+    if (orig_apicbase & APIC_EXTD)
+        enable_x2apic();
+
+    report_prefix_pop();
+}
+
+static void test_self_ipi_x2apic(void)
+{
+    u64 orig_apicbase = rdmsr(MSR_IA32_APICBASE);
+
+    report_prefix_push("self_ipi_x2apic");
+
+    if (enable_x2apic()) {
+        report((rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) ==
+               (APIC_EN | APIC_EXTD),
+               "Local apic enabled in x2APIC mode");
+
+        ipi_count = 0;
+        __test_self_ipi();
+        report(ipi_count == 1, "self ipi");
+
+        /* Reset to xAPIC mode unless x2APIC was already enabled. */
+        if (!(orig_apicbase & APIC_EXTD))
+            reset_apic();
+    } else {
+        report_skip("x2apic not detected");
+    }
+
+    report_prefix_pop();
 }
 
 volatile int nmi_counter_private, nmi_counter, nmi_hlt_counter, sti_loop_active;
@@ -652,7 +697,8 @@ int main(void)
     test_enable_x2apic();
     test_apicbase();
 
-    test_self_ipi();
+    test_self_ipi_xapic();
+    test_self_ipi_x2apic();
     test_physical_broadcast();
     if (test_device_enabled())
         test_pv_ipi();
