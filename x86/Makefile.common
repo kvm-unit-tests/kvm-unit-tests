@@ -53,7 +53,7 @@ FLATLIBS = lib/libcflat.a $(libgcc)
 	@chmod a-x $@
 
 tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
-               $(TEST_DIR)/smptest.flat  $(TEST_DIR)/port80.flat \
+               $(TEST_DIR)/smptest.flat  \
                $(TEST_DIR)/realmode.flat $(TEST_DIR)/msr.flat \
                $(TEST_DIR)/hypercall.flat $(TEST_DIR)/sieve.flat \
                $(TEST_DIR)/kvmclock_test.flat  $(TEST_DIR)/eventinj.flat \

@@ -27,7 +27,6 @@ Tests in this directory and what they do:
  emulator:	move to/from regs, cmps, push, pop, to/from cr8, smsw and lmsw
  hypercall:	intel and amd hypercall insn
  msr:		write to msr (only KERNEL_GS_BASE for now)
- port80:	lots of out to port 80
  realmode:	goes back to realmode, shld, push/pop, mov immediate, cmp
 		immediate, add immediate, io, eflags instructions
 		(clc, cli, etc.), jcc short, jcc near, call, long jmp, xchg
