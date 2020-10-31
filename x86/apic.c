@@ -437,7 +437,7 @@ static void test_multiple_nmi(void)
     handle_irq(2, multiple_nmi_handler);
     handle_irq(0x44, flush_nmi);
     on_cpu_async(1, kick_me_nmi, 0);
-    for (i = 0; i < 1000000; ++i) {
+    for (i = 0; i < 100000; ++i) {
 	nmi_flushed = false;
 	nmi_received = 0;
 	++cpu0_nmi_ctr1;
