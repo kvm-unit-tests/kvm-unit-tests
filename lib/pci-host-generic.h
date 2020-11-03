@@ -18,8 +18,8 @@ struct pci_addr_space {
 };
 
 struct pci_host_bridge {
-	phys_addr_t		start;
-	phys_addr_t		size;
+	void __iomem		*start;
+	size_t			size;
 	int			bus;
 	int			bus_max;
 	int			nr_addr_spaces;
