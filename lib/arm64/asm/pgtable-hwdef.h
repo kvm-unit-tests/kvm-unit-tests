@@ -9,26 +9,52 @@
  * This work is licensed under the terms of the GNU GPL, version 2.
  */
 
+#include <asm/page.h>
+
 #define UL(x) _AC(x, UL)
 
+/*
+ * The number of bits a given page table level, n (where n=0 is the top),
+ * maps is ((max_n - n) - 1) * nr_bits_per_level + PAGE_SHIFT. Since a page
+ * table descriptor is 8 bytes we have (PAGE_SHIFT - 3) bits per level. We
+ * also have a maximum of 4 page table levels. Hence,
+ */
+#define PGTABLE_LEVEL_SHIFT(n) \
+	(((4 - (n)) - 1) * (PAGE_SHIFT - 3) + PAGE_SHIFT)
 #define PTRS_PER_PTE		(1 << (PAGE_SHIFT - 3))
+
+#if PGTABLE_LEVELS > 2
+#define PMD_SHIFT		PGTABLE_LEVEL_SHIFT(2)
+#define PTRS_PER_PMD		PTRS_PER_PTE
+#define PMD_SIZE		(UL(1) << PMD_SHIFT)
+#define PMD_MASK		(~(PMD_SIZE-1))
+#else
+#define PMD_SIZE		PGDIR_SIZE
+#define PMD_MASK		PGDIR_MASK
+#endif
+
+#if PGTABLE_LEVELS > 3
+#define PUD_SHIFT		PGTABLE_LEVEL_SHIFT(1)
+#define PTRS_PER_PUD		PTRS_PER_PTE
+#define PUD_SIZE		(UL(1) << PUD_SHIFT)
+#define PUD_MASK		(~(PUD_SIZE-1))
+#else
+#define PUD_SIZE		PGDIR_SIZE
+#define PUD_MASK		PGDIR_MASK
+#endif
+
+#define PUD_VALID		(_AT(pudval_t, 1) << 0)
 
 /*
  * PGDIR_SHIFT determines the size a top-level page table entry can map
  * (depending on the configuration, this level can be 0, 1 or 2).
  */
-#define PGDIR_SHIFT		((PAGE_SHIFT - 3) * PGTABLE_LEVELS + 3)
+#define PGDIR_SHIFT		PGTABLE_LEVEL_SHIFT(4 - PGTABLE_LEVELS)
 #define PGDIR_SIZE		(_AC(1, UL) << PGDIR_SHIFT)
 #define PGDIR_MASK		(~(PGDIR_SIZE-1))
 #define PTRS_PER_PGD		(1 << (VA_BITS - PGDIR_SHIFT))
 
 #define PGD_VALID		(_AT(pgdval_t, 1) << 0)
-
-/* From include/asm-generic/pgtable-nopmd.h */
-#define PMD_SHIFT		PGDIR_SHIFT
-#define PTRS_PER_PMD		1
-#define PMD_SIZE		(UL(1) << PMD_SHIFT)
-#define PMD_MASK		(~(PMD_SIZE-1))
 
 /*
  * Section address mask and size definitions.
@@ -40,7 +66,7 @@
 /*
  * Hardware page table definitions.
  *
- * Level 1 descriptor (PMD).
+ * Level 0,1,2 descriptor (PGD, PUD and PMD).
  */
 #define PMD_TYPE_MASK		(_AT(pmdval_t, 3) << 0)
 #define PMD_TYPE_FAULT		(_AT(pmdval_t, 0) << 0)

@@ -30,10 +30,12 @@
 #define pgtable_pa(x)		((unsigned long)(x))
 
 #define pgd_none(pgd)		(!pgd_val(pgd))
+#define pud_none(pud)		(!pud_val(pud))
 #define pmd_none(pmd)		(!pmd_val(pmd))
 #define pte_none(pte)		(!pte_val(pte))
 
 #define pgd_valid(pgd)		(pgd_val(pgd) & PGD_VALID)
+#define pud_valid(pud)		(pud_val(pud) & PUD_VALID)
 #define pmd_valid(pmd)		(pmd_val(pmd) & PMD_SECT_VALID)
 #define pte_valid(pte)		(pte_val(pte) & PTE_VALID)
 
@@ -52,14 +54,74 @@ static inline pgd_t *pgd_alloc(void)
 	return pgd;
 }
 
-#define pmd_offset(pgd, addr)	((pmd_t *)pgd)
-#define pmd_free(pmd)
-#define pmd_alloc(pgd, addr)	pmd_offset(pgd, addr)
+static inline pud_t *pgd_page_vaddr(pgd_t pgd)
+{
+	return pgtable_va(pgd_val(pgd) & PHYS_MASK & (s32)PAGE_MASK);
+}
+
+static inline pmd_t *pud_page_vaddr(pud_t pud)
+{
+	return pgtable_va(pud_val(pud) & PHYS_MASK & (s32)PAGE_MASK);
+}
 
 static inline pte_t *pmd_page_vaddr(pmd_t pmd)
 {
 	return pgtable_va(pmd_val(pmd) & PHYS_MASK & (s32)PAGE_MASK);
 }
+
+#if PGTABLE_LEVELS > 2
+#define pmd_index(addr)							\
+	(((addr) >> PMD_SHIFT) & (PTRS_PER_PMD - 1))
+#define pmd_offset(pud, addr)						\
+	(pud_page_vaddr(*(pud)) + pmd_index(addr))
+#define pmd_free(pmd)	free_page(pmd)
+static inline pmd_t *pmd_alloc_one(void)
+{
+	assert(PTRS_PER_PMD * sizeof(pmd_t) == PAGE_SIZE);
+	pmd_t *pmd = alloc_page();
+	return pmd;
+}
+static inline pmd_t *pmd_alloc(pud_t *pud, unsigned long addr)
+{
+	if (pud_none(*pud)) {
+		pud_t entry;
+		pud_val(entry) = pgtable_pa(pmd_alloc_one()) | PMD_TYPE_TABLE;
+		WRITE_ONCE(*pud, entry);
+	}
+	return pmd_offset(pud, addr);
+}
+#else
+#define pmd_offset(pud, addr)	((pmd_t *)pud)
+#define pmd_free(pmd)
+#define pmd_alloc(pud, addr)	pmd_offset(pud, addr)
+#endif
+
+#if PGTABLE_LEVELS > 3
+#define pud_index(addr)                                 \
+	(((addr) >> PUD_SHIFT) & (PTRS_PER_PUD - 1))
+#define pud_offset(pgd, addr)                           \
+	(pgd_page_vaddr(*(pgd)) + pud_index(addr))
+#define pud_free(pud) free_page(pud)
+static inline pud_t *pud_alloc_one(void)
+{
+	assert(PTRS_PER_PUD * sizeof(pud_t) == PAGE_SIZE);
+	pud_t *pud = alloc_page();
+	return pud;
+}
+static inline pud_t *pud_alloc(pgd_t *pgd, unsigned long addr)
+{
+	if (pgd_none(*pgd)) {
+		pgd_t entry;
+		pgd_val(entry) = pgtable_pa(pud_alloc_one()) | PMD_TYPE_TABLE;
+		WRITE_ONCE(*pgd, entry);
+	}
+	return pud_offset(pgd, addr);
+}
+#else
+#define pud_offset(pgd, addr)	((pud_t *)pgd)
+#define pud_free(pud)
+#define pud_alloc(pgd, addr)	pud_offset(pgd, addr)
+#endif
 
 #define pte_index(addr) \
 	(((addr) >> PAGE_SHIFT) & (PTRS_PER_PTE - 1))

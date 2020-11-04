@@ -14,10 +14,12 @@
 #define THREAD_SHIFT		PAGE_SHIFT
 #define THREAD_SIZE		PAGE_SIZE
 #define THREAD_MASK		PAGE_MASK
+#define THREAD_ALIGNMENT	PAGE_SIZE
 #else
 #define THREAD_SHIFT		MIN_THREAD_SHIFT
 #define THREAD_SIZE		(_AC(1,UL) << THREAD_SHIFT)
 #define THREAD_MASK		(~(THREAD_SIZE-1))
+#define THREAD_ALIGNMENT	THREAD_SIZE
 #endif
 
 #ifndef __ASSEMBLY__
@@ -38,7 +40,7 @@
 
 static inline void *thread_stack_alloc(void)
 {
-	void *sp = memalign(PAGE_SIZE, THREAD_SIZE);
+	void *sp = memalign(THREAD_ALIGNMENT, THREAD_SIZE);
 	return sp + THREAD_START_SP;
 }
 

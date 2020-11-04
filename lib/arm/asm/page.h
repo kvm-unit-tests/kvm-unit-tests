@@ -29,6 +29,10 @@ typedef struct { pteval_t pgprot; } pgprot_t;
 #define pgd_val(x)		((x).pgd)
 #define pgprot_val(x)		((x).pgprot)
 
+/* For compatibility with arm64 page tables */
+#define pud_t			pgd_t
+#define pud_val(x)		pgd_val(x)
+
 #define __pte(x)		((pte_t) { (x) } )
 #define __pmd(x)		((pmd_t) { (x) } )
 #define __pgd(x)		((pgd_t) { (x) } )

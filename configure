@@ -25,6 +25,7 @@ vmm="qemu"
 errata_force=0
 erratatxt="$srcdir/errata.txt"
 host_key_document=
+page_size=
 
 usage() {
     cat <<-EOF
@@ -50,6 +51,9 @@ usage() {
 	    --host-key-document=HOST_KEY_DOCUMENT
 	                           Specify the machine-specific host-key document for creating
 	                           a PVM image with 'genprotimg' (s390x only)
+	    --page-size=PAGE_SIZE
+	                           Specify the page size (translation granule) (4k, 16k or
+	                           64k, default is 64k, arm64 only)
 EOF
     exit 1
 }
@@ -105,6 +109,9 @@ while [[ "$1" = -* ]]; do
 	--host-key-document)
 	    host_key_document="$arg"
 	    ;;
+	--page-size)
+	    page_size="$arg"
+	    ;;
 	--help)
 	    usage
 	    ;;
@@ -122,6 +129,25 @@ fi
 arch_name=$arch
 [ "$arch" = "aarch64" ] && arch="arm64"
 [ "$arch_name" = "arm64" ] && arch_name="aarch64"
+
+if [ -z "$page_size" ]; then
+    [ "$arch" = "arm64" ] && page_size="65536"
+    [ "$arch" = "arm" ] && page_size="4096"
+else
+    if [ "$arch" != "arm64" ]; then
+        echo "--page-size is not supported for $arch"
+        usage
+    fi
+
+    if [ "${page_size: -1}" = "K" ] || [ "${page_size: -1}" = "k" ]; then
+        page_size=$(( ${page_size%?} * 1024 ))
+    fi
+    if [ "$page_size" != "4096" ] && [ "$page_size" != "16384" ] &&
+           [ "$page_size" != "65536" ]; then
+        echo "arm64 doesn't support page size of $page_size"
+        usage
+    fi
+fi
 
 [ -z "$processor" ] && processor="$arch"
 
@@ -254,6 +280,7 @@ cat <<EOF >> lib/config.h
 
 #define CONFIG_UART_EARLY_BASE ${arm_uart_early_addr}
 #define CONFIG_ERRATA_FORCE ${errata_force}
+#define CONFIG_PAGE_SIZE _AC(${page_size}, UL)
 
 EOF
 fi

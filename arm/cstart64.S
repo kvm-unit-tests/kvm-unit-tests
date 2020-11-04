@@ -157,6 +157,14 @@ halt:
  */
 #define MAIR(attr, mt) ((attr) << ((mt) * 8))
 
+#if PAGE_SIZE == SZ_64K
+#define TCR_TG_FLAGS	TCR_TG0_64K | TCR_TG1_64K
+#elif PAGE_SIZE == SZ_16K
+#define TCR_TG_FLAGS	TCR_TG0_16K | TCR_TG1_16K
+#elif PAGE_SIZE == SZ_4K
+#define TCR_TG_FLAGS	TCR_TG0_4K | TCR_TG1_4K
+#endif
+
 .globl asm_mmu_enable
 asm_mmu_enable:
 	tlbi	vmalle1			// invalidate I + D TLBs
@@ -164,7 +172,7 @@ asm_mmu_enable:
 
 	/* TCR */
 	ldr	x1, =TCR_TxSZ(VA_BITS) |		\
-		     TCR_TG0_64K | TCR_TG1_64K |	\
+		     TCR_TG_FLAGS  |			\
 		     TCR_IRGN_WBWA | TCR_ORGN_WBWA |	\
 		     TCR_SHARED
 	mrs	x2, id_aa64mmfr0_el1

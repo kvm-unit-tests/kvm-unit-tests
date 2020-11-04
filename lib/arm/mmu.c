@@ -81,7 +81,8 @@ void mmu_disable(void)
 static pteval_t *get_pte(pgd_t *pgtable, uintptr_t vaddr)
 {
 	pgd_t *pgd = pgd_offset(pgtable, vaddr);
-	pmd_t *pmd = pmd_alloc(pgd, vaddr);
+	pud_t *pud = pud_alloc(pgd, vaddr);
+	pmd_t *pmd = pmd_alloc(pud, vaddr);
 	pte_t *pte = pte_alloc(pmd, vaddr);
 
 	return &pte_val(*pte);
@@ -133,18 +134,22 @@ void mmu_set_range_sect(pgd_t *pgtable, uintptr_t virt_offset,
 			phys_addr_t phys_start, phys_addr_t phys_end,
 			pgprot_t prot)
 {
-	phys_addr_t paddr = phys_start & PGDIR_MASK;
-	uintptr_t vaddr = virt_offset & PGDIR_MASK;
+	phys_addr_t paddr = phys_start & PMD_MASK;
+	uintptr_t vaddr = virt_offset & PMD_MASK;
 	uintptr_t virt_end = phys_end - paddr + vaddr;
 	pgd_t *pgd;
-	pgd_t entry;
+	pud_t *pud;
+	pmd_t *pmd;
+	pmd_t entry;
 
-	for (; vaddr < virt_end; vaddr += PGDIR_SIZE, paddr += PGDIR_SIZE) {
-		pgd_val(entry) = paddr;
-		pgd_val(entry) |= PMD_TYPE_SECT | PMD_SECT_AF | PMD_SECT_S;
-		pgd_val(entry) |= pgprot_val(prot);
+	for (; vaddr < virt_end; vaddr += PMD_SIZE, paddr += PMD_SIZE) {
+		pmd_val(entry) = paddr;
+		pmd_val(entry) |= PMD_TYPE_SECT | PMD_SECT_AF | PMD_SECT_S;
+		pmd_val(entry) |= pgprot_val(prot);
 		pgd = pgd_offset(pgtable, vaddr);
-		WRITE_ONCE(*pgd, entry);
+		pud = pud_alloc(pgd, vaddr);
+		pmd = pmd_alloc(pud, vaddr);
+		WRITE_ONCE(*pmd, entry);
 		flush_tlb_page(vaddr);
 	}
 }
@@ -210,6 +215,7 @@ unsigned long __phys_to_virt(phys_addr_t addr)
 void mmu_clear_user(pgd_t *pgtable, unsigned long vaddr)
 {
 	pgd_t *pgd;
+	pud_t *pud;
 	pmd_t *pmd;
 	pte_t *pte;
 
@@ -218,7 +224,9 @@ void mmu_clear_user(pgd_t *pgtable, unsigned long vaddr)
 
 	pgd = pgd_offset(pgtable, vaddr);
 	assert(pgd_valid(*pgd));
-	pmd = pmd_offset(pgd, vaddr);
+	pud = pud_offset(pgd, vaddr);
+	assert(pud_valid(*pud));
+	pmd = pmd_offset(pud, vaddr);
 	assert(pmd_valid(*pmd));
 
 	if (pmd_huge(*pmd)) {

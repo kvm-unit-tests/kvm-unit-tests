@@ -53,6 +53,12 @@ static inline pmd_t *pgd_page_vaddr(pgd_t pgd)
 	return pgtable_va(pgd_val(pgd) & PHYS_MASK & (s32)PAGE_MASK);
 }
 
+/* For compatibility with arm64 page tables */
+#define pud_valid(pud)		pgd_valid(pud)
+#define pud_offset(pgd, addr)	((pud_t *)pgd)
+#define pud_free(pud)
+#define pud_alloc(pgd, addr)	pud_offset(pgd, addr)
+
 #define pmd_index(addr) \
 	(((addr) >> PMD_SHIFT) & (PTRS_PER_PMD - 1))
 #define pmd_offset(pgd, addr) \
