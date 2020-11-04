@@ -160,6 +160,9 @@ void *setup_mmu(phys_addr_t phys_end)
 
 #ifdef __aarch64__
 	init_alloc_vpage((void*)(4ul << 30));
+
+	assert_msg(system_supports_granule(PAGE_SIZE),
+			"Unsupported translation granule %ld\n", PAGE_SIZE);
 #endif
 
 	mmu_idmap = alloc_page();
