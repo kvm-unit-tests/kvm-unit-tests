@@ -212,7 +212,13 @@ unsigned long __phys_to_virt(phys_addr_t addr)
 	return addr;
 }
 
-void mmu_clear_user(pgd_t *pgtable, unsigned long vaddr)
+/*
+ * NOTE: The Arm architecture might require the use of a
+ * break-before-make sequence before making changes to a PTE and
+ * certain conditions are met (see Arm ARM D5-2669 for AArch64 and
+ * B3-1378 for AArch32 for more details).
+ */
+pteval_t *mmu_get_pte(pgd_t *pgtable, uintptr_t vaddr)
 {
 	pgd_t *pgd;
 	pud_t *pud;
@@ -220,7 +226,7 @@ void mmu_clear_user(pgd_t *pgtable, unsigned long vaddr)
 	pte_t *pte;
 
 	if (!mmu_enabled())
-		return;
+		return NULL;
 
 	pgd = pgd_offset(pgtable, vaddr);
 	assert(pgd_valid(*pgd));
@@ -229,17 +235,21 @@ void mmu_clear_user(pgd_t *pgtable, unsigned long vaddr)
 	pmd = pmd_offset(pud, vaddr);
 	assert(pmd_valid(*pmd));
 
-	if (pmd_huge(*pmd)) {
-		pmd_t entry = __pmd(pmd_val(*pmd) & ~PMD_SECT_USER);
-		WRITE_ONCE(*pmd, entry);
-		goto out_flush_tlb;
-	}
+	if (pmd_huge(*pmd))
+		return &pmd_val(*pmd);
 
 	pte = pte_offset(pmd, vaddr);
 	assert(pte_valid(*pte));
-	pte_t entry = __pte(pte_val(*pte) & ~PTE_USER);
-	WRITE_ONCE(*pte, entry);
 
-out_flush_tlb:
-	flush_tlb_page(vaddr);
+        return &pte_val(*pte);
+}
+
+void mmu_clear_user(pgd_t *pgtable, unsigned long vaddr)
+{
+	pteval_t *p_pte = mmu_get_pte(pgtable, vaddr);
+	if (p_pte) {
+		pteval_t entry = *p_pte & ~PTE_USER;
+		WRITE_ONCE(*p_pte, entry);
+		flush_tlb_page(vaddr);
+	}
 }
