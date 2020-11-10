@@ -153,5 +153,7 @@
 #define MT_DEVICE_GRE		2
 #define MT_NORMAL_NC		3	/* writecombine */
 #define MT_NORMAL		4
+#define MT_NORMAL_WT		5
+#define MT_DEVICE_nGRE		6
 
 #endif /* _ASMARM64_PGTABLE_HWDEF_H_ */
