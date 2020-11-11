@@ -10,14 +10,32 @@
  * This work is licensed under the terms of the GNU GPL, version 2.
  */
 
+#include <config.h>
 #include <linux/const.h>
+#include <libcflat.h>
 
-#define PGTABLE_LEVELS		2
-#define VA_BITS			42
+#define VA_BITS			48
 
+#define PAGE_SIZE		CONFIG_PAGE_SIZE
+#if PAGE_SIZE == SZ_64K
 #define PAGE_SHIFT		16
-#define PAGE_SIZE		(_AC(1,UL) << PAGE_SHIFT)
+#elif PAGE_SIZE == SZ_16K
+#define PAGE_SHIFT		14
+#elif PAGE_SIZE == SZ_4K
+#define PAGE_SHIFT		12
+#else
+#error Unsupported PAGE_SIZE
+#endif
 #define PAGE_MASK		(~(PAGE_SIZE-1))
+
+/*
+ * Since a page table descriptor is 8 bytes we have (PAGE_SHIFT - 3) bits
+ * of virtual address at each page table level. So, to get the number of
+ * page table levels needed, we round up the division of the number of
+ * address bits (VA_BITS - PAGE_SHIFT) by (PAGE_SHIFT - 3).
+ */
+#define PGTABLE_LEVELS \
+	(((VA_BITS - PAGE_SHIFT) + ((PAGE_SHIFT - 3) - 1)) / (PAGE_SHIFT - 3))
 
 #ifndef __ASSEMBLY__
 
@@ -25,22 +43,25 @@
 
 typedef u64 pteval_t;
 typedef u64 pmdval_t;
+typedef u64 pudval_t;
 typedef u64 pgdval_t;
 typedef struct { pteval_t pte; } pte_t;
+typedef struct { pmdval_t pmd; } pmd_t;
+typedef struct { pudval_t pud; } pud_t;
 typedef struct { pgdval_t pgd; } pgd_t;
 typedef struct { pteval_t pgprot; } pgprot_t;
 
 #define pte_val(x)		((x).pte)
+#define pmd_val(x)		((x).pmd)
+#define pud_val(x)		((x).pud)
 #define pgd_val(x)		((x).pgd)
 #define pgprot_val(x)		((x).pgprot)
 
 #define __pte(x)		((pte_t) { (x) } )
+#define __pmd(x)		((pmd_t) { (x) } )
+#define __pud(x)		((pud_t) { (x) } )
 #define __pgd(x)		((pgd_t) { (x) } )
 #define __pgprot(x)		((pgprot_t) { (x) } )
-
-typedef struct { pgd_t pgd; } pmd_t;
-#define pmd_val(x)		(pgd_val((x).pgd))
-#define __pmd(x)		((pmd_t) { __pgd(x) } )
 
 #define __va(x)			((void *)__phys_to_virt((phys_addr_t)(x)))
 #define __pa(x)			__virt_to_phys((unsigned long)(x))

@@ -989,6 +989,7 @@ static void pmccntr64_test(void)
 static bool pmu_probe(void)
 {
 	uint32_t pmcr = get_pmcr();
+	uint8_t implementer;
 
 	pmu.version = get_pmu_version();
 	if (pmu.version == ID_DFR0_PMU_NOTIMPL || pmu.version == ID_DFR0_PMU_IMPDEF)
@@ -996,10 +997,10 @@ static bool pmu_probe(void)
 
 	report_info("PMU version: 0x%x", pmu.version);
 
-	pmcr = get_pmcr();
-	report_info("PMU implementer/ID code: %#x(\"%c\")/%#x",
+	implementer = (pmcr >> PMU_PMCR_IMP_SHIFT) & PMU_PMCR_IMP_MASK;
+	report_info("PMU implementer/ID code: %#"PRIx32"(\"%c\")/%#"PRIx32,
 		    (pmcr >> PMU_PMCR_IMP_SHIFT) & PMU_PMCR_IMP_MASK,
-		    ((pmcr >> PMU_PMCR_IMP_SHIFT) & PMU_PMCR_IMP_MASK) ? : ' ',
+		    implementer ? implementer : ' ',
 		    (pmcr >> PMU_PMCR_ID_SHIFT) & PMU_PMCR_ID_MASK);
 
 	/* store read-only and RES0 fields of the PMCR bottom-half*/

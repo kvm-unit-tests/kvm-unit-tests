@@ -150,7 +150,7 @@ static void irq_handler(struct pt_regs *regs)
 		report(readl(&pl031->mis) == 0, "  RTC MIS == 0");
 		irq_triggered = true;
 	} else {
-		report_info("Unexpected interrupt: %d\n", irqnr);
+		report_info("Unexpected interrupt: %"PRIu32"\n", irqnr);
 		return;
 	}
 }
@@ -191,10 +191,10 @@ static int check_rtc_irq(void)
 	report(irq_triggered, "  IRQ triggered");
 	report(!gic_irq_pending(), "  RTC IRQ not pending anymore");
 	if (!irq_triggered) {
-		report_info("  RTC RIS: %x", readl(&pl031->ris));
-		report_info("  RTC MIS: %x", readl(&pl031->mis));
-		report_info("  RTC IMSC: %x", readl(&pl031->imsc));
-		report_info("  GIC IRQs pending: %08x %08x", readl(gic_ispendr), readl(gic_ispendr + 4));
+		report_info("  RTC RIS: %"PRIx32, readl(&pl031->ris));
+		report_info("  RTC MIS: %"PRIx32, readl(&pl031->mis));
+		report_info("  RTC IMSC: %"PRIx32, readl(&pl031->imsc));
+		report_info("  GIC IRQs pending: %08"PRIx32" %08"PRIx32, readl(gic_ispendr), readl(gic_ispendr + 4));
 	}
 
 	local_irq_disable();

@@ -154,8 +154,18 @@ halt:
  *   DEVICE_GRE         010     00001100
  *   NORMAL_NC          011     01000100
  *   NORMAL             100     11111111
+ *   NORMAL_WT          101     10111011
+ *   DEVICE_nGRE        110     00001000
  */
 #define MAIR(attr, mt) ((attr) << ((mt) * 8))
+
+#if PAGE_SIZE == SZ_64K
+#define TCR_TG_FLAGS	TCR_TG0_64K | TCR_TG1_64K
+#elif PAGE_SIZE == SZ_16K
+#define TCR_TG_FLAGS	TCR_TG0_16K | TCR_TG1_16K
+#elif PAGE_SIZE == SZ_4K
+#define TCR_TG_FLAGS	TCR_TG0_4K | TCR_TG1_4K
+#endif
 
 .globl asm_mmu_enable
 asm_mmu_enable:
@@ -164,7 +174,7 @@ asm_mmu_enable:
 
 	/* TCR */
 	ldr	x1, =TCR_TxSZ(VA_BITS) |		\
-		     TCR_TG0_64K | TCR_TG1_64K |	\
+		     TCR_TG_FLAGS  |			\
 		     TCR_IRGN_WBWA | TCR_ORGN_WBWA |	\
 		     TCR_SHARED
 	mrs	x2, id_aa64mmfr0_el1
@@ -176,7 +186,9 @@ asm_mmu_enable:
 		     MAIR(0x04, MT_DEVICE_nGnRE) |	\
 		     MAIR(0x0c, MT_DEVICE_GRE) |	\
 		     MAIR(0x44, MT_NORMAL_NC) |		\
-		     MAIR(0xff, MT_NORMAL)
+		     MAIR(0xff, MT_NORMAL) |	        \
+		     MAIR(0xbb, MT_NORMAL_WT) |         \
+		     MAIR(0x08, MT_DEVICE_nGRE)
 	msr	mair_el1, x1
 
 	/* TTBR0 */

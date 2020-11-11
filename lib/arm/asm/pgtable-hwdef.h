@@ -19,6 +19,10 @@
 #define PTRS_PER_PTE		512
 #define PTRS_PER_PMD		512
 
+/* For compatibility with arm64 page tables */
+#define PUD_SIZE		PGDIR_SIZE
+#define PUD_MASK		PGDIR_MASK
+
 #define PMD_SHIFT		21
 #define PMD_SIZE		(_AC(1,UL) << PMD_SHIFT)
 #define PMD_MASK		(~((1 << PMD_SHIFT) - 1))

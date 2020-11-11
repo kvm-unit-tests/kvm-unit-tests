@@ -457,7 +457,7 @@ static void test_byte_access(void *base_addr, u32 pattern, u32 mask)
 	res = (reg == (BYTE(pattern, 1) & (mask >> 8)));
 	report(res, "byte reads successful");
 	if (!res)
-		report_info("byte 1 of 0x%08x => 0x%02x", pattern & mask, reg);
+		report_info("byte 1 of 0x%08"PRIx32" => 0x%02"PRIx32, pattern & mask, reg);
 
 	pattern = REPLACE_BYTE(pattern, 2, 0x1f);
 	writeb(BYTE(pattern, 2), base_addr + 2);
@@ -465,7 +465,7 @@ static void test_byte_access(void *base_addr, u32 pattern, u32 mask)
 	res = (reg == (pattern & mask));
 	report(res, "byte writes successful");
 	if (!res)
-		report_info("writing 0x%02x into bytes 2 => 0x%08x",
+		report_info("writing 0x%02"PRIx32" into bytes 2 => 0x%08"PRIx32,
 			    BYTE(pattern, 2), reg);
 }
 
@@ -489,13 +489,13 @@ static void test_priorities(int nr_irqs, void *priptr)
 	report((((reg >> 16) == (reg & 0xffff)) &&
 	        ((reg & 0xff) == ((reg >> 8) & 0xff))),
 	       "consistent priority masking");
-	report_info("priority mask is 0x%08x", pri_mask);
+	report_info("priority mask is 0x%08"PRIx32, pri_mask);
 
 	reg = reg & 0xff;
 	for (pri_bits = 8; reg & 1; reg >>= 1, pri_bits--)
 		;
 	report(pri_bits >= 4, "implements at least 4 priority bits");
-	report_info("%d priority bits implemented", pri_bits);
+	report_info("%"PRIu32" priority bits implemented", pri_bits);
 
 	pattern = 0;
 	writel(pattern, first_spi);
@@ -555,7 +555,7 @@ static void test_targets(int nr_irqs)
 	reg = readl(targetsptr + GIC_FIRST_SPI);
 	report(reg == (pattern & cpu_mask), "register content preserved");
 	if (reg != (pattern & cpu_mask))
-		report_info("writing %08x reads back as %08x",
+		report_info("writing %08"PRIx32" reads back as %08"PRIx32,
 			    pattern & cpu_mask, reg);
 
 	/* The TARGETS registers are byte accessible. */
@@ -589,7 +589,7 @@ static void gic_test_mmio(void)
 
 	test_typer_v2(reg);
 
-	report_info("IIDR: 0x%08x", readl(gic_dist_base + GICD_IIDR));
+	report_info("IIDR: 0x%08"PRIx32, readl(gic_dist_base + GICD_IIDR));
 
 	report(test_readonly_32(gic_dist_base + GICD_TYPER, false),
                "GICD_TYPER is read-only");
@@ -598,7 +598,7 @@ static void gic_test_mmio(void)
 
 	reg = readl(idreg);
 	report(test_readonly_32(idreg, false), "ICPIDR2 is read-only");
-	report_info("value of ICPIDR2: 0x%08x", reg);
+	report_info("value of ICPIDR2: 0x%08"PRIx32, reg);
 
 	test_priorities(nr_irqs, gic_dist_base + GICD_IPRIORITYR);
 
