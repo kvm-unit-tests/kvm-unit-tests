@@ -47,5 +47,7 @@ typedef struct { pteval_t pgprot; } pgprot_t;
 extern phys_addr_t __virt_to_phys(unsigned long addr);
 extern unsigned long __phys_to_virt(phys_addr_t addr);
 
+extern void *__ioremap(phys_addr_t phys_addr, size_t size);
+
 #endif /* !__ASSEMBLY__ */
 #endif /* _ASMARM_PAGE_H_ */

@@ -8,10 +8,13 @@
 #include <asm/barrier.h>
 
 #define PTE_USER		L_PTE_USER
+#define PTE_UXN			L_PTE_XN
+#define PTE_PXN			L_PTE_PXN
 #define PTE_RDONLY		PTE_AP2
 #define PTE_SHARED		L_PTE_SHARED
 #define PTE_AF			PTE_EXT_AF
 #define PTE_WBWA		L_PTE_MT_WRITEALLOC
+#define PTE_UNCACHED		L_PTE_MT_UNCACHED
 
 /* See B3.18.7 TLB maintenance operations */
 
