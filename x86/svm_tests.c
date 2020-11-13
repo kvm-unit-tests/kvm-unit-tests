@@ -2065,7 +2065,7 @@ static void basic_guest_main(struct svm_test *test)
 }
 
 #define SVM_TEST_CR_RESERVED_BITS(start, end, inc, cr, val, resv_mask,	\
-				  exit_code)				\
+				  exit_code, test_name)			\
 {									\
 	u64 tmp, mask;							\
 	int i;								\
@@ -2085,7 +2085,7 @@ static void basic_guest_main(struct svm_test *test)
 		case 4:							\
 			vmcb->save.cr4 = tmp;				\
 		}							\
-		report(svm_vmrun() == exit_code, "Test CR%d %d:%d: %lx",\
+		report(svm_vmrun() == exit_code, "Test CR%d " test_name "%d:%d: %lx",\
 		    cr, end, start, tmp);				\
 	}								\
 }
@@ -2208,7 +2208,7 @@ static void test_cr3(void)
 	u64 cr3_saved = vmcb->save.cr3;
 
 	SVM_TEST_CR_RESERVED_BITS(0, 63, 1, 3, cr3_saved,
-	    SVM_CR3_LONG_MBZ_MASK, SVM_EXIT_ERR);
+	    SVM_CR3_LONG_MBZ_MASK, SVM_EXIT_ERR, "");
 
 	vmcb->save.cr3 = cr3_saved & ~SVM_CR3_LONG_MBZ_MASK;
 	report(svm_vmrun() == SVM_EXIT_VMMCALL, "Test CR3 63:0: %lx",
@@ -2216,7 +2216,7 @@ static void test_cr3(void)
 
 	/*
 	 * CR3 non-MBZ reserved bits based on different modes:
-	 *   [11:5] [2:0] - long mode
+	 *   [11:5] [2:0] - long mode (PCIDE=0)
 	 *          [2:0] - PAE legacy mode
 	 */
 	u64 cr4_saved = vmcb->save.cr4;
@@ -2228,26 +2228,23 @@ static void test_cr3(void)
 	if (this_cpu_has(X86_FEATURE_PCID)) {
 		vmcb->save.cr4 = cr4_saved | X86_CR4_PCIDE;
 		SVM_TEST_CR_RESERVED_BITS(0, 11, 1, 3, cr3_saved,
-		    SVM_CR3_LONG_RESERVED_MASK, SVM_EXIT_VMMCALL);
+		    SVM_CR3_LONG_RESERVED_MASK, SVM_EXIT_VMMCALL, "(PCIDE=1) ");
 
-		vmcb->save.cr3 = cr3_saved & ~SVM_CR3_LONG_RESERVED_MASK;
-		report(svm_vmrun() == SVM_EXIT_VMMCALL, "Test CR3 63:0: %lx",
-		    vmcb->save.cr3);
-	} else {
-
-		vmcb->save.cr4 = cr4_saved & ~X86_CR4_PCIDE;
-
-		/* Clear P (Present) bit in NPT in order to trigger #NPF */
-		pdpe[0] &= ~1ULL;
-
-		SVM_TEST_CR_RESERVED_BITS(0, 11, 1, 3, cr3_saved,
-		    SVM_CR3_LONG_RESERVED_MASK, SVM_EXIT_NPF);
-
-		pdpe[0] |= 1ULL;
 		vmcb->save.cr3 = cr3_saved & ~SVM_CR3_LONG_RESERVED_MASK;
 		report(svm_vmrun() == SVM_EXIT_VMMCALL, "Test CR3 63:0: %lx",
 		    vmcb->save.cr3);
 	}
+
+	vmcb->save.cr4 = cr4_saved & ~X86_CR4_PCIDE;
+
+	/* Clear P (Present) bit in NPT in order to trigger #NPF */
+	pdpe[0] &= ~1ULL;
+
+	SVM_TEST_CR_RESERVED_BITS(0, 11, 1, 3, cr3_saved,
+	    SVM_CR3_LONG_RESERVED_MASK, SVM_EXIT_NPF, "(PCIDE=0) ");
+
+	pdpe[0] |= 1ULL;
+	vmcb->save.cr3 = cr3_saved;
 
 	/*
 	 * PAE legacy
@@ -2255,13 +2252,9 @@ static void test_cr3(void)
 	pdpe[0] &= ~1ULL;
 	vmcb->save.cr4 = cr4_saved | X86_CR4_PAE;
 	SVM_TEST_CR_RESERVED_BITS(0, 2, 1, 3, cr3_saved,
-	    SVM_CR3_PAE_LEGACY_RESERVED_MASK, SVM_EXIT_NPF);
+	    SVM_CR3_PAE_LEGACY_RESERVED_MASK, SVM_EXIT_NPF, "(PAE) ");
 
 	pdpe[0] |= 1ULL;
-	vmcb->save.cr3 = cr3_saved & ~SVM_CR3_PAE_LEGACY_RESERVED_MASK;
-	report(svm_vmrun() == SVM_EXIT_VMMCALL, "Test CR3 63:0: %lx",
-	    vmcb->save.cr3);
-
 	vmcb->save.cr3 = cr3_saved;
 	vmcb->save.cr4 = cr4_saved;
 }
@@ -2280,14 +2273,14 @@ static void test_cr4(void)
 	efer &= ~EFER_LME;
 	vmcb->save.efer = efer;
 	SVM_TEST_CR_RESERVED_BITS(12, 31, 1, 4, cr4_saved,
-	    SVM_CR4_LEGACY_RESERVED_MASK, SVM_EXIT_ERR);
+	    SVM_CR4_LEGACY_RESERVED_MASK, SVM_EXIT_ERR, "");
 
 	efer |= EFER_LME;
 	vmcb->save.efer = efer;
 	SVM_TEST_CR_RESERVED_BITS(12, 31, 1, 4, cr4_saved,
-	    SVM_CR4_RESERVED_MASK, SVM_EXIT_ERR);
+	    SVM_CR4_RESERVED_MASK, SVM_EXIT_ERR, "");
 	SVM_TEST_CR_RESERVED_BITS(32, 63, 4, 4, cr4_saved,
-	    SVM_CR4_RESERVED_MASK, SVM_EXIT_ERR);
+	    SVM_CR4_RESERVED_MASK, SVM_EXIT_ERR, "");
 
 	vmcb->save.cr4 = cr4_saved;
 	vmcb->save.efer = efer_saved;
