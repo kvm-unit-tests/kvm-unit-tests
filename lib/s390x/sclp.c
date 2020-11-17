@@ -25,6 +25,7 @@ static uint64_t max_ram_size;
 static uint64_t ram_size;
 char _read_info[PAGE_SIZE] __attribute__((__aligned__(PAGE_SIZE)));
 static ReadInfo *read_info;
+struct sclp_facilities sclp_facilities;
 
 char _sccb[PAGE_SIZE] __attribute__((__aligned__(4096)));
 static volatile bool sclp_busy;
@@ -126,6 +127,30 @@ CPUEntry *sclp_get_cpu_entries(void)
 {
 	assert(read_info);
 	return (CPUEntry *)(_read_info + read_info->offset_cpu);
+}
+
+void sclp_facilities_setup(void)
+{
+	unsigned short cpu0_addr = stap();
+	CPUEntry *cpu;
+	int i;
+
+	assert(read_info);
+
+	cpu = sclp_get_cpu_entries();
+	for (i = 0; i < read_info->entries_cpu; i++, cpu++) {
+		/*
+		 * The logic for only reading the facilities from the
+		 * boot cpu comes from the kernel. I haven't yet found
+		 * documentation that explains why this is necessary
+		 * but I figure there's a reason behind doing it this
+		 * way.
+		 */
+		if (cpu->address == cpu0_addr) {
+			sclp_facilities.has_sief2 = cpu->feat_sief2;
+			break;
+		}
+	}
 }
 
 /* Perform service call. Return 0 on success, non-zero otherwise. */
