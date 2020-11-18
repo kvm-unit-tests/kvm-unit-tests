@@ -1,7 +1,5 @@
 #include "libcflat.h"
 #include "smp.h"
-#include "processor.h"
-#include "atomic.h"
 #include "pci.h"
 #include "x86/vm.h"
 #include "x86/desc.h"
