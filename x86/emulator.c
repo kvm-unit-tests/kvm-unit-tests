@@ -6,9 +6,13 @@
 #include "processor.h"
 #include "vmalloc.h"
 #include "alloc_page.h"
+#include "usermode.h"
 
 #define memset __builtin_memset
 #define TESTDEV_IO_PORT 0xe0
+
+#define MAGIC_NUM 0xdeadbeefdeadbeefUL
+#define GS_BASE 0x400000
 
 static int exceptions;
 
@@ -925,6 +929,39 @@ static void test_sreg(volatile uint16_t *mem)
     write_ss(ss);
 }
 
+static uint64_t usr_gs_mov(void)
+{
+    static uint64_t dummy = MAGIC_NUM;
+    uint64_t dummy_ptr = (uint64_t)&dummy;
+    uint64_t ret;
+
+    dummy_ptr -= GS_BASE;
+    asm volatile("mov %%gs:(%%rcx), %%rax" : "=a"(ret): "c"(dummy_ptr) :);
+
+    return ret;
+}
+
+static void test_iret(void)
+{
+    uint64_t val;
+    bool raised_vector;
+
+    /* Update GS base to 4MiB */
+    wrmsr(MSR_GS_BASE, GS_BASE);
+
+    /*
+     * Per the SDM, jumping to user mode via `iret`, which is returning to
+     * outer privilege level, for segment registers (ES, FS, GS, and DS)
+     * if the check fails, the segment selector becomes null.
+     *
+     * In our test case, GS becomes null.
+     */
+    val = run_in_user((usermode_func)usr_gs_mov, GP_VECTOR,
+                      0, 0, 0, 0, &raised_vector);
+
+    report(val == MAGIC_NUM, "Test ret/iret with a nullified segment");
+}
+
 /* Broken emulation causes triple fault, which skips the other tests. */
 #if 0
 static void test_lldt(volatile uint16_t *mem)
@@ -1074,6 +1111,7 @@ int main(void)
 	test_shld_shrd(mem);
 	//test_lgdt_lidt(mem);
 	test_sreg(mem);
+	test_iret();
 	//test_lldt(mem);
 	test_ltr(mem);
 	test_cmov(mem);
