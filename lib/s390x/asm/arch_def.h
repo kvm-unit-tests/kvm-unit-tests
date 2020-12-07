@@ -190,6 +190,8 @@ struct cpuid {
 	uint64_t reserved : 15;
 };
 
+#define SVC_LEAVE_PSTATE 1
+
 static inline unsigned short stap(void)
 {
 	unsigned short cpu_address;
@@ -291,6 +293,11 @@ static inline void enter_pstate(void)
 	mask = extract_psw_mask();
 	mask |= PSW_MASK_PSTATE;
 	load_psw_mask(mask);
+}
+
+static inline void leave_pstate(void)
+{
+	asm volatile("	svc %0\n" : : "i" (SVC_LEAVE_PSTATE));
 }
 
 static inline int stsi(void *addr, int fc, int sel1, int sel2)
