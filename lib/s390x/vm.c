@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Functions to retrieve VM-specific information
  *
@@ -5,8 +6,6 @@
  *
  * Authors:
  *  Thomas Huth <thuth@redhat.com>
- *
- * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
 #include <libcflat.h>

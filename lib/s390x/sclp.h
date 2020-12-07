@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * SCLP definitions
  *
@@ -7,10 +8,6 @@
  * and based on the file include/hw/s390x/sclp.h from QEMU
  * Copyright IBM, Corp. 2012
  * Author: Christian Borntraeger <borntraeger@de.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or (at
- * your option) any later version. See the COPYING file in the top-level
- * directory.
  */
 
 #ifndef SCLP_H

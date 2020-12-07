@@ -1,9 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Functions to retrieve VM-specific information
  *
  * Copyright (c) 2020 Red Hat Inc
- *
- * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
 #ifndef S390X_VM_H
