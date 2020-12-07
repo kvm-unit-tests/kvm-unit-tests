@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Tests guarded storage support.
  *
@@ -6,9 +7,6 @@
  * Authors:
  *    Martin Schwidefsky <schwidefsky@de.ibm.com>
  *    Janosch Frank <frankja@de.ibm.com>
- *
- * This code is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Library General Public License version 2.
  */
 #include <libcflat.h>
 #include <asm/page.h>

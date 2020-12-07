@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * STHYI related flags and structure definitions.
  *
@@ -5,9 +6,6 @@
  *
  * Authors:
  *    Janosch Frank <frankja@linux.vnet.ibm.com>
- *
- * This code is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Library General Public License version 2.
  */
 #ifndef _STHYI_H_
 #define _STHYI_H_

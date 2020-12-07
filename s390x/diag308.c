@@ -1,11 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Diagnose 0x308 hypercall tests
  *
  * Copyright (c) 2019 Thomas Huth, Red Hat Inc.
- *
- * This code is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2, or (at
- * your option) any later version.
  */
 
 #include <libcflat.h>
