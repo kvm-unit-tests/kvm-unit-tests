@@ -16,6 +16,7 @@
 #include <asm/facility.h>
 #include <asm/uv.h>
 #include <sclp.h>
+#include <uv.h>
 
 static unsigned long page;
 
@@ -139,6 +140,11 @@ int main(void)
 	report_prefix_push("uvc");
 	if (!has_uvc) {
 		report_skip("Ultravisor call facility is not available");
+		goto done;
+	}
+
+	if (!uv_os_is_guest()) {
+		report_skip("Not a protected guest");
 		goto done;
 	}
 
