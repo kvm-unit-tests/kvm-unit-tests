@@ -2315,6 +2315,73 @@ static void svm_guest_state_test(void)
 	test_dr();
 }
 
+
+static bool volatile svm_errata_reproduced = false;
+static unsigned long volatile physical = 0;
+
+
+/*
+ *
+ * Test the following errata:
+ * If the VMRUN/VMSAVE/VMLOAD are attempted by the nested guest,
+ * the CPU would first check the EAX against host reserved memory
+ * regions (so far only SMM_ADDR/SMM_MASK are known to cause it),
+ * and only then signal #VMexit
+ *
+ * Try to reproduce this by trying vmsave on each possible 4K aligned memory
+ * address in the low 4G where the SMM area has to reside.
+ */
+
+static void gp_isr(struct ex_regs *r)
+{
+    svm_errata_reproduced = true;
+    /* skip over the vmsave instruction*/
+    r->rip += 3;
+}
+
+static void svm_vmrun_errata_test(void)
+{
+    unsigned long *last_page = NULL;
+
+    handle_exception(GP_VECTOR, gp_isr);
+
+    while (!svm_errata_reproduced) {
+
+        unsigned long *page = alloc_pages(1);
+
+        if (!page) {
+            report(true, "All guest memory tested, no bug found");;
+            break;
+        }
+
+        physical = virt_to_phys(page);
+
+        asm volatile (
+            "mov %[_physical], %%rax\n\t"
+            "vmsave %%rax\n\t"
+
+            : [_physical] "=m" (physical)
+            : /* no inputs*/
+            : "rax" /*clobbers*/
+        );
+
+        if (svm_errata_reproduced) {
+            report(false, "Got #GP exception - svm errata reproduced at 0x%lx",
+                   physical);
+            break;
+        }
+
+        *page = (unsigned long)last_page;
+        last_page = page;
+    }
+
+    while (last_page) {
+        unsigned long *page = last_page;
+        last_page = (unsigned long *)*last_page;
+        free_pages_by_order(page, 1);
+    }
+}
+
 struct svm_test svm_tests[] = {
     { "null", default_supported, default_prepare,
       default_prepare_gif_clear, null_test,
@@ -2427,5 +2494,6 @@ struct svm_test svm_tests[] = {
       init_intercept_finished, init_intercept_check, .on_vcpu = 2 },
     TEST(svm_cr4_osxsave_test),
     TEST(svm_guest_state_test),
+    TEST(svm_vmrun_errata_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
