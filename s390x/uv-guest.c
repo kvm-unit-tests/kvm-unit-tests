@@ -59,7 +59,8 @@ static void test_query(void)
 {
 	struct uv_cb_qui uvcb = {
 		.header.cmd = UVC_CMD_QUI,
-		.header.len = sizeof(uvcb) - 8,
+		/* A dword below the minimum length */
+		.header.len = 0xa0,
 	};
 	int cc;
 
