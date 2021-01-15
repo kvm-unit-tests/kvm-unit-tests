@@ -13,9 +13,7 @@
 typedef unsigned long pteval_t;
 typedef unsigned long pgd_t;
 
-#define PAGE_SHIFT	12
-#define PAGE_SIZE	(_AC(1,UL) << PAGE_SHIFT)
-#define PAGE_MASK	(~(PAGE_SIZE-1))
+#include <asm-generic/page.h>
 
 #ifndef __ASSEMBLY__
 
