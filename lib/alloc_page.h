@@ -11,8 +11,13 @@
 #include <stdbool.h>
 #include <asm/memory_areas.h>
 
-#define AREA_ANY -1
-#define AREA_ANY_NUMBER 0xff
+#define AREA_ANY_NUMBER	0xff
+
+#define AREA_ANY	0x00000
+#define AREA_MASK	0x0ffff
+
+#define FLAG_DONTZERO	0x10000
+#define FLAG_FRESH	0x20000
 
 /* Returns true if the page allocator has been initialized */
 bool page_alloc_initialized(void);
@@ -30,39 +35,39 @@ void page_alloc_init_area(u8 n, phys_addr_t base_pfn, phys_addr_t top_pfn);
 void page_alloc_ops_enable(void);
 
 /*
- * Allocate aligned memory from the specified areas.
- * areas is a bitmap of allowed areas
+ * Allocate aligned memory with the specified flags.
+ * flags is a bitmap of allowed areas and flags.
  * alignment must be a power of 2
  */
-void *memalign_pages_area(unsigned int areas, size_t alignment, size_t size);
+void *memalign_pages_flags(size_t alignment, size_t size, unsigned int flags);
 
 /*
- * Allocate aligned memory from any area.
- * Equivalent to memalign_pages_area(AREA_ANY, alignment, size).
+ * Allocate aligned memory from any area and with default flags.
+ * Equivalent to memalign_pages_flags(alignment, size, AREA_ANY).
  */
 static inline void *memalign_pages(size_t alignment, size_t size)
 {
-	return memalign_pages_area(AREA_ANY, alignment, size);
+	return memalign_pages_flags(alignment, size, AREA_ANY);
 }
 
 /*
- * Allocate naturally aligned memory from the specified areas.
- * Equivalent to memalign_pages_area(areas, 1ull << order, 1ull << order).
+ * Allocate 1ull << order naturally aligned pages with the specified flags.
+ * Equivalent to memalign_pages_flags(1ull << order, 1ull << order, flags).
  */
-void *alloc_pages_area(unsigned int areas, unsigned int order);
+void *alloc_pages_flags(unsigned int order, unsigned int flags);
 
 /*
- * Allocate naturally aligned pages from any area; the number of allocated
- * pages is 1 << order.
- * Equivalent to alloc_pages_area(AREA_ANY, order);
+ * Allocate 1ull << order naturally aligned pages from any area and with
+ * default flags.
+ * Equivalent to alloc_pages_flags(order, AREA_ANY);
  */
 static inline void *alloc_pages(unsigned int order)
 {
-	return alloc_pages_area(AREA_ANY, order);
+	return alloc_pages_flags(order, AREA_ANY);
 }
 
 /*
- * Allocate one page from any area.
+ * Allocate one page from any area and with default flags.
  * Equivalent to alloc_pages(0);
  */
 static inline void *alloc_page(void)
@@ -83,7 +88,7 @@ void free_pages(void *mem);
  */
 static inline void free_page(void *mem)
 {
-	return free_pages(mem);
+	free_pages(mem);
 }
 
 /*

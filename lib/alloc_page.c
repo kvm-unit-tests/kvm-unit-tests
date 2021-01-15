@@ -361,16 +361,16 @@ void unreserve_pages(phys_addr_t addr, size_t n)
 	spin_unlock(&lock);
 }
 
-static void *page_memalign_order_area(unsigned area, u8 ord, u8 al)
+static void *page_memalign_order_flags(u8 al, u8 ord, u32 flags)
 {
 	void *res = NULL;
-	int i;
+	int i, area;
 
 	spin_lock(&lock);
-	area &= areas_mask;
+	area = (flags & AREA_MASK) ? flags & areas_mask : areas_mask;
 	for (i = 0; !res && (i < MAX_AREAS); i++)
 		if (area & BIT(i))
-			res = page_memalign_order(areas + i, ord, al);
+			res = page_memalign_order(areas + i, al, ord);
 	spin_unlock(&lock);
 	return res;
 }
@@ -379,23 +379,23 @@ static void *page_memalign_order_area(unsigned area, u8 ord, u8 al)
  * Allocates (1 << order) physically contiguous and naturally aligned pages.
  * Returns NULL if the allocation was not possible.
  */
-void *alloc_pages_area(unsigned int area, unsigned int order)
+void *alloc_pages_flags(unsigned int order, unsigned int flags)
 {
-	return page_memalign_order_area(area, order, order);
+	return page_memalign_order_flags(order, order, flags);
 }
 
 /*
  * Allocates (1 << order) physically contiguous aligned pages.
  * Returns NULL if the allocation was not possible.
  */
-void *memalign_pages_area(unsigned int area, size_t alignment, size_t size)
+void *memalign_pages_flags(size_t alignment, size_t size, unsigned int flags)
 {
 	assert(is_power_of_2(alignment));
 	alignment = get_order(PAGE_ALIGN(alignment) >> PAGE_SHIFT);
 	size = get_order(PAGE_ALIGN(size) >> PAGE_SHIFT);
 	assert(alignment < NLISTS);
 	assert(size < NLISTS);
-	return page_memalign_order_area(area, size, alignment);
+	return page_memalign_order_flags(alignment, size, flags);
 }
 
 

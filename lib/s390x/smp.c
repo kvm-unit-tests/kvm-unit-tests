@@ -190,7 +190,7 @@ int smp_cpu_setup(uint16_t addr, struct psw psw)
 
 	sigp_retry(cpu->addr, SIGP_INITIAL_CPU_RESET, 0, NULL);
 
-	lc = alloc_pages_area(AREA_DMA31, 1);
+	lc = alloc_pages_flags(1, AREA_DMA31);
 	cpu->lowcore = lc;
 	memset(lc, 0, PAGE_SIZE * 2);
 	sigp_retry(cpu->addr, SIGP_SET_PREFIX, (unsigned long )lc, NULL);
