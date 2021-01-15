@@ -31,6 +31,8 @@ struct mem_area {
 	pfn_t top;
 	/* Per page metadata, each entry is a combination *_MASK and order */
 	u8 *page_states;
+	/* Highest block order available in this area */
+	u8 max_order;
 	/* One freelist for each possible block size, up to NLISTS */
 	struct linked_list freelists[NLISTS];
 };
@@ -104,6 +106,8 @@ static void split(struct mem_area *a, void *addr)
 		assert(a->page_states[idx + i] == order);
 		a->page_states[idx + i] = order - 1;
 	}
+	if ((order == a->max_order) && (is_list_empty(a->freelists + order)))
+		a->max_order--;
 	order--;
 	/* add the first half block to the appropriate free list */
 	list_add(a->freelists + order, addr);
@@ -127,13 +131,13 @@ static void *page_memalign_order(struct mem_area *a, u8 al, u8 sz)
 	order = sz > al ? sz : al;
 
 	/* search all free lists for some memory */
-	for ( ; order < NLISTS; order++) {
+	for ( ; order <= a->max_order; order++) {
 		p = a->freelists[order].next;
 		if (!is_list_empty(p))
 			break;
 	}
 	/* out of memory */
-	if (order >= NLISTS)
+	if (order > a->max_order)
 		return NULL;
 
 	/*
@@ -201,6 +205,8 @@ static bool coalesce(struct mem_area *a, u8 order, pfn_t pfn, pfn_t pfn2)
 	}
 	/* finally add the newly coalesced block to the appropriate freelist */
 	list_add(a->freelists + order + 1, pfn_to_virt(pfn));
+	if (order + 1 > a->max_order)
+		a->max_order = order + 1;
 	return true;
 }
 
@@ -438,6 +444,7 @@ static void _page_alloc_init_area(u8 n, pfn_t start_pfn, pfn_t top_pfn)
 	a->page_states = pfn_to_virt(start_pfn);
 	a->base = start_pfn + table_size;
 	a->top = top_pfn;
+	a->max_order = 0;
 	npages = top_pfn - a->base;
 	assert((a->base - start_pfn) * PAGE_SIZE >= npages);
 
@@ -472,6 +479,8 @@ static void _page_alloc_init_area(u8 n, pfn_t start_pfn, pfn_t top_pfn)
 		/* initialize the metadata and add to the freelist */
 		memset(a->page_states + (i - a->base), order, BIT(order));
 		list_add(a->freelists + order, pfn_to_virt(i));
+		if (order > a->max_order)
+			a->max_order = order;
 	}
 	/* finally mark the area as present */
 	areas_mask |= BIT(n);
