@@ -162,13 +162,16 @@ static void *vm_memalign(size_t alignment, size_t size)
 static void vm_free(void *mem)
 {
 	struct metadata *m;
-	uintptr_t ptr, end;
+	uintptr_t ptr, page, i;
 
+	if (!mem)
+		return;
 	/* the pointer is not page-aligned, it was a single-page allocation */
 	if (!IS_ALIGNED((uintptr_t)mem, PAGE_SIZE)) {
 		assert(GET_MAGIC(mem) == VM_MAGIC);
-		ptr = virt_to_pte_phys(page_root, mem) & PAGE_MASK;
-		free_page(phys_to_virt(ptr));
+		page = virt_to_pte_phys(page_root, mem) & PAGE_MASK;
+		assert(page);
+		free_page(phys_to_virt(page));
 		return;
 	}
 
@@ -176,13 +179,14 @@ static void vm_free(void *mem)
 	m = GET_METADATA(mem);
 	assert(m->magic == VM_MAGIC);
 	assert(m->npages > 0);
+	assert(m->npages < BIT_ULL(BITS_PER_LONG - PAGE_SHIFT));
 	/* free all the pages including the metadata page */
-	ptr = (uintptr_t)mem - PAGE_SIZE;
-	end = ptr + m->npages * PAGE_SIZE;
-	for ( ; ptr < end; ptr += PAGE_SIZE)
-		free_page(phys_to_virt(virt_to_pte_phys(page_root, (void *)ptr)));
-	/* free the last one separately to avoid overflow issues */
-	free_page(phys_to_virt(virt_to_pte_phys(page_root, (void *)ptr)));
+	ptr = (uintptr_t)m & PAGE_MASK;
+	for (i = 0 ; i < m->npages + 1; i++, ptr += PAGE_SIZE) {
+		page = virt_to_pte_phys(page_root, (void *)ptr) & PAGE_MASK;
+		assert(page);
+		free_page(phys_to_virt(page));
+	}
 }
 
 static struct alloc_ops vmalloc_ops = {
