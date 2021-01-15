@@ -192,7 +192,6 @@ static void vm_free(void *mem)
 static struct alloc_ops vmalloc_ops = {
 	.memalign = vm_memalign,
 	.free = vm_free,
-	.align_min = PAGE_SIZE,
 };
 
 void __attribute__((__weak__)) find_highmem(void)

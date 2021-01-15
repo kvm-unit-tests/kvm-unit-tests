@@ -29,8 +29,8 @@ static phys_addr_t base, top;
 static void *early_memalign(size_t alignment, size_t size);
 static struct alloc_ops early_alloc_ops = {
 	.memalign = early_memalign,
-	.align_min = DEFAULT_MINIMUM_ALIGNMENT
 };
+static size_t align_min;
 
 struct alloc_ops *alloc_ops = &early_alloc_ops;
 
@@ -39,8 +39,7 @@ void phys_alloc_show(void)
 	int i;
 
 	spin_lock(&lock);
-	printf("phys_alloc minimum alignment: %#" PRIx64 "\n",
-		(u64)early_alloc_ops.align_min);
+	printf("phys_alloc minimum alignment: %#" PRIx64 "\n", (u64)align_min);
 	for (i = 0; i < nr_regions; ++i)
 		printf("%016" PRIx64 "-%016" PRIx64 " [%s]\n",
 			(u64)regions[i].base,
@@ -64,7 +63,7 @@ void phys_alloc_set_minimum_alignment(phys_addr_t align)
 {
 	assert(align && !(align & (align - 1)));
 	spin_lock(&lock);
-	early_alloc_ops.align_min = align;
+	align_min = align;
 	spin_unlock(&lock);
 }
 
@@ -83,6 +82,8 @@ static phys_addr_t phys_alloc_aligned_safe(phys_addr_t size,
 		top_safe = MIN(top_safe, 1ULL << 32);
 
 	assert(base < top_safe);
+	if (align < align_min)
+		align = align_min;
 
 	addr = ALIGN(base, align);
 	size += addr - base;

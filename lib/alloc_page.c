@@ -385,7 +385,6 @@ void *memalign_pages_area(unsigned int area, size_t alignment, size_t size)
 static struct alloc_ops page_alloc_ops = {
 	.memalign = memalign_pages,
 	.free = free_pages,
-	.align_min = PAGE_SIZE,
 };
 
 /*
