@@ -1,0 +1,36 @@
+
+macos_i386_task:
+  osx_instance:
+    image: catalina-base
+  install_script:
+    - brew install coreutils bash git gnu-getopt make qemu i686-elf-gcc
+  clone_script:
+    - git clone --depth 100 "@CI_REPOSITORY_URL@" .
+    - git fetch origin "@CI_COMMIT_REF_NAME@"
+    - git reset --hard "@CI_COMMIT_SHA@"
+  script:
+    - export PATH="/usr/local/opt/gnu-getopt/bin:$PATH"
+    - mkdir build
+    - cd build
+    - ../configure --arch=i386 --cross-prefix=i686-elf-
+    - gmake -j$(sysctl -n hw.ncpu)
+    - ACCEL=tcg ./run_tests.sh
+         cmpxchg8b
+         eventinj
+         realmode
+         setjmp
+         sieve
+         taskswitch
+         tsc
+         umip
+         vmexit_cpuid
+         vmexit_inl_pmtimer
+         vmexit_ipi
+         vmexit_ipi_halt
+         vmexit_mov_from_cr8
+         vmexit_mov_to_cr8
+         vmexit_ple_round_robin
+         vmexit_tscdeadline
+         vmexit_tscdeadline_immed
+         | tee results.txt
+    - grep -q PASS results.txt && ! grep -q FAIL results.txt

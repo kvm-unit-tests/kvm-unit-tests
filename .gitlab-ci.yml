@@ -122,3 +122,34 @@ build-centos7:
      setjmp sieve tsc rmap_chain umip
      | tee results.txt
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
+
+# Cirrus-CI provides containers with macOS and Linux with KVM enabled,
+# so we can test some scenarios there that are not possible with the
+# gitlab-CI shared runners. We use the "cirrus-run" container from the
+# libvirt project to start the jobs. See the following URL for more
+# information how to set up your environment to use these containers:
+#
+#   https://gitlab.com/libvirt/libvirt/-/blob/v7.0.0/ci/README.rst
+#
+.cirrus_build_job_template: &cirrus_build_job_definition
+ image: registry.gitlab.com/libvirt/libvirt-ci/cirrus-run:master
+ before_script:
+  - sed -e "s|[@]CI_REPOSITORY_URL@|$CI_REPOSITORY_URL|g"
+        -e "s|[@]CI_COMMIT_REF_NAME@|$CI_COMMIT_REF_NAME|g"
+        -e "s|[@]CI_COMMIT_SHA@|$CI_COMMIT_SHA|g"
+        < ci/$CI_JOB_NAME.yml > ci/_$CI_JOB_NAME.yml
+ script:
+  - cirrus-run -v --show-build-log always ci/_$CI_JOB_NAME.yml
+ only:
+  variables:
+   - $CIRRUS_GITHUB_REPO
+   - $CIRRUS_API_TOKEN
+
+cirrus-ci-fedora:
+ <<: *cirrus_build_job_definition
+
+cirrus-ci-macos-i386:
+ <<: *cirrus_build_job_definition
+
+cirrus-ci-macos-x86-64:
+ <<: *cirrus_build_job_definition

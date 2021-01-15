@@ -1,0 +1,65 @@
+
+fedora_task:
+  container:
+    image: fedora:latest
+    cpu: 4
+    memory: 4Gb
+    kvm: true
+  install_script:
+    - dnf update -y
+    - dnf install -y diffutils gcc git make qemu-system-x86
+  clone_script:
+    - git clone --depth 100 "@CI_REPOSITORY_URL@" .
+    - git fetch origin "@CI_COMMIT_REF_NAME@"
+    - git reset --hard "@CI_COMMIT_SHA@"
+  script:
+    - mkdir build
+    - cd build
+    - ../configure
+    - make -j$(nproc)
+    - ./run_tests.sh
+        access
+        asyncpf
+        debug
+        emulator
+        ept
+        hypercall
+        hyperv_clock
+        hyperv_connections
+        hyperv_stimer
+        hyperv_synic
+        idt_test
+        intel_iommu
+        ioapic
+        ioapic-split
+        kvmclock_test
+        msr
+        pcid
+        pcid-disabled
+        rdpru
+        realmode
+        rmap_chain
+        s3
+        setjmp
+        sieve
+        smptest
+        smptest3
+        syscall
+        tsc
+        tsc_adjust
+        tsx-ctrl
+        umip
+        vmexit_cpuid
+        vmexit_inl_pmtimer
+        vmexit_ipi
+        vmexit_ipi_halt
+        vmexit_mov_from_cr8
+        vmexit_mov_to_cr8
+        vmexit_ple_round_robin
+        vmexit_tscdeadline
+        vmexit_tscdeadline_immed
+        vmexit_vmcall
+        vmx_apic_passthrough_thread
+        xsave
+        | tee results.txt
+    - grep -q PASS results.txt && ! grep -q FAIL results.txt
