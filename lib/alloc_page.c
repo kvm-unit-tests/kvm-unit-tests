@@ -120,10 +120,17 @@ static void split(struct mem_area *a, void *addr)
 	if ((order == a->max_order) && (is_list_empty(a->freelists + order)))
 		a->max_order--;
 	order--;
-	/* add the first half block to the appropriate free list */
-	list_add(a->freelists + order, addr);
-	/* add the second half block to the appropriate free list */
-	list_add(a->freelists + order, pfn_to_virt(pfn + BIT(order)));
+
+	/* add the two half blocks to the appropriate free list */
+	if (IS_FRESH(metadata)) {
+		/* add to the tail if the blocks are fresh */
+		list_add_tail(a->freelists + order, addr);
+		list_add_tail(a->freelists + order, pfn_to_virt(pfn + BIT(order)));
+	} else {
+		/* add to the front if the blocks are dirty */
+		list_add(a->freelists + order, addr);
+		list_add(a->freelists + order, pfn_to_virt(pfn + BIT(order)));
+	}
 }
 
 /*
@@ -132,21 +139,33 @@ static void split(struct mem_area *a, void *addr)
  *
  * Both parameters must be not larger than the largest allowed order
  */
-static void *page_memalign_order(struct mem_area *a, u8 al, u8 sz)
+static void *page_memalign_order(struct mem_area *a, u8 al, u8 sz, bool fresh)
 {
 	struct linked_list *p;
+	pfn_t idx;
 	u8 order;
 
 	assert((al < NLISTS) && (sz < NLISTS));
 	/* we need the bigger of the two as starting point */
 	order = sz > al ? sz : al;
+	/*
+	 * we need to go one order up if we want a completely fresh block,
+	 * since the first page contains the freelist pointers, and
+	 * therefore it is always dirty
+	 */
+	order += fresh;
 
 	/* search all free lists for some memory */
 	for ( ; order <= a->max_order; order++) {
-		p = a->freelists[order].next;
-		if (!is_list_empty(p))
-			break;
+		p = fresh ? a->freelists[order].prev : a->freelists[order].next;
+		if (is_list_empty(p))
+			continue;
+		idx = virt_to_pfn(p) - a->base;
+		if (fresh && !IS_FRESH(a->page_states[idx]))
+			continue;
+		break;
 	}
+
 	/* out of memory */
 	if (order > a->max_order)
 		return NULL;
@@ -160,7 +179,16 @@ static void *page_memalign_order(struct mem_area *a, u8 al, u8 sz)
 		split(a, p);
 
 	list_remove(p);
-	memset(a->page_states + (virt_to_pfn(p) - a->base), STATUS_ALLOCATED | order, BIT(order));
+	/* We now have a block twice the size, but the first page is dirty. */
+	if (fresh) {
+		order--;
+		/* Put back the first (partially dirty) half of the block */
+		memset(a->page_states + idx, STATUS_FRESH | order, BIT(order));
+		list_add_tail(a->freelists + order, p);
+		idx += BIT(order);
+		p = pfn_to_virt(a->base + idx);
+	}
+	memset(a->page_states + idx, STATUS_ALLOCATED | order, BIT(order));
 	return p;
 }
 
@@ -364,13 +392,14 @@ void unreserve_pages(phys_addr_t addr, size_t n)
 static void *page_memalign_order_flags(u8 al, u8 ord, u32 flags)
 {
 	void *res = NULL;
-	int i, area;
+	int i, area, fresh;
 
+	fresh = !!(flags & FLAG_FRESH);
 	spin_lock(&lock);
 	area = (flags & AREA_MASK) ? flags & areas_mask : areas_mask;
 	for (i = 0; !res && (i < MAX_AREAS); i++)
 		if (area & BIT(i))
-			res = page_memalign_order(areas + i, al, ord);
+			res = page_memalign_order(areas + i, al, ord, fresh);
 	spin_unlock(&lock);
 	if (res && !(flags & FLAG_DONTZERO))
 		memset(res, 0, BIT(ord) * PAGE_SIZE);
