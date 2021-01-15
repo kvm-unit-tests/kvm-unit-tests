@@ -10,6 +10,9 @@
 
 #include <asm/memory_areas.h>
 
+#define AREA_ANY -1
+#define AREA_ANY_NUMBER 0xff
+
 /* Returns true if the page allocator has been initialized */
 bool page_alloc_initialized(void);
 

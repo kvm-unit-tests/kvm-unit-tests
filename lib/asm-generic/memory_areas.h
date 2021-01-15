@@ -1,11 +1,10 @@
-#ifndef MEMORY_AREAS_H
-#define MEMORY_AREAS_H
+#ifndef __ASM_GENERIC_MEMORY_AREAS_H__
+#define __ASM_GENERIC_MEMORY_AREAS_H__
 
 #define AREA_NORMAL_PFN 0
 #define AREA_NORMAL_NUMBER 0
-#define AREA_NORMAL 1
+#define AREA_NORMAL (1 << AREA_NORMAL_NUMBER)
 
-#define AREA_ANY -1
-#define AREA_ANY_NUMBER 0xff
+#define MAX_AREAS 1
 
 #endif

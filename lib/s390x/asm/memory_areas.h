@@ -1,16 +1,15 @@
-#ifndef MEMORY_AREAS_H
-#define MEMORY_AREAS_H
+#ifndef _ASMS390X_MEMORY_AREAS_H_
+#define _ASMS390X_MEMORY_AREAS_H_
 
-#define AREA_NORMAL_PFN BIT(31-12)
+#define AREA_NORMAL_PFN (1 << 19)
 #define AREA_NORMAL_NUMBER 0
-#define AREA_NORMAL 1
+#define AREA_NORMAL (1 << AREA_NORMAL_NUMBER)
 
 #define AREA_LOW_PFN 0
 #define AREA_LOW_NUMBER 1
-#define AREA_LOW 2
+#define AREA_LOW (1 << AREA_LOW_NUMBER)
 
-#define AREA_ANY -1
-#define AREA_ANY_NUMBER 0xff
+#define MAX_AREAS 2
 
 #define AREA_DMA31 AREA_LOW
 

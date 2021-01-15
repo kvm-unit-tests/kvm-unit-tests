@@ -19,8 +19,6 @@
 #define NLISTS ((BITS_PER_LONG) - (PAGE_SHIFT))
 #define PFN(x) ((uintptr_t)(x) >> PAGE_SHIFT)
 
-#define MAX_AREAS	6
-
 #define ORDER_MASK	0x3f
 #define ALLOC_MASK	0x40
 #define SPECIAL_MASK	0x80
@@ -509,7 +507,7 @@ void page_alloc_init_area(u8 n, uintptr_t base_pfn, uintptr_t top_pfn)
 		return;
 	}
 #ifdef AREA_HIGH_PFN
-	__page_alloc_init_area(AREA_HIGH_NUMBER, AREA_HIGH_PFN), base_pfn, &top_pfn);
+	__page_alloc_init_area(AREA_HIGH_NUMBER, AREA_HIGH_PFN, base_pfn, &top_pfn);
 #endif
 	__page_alloc_init_area(AREA_NORMAL_NUMBER, AREA_NORMAL_PFN, base_pfn, &top_pfn);
 #ifdef AREA_LOW_PFN
