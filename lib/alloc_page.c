@@ -372,6 +372,8 @@ static void *page_memalign_order_flags(u8 al, u8 ord, u32 flags)
 		if (area & BIT(i))
 			res = page_memalign_order(areas + i, al, ord);
 	spin_unlock(&lock);
+	if (res && !(flags & FLAG_DONTZERO))
+		memset(res, 0, BIT(ord) * PAGE_SIZE);
 	return res;
 }
 
