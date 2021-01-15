@@ -18,9 +18,20 @@
 #define IS_ALIGNED_ORDER(x,order) IS_ALIGNED((x),BIT_ULL(order))
 #define NLISTS ((BITS_PER_LONG) - (PAGE_SHIFT))
 
-#define ORDER_MASK	0x3f
-#define ALLOC_MASK	0x40
-#define SPECIAL_MASK	0x80
+#define ORDER_MASK		0x3f
+#define STATUS_MASK		0xc0
+
+#define STATUS_FRESH		0x00
+#define STATUS_FREE		0x40
+#define STATUS_ALLOCATED	0x80
+#define STATUS_SPECIAL		0xc0
+
+#define IS_FRESH(x)	(((x) & STATUS_MASK) == STATUS_FRESH)
+#define IS_FREE(x)	(((x) & STATUS_MASK) == STATUS_FREE)
+#define IS_ALLOCATED(x)	(((x) & STATUS_MASK) == STATUS_ALLOCATED)
+#define IS_SPECIAL(x)	(((x) & STATUS_MASK) == STATUS_SPECIAL)
+
+#define IS_USABLE(x)	(IS_FREE(x) || IS_FRESH(x))
 
 typedef phys_addr_t pfn_t;
 
@@ -87,14 +98,14 @@ static inline bool usable_area_contains_pfn(struct mem_area *a, pfn_t pfn)
  */
 static void split(struct mem_area *a, void *addr)
 {
-	pfn_t pfn = virt_to_pfn(addr);
-	pfn_t i, idx;
-	u8 order;
+	pfn_t i, idx, pfn = virt_to_pfn(addr);
+	u8 metadata, order;
 
 	assert(a && usable_area_contains_pfn(a, pfn));
 	idx = pfn - a->base;
-	order = a->page_states[idx];
-	assert(!(order & ~ORDER_MASK) && order && (order < NLISTS));
+	metadata = a->page_states[idx];
+	order = metadata & ORDER_MASK;
+	assert(IS_USABLE(metadata) && order && (order < NLISTS));
 	assert(IS_ALIGNED_ORDER(pfn, order));
 	assert(usable_area_contains_pfn(a, pfn + BIT(order) - 1));
 
@@ -103,8 +114,8 @@ static void split(struct mem_area *a, void *addr)
 
 	/* update the block size for each page in the block */
 	for (i = 0; i < BIT(order); i++) {
-		assert(a->page_states[idx + i] == order);
-		a->page_states[idx + i] = order - 1;
+		assert(a->page_states[idx + i] == metadata);
+		a->page_states[idx + i] = metadata - 1;
 	}
 	if ((order == a->max_order) && (is_list_empty(a->freelists + order)))
 		a->max_order--;
@@ -149,7 +160,7 @@ static void *page_memalign_order(struct mem_area *a, u8 al, u8 sz)
 		split(a, p);
 
 	list_remove(p);
-	memset(a->page_states + (virt_to_pfn(p) - a->base), ALLOC_MASK | order, BIT(order));
+	memset(a->page_states + (virt_to_pfn(p) - a->base), STATUS_ALLOCATED | order, BIT(order));
 	return p;
 }
 
@@ -243,7 +254,7 @@ static void _free_pages(void *mem)
 	order = a->page_states[p] & ORDER_MASK;
 
 	/* ensure that the first page is allocated and not special */
-	assert(a->page_states[p] == (order | ALLOC_MASK));
+	assert(IS_ALLOCATED(a->page_states[p]));
 	/* ensure that the order has a sane value */
 	assert(order < NLISTS);
 	/* ensure that the block is aligned properly for its size */
@@ -253,9 +264,9 @@ static void _free_pages(void *mem)
 
 	for (i = 0; i < BIT(order); i++) {
 		/* check that all pages of the block have consistent metadata */
-		assert(a->page_states[p + i] == (ALLOC_MASK | order));
+		assert(a->page_states[p + i] == (STATUS_ALLOCATED | order));
 		/* set the page as free */
-		a->page_states[p + i] &= ~ALLOC_MASK;
+		a->page_states[p + i] = STATUS_FREE | order;
 	}
 	/* provisionally add the block to the appropriate free list */
 	list_add(a->freelists + order, mem);
@@ -294,13 +305,13 @@ static int _reserve_one_page(pfn_t pfn)
 	if (!a)
 		return -1;
 	i = pfn - a->base;
-	if (a->page_states[i] & (ALLOC_MASK | SPECIAL_MASK))
+	if (!IS_USABLE(a->page_states[i]))
 		return -1;
 	while (a->page_states[i]) {
 		mask = GENMASK_ULL(63, a->page_states[i]);
 		split(a, pfn_to_virt(pfn & mask));
 	}
-	a->page_states[i] = SPECIAL_MASK;
+	a->page_states[i] = STATUS_SPECIAL;
 	return 0;
 }
 
@@ -312,8 +323,8 @@ static void _unreserve_one_page(pfn_t pfn)
 	a = get_area(pfn);
 	assert(a);
 	i = pfn - a->base;
-	assert(a->page_states[i] == SPECIAL_MASK);
-	a->page_states[i] = ALLOC_MASK;
+	assert(a->page_states[i] == STATUS_SPECIAL);
+	a->page_states[i] = STATUS_ALLOCATED;
 	_free_pages(pfn_to_virt(pfn));
 }
 
@@ -477,7 +488,7 @@ static void _page_alloc_init_area(u8 n, pfn_t start_pfn, pfn_t top_pfn)
 			order++;
 		assert(order < NLISTS);
 		/* initialize the metadata and add to the freelist */
-		memset(a->page_states + (i - a->base), order, BIT(order));
+		memset(a->page_states + (i - a->base), STATUS_FRESH | order, BIT(order));
 		list_add(a->freelists + order, pfn_to_virt(i));
 		if (order > a->max_order)
 			a->max_order = order;
