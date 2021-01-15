@@ -50,4 +50,13 @@ static inline void list_add(struct linked_list *head, struct linked_list *li)
 	head->next = li;
 }
 
+/*
+ * Add the given element before the given list head.
+ */
+static inline void list_add_tail(struct linked_list *head, struct linked_list *li)
+{
+	assert(head);
+	list_add(head->prev, li);
+}
+
 #endif
