@@ -29,7 +29,7 @@ static void test_priv(void)
 	uvcb.len = sizeof(struct uv_cb_qui);
 	expect_pgm_int();
 	enter_pstate();
-	uv_call(0, (u64)&uvcb);
+	uv_call_once(0, (u64)&uvcb);
 	check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
 	report_prefix_pop();
 
@@ -38,7 +38,7 @@ static void test_priv(void)
 	uvcb.len = sizeof(struct uv_cb_share);
 	expect_pgm_int();
 	enter_pstate();
-	uv_call(0, (u64)&uvcb);
+	uv_call_once(0, (u64)&uvcb);
 	check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
 	report_prefix_pop();
 
@@ -47,7 +47,7 @@ static void test_priv(void)
 	uvcb.len = sizeof(struct uv_cb_share);
 	expect_pgm_int();
 	enter_pstate();
-	uv_call(0, (u64)&uvcb);
+	uv_call_once(0, (u64)&uvcb);
 	check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
 	report_prefix_pop();
 
