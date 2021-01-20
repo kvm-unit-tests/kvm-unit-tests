@@ -1,10 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * SIGP related definitions.
  *
  * Copied from the Linux kernel file arch/s390/include/asm/sigp.h
- *
- * This work is licensed under the terms of the GNU GPL, version
- * 2.
  */
 
 #ifndef ASM_S390X_SIGP_H

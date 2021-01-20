@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * SCLP definitions
  *
@@ -7,10 +8,6 @@
  * and based on the file include/hw/s390x/sclp.h from QEMU
  * Copyright IBM, Corp. 2012
  * Author: Christian Borntraeger <borntraeger@de.ibm.com>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or (at
- * your option) any later version. See the COPYING file in the top-level
- * directory.
  */
 
 #ifndef SCLP_H
@@ -82,10 +79,10 @@
 #define SCCB_SIZE 4096
 
 typedef struct SCCBHeader {
-    uint16_t length;
-    uint8_t function_code;
-    uint8_t control_mask[3];
-    uint16_t response_code;
+	uint16_t length;
+	uint8_t function_code;
+	uint8_t control_mask[3];
+	uint16_t response_code;
 } __attribute__((packed)) SCCBHeader;
 
 #define SCCB_DATA_LEN (SCCB_SIZE - sizeof(SCCBHeader))
@@ -93,83 +90,97 @@ typedef struct SCCBHeader {
 
 /* CPU information */
 typedef struct CPUEntry {
-    uint8_t address;
-    uint8_t reserved0;
-    uint8_t features[SCCB_CPU_FEATURE_LEN];
-    uint8_t reserved2[6];
-    uint8_t type;
-    uint8_t reserved1;
+	uint8_t address;
+	uint8_t reserved0;
+	uint8_t : 4;
+	uint8_t feat_sief2 : 1;
+	uint8_t : 3;
+	uint8_t features_res2 [SCCB_CPU_FEATURE_LEN - 1];
+	uint8_t reserved2[6];
+	uint8_t type;
+	uint8_t reserved1;
 } __attribute__((packed)) CPUEntry;
 
+extern struct sclp_facilities sclp_facilities;
+
+struct sclp_facilities {
+	uint64_t has_sief2 : 1;
+	uint64_t has_diag318 : 1;
+	uint64_t : 62;
+};
+
 typedef struct ReadInfo {
-    SCCBHeader h;
-    uint16_t rnmax;
-    uint8_t rnsize;
-    uint8_t  _reserved1[16 - 11];       /* 11-15 */
-    uint16_t entries_cpu;               /* 16-17 */
-    uint16_t offset_cpu;                /* 18-19 */
-    uint8_t  _reserved2[24 - 20];       /* 20-23 */
-    uint8_t  loadparm[8];               /* 24-31 */
-    uint8_t  _reserved3[48 - 32];       /* 32-47 */
-    uint64_t facilities;                /* 48-55 */
-    uint8_t  _reserved0[76 - 56];       /* 56-75 */
-    uint32_t ibc_val;
-    uint8_t  conf_char[99 - 80];        /* 80-98 */
-    uint8_t mha_pow;
-    uint32_t rnsize2;
-    uint64_t rnmax2;
-    uint8_t  _reserved6[116 - 112];     /* 112-115 */
-    uint8_t  conf_char_ext[120 - 116];   /* 116-119 */
-    uint16_t highest_cpu;
-    uint8_t  _reserved5[124 - 122];     /* 122-123 */
-    uint32_t hmfai;
-    struct CPUEntry entries[0];
+	SCCBHeader h;
+	uint16_t rnmax;
+	uint8_t rnsize;
+	uint8_t  _reserved1[16 - 11];       /* 11-15 */
+	uint16_t entries_cpu;               /* 16-17 */
+	uint16_t offset_cpu;                /* 18-19 */
+	uint8_t  _reserved2[24 - 20];       /* 20-23 */
+	uint8_t  loadparm[8];               /* 24-31 */
+	uint8_t  _reserved3[48 - 32];       /* 32-47 */
+	uint64_t facilities;                /* 48-55 */
+	uint8_t  _reserved0[76 - 56];       /* 56-75 */
+	uint32_t ibc_val;
+	uint8_t  conf_char[99 - 80];        /* 80-98 */
+	uint8_t mha_pow;
+	uint32_t rnsize2;
+	uint64_t rnmax2;
+	uint8_t  _reserved6[116 - 112];     /* 112-115 */
+	uint8_t  conf_char_ext[120 - 116];   /* 116-119 */
+	uint16_t highest_cpu;
+	uint8_t  _reserved5[124 - 122];     /* 122-123 */
+	uint32_t hmfai;
+	uint8_t reserved7[134 - 128];
+	uint8_t byte_134_diag318 : 1;
+	uint8_t : 7;
+	struct CPUEntry entries[0];
 } __attribute__((packed)) ReadInfo;
 
 typedef struct ReadCpuInfo {
-    SCCBHeader h;
-    uint16_t nr_configured;         /* 8-9 */
-    uint16_t offset_configured;     /* 10-11 */
-    uint16_t nr_standby;            /* 12-13 */
-    uint16_t offset_standby;        /* 14-15 */
-    uint8_t reserved0[24-16];       /* 16-23 */
-    struct CPUEntry entries[0];
+	SCCBHeader h;
+	uint16_t nr_configured;         /* 8-9 */
+	uint16_t offset_configured;     /* 10-11 */
+	uint16_t nr_standby;            /* 12-13 */
+	uint16_t offset_standby;        /* 14-15 */
+	uint8_t reserved0[24-16];       /* 16-23 */
+	struct CPUEntry entries[0];
 } __attribute__((packed)) ReadCpuInfo;
 
 typedef struct ReadStorageElementInfo {
-    SCCBHeader h;
-    uint16_t max_id;
-    uint16_t assigned;
-    uint16_t standby;
-    uint8_t _reserved0[16 - 14]; /* 14-15 */
-    uint32_t entries[0];
+	SCCBHeader h;
+	uint16_t max_id;
+	uint16_t assigned;
+	uint16_t standby;
+	uint8_t _reserved0[16 - 14]; /* 14-15 */
+	uint32_t entries[0];
 } __attribute__((packed)) ReadStorageElementInfo;
 
 typedef struct AttachStorageElement {
-    SCCBHeader h;
-    uint8_t _reserved0[10 - 8];  /* 8-9 */
-    uint16_t assigned;
-    uint8_t _reserved1[16 - 12]; /* 12-15 */
-    uint32_t entries[0];
+	SCCBHeader h;
+	uint8_t _reserved0[10 - 8];  /* 8-9 */
+	uint16_t assigned;
+	uint8_t _reserved1[16 - 12]; /* 12-15 */
+	uint32_t entries[0];
 } __attribute__((packed)) AttachStorageElement;
 
 typedef struct AssignStorage {
-    SCCBHeader h;
-    uint16_t rn;
+	SCCBHeader h;
+	uint16_t rn;
 } __attribute__((packed)) AssignStorage;
 
 typedef struct IoaCfgSccb {
-    SCCBHeader header;
-    uint8_t atype;
-    uint8_t reserved1;
-    uint16_t reserved2;
-    uint32_t aid;
+	SCCBHeader header;
+	uint8_t atype;
+	uint8_t reserved1;
+	uint16_t reserved2;
+	uint32_t aid;
 } __attribute__((packed)) IoaCfgSccb;
 
 typedef struct SCCB {
-    SCCBHeader h;
-    char data[SCCB_DATA_LEN];
- } __attribute__((packed)) SCCB;
+	SCCBHeader h;
+	char data[SCCB_DATA_LEN];
+} __attribute__((packed)) SCCB;
 
 /* SCLP event types */
 #define SCLP_EVENT_ASCII_CONSOLE_DATA           0x1a
@@ -184,13 +195,13 @@ typedef struct SCCB {
 #define SCLP_SELECTIVE_READ                     0x01
 
 typedef struct WriteEventMask {
-    SCCBHeader h;
-    uint16_t _reserved;
-    uint16_t mask_length;
-    uint32_t cp_receive_mask;
-    uint32_t cp_send_mask;
-    uint32_t send_mask;
-    uint32_t receive_mask;
+	SCCBHeader h;
+	uint16_t _reserved;
+	uint16_t mask_length;
+	uint32_t cp_receive_mask;
+	uint32_t cp_send_mask;
+	uint32_t send_mask;
+	uint32_t receive_mask;
 } __attribute__((packed)) WriteEventMask;
 
 #define MDBTYP_GO               0x0001
@@ -243,25 +254,25 @@ struct mdb {
 } __attribute__((packed));
 
 typedef struct EventBufferHeader {
-    uint16_t length;
-    uint8_t  type;
-    uint8_t  flags;
-    uint16_t _reserved;
+	uint16_t length;
+	uint8_t  type;
+	uint8_t  flags;
+	uint16_t _reserved;
 } __attribute__((packed)) EventBufferHeader;
 
 typedef struct WriteEventData {
-    SCCBHeader h;
-    EventBufferHeader ebh;
-    union {
-	char data[0];
-	struct mdb mdb;
-    } msg;
+	SCCBHeader h;
+	EventBufferHeader ebh;
+	union {
+		char data[0];
+		struct mdb mdb;
+	} msg;
 } __attribute__((packed)) WriteEventData;
 
 typedef struct ReadEventData {
-    SCCBHeader h;
-    EventBufferHeader ebh;
-    uint32_t mask;
+	SCCBHeader h;
+	EventBufferHeader ebh;
+	uint32_t mask;
 } __attribute__((packed)) ReadEventData;
 
 extern char _sccb[];
@@ -271,6 +282,10 @@ void sclp_wait_busy(void);
 void sclp_mark_busy(void);
 void sclp_console_setup(void);
 void sclp_print(const char *str);
+void sclp_read_info(void);
+int sclp_get_cpu_num(void);
+CPUEntry *sclp_get_cpu_entries(void);
+void sclp_facilities_setup(void);
 int sclp_service_call(unsigned int command, void *sccb);
 void sclp_memory_setup(void);
 uint64_t get_ram_size(void);

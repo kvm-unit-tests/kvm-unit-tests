@@ -1,15 +1,14 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017 Red Hat Inc
  *
  * Authors:
  *  David Hildenbrand <david@redhat.com>
- *
- * This code is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Library General Public License version 2.
  */
 #include <libcflat.h>
 #include <kbuild.h>
 #include <asm/arch_def.h>
+#include <sie.h>
 
 int main(void)
 {
@@ -71,6 +70,16 @@ int main(void)
 	OFFSET(GEN_LC_ARS_SA, lowcore, ars_sa);
 	OFFSET(GEN_LC_CRS_SA, lowcore, crs_sa);
 	OFFSET(GEN_LC_PGM_INT_TDB, lowcore, pgm_int_tdb);
+	OFFSET(__SF_SIE_CONTROL, stack_frame, empty1[0]);
+	OFFSET(__SF_SIE_SAVEAREA, stack_frame, empty1[1]);
+	OFFSET(__SF_SIE_REASON, stack_frame, empty1[2]);
+	OFFSET(__SF_SIE_FLAGS, stack_frame, empty1[3]);
+	OFFSET(SIE_SAVEAREA_HOST_GRS, vm_save_area, host.grs[0]);
+	OFFSET(SIE_SAVEAREA_HOST_FPRS, vm_save_area, host.fprs[0]);
+	OFFSET(SIE_SAVEAREA_HOST_FPC, vm_save_area, host.fpc);
+	OFFSET(SIE_SAVEAREA_GUEST_GRS, vm_save_area, guest.grs[0]);
+	OFFSET(SIE_SAVEAREA_GUEST_FPRS, vm_save_area, guest.fprs[0]);
+	OFFSET(SIE_SAVEAREA_GUEST_FPC, vm_save_area, guest.fpc);
 
 	return 0;
 }

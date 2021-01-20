@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Clock utilities for s390
  *
@@ -6,9 +7,6 @@
  *
  * Copied from the s390/intercept test by:
  *  Pierre Morel <pmorel@linux.ibm.com>
- *
- * This code is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2.
  */
 #ifndef ASM_S390X_TIME_H
 #define ASM_S390X_TIME_H

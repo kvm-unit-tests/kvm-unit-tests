@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Test the known dependencies for facilities
  *
@@ -5,9 +6,6 @@
  *
  * Authors:
  *    Christian Borntraeger <borntraeger@de.ibm.com>
- *
- * This code is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Library General Public License version 2.
  */
 
 #include <asm/facility.h>

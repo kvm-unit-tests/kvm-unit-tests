@@ -1,11 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * SCLP ASCII access driver
  *
  * Copyright (c) 2013 Alexander Graf <agraf@suse.de>
- *
- * This work is licensed under the terms of the GNU GPL, version 2 or (at
- * your option) any later version. See the COPYING file in the top-level
- * directory.
  */
 
 #include <libcflat.h>
