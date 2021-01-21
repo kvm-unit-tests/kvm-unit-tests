@@ -131,10 +131,15 @@ typedef struct ReadInfo {
 	uint16_t highest_cpu;
 	uint8_t  _reserved5[124 - 122];     /* 122-123 */
 	uint32_t hmfai;
-	uint8_t reserved7[134 - 128];
+	uint8_t reserved7[134 - 128];       /* 128-133 */
 	uint8_t byte_134_diag318 : 1;
 	uint8_t : 7;
-	struct CPUEntry entries[0];
+	/*
+	 * At the end of the ReadInfo, there are also the CPU entries (see
+	 * struct CPUEntry). When the Extended-Length SCCB (ELS) feature is
+	 * enabled, the start of the CPU entries array begins at an offset
+	 * denoted by the offset_cpu field, otherwise it's at offset 128.
+	 */
 } __attribute__((packed)) ReadInfo;
 
 typedef struct ReadCpuInfo {
