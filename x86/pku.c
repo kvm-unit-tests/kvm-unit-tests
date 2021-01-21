@@ -1,4 +1,5 @@
 #include "libcflat.h"
+#include <alloc_page.h>
 #include "x86/desc.h"
 #include "x86/processor.h"
 #include "x86/vm.h"
@@ -6,7 +7,7 @@
 
 #define CR0_WP_MASK      (1UL << 16)
 #define PTE_PKEY_BIT     59
-#define USER_BASE        (1 << 24)
+#define USER_BASE        (1 << 23)
 #define USER_VAR(v)      (*((__typeof__(&(v))) (((unsigned long)&v) + USER_BASE)))
 
 volatile int pf_count = 0;
@@ -77,6 +78,8 @@ int main(int ac, char **av)
     set_intr_alt_stack(14, pf_tss);
     wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_LMA);
 
+    if (reserve_pages(USER_BASE, USER_BASE >> 12))
+        report_abort("Could not reserve memory");
     for (i = 0; i < USER_BASE; i += PAGE_SIZE) {
         *get_pte(phys_to_virt(read_cr3()), phys_to_virt(i)) &= ~PT_USER_MASK;
         *get_pte(phys_to_virt(read_cr3()), phys_to_virt(i)) |= ((unsigned long)pkey << PTE_PKEY_BIT);
