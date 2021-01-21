@@ -1,4 +1,5 @@
 #include "libcflat.h"
+#include <alloc_page.h>
 #include "x86/desc.h"
 #include "x86/processor.h"
 #include "x86/vm.h"
@@ -44,7 +45,7 @@ asm ("pf_tss:\n"
         "jmp pf_tss\n\t");
 
 
-#define USER_BASE	(1 << 24)
+#define USER_BASE	(1 << 23)
 #define USER_VAR(v)	(*((__typeof__(&(v))) (((unsigned long)&v) + USER_BASE)))
 #define USER_ADDR(v)   ((void *)((unsigned long)(&v) + USER_BASE))
 
@@ -101,13 +102,15 @@ int main(int ac, char **av)
 	setup_alt_stack();
 	set_intr_alt_stack(14, pf_tss);
 
-	// Map first 16MB as supervisor pages
+	if (reserve_pages(USER_BASE, USER_BASE >> 12))
+		report_abort("Could not reserve memory");
+	// Map first 8MB as supervisor pages
 	for (i = 0; i < USER_BASE; i += PAGE_SIZE) {
 		*get_pte(phys_to_virt(read_cr3()), phys_to_virt(i)) &= ~PT_USER_MASK;
 		invlpg((void *)i);
 	}
 
-	// Present the same 16MB as user pages in the 16MB-32MB range
+	// Present the same 8MB as user pages in the 8MB-16MB range
 	for (i = USER_BASE; i < 2 * USER_BASE; i += PAGE_SIZE) {
 		*get_pte(phys_to_virt(read_cr3()), phys_to_virt(i)) &= ~USER_BASE;
 		invlpg((void *)i);
