@@ -15,11 +15,102 @@
 #include <asm/arch_def.h>
 #include <asm/time.h>
 #include <asm/arch_def.h>
-
+#include <alloc_page.h>
 #include <malloc_io.h>
 #include <css.h>
 
 static struct schib schib;
+struct chsc_scsc *chsc_scsc;
+
+static const char * const chsc_rsp_description[] = {
+	"CHSC unknown error",
+	"Command executed",
+	"Invalid command",
+	"Request-block error",
+	"Command not installed",
+	"Data not available",
+	"Absolute address of channel-subsystem communication block exceeds 2G - 1.",
+	"Invalid command format",
+	"Invalid channel-subsystem identification (CSSID)",
+	"The command-request block specified an invalid format for the command response block.",
+	"Invalid subchannel-set identification (SSID)",
+	"A busy condition precludes execution.",
+};
+
+static bool check_response(void *p)
+{
+	struct chsc_header *h = p;
+
+	if (h->code == CHSC_RSP_OK)
+		return true;
+
+	if (h->code > CHSC_RSP_MAX)
+		h->code = 0;
+
+	report_abort("Response code %04x: %s", h->code,
+		      chsc_rsp_description[h->code]);
+	return false;
+}
+
+bool chsc(void *p, uint16_t code, uint16_t len)
+{
+	struct chsc_header *h = p;
+
+	h->code = code;
+	h->len = len;
+
+	switch (_chsc(p)) {
+	case 3:
+		report_abort("Subchannel invalid or not enabled.");
+		break;
+	case 2:
+		report_abort("CHSC subchannel busy.");
+		break;
+	case 1:
+		report_abort("Subchannel invalid or not enabled.");
+		break;
+	case 0:
+		return check_response(p + len);
+	}
+	return false;
+}
+
+bool get_chsc_scsc(void)
+{
+	int i, n;
+	char buffer[510];
+	char *p;
+
+	if (chsc_scsc) /* chsc_scsc already initialized */
+		return true;
+
+	chsc_scsc = alloc_page();
+	if (!chsc_scsc) {
+		report_abort("could not allocate chsc_scsc page!");
+		return false;
+	}
+
+	if (!chsc(chsc_scsc, CHSC_SCSC, CHSC_SCSC_LEN))
+		return false;
+
+	for (i = 0, p = buffer; i < CSS_GENERAL_FEAT_BITLEN; i++) {
+		if (css_test_general_feature(i)) {
+			n = snprintf(p, sizeof(buffer), "%d,", i);
+			p += n;
+		}
+	}
+	report_info("General features: %s", buffer);
+
+	for (i = 0, p = buffer; i < CSS_CHSC_FEAT_BITLEN; i++) {
+		if (css_test_chsc_feature(i)) {
+			n = snprintf(p, sizeof(buffer), "%d,", i);
+			p += n;
+		}
+	}
+	report_info("CHSC features: %s", buffer);
+
+	return true;
+}
 
 /*
  * css_enumerate:
