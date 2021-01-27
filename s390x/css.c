@@ -133,6 +133,13 @@ error_ccw:
 	free_io_mem(senseid, sizeof(*senseid));
 }
 
+static void sense_id(void)
+{
+	assert(!start_ccw1_chain(test_device_sid, ccw));
+
+	assert(wait_and_check_io_completion(test_device_sid) >= 0);
+}
+
 static void css_init(void)
 {
 	assert(register_io_int_func(css_irq_io) == 0);
@@ -175,6 +182,81 @@ static void test_schm(void)
 	report_prefix_pop();
 }
 
+#define SCHM_UPDATE_CNT 10
+static bool start_measuring(uint64_t mbo, uint16_t mbi, bool fmt1)
+{
+	int i;
+
+	senseid = alloc_io_mem(sizeof(*senseid), 0);
+	assert(senseid);
+
+	ccw = ccw_alloc(CCW_CMD_SENSE_ID, senseid, sizeof(*senseid), CCW_F_SLI);
+	assert(ccw);
+
+	if (!css_enable_mb(test_device_sid, mbo, mbi, PMCW_MBUE, fmt1)) {
+		report_abort("Enabling measurement block failed");
+		return false;
+	}
+
+	for (i = 0; i < SCHM_UPDATE_CNT; i++)
+		sense_id();
+
+	free_io_mem(ccw, sizeof(*ccw));
+	free_io_mem(senseid, sizeof(*senseid));
+
+	return true;
+}
+
+/*
+ * test_schm_fmt0:
+ * With measurement block format 0 a memory space is shared
+ * by all subchannels, each subchannel can provide an index
+ * for the measurement block facility to store the measurements.
+ */
+static void test_schm_fmt0(void)
+{
+	struct measurement_block_format0 *mb0;
+	int shared_mb_size = 2 * sizeof(struct measurement_block_format0);
+
+	if (!test_device_sid) {
+		report_skip("No device");
+		return;
+	}
+
+	/* Allocate zeroed Measurement block */
+	mb0 = alloc_io_mem(shared_mb_size, 0);
+	if (!mb0) {
+		report_abort("measurement_block_format0 allocation failed");
+		return;
+	}
+
+	schm(NULL, 0); /* Stop any previous measurement */
+	schm(mb0, SCHM_MBU);
+
+	/* Expect success */
+	report_prefix_push("Valid MB address and index 0");
+	report(start_measuring(0, 0, false) &&
+	       mb0->ssch_rsch_count == SCHM_UPDATE_CNT,
+	       "SSCH measured %d", mb0->ssch_rsch_count);
+	report_prefix_pop();
+
+	/* Clear the measurement block for the next test */
+	memset(mb0, 0, shared_mb_size);
+
+	/* Expect success */
+	report_prefix_push("Valid MB address and index 1");
+	if (start_measuring(0, 1, false))
+		report(mb0[1].ssch_rsch_count == SCHM_UPDATE_CNT,
+		       "SSCH measured %d", mb0[1].ssch_rsch_count);
+	report_prefix_pop();
+
+	/* Stop the measurement */
+	css_disable_mb(test_device_sid);
+	schm(NULL, 0);
+
+	free_io_mem(mb0, shared_mb_size);
+}
+
 static struct {
 	const char *name;
 	void (*func)(void);
@@ -185,6 +267,7 @@ static struct {
 	{ "enable (msch)", test_enable },
 	{ "sense (ssch/tsch)", test_sense },
 	{ "measurement block (schm)", test_schm },
+	{ "measurement block format0", test_schm_fmt0 },
 	{ NULL, NULL }
 };
 
