@@ -75,6 +75,7 @@ build-x86_64:
      vmexit_mov_to_cr8 vmexit_inl_pmtimer  vmexit_ipi vmexit_ipi_halt
      vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed
      eventinj msr port80 setjmp sieve syscall tsc rmap_chain umip intel_iommu
+     rdpru pku pks smap tsc_adjust xsave
      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
@@ -89,7 +90,7 @@ build-i386:
      cmpxchg8b vmexit_cpuid vmexit_mov_from_cr8 vmexit_mov_to_cr8
      vmexit_inl_pmtimer vmexit_ipi vmexit_ipi_halt vmexit_ple_round_robin
      vmexit_tscdeadline vmexit_tscdeadline_immed eventinj port80 setjmp sieve
-     tsc taskswitch umip
+     tsc taskswitch umip rdpru smap tsc_adjust xsave
      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
@@ -103,6 +104,7 @@ build-clang:
      vmexit_mov_to_cr8 vmexit_inl_pmtimer  vmexit_ipi vmexit_ipi_halt
      vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed
      eventinj msr port80 setjmp syscall tsc rmap_chain umip intel_iommu
+     rdpru pku pks smap tsc_adjust xsave
      | tee results.txt
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
 
