@@ -8,13 +8,32 @@
 #ifndef _ASM_S390X_ARCH_DEF_H_
 #define _ASM_S390X_ARCH_DEF_H_
 
-/*
- * We currently only specify the stack frame members needed for the
- * SIE library code.
- */
 struct stack_frame {
-	unsigned long back_chain;
-	unsigned long empty1[5];
+	struct stack_frame *back_chain;
+	uint64_t reserved;
+	/* GRs 2 - 5 */
+	uint64_t argument_area[4];
+	/* GRs 6 - 15 */
+	uint64_t grs[10];
+	/* FPRs 0, 2, 4, 6 */
+	int64_t  fprs[4];
+};
+
+struct stack_frame_int {
+	struct stack_frame *back_chain;
+	uint64_t reserved;
+	/*
+	 * The GRs are offset compatible with struct stack_frame so we
+	 * can easily fetch GR14 for backtraces.
+	 */
+	/* GRs 2 - 15 */
+	uint64_t grs0[14];
+	/* GRs 0 and 1 */
+	uint64_t grs1[2];
+	uint32_t reserved1;
+	uint32_t fpc;
+	uint64_t fprs[16];
+	uint64_t crs[16];
 };
 
 struct psw {

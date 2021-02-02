@@ -56,7 +56,7 @@ void register_pgm_cleanup_func(void (*f)(void))
 	pgm_cleanup_func = f;
 }
 
-static void fixup_pgm_int(void)
+static void fixup_pgm_int(struct stack_frame_int *stack)
 {
 	/* If we have an error on SIE we directly move to sie_exit */
 	if (lc->pgm_old_psw.addr >= (uint64_t)&sie_entry &&
@@ -76,7 +76,13 @@ static void fixup_pgm_int(void)
 		/* Handling for iep.c test case. */
 		if (lc->trans_exc_id & 0x80UL && lc->trans_exc_id & 0x04UL &&
 		    !(lc->trans_exc_id & 0x08UL))
-			lc->pgm_old_psw.addr = lc->sw_int_grs[14];
+			/*
+			 * We branched to the instruction that caused
+			 * the exception so we can use the return
+			 * address in GR14 to jump back and continue
+			 * executing test code.
+			 */
+			lc->pgm_old_psw.addr = stack->grs0[12];
 		break;
 	case PGM_INT_CODE_SEGMENT_TRANSLATION:
 	case PGM_INT_CODE_PAGE_TRANSLATION:
@@ -115,7 +121,7 @@ static void fixup_pgm_int(void)
 	/* suppressed/terminated/completed point already at the next address */
 }
 
-void handle_pgm_int(void)
+void handle_pgm_int(struct stack_frame_int *stack)
 {
 	if (!pgm_int_expected) {
 		/* Force sclp_busy to false, otherwise we will loop forever */
@@ -130,10 +136,10 @@ void handle_pgm_int(void)
 	if (pgm_cleanup_func)
 		(*pgm_cleanup_func)();
 	else
-		fixup_pgm_int();
+		fixup_pgm_int(stack);
 }
 
-void handle_ext_int(void)
+void handle_ext_int(struct stack_frame_int *stack)
 {
 	if (!ext_int_expected &&
 	    lc->ext_int_code != EXT_IRQ_SERVICE_SIG) {
@@ -143,13 +149,13 @@ void handle_ext_int(void)
 	}
 
 	if (lc->ext_int_code == EXT_IRQ_SERVICE_SIG) {
-		lc->sw_int_crs[0] &= ~(1UL << 9);
+		stack->crs[0] &= ~(1UL << 9);
 		sclp_handle_ext();
 	} else {
 		ext_int_expected = false;
 	}
 
-	if (!(lc->sw_int_crs[0] & CR0_EXTM_MASK))
+	if (!(stack->crs[0] & CR0_EXTM_MASK))
 		lc->ext_old_psw.mask &= ~PSW_MASK_EXT;
 }
 
