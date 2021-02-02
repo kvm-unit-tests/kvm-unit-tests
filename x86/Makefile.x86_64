@@ -21,6 +21,7 @@ tests += $(TEST_DIR)/intel-iommu.flat
 tests += $(TEST_DIR)/vmware_backdoors.flat
 tests += $(TEST_DIR)/rdpru.flat
 tests += $(TEST_DIR)/pks.flat
+tests += $(TEST_DIR)/pmu_lbr.flat
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 

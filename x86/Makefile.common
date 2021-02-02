@@ -62,8 +62,7 @@ tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
                $(TEST_DIR)/init.flat $(TEST_DIR)/smap.flat \
                $(TEST_DIR)/hyperv_synic.flat $(TEST_DIR)/hyperv_stimer.flat \
                $(TEST_DIR)/hyperv_connections.flat \
-               $(TEST_DIR)/umip.flat $(TEST_DIR)/tsx-ctrl.flat \
-               $(TEST_DIR)/pmu_lbr.flat
+               $(TEST_DIR)/umip.flat $(TEST_DIR)/tsx-ctrl.flat
 
 test_cases: $(tests-common) $(tests)
 
