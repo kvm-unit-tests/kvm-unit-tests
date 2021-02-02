@@ -103,9 +103,7 @@ struct lowcore {
 	struct psw	io_new_psw;			/* 0x01f0 */
 	/* sw definition: save area for registers in interrupt handlers */
 	uint64_t	sw_int_grs[16];			/* 0x0200 */
-	uint64_t	sw_int_fprs[16];		/* 0x0280 */
-	uint32_t	sw_int_fpc;			/* 0x0300 */
-	uint8_t		pad_0x0304[0x0308 - 0x0304];	/* 0x0304 */
+	uint8_t		pad_0x0280[0x0308 - 0x0280];	/* 0x0280 */
 	uint64_t	sw_int_crs[16];			/* 0x0308 */
 	struct psw	sw_int_psw;			/* 0x0388 */
 	uint8_t		pad_0x0310[0x11b0 - 0x0398];	/* 0x0398 */
