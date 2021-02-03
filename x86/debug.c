@@ -18,6 +18,14 @@ static volatile unsigned long db_addr[10], dr6[10];
 static volatile unsigned int n;
 static volatile unsigned long value;
 
+static unsigned long get_dr4(void)
+{
+	unsigned long value;
+
+	asm volatile("mov %%dr4, %0" : "=r" (value));
+	return value;
+}
+
 static unsigned long get_dr6(void)
 {
 	unsigned long value;
@@ -34,6 +42,11 @@ static void set_dr0(void *value)
 static void set_dr1(void *value)
 {
 	asm volatile("mov %0,%%dr1" : : "r" (value));
+}
+
+static void set_dr4(unsigned long value)
+{
+	asm volatile("mov %0,%%dr4" : : "r" (value));
 }
 
 static void set_dr6(unsigned long value)
@@ -72,12 +85,35 @@ static void handle_bp(struct ex_regs *regs)
 	bp_addr = regs->rip;
 }
 
+bool got_ud;
+static void handle_ud(struct ex_regs *regs)
+{
+	unsigned long cr4 = read_cr4();
+	write_cr4(cr4 & ~X86_CR4_DE);
+	got_ud = 1;
+}
+
 int main(int ac, char **av)
 {
 	unsigned long start;
+	unsigned long cr4;
 
 	handle_exception(DB_VECTOR, handle_db);
 	handle_exception(BP_VECTOR, handle_bp);
+	handle_exception(UD_VECTOR, handle_ud);
+
+	got_ud = 0;
+	cr4 = read_cr4();
+	write_cr4(cr4 & ~X86_CR4_DE);
+	set_dr4(0);
+	set_dr6(0xffff4ff2);
+	report(get_dr4() == 0xffff4ff2 && !got_ud, "reading DR4 with CR4.DE == 0");
+
+	cr4 = read_cr4();
+	write_cr4(cr4 | X86_CR4_DE);
+	get_dr4();
+	report(got_ud, "reading DR4 with CR4.DE == 1");
+	set_dr6(0);
 
 	extern unsigned char sw_bp;
 	asm volatile("int3; sw_bp:");
