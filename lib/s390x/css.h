@@ -107,6 +107,7 @@ struct schib {
 	uint64_t mbo;
 	uint8_t  md[4];
 } __attribute__ ((aligned(4)));
+extern struct schib schib;
 
 struct irb {
 	struct scsw scsw;
@@ -384,6 +385,20 @@ struct measurement_block_format0 {
 	uint32_t device_active_only_time;
 	uint32_t device_busy_time;
 	uint32_t initial_cmd_resp_time;
+};
+
+struct measurement_block_format1 {
+	uint32_t ssch_rsch_count;
+	uint32_t sample_count;
+	uint32_t device_connect_time;
+	uint32_t function_pending_time;
+	uint32_t device_disconnect_time;
+	uint32_t cu_queuing_time;
+	uint32_t device_active_only_time;
+	uint32_t device_busy_time;
+	uint32_t initial_cmd_resp_time;
+	uint32_t irq_delay_time;
+	uint32_t irq_prio_delay_time;
 };
 
 #endif

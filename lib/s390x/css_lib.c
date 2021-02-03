@@ -19,7 +19,7 @@
 #include <malloc_io.h>
 #include <css.h>
 
-static struct schib schib;
+struct schib schib;
 struct chsc_scsc *chsc_scsc;
 
 static const char * const chsc_rsp_description[] = {
