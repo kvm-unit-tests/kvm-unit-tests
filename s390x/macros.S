@@ -22,6 +22,11 @@
 	lgr     %r2, %r15
 	/* Allocate stack space for called C function, as specified in s390 ELF ABI */
 	slgfi   %r15, 160
+	/*
+	 * Save the address of the interrupt stack into the back chain
+	 * of the called function.
+	 */
+	stg     %r2, STACK_FRAME_INT_BACKCHAIN(%r15)
 	brasl	%r14, \c_func
 	algfi   %r15, 160
 	RESTORE_REGS_STACK
