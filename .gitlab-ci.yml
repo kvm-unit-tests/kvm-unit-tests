@@ -155,3 +155,16 @@ cirrus-ci-macos-i386:
 
 cirrus-ci-macos-x86-64:
  <<: *cirrus_build_job_definition
+
+s390x-kvm:
+ before_script: []
+ tags:
+  - s390x-z15-vm
+ script:
+  - ./configure --arch=s390x
+  - make -j$(nproc)
+  - ACCEL=kvm ./run_tests.sh | tee results.txt
+  - grep -q PASS results.txt && ! grep -q FAIL results.txt
+ only:
+  variables:
+   - $S390X_Z15_RUNNER_AVAILABLE
