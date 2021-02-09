@@ -106,7 +106,7 @@ static void test_3_2_2(void)
 				 0x00, 0x03 };
 	/* EBCDIC for "KVM/" */
 	const uint8_t cpi_kvm[] = { 0xd2, 0xe5, 0xd4, 0x61 };
-	const char *vm_name_ext = "kvm-unit-test";
+	const char vm_name_ext[] = "kvm-unit-test";
 	struct stsi_322 *data = (void *)pagebuf;
 
 	report_prefix_push("3.2.2");
