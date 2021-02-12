@@ -26,12 +26,6 @@ static int invpcid_checking(unsigned long type, void *desc)
     return exception_vector();
 }
 
-static void test_cpuid_consistency(int pcid_enabled, int invpcid_enabled)
-{
-    int passed = !(!pcid_enabled && invpcid_enabled);
-    report(passed, "CPUID consistency");
-}
-
 static void test_pcid_enabled(void)
 {
     int passed = 0;
@@ -134,8 +128,6 @@ int main(int ac, char **av)
         pcid_enabled = 1;
     if (this_cpu_has(X86_FEATURE_INVPCID))
         invpcid_enabled = 1;
-
-    test_cpuid_consistency(pcid_enabled, invpcid_enabled);
 
     if (pcid_enabled)
         test_pcid_enabled();
