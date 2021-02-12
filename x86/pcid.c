@@ -70,24 +70,28 @@ report:
 
 static void test_invpcid_enabled(void)
 {
-    int passed = 0;
+    int passed = 0, i;
     ulong cr4 = read_cr4();
     struct invpcid_desc desc;
     desc.rsv = 0;
 
-    /* try executing invpcid when CR4.PCIDE=0, desc.pcid=0 and type=1
+    /* try executing invpcid when CR4.PCIDE=0, desc.pcid=0 and type=0..3
      * no exception expected
      */
     desc.pcid = 0;
-    if (invpcid_checking(1, &desc) != 0)
-        goto report;
+    for (i = 0; i < 4; i++) {
+        if (invpcid_checking(i, &desc) != 0)
+            goto report;
+    }
 
-    /* try executing invpcid when CR4.PCIDE=0, desc.pcid=1 and type=1
+    /* try executing invpcid when CR4.PCIDE=0, desc.pcid=1 and type=0..1
      * #GP expected
      */
     desc.pcid = 1;
-    if (invpcid_checking(1, &desc) != GP_VECTOR)
-        goto report;
+    for (i = 0; i < 2; i++) {
+        if (invpcid_checking(i, &desc) != GP_VECTOR)
+            goto report;
+    }
 
     if (write_cr4_checking(cr4 | X86_CR4_PCIDE) != 0)
         goto report;
