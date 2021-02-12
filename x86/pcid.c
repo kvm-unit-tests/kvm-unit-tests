@@ -68,7 +68,7 @@ report:
     report(passed, "Test on PCID when disabled");
 }
 
-static void test_invpcid_enabled(void)
+static void test_invpcid_enabled(int pcid_enabled)
 {
     int passed = 0, i;
     ulong cr4 = read_cr4();
@@ -93,6 +93,10 @@ static void test_invpcid_enabled(void)
             goto report;
     }
 
+    /* Skip tests that require the PCIDE=1 if PCID isn't supported. */
+    if (!pcid_enabled)
+        goto success;
+
     if (write_cr4_checking(cr4 | X86_CR4_PCIDE) != 0)
         goto report;
 
@@ -103,6 +107,7 @@ static void test_invpcid_enabled(void)
     if (invpcid_checking(2, &desc) != 0)
         goto report;
 
+success:
     passed = 1;
 
 report:
@@ -139,7 +144,7 @@ int main(int ac, char **av)
         test_pcid_disabled();
 
     if (invpcid_enabled)
-        test_invpcid_enabled();
+        test_invpcid_enabled(pcid_enabled);
     else
         test_invpcid_disabled();
 
