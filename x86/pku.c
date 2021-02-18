@@ -76,7 +76,6 @@ int main(int ac, char **av)
     setup_vm();
     setup_alt_stack();
     set_intr_alt_stack(14, pf_tss);
-    wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_LMA);
 
     if (reserve_pages(USER_BASE, USER_BASE >> 12))
         report_abort("Could not reserve memory");

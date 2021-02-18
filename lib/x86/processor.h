@@ -72,8 +72,6 @@
 #define X86_EFLAGS_ALU (X86_EFLAGS_CF | X86_EFLAGS_PF | X86_EFLAGS_AF | \
 			X86_EFLAGS_ZF | X86_EFLAGS_SF | X86_EFLAGS_OF)
 
-#define X86_IA32_EFER          0xc0000080
-#define X86_EFER_LMA           (1UL << 8)
 
 /*
  * CPU features
