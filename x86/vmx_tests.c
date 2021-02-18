@@ -1101,14 +1101,17 @@ static void setup_dummy_ept(void)
 		report_abort("EPT setup unexpectedly failed");
 }
 
-static int enable_unrestricted_guest(void)
+static int enable_unrestricted_guest(bool need_valid_ept)
 {
 	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
 	    !(ctrl_cpu_rev[1].clr & CPU_URG) ||
 	    !(ctrl_cpu_rev[1].clr & CPU_EPT))
 		return 1;
 
-	setup_dummy_ept();
+	if (need_valid_ept)
+		setup_ept(false);
+	else
+		setup_dummy_ept();
 
 	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0) | CPU_SECONDARY);
 	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | CPU_URG);
@@ -4347,7 +4350,7 @@ static void test_invalid_event_injection(void)
 	test_vmx_valid_controls();
 	report_prefix_pop();
 
-	if (enable_unrestricted_guest())
+	if (enable_unrestricted_guest(false))
 		goto skip_unrestricted_guest;
 
 	ent_intr_info = ent_intr_info_base | INTR_INFO_DELIVER_CODE_MASK |
@@ -8059,12 +8062,13 @@ static void test_guest_segment_sel_fields(void)
 				 ((sel_saved & ~0x3) | (~cs_rpl_bits & 0x3)));
 	TEST_SEGMENT_SEL(false, GUEST_SEL_SS, "GUEST_SEL_SS",
 				 ((sel_saved & ~0x3) | (cs_rpl_bits & 0x3)));
+	vmcs_write(CPU_EXEC_CTRL0, cpu_ctrl0_saved);
+	vmcs_write(CPU_EXEC_CTRL1, cpu_ctrl1_saved);
 
-	/* Turn on "unrestricted guest" vm-execution control */
-	vmcs_write(CPU_EXEC_CTRL0, cpu_ctrl0_saved | CPU_SECONDARY);
-	vmcs_write(CPU_EXEC_CTRL1, cpu_ctrl1_saved | CPU_URG);
-	/* EPT and EPTP must be setup when "unrestricted guest" is on */
-	setup_ept(false);
+	/* Need a valid EPTP as the passing case fully enters the guest. */
+	if (enable_unrestricted_guest(true))
+		goto skip_ss_tests;
+
 	TEST_SEGMENT_SEL(false, GUEST_SEL_SS, "GUEST_SEL_SS",
 				 ((sel_saved & ~0x3) | (~cs_rpl_bits & 0x3)));
 	TEST_SEGMENT_SEL(false, GUEST_SEL_SS, "GUEST_SEL_SS",
@@ -8078,6 +8082,7 @@ static void test_guest_segment_sel_fields(void)
 				 ((sel_saved & ~0x3) | (~cs_rpl_bits & 0x3)));
 	TEST_SEGMENT_SEL(false, GUEST_SEL_SS, "GUEST_SEL_SS",
 				 ((sel_saved & ~0x3) | (cs_rpl_bits & 0x3)));
+skip_ss_tests:
 
 	vmcs_write(GUEST_AR_SS, ar_saved);
 	vmcs_write(GUEST_SEL_SS, sel_saved);
