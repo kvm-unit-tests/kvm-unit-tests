@@ -8266,12 +8266,14 @@ static void unsetup_unrestricted_guest(void)
  */
 static void vmentry_unrestricted_guest_test(void)
 {
+	if (enable_unrestricted_guest(true)) {
+		report_skip("Unrestricted guest not supported");
+		return;
+	}
+
 	test_set_guest(unrestricted_guest_main);
 	setup_unrestricted_guest();
-	if (setup_ept(false))
-		test_skip("EPT not supported");
-       vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1) | CPU_URG);
-       test_guest_state("Unrestricted guest test", false, CPU_URG, "CPU_URG");
+	test_guest_state("Unrestricted guest test", false, CPU_URG, "CPU_URG");
 
 	/*
 	 * Let the guest finish execution as a regular guest
