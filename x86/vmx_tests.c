@@ -7985,10 +7985,19 @@ static void test_load_guest_bndcfgs(void)
 
 #define	GUEST_SEG_UNUSABLE_MASK	(1u << 16)
 #define	GUEST_SEG_SEL_TI_MASK	(1u << 2)
-#define	TEST_SEGMENT_SEL(xfail, sel, sel_name, val)			\
+
+
+#define	TEST_SEGMENT_SEL(test, xfail, sel, val)				\
+do {									\
 	vmcs_write(sel, val);						\
-	test_guest_state("Test Guest Segment Selector",	xfail, val,	\
-			 sel_name);
+	test_guest_state(test " segment", xfail, val, xstr(sel));	\
+} while (0)
+
+#define	TEST_INVALID_SEG_SEL(sel, val) \
+	TEST_SEGMENT_SEL("Invalid: " xstr(val), true, sel, val);
+
+#define	TEST_VALID_SEG_SEL(sel, val) \
+	TEST_SEGMENT_SEL("Valid: " xstr(val), false, sel, val);
 
 /*
  * The following checks are done on the Selector field of the Guest Segment
@@ -8013,8 +8022,7 @@ static void test_guest_segment_sel_fields(void)
 	 * Test for GUEST_SEL_TR
 	 */
 	sel_saved = vmcs_read(GUEST_SEL_TR);
-	TEST_SEGMENT_SEL(true, GUEST_SEL_TR, "GUEST_SEL_TR",
-			 sel_saved | GUEST_SEG_SEL_TI_MASK);
+	TEST_INVALID_SEG_SEL(GUEST_SEL_TR, sel_saved | GUEST_SEG_SEL_TI_MASK);
 	vmcs_write(GUEST_SEL_TR, sel_saved);
 
 	/*
@@ -8024,17 +8032,13 @@ static void test_guest_segment_sel_fields(void)
 	ar_saved = vmcs_read(GUEST_AR_LDTR);
 	/* LDTR is set unusable */
 	vmcs_write(GUEST_AR_LDTR, ar_saved | GUEST_SEG_UNUSABLE_MASK);
-	TEST_SEGMENT_SEL(false, GUEST_SEL_LDTR, "GUEST_SEL_LDTR",
-			 sel_saved | GUEST_SEG_SEL_TI_MASK);
-	TEST_SEGMENT_SEL(false, GUEST_SEL_LDTR, "GUEST_SEL_LDTR",
-			 sel_saved & ~GUEST_SEG_SEL_TI_MASK);
+	TEST_VALID_SEG_SEL(GUEST_SEL_LDTR, sel_saved | GUEST_SEG_SEL_TI_MASK);
+	TEST_VALID_SEG_SEL(GUEST_SEL_LDTR, sel_saved & ~GUEST_SEG_SEL_TI_MASK);
 	/* LDTR is set usable */
 	vmcs_write(GUEST_AR_LDTR, ar_saved & ~GUEST_SEG_UNUSABLE_MASK);
-	TEST_SEGMENT_SEL(true, GUEST_SEL_LDTR, "GUEST_SEL_LDTR",
-			 sel_saved | GUEST_SEG_SEL_TI_MASK);
+	TEST_INVALID_SEG_SEL(GUEST_SEL_LDTR, sel_saved | GUEST_SEG_SEL_TI_MASK);
 
-	TEST_SEGMENT_SEL(false, GUEST_SEL_LDTR, "GUEST_SEL_LDTR",
-			 sel_saved & ~GUEST_SEG_SEL_TI_MASK);
+	TEST_VALID_SEG_SEL(GUEST_SEL_LDTR, sel_saved & ~GUEST_SEG_SEL_TI_MASK);
 
 	vmcs_write(GUEST_AR_LDTR, ar_saved);
 	vmcs_write(GUEST_SEL_LDTR, sel_saved);
@@ -8049,39 +8053,30 @@ static void test_guest_segment_sel_fields(void)
 	vmcs_write(CPU_EXEC_CTRL1, cpu_ctrl1_saved & ~CPU_URG);
 	cs_rpl_bits = vmcs_read(GUEST_SEL_CS) & 0x3;
 	sel_saved = vmcs_read(GUEST_SEL_SS);
-	TEST_SEGMENT_SEL(true, GUEST_SEL_SS, "GUEST_SEL_SS",
-				 ((sel_saved & ~0x3) | (~cs_rpl_bits & 0x3)));
-	TEST_SEGMENT_SEL(false, GUEST_SEL_SS, "GUEST_SEL_SS",
-				 ((sel_saved & ~0x3) | (cs_rpl_bits & 0x3)));
+	TEST_INVALID_SEG_SEL(GUEST_SEL_SS, ((sel_saved & ~0x3) | (~cs_rpl_bits & 0x3)));
+	TEST_VALID_SEG_SEL(GUEST_SEL_SS, ((sel_saved & ~0x3) | (cs_rpl_bits & 0x3)));
 	/* Make SS usable if it's unusable or vice-versa */
 	if (ar_saved & GUEST_SEG_UNUSABLE_MASK)
 		vmcs_write(GUEST_AR_SS, ar_saved & ~GUEST_SEG_UNUSABLE_MASK);
 	else
 		vmcs_write(GUEST_AR_SS, ar_saved | GUEST_SEG_UNUSABLE_MASK);
-	TEST_SEGMENT_SEL(true, GUEST_SEL_SS, "GUEST_SEL_SS",
-				 ((sel_saved & ~0x3) | (~cs_rpl_bits & 0x3)));
-	TEST_SEGMENT_SEL(false, GUEST_SEL_SS, "GUEST_SEL_SS",
-				 ((sel_saved & ~0x3) | (cs_rpl_bits & 0x3)));
-	vmcs_write(CPU_EXEC_CTRL0, cpu_ctrl0_saved);
-	vmcs_write(CPU_EXEC_CTRL1, cpu_ctrl1_saved);
+	TEST_INVALID_SEG_SEL(GUEST_SEL_SS, ((sel_saved & ~0x3) | (~cs_rpl_bits & 0x3)));
+	TEST_VALID_SEG_SEL(GUEST_SEL_SS, ((sel_saved & ~0x3) | (cs_rpl_bits & 0x3)));
 
 	/* Need a valid EPTP as the passing case fully enters the guest. */
 	if (enable_unrestricted_guest(true))
 		goto skip_ss_tests;
 
-	TEST_SEGMENT_SEL(false, GUEST_SEL_SS, "GUEST_SEL_SS",
-				 ((sel_saved & ~0x3) | (~cs_rpl_bits & 0x3)));
-	TEST_SEGMENT_SEL(false, GUEST_SEL_SS, "GUEST_SEL_SS",
-				 ((sel_saved & ~0x3) | (cs_rpl_bits & 0x3)));
+	TEST_VALID_SEG_SEL(GUEST_SEL_SS, ((sel_saved & ~0x3) | (~cs_rpl_bits & 0x3)));
+	TEST_VALID_SEG_SEL(GUEST_SEL_SS, ((sel_saved & ~0x3) | (cs_rpl_bits & 0x3)));
+
 	/* Make SS usable if it's unusable or vice-versa */
 	if (vmcs_read(GUEST_AR_SS) & GUEST_SEG_UNUSABLE_MASK)
 		vmcs_write(GUEST_AR_SS, ar_saved & ~GUEST_SEG_UNUSABLE_MASK);
 	else
 		vmcs_write(GUEST_AR_SS, ar_saved | GUEST_SEG_UNUSABLE_MASK);
-	TEST_SEGMENT_SEL(false, GUEST_SEL_SS, "GUEST_SEL_SS",
-				 ((sel_saved & ~0x3) | (~cs_rpl_bits & 0x3)));
-	TEST_SEGMENT_SEL(false, GUEST_SEL_SS, "GUEST_SEL_SS",
-				 ((sel_saved & ~0x3) | (cs_rpl_bits & 0x3)));
+	TEST_VALID_SEG_SEL(GUEST_SEL_SS, ((sel_saved & ~0x3) | (~cs_rpl_bits & 0x3)));
+	TEST_VALID_SEG_SEL(GUEST_SEL_SS, ((sel_saved & ~0x3) | (cs_rpl_bits & 0x3)));
 skip_ss_tests:
 
 	vmcs_write(GUEST_AR_SS, ar_saved);
