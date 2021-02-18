@@ -8085,22 +8085,26 @@ skip_ss_tests:
 	vmcs_write(CPU_EXEC_CTRL1, cpu_ctrl1_saved);
 }
 
-#define	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(xfail, seg_base, seg_base_name)\
-	addr_saved = vmcs_read(seg_base);				\
-	for (i = 32; i < 63; i = i + 4) {				\
-		addr = addr_saved | 1ull << i;				\
-		vmcs_write(seg_base, addr);				\
-		test_guest_state(seg_base_name,	xfail, addr,		\
-				seg_base_name);				\
-	}								\
-	vmcs_write(seg_base, addr_saved);
+#define	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(xfail, seg_base)			\
+do {										\
+	addr_saved = vmcs_read(seg_base);					\
+	for (i = 32; i < 63; i = i + 4) {					\
+		addr = addr_saved | 1ull << i;					\
+		vmcs_write(seg_base, addr);					\
+		test_guest_state("seg.BASE[63:32] != 0, usable = " xstr(xfail),	\
+				 xfail, addr, xstr(seg_base));			\
+	}									\
+	vmcs_write(seg_base, addr_saved);					\
+} while (0)
 
-#define	TEST_SEGMENT_BASE_ADDR_CANONICAL(xfail, seg_base, seg_base_name)\
-	addr_saved = vmcs_read(seg_base);				\
-	vmcs_write(seg_base, NONCANONICAL);				\
-	test_guest_state(seg_base_name,	xfail, NONCANONICAL,		\
-			seg_base_name);					\
-	vmcs_write(seg_base, addr_saved);
+#define	TEST_SEGMENT_BASE_ADDR_CANONICAL(xfail, seg_base)		  \
+do {									  \
+	addr_saved = vmcs_read(seg_base);				  \
+	vmcs_write(seg_base, NONCANONICAL);				  \
+	test_guest_state("seg.BASE non-canonical, usable = " xstr(xfail), \
+			 xfail, NONCANONICAL, xstr(seg_base));		  \
+	vmcs_write(seg_base, addr_saved);				  \
+} while (0)
 
 /*
  * The following checks are done on the Base Address field of the Guest
@@ -8123,57 +8127,48 @@ static void test_guest_segment_base_addr_fields(void)
 	/*
 	 * The address of TR, FS, GS and LDTR must be canonical.
 	 */
-	TEST_SEGMENT_BASE_ADDR_CANONICAL(true, GUEST_BASE_TR, "GUEST_BASE_TR");
-	TEST_SEGMENT_BASE_ADDR_CANONICAL(true, GUEST_BASE_FS, "GUEST_BASE_FS");
-	TEST_SEGMENT_BASE_ADDR_CANONICAL(true, GUEST_BASE_GS, "GUEST_BASE_GS");
+	TEST_SEGMENT_BASE_ADDR_CANONICAL(true, GUEST_BASE_TR);
+	TEST_SEGMENT_BASE_ADDR_CANONICAL(true, GUEST_BASE_FS);
+	TEST_SEGMENT_BASE_ADDR_CANONICAL(true, GUEST_BASE_GS);
 	ar_saved = vmcs_read(GUEST_AR_LDTR);
 	/* Make LDTR unusable */
 	vmcs_write(GUEST_AR_LDTR, ar_saved | GUEST_SEG_UNUSABLE_MASK);
-	TEST_SEGMENT_BASE_ADDR_CANONICAL(false, GUEST_BASE_LDTR,
-					"GUEST_BASE_LDTR");
+	TEST_SEGMENT_BASE_ADDR_CANONICAL(false, GUEST_BASE_LDTR);
 	/* Make LDTR usable */
 	vmcs_write(GUEST_AR_LDTR, ar_saved & ~GUEST_SEG_UNUSABLE_MASK);
-	TEST_SEGMENT_BASE_ADDR_CANONICAL(true, GUEST_BASE_LDTR,
-					"GUEST_BASE_LDTR");
+	TEST_SEGMENT_BASE_ADDR_CANONICAL(true, GUEST_BASE_LDTR);
 
 	vmcs_write(GUEST_AR_LDTR, ar_saved);
 
 	/*
 	 * Bits 63:32 in CS, SS, DS and ES base address must be zero
 	 */
-	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(true, GUEST_BASE_CS,
-					 "GUEST_BASE_CS");
+	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(true, GUEST_BASE_CS);
 	ar_saved = vmcs_read(GUEST_AR_SS);
 	/* Make SS unusable */
 	vmcs_write(GUEST_AR_SS, ar_saved | GUEST_SEG_UNUSABLE_MASK);
-	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(false, GUEST_BASE_SS,
-					 "GUEST_BASE_SS");
+	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(false, GUEST_BASE_SS);
 	/* Make SS usable */
 	vmcs_write(GUEST_AR_SS, ar_saved & ~GUEST_SEG_UNUSABLE_MASK);
-	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(true, GUEST_BASE_SS,
-					 "GUEST_BASE_SS");
+	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(true, GUEST_BASE_SS);
 	vmcs_write(GUEST_AR_SS, ar_saved);
 
 	ar_saved = vmcs_read(GUEST_AR_DS);
 	/* Make DS unusable */
 	vmcs_write(GUEST_AR_DS, ar_saved | GUEST_SEG_UNUSABLE_MASK);
-	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(false, GUEST_BASE_DS,
-					 "GUEST_BASE_DS");
+	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(false, GUEST_BASE_DS);
 	/* Make DS usable */
 	vmcs_write(GUEST_AR_DS, ar_saved & ~GUEST_SEG_UNUSABLE_MASK);
-	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(true, GUEST_BASE_DS,
-					 "GUEST_BASE_DS");
+	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(true, GUEST_BASE_DS);
 	vmcs_write(GUEST_AR_DS, ar_saved);
 
 	ar_saved = vmcs_read(GUEST_AR_ES);
 	/* Make ES unusable */
 	vmcs_write(GUEST_AR_ES, ar_saved | GUEST_SEG_UNUSABLE_MASK);
-	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(false, GUEST_BASE_ES,
-					 "GUEST_BASE_ES");
+	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(false, GUEST_BASE_ES);
 	/* Make ES usable */
 	vmcs_write(GUEST_AR_ES, ar_saved & ~GUEST_SEG_UNUSABLE_MASK);
-	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(true, GUEST_BASE_ES,
-					 "GUEST_BASE_ES");
+	TEST_SEGMENT_BASE_ADDR_UPPER_BITS(true, GUEST_BASE_ES);
 	vmcs_write(GUEST_AR_ES, ar_saved);
 }
 
