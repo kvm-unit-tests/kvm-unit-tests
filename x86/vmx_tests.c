@@ -5556,7 +5556,7 @@ static void test_guest_state(const char *test, bool xfail, u64 field,
 	       ((xfail && result.exit_reason.basic == VMX_FAIL_STATE) ||
 	        (!xfail && result.exit_reason.basic == VMX_VMCALL)) &&
 		(!xfail || vmcs_read(EXI_QUALIFICATION) == ENTRY_FAIL_DEFAULT),
-	        "%s, %s %lx", test, field_name, field);
+	        "%s, %s = %lx", test, field_name, field);
 
 	if (!result.exit_reason.failed_vmentry)
 		skip_exit_insn();
