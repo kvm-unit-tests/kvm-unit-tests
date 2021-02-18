@@ -1032,11 +1032,11 @@ static int __setup_ept(u64 hpa, bool enable_ad)
 {
 	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
 	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
-		printf("\tEPT is not supported");
+		printf("\tEPT is not supported\n");
 		return 1;
 	}
 	if (!(ept_vpid.val & EPT_CAP_WB)) {
-		printf("WB memtype for EPT walks not supported\n");
+		printf("\tWB memtype for EPT walks not supported\n");
 		return 1;
 	}
 	if (!(ept_vpid.val & EPT_CAP_PWL4)) {
