@@ -45,6 +45,11 @@ void gicv2_ipi_send_single(int irq, int cpu)
 {
 	assert(cpu < 8);
 	assert(irq < 16);
+	/*
+	 * The wmb() in writel and rmb() in readl() from gicv2_read_iar() are
+	 * sufficient for ensuring that stores that happen in program order
+	 * before the IPI will be visible after the interrupt is acknowledged.
+	 */
 	writel(1 << (cpu + 16) | irq, gicv2_dist_base() + GICD_SGIR);
 }
 
@@ -53,5 +58,6 @@ void gicv2_ipi_send_mask(int irq, const cpumask_t *dest)
 	u8 tlist = (u8)cpumask_bits(dest)[0];
 
 	assert(irq < 16);
+	/* No barriers needed, same situation as gicv2_ipi_send_single() */
 	writel(tlist << 16 | irq, gicv2_dist_base() + GICD_SGIR);
 }

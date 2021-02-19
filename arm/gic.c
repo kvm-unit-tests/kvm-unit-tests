@@ -260,11 +260,18 @@ static void check_lpi_hits(int *expected, const char *msg)
 
 static void gicv2_ipi_send_self(void)
 {
+	/*
+	 * The wmb() in writel and rmb() when acknowledging the interrupt are
+	 * sufficient for ensuring that writes that happen in program order
+	 * before the interrupt are observed in the interrupt handler after
+	 * acknowledging the interrupt.
+	 */
 	writel(2 << 24 | IPI_IRQ, gicv2_dist_base() + GICD_SGIR);
 }
 
 static void gicv2_ipi_send_broadcast(void)
 {
+	/* No barriers are needed, same situation as gicv2_ipi_send_self() */
 	writel(1 << 24 | IPI_IRQ, gicv2_dist_base() + GICD_SGIR);
 }
 
