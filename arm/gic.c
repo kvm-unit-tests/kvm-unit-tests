@@ -803,6 +803,9 @@ static void test_its_trigger(void)
 	/* Now call the invall and check the LPI hits */
 	its_send_invall(col3);
 	lpi_stats_expect(3, 8195);
+	check_lpi_stats("dev2/eventid=20 pending LPI is received");
+
+	lpi_stats_expect(3, 8195);
 	its_send_int(dev2, 20);
 	check_lpi_stats("dev2/eventid=20 now triggers an LPI");
 
