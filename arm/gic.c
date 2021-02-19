@@ -117,7 +117,6 @@ static void check_spurious(void)
 {
 	int cpu;
 
-	smp_rmb();
 	for_each_present_cpu(cpu) {
 		if (spurious[cpu])
 			report_info("WARN: cpu%d got %d spurious interrupts",
@@ -154,8 +153,10 @@ static void ipi_handler(struct pt_regs *regs __unused)
 		++acked[smp_processor_id()];
 	} else {
 		++spurious[smp_processor_id()];
-		smp_wmb();
 	}
+
+	/* Wait for writes to acked/spurious to complete */
+	dsb(ishst);
 }
 
 static void setup_irq(irq_handler_fn handler)
