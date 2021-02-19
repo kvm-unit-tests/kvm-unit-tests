@@ -78,6 +78,12 @@ void gicv3_ipi_send_mask(int irq, const cpumask_t *dest)
 	assert(irq < 16);
 
 	/*
+	 * Ensure stores to Normal memory are visible to other CPUs before
+	 * sending the IPI.
+	 */
+	wmb();
+
+	/*
 	 * For each cpu in the mask collect its peers, which are also in
 	 * the mask, in order to form target lists.
 	 */
