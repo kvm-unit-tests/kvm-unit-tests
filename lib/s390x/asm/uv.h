@@ -33,6 +33,7 @@
 #define UVC_CMD_DESTROY_SEC_CPU		0x0121
 #define UVC_CMD_CONV_TO_SEC_STOR	0x0200
 #define UVC_CMD_CONV_FROM_SEC_STOR	0x0201
+#define UVC_CMD_DESTR_SEC_STOR		0x0202
 #define UVC_CMD_SET_SEC_CONF_PARAMS	0x0300
 #define UVC_CMD_UNPACK_IMG		0x0301
 #define UVC_CMD_VERIFY_IMG		0x0302
@@ -256,6 +257,63 @@ static inline int uv_remove_shared(unsigned long addr)
 	return share(addr, UVC_CMD_REMOVE_SHARED_ACCESS);
 }
 
+static inline int uv_cmd_nodata(uint64_t handle, uint16_t cmd, uint16_t *rc, uint16_t *rrc)
+{
+	struct uv_cb_nodata uvcb = {
+		.header.cmd = cmd,
+		.header.len = sizeof(uvcb),
+		.handle = handle,
+	};
+	int cc;
+
+	assert(handle);
+	cc = uv_call(0, (uint64_t)&uvcb);
+	*rc = uvcb.header.rc;
+	*rrc = uvcb.header.rrc;
+	return cc;
+}
+
+static inline int uv_import(uint64_t handle, unsigned long gaddr)
+{
+	struct uv_cb_cts uvcb = {
+		.header.cmd = UVC_CMD_CONV_TO_SEC_STOR,
+		.header.len = sizeof(uvcb),
+		.guest_handle = handle,
+		.gaddr = gaddr,
+	};
+
+	return uv_call(0, (uint64_t)&uvcb);
+}
+
+static inline int uv_export(unsigned long paddr)
+{
+	struct uv_cb_cfs uvcb = {
+		.header.cmd = UVC_CMD_CONV_FROM_SEC_STOR,
+		.header.len = sizeof(uvcb),
+		.paddr = paddr
+	};
+
+	return uv_call(0, (u64)&uvcb);
+}
+
+/*
+ * Requests the Ultravisor to destroy a guest page and make it
+ * accessible to the host. The destroy clears the page instead of
+ * exporting.
+ *
+ * @paddr: Absolute host address of page to be destroyed
+ */
+static inline int uv_destroy_page(unsigned long paddr)
+{
+	struct uv_cb_cfs uvcb = {
+		.header.cmd = UVC_CMD_DESTR_SEC_STOR,
+		.header.len = sizeof(uvcb),
+		.paddr = paddr
+	};
+
+	return uv_call(0, (uint64_t)&uvcb);
+}
+
 struct uv_cb_cpu_set_state {
 	struct uv_cb_header header;
 	u64 reserved08[2];
@@ -269,5 +327,32 @@ struct uv_cb_cpu_set_state {
 #define PV_CPU_STATE_STP	2
 #define PV_CPU_STATE_CHKSTP	3
 #define PV_CPU_STATE_OPR_LOAD	5
+
+static inline int uv_set_cpu_state(uint64_t handle, uint8_t state)
+{
+	struct uv_cb_cpu_set_state uvcb = {
+		.header.cmd = UVC_CMD_CPU_SET_STATE,
+		.header.len = sizeof(uvcb),
+		.cpu_handle = handle,
+		.state = state,
+	};
+
+	assert(handle);
+	return uv_call(0, (uint64_t)&uvcb);
+}
+
+static inline int uv_set_se_hdr(uint64_t handle, void *hdr, size_t len)
+{
+	struct uv_cb_ssc uvcb = {
+		.header.cmd = UVC_CMD_SET_SEC_CONF_PARAMS,
+		.header.len = sizeof(uvcb),
+		.sec_header_origin = (uint64_t)hdr,
+		.sec_header_len = len,
+		.guest_handle = handle,
+	};
+
+	assert(handle);
+	return uv_call(0, (uint64_t)&uvcb);
+}
 
 #endif
