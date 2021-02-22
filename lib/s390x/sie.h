@@ -200,6 +200,11 @@ union {
 	uint64_t	gvrd;			/* 0x01f8 */
 } __attribute__((packed));
 
+struct vm_uv {
+	uint64_t vm_handle;
+	uint64_t vcpu_handle;
+};
+
 struct vm_save_regs {
 	uint64_t grs[16];
 	uint64_t fprs[16];
@@ -220,6 +225,7 @@ struct vm {
 	struct vm_save_area save_area;
 	void *sca;				/* System Control Area */
 	uint8_t *crycb;				/* Crypto Control Block */
+	struct vm_uv uv;			/* PV UV information */
 	/* Ptr to first guest page */
 	uint8_t *guest_mem;
 };
