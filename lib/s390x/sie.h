@@ -2,6 +2,9 @@
 #ifndef _S390X_SIE_H_
 #define _S390X_SIE_H_
 
+#include <stdint.h>
+#include <asm/arch_def.h>
+
 #define CPUSTAT_STOPPED    0x80000000
 #define CPUSTAT_WAIT       0x10000000
 #define CPUSTAT_ECALL_PEND 0x08000000
