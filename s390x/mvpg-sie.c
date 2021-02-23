@@ -39,7 +39,7 @@ static void sie(struct vm *vm)
 
 	while (vm->sblk->icptcode == 0) {
 		sie64a(vm->sblk, &vm->save_area);
-		assert(vm->sblk->icptcode != ICPT_VALIDITY);
+		sie_handle_validity(vm);
 	}
 	vm->save_area.guest.grs[14] = vm->sblk->gg14;
 	vm->save_area.guest.grs[15] = vm->sblk->gg15;

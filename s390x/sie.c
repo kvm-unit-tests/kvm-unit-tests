@@ -24,17 +24,12 @@ static u8 *guest;
 static u8 *guest_instr;
 static struct vm vm;
 
-static void handle_validity(struct vm *vm)
-{
-	report(0, "VALIDITY: %x", vm->sblk->ipb >> 16);
-}
 
 static void sie(struct vm *vm)
 {
 	while (vm->sblk->icptcode == 0) {
 		sie64a(vm->sblk, &vm->save_area);
-		if (vm->sblk->icptcode == ICPT_VALIDITY)
-			handle_validity(vm);
+		sie_handle_validity(vm);
 	}
 	vm->save_area.guest.grs[14] = vm->sblk->gg14;
 	vm->save_area.guest.grs[15] = vm->sblk->gg15;
