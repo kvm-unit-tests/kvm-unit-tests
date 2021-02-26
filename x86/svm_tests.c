@@ -1020,6 +1020,12 @@ static bool latency_finished(struct svm_test *test)
     return runs == 0;
 }
 
+static bool latency_finished_clean(struct svm_test *test)
+{
+    vmcb->control.clean = VMCB_CLEAN_ALL;
+    return latency_finished(test);
+}
+
 static bool latency_check(struct svm_test *test)
 {
     printf("    Latency VMRUN : max: %ld min: %ld avg: %ld\n", latvmrun_max,
@@ -2458,6 +2464,9 @@ struct svm_test svm_tests[] = {
     { "latency_run_exit", default_supported, latency_prepare,
       default_prepare_gif_clear, latency_test,
       latency_finished, latency_check },
+    { "latency_run_exit_clean", default_supported, latency_prepare,
+      default_prepare_gif_clear, latency_test,
+      latency_finished_clean, latency_check },
     { "latency_svm_insn", default_supported, lat_svm_insn_prepare,
       default_prepare_gif_clear, null_test,
       lat_svm_insn_finished, lat_svm_insn_check },

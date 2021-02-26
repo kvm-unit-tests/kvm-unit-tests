@@ -51,6 +51,22 @@ enum {
 	INTERCEPT_MWAIT_COND,
 };
 
+enum {
+        VMCB_CLEAN_INTERCEPTS = 1, /* Intercept vectors, TSC offset, pause filter count */
+        VMCB_CLEAN_PERM_MAP = 2,   /* IOPM Base and MSRPM Base */
+        VMCB_CLEAN_ASID = 4,       /* ASID */
+        VMCB_CLEAN_INTR = 8,       /* int_ctl, int_vector */
+        VMCB_CLEAN_NPT = 16,       /* npt_en, nCR3, gPAT */
+        VMCB_CLEAN_CR = 32,        /* CR0, CR3, CR4, EFER */
+        VMCB_CLEAN_DR = 64,        /* DR6, DR7 */
+        VMCB_CLEAN_DT = 128,       /* GDT, IDT */
+        VMCB_CLEAN_SEG = 256,      /* CS, DS, SS, ES, CPL */
+        VMCB_CLEAN_CR2 = 512,      /* CR2 only */
+        VMCB_CLEAN_LBR = 1024,     /* DBGCTL, BR_FROM, BR_TO, LAST_EX_FROM, LAST_EX_TO */
+        VMCB_CLEAN_AVIC = 2048,    /* APIC_BAR, APIC_BACKING_PAGE,
+				      PHYSICAL_TABLE pointer, LOGICAL_TABLE pointer */
+        VMCB_CLEAN_ALL = 4095,
+};
 
 struct __attribute__ ((__packed__)) vmcb_control_area {
 	u16 intercept_cr_read;
@@ -83,11 +99,13 @@ struct __attribute__ ((__packed__)) vmcb_control_area {
 	u32 event_inj_err;
 	u64 nested_cr3;
 	u64 lbr_ctl;
-	u64 reserved_5;
+	u32 clean;
+	u32 reserved_5;
 	u64 next_rip;
-	u8 reserved_6[816];
+	u8 insn_len;
+	u8 insn_bytes[15];
+	u8 reserved_6[800];
 };
-
 
 #define TLB_CONTROL_DO_NOTHING 0
 #define TLB_CONTROL_FLUSH_ALL_ASID 1
