@@ -309,6 +309,7 @@ struct chsc_scsc {
 	uint8_t reserved[9];
 	struct chsc_header res;
 	uint32_t res_fmt;
+#define CSSC_EXTENDED_MEASUREMENT_BLOCK 48
 	uint64_t general_char[255];
 	uint64_t chsc_char[254];
 };
@@ -358,6 +359,17 @@ bool chsc(void *p, uint16_t code, uint16_t len);
 #include <bitops.h>
 #define css_test_general_feature(bit) test_bit_inv(bit, chsc_scsc->general_char)
 #define css_test_chsc_feature(bit) test_bit_inv(bit, chsc_scsc->chsc_char)
+
+#define SCHM_DCTM	1 /* activate Device Connection TiMe */
+#define SCHM_MBU	2 /* activate Measurement Block Update */
+
+static inline void schm(void *mbo, unsigned int flags)
+{
+	register void *__gpr2 asm("2") = mbo;
+	register long __gpr1 asm("1") = flags;
+
+	asm("schm" : : "d" (__gpr2), "d" (__gpr1));
+}
 
 bool css_enable_mb(int sid, uint64_t mb, uint16_t mbi, uint16_t flg, bool fmt1);
 bool css_disable_mb(int schid);
