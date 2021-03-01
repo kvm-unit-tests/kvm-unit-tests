@@ -20,6 +20,7 @@
 #include <smp.h>
 #include <alloc_page.h>
 #include <bitops.h>
+#include <vm.h>
 
 /* Used to build the appropriate test values for register 0 */
 #define KFC(x) ((x) << 10)
@@ -225,20 +226,29 @@ static void test_mmu_prot(void)
 	report(clear_pgm_int() == PGM_INT_CODE_PROTECTION, "destination read only");
 	fresh += PAGE_SIZE;
 
-	protect_page(fresh, PAGE_ENTRY_I);
-	cc = mvpg(CCO, fresh, source);
-	report(cc == 1, "destination invalid");
-	fresh += PAGE_SIZE;
+	/* Known issue in TCG: CCO flag is not honoured */
+	if (vm_is_tcg()) {
+		report_prefix_push("TCG");
+		report_skip("destination invalid");
+		report_skip("source invalid");
+		report_skip("source and destination invalid");
+		report_prefix_pop();
+	} else {
+		protect_page(fresh, PAGE_ENTRY_I);
+		cc = mvpg(CCO, fresh, source);
+		report(cc == 1, "destination invalid");
+		fresh += PAGE_SIZE;
 
-	protect_page(source, PAGE_ENTRY_I);
-	cc = mvpg(CCO, fresh, source);
-	report(cc == 2, "source invalid");
-	fresh += PAGE_SIZE;
+		protect_page(source, PAGE_ENTRY_I);
+		cc = mvpg(CCO, fresh, source);
+		report(cc == 2, "source invalid");
+		fresh += PAGE_SIZE;
 
-	protect_page(fresh, PAGE_ENTRY_I);
-	cc = mvpg(CCO, fresh, source);
-	report(cc == 2, "source and destination invalid");
-	fresh += PAGE_SIZE;
+		protect_page(fresh, PAGE_ENTRY_I);
+		cc = mvpg(CCO, fresh, source);
+		report(cc == 2, "source and destination invalid");
+		fresh += PAGE_SIZE;
+	}
 
 	unprotect_page(source, PAGE_ENTRY_I);
 	report_prefix_pop();
