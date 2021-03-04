@@ -21,6 +21,9 @@ function arch_cmd_s390x()
 	"$cmd" "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$check" "$accel" "$timeout"
 
 	# run PV test case
+	if [ "$ACCEL" = 'tcg' ]; then
+		return
+	fi
 	kernel=${kernel%.elf}.pv.bin
 	testname=${testname}_PV
 	if [ ! -f "${kernel}" ]; then
