@@ -2388,6 +2388,69 @@ static void svm_vmrun_errata_test(void)
     }
 }
 
+static void vmload_vmsave_guest_main(struct svm_test *test)
+{
+	u64 vmcb_phys = virt_to_phys(vmcb);
+
+	asm volatile ("vmload %0" : : "a"(vmcb_phys));
+	asm volatile ("vmsave %0" : : "a"(vmcb_phys));
+}
+
+static void svm_vmload_vmsave(void)
+{
+	u32 intercept_saved = vmcb->control.intercept;
+
+	test_set_guest(vmload_vmsave_guest_main);
+
+	/*
+	 * Disabling intercept for VMLOAD and VMSAVE doesn't cause
+	 * respective #VMEXIT to host
+	 */
+	vmcb->control.intercept &= ~(1ULL << INTERCEPT_VMLOAD);
+	vmcb->control.intercept &= ~(1ULL << INTERCEPT_VMSAVE);
+	svm_vmrun();
+	report(vmcb->control.exit_code == SVM_EXIT_VMMCALL, "Test "
+	    "VMLOAD/VMSAVE intercept: Expected VMMCALL #VMEXIT");
+
+	/*
+	 * Enabling intercept for VMLOAD and VMSAVE causes respective
+	 * #VMEXIT to host
+	 */
+	vmcb->control.intercept |= (1ULL << INTERCEPT_VMLOAD);
+	svm_vmrun();
+	report(vmcb->control.exit_code == SVM_EXIT_VMLOAD, "Test "
+	    "VMLOAD/VMSAVE intercept: Expected VMLOAD #VMEXIT");
+	vmcb->control.intercept &= ~(1ULL << INTERCEPT_VMLOAD);
+	vmcb->control.intercept |= (1ULL << INTERCEPT_VMSAVE);
+	svm_vmrun();
+	report(vmcb->control.exit_code == SVM_EXIT_VMSAVE, "Test "
+	    "VMLOAD/VMSAVE intercept: Expected VMSAVE #VMEXIT");
+	vmcb->control.intercept &= ~(1ULL << INTERCEPT_VMSAVE);
+	svm_vmrun();
+	report(vmcb->control.exit_code == SVM_EXIT_VMMCALL, "Test "
+	    "VMLOAD/VMSAVE intercept: Expected VMMCALL #VMEXIT");
+
+	vmcb->control.intercept |= (1ULL << INTERCEPT_VMLOAD);
+	svm_vmrun();
+	report(vmcb->control.exit_code == SVM_EXIT_VMLOAD, "Test "
+	    "VMLOAD/VMSAVE intercept: Expected VMLOAD #VMEXIT");
+	vmcb->control.intercept &= ~(1ULL << INTERCEPT_VMLOAD);
+	svm_vmrun();
+	report(vmcb->control.exit_code == SVM_EXIT_VMMCALL, "Test "
+	    "VMLOAD/VMSAVE intercept: Expected VMMCALL #VMEXIT");
+
+	vmcb->control.intercept |= (1ULL << INTERCEPT_VMSAVE);
+	svm_vmrun();
+	report(vmcb->control.exit_code == SVM_EXIT_VMSAVE, "Test "
+	    "VMLOAD/VMSAVE intercept: Expected VMSAVE #VMEXIT");
+	vmcb->control.intercept &= ~(1ULL << INTERCEPT_VMSAVE);
+	svm_vmrun();
+	report(vmcb->control.exit_code == SVM_EXIT_VMMCALL, "Test "
+	    "VMLOAD/VMSAVE intercept: Expected VMMCALL #VMEXIT");
+
+	vmcb->control.intercept = intercept_saved;
+}
+
 struct svm_test svm_tests[] = {
     { "null", default_supported, default_prepare,
       default_prepare_gif_clear, null_test,
@@ -2504,5 +2567,6 @@ struct svm_test svm_tests[] = {
     TEST(svm_cr4_osxsave_test),
     TEST(svm_guest_state_test),
     TEST(svm_vmrun_errata_test),
+    TEST(svm_vmload_vmsave),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
