@@ -54,8 +54,6 @@ int main(void)
 	OFFSET(GEN_LC_MCCK_NEW_PSW, lowcore, mcck_new_psw);
 	OFFSET(GEN_LC_IO_NEW_PSW, lowcore, io_new_psw);
 	OFFSET(GEN_LC_SW_INT_GRS, lowcore, sw_int_grs);
-	OFFSET(GEN_LC_SW_INT_FPRS, lowcore, sw_int_fprs);
-	OFFSET(GEN_LC_SW_INT_FPC, lowcore, sw_int_fpc);
 	OFFSET(GEN_LC_SW_INT_CRS, lowcore, sw_int_crs);
 	OFFSET(GEN_LC_SW_INT_PSW, lowcore, sw_int_psw);
 	OFFSET(GEN_LC_MCCK_EXT_SA_ADDR, lowcore, mcck_ext_sa_addr);
@@ -70,16 +68,23 @@ int main(void)
 	OFFSET(GEN_LC_ARS_SA, lowcore, ars_sa);
 	OFFSET(GEN_LC_CRS_SA, lowcore, crs_sa);
 	OFFSET(GEN_LC_PGM_INT_TDB, lowcore, pgm_int_tdb);
-	OFFSET(__SF_SIE_CONTROL, stack_frame, empty1[0]);
-	OFFSET(__SF_SIE_SAVEAREA, stack_frame, empty1[1]);
-	OFFSET(__SF_SIE_REASON, stack_frame, empty1[2]);
-	OFFSET(__SF_SIE_FLAGS, stack_frame, empty1[3]);
+	OFFSET(__SF_SIE_CONTROL, stack_frame, argument_area[0]);
+	OFFSET(__SF_SIE_SAVEAREA, stack_frame, argument_area[1]);
+	OFFSET(__SF_SIE_REASON, stack_frame, argument_area[2]);
+	OFFSET(__SF_SIE_FLAGS, stack_frame, argument_area[3]);
 	OFFSET(SIE_SAVEAREA_HOST_GRS, vm_save_area, host.grs[0]);
 	OFFSET(SIE_SAVEAREA_HOST_FPRS, vm_save_area, host.fprs[0]);
 	OFFSET(SIE_SAVEAREA_HOST_FPC, vm_save_area, host.fpc);
 	OFFSET(SIE_SAVEAREA_GUEST_GRS, vm_save_area, guest.grs[0]);
 	OFFSET(SIE_SAVEAREA_GUEST_FPRS, vm_save_area, guest.fprs[0]);
 	OFFSET(SIE_SAVEAREA_GUEST_FPC, vm_save_area, guest.fpc);
+	OFFSET(STACK_FRAME_INT_BACKCHAIN, stack_frame_int, back_chain);
+	OFFSET(STACK_FRAME_INT_FPC, stack_frame_int, fpc);
+	OFFSET(STACK_FRAME_INT_FPRS, stack_frame_int, fprs);
+	OFFSET(STACK_FRAME_INT_CRS, stack_frame_int, crs);
+	OFFSET(STACK_FRAME_INT_GRS0, stack_frame_int, grs0);
+	OFFSET(STACK_FRAME_INT_GRS1, stack_frame_int, grs1);
+	DEFINE(STACK_FRAME_INT_SIZE, sizeof(struct stack_frame_int));
 
 	return 0;
 }

@@ -128,7 +128,6 @@ static void test_fcode0_par(struct sthyi_par_sctn *par)
 		report(sum, "core counts");
 
 	if (par->INFPVAL1 & PART_STSI_SUC) {
-		report(par->INFPPNUM, "number");
 		report(memcmp(par->INFPPNAM, null_buf, sizeof(par->INFPPNAM)),
 		       "name");
 	}

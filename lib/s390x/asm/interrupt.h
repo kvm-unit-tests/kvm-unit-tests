@@ -14,8 +14,8 @@
 #define EXT_IRQ_SERVICE_SIG	0x2401
 
 void register_pgm_cleanup_func(void (*f)(void));
-void handle_pgm_int(void);
-void handle_ext_int(void);
+void handle_pgm_int(struct stack_frame_int *stack);
+void handle_ext_int(struct stack_frame_int *stack);
 void handle_mcck_int(void);
 void handle_io_int(void);
 void handle_svc_int(void);

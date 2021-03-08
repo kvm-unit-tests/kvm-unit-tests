@@ -8,13 +8,32 @@
 #ifndef _ASM_S390X_ARCH_DEF_H_
 #define _ASM_S390X_ARCH_DEF_H_
 
-/*
- * We currently only specify the stack frame members needed for the
- * SIE library code.
- */
 struct stack_frame {
-	unsigned long back_chain;
-	unsigned long empty1[5];
+	struct stack_frame *back_chain;
+	uint64_t reserved;
+	/* GRs 2 - 5 */
+	uint64_t argument_area[4];
+	/* GRs 6 - 15 */
+	uint64_t grs[10];
+	/* FPRs 0, 2, 4, 6 */
+	int64_t  fprs[4];
+};
+
+struct stack_frame_int {
+	struct stack_frame *back_chain;
+	uint64_t reserved;
+	/*
+	 * The GRs are offset compatible with struct stack_frame so we
+	 * can easily fetch GR14 for backtraces.
+	 */
+	/* GRs 2 - 15 */
+	uint64_t grs0[14];
+	/* GRs 0 and 1 */
+	uint64_t grs1[2];
+	uint32_t reserved1;
+	uint32_t fpc;
+	uint64_t fprs[16];
+	uint64_t crs[16];
 };
 
 struct psw {
@@ -84,9 +103,7 @@ struct lowcore {
 	struct psw	io_new_psw;			/* 0x01f0 */
 	/* sw definition: save area for registers in interrupt handlers */
 	uint64_t	sw_int_grs[16];			/* 0x0200 */
-	uint64_t	sw_int_fprs[16];		/* 0x0280 */
-	uint32_t	sw_int_fpc;			/* 0x0300 */
-	uint8_t		pad_0x0304[0x0308 - 0x0304];	/* 0x0304 */
+	uint8_t		pad_0x0280[0x0308 - 0x0280];	/* 0x0280 */
 	uint64_t	sw_int_crs[16];			/* 0x0308 */
 	struct psw	sw_int_psw;			/* 0x0388 */
 	uint8_t		pad_0x0310[0x11b0 - 0x0398];	/* 0x0398 */
@@ -172,6 +189,8 @@ struct cpuid {
 	uint64_t format : 1;
 	uint64_t reserved : 15;
 };
+
+#define SVC_LEAVE_PSTATE 1
 
 static inline unsigned short stap(void)
 {
@@ -274,6 +293,11 @@ static inline void enter_pstate(void)
 	mask = extract_psw_mask();
 	mask |= PSW_MASK_PSTATE;
 	load_psw_mask(mask);
+}
+
+static inline void leave_pstate(void)
+{
+	asm volatile("	svc %0\n" : : "i" (SVC_LEAVE_PSTATE));
 }
 
 static inline int stsi(void *addr, int fc, int sel1, int sel2)
