@@ -138,7 +138,8 @@ void sclp_facilities_setup(void)
 	assert(read_info);
 
 	cpu = sclp_get_cpu_entries();
-	sclp_facilities.has_diag318 = read_info->byte_134_diag318;
+	if (read_info->offset_cpu > 134)
+		sclp_facilities.has_diag318 = read_info->byte_134_diag318;
 	for (i = 0; i < read_info->entries_cpu; i++, cpu++) {
 		/*
 		 * The logic for only reading the facilities from the
