@@ -25,6 +25,7 @@ static unsigned long cu_type = DEFAULT_CU_TYPE;
 
 static int test_device_sid;
 static struct senseid *senseid;
+struct ccw1 *ccw;
 
 static void test_enumerate(void)
 {
@@ -58,7 +59,6 @@ static void test_enable(void)
  */
 static void test_sense(void)
 {
-	struct ccw1 *ccw;
 	int ret;
 	int len;
 
@@ -74,18 +74,12 @@ static void test_sense(void)
 		return;
 	}
 
-	ret = register_io_int_func(css_irq_io);
-	if (ret) {
-		report(0, "Could not register IRQ handler");
-		return;
-	}
-
 	lowcore_ptr->io_int_param = 0;
 
 	senseid = alloc_io_mem(sizeof(*senseid), 0);
 	if (!senseid) {
 		report(0, "Allocation of senseid");
-		goto error_senseid;
+		return;
 	}
 
 	ccw = ccw_alloc(CCW_CMD_SENSE_ID, senseid, sizeof(*senseid), CCW_F_SLI);
@@ -137,12 +131,13 @@ error:
 	free_io_mem(ccw, sizeof(*ccw));
 error_ccw:
 	free_io_mem(senseid, sizeof(*senseid));
-error_senseid:
-	unregister_io_int_func(css_irq_io);
 }
 
 static void css_init(void)
 {
+	assert(register_io_int_func(css_irq_io) == 0);
+	lowcore_ptr->io_int_param = 0;
+
 	report(get_chsc_scsc(), "Store Channel Characteristics");
 }
 

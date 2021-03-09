@@ -162,6 +162,31 @@ out:
 }
 
 /*
+ * css_enabled: report if the subchannel is enabled
+ * @schid: Subchannel Identifier
+ * Return value:
+ *   true if the subchannel is enabled
+ *   false otherwise
+ */
+bool css_enabled(int schid)
+{
+	struct pmcw *pmcw = &schib.pmcw;
+	int cc;
+
+	cc = stsch(schid, &schib);
+	if (cc) {
+		report_info("stsch: updating sch %08x failed with cc=%d",
+			    schid, cc);
+		return false;
+	}
+
+	if (!(pmcw->flags & PMCW_ENABLE)) {
+		report_info("stsch: sch %08x not enabled", schid);
+		return false;
+	}
+	return true;
+}
+/*
  * css_enable: enable the subchannel with the specified ISC
  * @schid: Subchannel Identifier
  * @isc  : number of the interruption subclass to use
@@ -210,18 +235,8 @@ retry:
 	/*
 	 * Read the SCHIB again to verify the enablement
 	 */
-	cc = stsch(schid, &schib);
-	if (cc) {
-		report_info("stsch: updating sch %08x failed with cc=%d",
-			    schid, cc);
-		return cc;
-	}
-
-	if ((pmcw->flags & flags) == flags) {
-		report_info("stsch: sch %08x successfully modified after %d retries",
-			    schid, retry_count);
+	if (css_enabled(schid))
 		return 0;
-	}
 
 	if (retry_count++ < MAX_ENABLE_RETRIES) {
 		mdelay(10); /* the hardware was not ready, give it some time */
@@ -250,10 +265,6 @@ void css_irq_io(void)
 		       lowcore_ptr->io_int_param, sid);
 		goto pop;
 	}
-	report_info("subsys_id_word: %08x io_int_param %08x io_int_word %08x",
-			lowcore_ptr->subsys_id_word,
-			lowcore_ptr->io_int_param,
-			lowcore_ptr->io_int_word);
 	report_prefix_pop();
 
 	report_prefix_push("tsch");
