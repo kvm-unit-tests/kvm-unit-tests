@@ -36,6 +36,7 @@
 
 static uint8_t source[PAGE_SIZE]  __attribute__((aligned(PAGE_SIZE)));
 static uint8_t buffer[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+static struct lowcore * const lc;
 
 /* Keep track of fresh memory */
 static uint8_t *fresh;
@@ -75,6 +76,21 @@ static int page_ok(const uint8_t *p)
 		if (p[i] != (uint8_t)(i + MAGIC))
 			return 0;
 	return 1;
+}
+
+/*
+ * Check that the Operand Access Identification matches with the values of
+ * the r1 and r2 fields in the instruction format. The r1 and r2 fields are
+ * in the last byte of the instruction, and the Program Old PSW will point
+ * to the beginning of the instruction after the one that caused the fault
+ * (the fixup code in the interrupt handler takes care of that for
+ * nullifying instructions). Therefore it is enough to compare the byte
+ * before the one contained in the Program Old PSW with the value of the
+ * Operand Access Identification.
+ */
+static inline bool check_oai(void)
+{
+	return *(uint8_t *)(lc->pgm_old_psw.addr - 1) == lc->op_acc_id;
 }
 
 static void test_exceptions(void)
@@ -201,17 +217,25 @@ static void test_mmu_prot(void)
 	report(clear_pgm_int() == PGM_INT_CODE_PROTECTION, "destination read only");
 	fresh += PAGE_SIZE;
 
+	report_prefix_push("source invalid");
 	protect_page(source, PAGE_ENTRY_I);
+	lc->op_acc_id = 0;
 	expect_pgm_int();
 	mvpg(0, fresh, source);
-	report(clear_pgm_int() == PGM_INT_CODE_PAGE_TRANSLATION, "source invalid");
+	report(clear_pgm_int() == PGM_INT_CODE_PAGE_TRANSLATION, "exception");
 	unprotect_page(source, PAGE_ENTRY_I);
+	report(check_oai(), "operand access ident");
+	report_prefix_pop();
 	fresh += PAGE_SIZE;
 
+	report_prefix_push("destination invalid");
 	protect_page(fresh, PAGE_ENTRY_I);
+	lc->op_acc_id = 0;
 	expect_pgm_int();
 	mvpg(0, fresh, source);
-	report(clear_pgm_int() == PGM_INT_CODE_PAGE_TRANSLATION, "destination invalid");
+	report(clear_pgm_int() == PGM_INT_CODE_PAGE_TRANSLATION, "exception");
+	report(check_oai(), "operand access ident");
+	report_prefix_pop();
 	fresh += PAGE_SIZE;
 
 	report_prefix_pop();
