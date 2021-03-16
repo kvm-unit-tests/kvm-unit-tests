@@ -137,6 +137,11 @@ while [[ "$1" = -* ]]; do
     esac
 done
 
+if [ -n "$host_key_document" ] && [ ! -f "$host_key_document" ]; then
+    echo "Host key document doesn't exist at the specified location."
+    exit 1
+fi
+
 if [ "$erratatxt" ] && [ ! -f "$erratatxt" ]; then
     echo "erratatxt: $erratatxt does not exist or is not a regular file"
     exit 1
