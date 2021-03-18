@@ -76,6 +76,13 @@ char *strrchr(const char *s, int c)
     return (char *)last;
 }
 
+char *strchrnul(const char *s, int c)
+{
+    while (*s && *s != (char)c)
+        s++;
+    return (char *)s;
+}
+
 char *strstr(const char *s1, const char *s2)
 {
     size_t l1, l2;
