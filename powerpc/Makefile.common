@@ -73,7 +73,7 @@ $(TEST_DIR)/boot_rom.elf: $(TEST_DIR)/boot_rom.o
 	$(LD) -EB -nostdlib -Ttext=0x100 --entry=start --build-id=none -o $@ $<
 	@chmod a-x $@
 
-powerpc_clean: libfdt_clean asm_offsets_clean
+powerpc_clean: asm_offsets_clean
 	$(RM) $(TEST_DIR)/*.{o,elf} $(TEST_DIR)/boot_rom.bin \
 	      $(TEST_DIR)/.*.d lib/powerpc/.*.d
 

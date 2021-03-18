@@ -78,7 +78,7 @@ FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libgcc) $(libeabi)
 $(libeabi): $(eabiobjs)
 	$(AR) rcs $@ $^
 
-arm_clean: libfdt_clean asm_offsets_clean
+arm_clean: asm_offsets_clean
 	$(RM) $(TEST_DIR)/*.{o,flat,elf} $(libeabi) $(eabiobjs) \
 	      $(TEST_DIR)/.*.d lib/arm/.*.d
 
