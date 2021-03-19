@@ -105,7 +105,7 @@ static inline void cpumask_copy(cpumask_t *dst, const cpumask_t *src)
 
 static inline int cpumask_next(int cpu, const cpumask_t *mask)
 {
-	while (cpu < nr_cpus && !cpumask_test_cpu(++cpu, mask))
+	while (++cpu < nr_cpus && !cpumask_test_cpu(cpu, mask))
 		;
 	return cpu;
 }
