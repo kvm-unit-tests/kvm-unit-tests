@@ -67,11 +67,13 @@ extern int mpidr_to_cpu(uint64_t mpidr);
 	((mpidr >> MPIDR_LEVEL_SHIFT(level)) & 0xff)
 
 extern void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr);
+extern bool __mmu_enabled(void);
 extern bool is_user(void);
 
 #define CNTVCT		__ACCESS_CP15_64(1, c14)
 #define CNTFRQ		__ACCESS_CP15(c14, 0, c0, 0)
 #define CTR		__ACCESS_CP15(c0, 0, c0, 1)
+#define SCTRL		__ACCESS_CP15(c1, 0, c0, 0)
 
 static inline u64 get_cntvct(void)
 {

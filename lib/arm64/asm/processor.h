@@ -98,6 +98,7 @@ extern int mpidr_to_cpu(uint64_t mpidr);
 
 extern void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr);
 extern bool is_user(void);
+extern bool __mmu_enabled(void);
 
 static inline u64 get_cntvct(void)
 {

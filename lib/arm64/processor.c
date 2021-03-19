@@ -257,3 +257,8 @@ bool is_user(void)
 {
 	return current_thread_info()->flags & TIF_USER_MODE;
 }
+
+bool __mmu_enabled(void)
+{
+	return read_sysreg(sctlr_el1) & SCTLR_EL1_M;
+}
