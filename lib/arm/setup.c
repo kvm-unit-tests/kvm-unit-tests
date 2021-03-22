@@ -42,8 +42,6 @@ static struct mem_region __initial_mem_regions[NR_INITIAL_MEM_REGIONS + 1];
 struct mem_region *mem_regions = __initial_mem_regions;
 phys_addr_t __phys_offset, __phys_end;
 
-unsigned long dcache_line_size;
-
 int mpidr_to_cpu(uint64_t mpidr)
 {
 	int i;
@@ -72,11 +70,6 @@ static void cpu_init(void)
 	ret = dt_for_each_cpu_node(cpu_set, NULL);
 	assert(ret == 0);
 	set_cpu_online(0, true);
-	/*
-	 * DminLine is log2 of the number of words in the smallest cache line; a
-	 * word is 4 bytes.
-	 */
-	dcache_line_size = 1 << (CTR_DMINLINE(get_ctr()) + 2);
 }
 
 unsigned int mem_region_get_flags(phys_addr_t paddr)

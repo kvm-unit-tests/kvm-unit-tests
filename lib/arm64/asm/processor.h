@@ -16,11 +16,6 @@
 #define SCTLR_EL1_A	(1 << 1)
 #define SCTLR_EL1_M	(1 << 0)
 
-#define CTR_DMINLINE_SHIFT	16
-#define CTR_DMINLINE_MASK	(0xf << 16)
-#define CTR_DMINLINE(x)	\
-	(((x) & CTR_DMINLINE_MASK) >> CTR_DMINLINE_SHIFT)
-
 #ifndef __ASSEMBLY__
 #include <asm/ptrace.h>
 #include <asm/esr.h>
@@ -115,8 +110,6 @@ static inline u64 get_ctr(void)
 {
 	return read_sysreg(ctr_el0);
 }
-
-extern unsigned long dcache_line_size;
 
 static inline unsigned long get_id_aa64mmfr0_el1(void)
 {

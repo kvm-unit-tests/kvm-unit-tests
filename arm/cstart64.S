@@ -8,6 +8,7 @@
 #define __ASSEMBLY__
 #include <auxinfo.h>
 #include <asm/asm-offsets.h>
+#include <asm/assembler.h>
 #include <asm/ptrace.h>
 #include <asm/processor.h>
 #include <asm/page.h>
@@ -224,20 +225,6 @@ asm_mmu_enable:
 
 	ret
 
-/* Taken with small changes from arch/arm64/incluse/asm/assembler.h */
-.macro dcache_by_line_op op, domain, start, end, tmp1, tmp2
-	adrp	\tmp1, dcache_line_size
-	ldr	\tmp1, [\tmp1, :lo12:dcache_line_size]
-	sub	\tmp2, \tmp1, #1
-	bic	\start, \start, \tmp2
-9998:
-	dc	\op , \start
-	add	\start, \start, \tmp1
-	cmp	\start, \end
-	b.lo	9998b
-	dsb	\domain
-.endm
-
 .globl asm_mmu_disable
 asm_mmu_disable:
 	mrs	x0, sctlr_el1
@@ -250,6 +237,7 @@ asm_mmu_disable:
 	ldr	x0, [x0, :lo12:__phys_offset]
 	adrp	x1, __phys_end
 	ldr	x1, [x1, :lo12:__phys_end]
+	sub	x1, x1, x0
 	dcache_by_line_op civac, sy, x0, x1, x2, x3
 	isb
 
