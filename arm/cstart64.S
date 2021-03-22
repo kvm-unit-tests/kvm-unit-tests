@@ -10,10 +10,10 @@
 #include <asm/asm-offsets.h>
 #include <asm/assembler.h>
 #include <asm/ptrace.h>
-#include <asm/processor.h>
 #include <asm/page.h>
 #include <asm/pgtable-hwdef.h>
 #include <asm/thread_info.h>
+#include <asm/sysreg.h>
 
 .macro zero_range, tmp1, tmp2
 9998:	cmp	\tmp1, \tmp2
