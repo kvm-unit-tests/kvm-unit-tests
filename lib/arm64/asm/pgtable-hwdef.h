@@ -136,6 +136,7 @@
 #define TCR_ORGN_WBnWA		((UL(3) << 10) | (UL(3) << 26))
 #define TCR_ORGN_MASK		((UL(3) << 10) | (UL(3) << 26))
 #define TCR_SHARED		((UL(3) << 12) | (UL(3) << 28))
+#define TCR_EPD1		(UL(1) << 23)
 #define TCR_TG0_4K		(UL(0) << 14)
 #define TCR_TG0_64K		(UL(1) << 14)
 #define TCR_TG0_16K		(UL(2) << 14)

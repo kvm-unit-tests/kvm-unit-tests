@@ -202,7 +202,8 @@ asm_mmu_enable:
 	ldr	x1, =TCR_TxSZ(VA_BITS) |		\
 		     TCR_TG_FLAGS  |			\
 		     TCR_IRGN_WBWA | TCR_ORGN_WBWA |	\
-		     TCR_SHARED
+		     TCR_SHARED |			\
+		     TCR_EPD1
 	mrs	x2, id_aa64mmfr0_el1
 	bfi	x1, x2, #32, #3
 	msr	tcr_el1, x1
