@@ -15,12 +15,32 @@
 
 #define THREAD_START_SP ((THREAD_SIZE - S_FRAME_SIZE * 8) & ~7)
 
+.macro zero_range, tmp1, tmp2, tmp3, tmp4
+	mov	\tmp3, #0
+	mov	\tmp4, #0
+9998:	cmp	\tmp1, \tmp2
+	beq	9997f
+	strd	\tmp3, \tmp4, [\tmp1], #8
+	b	9998b
+9997:
+.endm
+
 .arm
 
 .section .init
 
 .globl start
 start:
+	/* zero BSS */
+	ldr	r4, =bss
+	ldr	r5, =ebss
+	zero_range r4, r5, r6, r7
+
+	/* zero stack */
+	ldr	r5, =stacktop
+	sub	r4, r5, #THREAD_SIZE
+	zero_range r4, r5, r6, r7
+
 	/*
 	 * set stack, making room at top of stack for cpu0's
 	 * exception stacks. Must start wtih stackptr, not

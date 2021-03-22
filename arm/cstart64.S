@@ -12,6 +12,15 @@
 #include <asm/processor.h>
 #include <asm/page.h>
 #include <asm/pgtable-hwdef.h>
+#include <asm/thread_info.h>
+
+.macro zero_range, tmp1, tmp2
+9998:	cmp	\tmp1, \tmp2
+	b.eq	9997f
+	stp	xzr, xzr, [\tmp1], #16
+	b	9998b
+9997:
+.endm
 
 .section .init
 
@@ -51,7 +60,18 @@ start:
 	b	1b
 
 1:
-	/* set up stack */
+	/* zero BSS */
+	adrp	x4, bss
+	add	x4, x4, :lo12:bss
+	adrp    x5, ebss
+	add     x5, x5, :lo12:ebss
+	zero_range x4, x5
+
+	/* zero and set up stack */
+	adrp    x5, stacktop
+	add     x5, x5, :lo12:stacktop
+	sub	x4, x5, #THREAD_SIZE
+	zero_range x4, x5
 	mov	x4, #1
 	msr	spsel, x4
 	isb
