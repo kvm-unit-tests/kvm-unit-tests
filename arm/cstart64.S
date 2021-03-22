@@ -73,6 +73,12 @@ start:
 	add     x5, x5, :lo12:stacktop
 	sub	x4, x5, #THREAD_SIZE
 	zero_range x4, x5
+
+	/* set SCTLR_EL1 to a known value */
+	ldr	x4, =INIT_SCTLR_EL1_MMU_OFF
+	msr	sctlr_el1, x4
+	isb
+
 	mov	x4, #1
 	msr	spsel, x4
 	adrp    x4, stackptr
