@@ -8,6 +8,39 @@
 
 #ifndef __ASSEMBLY__
 
+#define GCC_VERSION (__GNUC__ * 10000           \
+		     + __GNUC_MINOR__ * 100     \
+		     + __GNUC_PATCHLEVEL__)
+
+#ifdef __clang__
+#if __has_builtin(__builtin_add_overflow) && \
+    __has_builtin(__builtin_sub_overflow) && \
+    __has_builtin(__builtin_mul_overflow)
+#define COMPILER_HAS_GENERIC_BUILTIN_OVERFLOW 1
+#define check_add_overflow(a, b) ({			\
+	typeof((a) + (b)) __d;				\
+	__builtin_add_overflow(a, b, &__d);		\
+})
+#define check_sub_overflow(a, b) ({			\
+	typeof((a) - (b)) __d;				\
+	__builtin_sub_overflow(a, b, &__d);		\
+})
+#define check_mul_overflow(a, b) ({			\
+	typeof((a) * (b)) __d;				\
+	__builtin_mul_overflow(a, b, &__d);		\
+})
+#endif
+#elif GCC_VERSION >= 50100
+#define COMPILER_HAS_GENERIC_BUILTIN_OVERFLOW 1
+#define check_add_overflow(a, b) __builtin_add_overflow_p(a, b, (typeof((a) + (b)))0)
+#define check_sub_overflow(a, b) __builtin_add_overflow_p(a, b, (typeof((a) - (b)))0)
+#define check_mul_overflow(a, b) __builtin_add_overflow_p(a, b, (typeof((a) * (b)))0)
+#else
+#define check_add_overflow(a, b) ({ (void)((int)(a) == (int)(b)); 0; })
+#define check_sub_overflow(a, b) ({ (void)((int)(a) == (int)(b)); 0; })
+#define check_mul_overflow(a, b) ({ (void)((int)(a) == (int)(b)); 0; })
+#endif
+
 #include <stdint.h>
 
 #define barrier()	asm volatile("" : : : "memory")
