@@ -2008,6 +2008,118 @@ static bool init_intercept_check(struct svm_test *test)
     return init_intercept;
 }
 
+/*
+ * Setting host EFLAGS.TF causes a #DB trap after the VMRUN completes on the
+ * host side (i.e., after the #VMEXIT from the guest).
+ *
+ * [AMD APM]
+ */
+static volatile u8 host_rflags_guest_main_flag = 0;
+static volatile u8 host_rflags_db_handler_flag = 0;
+static volatile bool host_rflags_ss_on_vmrun = false;
+static volatile bool host_rflags_vmrun_reached = false;
+static volatile bool host_rflags_set_tf = false;
+static u64 post_vmrun_rip;
+
+extern u64 *vmrun_rip;
+
+static void host_rflags_db_handler(struct ex_regs *r)
+{
+	if (host_rflags_ss_on_vmrun) {
+		if (host_rflags_vmrun_reached) {
+			r->rflags &= ~X86_EFLAGS_TF;
+			post_vmrun_rip = r->rip;
+		} else {
+			if (r->rip == (u64)&vmrun_rip)
+				host_rflags_vmrun_reached = true;
+		}
+	} else {
+		r->rflags &= ~X86_EFLAGS_TF;
+	}
+}
+
+static void host_rflags_prepare(struct svm_test *test)
+{
+	default_prepare(test);
+	handle_exception(DB_VECTOR, host_rflags_db_handler);
+	set_test_stage(test, 0);
+}
+
+static void host_rflags_prepare_gif_clear(struct svm_test *test)
+{
+	if (host_rflags_set_tf)
+		write_rflags(read_rflags() | X86_EFLAGS_TF);
+}
+
+static void host_rflags_test(struct svm_test *test)
+{
+	while (1) {
+		if (get_test_stage(test) > 0 && host_rflags_set_tf &&
+		    (!host_rflags_ss_on_vmrun) &&
+		    (!host_rflags_db_handler_flag))
+			host_rflags_guest_main_flag = 1;
+		if (get_test_stage(test) == 3)
+			break;
+		vmmcall();
+	}
+}
+
+static bool host_rflags_finished(struct svm_test *test)
+{
+	switch (get_test_stage(test)) {
+	case 0:
+		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+			report(false, "Unexpected VMEXIT. Exit reason 0x%x",
+			    vmcb->control.exit_code);
+			return true;
+		}
+		vmcb->save.rip += 3;
+		/*
+		 * Setting host EFLAGS.TF not immediately before VMRUN, causes
+		 * #DB trap before first guest instruction is executed
+		 */
+		host_rflags_set_tf = true;
+		break;
+	case 1:
+		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL ||
+		    (!host_rflags_guest_main_flag)) {
+			report(false, "Unexpected VMEXIT or #DB handler"
+			    " invoked before guest main. Exit reason 0x%x",
+			    vmcb->control.exit_code);
+			return true;
+		}
+		vmcb->save.rip += 3;
+		/*
+		 * Setting host EFLAGS.TF immediately before VMRUN, causes #DB
+		 * trap after VMRUN completes on the host side (i.e., after
+		 * VMEXIT from guest).
+		 */
+		host_rflags_ss_on_vmrun = true;
+		break;
+	case 2:
+		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL ||
+		    (post_vmrun_rip - (u64)&vmrun_rip) != 3) {
+			report(false, "Unexpected VMEXIT or RIP mismatch."
+			    " Exit reason 0x%x, VMRUN RIP: %lx, post-VMRUN"
+			    " RIP: %lx", vmcb->control.exit_code,
+			    (u64)&vmrun_rip, post_vmrun_rip);
+			return true;
+		}
+		host_rflags_set_tf = false;
+		vmcb->save.rip += 3;
+		break;
+	default:
+		return true;
+	}
+	inc_test_stage(test);
+	return get_test_stage(test) == 4;
+}
+
+static bool host_rflags_check(struct svm_test *test)
+{
+	return get_test_stage(test) == 3;
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /*
@@ -2564,6 +2676,9 @@ struct svm_test svm_tests[] = {
     { "svm_init_intercept_test", smp_supported, init_intercept_prepare,
       default_prepare_gif_clear, init_intercept_test,
       init_intercept_finished, init_intercept_check, .on_vcpu = 2 },
+    { "host_rflags", default_supported, host_rflags_prepare,
+      host_rflags_prepare_gif_clear, host_rflags_test,
+      host_rflags_finished, host_rflags_check },
     TEST(svm_cr4_osxsave_test),
     TEST(svm_guest_state_test),
     TEST(svm_vmrun_errata_test),
