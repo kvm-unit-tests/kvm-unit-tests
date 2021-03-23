@@ -208,14 +208,15 @@ struct regs get_regs(void)
 
 struct svm_test *v2_test;
 
-#define ASM_VMRUN_CMD                           \
+#define ASM_PRE_VMRUN_CMD                       \
                 "vmload %%rax\n\t"              \
                 "mov regs+0x80, %%r15\n\t"      \
                 "mov %%r15, 0x170(%%rax)\n\t"   \
                 "mov regs, %%r15\n\t"           \
                 "mov %%r15, 0x1f8(%%rax)\n\t"   \
                 LOAD_GPR_C                      \
-                "vmrun %%rax\n\t"               \
+
+#define ASM_POST_VMRUN_CMD                      \
                 SAVE_GPR_C                      \
                 "mov 0x170(%%rax), %%r15\n\t"   \
                 "mov %%r15, regs+0x80\n\t"      \
@@ -232,13 +233,17 @@ int svm_vmrun(void)
 	regs.rdi = (ulong)v2_test;
 
 	asm volatile (
-		ASM_VMRUN_CMD
+		ASM_PRE_VMRUN_CMD
+                "vmrun %%rax\n\t"               \
+		ASM_POST_VMRUN_CMD
 		:
 		: "a" (virt_to_phys(vmcb))
 		: "memory", "r15");
 
 	return (vmcb->control.exit_code);
 }
+
+extern u64 *vmrun_rip;
 
 static void test_run(struct svm_test *test)
 {
@@ -258,7 +263,10 @@ static void test_run(struct svm_test *test)
 			"sti \n\t"
 			"call *%c[PREPARE_GIF_CLEAR](%[test]) \n \t"
 			"mov %[vmcb_phys], %%rax \n\t"
-			ASM_VMRUN_CMD
+			ASM_PRE_VMRUN_CMD
+			".global vmrun_rip\n\t"		\
+			"vmrun_rip: vmrun %%rax\n\t"    \
+			ASM_POST_VMRUN_CMD
 			"cli \n\t"
 			"stgi"
 			: // inputs clobbered by the guest:
