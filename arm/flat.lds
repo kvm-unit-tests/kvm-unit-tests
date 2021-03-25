@@ -1,6 +1,7 @@
 
 SECTIONS
 {
+    PROVIDE(_text = .);
     .text : { *(.init) *(.text) *(.text.*) }
     . = ALIGN(64K);
     PROVIDE(etext = .);

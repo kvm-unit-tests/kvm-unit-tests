@@ -99,12 +99,19 @@ bool get_far(unsigned int esr, unsigned long *far)
 	return false;
 }
 
+extern unsigned long _text;
+
 static void bad_exception(enum vector v, struct pt_regs *regs,
 			  unsigned int esr, bool esr_valid, bool bad_vector)
 {
 	unsigned long far;
 	bool far_valid = get_far(esr, &far);
 	unsigned int ec = esr >> ESR_EL1_EC_SHIFT;
+	uintptr_t text = (uintptr_t)&_text;
+
+	printf("Load address: %" PRIxPTR "\n", text);
+	printf("PC: %" PRIxPTR " PC offset: %" PRIxPTR "\n",
+	       (uintptr_t)regs->pc, (uintptr_t)regs->pc - text);
 
 	if (bad_vector) {
 		if (v < VECTOR_MAX)
