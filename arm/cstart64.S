@@ -100,7 +100,7 @@ start:
 1:
 	/* run the test */
 	adrp	x0, __argc
-	ldr	x0, [x0, :lo12:__argc]
+	ldr	w0, [x0, :lo12:__argc]
 	adrp	x1, __argv
 	add	x1, x1, :lo12:__argv
 	adrp	x2, __environ
