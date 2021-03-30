@@ -24,13 +24,10 @@ extern unsigned long etext;
 pgd_t *mmu_idmap;
 
 /* CPU 0 starts with disabled MMU */
-static cpumask_t mmu_disabled_cpumask = { {1} };
-unsigned int mmu_disabled_cpu_count = 1;
+static cpumask_t mmu_enabled_cpumask;
 
-bool __mmu_enabled(void)
+bool mmu_enabled(void)
 {
-	int cpu = current_thread_info()->cpu;
-
 	/*
 	 * mmu_enabled is called from places that are guarding the
 	 * use of exclusive ops (which require the mmu to be enabled).
@@ -38,19 +35,22 @@ bool __mmu_enabled(void)
 	 * spinlock, atomic bitop, etc., otherwise we'll recurse.
 	 * [cpumask_]test_bit is safe though.
 	 */
-	return !cpumask_test_cpu(cpu, &mmu_disabled_cpumask);
+	if (is_user()) {
+		int cpu = current_thread_info()->cpu;
+		return cpumask_test_cpu(cpu, &mmu_enabled_cpumask);
+	}
+
+	return __mmu_enabled();
 }
 
 void mmu_mark_enabled(int cpu)
 {
-	if (cpumask_test_and_clear_cpu(cpu, &mmu_disabled_cpumask))
-		--mmu_disabled_cpu_count;
+	cpumask_set_cpu(cpu, &mmu_enabled_cpumask);
 }
 
 void mmu_mark_disabled(int cpu)
 {
-	if (!cpumask_test_and_set_cpu(cpu, &mmu_disabled_cpumask))
-		++mmu_disabled_cpu_count;
+	cpumask_clear_cpu(cpu, &mmu_enabled_cpumask);
 }
 
 extern void asm_mmu_enable(phys_addr_t pgtable);

@@ -8,6 +8,8 @@
 #ifndef _ASMARM64_SYSREG_H_
 #define _ASMARM64_SYSREG_H_
 
+#include <linux/const.h>
+
 #define sys_reg(op0, op1, crn, crm, op2) \
 	((((op0)&3)<<19)|((op1)<<16)|((crn)<<12)|((crm)<<8)|((op2)<<5))
 
@@ -70,4 +72,26 @@ asm(
 "	.endm\n"
 );
 #endif /* __ASSEMBLY__ */
+
+#define ICC_PMR_EL1			sys_reg(3, 0, 4, 6, 0)
+#define ICC_SGI1R_EL1			sys_reg(3, 0, 12, 11, 5)
+#define ICC_IAR1_EL1			sys_reg(3, 0, 12, 12, 0)
+#define ICC_EOIR1_EL1			sys_reg(3, 0, 12, 12, 1)
+#define ICC_GRPEN1_EL1			sys_reg(3, 0, 12, 12, 7)
+
+/* System Control Register (SCTLR_EL1) bits */
+#define SCTLR_EL1_EE	(1 << 25)
+#define SCTLR_EL1_WXN	(1 << 19)
+#define SCTLR_EL1_I	(1 << 12)
+#define SCTLR_EL1_SA0	(1 << 4)
+#define SCTLR_EL1_SA	(1 << 3)
+#define SCTLR_EL1_C	(1 << 2)
+#define SCTLR_EL1_A	(1 << 1)
+#define SCTLR_EL1_M	(1 << 0)
+
+#define SCTLR_EL1_RES1	(_BITUL(7) | _BITUL(8) | _BITUL(11) | _BITUL(20) | \
+			 _BITUL(22) | _BITUL(23) | _BITUL(28) | _BITUL(29))
+#define INIT_SCTLR_EL1_MMU_OFF	\
+			SCTLR_EL1_RES1
+
 #endif /* _ASMARM64_SYSREG_H_ */

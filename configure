@@ -26,6 +26,7 @@ errata_force=0
 erratatxt="$srcdir/errata.txt"
 host_key_document=
 page_size=
+earlycon=
 
 usage() {
     cat <<-EOF
@@ -54,6 +55,18 @@ usage() {
 	    --page-size=PAGE_SIZE
 	                           Specify the page size (translation granule) (4k, 16k or
 	                           64k, default is 64k, arm64 only)
+	    --earlycon=EARLYCON
+	                           Specify the UART name, type and address (optional, arm and
+	                           arm64 only). The specified address will overwrite the UART
+	                           address set by the --vmm option. EARLYCON can be one of
+	                           (case sensitive):
+	               uart[8250],mmio,ADDR
+	                           Specify an 8250 compatible UART at address ADDR. Supported
+	                           register stride is 8 bit only.
+	               pl011,ADDR
+	               pl011,mmio32,ADDR
+	                           Specify a PL011 compatible UART at address ADDR. Supported
+	                           register stride is 32 bit only.
 EOF
     exit 1
 }
@@ -112,6 +125,9 @@ while [[ "$1" = -* ]]; do
 	--page-size)
 	    page_size="$arg"
 	    ;;
+	--earlycon)
+	    earlycon="$arg"
+	    ;;
 	--help)
 	    usage
 	    ;;
@@ -169,6 +185,43 @@ elif [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
     else
         echo '--vmm must be one of "qemu" or "kvmtool"!'
         usage
+    fi
+
+    if [ "$earlycon" ]; then
+        IFS=, read -r name type_addr addr <<<"$earlycon"
+        if [ "$name" != "uart" ] && [ "$name" != "uart8250" ] &&
+                [ "$name" != "pl011" ]; then
+            echo "unknown earlycon name: $name"
+            usage
+        fi
+
+        if [ "$name" = "pl011" ]; then
+            if [ -z "$addr" ]; then
+                addr=$type_addr
+            else
+                if [ "$type_addr" != "mmio32" ]; then
+                    echo "unknown $name earlycon type: $type_addr"
+                    usage
+                fi
+            fi
+        else
+            if [ "$type_addr" != "mmio" ]; then
+                echo "unknown $name earlycon type: $type_addr"
+                usage
+            fi
+        fi
+
+        if [ -z "$addr" ]; then
+            echo "missing $name earlycon address"
+            usage
+        fi
+        if [[ $addr =~ ^0(x|X)[0-9a-fA-F]+$ ]] ||
+                [[ $addr =~ ^[0-9]+$ ]]; then
+            arm_uart_early_addr=$addr
+        else
+            echo "invalid $name earlycon address: $addr"
+            usage
+        fi
     fi
 elif [ "$arch" = "ppc64" ]; then
     testdir=powerpc

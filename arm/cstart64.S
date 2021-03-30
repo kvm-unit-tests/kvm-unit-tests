@@ -8,10 +8,20 @@
 #define __ASSEMBLY__
 #include <auxinfo.h>
 #include <asm/asm-offsets.h>
+#include <asm/assembler.h>
 #include <asm/ptrace.h>
-#include <asm/processor.h>
 #include <asm/page.h>
 #include <asm/pgtable-hwdef.h>
+#include <asm/thread_info.h>
+#include <asm/sysreg.h>
+
+.macro zero_range, tmp1, tmp2
+9998:	cmp	\tmp1, \tmp2
+	b.eq	9997f
+	stp	xzr, xzr, [\tmp1], #16
+	b	9998b
+9997:
+.endm
 
 .section .init
 
@@ -51,10 +61,26 @@ start:
 	b	1b
 
 1:
-	/* set up stack */
+	/* zero BSS */
+	adrp	x4, bss
+	add	x4, x4, :lo12:bss
+	adrp    x5, ebss
+	add     x5, x5, :lo12:ebss
+	zero_range x4, x5
+
+	/* zero and set up stack */
+	adrp    x5, stacktop
+	add     x5, x5, :lo12:stacktop
+	sub	x4, x5, #THREAD_SIZE
+	zero_range x4, x5
+
+	/* set SCTLR_EL1 to a known value */
+	ldr	x4, =INIT_SCTLR_EL1_MMU_OFF
+	msr	sctlr_el1, x4
+	isb
+
 	mov	x4, #1
 	msr	spsel, x4
-	isb
 	adrp    x4, stackptr
 	add     sp, x4, :lo12:stackptr
 
@@ -74,7 +100,7 @@ start:
 1:
 	/* run the test */
 	adrp	x0, __argc
-	ldr	x0, [x0, :lo12:__argc]
+	ldr	w0, [x0, :lo12:__argc]
 	adrp	x1, __argv
 	add	x1, x1, :lo12:__argv
 	adrp	x2, __environ
@@ -176,7 +202,8 @@ asm_mmu_enable:
 	ldr	x1, =TCR_TxSZ(VA_BITS) |		\
 		     TCR_TG_FLAGS  |			\
 		     TCR_IRGN_WBWA | TCR_ORGN_WBWA |	\
-		     TCR_SHARED
+		     TCR_SHARED |			\
+		     TCR_EPD1
 	mrs	x2, id_aa64mmfr0_el1
 	bfi	x1, x2, #32, #3
 	msr	tcr_el1, x1
@@ -205,20 +232,6 @@ asm_mmu_enable:
 
 	ret
 
-/* Taken with small changes from arch/arm64/incluse/asm/assembler.h */
-.macro dcache_by_line_op op, domain, start, end, tmp1, tmp2
-	adrp	\tmp1, dcache_line_size
-	ldr	\tmp1, [\tmp1, :lo12:dcache_line_size]
-	sub	\tmp2, \tmp1, #1
-	bic	\start, \start, \tmp2
-9998:
-	dc	\op , \start
-	add	\start, \start, \tmp1
-	cmp	\start, \end
-	b.lo	9998b
-	dsb	\domain
-.endm
-
 .globl asm_mmu_disable
 asm_mmu_disable:
 	mrs	x0, sctlr_el1
@@ -231,8 +244,8 @@ asm_mmu_disable:
 	ldr	x0, [x0, :lo12:__phys_offset]
 	adrp	x1, __phys_end
 	ldr	x1, [x1, :lo12:__phys_end]
+	sub	x1, x1, x0
 	dcache_by_line_op civac, sy, x0, x1, x2, x3
-	isb
 
 	ret
 

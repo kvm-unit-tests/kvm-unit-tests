@@ -227,7 +227,7 @@ static bool timer_prep(void)
 	}
 
 	writel(1 << PPI(TIMER_VTIMER_IRQ), gic_isenabler);
-	write_sysreg(ARCH_TIMER_CTL_ENABLE, cntv_ctl_el0);
+	write_sysreg(ARCH_TIMER_CTL_IMASK | ARCH_TIMER_CTL_ENABLE, cntv_ctl_el0);
 	isb();
 
 	gic_prep_common();

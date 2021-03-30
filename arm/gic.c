@@ -34,7 +34,7 @@ struct gic {
 
 static struct gic *gic;
 static int acked[NR_CPUS], spurious[NR_CPUS];
-static int bad_sender[NR_CPUS], bad_irq[NR_CPUS];
+static int irq_sender[NR_CPUS], irq_number[NR_CPUS];
 static cpumask_t ready;
 
 static void nr_cpu_check(int nr)
@@ -56,46 +56,48 @@ static void stats_reset(void)
 
 	for (i = 0; i < nr_cpus; ++i) {
 		acked[i] = 0;
-		bad_sender[i] = -1;
-		bad_irq[i] = -1;
+		irq_sender[i] = -1;
+		irq_number[i] = -1;
 	}
-	smp_wmb();
 }
 
-static void check_acked(const char *testname, cpumask_t *mask)
+static void wait_for_interrupts(cpumask_t *mask)
 {
-	int missing = 0, extra = 0, unexpected = 0;
 	int nr_pass, cpu, i;
-	bool bad = false;
 
 	/* Wait up to 5s for all interrupts to be delivered */
-	for (i = 0; i < 50; ++i) {
+	for (i = 0; i < 50; i++) {
 		mdelay(100);
 		nr_pass = 0;
 		for_each_present_cpu(cpu) {
-			smp_rmb();
+			/*
+			 * A CPU having received more than one interrupts will
+			 * show up in check_acked(), and no matter how long we
+			 * wait it cannot un-receive it. Consider at least one
+			 * interrupt as a pass.
+			 */
 			nr_pass += cpumask_test_cpu(cpu, mask) ?
-				acked[cpu] == 1 : acked[cpu] == 0;
-
-			if (bad_sender[cpu] != -1) {
-				printf("cpu%d received IPI from wrong sender %d\n",
-					cpu, bad_sender[cpu]);
-				bad = true;
-			}
-
-			if (bad_irq[cpu] != -1) {
-				printf("cpu%d received wrong irq %d\n",
-					cpu, bad_irq[cpu]);
-				bad = true;
-			}
+				acked[cpu] >= 1 : acked[cpu] == 0;
 		}
+
 		if (nr_pass == nr_cpus) {
-			report(!bad, "%s", testname);
 			if (i)
-				report_info("took more than %d ms", i * 100);
+				report_info("interrupts took more than %d ms", i * 100);
+			/* Wait for unexpected interrupts to fire */
+			mdelay(100);
 			return;
 		}
 	}
+
+	report_info("interrupts timed-out (5s)");
+}
+
+static bool check_acked(cpumask_t *mask, int sender, int irqnum)
+{
+	int missing = 0, extra = 0, unexpected = 0;
+	bool has_gicv2 = (gic_version() == 2);
+	bool pass = true;
+	int cpu;
 
 	for_each_present_cpu(cpu) {
 		if (cpumask_test_cpu(cpu, mask)) {
@@ -103,22 +105,39 @@ static void check_acked(const char *testname, cpumask_t *mask)
 				++missing;
 			else if (acked[cpu] > 1)
 				++extra;
-		} else {
-			if (acked[cpu])
+		} else if (acked[cpu]) {
 				++unexpected;
+		}
+		if (!acked[cpu])
+			continue;
+		smp_rmb(); /* pairs with smp_wmb in irq_handler */
+
+		if (has_gicv2 && irq_sender[cpu] != sender) {
+			report_info("cpu%d received IPI from wrong sender %d",
+					cpu, irq_sender[cpu]);
+			pass = false;
+		}
+
+		if (irq_number[cpu] != irqnum) {
+			report_info("cpu%d received wrong irq %d",
+					cpu, irq_number[cpu]);
+			pass = false;
 		}
 	}
 
-	report(false, "%s", testname);
-	report_info("Timed-out (5s). ACKS: missing=%d extra=%d unexpected=%d",
-		    missing, extra, unexpected);
+	if (missing || extra || unexpected) {
+		report_info("ACKS: missing=%d extra=%d unexpected=%d",
+				missing, extra, unexpected);
+		pass = false;
+	}
+
+	return pass;
 }
 
 static void check_spurious(void)
 {
 	int cpu;
 
-	smp_rmb();
 	for_each_present_cpu(cpu) {
 		if (spurious[cpu])
 			report_info("WARN: cpu%d got %d spurious interrupts",
@@ -126,38 +145,32 @@ static void check_spurious(void)
 	}
 }
 
-static void check_ipi_sender(u32 irqstat)
+static int gic_get_sender(int irqstat)
 {
-	if (gic_version() == 2) {
-		int src = (irqstat >> 10) & 7;
-
-		if (src != IPI_SENDER)
-			bad_sender[smp_processor_id()] = src;
-	}
+	if (gic_version() == 2)
+		/* GICC_IAR.CPUID is RAZ for non-SGIs */
+		return (irqstat >> 10) & 7;
+	return -1;
 }
 
-static void check_irqnr(u32 irqnr)
-{
-	if (irqnr != IPI_IRQ)
-		bad_irq[smp_processor_id()] = irqnr;
-}
-
-static void ipi_handler(struct pt_regs *regs __unused)
+static void irq_handler(struct pt_regs *regs __unused)
 {
 	u32 irqstat = gic_read_iar();
 	u32 irqnr = gic_iar_irqnr(irqstat);
+	int this_cpu = smp_processor_id();
 
 	if (irqnr != GICC_INT_SPURIOUS) {
 		gic_write_eoir(irqstat);
-		smp_rmb(); /* pairs with wmb in stats_reset */
-		++acked[smp_processor_id()];
-		check_ipi_sender(irqstat);
-		check_irqnr(irqnr);
-		smp_wmb(); /* pairs with rmb in check_acked */
+		irq_sender[this_cpu] = gic_get_sender(irqstat);
+		irq_number[this_cpu] = irqnr;
+		smp_wmb(); /* pairs with smp_rmb in check_acked */
+		++acked[this_cpu];
 	} else {
-		++spurious[smp_processor_id()];
-		smp_wmb();
+		++spurious[this_cpu];
 	}
+
+	/* Wait for writes to acked/spurious to complete */
+	dsb(ishst);
 }
 
 static void setup_irq(irq_handler_fn handler)
@@ -172,75 +185,6 @@ static void setup_irq(irq_handler_fn handler)
 }
 
 #if defined(__aarch64__)
-struct its_event {
-	int cpu_id;
-	int lpi_id;
-};
-
-struct its_stats {
-	struct its_event expected;
-	struct its_event observed;
-};
-
-static struct its_stats lpi_stats;
-
-static void lpi_handler(struct pt_regs *regs __unused)
-{
-	u32 irqstat = gic_read_iar();
-	int irqnr = gic_iar_irqnr(irqstat);
-
-	gic_write_eoir(irqstat);
-	assert(irqnr >= 8192);
-	smp_rmb(); /* pairs with wmb in lpi_stats_expect */
-	lpi_stats.observed.cpu_id = smp_processor_id();
-	lpi_stats.observed.lpi_id = irqnr;
-	acked[lpi_stats.observed.cpu_id]++;
-	smp_wmb(); /* pairs with rmb in check_lpi_stats */
-}
-
-static void lpi_stats_expect(int exp_cpu_id, int exp_lpi_id)
-{
-	lpi_stats.expected.cpu_id = exp_cpu_id;
-	lpi_stats.expected.lpi_id = exp_lpi_id;
-	lpi_stats.observed.cpu_id = -1;
-	lpi_stats.observed.lpi_id = -1;
-	smp_wmb(); /* pairs with rmb in handler */
-}
-
-static void check_lpi_stats(const char *msg)
-{
-	int i;
-
-	for (i = 0; i < 50; i++) {
-		mdelay(100);
-		smp_rmb(); /* pairs with wmb in lpi_handler */
-		if (lpi_stats.observed.cpu_id == lpi_stats.expected.cpu_id &&
-		    lpi_stats.observed.lpi_id == lpi_stats.expected.lpi_id) {
-			report(true, "%s", msg);
-			return;
-		}
-	}
-
-	if (lpi_stats.observed.cpu_id == -1 && lpi_stats.observed.lpi_id == -1) {
-		report_info("No LPI received whereas (cpuid=%d, intid=%d) "
-			    "was expected", lpi_stats.expected.cpu_id,
-			    lpi_stats.expected.lpi_id);
-	} else {
-		report_info("Unexpected LPI (cpuid=%d, intid=%d)",
-			    lpi_stats.observed.cpu_id,
-			    lpi_stats.observed.lpi_id);
-	}
-	report(false, "%s", msg);
-}
-
-static void secondary_lpi_test(void)
-{
-	setup_irq(lpi_handler);
-	cpumask_set_cpu(smp_processor_id(), &ready);
-	while (1)
-		wfi();
-}
-
 static void check_lpi_hits(int *expected, const char *msg)
 {
 	bool pass = true;
@@ -260,11 +204,18 @@ static void check_lpi_hits(int *expected, const char *msg)
 
 static void gicv2_ipi_send_self(void)
 {
+	/*
+	 * The wmb() in writel and rmb() when acknowledging the interrupt are
+	 * sufficient for ensuring that writes that happen in program order
+	 * before the interrupt are observed in the interrupt handler after
+	 * acknowledging the interrupt.
+	 */
 	writel(2 << 24 | IPI_IRQ, gicv2_dist_base() + GICD_SGIR);
 }
 
 static void gicv2_ipi_send_broadcast(void)
 {
+	/* No barriers are needed, same situation as gicv2_ipi_send_self() */
 	writel(1 << 24 | IPI_IRQ, gicv2_dist_base() + GICD_SGIR);
 }
 
@@ -275,49 +226,59 @@ static void gicv3_ipi_send_self(void)
 
 static void gicv3_ipi_send_broadcast(void)
 {
+	/*
+	 * Ensure stores to Normal memory are visible to other CPUs before
+	 * sending the IPI
+	 */
+	wmb();
 	gicv3_write_sgi1r(1ULL << 40 | IPI_IRQ << 24);
 	isb();
 }
 
 static void ipi_test_self(void)
 {
+	int this_cpu = smp_processor_id();
 	cpumask_t mask;
 
 	report_prefix_push("self");
 	stats_reset();
 	cpumask_clear(&mask);
-	cpumask_set_cpu(smp_processor_id(), &mask);
+	cpumask_set_cpu(this_cpu, &mask);
 	gic->ipi.send_self();
-	check_acked("IPI: self", &mask);
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, this_cpu, IPI_IRQ), "Interrupts received");
 	report_prefix_pop();
 }
 
 static void ipi_test_smp(void)
 {
+	int this_cpu = smp_processor_id();
 	cpumask_t mask;
 	int i;
 
 	report_prefix_push("target-list");
 	stats_reset();
 	cpumask_copy(&mask, &cpu_present_mask);
-	for (i = smp_processor_id() & 1; i < nr_cpus; i += 2)
+	for (i = this_cpu & 1; i < nr_cpus; i += 2)
 		cpumask_clear_cpu(i, &mask);
 	gic_ipi_send_mask(IPI_IRQ, &mask);
-	check_acked("IPI: directed", &mask);
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, this_cpu, IPI_IRQ), "Interrupts received");
 	report_prefix_pop();
 
 	report_prefix_push("broadcast");
 	stats_reset();
 	cpumask_copy(&mask, &cpu_present_mask);
-	cpumask_clear_cpu(smp_processor_id(), &mask);
+	cpumask_clear_cpu(this_cpu, &mask);
 	gic->ipi.send_broadcast();
-	check_acked("IPI: broadcast", &mask);
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, this_cpu, IPI_IRQ), "Interrupts received");
 	report_prefix_pop();
 }
 
 static void ipi_send(void)
 {
-	setup_irq(ipi_handler);
+	setup_irq(irq_handler);
 	wait_on_ready();
 	ipi_test_self();
 	ipi_test_smp();
@@ -325,9 +286,9 @@ static void ipi_send(void)
 	exit(report_summary());
 }
 
-static void ipi_recv(void)
+static void irq_recv(void)
 {
-	setup_irq(ipi_handler);
+	setup_irq(irq_handler);
 	cpumask_set_cpu(smp_processor_id(), &ready);
 	while (1)
 		wfi();
@@ -338,7 +299,7 @@ static void ipi_test(void *data __unused)
 	if (smp_processor_id() == IPI_SENDER)
 		ipi_send();
 	else
-		ipi_recv();
+		irq_recv();
 }
 
 static struct gic gicv2 = {
@@ -355,10 +316,12 @@ static struct gic gicv3 = {
 	},
 };
 
+/* Runs on the same CPU as the sender, no need for memory synchronization */
 static void ipi_clear_active_handler(struct pt_regs *regs __unused)
 {
 	u32 irqstat = gic_read_iar();
 	u32 irqnr = gic_iar_irqnr(irqstat);
+	int this_cpu = smp_processor_id();
 
 	if (irqnr != GICC_INT_SPURIOUS) {
 		void *base;
@@ -371,13 +334,11 @@ static void ipi_clear_active_handler(struct pt_regs *regs __unused)
 
 		writel(val, base + GICD_ICACTIVER);
 
-		smp_rmb(); /* pairs with wmb in stats_reset */
-		++acked[smp_processor_id()];
-		check_irqnr(irqnr);
-		smp_wmb(); /* pairs with rmb in check_acked */
+		irq_sender[this_cpu] = gic_get_sender(irqstat);
+		irq_number[this_cpu] = irqnr;
+		++acked[this_cpu];
 	} else {
-		++spurious[smp_processor_id()];
-		smp_wmb();
+		++spurious[this_cpu];
 	}
 }
 
@@ -386,6 +347,7 @@ static void run_active_clear_test(void)
 	report_prefix_push("active");
 	setup_irq(ipi_clear_active_handler);
 	ipi_test_self();
+	check_spurious();
 	report_prefix_pop();
 }
 
@@ -665,14 +627,12 @@ static int its_prerequisites(int nb_cpus)
 		return -1;
 	}
 
-	stats_reset();
-
-	setup_irq(lpi_handler);
+	setup_irq(irq_handler);
 
 	for_each_present_cpu(cpu) {
 		if (cpu == 0)
 			continue;
-		smp_boot_secondary(cpu, secondary_lpi_test);
+		smp_boot_secondary(cpu, irq_recv);
 	}
 	wait_on_ready();
 
@@ -726,6 +686,7 @@ static void test_its_trigger(void)
 {
 	struct its_collection *col3;
 	struct its_device *dev2, *dev7;
+	cpumask_t mask;
 
 	if (its_setup1())
 		return;
@@ -736,13 +697,21 @@ static void test_its_trigger(void)
 
 	report_prefix_push("int");
 
-	lpi_stats_expect(3, 8195);
+	stats_reset();
+	cpumask_clear(&mask);
+	cpumask_set_cpu(3, &mask);
 	its_send_int(dev2, 20);
-	check_lpi_stats("dev=2, eventid=20  -> lpi= 8195, col=3");
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, 0, 8195),
+			"dev=2, eventid=20  -> lpi= 8195, col=3");
 
-	lpi_stats_expect(2, 8196);
+	stats_reset();
+	cpumask_clear(&mask);
+	cpumask_set_cpu(2, &mask);
 	its_send_int(dev7, 255);
-	check_lpi_stats("dev=7, eventid=255 -> lpi= 8196, col=2");
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, 0, 8196),
+			"dev=7, eventid=255 -> lpi= 8196, col=2");
 
 	report_prefix_pop();
 
@@ -755,9 +724,12 @@ static void test_its_trigger(void)
 	gicv3_lpi_set_config(8195, LPI_PROP_DEFAULT & ~LPI_PROP_ENABLED);
 	its_send_inv(dev2, 20);
 
-	lpi_stats_expect(-1, -1);
+	stats_reset();
+	cpumask_clear(&mask);
 	its_send_int(dev2, 20);
-	check_lpi_stats("dev2/eventid=20 does not trigger any LPI");
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, -1, -1),
+			"dev2/eventid=20 does not trigger any LPI");
 
 	/*
 	 * re-enable the LPI but willingly do not call invall
@@ -765,15 +737,29 @@ static void test_its_trigger(void)
 	 * The LPI should not hit
 	 */
 	gicv3_lpi_set_config(8195, LPI_PROP_DEFAULT);
-	lpi_stats_expect(-1, -1);
+	stats_reset();
+	cpumask_clear(&mask);
 	its_send_int(dev2, 20);
-	check_lpi_stats("dev2/eventid=20 still does not trigger any LPI");
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, -1, -1),
+			"dev2/eventid=20 still does not trigger any LPI");
 
 	/* Now call the invall and check the LPI hits */
+	stats_reset();
+	cpumask_clear(&mask);
+	cpumask_set_cpu(3, &mask);
 	its_send_invall(col3);
-	lpi_stats_expect(3, 8195);
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, 0, 8195),
+			"dev2/eventid=20 pending LPI is received");
+
+	stats_reset();
+	cpumask_clear(&mask);
+	cpumask_set_cpu(3, &mask);
 	its_send_int(dev2, 20);
-	check_lpi_stats("dev2/eventid=20 now triggers an LPI");
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, 0, 8195),
+			"dev2/eventid=20 now triggers an LPI");
 
 	report_prefix_pop();
 
@@ -784,9 +770,13 @@ static void test_its_trigger(void)
 	 */
 
 	its_send_mapd(dev2, false);
-	lpi_stats_expect(-1, -1);
+	stats_reset();
+	cpumask_clear(&mask);
 	its_send_int(dev2, 20);
-	check_lpi_stats("no LPI after device unmap");
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, -1, -1), "no LPI after device unmap");
+
+	check_spurious();
 	report_prefix_pop();
 }
 
@@ -794,6 +784,7 @@ static void test_its_migration(void)
 {
 	struct its_device *dev2, *dev7;
 	bool test_skipped = false;
+	cpumask_t mask;
 
 	if (its_setup1()) {
 		test_skipped = true;
@@ -810,13 +801,23 @@ do_migrate:
 	if (test_skipped)
 		return;
 
-	lpi_stats_expect(3, 8195);
+	stats_reset();
+	cpumask_clear(&mask);
+	cpumask_set_cpu(3, &mask);
 	its_send_int(dev2, 20);
-	check_lpi_stats("dev2/eventid=20 triggers LPI 8195 on PE #3 after migration");
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, 0, 8195),
+			"dev2/eventid=20 triggers LPI 8195 on PE #3 after migration");
 
-	lpi_stats_expect(2, 8196);
+	stats_reset();
+	cpumask_clear(&mask);
+	cpumask_set_cpu(2, &mask);
 	its_send_int(dev7, 255);
-	check_lpi_stats("dev7/eventid=255 triggers LPI 8196 on PE #2 after migration");
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, 0, 8196),
+			"dev7/eventid=255 triggers LPI 8196 on PE #2 after migration");
+
+	check_spurious();
 }
 
 #define ERRATA_UNMAPPED_COLLECTIONS "ERRATA_8c58be34494b"
@@ -826,6 +827,7 @@ static void test_migrate_unmapped_collection(void)
 	struct its_collection *col = NULL;
 	struct its_device *dev2 = NULL, *dev7 = NULL;
 	bool test_skipped = false;
+	cpumask_t mask;
 	int pe0 = 0;
 	u8 config;
 
@@ -860,17 +862,27 @@ do_migrate:
 	its_send_mapc(col, true);
 	its_send_invall(col);
 
-	lpi_stats_expect(2, 8196);
+	stats_reset();
+	cpumask_clear(&mask);
+	cpumask_set_cpu(2, &mask);
 	its_send_int(dev7, 255);
-	check_lpi_stats("dev7/eventid= 255 triggered LPI 8196 on PE #2");
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, 0, 8196),
+			"dev7/eventid= 255 triggered LPI 8196 on PE #2");
 
 	config = gicv3_lpi_get_config(8192);
 	report(config == LPI_PROP_DEFAULT,
 	       "Config of LPI 8192 was properly migrated");
 
-	lpi_stats_expect(pe0, 8192);
+	stats_reset();
+	cpumask_clear(&mask);
+	cpumask_set_cpu(pe0, &mask);
 	its_send_int(dev2, 0);
-	check_lpi_stats("dev2/eventid = 0 triggered LPI 8192 on PE0");
+	wait_for_interrupts(&mask);
+	report(check_acked(&mask, 0, 8192),
+			"dev2/eventid = 0 triggered LPI 8192 on PE0");
+
+	check_spurious();
 }
 
 static void test_its_pending_migration(void)
@@ -927,6 +939,10 @@ static void test_its_pending_migration(void)
 	pendbaser = readq(ptr);
 	writeq(pendbaser & ~GICR_PENDBASER_PTZ, ptr);
 
+	/*
+	 * Reset and initialization values for acked are the same, so we don't
+	 * need to explicitely call stats_reset().
+	 */
 	gicv3_lpi_rdist_enable(pe0);
 	gicv3_lpi_rdist_enable(pe1);
 

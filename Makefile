@@ -40,8 +40,6 @@ cflatobjs := \
 LIBFDT_objdir = lib/libfdt
 LIBFDT_srcdir = $(SRCDIR)/lib/libfdt
 LIBFDT_archive = $(LIBFDT_objdir)/libfdt.a
-LIBFDT_include = $(addprefix $(LIBFDT_srcdir)/,$(LIBFDT_INCLUDES))
-LIBFDT_version = $(addprefix $(LIBFDT_srcdir)/,$(LIBFDT_VERSION))
 
 OBJDIRS += $(LIBFDT_objdir)
 
@@ -90,6 +88,10 @@ $(LIBFDT_archive): CFLAGS += -ffreestanding -I $(SRCDIR)/lib -I $(SRCDIR)/lib/li
 $(LIBFDT_archive): $(addprefix $(LIBFDT_objdir)/,$(LIBFDT_OBJS))
 	$(AR) rcs $@ $^
 
+libfdt_clean: VECHO = echo " "
+libfdt_clean: STD_CLEANFILES = *.o .*.d
+libfdt_clean: LIBFDT_dir = $(LIBFDT_objdir)
+libfdt_clean: SHAREDLIB_EXT = so
 
 # Build directory target
 .PHONY: directories
@@ -110,15 +112,11 @@ install: standalone
 	mkdir -p $(DESTDIR)
 	install tests/* $(DESTDIR)
 
-clean: arch_clean
+clean: arch_clean libfdt_clean
+	$(RM) $(LIBFDT_archive)
 	$(RM) lib/.*.d $(libcflat) $(cflatobjs)
 
-libfdt_clean:
-	$(RM) $(LIBFDT_archive) \
-	$(addprefix $(LIBFDT_objdir)/,$(LIBFDT_OBJS)) \
-	$(LIBFDT_objdir)/.*.d
-
-distclean: clean libfdt_clean
+distclean: clean
 	$(RM) lib/asm lib/config.h config.mak $(TEST_DIR)-run msr.out cscope.* build-head
 	$(RM) -r tests logs logs.old
 

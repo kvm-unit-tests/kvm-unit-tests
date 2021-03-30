@@ -6,21 +6,6 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 
-/* System Control Register (SCTLR_EL1) bits */
-#define SCTLR_EL1_EE	(1 << 25)
-#define SCTLR_EL1_WXN	(1 << 19)
-#define SCTLR_EL1_I	(1 << 12)
-#define SCTLR_EL1_SA0	(1 << 4)
-#define SCTLR_EL1_SA	(1 << 3)
-#define SCTLR_EL1_C	(1 << 2)
-#define SCTLR_EL1_A	(1 << 1)
-#define SCTLR_EL1_M	(1 << 0)
-
-#define CTR_DMINLINE_SHIFT	16
-#define CTR_DMINLINE_MASK	(0xf << 16)
-#define CTR_DMINLINE(x)	\
-	(((x) & CTR_DMINLINE_MASK) >> CTR_DMINLINE_SHIFT)
-
 #ifndef __ASSEMBLY__
 #include <asm/ptrace.h>
 #include <asm/esr.h>
@@ -98,6 +83,7 @@ extern int mpidr_to_cpu(uint64_t mpidr);
 
 extern void start_usr(void (*func)(void *arg), void *arg, unsigned long sp_usr);
 extern bool is_user(void);
+extern bool __mmu_enabled(void);
 
 static inline u64 get_cntvct(void)
 {
@@ -114,8 +100,6 @@ static inline u64 get_ctr(void)
 {
 	return read_sysreg(ctr_el0);
 }
-
-extern unsigned long dcache_line_size;
 
 static inline unsigned long get_id_aa64mmfr0_el1(void)
 {

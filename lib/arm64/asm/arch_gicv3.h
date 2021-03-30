@@ -10,12 +10,6 @@
 
 #include <asm/sysreg.h>
 
-#define ICC_PMR_EL1			sys_reg(3, 0, 4, 6, 0)
-#define ICC_SGI1R_EL1			sys_reg(3, 0, 12, 11, 5)
-#define ICC_IAR1_EL1			sys_reg(3, 0, 12, 12, 0)
-#define ICC_EOIR1_EL1			sys_reg(3, 0, 12, 12, 1)
-#define ICC_GRPEN1_EL1			sys_reg(3, 0, 12, 12, 7)
-
 #ifndef __ASSEMBLY__
 
 #include <libcflat.h>

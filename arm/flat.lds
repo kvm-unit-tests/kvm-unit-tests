@@ -1,6 +1,7 @@
 
 SECTIONS
 {
+    PROVIDE(_text = .);
     .text : { *(.init) *(.text) *(.text.*) }
     . = ALIGN(64K);
     PROVIDE(etext = .);
@@ -17,7 +18,11 @@ SECTIONS
 
     .rodata   : { *(.rodata*) }
     .data     : { *(.data) }
+    . = ALIGN(16);
+    PROVIDE(bss = .);
     .bss      : { *(.bss) }
+    . = ALIGN(16);
+    PROVIDE(ebss = .);
     . = ALIGN(64K);
     PROVIDE(edata = .);
 

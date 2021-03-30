@@ -7,12 +7,15 @@
 #ifndef __STRING_H
 #define __STRING_H
 
-extern unsigned long strlen(const char *buf);
+extern size_t strlen(const char *buf);
+extern size_t strnlen(const char *buf, size_t maxlen);
 extern char *strcat(char *dest, const char *src);
 extern char *strcpy(char *dest, const char *src);
 extern int strcmp(const char *a, const char *b);
 extern int strncmp(const char *a, const char *b, size_t n);
 extern char *strchr(const char *s, int c);
+extern char *strrchr(const char *s, int c);
+extern char *strchrnul(const char *s, int c);
 extern char *strstr(const char *haystack, const char *needle);
 extern void *memset(void *s, int c, size_t n);
 extern void *memcpy(void *dest, const void *src, size_t n);

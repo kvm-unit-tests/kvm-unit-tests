@@ -7,6 +7,7 @@
  */
 #define __ASSEMBLY__
 #include <auxinfo.h>
+#include <asm/assembler.h>
 #include <asm/thread_info.h>
 #include <asm/asm-offsets.h>
 #include <asm/pgtable-hwdef.h>
@@ -15,12 +16,32 @@
 
 #define THREAD_START_SP ((THREAD_SIZE - S_FRAME_SIZE * 8) & ~7)
 
+.macro zero_range, tmp1, tmp2, tmp3, tmp4
+	mov	\tmp3, #0
+	mov	\tmp4, #0
+9998:	cmp	\tmp1, \tmp2
+	beq	9997f
+	strd	\tmp3, \tmp4, [\tmp1], #8
+	b	9998b
+9997:
+.endm
+
 .arm
 
 .section .init
 
 .globl start
 start:
+	/* zero BSS */
+	ldr	r4, =bss
+	ldr	r5, =ebss
+	zero_range r4, r5, r6, r7
+
+	/* zero stack */
+	ldr	r5, =stacktop
+	sub	r4, r5, #THREAD_SIZE
+	zero_range r4, r5, r6, r7
+
 	/*
 	 * set stack, making room at top of stack for cpu0's
 	 * exception stacks. Must start wtih stackptr, not
@@ -197,20 +218,6 @@ asm_mmu_enable:
 
 	mov     pc, lr
 
-.macro dcache_clean_inval domain, start, end, tmp1, tmp2
-	ldr	\tmp1, =dcache_line_size
-	ldr	\tmp1, [\tmp1]
-	sub	\tmp2, \tmp1, #1
-	bic	\start, \start, \tmp2
-9998:
-	/* DCCIMVAC */
-	mcr	p15, 0, \start, c7, c14, 1
-	add	\start, \start, \tmp1
-	cmp	\start, \end
-	blo	9998b
-	dsb	\domain
-.endm
-
 .globl asm_mmu_disable
 asm_mmu_disable:
 	/* SCTLR */
@@ -223,8 +230,8 @@ asm_mmu_disable:
 	ldr	r0, [r0]
 	ldr	r1, =__phys_end
 	ldr	r1, [r1]
-	dcache_clean_inval sy, r0, r1, r2, r3
-	isb
+	sub	r1, r1, r0
+	dcache_by_line_op dccimvac, sy, r0, r1, r2, r3
 
 	mov     pc, lr
 

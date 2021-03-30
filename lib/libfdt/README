@@ -1,4 +1,5 @@
 
-The code in this directory is originally imported from the libfdt
-directory of git://git.jdl.com/software/dtc.git - version 1.4.0.
+The code in this directory has been imported from the libfdt
+directory of git://git.kernel.org/pub/scm/utils/dtc/dtc.git -
+version 1.60
 

@@ -6,14 +6,25 @@
  */
 
 #include "libcflat.h"
+#include "stdlib.h"
+#include "linux/compiler.h"
 
-unsigned long strlen(const char *buf)
+size_t strlen(const char *buf)
 {
-    unsigned long len = 0;
+    size_t len = 0;
 
     while (*buf++)
 	++len;
     return len;
+}
+
+size_t strnlen(const char *buf, size_t maxlen)
+{
+    const char *sc;
+
+    for (sc = buf; maxlen-- && *sc != '\0'; ++sc)
+        /* nothing */;
+    return sc - buf;
 }
 
 char *strcat(char *dest, const char *src)
@@ -52,6 +63,23 @@ char *strchr(const char *s, int c)
     while (*s != (char)c)
 	if (*s++ == '\0')
 	    return NULL;
+    return (char *)s;
+}
+
+char *strrchr(const char *s, int c)
+{
+    const char *last = NULL;
+    do {
+        if (*s == (char)c)
+            last = s;
+    } while (*s++);
+    return (char *)last;
+}
+
+char *strchrnul(const char *s, int c)
+{
+    while (*s && *s != (char)c)
+        s++;
     return (char *)s;
 }
 
@@ -135,15 +163,23 @@ void *memchr(const void *s, int c, size_t n)
     return NULL;
 }
 
-long atol(const char *ptr)
+static int isspace(int c)
 {
-    long acc = 0;
-    const char *s = ptr;
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v' || c == '\f';
+}
+
+static unsigned long __strtol(const char *nptr, char **endptr,
+                              int base, bool is_signed) {
+    unsigned long acc = 0;
+    const char *s = nptr;
     int neg, c;
 
-    while (*s == ' ' || *s == '\t')
+    assert(base == 0 || (base >= 2 && base <= 36));
+
+    while (isspace(*s))
         s++;
-    if (*s == '-'){
+
+    if (*s == '-') {
         neg = 1;
         s++;
     } else {
@@ -152,18 +188,63 @@ long atol(const char *ptr)
             s++;
     }
 
+    if (base == 0 || base == 16) {
+        if (*s == '0') {
+            s++;
+            if (*s == 'x' || *s == 'X') {
+                 s++;
+                 base = 16;
+            } else if (base == 0)
+                 base = 8;
+        } else if (base == 0)
+            base = 10;
+    }
+
     while (*s) {
-        if (*s < '0' || *s > '9')
+        if (*s >= '0' && *s < '0' + base && *s <= '9')
+            c = *s - '0';
+        else if (*s >= 'a' && *s < 'a' + base - 10)
+            c = *s - 'a' + 10;
+        else if (*s >= 'A' && *s < 'A' + base - 10)
+            c = *s - 'A' + 10;
+        else
             break;
-        c = *s - '0';
-        acc = acc * 10 + c;
+
+        if (is_signed) {
+            long sacc = (long)acc;
+            assert(!check_mul_overflow(sacc, base));
+            assert(!check_add_overflow(sacc * base, c));
+        } else {
+            assert(!check_mul_overflow(acc, base));
+            assert(!check_add_overflow(acc * base, c));
+        }
+
+        acc = acc * base + c;
         s++;
     }
 
     if (neg)
         acc = -acc;
 
+    if (endptr)
+        *endptr = (char *)s;
+
     return acc;
+}
+
+long int strtol(const char *nptr, char **endptr, int base)
+{
+    return __strtol(nptr, endptr, base, true);
+}
+
+unsigned long int strtoul(const char *nptr, char **endptr, int base)
+{
+    return __strtol(nptr, endptr, base, false);
+}
+
+long atol(const char *ptr)
+{
+    return strtol(ptr, NULL, 10);
 }
 
 extern char **environ;

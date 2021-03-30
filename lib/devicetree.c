@@ -265,21 +265,24 @@ int dt_get_bootargs(const char **bootargs)
 
 int dt_get_default_console_node(void)
 {
-	const struct fdt_property *prop;
+	const char *p, *q;
 	int node, len;
 
 	node = fdt_path_offset(fdt, "/chosen");
 	if (node < 0)
 		return node;
 
-	prop = fdt_get_property(fdt, node, "stdout-path", &len);
-	if (!prop) {
-		prop = fdt_get_property(fdt, node, "linux,stdout-path", &len);
-		if (!prop)
+	p = fdt_getprop(fdt, node, "stdout-path", &len);
+	if (!p) {
+		p = fdt_getprop(fdt, node, "linux,stdout-path", &len);
+		if (!p)
 			return len;
 	}
 
-	return fdt_path_offset(fdt, prop->data);
+	q = strchrnul(p, ':');
+	len = q - p;
+
+	return fdt_path_offset_namelen(fdt, p, len);
 }
 
 int dt_get_initrd(const char **initrd, u32 *size)

@@ -20,26 +20,31 @@ typedef struct cpumask {
 
 static inline void cpumask_set_cpu(int cpu, cpumask_t *mask)
 {
+	assert(cpu >= 0 && cpu < nr_cpus);
 	set_bit(cpu, cpumask_bits(mask));
 }
 
 static inline void cpumask_clear_cpu(int cpu, cpumask_t *mask)
 {
+	assert(cpu >= 0 && cpu < nr_cpus);
 	clear_bit(cpu, cpumask_bits(mask));
 }
 
 static inline int cpumask_test_cpu(int cpu, const cpumask_t *mask)
 {
+	assert(cpu >= 0 && cpu < nr_cpus);
 	return test_bit(cpu, cpumask_bits(mask));
 }
 
 static inline int cpumask_test_and_set_cpu(int cpu, cpumask_t *mask)
 {
+	assert(cpu >= 0 && cpu < nr_cpus);
 	return test_and_set_bit(cpu, cpumask_bits(mask));
 }
 
 static inline int cpumask_test_and_clear_cpu(int cpu, cpumask_t *mask)
 {
+	assert(cpu >= 0 && cpu < nr_cpus);
 	return test_and_clear_bit(cpu, cpumask_bits(mask));
 }
 
@@ -105,7 +110,7 @@ static inline void cpumask_copy(cpumask_t *dst, const cpumask_t *src)
 
 static inline int cpumask_next(int cpu, const cpumask_t *mask)
 {
-	while (cpu < nr_cpus && !cpumask_test_cpu(++cpu, mask))
+	while (++cpu < nr_cpus && !cpumask_test_cpu(cpu, mask))
 		;
 	return cpu;
 }
