@@ -81,12 +81,7 @@ start:
 	/* complete setup */
 	pop	{r0-r1}
 	bl	setup
-	bl	get_mmu_off
-	cmp	r0, #0
-	bne	1f
-	bl	setup_vm
 
-1:
 	/* run the test */
 	ldr	r0, =__argc
 	ldr	r0, [r0]
@@ -108,7 +103,6 @@ enable_vfp:
 	vmsr	fpexc, r0
 	mov	pc, lr
 
-.global get_mmu_off
 get_mmu_off:
 	ldr	r0, =auxinfo
 	ldr	r0, [r0, #4]

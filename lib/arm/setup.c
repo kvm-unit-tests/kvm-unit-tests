@@ -16,6 +16,8 @@
 #include <alloc.h>
 #include <alloc_phys.h>
 #include <alloc_page.h>
+#include <vmalloc.h>
+#include <auxinfo.h>
 #include <argv.h>
 #include <asm/thread_info.h>
 #include <asm/setup.h>
@@ -233,7 +235,6 @@ void setup(const void *fdt)
 		freemem += initrd_size;
 	}
 
-	/* call init functions */
 	mem_init(PAGE_ALIGN((unsigned long)freemem));
 	cpu_init();
 
@@ -243,7 +244,6 @@ void setup(const void *fdt)
 	/* mem_init must be called before io_init */
 	io_init();
 
-	/* finish setup */
 	timer_save_state();
 
 	ret = dt_get_bootargs(&bootargs);
@@ -256,4 +256,7 @@ void setup(const void *fdt)
 		memcpy(env, initrd, initrd_size);
 		setup_env(env, initrd_size);
 	}
+
+	if (!(auxinfo.flags & AUXINFO_MMU_OFF))
+		setup_vm();
 }
