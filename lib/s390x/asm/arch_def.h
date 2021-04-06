@@ -328,6 +328,22 @@ static inline int stsi(void *addr, int fc, int sel1, int sel2)
 	return cc;
 }
 
+static inline unsigned long stsi_get_fc(void)
+{
+	register unsigned long r0 asm("0") = 0;
+	register unsigned long r1 asm("1") = 0;
+	int cc;
+
+	asm volatile("stsi	0\n"
+		     "ipm	%[cc]\n"
+		     "srl	%[cc],28\n"
+		     : "+d" (r0), [cc] "=d" (cc)
+		     : "d" (r1)
+		     : "cc", "memory");
+	assert(!cc);
+	return r0 >> 28;
+}
+
 static inline int servc(uint32_t command, unsigned long sccb)
 {
 	int cc;

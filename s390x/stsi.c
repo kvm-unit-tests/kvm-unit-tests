@@ -71,28 +71,12 @@ static void test_priv(void)
 	report_prefix_pop();
 }
 
-static inline unsigned long stsi_get_fc(void *addr)
-{
-	register unsigned long r0 asm("0") = 0;
-	register unsigned long r1 asm("1") = 0;
-	int cc;
-
-	asm volatile("stsi	0(%[addr])\n"
-		     "ipm	%[cc]\n"
-		     "srl	%[cc],28\n"
-		     : "+d" (r0), [cc] "=d" (cc)
-		     : "d" (r1), [addr] "a" (addr)
-		     : "cc", "memory");
-	assert(!cc);
-	return r0 >> 28;
-}
-
 static void test_fc(void)
 {
 	report(stsi(pagebuf, 7, 0, 0) == 3, "invalid fc");
 	report(stsi(pagebuf, 1, 0, 1) == 3, "invalid selector 1");
 	report(stsi(pagebuf, 1, 1, 0) == 3, "invalid selector 2");
-	report(stsi_get_fc(pagebuf) >= 2, "query fc >= 2");
+	report(stsi_get_fc() >= 2, "query fc >= 2");
 }
 
 static void test_3_2_2(void)
@@ -112,7 +96,7 @@ static void test_3_2_2(void)
 	report_prefix_push("3.2.2");
 
 	/* Is the function code available at all? */
-	if (stsi_get_fc(pagebuf) < 3) {
+	if (stsi_get_fc() < 3) {
 		report_skip("Running under lpar, no level 3 to test.");
 		goto out;
 	}
