@@ -80,7 +80,9 @@ start:
 
 	/* complete setup */
 	pop	{r0-r1}
-	bl	setup
+	mov	r3, #0
+	ldr	r2, =stacktop		@ r2,r3 is the base of free memory
+	bl	setup			@ r0 is the addr of the dtb
 
 	/* run the test */
 	ldr	r0, =__argc

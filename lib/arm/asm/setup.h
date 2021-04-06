@@ -13,9 +13,8 @@
 extern u64 cpus[NR_CPUS];	/* per-cpu IDs (MPIDRs) */
 extern int nr_cpus;
 
-#define MR_F_PRIMARY		(1U << 0)
-#define MR_F_IO			(1U << 1)
-#define MR_F_CODE		(1U << 2)
+#define MR_F_IO			(1U << 0)
+#define MR_F_CODE		(1U << 1)
 #define MR_F_UNKNOWN		(1U << 31)
 
 struct mem_region {
@@ -26,6 +25,7 @@ struct mem_region {
 extern struct mem_region *mem_regions;
 extern phys_addr_t __phys_offset, __phys_end;
 
+extern struct mem_region *mem_region_find(phys_addr_t paddr);
 extern unsigned int mem_region_get_flags(phys_addr_t paddr);
 
 #define PHYS_OFFSET		(__phys_offset)
@@ -35,6 +35,6 @@ extern unsigned int mem_region_get_flags(phys_addr_t paddr);
 #define L1_CACHE_BYTES		(1 << L1_CACHE_SHIFT)
 #define SMP_CACHE_BYTES		L1_CACHE_BYTES
 
-void setup(const void *fdt);
+void setup(const void *fdt, phys_addr_t freemem_start);
 
 #endif /* _ASMARM_SETUP_H_ */
