@@ -6,21 +6,20 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
+#include <devicetree.h>
 #include <asm/psci.h>
 #include <asm/setup.h>
 #include <asm/page.h>
 #include <asm/smp.h>
 
-__attribute__((noinline))
-int psci_invoke(unsigned long function_id, unsigned long arg0,
-		unsigned long arg1, unsigned long arg2)
+static int psci_invoke_none(unsigned int function_id, unsigned long arg0,
+			    unsigned long arg1, unsigned long arg2)
 {
-	asm volatile(
-		"hvc #0"
-	: "+r" (function_id)
-	: "r" (arg0), "r" (arg1), "r" (arg2));
-	return function_id;
+	printf("No PSCI method configured! Can't invoke...\n");
+	return PSCI_RET_NOT_PRESENT;
 }
+
+psci_invoke_fn psci_invoke = psci_invoke_none;
 
 int psci_cpu_on(unsigned long cpuid, unsigned long entry_point)
 {
@@ -55,4 +54,24 @@ void psci_system_off(void)
 {
 	int err = psci_invoke(PSCI_0_2_FN_SYSTEM_OFF, 0, 0, 0);
 	printf("CPU%d unable to do system off (error = %d)\n", smp_processor_id(), err);
+}
+
+void psci_set_conduit(void)
+{
+	const void *fdt = dt_fdt();
+	const struct fdt_property *method;
+	int node, len;
+
+	node = fdt_node_offset_by_compatible(fdt, -1, "arm,psci-0.2");
+	assert_msg(node >= 0, "PSCI v0.2 compatibility required");
+
+	method = fdt_get_property(fdt, node, "method", &len);
+	assert(method != NULL && len == 4);
+
+	if (strcmp(method->data, "hvc") == 0)
+		psci_invoke = psci_invoke_hvc;
+	else if (strcmp(method->data, "smc") == 0)
+		psci_invoke = psci_invoke_smc;
+	else
+		assert_msg(false, "Unknown PSCI conduit: %s", method->data);
 }

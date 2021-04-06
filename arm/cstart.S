@@ -95,6 +95,28 @@ start:
 
 .text
 
+/*
+ * psci_invoke_hvc / psci_invoke_smc
+ *
+ * Inputs:
+ *   r0 -- function_id
+ *   r1 -- arg0
+ *   r2 -- arg1
+ *   r3 -- arg2
+ *
+ * Outputs:
+ *   r0 -- return code
+ */
+.globl psci_invoke_hvc
+psci_invoke_hvc:
+	hvc	#0
+	mov	pc, lr
+
+.globl psci_invoke_smc
+psci_invoke_smc:
+	smc	#0
+	mov	pc, lr
+
 enable_vfp:
 	/* Enable full access to CP10 and CP11: */
 	mov	r0, #(3 << 22 | 3 << 20)

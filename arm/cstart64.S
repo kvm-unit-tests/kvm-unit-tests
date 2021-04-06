@@ -109,6 +109,28 @@ start:
 
 .text
 
+/*
+ * psci_invoke_hvc / psci_invoke_smc
+ *
+ * Inputs:
+ *   w0 -- function_id
+ *   x1 -- arg0
+ *   x2 -- arg1
+ *   x3 -- arg2
+ *
+ * Outputs:
+ *   x0 -- return code
+ */
+.globl psci_invoke_hvc
+psci_invoke_hvc:
+	hvc	#0
+	ret
+
+.globl psci_invoke_smc
+psci_invoke_smc:
+	smc	#0
+	ret
+
 get_mmu_off:
 	adrp	x0, auxinfo
 	ldr	x0, [x0, :lo12:auxinfo + 8]

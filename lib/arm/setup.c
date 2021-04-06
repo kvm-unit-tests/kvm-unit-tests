@@ -25,6 +25,7 @@
 #include <asm/processor.h>
 #include <asm/smp.h>
 #include <asm/timer.h>
+#include <asm/psci.h>
 
 #include "io.h"
 
@@ -266,6 +267,7 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 	mem_regions_add_assumed();
 	mem_init(PAGE_ALIGN((unsigned long)freemem));
 
+	psci_set_conduit();
 	cpu_init();
 
 	/* cpu_init must be called before thread_info_init */

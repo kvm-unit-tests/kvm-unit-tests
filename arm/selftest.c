@@ -400,33 +400,13 @@ static void check_vectors(void *arg __unused)
 	exit(report_summary());
 }
 
-static bool psci_check(void)
+static void psci_print(void)
 {
-	const struct fdt_property *method;
-	int node, len, ver;
-
-	node = fdt_node_offset_by_compatible(dt_fdt(), -1, "arm,psci-0.2");
-	if (node < 0) {
-		printf("PSCI v0.2 compatibility required\n");
-		return false;
-	}
-
-	method = fdt_get_property(dt_fdt(), node, "method", &len);
-	if (method == NULL) {
-		printf("bad psci device tree node\n");
-		return false;
-	}
-
-	if (len < 4 || strcmp(method->data, "hvc") != 0) {
-		printf("psci method must be hvc\n");
-		return false;
-	}
-
-	ver = psci_invoke(PSCI_0_2_FN_PSCI_VERSION, 0, 0, 0);
-	printf("PSCI version %d.%d\n", PSCI_VERSION_MAJOR(ver),
-				       PSCI_VERSION_MINOR(ver));
-
-	return true;
+	int ver = psci_invoke(PSCI_0_2_FN_PSCI_VERSION, 0, 0, 0);
+	report_info("PSCI version: %d.%d", PSCI_VERSION_MAJOR(ver),
+					  PSCI_VERSION_MINOR(ver));
+	report_info("PSCI method: %s", psci_invoke == psci_invoke_hvc ?
+				       "hvc" : "smc");
 }
 
 static void cpu_report(void *data __unused)
@@ -465,7 +445,7 @@ int main(int argc, char **argv)
 
 	} else if (strcmp(argv[1], "smp") == 0) {
 
-		report(psci_check(), "PSCI version");
+		psci_print();
 		on_cpus(cpu_report, NULL);
 		while (!cpumask_full(&ready))
 			cpu_relax();
