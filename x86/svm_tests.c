@@ -2422,15 +2422,92 @@ static void test_dr(void)
 	vmcb->save.dr7 = dr_saved;
 }
 
+/* TODO: verify if high 32-bits are sign- or zero-extended on bare metal */
+#define	TEST_BITMAP_ADDR(save_intercept, type, addr, exit_code,		\
+			 msg) {						\
+	vmcb->control.intercept = saved_intercept | 1ULL << type;	\
+	if (type == INTERCEPT_MSR_PROT)					\
+		vmcb->control.msrpm_base_pa = addr;			\
+	else								\
+		vmcb->control.iopm_base_pa = addr;			\
+	report(svm_vmrun() == exit_code,				\
+	    "Test %s address: %lx", msg, addr);                         \
+}
+
+/*
+ * If the MSR or IOIO intercept table extends to a physical address that
+ * is greater than or equal to the maximum supported physical address, the
+ * guest state is illegal.
+ *
+ * The VMRUN instruction ignores the lower 12 bits of the address specified
+ * in the VMCB.
+ *
+ * MSRPM spans 2 contiguous 4KB pages while IOPM spans 2 contiguous 4KB
+ * pages + 1 byte.
+ *
+ * [APM vol 2]
+ *
+ * Note: Unallocated MSRPM addresses conforming to consistency checks, generate
+ * #NPF.
+ */
+static void test_msrpm_iopm_bitmap_addrs(void)
+{
+	u64 saved_intercept = vmcb->control.intercept;
+	u64 addr_beyond_limit = 1ull << cpuid_maxphyaddr();
+	u64 addr = virt_to_phys(msr_bitmap) & (~((1ull << 12) - 1));
+
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_MSR_PROT,
+			addr_beyond_limit - 3 * PAGE_SIZE, SVM_EXIT_ERR,
+			"MSRPM");
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_MSR_PROT,
+			addr_beyond_limit - 2 * PAGE_SIZE, SVM_EXIT_ERR,
+			"MSRPM");
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_MSR_PROT,
+			addr_beyond_limit - 2 * PAGE_SIZE + 1, SVM_EXIT_ERR,
+			"MSRPM");
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_MSR_PROT,
+			addr_beyond_limit - PAGE_SIZE, SVM_EXIT_ERR,
+			"MSRPM");
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_MSR_PROT, addr,
+			SVM_EXIT_VMMCALL, "MSRPM");
+	addr |= (1ull << 12) - 1;
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_MSR_PROT, addr,
+			SVM_EXIT_VMMCALL, "MSRPM");
+
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_IOIO_PROT,
+			addr_beyond_limit - 4 * PAGE_SIZE, SVM_EXIT_VMMCALL,
+			"IOPM");
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_IOIO_PROT,
+			addr_beyond_limit - 3 * PAGE_SIZE, SVM_EXIT_VMMCALL,
+			"IOPM");
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_IOIO_PROT,
+			addr_beyond_limit - 2 * PAGE_SIZE - 2, SVM_EXIT_VMMCALL,
+			"IOPM");
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_IOIO_PROT,
+			addr_beyond_limit - 2 * PAGE_SIZE, SVM_EXIT_ERR,
+			"IOPM");
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_IOIO_PROT,
+			addr_beyond_limit - PAGE_SIZE, SVM_EXIT_ERR,
+			"IOPM");
+	addr = virt_to_phys(io_bitmap) & (~((1ull << 11) - 1));
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_IOIO_PROT, addr,
+			SVM_EXIT_VMMCALL, "IOPM");
+	addr |= (1ull << 12) - 1;
+	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_IOIO_PROT, addr,
+			SVM_EXIT_VMMCALL, "IOPM");
+
+	vmcb->control.intercept = saved_intercept;
+}
+
 static void svm_guest_state_test(void)
 {
 	test_set_guest(basic_guest_main);
-
 	test_efer();
 	test_cr0();
 	test_cr3();
 	test_cr4();
 	test_dr();
+	test_msrpm_iopm_bitmap_addrs();
 }
 
 
