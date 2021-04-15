@@ -190,6 +190,7 @@ struct vm_save_area {
 struct vm {
 	struct kvm_s390_sie_block *sblk;
 	struct vm_save_area save_area;
+	uint8_t *crycb;				/* Crypto Control Block */
 	/* Ptr to first guest page */
 	uint8_t *guest_mem;
 };
@@ -200,5 +201,7 @@ extern void sie64a(struct kvm_s390_sie_block *sblk, struct vm_save_area *save_ar
 void sie_expect_validity(void);
 void sie_check_validity(uint16_t vir_exp);
 void sie_handle_validity(struct vm *vm);
+void sie_guest_create(struct vm *vm, uint64_t guest_mem, uint64_t guest_mem_len);
+void sie_guest_destroy(struct vm *vm);
 
 #endif /* _S390X_SIE_H_ */
