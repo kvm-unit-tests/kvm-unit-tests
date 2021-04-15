@@ -35,4 +35,8 @@ typedef struct { pteval_t pte; } pte_t;
 #define __pmd(x)	((pmd_t) { (x) } )
 #define __pte(x)	((pte_t) { (x) } )
 
+#define HPAGE_SHIFT		20
+#define HPAGE_SIZE		(_AC(1,UL) << HPAGE_SHIFT)
+#define HPAGE_MASK		(~(HPAGE_SIZE-1))
+
 #endif
