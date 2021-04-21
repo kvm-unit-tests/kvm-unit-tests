@@ -686,6 +686,75 @@ static __attribute__((target("sse2"))) void test_sse(sse_union *mem)
 #undef TEST_RW_SSE
 }
 
+static void unaligned_movaps_handler(struct ex_regs *regs)
+{
+	extern char unaligned_movaps_cont;
+
+	++exceptions;
+	regs->rip = (ulong)&unaligned_movaps_cont;
+}
+
+static void cross_movups_handler(struct ex_regs *regs)
+{
+	extern char cross_movups_cont;
+
+	++exceptions;
+	regs->rip = (ulong)&cross_movups_cont;
+}
+
+static __attribute__((target("sse2"))) void test_sse_exceptions(void *cross_mem)
+{
+	sse_union v;
+	sse_union *mem;
+	uint8_t *bytes = cross_mem; // aligned on PAGE_SIZE*2
+	void *page2 = (void *)(&bytes[4096]);
+	struct pte_search search;
+	pteval_t orig_pte;
+
+	// setup memory for unaligned access
+	mem = (sse_union *)(&bytes[8]);
+
+	// test unaligned access for movups, movupd and movaps
+	v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
+	mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
+	asm("movups %1, %0" : "=m"(*mem) : "x"(v.sse));
+	report(sseeq(&v, mem), "movups unaligned");
+
+	v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
+	mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
+	asm("movupd %1, %0" : "=m"(*mem) : "x"(v.sse));
+	report(sseeq(&v, mem), "movupd unaligned");
+	exceptions = 0;
+	handle_exception(GP_VECTOR, unaligned_movaps_handler);
+	asm("movaps %1, %0\n\t unaligned_movaps_cont:"
+			: "=m"(*mem) : "x"(v.sse));
+	handle_exception(GP_VECTOR, 0);
+	report(exceptions == 1, "unaligned movaps exception");
+
+	// setup memory for cross page access
+	mem = (sse_union *)(&bytes[4096-8]);
+	v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
+	mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
+
+	asm("movups %1, %0" : "=m"(*mem) : "x"(v.sse));
+	report(sseeq(&v, mem), "movups unaligned crosspage");
+
+	// invalidate second page
+	search = find_pte_level(current_page_table(), page2, 1);
+	orig_pte = *search.pte;
+	install_pte(current_page_table(), 1, page2, 0, NULL);
+	invlpg(page2);
+
+	exceptions = 0;
+	handle_exception(PF_VECTOR, cross_movups_handler);
+	asm("movups %1, %0\n\t cross_movups_cont:" : "=m"(*mem) : "x"(v.sse));
+	handle_exception(PF_VECTOR, 0);
+	report(exceptions == 1, "movups crosspage exception");
+
+	// restore invalidated page
+	install_pte(current_page_table(), 1, page2, orig_pte, NULL);
+}
+
 static void test_mmx(uint64_t *mem)
 {
     uint64_t v;
@@ -1057,6 +1126,7 @@ int main(void)
 	void *mem;
 	void *insn_page;
 	void *insn_ram;
+	void *cross_mem;
 	unsigned long t1, t2;
 
 	setup_vm();
@@ -1070,6 +1140,7 @@ int main(void)
 	install_page((void *)read_cr3(), IORAM_BASE_PHYS, mem + 4096);
 	insn_page = alloc_page();
 	insn_ram = vmap(virt_to_phys(insn_page), 4096);
+	cross_mem = vmap(virt_to_phys(alloc_pages(2)), 2 * PAGE_SIZE);
 
 	// test mov reg, r/m and mov r/m, reg
 	t1 = 0x123456789abcdef;
@@ -1102,6 +1173,7 @@ int main(void)
 	test_imul(mem);
 	test_muldiv(mem);
 	test_sse(mem);
+	test_sse_exceptions(cross_mem);
 	test_mmx(mem);
 	test_rip_relative(mem, insn_ram);
 	test_shld_shrd(mem);
