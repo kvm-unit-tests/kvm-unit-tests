@@ -664,30 +664,26 @@ static bool sseeq(sse_union *v1, sse_union *v2)
 
 static __attribute__((target("sse2"))) void test_sse(sse_union *mem)
 {
-    sse_union v;
+	sse_union v;
 
-    write_cr0(read_cr0() & ~6); /* EM, TS */
-    write_cr4(read_cr4() | 0x200); /* OSFXSR */
-    v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
-    asm("movdqu %1, %0" : "=m"(*mem) : "x"(v.sse));
-    report(sseeq(&v, mem), "movdqu (read)");
-    mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
-    asm("movdqu %1, %0" : "=x"(v.sse) : "m"(*mem));
-    report(sseeq(mem, &v), "movdqu (write)");
+	write_cr0(read_cr0() & ~6); /* EM, TS */
+	write_cr4(read_cr4() | 0x200); /* OSFXSR */
 
-    v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
-    asm("movaps %1, %0" : "=m"(*mem) : "x"(v.sse));
-    report(sseeq(mem, &v), "movaps (read)");
-    mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
-    asm("movaps %1, %0" : "=x"(v.sse) : "m"(*mem));
-    report(sseeq(&v, mem), "movaps (write)");
+#define TEST_RW_SSE(insn) do { \
+		v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4; \
+		asm(insn " %1, %0" : "=m"(*mem) : "x"(v.sse)); \
+		report(sseeq(&v, mem), insn " (read)"); \
+		mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8; \
+		asm(insn " %1, %0" : "=x"(v.sse) : "m"(*mem)); \
+		report(sseeq(&v, mem), insn " (write)"); \
+} while (0)
 
-    v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
-    asm("movapd %1, %0" : "=m"(*mem) : "x"(v.sse));
-    report(sseeq(mem, &v), "movapd (read)");
-    mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
-    asm("movapd %1, %0" : "=x"(v.sse) : "m"(*mem));
-    report(sseeq(&v, mem), "movapd (write)");
+	TEST_RW_SSE("movdqu");
+	TEST_RW_SSE("movaps");
+	TEST_RW_SSE("movapd");
+	TEST_RW_SSE("movups");
+	TEST_RW_SSE("movupd");
+#undef TEST_RW_SSE
 }
 
 static void test_mmx(uint64_t *mem)
