@@ -58,6 +58,10 @@ tss_descr:
         .rept max_cpus
         .quad 0x000089000000ffff // 32-bit avail tss
         .endr
+percpu_descr:
+        .rept max_cpus
+        .quad 0x00cf93000000ffff // 32-bit data segment for perCPU area
+        .endr
 gdt32_end:
 
 i = 0
@@ -89,13 +93,21 @@ mb_flags = 0x0
 	.long mb_magic, mb_flags, 0 - (mb_magic + mb_flags)
 mb_cmdline = 16
 
-MSR_GS_BASE = 0xc0000101
-
 .macro setup_percpu_area
 	lea -4096(%esp), %eax
-	mov $0, %edx
-	mov $MSR_GS_BASE, %ecx
-	wrmsr
+
+	/* fill GS_BASE in the GDT, do not clobber %ebx (multiboot info) */
+	mov (APIC_DEFAULT_PHYS_BASE + APIC_ID), %ecx
+	shr $24, %ecx
+	mov %ax, percpu_descr+2(,%ecx,8)
+
+	shr $16, %eax
+	mov %al, percpu_descr+4(,%ecx,8)
+	mov %ah, percpu_descr+7(,%ecx,8)
+
+	lea percpu_descr-gdt32(,%ecx,8), %eax
+	mov %ax, %gs
+
 .endm
 
 .macro setup_segments
@@ -184,20 +196,17 @@ load_tss:
 	lidt idt_descr
 	mov $16, %eax
 	mov %ax, %ss
-	mov $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
-	mov (%eax), %eax
+	mov (APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
 	shr $24, %eax
 	mov %eax, %ebx
-	shl $3, %ebx
 	mov $((tss_end - tss) / max_cpus), %edx
 	imul %edx
 	add $tss, %eax
-	mov %ax, tss_descr+2(%ebx)
+	mov %ax, tss_descr+2(,%ebx,8)
 	shr $16, %eax
-	mov %al, tss_descr+4(%ebx)
-	shr $8, %eax
-	mov %al, tss_descr+7(%ebx)
-	lea tss_descr-gdt32(%ebx), %eax
+	mov %al, tss_descr+4(,%ebx,8)
+	mov %ah, tss_descr+7(,%ebx,8)
+	lea tss_descr-gdt32(,%ebx,8), %eax
 	ltr %ax
 	ret
 

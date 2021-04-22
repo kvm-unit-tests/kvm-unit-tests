@@ -103,8 +103,9 @@ typedef struct  __attribute__((packed)) {
  * 0x38 (0x3b)  ring-3 code segment (32-bit)  same
  * 0x40 (0x43)  ring-3 data segment (32-bit)  ring-3 data segment (32/64-bit)
  * 0x48 (0x4b)  **unused**                    ring-3 code segment (64-bit)
- * 0x50--0x78   free to use for test cases    same
- * 0x80         primary TSS (CPU 0)           same
+ * 0x50-0x78    free to use for test cases    same
+ * 0x80-0x870   primary TSS (CPU 0..254)      same
+ * 0x878-0x1068 percpu area (CPU 0..254)      not used
  *
  * Note that the same segment can be used for 32-bit and 64-bit data segments
  * (the L bit is only defined for code segments)
