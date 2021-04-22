@@ -2,6 +2,7 @@
 #define LIBCFLAT_PROCESSOR_H
 
 #include "libcflat.h"
+#include "desc.h"
 #include "msr.h"
 #include <stdint.h>
 
@@ -163,6 +164,7 @@ static inline u8 cpuid_maxphyaddr(void)
 #define	X86_FEATURE_ARCH_CAPABILITIES	(CPUID(0x7, 0, EDX, 29))
 #define	X86_FEATURE_PKS			(CPUID(0x7, 0, ECX, 31))
 #define	X86_FEATURE_NX			(CPUID(0x80000001, 0, EDX, 20))
+#define	X86_FEATURE_LM			(CPUID(0x80000001, 0, EDX, 29))
 #define	X86_FEATURE_RDPRU		(CPUID(0x80000008, 0, EBX, 4))
 
 /*
@@ -318,6 +320,26 @@ static inline void wrmsr(u32 index, u64 val)
 {
     u32 a = val, d = val >> 32;
     asm volatile ("wrmsr" : : "a"(a), "d"(d), "c"(index) : "memory");
+}
+
+static inline int rdmsr_checking(u32 index)
+{
+	asm volatile (ASM_TRY("1f")
+		      "rdmsr\n\t"
+		      "1:"
+		      : : "c"(index) : "memory", "eax", "edx");
+	return exception_vector();
+}
+
+static inline int wrmsr_checking(u32 index, u64 val)
+{
+        u32 a = val, d = val >> 32;
+
+	asm volatile (ASM_TRY("1f")
+		      "wrmsr\n\t"
+		      "1:"
+		      : : "a"(a), "d"(d), "c"(index) : "memory");
+	return exception_vector();
 }
 
 static inline uint64_t rdpmc(uint32_t index)
