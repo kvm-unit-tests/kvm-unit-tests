@@ -77,7 +77,7 @@ static int find_msr_info(int msr_index)
 
 static void test_msr_rw(int msr_index, unsigned long long input, unsigned long long expected)
 {
-    unsigned long long r = 0;
+    unsigned long long r, orig;
     int index;
     const char *sptr;
     if ((index = find_msr_info(msr_index)) != -1) {
@@ -86,8 +86,11 @@ static void test_msr_rw(int msr_index, unsigned long long input, unsigned long l
         printf("couldn't find name for msr # %#x, skipping\n", msr_index);
         return;
     }
+
+    orig = rdmsr(msr_index);
     wrmsr(msr_index, input);
     r = rdmsr(msr_index);
+    wrmsr(msr_index, orig);
     if (expected != r) {
         printf("testing %s: output = %#" PRIx32 ":%#" PRIx32
 	       " expected = %#" PRIx32 ":%#" PRIx32 "\n", sptr,
