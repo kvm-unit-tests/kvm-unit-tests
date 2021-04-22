@@ -102,8 +102,8 @@ static void test_msr_rw(int msr_index, unsigned long long input, unsigned long l
 int main(int ac, char **av)
 {
 	int i, j;
-	for (i = 0 ; i < sizeof(msr_info) / sizeof(msr_info[0]); i++) {
-		for (j = 0; j < sizeof(msr_info[i].val_pairs) / sizeof(msr_info[i].val_pairs[0]); j++) {
+	for (i = 0 ; i < ARRAY_SIZE(msr_info); i++) {
+		for (j = 0; j < ARRAY_SIZE(msr_info[i].val_pairs); j++) {
 			if (msr_info[i].val_pairs[j].valid) {
 				test_msr_rw(msr_info[i].index, msr_info[i].val_pairs[j].value, msr_info[i].val_pairs[j].expected);
 			} else {
