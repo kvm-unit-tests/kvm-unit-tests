@@ -29,9 +29,7 @@ struct msr_info msr_info[] =
 	MSR_TEST(MSR_FS_BASE, addr_64, true),
 	MSR_TEST(MSR_GS_BASE, addr_64, true),
 	MSR_TEST(MSR_KERNEL_GS_BASE, addr_64, true),
-#ifdef __x86_64__
-	MSR_TEST(MSR_EFER, 0xD00, false),
-#endif
+	MSR_TEST(MSR_EFER, EFER_SCE, false),
 	MSR_TEST(MSR_LSTAR, addr_64, true),
 	MSR_TEST(MSR_CSTAR, addr_64, true),
 	MSR_TEST(MSR_SYSCALL_MASK, 0xffffffff, true),
@@ -44,6 +42,13 @@ static void test_msr_rw(struct msr_info *msr, unsigned long long val)
 	unsigned long long r, orig;
 
 	orig = rdmsr(msr->index);
+	/*
+	 * Special case EFER since clearing LME/LMA is not allowed in 64-bit mode,
+	 * and conversely setting those bits on 32-bit CPUs is not allowed.  Treat
+	 * the desired value as extra bits to set.
+	 */
+	if (msr->index == MSR_EFER)
+		val |= orig;
 	wrmsr(msr->index, val);
 	r = rdmsr(msr->index);
 	wrmsr(msr->index, orig);
