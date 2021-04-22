@@ -38,40 +38,20 @@ struct msr_info msr_info[] =
 //	MSR_VM_HSAVE_PA only AMD host
 };
 
-static int find_msr_info(int msr_index)
-{
-	int i;
-
-	for (i = 0; i < sizeof(msr_info)/sizeof(msr_info[0]) ; i++) {
-		if (msr_info[i].index == msr_index)
-			return i;
-	}
-	return -1;
-}
-
-static void test_msr_rw(int msr_index, unsigned long long val)
+static void test_msr_rw(struct msr_info *msr, unsigned long long val)
 {
 	unsigned long long r, orig;
-	int index;
-	const char *sptr;
 
-	if ((index = find_msr_info(msr_index)) != -1) {
-		sptr = msr_info[index].name;
-	} else {
-		printf("couldn't find name for msr # %#x, skipping\n", msr_index);
-		return;
-	}
-
-	orig = rdmsr(msr_index);
-	wrmsr(msr_index, val);
-	r = rdmsr(msr_index);
-	wrmsr(msr_index, orig);
+	orig = rdmsr(msr->index);
+	wrmsr(msr->index, val);
+	r = rdmsr(msr->index);
+	wrmsr(msr->index, orig);
 	if (r != val) {
 		printf("testing %s: output = %#" PRIx32 ":%#" PRIx32
-		       " expected = %#" PRIx32 ":%#" PRIx32 "\n", sptr,
+		       " expected = %#" PRIx32 ":%#" PRIx32 "\n", msr->name,
 		       (u32)(r >> 32), (u32)r, (u32)(val >> 32), (u32)val);
 	}
-	report(val == r, "%s", sptr);
+	report(val == r, "%s", msr->name);
 }
 
 int main(int ac, char **av)
@@ -79,7 +59,7 @@ int main(int ac, char **av)
 	int i;
 
 	for (i = 0 ; i < ARRAY_SIZE(msr_info); i++)
-		test_msr_rw(msr_info[i].index, msr_info[i].value);
+		test_msr_rw(&msr_info[i], msr_info[i].value);
 
 	return report_summary();
 }
