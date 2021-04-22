@@ -7,59 +7,33 @@
 struct msr_info {
 	int index;
 	const char *name;
-	struct tc {
-		int valid;
-		unsigned long long value;
-		unsigned long long expected;
-	} val_pairs[20];
+	unsigned long long value;
 };
 
 
 #define addr_64 0x0000123456789abcULL
 #define addr_ul (unsigned long)addr_64
 
+#define MSR_TEST(msr, val)	\
+	{ .index = msr, .name = #msr, .value = val }
+
 struct msr_info msr_info[] =
 {
-	{ .index = MSR_IA32_SYSENTER_CS, .name = "MSR_IA32_SYSENTER_CS",
-	  .val_pairs = {{ .valid = 1, .value = 0x1234 }}
-	},
-	{ .index = MSR_IA32_SYSENTER_ESP, .name = "MSR_IA32_SYSENTER_ESP",
-	  .val_pairs = {{ .valid = 1, .value = addr_ul }}
-	},
-	{ .index = MSR_IA32_SYSENTER_EIP, .name = "MSR_IA32_SYSENTER_EIP",
-	  .val_pairs = {{ .valid = 1, .value = addr_ul }}
-	},
-	{ .index = MSR_IA32_MISC_ENABLE, .name = "MSR_IA32_MISC_ENABLE",
-	  // reserved: 1:2, 4:6, 8:10, 13:15, 17, 19:21, 24:33, 35:63
-	  .val_pairs = {{ .valid = 1, .value = 0x400c51889 }}
-	},
-	{ .index = MSR_IA32_CR_PAT, .name = "MSR_IA32_CR_PAT",
-	  .val_pairs = {{ .valid = 1, .value = 0x07070707 }}
-	},
+	MSR_TEST(MSR_IA32_SYSENTER_CS, 0x1234),
+	MSR_TEST(MSR_IA32_SYSENTER_ESP, addr_ul),
+	MSR_TEST(MSR_IA32_SYSENTER_EIP, addr_ul),
+	// reserved: 1:2, 4:6, 8:10, 13:15, 17, 19:21, 24:33, 35:63
+	MSR_TEST(MSR_IA32_MISC_ENABLE, 0x400c51889),
+	MSR_TEST(MSR_IA32_CR_PAT, 0x07070707),
 #ifdef __x86_64__
-	{ .index = MSR_FS_BASE, .name = "MSR_FS_BASE",
-	  .val_pairs = {{ .valid = 1, .value = addr_64 }}
-	},
-	{ .index = MSR_GS_BASE, .name = "MSR_GS_BASE",
-	  .val_pairs = {{ .valid = 1, .value = addr_64 }}
-	},
-	{ .index = MSR_KERNEL_GS_BASE, .name = "MSR_KERNEL_GS_BASE",
-	  .val_pairs = {{ .valid = 1, .value = addr_64 }}
-	},
-	{ .index = MSR_EFER, .name = "MSR_EFER",
-	  .val_pairs = {{ .valid = 1, .value = 0xD00 }}
-	},
-	{ .index = MSR_LSTAR, .name = "MSR_LSTAR",
-	  .val_pairs = {{ .valid = 1, .value = addr_64 }}
-	},
-	{ .index = MSR_CSTAR, .name = "MSR_CSTAR",
-	  .val_pairs = {{ .valid = 1, .value = addr_64 }}
-	},
-	{ .index = MSR_SYSCALL_MASK, .name = "MSR_SYSCALL_MASK",
-	  .val_pairs = {{ .valid = 1, .value = 0xffffffff }}
-	},
+	MSR_TEST(MSR_FS_BASE, addr_64),
+	MSR_TEST(MSR_GS_BASE, addr_64),
+	MSR_TEST(MSR_KERNEL_GS_BASE, addr_64),
+	MSR_TEST(MSR_EFER, 0xD00),
+	MSR_TEST(MSR_LSTAR, addr_64),
+	MSR_TEST(MSR_CSTAR, addr_64),
+	MSR_TEST(MSR_SYSCALL_MASK, 0xffffffff),
 #endif
-
 //	MSR_IA32_DEBUGCTLMSR needs svm feature LBRV
 //	MSR_VM_HSAVE_PA only AMD host
 };
@@ -102,16 +76,10 @@ static void test_msr_rw(int msr_index, unsigned long long val)
 
 int main(int ac, char **av)
 {
-	int i, j;
-	for (i = 0 ; i < ARRAY_SIZE(msr_info); i++) {
-		for (j = 0; j < ARRAY_SIZE(msr_info[i].val_pairs); j++) {
-			if (msr_info[i].val_pairs[j].valid) {
-				test_msr_rw(msr_info[i].index, msr_info[i].val_pairs[j].value);
-			} else {
-				break;
-			}
-		}
-	}
+	int i;
+
+	for (i = 0 ; i < ARRAY_SIZE(msr_info); i++)
+		test_msr_rw(msr_info[i].index, msr_info[i].value);
 
 	return report_summary();
 }
