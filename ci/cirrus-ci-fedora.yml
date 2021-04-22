@@ -33,7 +33,6 @@ fedora_task:
         ioapic
         ioapic-split
         kvmclock_test
-        msr
         pcid
         pcid-disabled
         rdpru

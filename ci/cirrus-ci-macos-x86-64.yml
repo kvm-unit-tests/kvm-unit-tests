@@ -18,7 +18,6 @@ macos_task:
          eventinj
          intel_iommu
          ioapic-split
-         msr
          realmode
          rmap_chain
          setjmp

@@ -74,7 +74,7 @@ build-x86_64:
      ioapic-split smptest smptest3 vmexit_cpuid vmexit_mov_from_cr8
      vmexit_mov_to_cr8 vmexit_inl_pmtimer  vmexit_ipi vmexit_ipi_halt
      vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed
-     eventinj msr port80 setjmp sieve syscall tsc rmap_chain umip intel_iommu
+     eventinj port80 setjmp sieve syscall tsc rmap_chain umip intel_iommu
      rdpru pku pks smap tsc_adjust xsave
      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
@@ -103,7 +103,7 @@ build-clang:
      ioapic-split smptest smptest3 vmexit_cpuid vmexit_mov_from_cr8
      vmexit_mov_to_cr8 vmexit_inl_pmtimer  vmexit_ipi vmexit_ipi_halt
      vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed
-     eventinj msr port80 setjmp syscall tsc rmap_chain umip intel_iommu
+     eventinj port80 setjmp syscall tsc rmap_chain umip intel_iommu
      rdpru pku pks smap tsc_adjust xsave
      | tee results.txt
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
@@ -119,7 +119,7 @@ build-centos7:
  - ../configure --arch=x86_64 --disable-pretty-print-stacks
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     msr vmexit_cpuid vmexit_mov_from_cr8 vmexit_mov_to_cr8 vmexit_inl_pmtimer
+     vmexit_cpuid vmexit_mov_from_cr8 vmexit_mov_to_cr8 vmexit_inl_pmtimer
      vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed port80
      setjmp sieve tsc rmap_chain umip
      | tee results.txt

@@ -80,6 +80,14 @@ int main(int ac, char **av)
 	for (i = 0 ; i < ARRAY_SIZE(msr_info); i++) {
 		if (is_64bit_host || !msr_info[i].is_64bit_only) {
 			test_msr_rw(&msr_info[i], msr_info[i].value);
+
+			/*
+			 * The 64-bit only MSRs that take an address always perform
+			 * canonical checks on both Intel and AMD.
+			 */
+			if (msr_info[i].is_64bit_only &&
+			    msr_info[i].value == addr_64)
+				test_wrmsr_fault(&msr_info[i], NONCANONICAL);
 		} else {
 			test_wrmsr_fault(&msr_info[i], msr_info[i].value);
 			test_rdmsr_fault(&msr_info[i]);

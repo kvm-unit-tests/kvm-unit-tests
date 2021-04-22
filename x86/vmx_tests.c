@@ -21,8 +21,6 @@
 #include "smp.h"
 #include "delay.h"
 
-#define NONCANONICAL            0xaaaaaaaaaaaaaaaaull
-
 #define VPID_CAP_INVVPID_TYPES_SHIFT 40
 
 u64 ia32_pat;

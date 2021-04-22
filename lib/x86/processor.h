@@ -6,6 +6,8 @@
 #include "msr.h"
 #include <stdint.h>
 
+#define NONCANONICAL            0xaaaaaaaaaaaaaaaaull
+
 #ifdef __x86_64__
 #  define R "r"
 #  define W "q"
