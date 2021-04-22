@@ -20,42 +20,42 @@ struct msr_info {
 
 struct msr_info msr_info[] =
 {
-	{ .index = 0x00000174, .name = "IA32_SYSENTER_CS",
+	{ .index = MSR_IA32_SYSENTER_CS, .name = "MSR_IA32_SYSENTER_CS",
 	  .val_pairs = {{ .valid = 1, .value = 0x1234, .expected = 0x1234}}
 	},
-	{ .index = 0x00000175, .name = "MSR_IA32_SYSENTER_ESP",
+	{ .index = MSR_IA32_SYSENTER_ESP, .name = "MSR_IA32_SYSENTER_ESP",
 	  .val_pairs = {{ .valid = 1, .value = addr_ul, .expected = addr_ul}}
 	},
-	{ .index = 0x00000176, .name = "IA32_SYSENTER_EIP",
+	{ .index = MSR_IA32_SYSENTER_EIP, .name = "MSR_IA32_SYSENTER_EIP",
 	  .val_pairs = {{ .valid = 1, .value = addr_ul, .expected = addr_ul}}
 	},
-	{ .index = 0x000001a0, .name = "MSR_IA32_MISC_ENABLE",
+	{ .index = MSR_IA32_MISC_ENABLE, .name = "MSR_IA32_MISC_ENABLE",
 	  // reserved: 1:2, 4:6, 8:10, 13:15, 17, 19:21, 24:33, 35:63
 	  .val_pairs = {{ .valid = 1, .value = 0x400c51889, .expected = 0x400c51889}}
 	},
-	{ .index = 0x00000277, .name = "MSR_IA32_CR_PAT",
+	{ .index = MSR_IA32_CR_PAT, .name = "MSR_IA32_CR_PAT",
 	  .val_pairs = {{ .valid = 1, .value = 0x07070707, .expected = 0x07070707}}
 	},
 #ifdef __x86_64__
-	{ .index = 0xc0000100, .name = "MSR_FS_BASE",
+	{ .index = MSR_FS_BASE, .name = "MSR_FS_BASE",
 	  .val_pairs = {{ .valid = 1, .value = addr_64, .expected = addr_64}}
 	},
-	{ .index = 0xc0000101, .name = "MSR_GS_BASE",
+	{ .index = MSR_GS_BASE, .name = "MSR_GS_BASE",
 	  .val_pairs = {{ .valid = 1, .value = addr_64, .expected = addr_64}}
 	},
-	{ .index = 0xc0000102, .name = "MSR_KERNEL_GS_BASE",
+	{ .index = MSR_KERNEL_GS_BASE, .name = "MSR_KERNEL_GS_BASE",
 	  .val_pairs = {{ .valid = 1, .value = addr_64, .expected = addr_64}}
 	},
-	{ .index = 0xc0000080, .name = "MSR_EFER",
+	{ .index = MSR_EFER, .name = "MSR_EFER",
 	  .val_pairs = {{ .valid = 1, .value = 0xD00, .expected = 0xD00}}
 	},
-	{ .index = 0xc0000082, .name = "MSR_LSTAR",
+	{ .index = MSR_LSTAR, .name = "MSR_LSTAR",
 	  .val_pairs = {{ .valid = 1, .value = addr_64, .expected = addr_64}}
 	},
-	{ .index = 0xc0000083, .name = "MSR_CSTAR",
+	{ .index = MSR_CSTAR, .name = "MSR_CSTAR",
 	  .val_pairs = {{ .valid = 1, .value = addr_64, .expected = addr_64}}
 	},
-	{ .index = 0xc0000084, .name = "MSR_SYSCALL_MASK",
+	{ .index = MSR_SYSCALL_MASK, .name = "MSR_SYSCALL_MASK",
 	  .val_pairs = {{ .valid = 1, .value = 0xffffffff, .expected = 0xffffffff}}
 	},
 #endif
