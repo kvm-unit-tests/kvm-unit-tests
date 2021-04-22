@@ -249,7 +249,7 @@ unsigned exception_vector(void)
 {
     unsigned char vector;
 
-    asm("movb %%gs:4, %0" : "=q"(vector));
+    asm volatile("movb %%gs:4, %0" : "=q"(vector));
     return vector;
 }
 
@@ -265,7 +265,7 @@ unsigned exception_error_code(void)
 {
     unsigned short error_code;
 
-    asm("mov %%gs:6, %0" : "=r"(error_code));
+    asm volatile("mov %%gs:6, %0" : "=r"(error_code));
     return error_code;
 }
 
@@ -273,7 +273,7 @@ bool exception_rflags_rf(void)
 {
     unsigned char rf_flag;
 
-    asm("movb %%gs:5, %b0" : "=q"(rf_flag));
+    asm volatile("movb %%gs:5, %b0" : "=q"(rf_flag));
     return rf_flag & 1;
 }
 
