@@ -53,7 +53,7 @@ static void test_add(void)
 /* z14 vector extension test */
 static void test_ext1_nand(void)
 {
-	bool has_vext = test_facility(134);
+	bool has_vext = test_facility(135);
 	static struct prm {
 		__uint128_t a,b,c;
 	} prm __attribute__((aligned(16)));
@@ -79,7 +79,7 @@ static void test_ext1_nand(void)
 /* z14 bcd extension test */
 static void test_bcd_add(void)
 {
-	bool has_bcd = test_facility(135);
+	bool has_bcd = test_facility(134);
 	static struct prm {
 		__uint128_t a,b,c;
 	} prm __attribute__((aligned(16)));
