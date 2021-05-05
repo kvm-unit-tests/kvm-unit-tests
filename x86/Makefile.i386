@@ -3,7 +3,7 @@ bits = 32
 ldarch = elf32-i386
 COMMON_CFLAGS += -mno-sse -mno-sse2
 
-cflatobjs += lib/x86/setjmp32.o
+cflatobjs += lib/x86/setjmp32.o lib/ldiv32.o
 
 tests = $(TEST_DIR)/taskswitch.flat $(TEST_DIR)/taskswitch2.flat \
 	$(TEST_DIR)/cmpxchg8b.flat $(TEST_DIR)/la57.flat

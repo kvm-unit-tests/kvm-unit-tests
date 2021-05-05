@@ -58,9 +58,7 @@ OBJDIRS += lib/arm
 libeabi = lib/arm/libeabi.a
 eabiobjs = lib/arm/eabi_compat.o
 
-libgcc := $(shell $(CC) $(machine) --print-libgcc-file-name)
-
-FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libgcc) $(libeabi)
+FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libeabi)
 %.elf: LDFLAGS = -nostdlib $(arch_LDFLAGS)
 %.elf: %.o $(FLATLIBS) $(SRCDIR)/arm/flat.lds $(cstart.o)
 	$(CC) $(CFLAGS) -c -o $(@:.elf=.aux.o) $(SRCDIR)/lib/auxinfo.c \

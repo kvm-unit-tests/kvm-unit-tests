@@ -25,8 +25,6 @@ cc-option = $(shell if $(CC) -Werror $(1) -S -o /dev/null -xc /dev/null \
 #make sure env CFLAGS variable is not used
 CFLAGS =
 
-libgcc := $(shell $(CC) --print-libgcc-file-name)
-
 libcflat := lib/libcflat.a
 cflatobjs := \
 	lib/argv.o \
