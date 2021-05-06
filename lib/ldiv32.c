@@ -1,4 +1,4 @@
-#include <inttypes.h>
+#include <stdint.h>
 
 extern uint64_t __udivmoddi4(uint64_t num, uint64_t den, uint64_t *p_rem);
 extern int64_t __moddi3(int64_t num, int64_t den);
