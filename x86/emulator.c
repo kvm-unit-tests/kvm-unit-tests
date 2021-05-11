@@ -645,37 +645,34 @@ static void test_muldiv(long *mem)
 
 typedef unsigned __attribute__((vector_size(16))) sse128;
 
-typedef union {
-    sse128 sse;
-    unsigned u[4];
-} sse_union;
-
-static bool sseeq(sse_union *v1, sse_union *v2)
+static bool sseeq(uint32_t *v1, uint32_t *v2)
 {
     bool ok = true;
     int i;
 
     for (i = 0; i < 4; ++i) {
-	ok &= v1->u[i] == v2->u[i];
+	ok &= v1[i] == v2[i];
     }
 
     return ok;
 }
 
-static __attribute__((target("sse2"))) void test_sse(sse_union *mem)
+static __attribute__((target("sse2"))) void test_sse(uint32_t *mem)
 {
-	sse_union v;
+	sse128 vv;
+	uint32_t *v = (uint32_t *)&vv;
 
 	write_cr0(read_cr0() & ~6); /* EM, TS */
 	write_cr4(read_cr4() | 0x200); /* OSFXSR */
+	memset(&vv, 0, sizeof(vv));
 
 #define TEST_RW_SSE(insn) do { \
-		v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4; \
-		asm(insn " %1, %0" : "=m"(*mem) : "x"(v.sse)); \
-		report(sseeq(&v, mem), insn " (read)"); \
-		mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8; \
-		asm(insn " %1, %0" : "=x"(v.sse) : "m"(*mem)); \
-		report(sseeq(&v, mem), insn " (write)"); \
+		v[0] = 1; v[1] = 2; v[2] = 3; v[3] = 4; \
+		asm(insn " %1, %0" : "=m"(*mem) : "x"(vv) : "memory"); \
+		report(sseeq(v, mem), insn " (read)"); \
+		mem[0] = 5; mem[1] = 6; mem[2] = 7; mem[3] = 8; \
+		asm(insn " %1, %0" : "=x"(vv) : "m"(*mem) : "memory"); \
+		report(sseeq(v, mem), insn " (write)"); \
 } while (0)
 
 	TEST_RW_SSE("movdqu");
@@ -704,40 +701,41 @@ static void cross_movups_handler(struct ex_regs *regs)
 
 static __attribute__((target("sse2"))) void test_sse_exceptions(void *cross_mem)
 {
-	sse_union v;
-	sse_union *mem;
+	sse128 vv;
+	uint32_t *v = (uint32_t *)&vv;
+	uint32_t *mem;
 	uint8_t *bytes = cross_mem; // aligned on PAGE_SIZE*2
 	void *page2 = (void *)(&bytes[4096]);
 	struct pte_search search;
 	pteval_t orig_pte;
 
 	// setup memory for unaligned access
-	mem = (sse_union *)(&bytes[8]);
+	mem = (uint32_t *)(&bytes[8]);
 
 	// test unaligned access for movups, movupd and movaps
-	v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
-	mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
-	asm("movups %1, %0" : "=m"(*mem) : "x"(v.sse));
-	report(sseeq(&v, mem), "movups unaligned");
+	v[0] = 1; v[1] = 2; v[2] = 3; v[3] = 4;
+	mem[0] = 5; mem[1] = 6; mem[2] = 8; mem[3] = 9;
+	asm("movups %1, %0" : "=m"(*mem) : "x"(vv) : "memory");
+	report(sseeq(v, mem), "movups unaligned");
 
-	v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
-	mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
-	asm("movupd %1, %0" : "=m"(*mem) : "x"(v.sse));
-	report(sseeq(&v, mem), "movupd unaligned");
+	v[0] = 1; v[1] = 2; v[2] = 3; v[3] = 4;
+	mem[0] = 5; mem[1] = 6; mem[2] = 7; mem[3] = 8;
+	asm("movupd %1, %0" : "=m"(*mem) : "x"(vv) : "memory");
+	report(sseeq(v, mem), "movupd unaligned");
 	exceptions = 0;
 	handle_exception(GP_VECTOR, unaligned_movaps_handler);
 	asm("movaps %1, %0\n\t unaligned_movaps_cont:"
-			: "=m"(*mem) : "x"(v.sse));
+			: "=m"(*mem) : "x"(vv));
 	handle_exception(GP_VECTOR, 0);
 	report(exceptions == 1, "unaligned movaps exception");
 
 	// setup memory for cross page access
-	mem = (sse_union *)(&bytes[4096-8]);
-	v.u[0] = 1; v.u[1] = 2; v.u[2] = 3; v.u[3] = 4;
-	mem->u[0] = 5; mem->u[1] = 6; mem->u[2] = 7; mem->u[3] = 8;
+	mem = (uint32_t *)(&bytes[4096-8]);
+	v[0] = 1; v[1] = 2; v[2] = 3; v[3] = 4;
+	mem[0] = 5; mem[1] = 6; mem[2] = 7; mem[3] = 8;
 
-	asm("movups %1, %0" : "=m"(*mem) : "x"(v.sse));
-	report(sseeq(&v, mem), "movups unaligned crosspage");
+	asm("movups %1, %0" : "=m"(*mem) : "x"(vv) : "memory");
+	report(sseeq(v, mem), "movups unaligned crosspage");
 
 	// invalidate second page
 	search = find_pte_level(current_page_table(), page2, 1);
@@ -747,7 +745,8 @@ static __attribute__((target("sse2"))) void test_sse_exceptions(void *cross_mem)
 
 	exceptions = 0;
 	handle_exception(PF_VECTOR, cross_movups_handler);
-	asm("movups %1, %0\n\t cross_movups_cont:" : "=m"(*mem) : "x"(v.sse));
+	asm("movups %1, %0\n\t cross_movups_cont:" : "=m"(*mem) : "x"(vv) :
+			"memory");
 	handle_exception(PF_VECTOR, 0);
 	report(exceptions == 1, "movups crosspage exception");
 
