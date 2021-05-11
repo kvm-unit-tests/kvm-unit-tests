@@ -4049,13 +4049,13 @@ static void test_pi_desc_addr(u64 addr, bool ctrl)
 }
 
 /*
- * If the â€œprocess posted interruptsâ€ VM-execution control is 1, the
+ * If the "process posted interrupts" VM-execution control is 1, the
  * following must be true:
  *
- *	- The â€œvirtual-interrupt deliveryâ€ VM-execution control is 1.
- *	- The â€œacknowledge interrupt on exitâ€ VM-exit control is 1.
+ *	- The "virtual-interrupt delivery" VM-execution control is 1.
+ *	- The "acknowledge interrupt on exit" VM-exit control is 1.
  *	- The posted-interrupt notification vector has a value in the
- *	- range 0â€“255 (bits 15:8 are all 0).
+ *	- range 0 - 255 (bits 15:8 are all 0).
  *	- Bits 5:0 of the posted-interrupt descriptor address are all 0.
  *	- The posted-interrupt descriptor address does not set any bits
  *	  beyond the processor's physical-address width.
@@ -4179,7 +4179,7 @@ static void test_apic_ctls(void)
 }
 
 /*
- * If the â€œenable VPIDâ€ VM-execution control is 1, the value of the
+ * If the "enable VPID" VM-execution control is 1, the value of the
  * of the VPID VM-execution control field must not be 0000H.
  * [Intel SDM]
  */
@@ -4263,7 +4263,7 @@ static void test_invalid_event_injection(void)
 	vmcs_write(ENT_INTR_ERROR, 0x00000000);
 	vmcs_write(ENT_INST_LEN, 0x00000001);
 
-	/* The field’s interruption type is not set to a reserved value. */
+	/* The field's interruption type is not set to a reserved value. */
 	ent_intr_info = ent_intr_info_base | INTR_TYPE_RESERVED | DE_VECTOR;
 	report_prefix_pushf("%s, VM-entry intr info=0x%x",
 			    "RESERVED interruption type invalid [-]",
@@ -4480,7 +4480,7 @@ skip_unrestricted_guest:
 	/*
 	 * If the interruption type is software interrupt, software exception,
 	 * or privileged software exception, the VM-entry instruction-length
-	 * field is in the range 0–15.
+	 * field is in the range 0 - 15.
 	 */
 
 	for (cnt = 0; cnt < 3; cnt++) {
@@ -4686,8 +4686,8 @@ out:
  *  VM-execution control must be 0.
  *  [Intel SDM]
  *
- *  If the “virtual NMIs” VM-execution control is 0, the “NMI-window
- *  exiting” VM-execution control must be 0.
+ *  If the "virtual NMIs" VM-execution control is 0, the "NMI-window
+ *  exiting" VM-execution control must be 0.
  *  [Intel SDM]
  */
 static void test_nmi_ctrls(void)
@@ -5448,14 +5448,14 @@ static void test_vm_execution_ctls(void)
   * the VM-entry MSR-load count field is non-zero:
   *
   *    - The lower 4 bits of the VM-entry MSR-load address must be 0.
-  *      The address should not set any bits beyond the processorâ€™s
+  *      The address should not set any bits beyond the processor's
   *      physical-address width.
   *
   *    - The address of the last byte in the VM-entry MSR-load area
-  *      should not set any bits beyond the processorâ€™s physical-address
+  *      should not set any bits beyond the processor's physical-address
   *      width. The address of this last byte is VM-entry MSR-load address
   *      + (MSR count * 16) - 1. (The arithmetic used for the computation
-  *      uses more bits than the processorâ€™s physical-address width.)
+  *      uses more bits than the processor's physical-address width.)
   *
   *
   *  [Intel SDM]
@@ -5574,14 +5574,14 @@ static void test_vm_entry_ctls(void)
  * the VM-exit MSR-store count field is non-zero:
  *
  *    - The lower 4 bits of the VM-exit MSR-store address must be 0.
- *      The address should not set any bits beyond the processor’s
+ *      The address should not set any bits beyond the processor's
  *      physical-address width.
  *
  *    - The address of the last byte in the VM-exit MSR-store area
- *      should not set any bits beyond the processor’s physical-address
+ *      should not set any bits beyond the processor's physical-address
  *      width. The address of this last byte is VM-exit MSR-store address
  *      + (MSR count * 16) - 1. (The arithmetic used for the computation
- *      uses more bits than the processor’s physical-address width.)
+ *      uses more bits than the processor's physical-address width.)
  *
  * If IA32_VMX_BASIC[48] is read as 1, neither address should set any bits
  * in the range 63:32.
@@ -7172,7 +7172,7 @@ static void test_ctl_reg(const char *cr_name, u64 cr, u64 fixed0, u64 fixed1)
  *    operation.
  * 3. On processors that support Intel 64 architecture, the CR3 field must
  *    be such that bits 63:52 and bits in the range 51:32 beyond the
- *    processorâ€™s physical-address width must be 0.
+ *    processor's physical-address width must be 0.
  *
  *  [Intel SDM]
  */
@@ -7940,11 +7940,11 @@ static void test_load_guest_pat(void)
 #define MSR_IA32_BNDCFGS_RSVD_MASK	0x00000ffc
 
 /*
- * If the â€œload IA32_BNDCFGSâ€ VM-entry control is 1, the following
+ * If the "load IA32_BNDCFGS" VM-entry control is 1, the following
  * checks are performed on the field for the IA32_BNDCFGS MSR:
  *
- *   â€”  Bits reserved in the IA32_BNDCFGS MSR must be 0.
- *   â€”  The linear address in bits 63:12 must be canonical.
+ *   - Bits reserved in the IA32_BNDCFGS MSR must be 0.
+ *   - The linear address in bits 63:12 must be canonical.
  *
  *  [Intel SDM]
  */
@@ -8000,9 +8000,9 @@ do {									\
 /*
  * The following checks are done on the Selector field of the Guest Segment
  * Registers:
- *    — TR. The TI flag (bit 2) must be 0.
- *    — LDTR. If LDTR is usable, the TI flag (bit 2) must be 0.
- *    — SS. If the guest will not be virtual-8086 and the "unrestricted
+ *    - TR. The TI flag (bit 2) must be 0.
+ *    - LDTR. If LDTR is usable, the TI flag (bit 2) must be 0.
+ *    - SS. If the guest will not be virtual-8086 and the "unrestricted
  *	guest" VM-execution control is 0, the RPL (bits 1:0) must equal
  *	the RPL of the selector field for CS.
  *
