@@ -8,7 +8,6 @@
 #include "alloc_page.h"
 #include "usermode.h"
 
-#define memset __builtin_memset
 #define TESTDEV_IO_PORT 0xe0
 
 #define MAGIC_NUM 0xdeadbeefdeadbeefUL
