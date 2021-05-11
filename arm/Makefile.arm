@@ -24,6 +24,7 @@ cflatobjs += lib/arm/spinlock.o
 cflatobjs += lib/arm/processor.o
 cflatobjs += lib/arm/stack.o
 cflatobjs += lib/ldiv32.o
+cflatobjs += lib/arm/ldivmod.o
 
 # arm specific tests
 tests =
