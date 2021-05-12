@@ -587,7 +587,7 @@ static void  check_gp_counters_write_width(void)
 	}
 
 	/*
-	 * MSR_IA32_PMCn supports writing values Ã¢â‚¬â€¹Ã¢â‚¬â€¹up to GP counter width,
+	 * MSR_IA32_PMCn supports writing values up to GP counter width,
 	 * and only the lowest bits of GP counter width are valid.
 	 */
 	for (i = 0; i < num_counters; i++) {
