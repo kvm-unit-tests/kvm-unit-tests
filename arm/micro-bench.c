@@ -273,7 +273,9 @@ static void hvc_exec(void)
 	asm volatile("mov w0, #0x4b000000; hvc #0" ::: "w0");
 }
 
-static void mmio_read_user_exec(void)
+static void *userspace_emulated_addr;
+
+static bool mmio_read_user_prep(void)
 {
 	/*
 	 * FIXME: Read device-id in virtio mmio here in order to
@@ -281,8 +283,12 @@ static void mmio_read_user_exec(void)
 	 * updated in the future if any relevant changes in QEMU
 	 * test-dev are made.
 	 */
-	void *userspace_emulated_addr = (void*)0x0a000008;
+	userspace_emulated_addr = (void*)ioremap(0x0a000008, sizeof(u32));
+	return true;
+}
 
+static void mmio_read_user_exec(void)
+{
 	readl(userspace_emulated_addr);
 }
 
@@ -309,14 +315,14 @@ struct exit_test {
 };
 
 static struct exit_test tests[] = {
-	{"hvc",			NULL,		hvc_exec,		NULL,		65536,		true},
-	{"mmio_read_user",	NULL,		mmio_read_user_exec,	NULL,		65536,		true},
-	{"mmio_read_vgic",	NULL,		mmio_read_vgic_exec,	NULL,		65536,		true},
-	{"eoi",			NULL,		eoi_exec,		NULL,		65536,		true},
-	{"ipi",			ipi_prep,	ipi_exec,		NULL,		65536,		true},
-	{"ipi_hw",		ipi_hw_prep,	ipi_exec,		NULL,		65536,		true},
-	{"lpi",			lpi_prep,	lpi_exec,		NULL,		65536,		true},
-	{"timer_10ms",		timer_prep,	timer_exec,		timer_post,	256,		true},
+	{"hvc",			NULL,			hvc_exec,		NULL,		65536,		true},
+	{"mmio_read_user",	mmio_read_user_prep,	mmio_read_user_exec,	NULL,		65536,		true},
+	{"mmio_read_vgic",	NULL,			mmio_read_vgic_exec,	NULL,		65536,		true},
+	{"eoi",			NULL,			eoi_exec,		NULL,		65536,		true},
+	{"ipi",			ipi_prep,		ipi_exec,		NULL,		65536,		true},
+	{"ipi_hw",		ipi_hw_prep,		ipi_exec,		NULL,		65536,		true},
+	{"lpi",			lpi_prep,		lpi_exec,		NULL,		65536,		true},
+	{"timer_10ms",		timer_prep,		timer_exec,		timer_post,	256,		true},
 };
 
 struct ns_time {
