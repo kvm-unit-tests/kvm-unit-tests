@@ -77,6 +77,12 @@ static inline void __raw_writel(u32 val, volatile void __iomem *addr)
 		     : "r" (val));
 }
 
+#define ioremap ioremap
+static inline void __iomem *ioremap(phys_addr_t phys_addr, size_t size)
+{
+	return __ioremap(phys_addr, size);
+}
+
 #define virt_to_phys virt_to_phys
 static inline phys_addr_t virt_to_phys(const volatile void *x)
 {

@@ -11,6 +11,7 @@
 #include <asm/mmu.h>
 #include <asm/setup.h>
 #include <asm/page.h>
+#include <asm/io.h>
 
 #include "alloc_page.h"
 #include "vmalloc.h"
@@ -18,8 +19,6 @@
 #include <asm/pgtable.h>
 
 #include <linux/compiler.h>
-
-extern unsigned long etext;
 
 pgd_t *mmu_idmap;
 
@@ -156,10 +155,9 @@ void mmu_set_range_sect(pgd_t *pgtable, uintptr_t virt_offset,
 
 void *setup_mmu(phys_addr_t phys_end)
 {
-	uintptr_t code_end = (uintptr_t)&etext;
 	struct mem_region *r;
 
-	/* 0G-1G = I/O, 1G-3G = identity, 3G-4G = vmalloc */
+	/* 3G-4G region is reserved for vmalloc, cap phys_end at 3G */
 	if (phys_end > (3ul << 30))
 		phys_end = 3ul << 30;
 
@@ -170,26 +168,47 @@ void *setup_mmu(phys_addr_t phys_end)
 			"Unsupported translation granule %ld\n", PAGE_SIZE);
 #endif
 
-	mmu_idmap = alloc_page();
+	if (!mmu_idmap)
+		mmu_idmap = alloc_page();
 
 	for (r = mem_regions; r->end; ++r) {
-		if (!(r->flags & MR_F_IO))
+		if (r->flags & MR_F_IO) {
 			continue;
-		mmu_set_range_sect(mmu_idmap, r->start, r->start, r->end,
-				   __pgprot(PMD_SECT_UNCACHED | PMD_SECT_USER));
+		} else if (r->flags & MR_F_CODE) {
+			/* armv8 requires code shared between EL1 and EL0 to be read-only */
+			mmu_set_range_ptes(mmu_idmap, r->start, r->start, r->end,
+					   __pgprot(PTE_WBWA | PTE_USER | PTE_RDONLY));
+		} else {
+			mmu_set_range_ptes(mmu_idmap, r->start, r->start, r->end,
+					   __pgprot(PTE_WBWA | PTE_USER));
+		}
 	}
-
-	/* armv8 requires code shared between EL1 and EL0 to be read-only */
-	mmu_set_range_ptes(mmu_idmap, PHYS_OFFSET,
-		PHYS_OFFSET, code_end,
-		__pgprot(PTE_WBWA | PTE_RDONLY | PTE_USER));
-
-	mmu_set_range_ptes(mmu_idmap, code_end,
-		code_end, phys_end,
-		__pgprot(PTE_WBWA | PTE_USER));
 
 	mmu_enable(mmu_idmap);
 	return mmu_idmap;
+}
+
+void __iomem *__ioremap(phys_addr_t phys_addr, size_t size)
+{
+	phys_addr_t paddr_aligned = phys_addr & PAGE_MASK;
+	phys_addr_t paddr_end = PAGE_ALIGN(phys_addr + size);
+	pgprot_t prot = __pgprot(PTE_UNCACHED | PTE_USER | PTE_UXN | PTE_PXN);
+	pgd_t *pgtable;
+
+	assert(sizeof(long) == 8 || !(phys_addr >> 32));
+
+	if (mmu_enabled()) {
+		pgtable = current_thread_info()->pgtable;
+	} else {
+		if (!mmu_idmap)
+			mmu_idmap = alloc_page();
+		pgtable = mmu_idmap;
+	}
+
+	mmu_set_range_ptes(pgtable, paddr_aligned, paddr_aligned,
+			   paddr_end, prot);
+
+	return (void __iomem *)(unsigned long)phys_addr;
 }
 
 phys_addr_t __virt_to_phys(unsigned long addr)

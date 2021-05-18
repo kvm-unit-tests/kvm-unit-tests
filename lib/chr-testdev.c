@@ -54,11 +54,8 @@ void chr_testdev_init(void)
 	int ret;
 
 	vcon = virtio_bind(VIRTIO_ID_CONSOLE);
-	if (vcon == NULL) {
-		printf("%s: %s: can't find a virtio-console\n",
-				__func__, TESTDEV_NAME);
+	if (vcon == NULL)
 		return;
-	}
 
 	ret = vcon->config->find_vqs(vcon, 2, vqs, NULL, io_names);
 	if (ret < 0) {

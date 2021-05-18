@@ -122,7 +122,7 @@ static struct pci_host_bridge *pci_dt_probe(void)
 		      sizeof(host->addr_space[0]) * nr_addr_spaces);
 	assert(host != NULL);
 
-	host->start		= base.addr;
+	host->start		= ioremap(base.addr, base.size);
 	host->size		= base.size;
 	host->bus		= bus;
 	host->bus_max		= bus_max;
@@ -279,8 +279,7 @@ phys_addr_t pci_host_bridge_get_paddr(u64 pci_addr)
 
 static void __iomem *pci_get_dev_conf(struct pci_host_bridge *host, int devfn)
 {
-	return (void __iomem *)(unsigned long)
-		host->start + (devfn << PCI_ECAM_DEVFN_SHIFT);
+	return host->start + (devfn << PCI_ECAM_DEVFN_SHIFT);
 }
 
 u8 pci_config_readb(pcidevaddr_t dev, u8 off)

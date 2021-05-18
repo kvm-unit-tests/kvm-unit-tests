@@ -80,13 +80,10 @@ start:
 
 	/* complete setup */
 	pop	{r0-r1}
-	bl	setup
-	bl	get_mmu_off
-	cmp	r0, #0
-	bne	1f
-	bl	setup_vm
+	mov	r3, #0
+	ldr	r2, =stacktop		@ r2,r3 is the base of free memory
+	bl	setup			@ r0 is the addr of the dtb
 
-1:
 	/* run the test */
 	ldr	r0, =__argc
 	ldr	r0, [r0]
@@ -96,31 +93,28 @@ start:
 	bl	exit
 	b	halt
 
+.text
 
-.macro set_mode_stack mode, stack
-	add	\stack, #S_FRAME_SIZE
-	msr	cpsr_c, #(\mode | PSR_I_BIT | PSR_F_BIT)
-	isb
-	mov	sp, \stack
-.endm
+/*
+ * psci_invoke_hvc / psci_invoke_smc
+ *
+ * Inputs:
+ *   r0 -- function_id
+ *   r1 -- arg0
+ *   r2 -- arg1
+ *   r3 -- arg2
+ *
+ * Outputs:
+ *   r0 -- return code
+ */
+.globl psci_invoke_hvc
+psci_invoke_hvc:
+	hvc	#0
+	mov	pc, lr
 
-exceptions_init:
-	mrc	p15, 0, r2, c1, c0, 0	@ read SCTLR
-	bic	r2, #CR_V		@ SCTLR.V := 0
-	mcr	p15, 0, r2, c1, c0, 0	@ write SCTLR
-	ldr	r2, =vector_table
-	mcr	p15, 0, r2, c12, c0, 0	@ write VBAR
-
-	mrs	r2, cpsr
-
-	/* first frame reserved for svc mode */
-	set_mode_stack	UND_MODE, r0
-	set_mode_stack	ABT_MODE, r0
-	set_mode_stack	IRQ_MODE, r0
-	set_mode_stack	FIQ_MODE, r0
-
-	msr	cpsr_cxsf, r2		@ back to svc mode
-	isb
+.globl psci_invoke_smc
+psci_invoke_smc:
+	smc	#0
 	mov	pc, lr
 
 enable_vfp:
@@ -133,9 +127,6 @@ enable_vfp:
 	vmsr	fpexc, r0
 	mov	pc, lr
 
-.text
-
-.global get_mmu_off
 get_mmu_off:
 	ldr	r0, =auxinfo
 	ldr	r0, [r0, #4]
@@ -234,6 +225,43 @@ asm_mmu_disable:
 	dcache_by_line_op dccimvac, sy, r0, r1, r2, r3
 
 	mov     pc, lr
+
+/*
+ * Vectors
+ */
+
+.macro set_mode_stack mode, stack
+	add	\stack, #S_FRAME_SIZE
+	msr	cpsr_c, #(\mode | PSR_I_BIT | PSR_F_BIT)
+	isb
+	mov	sp, \stack
+.endm
+
+/*
+ * exceptions_init
+ *
+ * Input r0 is the stack top, which is the exception stacks base
+ */
+exceptions_init:
+	mrc	p15, 0, r2, c1, c0, 0	@ read SCTLR
+	bic	r2, #CR_V		@ SCTLR.V := 0
+	mcr	p15, 0, r2, c1, c0, 0	@ write SCTLR
+	ldr	r2, =vector_table
+	mcr	p15, 0, r2, c12, c0, 0	@ write VBAR
+
+	mrs	r2, cpsr
+
+	/*
+	 * The first frame is reserved for svc mode
+	 */
+	set_mode_stack	UND_MODE, r0
+	set_mode_stack	ABT_MODE, r0
+	set_mode_stack	IRQ_MODE, r0
+	set_mode_stack	FIQ_MODE, r0
+
+	msr	cpsr_cxsf, r2		@ back to svc mode
+	isb
+	mov	pc, lr
 
 /*
  * Vector stubs

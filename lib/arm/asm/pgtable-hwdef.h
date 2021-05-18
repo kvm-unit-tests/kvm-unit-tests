@@ -34,6 +34,7 @@
 #define L_PTE_USER		(_AT(pteval_t, 1) << 6)		/* AP[1] */
 #define L_PTE_SHARED		(_AT(pteval_t, 3) << 8)		/* SH[1:0], inner shareable */
 #define L_PTE_YOUNG		(_AT(pteval_t, 1) << 10)	/* AF */
+#define L_PTE_PXN		(_AT(pteval_t, 1) << 53)	/* PXN */
 #define L_PTE_XN		(_AT(pteval_t, 1) << 54)	/* XN */
 
 /*

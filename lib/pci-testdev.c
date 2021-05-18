@@ -185,7 +185,11 @@ int pci_testdev(void)
 	mem = ioremap(addr, PAGE_SIZE);
 
 	addr = pci_bar_get_addr(&pci_dev, 1);
+#if defined(__i386__) || defined(__x86_64__)
 	io = (void *)(unsigned long)addr;
+#else
+	io = ioremap(addr, PAGE_SIZE);
+#endif
 
 	nr_tests += pci_testdev_all(mem, &pci_testdev_mem_ops);
 	nr_tests += pci_testdev_all(io, &pci_testdev_io_ops);

@@ -92,12 +92,10 @@ start:
 	bl	exceptions_init
 
 	/* complete setup */
+	adrp	x1, stacktop
+	add	x1, x1, :lo12:stacktop		// x1 is the base of free memory
 	bl	setup				// x0 is the addr of the dtb
-	bl	get_mmu_off
-	cbnz	x0, 1f
-	bl	setup_vm
 
-1:
 	/* run the test */
 	adrp	x0, __argc
 	ldr	w0, [x0, :lo12:__argc]
@@ -109,16 +107,30 @@ start:
 	bl	exit
 	b	halt
 
-exceptions_init:
-	adrp	x4, vector_table
-	add	x4, x4, :lo12:vector_table
-	msr	vbar_el1, x4
-	isb
-	ret
-
 .text
 
-.globl get_mmu_off
+/*
+ * psci_invoke_hvc / psci_invoke_smc
+ *
+ * Inputs:
+ *   w0 -- function_id
+ *   x1 -- arg0
+ *   x2 -- arg1
+ *   x3 -- arg2
+ *
+ * Outputs:
+ *   x0 -- return code
+ */
+.globl psci_invoke_hvc
+psci_invoke_hvc:
+	hvc	#0
+	ret
+
+.globl psci_invoke_smc
+psci_invoke_smc:
+	smc	#0
+	ret
+
 get_mmu_off:
 	adrp	x0, auxinfo
 	ldr	x0, [x0, :lo12:auxinfo + 8]
@@ -251,6 +263,17 @@ asm_mmu_disable:
 
 /*
  * Vectors
+ */
+
+exceptions_init:
+	adrp	x4, vector_table
+	add	x4, x4, :lo12:vector_table
+	msr	vbar_el1, x4
+	isb
+	ret
+
+/*
+ * Vector stubs
  * Adapted from arch/arm64/kernel/entry.S
  */
 .macro vector_stub, name, vec
