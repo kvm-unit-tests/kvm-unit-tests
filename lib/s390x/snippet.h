@@ -14,10 +14,17 @@
 	_binary_s390x_snippets_##type##_##file##_gbin_start
 #define SNIPPET_NAME_END(type, file) \
 	_binary_s390x_snippets_##type##_##file##_gbin_end
+#define SNIPPET_HDR_START(type, file) \
+	_binary_s390x_snippets_##type##_##file##_hdr_start
+#define SNIPPET_HDR_END(type, file) \
+	_binary_s390x_snippets_##type##_##file##_hdr_end
+
 
 /* Returns the length of the snippet */
 #define SNIPPET_LEN(type, file) \
 	((uintptr_t)SNIPPET_NAME_END(type, file) - (uintptr_t)SNIPPET_NAME_START(type, file))
+#define SNIPPET_HDR_LEN(type, file) \
+	((uintptr_t)SNIPPET_HDR_END(type, file) - (uintptr_t)SNIPPET_HDR_START(type, file))
 
 /*
  * C snippet instructions start at 0x4000 due to the prefix and the
