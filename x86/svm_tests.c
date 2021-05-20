@@ -2499,6 +2499,34 @@ static void test_msrpm_iopm_bitmap_addrs(void)
 	vmcb->control.intercept = saved_intercept;
 }
 
+#define TEST_CANONICAL(seg_base, msg)					\
+	saved_addr = seg_base;						\
+	seg_base = (seg_base & ((1ul << addr_limit) - 1)) | noncanonical_mask; \
+	report(svm_vmrun() == SVM_EXIT_VMMCALL, "Test %s.base for canonical form: %lx", msg, seg_base);							\
+	seg_base = saved_addr;
+
+/*
+ * VMRUN canonicalizes (i.e., sign-extend to bit 63) all base addresses
+ • in the segment registers that have been loaded.
+ */
+static void test_vmrun_canonicalization(void)
+{
+	u64 saved_addr;
+	u8 addr_limit = cpuid_maxphyaddr();
+	u64 noncanonical_mask = NONCANONICAL & ~((1ul << addr_limit) - 1);
+
+	TEST_CANONICAL(vmcb->save.es.base, "ES");
+	TEST_CANONICAL(vmcb->save.cs.base, "CS");
+	TEST_CANONICAL(vmcb->save.ss.base, "SS");
+	TEST_CANONICAL(vmcb->save.ds.base, "DS");
+	TEST_CANONICAL(vmcb->save.fs.base, "FS");
+	TEST_CANONICAL(vmcb->save.gs.base, "GS");
+	TEST_CANONICAL(vmcb->save.gdtr.base, "GDTR");
+	TEST_CANONICAL(vmcb->save.ldtr.base, "LDTR");
+	TEST_CANONICAL(vmcb->save.idtr.base, "IDTR");
+	TEST_CANONICAL(vmcb->save.tr.base, "TR");
+}
+
 static void svm_guest_state_test(void)
 {
 	test_set_guest(basic_guest_main);
@@ -2508,6 +2536,7 @@ static void svm_guest_state_test(void)
 	test_cr4();
 	test_dr();
 	test_msrpm_iopm_bitmap_addrs();
+	test_vmrun_canonicalization();
 }
 
 
