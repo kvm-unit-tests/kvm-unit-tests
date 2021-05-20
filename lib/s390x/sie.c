@@ -44,6 +44,10 @@ void sie_handle_validity(struct vm *vm)
 
 void sie(struct vm *vm)
 {
+	if (vm->sblk->sdf == 2)
+		memcpy(vm->sblk->pv_grregs, vm->save_area.guest.grs,
+		       sizeof(vm->save_area.guest.grs));
+
 	/* Reset icptcode so we don't trip over it below */
 	vm->sblk->icptcode = 0;
 
@@ -53,6 +57,10 @@ void sie(struct vm *vm)
 	}
 	vm->save_area.guest.grs[14] = vm->sblk->gg14;
 	vm->save_area.guest.grs[15] = vm->sblk->gg15;
+
+	if (vm->sblk->sdf == 2)
+		memcpy(vm->save_area.guest.grs, vm->sblk->pv_grregs,
+		       sizeof(vm->save_area.guest.grs));
 }
 
 void sie_guest_sca_create(struct vm *vm)

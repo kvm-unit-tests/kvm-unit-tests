@@ -198,6 +198,8 @@ union {
 	uint64_t	itdba;			/* 0x01e8 */
 	uint64_t   	riccbd;			/* 0x01f0 */
 	uint64_t	gvrd;			/* 0x01f8 */
+	uint64_t	reserved200[48];	/* 0x0200 */
+	uint64_t	pv_grregs[16];		/* 0x0380 */
 } __attribute__((packed));
 
 struct vm_uv {
