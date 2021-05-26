@@ -129,6 +129,13 @@ CPUEntry *sclp_get_cpu_entries(void)
 	return (CPUEntry *)(_read_info + read_info->offset_cpu);
 }
 
+static bool sclp_feat_check(int byte, int bit)
+{
+	uint8_t *rib = (uint8_t *)read_info;
+
+	return !!(rib[byte] & (0x80 >> bit));
+}
+
 void sclp_facilities_setup(void)
 {
 	unsigned short cpu0_addr = stap();
@@ -138,7 +145,16 @@ void sclp_facilities_setup(void)
 	assert(read_info);
 
 	cpu = sclp_get_cpu_entries();
-	sclp_facilities.has_diag318 = read_info->byte_134_diag318;
+	if (read_info->offset_cpu > 134)
+		sclp_facilities.has_diag318 = read_info->byte_134_diag318;
+	sclp_facilities.has_gsls = sclp_feat_check(85, SCLP_FEAT_85_BIT_GSLS);
+	sclp_facilities.has_kss = sclp_feat_check(98, SCLP_FEAT_98_BIT_KSS);
+	sclp_facilities.has_cmma = sclp_feat_check(116, SCLP_FEAT_116_BIT_CMMA);
+	sclp_facilities.has_64bscao = sclp_feat_check(116, SCLP_FEAT_116_BIT_64BSCAO);
+	sclp_facilities.has_esca = sclp_feat_check(116, SCLP_FEAT_116_BIT_ESCA);
+	sclp_facilities.has_ibs = sclp_feat_check(117, SCLP_FEAT_117_BIT_IBS);
+	sclp_facilities.has_pfmfi = sclp_feat_check(117, SCLP_FEAT_117_BIT_PFMFI);
+
 	for (i = 0; i < read_info->entries_cpu; i++, cpu++) {
 		/*
 		 * The logic for only reading the facilities from the
@@ -149,6 +165,11 @@ void sclp_facilities_setup(void)
 		 */
 		if (cpu->address == cpu0_addr) {
 			sclp_facilities.has_sief2 = cpu->feat_sief2;
+			sclp_facilities.has_skeyi = cpu->feat_skeyi;
+			sclp_facilities.has_siif = cpu->feat_siif;
+			sclp_facilities.has_sigpif = cpu->feat_sigpif;
+			sclp_facilities.has_ib = cpu->feat_ib;
+			sclp_facilities.has_cei = cpu->feat_cei;
 			break;
 		}
 	}

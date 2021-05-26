@@ -94,9 +94,19 @@ typedef struct CPUEntry {
 	uint8_t reserved0;
 	uint8_t : 4;
 	uint8_t feat_sief2 : 1;
+	uint8_t feat_skeyi : 1;
+	uint8_t : 2;
+	uint8_t : 2;
+	uint8_t feat_gpere : 1;
+	uint8_t feat_siif : 1;
+	uint8_t feat_sigpif : 1;
 	uint8_t : 3;
-	uint8_t features_res2 [SCCB_CPU_FEATURE_LEN - 1];
-	uint8_t reserved2[6];
+	uint8_t reserved2[3];
+	uint8_t : 2;
+	uint8_t feat_ib : 1;
+	uint8_t feat_cei : 1;
+	uint8_t : 4;
+	uint8_t reserved3[6];
 	uint8_t type;
 	uint8_t reserved1;
 } __attribute__((packed)) CPUEntry;
@@ -105,9 +115,32 @@ extern struct sclp_facilities sclp_facilities;
 
 struct sclp_facilities {
 	uint64_t has_sief2 : 1;
+	uint64_t has_skeyi : 1;
+	uint64_t has_gpere : 1;
+	uint64_t has_siif : 1;
+	uint64_t has_sigpif : 1;
+	uint64_t has_ib : 1;
+	uint64_t has_cei : 1;
+
 	uint64_t has_diag318 : 1;
-	uint64_t : 62;
+	uint64_t has_gsls : 1;
+	uint64_t has_cmma : 1;
+	uint64_t has_64bscao : 1;
+	uint64_t has_esca : 1;
+	uint64_t has_kss : 1;
+	uint64_t has_pfmfi : 1;
+	uint64_t has_ibs : 1;
+	uint64_t : 64 - 15;
 };
+
+/* bit number within a certain byte */
+#define SCLP_FEAT_85_BIT_GSLS		7
+#define SCLP_FEAT_98_BIT_KSS		0
+#define SCLP_FEAT_116_BIT_64BSCAO	7
+#define SCLP_FEAT_116_BIT_CMMA		6
+#define SCLP_FEAT_116_BIT_ESCA		3
+#define SCLP_FEAT_117_BIT_PFMFI		6
+#define SCLP_FEAT_117_BIT_IBS		5
 
 typedef struct ReadInfo {
 	SCCBHeader h;

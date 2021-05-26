@@ -14,6 +14,7 @@
 #include <asm/facility.h>
 #include <asm/sigp.h>
 #include "sclp.h"
+#include "uv.h"
 #include "smp.h"
 
 extern char ipl_args[];
@@ -38,6 +39,7 @@ void setup(void)
 	sclp_facilities_setup();
 	sclp_console_setup();
 	sclp_memory_setup();
+	uv_setup();
 	smp_setup();
 }
 
