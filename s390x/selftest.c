@@ -40,19 +40,28 @@ static void test_pgm_int(void)
 
 static void test_malloc(void)
 {
-	int *tmp = malloc(sizeof(int));
-	int *tmp2 = malloc(sizeof(int));
+	int *tmp, *tmp2;
 
+	report_prefix_push("malloc");
+
+	report_prefix_push("ptr_0");
+	tmp = malloc(sizeof(int));
+	report((uintptr_t)tmp & 0xf000000000000000ul, "allocated memory");
 	*tmp = 123456789;
+	mb();
+	report(*tmp == 123456789, "wrote allocated memory");
+	report_prefix_pop();
+
+	report_prefix_push("ptr_1");
+	tmp2 = malloc(sizeof(int));
+	report((uintptr_t)tmp2 & 0xf000000000000000ul,
+	       "allocated memory");
 	*tmp2 = 123456789;
 	mb();
+	report((*tmp2 == 123456789), "wrote allocated memory");
+	report_prefix_pop();
 
-	report((uintptr_t)tmp & 0xf000000000000000ul, "malloc: got vaddr");
-	report(*tmp == 123456789, "malloc: access works");
-	report((uintptr_t)tmp2 & 0xf000000000000000ul,
-	       "malloc: got 2nd vaddr");
-	report((*tmp2 == 123456789), "malloc: access works");
-	report(tmp != tmp2, "malloc: addresses differ");
+	report(tmp != tmp2, "allocated memory addresses differ");
 
 	expect_pgm_int();
 	configure_dat(0);
@@ -62,6 +71,7 @@ static void test_malloc(void)
 
 	free(tmp);
 	free(tmp2);
+	report_prefix_pop();
 }
 
 int main(int argc, char**argv)
