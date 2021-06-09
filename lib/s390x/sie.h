@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-#ifndef SIE_H
-#define SIE_H
+#ifndef _S390X_SIE_H_
+#define _S390X_SIE_H_
 
 #define CPUSTAT_STOPPED    0x80000000
 #define CPUSTAT_WAIT       0x10000000
@@ -195,4 +195,4 @@ extern void sie_entry(void);
 extern void sie_exit(void);
 extern void sie64a(struct kvm_s390_sie_block *sblk, struct vm_save_area *save_area);
 
-#endif /* SIE_H */
+#endif /* _S390X_SIE_H_ */

@@ -10,8 +10,8 @@
  * Author: Christian Borntraeger <borntraeger@de.ibm.com>
  */
 
-#ifndef SCLP_H
-#define SCLP_H
+#ifndef _S390X_SCLP_H_
+#define _S390X_SCLP_H_
 
 #define SCLP_CMD_CODE_MASK                      0xffff00ff
 
@@ -329,4 +329,4 @@ void sclp_memory_setup(void);
 uint64_t get_ram_size(void);
 uint64_t get_max_ram_size(void);
 
-#endif /* SCLP_H */
+#endif /* _S390X_SCLP_H_ */

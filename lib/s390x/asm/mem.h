@@ -5,8 +5,8 @@
  * Copyright IBM Corp. 2018
  * Author(s): Janosch Frank <frankja@de.ibm.com>
  */
-#ifndef _ASM_S390_MEM_H
-#define _ASM_S390_MEM_H
+#ifndef _ASMS390X_MEM_H_
+#define _ASMS390X_MEM_H_
 
 #define SKEY_ACC	0xf0
 #define SKEY_FP		0x08

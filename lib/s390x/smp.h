@@ -7,8 +7,8 @@
  * Authors:
  *  Janosch Frank <frankja@linux.ibm.com>
  */
-#ifndef SMP_H
-#define SMP_H
+#ifndef _S390X_SMP_H_
+#define _S390X_SMP_H_
 
 #include <asm/arch_def.h>
 

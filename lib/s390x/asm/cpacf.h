@@ -8,8 +8,8 @@
  *	      Harald Freudenberger (freude@de.ibm.com)
  *	      Martin Schwidefsky <schwidefsky@de.ibm.com>
  */
-#ifndef _ASM_S390_CPACF_H
-#define _ASM_S390_CPACF_H
+#ifndef _ASMS390X_CPACF_H_
+#define _ASMS390X_CPACF_H_
 
 #include <asm/facility.h>
 #include <linux/compiler.h>
@@ -471,4 +471,4 @@ static inline void cpacf_pckmo(long func, void *param)
 		: "cc", "memory");
 }
 
-#endif	/* _ASM_S390_CPACF_H */
+#endif	/* _ASMS390X_CPACF_H_ */

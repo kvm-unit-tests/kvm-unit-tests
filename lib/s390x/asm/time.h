@@ -8,8 +8,8 @@
  * Copied from the s390/intercept test by:
  *  Pierre Morel <pmorel@linux.ibm.com>
  */
-#ifndef ASM_S390X_TIME_H
-#define ASM_S390X_TIME_H
+#ifndef _ASMS390X_TIME_H_
+#define _ASMS390X_TIME_H_
 
 #define STCK_SHIFT_US	(63 - 51)
 #define STCK_MAX	((1UL << 52) - 1)

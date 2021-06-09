@@ -5,8 +5,8 @@
  * Authors:
  *  David Hildenbrand <david@redhat.com>
  */
-#ifndef _ASM_S390X_ARCH_DEF_H_
-#define _ASM_S390X_ARCH_DEF_H_
+#ifndef _ASMS390X_ARCH_DEF_H_
+#define _ASMS390X_ARCH_DEF_H_
 
 struct stack_frame {
 	struct stack_frame *back_chain;

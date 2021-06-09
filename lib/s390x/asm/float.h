@@ -5,8 +5,8 @@
  * Authors:
  *  David Hildenbrand <david@redhat.com>
  */
-#ifndef _ASM_S390X_FLOAT_H_
-#define _ASM_S390X_FLOAT_H_
+#ifndef _ASMS390X_FLOAT_H_
+#define _ASMS390X_FLOAT_H_
 
 static inline void set_fpc(uint32_t fpc)
 {

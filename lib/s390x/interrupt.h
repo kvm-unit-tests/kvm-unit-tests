@@ -1,5 +1,5 @@
-#ifndef INTERRUPT_H
-#define INTERRUPT_H
+#ifndef _S390X_INTERRUPT_H_
+#define _S390X_INTERRUPT_H_
 #include <asm/interrupt.h>
 
 int register_io_int_func(void (*f)(void));

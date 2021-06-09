@@ -6,8 +6,8 @@
  *  Thomas Huth <thuth@redhat.com>
  *  David Hildenbrand <david@redhat.com>
  */
-#ifndef __ASMS390X_SPINLOCK_H
-#define __ASMS390X_SPINLOCK_H
+#ifndef _ASMS390X_SPINLOCK_H_
+#define _ASMS390X_SPINLOCK_H_
 
 #include <asm-generic/spinlock.h>
 

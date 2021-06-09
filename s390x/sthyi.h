@@ -7,8 +7,8 @@
  * Authors:
  *    Janosch Frank <frankja@linux.vnet.ibm.com>
  */
-#ifndef _STHYI_H_
-#define _STHYI_H_
+#ifndef S390X_STHYI_H
+#define S390X_STHYI_H
 
 #include <stdint.h>
 

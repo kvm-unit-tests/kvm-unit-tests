@@ -5,8 +5,8 @@
  * Copied from the Linux kernel file arch/s390/include/asm/sigp.h
  */
 
-#ifndef ASM_S390X_SIGP_H
-#define ASM_S390X_SIGP_H
+#ifndef _ASMS390X_SIGP_H_
+#define _ASMS390X_SIGP_H_
 
 /* SIGP order codes */
 #define SIGP_SENSE			1
@@ -73,4 +73,4 @@ static inline int sigp_retry(uint16_t addr, uint8_t order, unsigned long parm,
 }
 
 #endif /* __ASSEMBLER__ */
-#endif /* ASM_S390X_SIGP_H */
+#endif /* _ASMS390X_SIGP_H_ */

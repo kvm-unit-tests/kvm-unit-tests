@@ -6,8 +6,8 @@
  * Author: Pierre Morel <pmorel@linux.ibm.com>
  */
 
-#ifndef CSS_H
-#define CSS_H
+#ifndef _S390X_CSS_H_
+#define _S390X_CSS_H_
 
 #define lowcore_ptr ((struct lowcore *)0x0)
 

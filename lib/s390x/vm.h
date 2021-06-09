@@ -5,9 +5,9 @@
  * Copyright (c) 2020 Red Hat Inc
  */
 
-#ifndef S390X_VM_H
-#define S390X_VM_H
+#ifndef _S390X_VM_H_
+#define _S390X_VM_H_
 
 bool vm_is_tcg(void);
 
-#endif  /* S390X_VM_H */
+#endif  /* _S390X_VM_H_ */

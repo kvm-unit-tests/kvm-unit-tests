@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-#ifndef UV_H
-#define UV_H
+#ifndef _S390X_UV_H_
+#define _S390X_UV_H_
 
 bool uv_os_is_guest(void);
 bool uv_os_is_host(void);

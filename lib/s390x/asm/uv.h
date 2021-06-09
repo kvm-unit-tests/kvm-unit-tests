@@ -9,8 +9,8 @@
  * This code is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2.
  */
-#ifndef ASM_S390X_UV_H
-#define ASM_S390X_UV_H
+#ifndef _ASMS390X_UV_H_
+#define _ASMS390X_UV_H_
 
 #define UVC_RC_EXECUTED		0x0001
 #define UVC_RC_INV_CMD		0x0002

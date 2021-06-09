@@ -5,8 +5,8 @@
  * Authors:
  *  David Hildenbrand <david@redhat.com>
  */
-#ifndef _ASM_S390X_FACILITY_H_
-#define _ASM_S390X_FACILITY_H_
+#ifndef _ASMS390X_FACILITY_H_
+#define _ASMS390X_FACILITY_H_
 
 #include <libcflat.h>
 #include <asm/facility.h>
