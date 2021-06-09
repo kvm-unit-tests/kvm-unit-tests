@@ -150,6 +150,11 @@ int main(int ac, char **av)
 	uint64_t tsc1, t1, tsc2, t2;
 	uint64_t ref1, ref2;
 
+	if (!hv_time_ref_counter_supported()) {
+		report_skip("time reference counter is unsupported");
+		return report_summary();
+	}
+
 	setup_vm();
 
 	ncpus = cpu_count();
