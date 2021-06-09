@@ -156,6 +156,15 @@ Exceptions:
 
   - While the kernel standard requires 80 columns, we allow up to 120.
 
+Header guards:
+
+Please try to adhere to adhere to the following patterns when adding
+"#ifndef <...> #define <...>" header guards:
+    ./lib:             _HEADER_H_
+    ./lib/<ARCH>:      _ARCH_HEADER_H_
+    ./lib/<ARCH>/asm:  _ASMARCH_HEADER_H_
+    ./<ARCH>:          ARCH_HEADER_H
+
 ## Patches
 
 Patches are welcome at the KVM mailing list <kvm@vger.kernel.org>.
