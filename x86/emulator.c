@@ -1192,7 +1192,7 @@ int main(void)
 		test_mov_dr(mem);
 	} else {
 		report_skip("skipping register-only tests, "
-			    "use kvm.forced_emulation_prefix=1 to enable");
+			    "use kvm.force_emulation_prefix=1 to enable");
 	}
 
 	test_push16(mem);
