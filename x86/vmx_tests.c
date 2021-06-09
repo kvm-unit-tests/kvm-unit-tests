@@ -4413,6 +4413,9 @@ skip_unrestricted_guest:
 		case PF_VECTOR:
 		case AC_VECTOR:
 			has_error_code = true;
+		case CP_VECTOR:
+			/* Some CPUs have error code and some do not, skip */
+			continue;
 		}
 
 		/* Negative case */
