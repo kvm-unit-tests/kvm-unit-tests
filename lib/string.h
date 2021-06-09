@@ -4,8 +4,8 @@
  * This code is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Library General Public License version 2.
  */
-#ifndef __STRING_H
-#define __STRING_H
+#ifndef _STRING_H_
+#define _STRING_H_
 
 extern size_t strlen(const char *buf);
 extern size_t strnlen(const char *buf, size_t maxlen);
@@ -23,4 +23,4 @@ extern int memcmp(const void *s1, const void *s2, size_t n);
 extern void *memmove(void *dest, const void *src, size_t n);
 extern void *memchr(const void *s, int c, size_t n);
 
-#endif /* _STRING_H */
+#endif /* _STRING_H_ */

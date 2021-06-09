@@ -4,8 +4,8 @@
  * This code is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Library General Public License version 2.
  */
-#ifndef LIBCFLAT_SETJMP_H
-#define LIBCFLAT_SETJMP_H 1
+#ifndef _LIBCFLAT_SETJMP_H_
+#define _LIBCFLAT_SETJMP_H_
 
 typedef struct jmp_buf_tag {
 	long int regs[8];

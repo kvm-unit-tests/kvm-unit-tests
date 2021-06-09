@@ -1,5 +1,5 @@
-#ifndef VMALLOC_H
-#define VMALLOC_H 1
+#ifndef _VMALLOC_H_
+#define _VMALLOC_H_
 
 #include <asm/page.h>
 

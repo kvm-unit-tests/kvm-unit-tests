@@ -5,8 +5,8 @@
  * with byte granularity.
  */
 
-#ifndef ALLOC_PAGE_H
-#define ALLOC_PAGE_H 1
+#ifndef _ALLOC_PAGE_H_
+#define _ALLOC_PAGE_H_
 
 #include <stdbool.h>
 #include <asm/memory_areas.h>

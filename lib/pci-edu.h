@@ -12,8 +12,8 @@
  * Edu device is a virtualized device in QEMU. Please refer to
  * docs/specs/edu.txt in QEMU repository for EDU device manual.
  */
-#ifndef __PCI_EDU_H__
-#define __PCI_EDU_H__
+#ifndef _PCI_EDU_H_
+#define _PCI_EDU_H_
 
 #include "pci.h"
 #include "asm/io.h"

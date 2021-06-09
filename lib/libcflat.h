@@ -17,8 +17,8 @@
  * Authors: Hollis Blanchard <hollisb@us.ibm.com>
  */
 
-#ifndef __LIBCFLAT_H
-#define __LIBCFLAT_H
+#ifndef _LIBCFLAT_H_
+#define _LIBCFLAT_H_
 
 #ifndef __ASSEMBLY__
 

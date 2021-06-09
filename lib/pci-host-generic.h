@@ -1,5 +1,5 @@
-#ifndef PCI_HOST_GENERIC_H
-#define PCI_HOST_GENERIC_H
+#ifndef _PCI_HOST_GENERIC_H_
+#define _PCI_HOST_GENERIC_H_
 /*
  * PCI host bridge supporting structures and constants
  *
