@@ -544,6 +544,12 @@ int main(int ac, char **av)
 		printf("No pmu is detected!\n");
 		return report_summary();
 	}
+
+	if (eax.split.version_id == 1) {
+		printf("PMU version 1 is not supported\n");
+		return report_summary();
+	}
+
 	printf("PMU version:         %d\n", eax.split.version_id);
 	printf("GP counters:         %d\n", eax.split.num_counters);
 	printf("GP counter width:    %d\n", eax.split.bit_width);
