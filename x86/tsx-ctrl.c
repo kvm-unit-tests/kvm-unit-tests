@@ -27,15 +27,15 @@ int main(int ac, char **av)
 {
     if (!this_cpu_has(X86_FEATURE_RTM)) {
         report_skip("TSX not available");
-	return 0;
+	return report_summary();
     }
     if (!this_cpu_has(X86_FEATURE_ARCH_CAPABILITIES)) {
         report_skip("ARCH_CAPABILITIES not available");
-	return 0;
+	return report_summary();
     }
     if (!(rdmsr(MSR_IA32_ARCH_CAPABILITIES) & ARCH_CAP_TSX_CTRL_MSR)) {
         report_skip("TSX_CTRL not available");
-	return 0;
+	return report_summary();
     }
 
     report(rdmsr(MSR_IA32_TSX_CTRL) == 0, "TSX_CTRL should be 0");
