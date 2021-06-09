@@ -1,5 +1,6 @@
 #include "libcflat.h"
 #include "smp.h"
+#include "fwcfg.h"
 #include "asm/io.h"
 #include "asm/page.h"
 #include "vmalloc.h"
@@ -99,6 +100,8 @@ void exit(int code)
 #else
         asm volatile("out %0, %1" : : "a"(code), "d"((short)0xf4));
 #endif
+	if (no_test_device)
+		printf("--- DONE: %d ---\n", code);
 
 	/* Fallback */
 	while (1) {

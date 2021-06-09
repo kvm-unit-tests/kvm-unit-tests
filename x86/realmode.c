@@ -125,6 +125,11 @@ static void exit(int code)
 {
 	outb(code, 0xf4);
 
+	if (code == 0)
+		print_serial("--- DONE: 0 ---\n");
+	else
+		print_serial("--- DONE: 1 ---\n");
+
 	while (1) {
 		asm volatile("hlt" ::: "memory");
 	}
