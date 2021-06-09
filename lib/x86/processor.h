@@ -118,6 +118,14 @@ static inline u8 cpuid_maxphyaddr(void)
     return raw_cpuid(0x80000008, 0).a & 0xff;
 }
 
+static inline bool is_intel(void)
+{
+	struct cpuid c = cpuid(0);
+	u32 name[4] = {c.b, c.d, c.c };
+
+	return strcmp((char *)name, "GenuineIntel") == 0;
+}
+
 #define	CPUID(a, b, c, d) ((((unsigned long long) a) << 32) | (b << 16) | \
 			  (c << 8) | d)
 

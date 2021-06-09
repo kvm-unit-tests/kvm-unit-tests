@@ -2,6 +2,7 @@
 #include "vm.h"
 #include "desc.h"
 #include "alloc_page.h"
+#include "fwcfg.h"
 
 #define KVM_HYPERCALL_INTEL ".byte 0x0f,0x01,0xc1"
 #define KVM_HYPERCALL_AMD ".byte 0x0f,0x01,0xd9"
@@ -51,10 +52,18 @@ test_edge(void)
 
 int main(int ac, char **av)
 {
-	kvm_hypercall0_intel(-1u);
-	printf("Hypercall via VMCALL: OK\n");
-	kvm_hypercall0_amd(-1u);
-	printf("Hypercall via VMMCALL: OK\n");
+	bool test_vmcall = !no_test_device || is_intel();
+	bool test_vmmcall = !no_test_device || !is_intel();
+
+	if (test_vmcall) {
+		kvm_hypercall0_intel(-1u);
+		printf("Hypercall via VMCALL: OK\n");
+	}
+
+	if (test_vmmcall) {
+		kvm_hypercall0_amd(-1u);
+		printf("Hypercall via VMMCALL: OK\n");
+	}
 
 #ifdef __x86_64__
 	setup_vm();
@@ -70,12 +79,18 @@ int main(int ac, char **av)
 	topmost[4093] = 0x0f;
 	topmost[4094] = 0x01;
 	topmost[4095] = 0xc1;
-	report(test_edge(),
-	       "VMCALL on edge of canonical address space (intel)");
+
+	if (test_vmcall) {
+		report(test_edge(),
+		       "VMCALL on edge of canonical address space (intel)");
+	}
 
 	topmost[4095] = 0xd9;
-	report(test_edge(),
-	       "VMMCALL on edge of canonical address space (AMD)");
+
+	if (test_vmmcall) {
+		report(test_edge(),
+		       "VMMCALL on edge of canonical address space (AMD)");
+	}
 #endif
 
 	return report_summary();
