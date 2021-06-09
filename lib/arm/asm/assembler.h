@@ -8,8 +8,8 @@
 #error "Only include this from assembly code"
 #endif
 
-#ifndef __ASM_ASSEMBLER_H
-#define __ASM_ASSEMBLER_H
+#ifndef _ASMARM_ASSEMBLER_H_
+#define _ASMARM_ASSEMBLER_H_
 
 /*
  * dcache_line_size - get the minimum D-cache line size from the CTR register
@@ -50,4 +50,4 @@
 	dsb	\domain
 	.endm
 
-#endif	/* __ASM_ASSEMBLER_H */
+#endif	/* _ASMARM_ASSEMBLER_H_ */

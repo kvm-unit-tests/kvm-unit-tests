@@ -12,8 +12,8 @@
 #error "Only include this from assembly code"
 #endif
 
-#ifndef __ASM_ASSEMBLER_H
-#define __ASM_ASSEMBLER_H
+#ifndef _ASMARM64_ASSEMBLER_H_
+#define _ASMARM64_ASSEMBLER_H_
 
 /*
  * raw_dcache_line_size - get the minimum D-cache line size on this CPU
@@ -51,4 +51,4 @@
 	dsb	\domain
 	.endm
 
-#endif	/* __ASM_ASSEMBLER_H */
+#endif	/* _ASMARM64_ASSEMBLER_H_ */
