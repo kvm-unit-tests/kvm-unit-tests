@@ -1,5 +1,5 @@
-#ifndef __ASM_GENERIC_ATOMIC_H__
-#define __ASM_GENERIC_ATOMIC_H__
+#ifndef _ASM_GENERIC_ATOMIC_H_
+#define _ASM_GENERIC_ATOMIC_H_
 
 /* From QEMU include/qemu/atomic.h */
 #define atomic_fetch_inc(ptr)  __sync_fetch_and_add(ptr, 1)

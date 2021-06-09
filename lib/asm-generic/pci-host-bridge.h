@@ -1,5 +1,5 @@
-#ifndef _ASM_PCI_HOST_BRIDGE_H_
-#define _ASM_PCI_HOST_BRIDGE_H_
+#ifndef _ASM_GENERIC_PCI_HOST_BRIDGE_H_
+#define _ASM_GENERIC_PCI_HOST_BRIDGE_H_
 /*
  * Copyright (C) 2016, Red Hat Inc, Alexander Gordeev <agordeev@redhat.com>
  *
