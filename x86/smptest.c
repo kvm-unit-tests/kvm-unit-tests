@@ -1,4 +1,5 @@
 #include "libcflat.h"
+#include "apic.h"
 #include "smp.h"
 
 unsigned nipis;
@@ -8,7 +9,7 @@ static void ipi_test(void *data)
     int n = (long)data;
 
     printf("ipi called, cpu %d\n", n);
-    if (n != smp_id())
+    if (id_map[n] != smp_id())
 	printf("but wrong cpu %d\n", smp_id());
     else
         nipis++;
