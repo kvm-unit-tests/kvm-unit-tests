@@ -1,5 +1,5 @@
-#ifndef __FAULT_TEST__
-#define __FAULT_TEST__
+#ifndef _X86_FAULT_TEST_H_
+#define _X86_FAULT_TEST_H_
 
 #include "x86/msr.h"
 #include "x86/processor.h"

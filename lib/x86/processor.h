@@ -1,5 +1,5 @@
-#ifndef LIBCFLAT_PROCESSOR_H
-#define LIBCFLAT_PROCESSOR_H
+#ifndef _X86_PROCESSOR_H_
+#define _X86_PROCESSOR_H_
 
 #include "libcflat.h"
 #include "desc.h"

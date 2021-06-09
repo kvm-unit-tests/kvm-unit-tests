@@ -1,5 +1,5 @@
-#ifndef __TYPES_H
-#define __TYPES_H
+#ifndef X86_TYPES_H
+#define X86_TYPES_H
 
 #define DE_VECTOR 0
 #define DB_VECTOR 1

@@ -1,5 +1,5 @@
-#ifndef __ASM_SPINLOCK_H
-#define __ASM_SPINLOCK_H
+#ifndef _ASMX86_SPINLOCK_H_
+#define _ASMX86_SPINLOCK_H_
 
 #include <asm-generic/spinlock.h>
 

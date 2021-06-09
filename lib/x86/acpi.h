@@ -1,5 +1,5 @@
-#ifndef KVM_ACPI_H
-#define KVM_ACPI_H 1
+#ifndef _X86_ACPI_H_
+#define _X86_ACPI_H_
 
 #include "libcflat.h"
 

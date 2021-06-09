@@ -1,5 +1,5 @@
-#ifndef __SMP_H
-#define __SMP_H
+#ifndef _X86_SMP_H_
+#define _X86_SMP_H_
 #include <asm/spinlock.h>
 
 void smp_init(void);

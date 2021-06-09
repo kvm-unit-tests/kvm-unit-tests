@@ -12,8 +12,8 @@
  * (From include/linux/intel-iommu.h)
  */
 
-#ifndef __INTEL_IOMMU_H__
-#define __INTEL_IOMMU_H__
+#ifndef _X86_INTEL_IOMMU_H_
+#define _X86_INTEL_IOMMU_H_
 
 #include "libcflat.h"
 #include "isr.h"

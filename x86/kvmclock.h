@@ -1,5 +1,5 @@
-#ifndef KVMCLOCK_H
-#define KVMCLOCK_H
+#ifndef X86_KVMCLOCK_H
+#define X86_KVMCLOCK_H
 
 #define MSR_KVM_WALL_CLOCK_NEW  0x4b564d00
 #define MSR_KVM_SYSTEM_TIME_NEW 0x4b564d01

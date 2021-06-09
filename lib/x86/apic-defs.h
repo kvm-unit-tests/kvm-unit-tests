@@ -1,5 +1,5 @@
-#ifndef _ASM_X86_APICDEF_H
-#define _ASM_X86_APICDEF_H
+#ifndef _X86_APIC_DEFS_H_
+#define _X86_APIC_DEFS_H_
 
 /*
  * Abuse this header file to hold the number of max-cpus, making it available
@@ -144,4 +144,4 @@
 
 #define APIC_BASE_MSR	0x800
 
-#endif /* _ASM_X86_APICDEF_H */
+#endif /* _X86_APIC_DEFS_H_ */

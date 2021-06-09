@@ -1,5 +1,5 @@
-#ifndef __VMX_H
-#define __VMX_H
+#ifndef X86_VMX_H
+#define X86_VMX_H
 
 #include "libcflat.h"
 #include "processor.h"

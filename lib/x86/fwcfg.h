@@ -1,5 +1,5 @@
-#ifndef FWCFG_H
-#define FWCFG_H
+#ifndef _X86_FWCFG_H_
+#define _X86_FWCFG_H_
 
 #include <stdint.h>
 #include <stdbool.h>

@@ -1,5 +1,5 @@
-#ifndef __HYPERV_H
-#define __HYPERV_H
+#ifndef X86_HYPERV_H
+#define X86_HYPERV_H
 
 #include "libcflat.h"
 #include "processor.h"

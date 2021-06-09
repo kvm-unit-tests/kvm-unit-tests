@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
-#ifndef _UAPI_ASM_X86_DEBUGREG_H
-#define _UAPI_ASM_X86_DEBUGREG_H
+#ifndef _ASMX86_DEBUGREG_H_
+#define _ASMX86_DEBUGREG_H_
 
 
 /* Indicate the register numbers for a number of the specific
@@ -78,4 +78,4 @@
  * HW breakpoint additions
  */
 
-#endif /* _UAPI_ASM_X86_DEBUGREG_H */
+#endif /* _ASMX86_DEBUGREG_H_ */

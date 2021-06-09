@@ -1,5 +1,5 @@
-#ifndef __ATOMIC_H
-#define __ATOMIC_H
+#ifndef _X86_ATOMIC_H_
+#define _X86_ATOMIC_H_
 
 #include "asm-generic/atomic.h"
 

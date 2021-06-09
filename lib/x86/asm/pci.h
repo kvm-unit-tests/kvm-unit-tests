@@ -1,5 +1,5 @@
-#ifndef ASM_PCI_H
-#define ASM_PCI_H
+#ifndef _ASMX86_PCI_H_
+#define _ASMX86_PCI_H_
 /*
  * Copyright (C) 2013, Red Hat Inc, Michael S. Tsirkin <mst@redhat.com>
  *

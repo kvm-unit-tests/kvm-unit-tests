@@ -1,5 +1,5 @@
-#ifndef _ASM_X86_MSR_INDEX_H
-#define _ASM_X86_MSR_INDEX_H
+#ifndef _X86_MSR_H_
+#define _X86_MSR_H_
 
 /* CPU model specific register (MSR) numbers */
 
@@ -435,4 +435,4 @@
 #define MSR_VM_IGNNE                    0xc0010115
 #define MSR_VM_HSAVE_PA                 0xc0010117
 
-#endif /* _ASM_X86_MSR_INDEX_H */
+#endif /* _X86_MSR_H_ */

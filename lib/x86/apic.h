@@ -1,5 +1,5 @@
-#ifndef CFLAT_APIC_H
-#define CFLAT_APIC_H
+#ifndef _X86_APIC_H_
+#define _X86_APIC_H_
 
 #include <stdint.h>
 #include "apic-defs.h"

@@ -1,5 +1,5 @@
-#ifndef VM_H
-#define VM_H
+#ifndef _X86_VM_H_
+#define _X86_VM_H_
 
 #include "processor.h"
 #include "asm/page.h"

@@ -1,5 +1,5 @@
-#ifndef _ASM_X86_BARRIER_H_
-#define _ASM_X86_BARRIER_H_
+#ifndef _ASMX86_BARRIER_H_
+#define _ASMX86_BARRIER_H_
 /*
  * Copyright (C) 2016, Red Hat Inc, Alexander Gordeev <agordeev@redhat.com>
  *

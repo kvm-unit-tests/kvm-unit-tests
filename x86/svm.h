@@ -1,5 +1,5 @@
-#ifndef __SVM_H
-#define __SVM_H
+#ifndef X86_SVM_H
+#define X86_SVM_H
 
 #include "libcflat.h"
 

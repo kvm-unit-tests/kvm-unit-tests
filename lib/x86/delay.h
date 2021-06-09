@@ -1,5 +1,5 @@
-#ifndef __X86_DELAY__
-#define __X86_DELAY__
+#ifndef _X86_DELAY_H_
+#define _X86_DELAY_H_
 
 #include "libcflat.h"
 

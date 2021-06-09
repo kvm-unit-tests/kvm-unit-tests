@@ -1,5 +1,5 @@
-#ifndef __IDT_TEST__
-#define __IDT_TEST__
+#ifndef _X86_DESC_H_
+#define _X86_DESC_H_
 
 #include <setjmp.h>
 

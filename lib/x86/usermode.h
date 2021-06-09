@@ -1,5 +1,5 @@
-#ifndef _USERMODE_H_
-#define _USERMODE_H_
+#ifndef _X86_USERMODE_H_
+#define _X86_USERMODE_H_
 
 #include "x86/msr.h"
 #include "x86/processor.h"

@@ -1,5 +1,5 @@
-#ifndef _ASM_X86_IO_H_
-#define _ASM_X86_IO_H_
+#ifndef _ASMX86_IO_H_
+#define _ASMX86_IO_H_
 
 #define __iomem
 
