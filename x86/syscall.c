@@ -4,6 +4,7 @@
 #include "processor.h"
 #include "msr.h"
 #include "desc.h"
+#include "fwcfg.h"
 
 static void test_syscall_lazy_load(void)
 {
@@ -101,7 +102,11 @@ static void test_syscall_tf(void)
 int main(int ac, char **av)
 {
     test_syscall_lazy_load();
-    test_syscall_tf();
+
+    if (!no_test_device || !is_intel())
+        test_syscall_tf();
+    else
+        report_skip("syscall TF handling");
 
     return report_summary();
 }
