@@ -1,6 +1,6 @@
-#ifndef _ASMPOWERPC_SPAPR_H_
-#define _ASMPOWERPC_SPAPR_H_
+#ifndef POWERPC_SPAPR_H
+#define POWERPC_SPAPR_H
 
 #define SPAPR_KERNEL_LOAD_ADDR 0x400000
 
-#endif /* _ASMPOWERPC_SPAPR_H_ */
+#endif /* POWERPC_SPAPR_H */
