@@ -1,5 +1,5 @@
-#ifndef __ASMARM_MMU_API_H_
-#define __ASMARM_MMU_API_H_
+#ifndef _ASMARM_MMU_API_H_
+#define _ASMARM_MMU_API_H_
 
 #include <asm/page.h>
 #include <stdbool.h>

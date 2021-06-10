@@ -1,5 +1,5 @@
-#ifndef PCI_H
-#define PCI_H
+#ifndef _PCI_H_
+#define _PCI_H_
 /*
  * API for scanning a PCI bus for a given device, as well to access
  * BAR registers.
@@ -102,4 +102,4 @@ struct pci_test_dev_hdr {
 
 #define  PCI_HEADER_TYPE_MASK		0x7f
 
-#endif /* PCI_H */
+#endif /* _PCI_H_ */

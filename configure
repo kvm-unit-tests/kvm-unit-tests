@@ -332,8 +332,8 @@ if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
 fi
 
 cat <<EOF > lib/config.h
-#ifndef CONFIG_H
-#define CONFIG_H 1
+#ifndef _CONFIG_H_
+#define _CONFIG_H_
 /*
  * Generated file. DO NOT MODIFY.
  *

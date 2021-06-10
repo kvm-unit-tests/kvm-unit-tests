@@ -1,5 +1,5 @@
-#ifndef __ASMARM_MMU_H_
-#define __ASMARM_MMU_H_
+#ifndef _ASMARM_MMU_H_
+#define _ASMARM_MMU_H_
 /*
  * Copyright (C) 2014, Red Hat Inc, Andrew Jones <drjones@redhat.com>
  *
@@ -53,4 +53,4 @@ static inline void flush_dcache_addr(unsigned long vaddr)
 
 #include <asm/mmu-api.h>
 
-#endif /* __ASMARM_MMU_H_ */
+#endif /* _ASMARM_MMU_H_ */
