@@ -141,10 +141,15 @@ static void print_int_regs(struct stack_frame_int *stack)
 static void print_pgm_info(struct stack_frame_int *stack)
 
 {
+	bool in_sie;
+
+	in_sie = (lc->pgm_old_psw.addr >= (uintptr_t)sie_entry &&
+		  lc->pgm_old_psw.addr <= (uintptr_t)sie_exit);
+
 	printf("\n");
-	printf("Unexpected program interrupt: %d on cpu %d at %#lx, ilen %d\n",
-	       lc->pgm_int_code, stap(), lc->pgm_old_psw.addr,
-	       lc->pgm_int_id);
+	printf("Unexpected program interrupt %s: %d on cpu %d at %#lx, ilen %d\n",
+	       in_sie ? "in SIE" : "",
+	       lc->pgm_int_code, stap(), lc->pgm_old_psw.addr, lc->pgm_int_id);
 	print_int_regs(stack);
 	dump_stack();
 	report_summary();
