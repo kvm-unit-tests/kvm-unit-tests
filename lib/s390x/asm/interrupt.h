@@ -27,13 +27,13 @@ void check_pgm_int_code(uint16_t code);
 /* Activate low-address protection */
 static inline void low_prot_enable(void)
 {
-	ctl_set_bit(0, 63 - 35);
+	ctl_set_bit(0, CTL0_LOW_ADDR_PROT);
 }
 
 /* Disable low-address protection */
 static inline void low_prot_disable(void)
 {
-	ctl_clear_bit(0, 63 - 35);
+	ctl_clear_bit(0, CTL0_LOW_ADDR_PROT);
 }
 
 #endif

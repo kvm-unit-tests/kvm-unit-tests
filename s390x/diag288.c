@@ -86,7 +86,7 @@ static void test_bite(void)
 	asm volatile("stck %0" : "=Q" (time) : : "cc");
 	time += (uint64_t)(16000 * 1000) << 12;
 	asm volatile("sckc %0" : : "Q" (time));
-	ctl_set_bit(0, 11);
+	ctl_set_bit(0, CTL0_CLOCK_COMPARATOR);
 	mask = extract_psw_mask();
 	mask |= PSW_MASK_EXT;
 	load_psw_mask(mask);

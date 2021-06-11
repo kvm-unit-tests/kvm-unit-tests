@@ -50,7 +50,7 @@ void sclp_setup_int(void)
 {
 	uint64_t mask;
 
-	ctl_set_bit(0, 9);
+	ctl_set_bit(0, CTL0_SERVICE_SIGNAL);
 
 	mask = extract_psw_mask();
 	mask |= PSW_MASK_EXT;
@@ -59,7 +59,7 @@ void sclp_setup_int(void)
 
 void sclp_handle_ext(void)
 {
-	ctl_clear_bit(0, 9);
+	ctl_clear_bit(0, CTL0_SERVICE_SIGNAL);
 	spin_lock(&sclp_lock);
 	sclp_busy = false;
 	spin_unlock(&sclp_lock);

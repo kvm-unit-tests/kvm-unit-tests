@@ -106,7 +106,7 @@ static void test_bcd_add(void)
 static void init(void)
 {
 	/* Enable vector instructions */
-	ctl_set_bit(0, 17);
+	ctl_set_bit(0, CTL0_VECTOR);
 
 	/* Preset vector registers to 0xff */
 	memset(pagebuf, 0xff, PAGE_SIZE);

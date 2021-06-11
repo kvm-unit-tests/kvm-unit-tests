@@ -22,7 +22,7 @@ static void test_iep(void)
 	void (*fn)(void);
 
 	/* Enable IEP */
-	ctl_set_bit(0, 20);
+	ctl_set_bit(0, CTL0_IEP);
 
 	/* Get and protect a page with the IEP bit */
 	iepbuf = alloc_page();
@@ -40,7 +40,7 @@ static void test_iep(void)
 	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
 	report_prefix_pop();
 	unprotect_page(iepbuf, PAGE_ENTRY_IEP);
-	ctl_clear_bit(0, 20);
+	ctl_clear_bit(0, CTL0_IEP);
 	free_page(iepbuf);
 }
 

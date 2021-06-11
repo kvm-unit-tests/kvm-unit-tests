@@ -38,12 +38,12 @@ static inline void set_fpc_dxc(uint8_t dxc)
 
 static inline void afp_enable(void)
 {
-	ctl_set_bit(0, 63 - 45);
+	ctl_set_bit(0, CTL0_AFP);
 }
 
 static inline void afp_disable(void)
 {
-	ctl_clear_bit(0, 63 - 45);
+	ctl_clear_bit(0, CTL0_AFP);
 }
 
 #endif
