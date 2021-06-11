@@ -2421,9 +2421,6 @@ static void test_msrpm_iopm_bitmap_addrs(void)
 	u64 addr = virt_to_phys(msr_bitmap) & (~((1ull << 12) - 1));
 
 	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_MSR_PROT,
-			addr_beyond_limit - 3 * PAGE_SIZE, SVM_EXIT_ERR,
-			"MSRPM");
-	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_MSR_PROT,
 			addr_beyond_limit - 2 * PAGE_SIZE, SVM_EXIT_ERR,
 			"MSRPM");
 	TEST_BITMAP_ADDR(saved_intercept, INTERCEPT_MSR_PROT,
