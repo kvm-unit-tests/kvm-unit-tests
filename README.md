@@ -158,7 +158,7 @@ Exceptions:
 
 Header guards:
 
-Please try to adhere to adhere to the following patterns when adding
+Please try to adhere to the following patterns when adding
 "#ifndef <...> #define <...>" header guards:
     ./lib:             _HEADER_H_
     ./lib/<ARCH>:      _ARCH_HEADER_H_
