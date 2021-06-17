@@ -216,8 +216,12 @@ static unsigned set_cr4_smep(int smep)
     if (smep)
         ptl2[2] &= ~PT_USER_MASK;
     r = write_cr4_checking(cr4);
-    if (r || !smep)
+    if (r || !smep) {
         ptl2[2] |= PT_USER_MASK;
+
+	/* Flush to avoid spurious #PF */
+	invlpg((void *)(2 << 21));
+    }
     if (!r)
         shadow_cr4 = cr4;
     return r;
