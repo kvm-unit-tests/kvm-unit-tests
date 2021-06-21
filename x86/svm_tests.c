@@ -2251,8 +2251,12 @@ static void test_efer(void)
 
 	/*
 	 * EFER.LME and CR0.PG are both set and CR0.PE is zero.
+	 * CR4.PAE needs to be set as we otherwise cannot
+	 * determine if CR4.PAE=0 or CR0.PE=0 triggered the
+	 * SVM_EXIT_ERR.
 	 */
-	vmcb->save.cr4 = cr4_saved | X86_CR4_PAE;
+	cr4 = cr4_saved | X86_CR4_PAE;
+	vmcb->save.cr4 = cr4;
 	cr0 &= ~X86_CR0_PE;
 	vmcb->save.cr0 = cr0;
 	report(svm_vmrun() == SVM_EXIT_ERR, "EFER.LME=1 (%lx), "
