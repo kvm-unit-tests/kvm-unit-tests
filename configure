@@ -8,6 +8,7 @@ fi
 srcdir=$(cd "$(dirname "$0")"; pwd)
 prefix=/usr/local
 cc=gcc
+cflags=
 ld=ld
 objcopy=objcopy
 objdump=objdump
@@ -38,8 +39,9 @@ usage() {
 	    --target=TARGET        target platform that the tests will be running on (qemu or
 	                           kvmtool, default is qemu) (arm/arm64 only)
 	    --cross-prefix=PREFIX  cross compiler prefix
-	    --cc=CC		   c compiler to use ($cc)
-	    --ld=LD		   ld linker to use ($ld)
+	    --cc=CC                c compiler to use ($cc)
+	    --cflags=FLAGS         extra options to be passed to the c compiler
+	    --ld=LD                ld linker to use ($ld)
 	    --prefix=PREFIX        where to install things ($prefix)
 	    --endian=ENDIAN        endianness to compile for (little or big, ppc64 only)
 	    --[enable|disable]-pretty-print-stacks
@@ -99,6 +101,9 @@ while [[ "$1" = -* ]]; do
 	    ;;
 	--cc)
 	    cc="$arg"
+	    ;;
+	--cflags)
+	    cflags="$arg"
 	    ;;
 	--ld)
 	    ld="$arg"
@@ -316,6 +321,7 @@ ARCH=$arch
 ARCH_NAME=$arch_name
 PROCESSOR=$processor
 CC=$cross_prefix$cc
+CFLAGS=$cflags
 LD=$cross_prefix$ld
 OBJCOPY=$cross_prefix$objcopy
 OBJDUMP=$cross_prefix$objdump

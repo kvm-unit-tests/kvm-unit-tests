@@ -22,9 +22,6 @@ DESTDIR := $(PREFIX)/share/kvm-unit-tests/
 cc-option = $(shell if $(CC) -Werror $(1) -S -o /dev/null -xc /dev/null \
               > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi ;)
 
-#make sure env CFLAGS variable is not used
-CFLAGS =
-
 libcflat := lib/libcflat.a
 cflatobjs := \
 	lib/argv.o \
