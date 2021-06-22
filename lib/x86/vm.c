@@ -4,6 +4,8 @@
 #include "alloc_page.h"
 #include "smp.h"
 
+static pteval_t pte_opt_mask;
+
 pteval_t *install_pte(pgd_t *cr3,
 		      int pte_level,
 		      void *virt,
@@ -23,7 +25,7 @@ pteval_t *install_pte(pgd_t *cr3,
             else
                 pt_page = 0;
 	    memset(new_pt, 0, PAGE_SIZE);
-	    pt[offset] = virt_to_phys(new_pt) | PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_USER_MASK;
+	    pt[offset] = virt_to_phys(new_pt) | PT_PRESENT_MASK | PT_WRITABLE_MASK | pte_opt_mask;
 	}
 	pt = phys_to_virt(pt[offset] & PT_ADDR_MASK);
     }
@@ -93,12 +95,12 @@ pteval_t *get_pte_level(pgd_t *cr3, void *virt, int pte_level)
 pteval_t *install_large_page(pgd_t *cr3, phys_addr_t phys, void *virt)
 {
     return install_pte(cr3, 2, virt,
-		       phys | PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_USER_MASK | PT_PAGE_SIZE_MASK, 0);
+		       phys | PT_PRESENT_MASK | PT_WRITABLE_MASK | pte_opt_mask | PT_PAGE_SIZE_MASK, 0);
 }
 
 pteval_t *install_page(pgd_t *cr3, phys_addr_t phys, void *virt)
 {
-    return install_pte(cr3, 1, virt, phys | PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_USER_MASK, 0);
+    return install_pte(cr3, 1, virt, phys | PT_PRESENT_MASK | PT_WRITABLE_MASK | pte_opt_mask, 0);
 }
 
 void install_pages(pgd_t *cr3, phys_addr_t phys, size_t len, void *virt)
@@ -147,11 +149,16 @@ static void set_additional_vcpu_vmregs(struct vm_vcpu_info *info)
 	write_cr0(info->cr0);
 }
 
-void *setup_mmu(phys_addr_t end_of_memory, void *unused)
+void *setup_mmu(phys_addr_t end_of_memory, void *opt_mask)
 {
     pgd_t *cr3 = alloc_page();
     struct vm_vcpu_info info;
     int i;
+
+    if (opt_mask)
+	pte_opt_mask = *(pteval_t *)opt_mask;
+    else
+	pte_opt_mask = PT_USER_MASK;
 
     memset(cr3, 0, PAGE_SIZE);
 
