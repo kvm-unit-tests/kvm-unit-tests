@@ -206,7 +206,7 @@ void init_alloc_vpage(void *top)
 	spin_unlock(&lock);
 }
 
-void setup_vm()
+void __setup_vm(void *opaque)
 {
 	phys_addr_t base, top;
 
@@ -228,7 +228,7 @@ void setup_vm()
 
 	find_highmem();
 	phys_alloc_get_unused(&base, &top);
-	page_root = setup_mmu(top);
+	page_root = setup_mmu(top, opaque);
 	if (base != top) {
 		base = PAGE_ALIGN(base) >> PAGE_SHIFT;
 		top = top >> PAGE_SHIFT;
@@ -239,4 +239,9 @@ void setup_vm()
 	assert(alloc_ops != &vmalloc_ops);
 	alloc_ops = &vmalloc_ops;
 	spin_unlock(&lock);
+}
+
+void setup_vm(void)
+{
+	__setup_vm(NULL);
 }

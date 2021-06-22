@@ -446,7 +446,7 @@ static void setup_vmem(void)
 {
 	uint64_t asce, mask;
 
-	setup_mmu(get_max_ram_size());
+	setup_mmu(get_max_ram_size(), NULL);
 	asce = stctg(1);
 	lctlg(13, asce);
 	mask = extract_psw_mask() | 0x0000C00000000000UL;

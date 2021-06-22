@@ -147,7 +147,7 @@ static void set_additional_vcpu_vmregs(struct vm_vcpu_info *info)
 	write_cr0(info->cr0);
 }
 
-void *setup_mmu(phys_addr_t end_of_memory)
+void *setup_mmu(phys_addr_t end_of_memory, void *unused)
 {
     pgd_t *cr3 = alloc_page();
     struct vm_vcpu_info info;

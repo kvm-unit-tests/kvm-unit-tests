@@ -343,7 +343,8 @@ static void setup_identity(pgd_t *pgtable, phys_addr_t start_addr,
 	}
 }
 
-void *setup_mmu(phys_addr_t phys_end){
+void *setup_mmu(phys_addr_t phys_end, void *unused)
+{
 	pgd_t *page_root;
 
 	/* allocate a region-1 table */

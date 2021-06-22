@@ -153,7 +153,7 @@ void mmu_set_range_sect(pgd_t *pgtable, uintptr_t virt_offset,
 	}
 }
 
-void *setup_mmu(phys_addr_t phys_end)
+void *setup_mmu(phys_addr_t phys_end, void *unused)
 {
 	struct mem_region *r;
 
