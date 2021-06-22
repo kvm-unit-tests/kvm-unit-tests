@@ -17,9 +17,11 @@ all: directories $(TEST_DIR)/boot_rom.bin $(tests-all)
 
 ##################################################################
 
+mabi_no_altivec := $(call cc-option,-mabi=no-altivec,"")
+
 CFLAGS += -std=gnu99
 CFLAGS += -ffreestanding
-CFLAGS += -O2 -msoft-float -mabi=no-altivec -mno-altivec
+CFLAGS += -O2 -msoft-float -mno-altivec $(mabi_no_altivec)
 CFLAGS += -I $(SRCDIR)/lib -I $(SRCDIR)/lib/libfdt -I lib
 CFLAGS += -Wa,-mregnames
 
