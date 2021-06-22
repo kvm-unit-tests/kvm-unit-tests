@@ -141,7 +141,7 @@ static inline bool is_intel(void)
  */
 
 /*
- * Intel CPUID features
+ * Basic Leafs, a.k.a. Intel defined
  */
 #define	X86_FEATURE_MWAIT		(CPUID(0x1, 0, ECX, 3))
 #define	X86_FEATURE_VMX			(CPUID(0x1, 0, ECX, 5))
@@ -174,15 +174,16 @@ static inline bool is_intel(void)
 #define	X86_FEATURE_SPEC_CTRL		(CPUID(0x7, 0, EDX, 26))
 #define	X86_FEATURE_ARCH_CAPABILITIES	(CPUID(0x7, 0, EDX, 29))
 #define	X86_FEATURE_PKS			(CPUID(0x7, 0, ECX, 31))
-#define	X86_FEATURE_NX			(CPUID(0x80000001, 0, EDX, 20))
-#define	X86_FEATURE_LM			(CPUID(0x80000001, 0, EDX, 29))
-#define	X86_FEATURE_RDPRU		(CPUID(0x80000008, 0, EBX, 4))
 
 /*
- * AMD CPUID features
+ * Extended Leafs, a.k.a. AMD defined
  */
 #define	X86_FEATURE_SVM			(CPUID(0x80000001, 0, ECX, 2))
+#define	X86_FEATURE_NX			(CPUID(0x80000001, 0, EDX, 20))
+#define	X86_FEATURE_GBPAGES		(CPUID(0x80000001, 0, EDX, 26))
 #define	X86_FEATURE_RDTSCP		(CPUID(0x80000001, 0, EDX, 27))
+#define	X86_FEATURE_LM			(CPUID(0x80000001, 0, EDX, 29))
+#define	X86_FEATURE_RDPRU		(CPUID(0x80000008, 0, EBX, 4))
 #define	X86_FEATURE_AMD_IBPB		(CPUID(0x80000008, 0, EBX, 12))
 #define	X86_FEATURE_NPT			(CPUID(0x8000000A, 0, EDX, 0))
 #define	X86_FEATURE_NRIPS		(CPUID(0x8000000A, 0, EDX, 3))
