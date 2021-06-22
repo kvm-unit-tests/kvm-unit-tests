@@ -707,16 +707,16 @@ static void npt_nx_prepare(struct svm_test *test)
     vmcb_ident(vmcb);
     pte = npt_get_pte((u64)null_test);
 
-    *pte |= (1ULL << 63);
+    *pte |= PT64_NX_MASK;
 }
 
 static bool npt_nx_check(struct svm_test *test)
 {
     u64 *pte = npt_get_pte((u64)null_test);
 
-    *pte &= ~(1ULL << 63);
+    *pte &= ~PT64_NX_MASK;
 
-    vmcb->save.efer |= (1 << 11);
+    vmcb->save.efer |= EFER_NX;
 
     return (vmcb->control.exit_code == SVM_EXIT_NPF)
            && (vmcb->control.exit_info_1 == 0x100000015ULL);
