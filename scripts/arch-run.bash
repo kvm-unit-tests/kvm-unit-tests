@@ -111,11 +111,11 @@ run_migration ()
 		return 2
 	fi
 
-	migsock=`mktemp -u -t mig-helper-socket.XXXXXXXXXX`
-	migout1=`mktemp -t mig-helper-stdout1.XXXXXXXXXX`
-	qmp1=`mktemp -u -t mig-helper-qmp1.XXXXXXXXXX`
-	qmp2=`mktemp -u -t mig-helper-qmp2.XXXXXXXXXX`
-	fifo=`mktemp -u -t mig-helper-fifo.XXXXXXXXXX`
+	migsock=$(mktemp -u -t mig-helper-socket.XXXXXXXXXX)
+	migout1=$(mktemp -t mig-helper-stdout1.XXXXXXXXXX)
+	qmp1=$(mktemp -u -t mig-helper-qmp1.XXXXXXXXXX)
+	qmp2=$(mktemp -u -t mig-helper-qmp2.XXXXXXXXXX)
+	fifo=$(mktemp -u -t mig-helper-fifo.XXXXXXXXXX)
 	qmpout1=/dev/null
 	qmpout2=/dev/null
 
