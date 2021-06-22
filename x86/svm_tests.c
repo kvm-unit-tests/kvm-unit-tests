@@ -700,8 +700,10 @@ static bool sel_cr0_bug_check(struct svm_test *test)
 
 static void npt_nx_prepare(struct svm_test *test)
 {
-
     u64 *pte;
+
+    test->scratch = rdmsr(MSR_EFER);
+    wrmsr(MSR_EFER, test->scratch | EFER_NX);
 
     pte = npt_get_pte((u64)null_test);
 
@@ -711,6 +713,8 @@ static void npt_nx_prepare(struct svm_test *test)
 static bool npt_nx_check(struct svm_test *test)
 {
     u64 *pte = npt_get_pte((u64)null_test);
+
+    wrmsr(MSR_EFER, test->scratch);
 
     *pte &= ~PT64_NX_MASK;
 
