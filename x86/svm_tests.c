@@ -667,7 +667,6 @@ static bool check_asid_zero(struct svm_test *test)
 
 static void sel_cr0_bug_prepare(struct svm_test *test)
 {
-    vmcb_ident(vmcb);
     vmcb->control.intercept |= (1ULL << INTERCEPT_SELECTIVE_CR0);
 }
 
@@ -704,7 +703,6 @@ static void npt_nx_prepare(struct svm_test *test)
 
     u64 *pte;
 
-    vmcb_ident(vmcb);
     pte = npt_get_pte((u64)null_test);
 
     *pte |= PT64_NX_MASK;
@@ -727,7 +725,6 @@ static void npt_np_prepare(struct svm_test *test)
     u64 *pte;
 
     scratch_page = alloc_page();
-    vmcb_ident(vmcb);
     pte = npt_get_pte((u64)scratch_page);
 
     *pte &= ~1ULL;
@@ -753,7 +750,6 @@ static void npt_us_prepare(struct svm_test *test)
     u64 *pte;
 
     scratch_page = alloc_page();
-    vmcb_ident(vmcb);
     pte = npt_get_pte((u64)scratch_page);
 
     *pte &= ~(1ULL << 2);
@@ -780,7 +776,6 @@ static void npt_rsvd_prepare(struct svm_test *test)
 {
     u64 *pde;
 
-    vmcb_ident(vmcb);
     pde = npt_get_pde((u64) null_test);
 
     save_pde = *pde;
@@ -802,7 +797,6 @@ static void npt_rw_prepare(struct svm_test *test)
 
     u64 *pte;
 
-    vmcb_ident(vmcb);
     pte = npt_get_pte(0x80000);
 
     *pte &= ~(1ULL << 1);
@@ -830,7 +824,6 @@ static void npt_rw_pfwalk_prepare(struct svm_test *test)
 
     u64 *pte;
 
-    vmcb_ident(vmcb);
     pte = npt_get_pte(read_cr3());
 
     *pte &= ~(1ULL << 1);
@@ -850,7 +843,6 @@ static bool npt_rw_pfwalk_check(struct svm_test *test)
 static void npt_rsvd_pfwalk_prepare(struct svm_test *test)
 {
     u64 *pdpe;
-    vmcb_ident(vmcb);
 
     pdpe = npt_get_pml4e();
     pdpe[0] |= (1ULL << 8);
@@ -867,7 +859,6 @@ static bool npt_rsvd_pfwalk_check(struct svm_test *test)
 
 static void npt_l1mmio_prepare(struct svm_test *test)
 {
-    vmcb_ident(vmcb);
 }
 
 u32 nested_apic_version1;
@@ -894,7 +885,6 @@ static void npt_rw_l1mmio_prepare(struct svm_test *test)
 
     u64 *pte;
 
-    vmcb_ident(vmcb);
     pte = npt_get_pte(0xfee00080);
 
     *pte &= ~(1ULL << 1);
@@ -1940,8 +1930,6 @@ static void init_startup_prepare(struct svm_test *test)
     struct segment_desc64 *tss_entry;
     int i;
 
-    vmcb_ident(vmcb);
-
     on_cpu(1, get_tss_entry, &tss_entry);
 
     orig_cpu_count = cpu_online_count;
@@ -1976,7 +1964,6 @@ static volatile bool init_intercept;
 static void init_intercept_prepare(struct svm_test *test)
 {
     init_intercept = false;
-    vmcb_ident(vmcb);
     vmcb->control.intercept |= (1ULL << INTERCEPT_INIT);
 }
 

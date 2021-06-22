@@ -250,6 +250,8 @@ static void test_run(struct svm_test *test)
 	u64 vmcb_phys = virt_to_phys(vmcb);
 
 	irq_disable();
+	vmcb_ident(vmcb);
+
 	test->prepare(test);
 	guest_main = test->guest_func;
 	vmcb->save.rip = (ulong)test_thunk;
