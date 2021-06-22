@@ -718,8 +718,6 @@ static bool npt_nx_check(struct svm_test *test)
 
     *pte &= ~PT64_NX_MASK;
 
-    vmcb->save.efer |= EFER_NX;
-
     return (vmcb->control.exit_code == SVM_EXIT_NPF)
            && (vmcb->control.exit_info_1 == 0x100000015ULL);
 }
