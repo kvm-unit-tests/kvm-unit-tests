@@ -295,7 +295,7 @@ static void set_additional_vcpu_msr(void *msr_efer)
 	void *hsave = alloc_page();
 
 	wrmsr(MSR_VM_HSAVE_PA, virt_to_phys(hsave));
-	wrmsr(MSR_EFER, (ulong)msr_efer | EFER_SVME | EFER_NX);
+	wrmsr(MSR_EFER, (ulong)msr_efer | EFER_SVME);
 }
 
 static void setup_svm(void)
@@ -306,7 +306,6 @@ static void setup_svm(void)
 
 	wrmsr(MSR_VM_HSAVE_PA, virt_to_phys(hsave));
 	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_SVME);
-	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX);
 
 	io_bitmap = (void *) ALIGN((ulong)io_bitmap_area, PAGE_SIZE);
 
