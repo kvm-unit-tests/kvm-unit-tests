@@ -705,6 +705,9 @@ static void npt_nx_prepare(struct svm_test *test)
     test->scratch = rdmsr(MSR_EFER);
     wrmsr(MSR_EFER, test->scratch | EFER_NX);
 
+    /* Clear the guest's EFER.NX, it should not affect NPT behavior. */
+    vmcb->save.efer &= ~EFER_NX;
+
     pte = npt_get_pte((u64)null_test);
 
     *pte |= PT64_NX_MASK;
