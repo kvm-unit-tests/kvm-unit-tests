@@ -774,28 +774,6 @@ static bool npt_us_check(struct svm_test *test)
            && (vmcb->control.exit_info_1 == 0x100000005ULL);
 }
 
-u64 save_pde;
-
-static void npt_rsvd_prepare(struct svm_test *test)
-{
-    u64 *pde;
-
-    pde = npt_get_pde((u64) null_test);
-
-    save_pde = *pde;
-    *pde = (1ULL << 19) | (1ULL << 7) | 0x27;
-}
-
-static bool npt_rsvd_check(struct svm_test *test)
-{
-    u64 *pde = npt_get_pde((u64) null_test);
-
-    *pde = save_pde;
-
-    return (vmcb->control.exit_code == SVM_EXIT_NPF)
-            && (vmcb->control.exit_info_1 == 0x10000001dULL);
-}
-
 static void npt_rw_prepare(struct svm_test *test)
 {
 
@@ -842,23 +820,6 @@ static bool npt_rw_pfwalk_check(struct svm_test *test)
     return (vmcb->control.exit_code == SVM_EXIT_NPF)
            && (vmcb->control.exit_info_1 == 0x200000007ULL)
 	   && (vmcb->control.exit_info_2 == read_cr3());
-}
-
-static void npt_rsvd_pfwalk_prepare(struct svm_test *test)
-{
-    u64 *pdpe;
-
-    pdpe = npt_get_pml4e();
-    pdpe[0] |= (1ULL << 8);
-}
-
-static bool npt_rsvd_pfwalk_check(struct svm_test *test)
-{
-    u64 *pdpe = npt_get_pml4e();
-    pdpe[0] &= ~(1ULL << 8);
-
-    return (vmcb->control.exit_code == SVM_EXIT_NPF)
-            && (vmcb->control.exit_info_1 == 0x20000000fULL);
 }
 
 static void npt_l1mmio_prepare(struct svm_test *test)
@@ -2723,15 +2684,9 @@ struct svm_test svm_tests[] = {
     { "npt_us", npt_supported, npt_us_prepare,
       default_prepare_gif_clear, npt_us_test,
       default_finished, npt_us_check },
-    { "npt_rsvd", npt_supported, npt_rsvd_prepare,
-      default_prepare_gif_clear, null_test,
-      default_finished, npt_rsvd_check },
     { "npt_rw", npt_supported, npt_rw_prepare,
       default_prepare_gif_clear, npt_rw_test,
       default_finished, npt_rw_check },
-    { "npt_rsvd_pfwalk", npt_supported, npt_rsvd_pfwalk_prepare,
-      default_prepare_gif_clear, null_test,
-      default_finished, npt_rsvd_pfwalk_check },
     { "npt_rw_pfwalk", npt_supported, npt_rw_pfwalk_prepare,
       default_prepare_gif_clear, null_test,
       default_finished, npt_rw_pfwalk_check },
