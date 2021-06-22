@@ -8369,9 +8369,16 @@ static void vmentry_movss_shadow_test(void)
 	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED);
 }
 
+static void vmx_single_vmcall_guest(void)
+{
+	vmcall();
+}
+
 static void vmx_cr_load_test(void)
 {
 	unsigned long cr3, cr4, orig_cr3, orig_cr4;
+	u32 ctrls[2] = {0};
+	pgd_t *pml5;
 
 	orig_cr4 = read_cr4();
 	orig_cr3 = read_cr3();
@@ -8393,7 +8400,7 @@ static void vmx_cr_load_test(void)
 	TEST_ASSERT(!write_cr4_checking(cr4));
 	write_cr3(cr3);
 
-	test_set_guest(v2_null_test_guest);
+	test_set_guest(vmx_single_vmcall_guest);
 	vmcs_write(HOST_CR4, cr4);
 	vmcs_write(HOST_CR3, cr3);
 	enter_guest();
@@ -8412,6 +8419,65 @@ static void vmx_cr_load_test(void)
 	/* Cleanup L1 state. */
 	write_cr3(orig_cr3);
 	TEST_ASSERT(!write_cr4_checking(orig_cr4));
+
+	if (!this_cpu_has(X86_FEATURE_LA57))
+		goto done;
+
+	/*
+	 * Allocate a full page for PML5 to guarantee alignment, though only
+	 * the first entry needs to be filled (the test's virtual addresses
+	 * most definitely do not have any of bits 56:48 set).
+	 */
+	pml5 = alloc_page();
+	*pml5 = orig_cr3 | PT_PRESENT_MASK | PT_WRITABLE_MASK;
+
+	/*
+	 * Transition to/from 5-level paging in the host via VM-Exit.  CR4.LA57
+	 * can't be toggled while long is active via MOV CR4, but there are no
+	 * such restrictions on VM-Exit.
+	 */
+lol_5level:
+	vmcs_write(HOST_CR4, orig_cr4 | X86_CR4_LA57);
+	vmcs_write(HOST_CR3, virt_to_phys(pml5));
+	enter_guest();
+
+	/*
+	 * VMREAD with a memory operand to verify KVM detects the LA57 change,
+	 * e.g. uses the correct guest root level in gva_to_gpa().
+	 */
+	TEST_ASSERT(vmcs_readm(HOST_CR3) == virt_to_phys(pml5));
+	TEST_ASSERT(vmcs_readm(HOST_CR4) == (orig_cr4 | X86_CR4_LA57));
+
+	vmcs_write(HOST_CR4, orig_cr4);
+	vmcs_write(HOST_CR3, orig_cr3);
+	enter_guest();
+
+	TEST_ASSERT(vmcs_readm(HOST_CR3) == orig_cr3);
+	TEST_ASSERT(vmcs_readm(HOST_CR4) == orig_cr4);
+
+	/*
+	 * And now do the same LA57 shenanigans with EPT enabled.  KVM uses
+	 * two separate MMUs when L1 uses TDP, whereas the above shadow paging
+	 * version shares an MMU between L1 and L2.
+	 *
+	 * If the saved execution controls are non-zero then the EPT version
+	 * has already run.  In that case, restore the old controls.  If EPT
+	 * setup fails, e.g. EPT isn't supported, fall through and finish up.
+	 */
+	if (ctrls[0]) {
+		vmcs_write(CPU_EXEC_CTRL0, ctrls[0]);
+		vmcs_write(CPU_EXEC_CTRL1, ctrls[1]);
+	} else if (!setup_ept(false)) {
+		ctrls[0] = vmcs_read(CPU_EXEC_CTRL0);
+		ctrls[1]  = vmcs_read(CPU_EXEC_CTRL1);
+		goto lol_5level;
+	}
+
+	free_page(pml5);
+
+done:
+	skip_exit_vmcall();
+	enter_guest();
 }
 
 static void vmx_cr4_osxsave_test_guest(void)

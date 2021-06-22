@@ -783,6 +783,18 @@ static inline u64 vmcs_read(enum Encoding enc)
 	return val;
 }
 
+/*
+ * VMREAD with a guaranteed memory operand, used to test KVM's MMU by forcing
+ * KVM to translate GVA->GPA.
+ */
+static inline u64 vmcs_readm(enum Encoding enc)
+{
+	u64 val;
+
+	asm volatile ("vmread %1, %0" : "=m" (val) : "r" ((u64)enc) : "cc");
+	return val;
+}
+
 static inline int vmcs_read_checking(enum Encoding enc, u64 *value)
 {
 	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
