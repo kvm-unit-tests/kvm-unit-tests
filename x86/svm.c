@@ -13,6 +13,7 @@
 #include "alloc_page.h"
 #include "isr.h"
 #include "apic.h"
+#include "vmalloc.h"
 
 /* for the nested page table*/
 u64 *pte[2048];
@@ -397,12 +398,14 @@ test_wanted(const char *name, char *filters[], int filter_count)
 
 int main(int ac, char **av)
 {
+	/* Omit PT_USER_MASK to allow tested host.CR4.SMEP=1. */
+	pteval_t opt_mask = 0;
 	int i = 0;
 
 	ac--;
 	av++;
 
-	setup_vm();
+	__setup_vm(&opt_mask);
 
 	if (!this_cpu_has(X86_FEATURE_SVM)) {
 		printf("SVM not availble\n");
