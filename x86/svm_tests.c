@@ -2186,6 +2186,7 @@ static void basic_guest_main(struct svm_test *test)
 				  exit_code, test_name)			\
 {									\
 	u64 tmp, mask;							\
+	u32 r;								\
 	int i;								\
 									\
 	for (i = start; i <= end; i = i + inc) {			\
@@ -2203,8 +2204,9 @@ static void basic_guest_main(struct svm_test *test)
 		case 4:							\
 			vmcb->save.cr4 = tmp;				\
 		}							\
-		report(svm_vmrun() == exit_code, "Test CR%d " test_name "%d:%d: %lx",\
-		    cr, end, start, tmp);				\
+		r = svm_vmrun();					\
+		report(r == exit_code, "Test CR%d %s%d:%d: %lx, wanted exit 0x%x, got 0x%x",\
+		       cr, test_name, end, start, tmp, exit_code, r);	\
 	}								\
 }
 
