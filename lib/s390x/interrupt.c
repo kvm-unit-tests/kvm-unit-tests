@@ -22,6 +22,7 @@ void expect_pgm_int(void)
 {
 	pgm_int_expected = true;
 	lc->pgm_int_code = 0;
+	lc->trans_exc_id = 0;
 	mb();
 }
 
@@ -39,6 +40,7 @@ uint16_t clear_pgm_int(void)
 	mb();
 	code = lc->pgm_int_code;
 	lc->pgm_int_code = 0;
+	lc->trans_exc_id = 0;
 	pgm_int_expected = false;
 	return code;
 }

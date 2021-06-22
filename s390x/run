@@ -15,6 +15,11 @@ ACCEL=$(get_qemu_accelerator) ||
 qemu=$(search_qemu_binary) ||
 	exit $?
 
+if [ "${1: -7}" = ".pv.bin" ] || [ "${TESTNAME: -3}" = "_PV" ] && [ "$ACCEL" = "tcg" ]; then
+	echo "Protected Virtualization isn't supported under TCG"
+	exit 2
+fi
+
 M='-machine s390-ccw-virtio'
 M+=",accel=$ACCEL"
 command="$qemu -nodefaults -nographic $M"

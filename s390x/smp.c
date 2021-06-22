@@ -154,7 +154,7 @@ static void ecall(void)
 	struct lowcore *lc = (void *)0x0;
 
 	expect_ext_int();
-	ctl_set_bit(0, 13);
+	ctl_set_bit(0, CTL0_EXTERNAL_CALL);
 	mask = extract_psw_mask();
 	mask |= PSW_MASK_EXT;
 	load_psw_mask(mask);
@@ -188,7 +188,7 @@ static void emcall(void)
 	struct lowcore *lc = (void *)0x0;
 
 	expect_ext_int();
-	ctl_set_bit(0, 14);
+	ctl_set_bit(0, CTL0_EMERGENCY_SIGNAL);
 	mask = extract_psw_mask();
 	mask |= PSW_MASK_EXT;
 	load_psw_mask(mask);
@@ -283,8 +283,8 @@ static void test_local_ints(void)
 	unsigned long mask;
 
 	/* Open masks for ecall and emcall */
-	ctl_set_bit(0, 13);
-	ctl_set_bit(0, 14);
+	ctl_set_bit(0, CTL0_EXTERNAL_CALL);
+	ctl_set_bit(0, CTL0_EMERGENCY_SIGNAL);
 	mask = extract_psw_mask();
 	mask |= PSW_MASK_EXT;
 	load_psw_mask(mask);

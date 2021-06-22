@@ -145,7 +145,7 @@ static void test_special(void)
 static void init(void)
 {
 	/* Enable control bit for gs */
-	ctl_set_bit(2, 4);
+	ctl_set_bit(2, CTL2_GUARDED_STORAGE);
 
 	/* Setup gs registers to guard the gs_area */
 	gs_cb.gsd = gs_area | 25;

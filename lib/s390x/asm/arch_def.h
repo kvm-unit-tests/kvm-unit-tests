@@ -229,6 +229,18 @@ static inline uint64_t stctg(int cr)
 	return value;
 }
 
+#define CTL0_LOW_ADDR_PROT	(63 - 35)
+#define CTL0_EDAT		(63 - 40)
+#define CTL0_IEP		(63 - 43)
+#define CTL0_AFP		(63 - 45)
+#define CTL0_VECTOR		(63 - 46)
+#define CTL0_EMERGENCY_SIGNAL	(63 - 49)
+#define CTL0_EXTERNAL_CALL	(63 - 50)
+#define CTL0_CLOCK_COMPARATOR	(63 - 52)
+#define CTL0_SERVICE_SIGNAL	(63 - 54)
+
+#define CTL2_GUARDED_STORAGE	(63 - 59)
+
 static inline void ctl_set_bit(int cr, unsigned int bit)
 {
         uint64_t reg;

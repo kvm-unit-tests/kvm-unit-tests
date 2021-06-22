@@ -81,11 +81,11 @@ sie64a:
 	stg	%r3,__SF_SIE_SAVEAREA(%r15)	# save guest register save area
 
 	# Load guest's gprs, fprs and fpc
-	lmg	%r0,%r13,SIE_SAVEAREA_GUEST_GRS(%r3)
 	.irp i, 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
 	ld	\i, \i * 8 + SIE_SAVEAREA_GUEST_FPRS(%r3)
 	.endr
 	lfpc	SIE_SAVEAREA_GUEST_FPC(%r3)
+	lmg	%r0,%r13,SIE_SAVEAREA_GUEST_GRS(%r3)
 
 	# Move scb ptr into r14 for the sie instruction
 	lg	%r14,__SF_SIE_CONTROL(%r15)

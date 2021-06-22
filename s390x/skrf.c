@@ -150,7 +150,7 @@ static void ecall_setup(void)
 	/* Put a skey into the ext new psw */
 	lc->ext_new_psw.mask = 0x00F0000180000000UL;
 	/* Open up ext masks */
-	ctl_set_bit(0, 13);
+	ctl_set_bit(0, CTL0_EXTERNAL_CALL);
 	mask = extract_psw_mask();
 	mask |= PSW_MASK_EXT;
 	load_psw_mask(mask);
