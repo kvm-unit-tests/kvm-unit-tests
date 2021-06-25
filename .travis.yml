@@ -1,0 +1,44 @@
+dist: focal
+language: c
+cache: ccache
+compiler: clang
+git:
+  submodules: false
+
+jobs:
+  include:
+
+    - arch: arm64
+      addons:
+        apt_packages: qemu-system-aarch64
+      env:
+      - CONFIG="--arch=arm64 --cc=clang"
+      - TESTS="cache gicv2-active gicv2-ipi gicv2-mmio gicv3-active gicv3-ipi
+          pci-test pmu-cycle-counter pmu-event-counter-config pmu-sw-incr
+          selftest-setup selftest-smp selftest-vectors-kernel
+          selftest-vectors-user timer"
+
+    - arch: ppc64le
+      addons:
+        apt_packages: clang-11 qemu-system-ppc
+      env:
+      - CONFIG="--arch=ppc64 --endian=little --cc=clang-11 --cflags=-no-integrated-as"
+      - TESTS="emulator rtas-get-time-of-day rtas-get-time-of-day-base
+          rtas-set-time-of-day selftest-setup spapr_hcall"
+
+    - arch: s390x
+      addons:
+        apt_packages: clang-11 qemu-system-s390x
+      env:
+      - CONFIG="--arch=s390x --cc=clang-11 --cflags=-no-integrated-as"
+      - TESTS=""
+
+before_script:
+  - mkdir -p build && cd build
+  - $TRAVIS_BUILD_DIR/configure $CONFIG
+script:
+  - make -j3
+  - if [ -n "$TESTS" ]; then
+      ACCEL="${ACCEL:-tcg}" ./run_tests.sh -v $TESTS | tee results.txt &&
+      grep -q PASS results.txt && ! grep -q FAIL results.txt ;
+    fi

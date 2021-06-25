@@ -265,7 +265,7 @@ static inline uint64_t extract_psw_mask(void)
 
 	asm volatile(
 		"	epsw	%0,%1\n"
-		: "+r" (mask_upper), "+r" (mask_lower) : : );
+		: "=r" (mask_upper), "=a" (mask_lower));
 
 	return (uint64_t) mask_upper << 32 | mask_lower;
 }
