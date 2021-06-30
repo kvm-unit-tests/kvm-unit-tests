@@ -199,7 +199,7 @@ elif [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
     if [ "$target" = "qemu" ]; then
         arm_uart_early_addr=0x09000000
     elif [ "$target" = "kvmtool" ]; then
-        arm_uart_early_addr=0x3f8
+        arm_uart_early_addr=0x1000000
         errata_force=1
     else
         echo "--target must be one of 'qemu' or 'kvmtool'!"
