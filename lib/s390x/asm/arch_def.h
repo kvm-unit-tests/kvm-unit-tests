@@ -41,6 +41,11 @@ struct psw {
 	uint64_t	addr;
 };
 
+struct short_psw {
+	uint32_t	mask;
+	uint32_t	addr;
+};
+
 struct cpu {
 	struct lowcore *lowcore;
 	uint64_t *stack;
