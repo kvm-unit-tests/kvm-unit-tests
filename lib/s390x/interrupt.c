@@ -162,9 +162,6 @@ void handle_pgm_int(struct stack_frame_int *stack)
 		/* Force sclp_busy to false, otherwise we will loop forever */
 		sclp_handle_ext();
 		print_pgm_info(stack);
-		report_abort("Unexpected program interrupt: %d on cpu %d at %#lx, ilen %d\n",
-			     lc->pgm_int_code, stap(), lc->pgm_old_psw.addr,
-			     lc->pgm_int_id);
 	}
 
 	pgm_int_expected = false;
