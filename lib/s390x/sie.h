@@ -2,6 +2,9 @@
 #ifndef _S390X_SIE_H_
 #define _S390X_SIE_H_
 
+#include <stdint.h>
+#include <asm/arch_def.h>
+
 #define CPUSTAT_STOPPED    0x80000000
 #define CPUSTAT_WAIT       0x10000000
 #define CPUSTAT_ECALL_PEND 0x08000000
@@ -170,9 +173,9 @@ struct kvm_s390_sie_block {
 } __attribute__((packed));
 
 struct vm_save_regs {
-	u64 grs[16];
-	u64 fprs[16];
-	u32 fpc;
+	uint64_t grs[16];
+	uint64_t fprs[16];
+	uint32_t fpc;
 };
 
 /* We might be able to nestle all of this into the stack frame. But
@@ -188,7 +191,7 @@ struct vm {
 	struct kvm_s390_sie_block *sblk;
 	struct vm_save_area save_area;
 	/* Ptr to first guest page */
-	u8 *guest_mem;
+	uint8_t *guest_mem;
 };
 
 extern void sie_entry(void);
