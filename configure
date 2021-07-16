@@ -296,6 +296,10 @@ if test ! -e Makefile; then
     ln -sf "$srcdir/$testdir/unittests.cfg" $testdir/
     ln -sf "$srcdir/run_tests.sh"
 
+    if [ -d "$srcdir/$testdir/snippets" ]; then
+        mkdir -p "$testdir/snippets/c"
+    fi
+
     echo "linking scripts..."
     ln -sf "$srcdir/scripts"
 fi

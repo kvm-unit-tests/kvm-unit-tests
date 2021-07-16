@@ -57,7 +57,9 @@ build-ppc64le:
 build-s390x:
  script:
  - dnf install -y qemu-system-s390x gcc-s390x-linux-gnu
- - ./configure --arch=s390x --cross-prefix=s390x-linux-gnu-
+ - mkdir build
+ - cd build
+ - ../configure --arch=s390x --cross-prefix=s390x-linux-gnu-
  - make -j2
  - ACCEL=tcg ./run_tests.sh
      selftest-setup intercept emulator sieve skey diag10 diag308 vector diag288
