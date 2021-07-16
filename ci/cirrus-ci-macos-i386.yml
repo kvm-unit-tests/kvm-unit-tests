@@ -1,8 +1,9 @@
 
 macos_i386_task:
   osx_instance:
-    image: catalina-base
+    image: big-sur-base
   install_script:
+    - brew update
     - brew install coreutils bash git gnu-getopt make qemu i686-elf-gcc
   clone_script:
     - git clone --depth 100 "@CI_REPOSITORY_URL@" .
