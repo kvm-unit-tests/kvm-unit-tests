@@ -415,6 +415,7 @@ void inc_test_stage(struct svm_test *test);
 void vmcb_ident(struct vmcb *vmcb);
 struct regs get_regs(void);
 void vmmcall(void);
+int __svm_vmrun(u64 rip);
 int svm_vmrun(void);
 void test_set_guest(test_guest_func func);
 

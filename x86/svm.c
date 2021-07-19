@@ -232,9 +232,9 @@ struct svm_test *v2_test;
 
 u64 guest_stack[10000];
 
-int svm_vmrun(void)
+int __svm_vmrun(u64 rip)
 {
-	vmcb->save.rip = (ulong)test_thunk;
+	vmcb->save.rip = (ulong)rip;
 	vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
 	regs.rdi = (ulong)v2_test;
 
@@ -247,6 +247,11 @@ int svm_vmrun(void)
 		: "memory", "r15");
 
 	return (vmcb->control.exit_code);
+}
+
+int svm_vmrun(void)
+{
+	return __svm_vmrun((u64)test_thunk);
 }
 
 extern u64 *vmrun_rip;
