@@ -2488,6 +2488,21 @@ static void test_vmrun_canonicalization(void)
 	TEST_CANONICAL(vmcb->save.tr.base, "TR");
 }
 
+/*
+ * When VMRUN loads a guest value of 1 in EFLAGS.TF, that value does not
+ * cause a trace trap between the VMRUN and the first guest instruction, but
+ * rather after completion of the first guest instruction.
+ *
+ * [APM vol 2]
+ */
+u64 guest_rflags_test_trap_rip;
+
+static void guest_rflags_test_db_handler(struct ex_regs *r)
+{
+	guest_rflags_test_trap_rip = r->rip;
+	r->rflags &= ~X86_EFLAGS_TF;
+}
+
 static void svm_guest_state_test(void)
 {
 	test_set_guest(basic_guest_main);
@@ -2498,6 +2513,51 @@ static void svm_guest_state_test(void)
 	test_dr();
 	test_msrpm_iopm_bitmap_addrs();
 	test_vmrun_canonicalization();
+}
+
+extern void guest_rflags_test_guest(struct svm_test *test);
+extern u64 *insn2;
+extern u64 *guest_end;
+
+asm("guest_rflags_test_guest:\n\t"
+    "push %rbp\n\t"
+    ".global insn2\n\t"
+    "insn2:\n\t"
+    "mov %rsp,%rbp\n\t"
+    "vmmcall\n\t"
+    "vmmcall\n\t"
+    ".global guest_end\n\t"
+    "guest_end:\n\t"
+    "vmmcall\n\t"
+    "pop %rbp\n\t"
+    "ret");
+
+static void svm_test_singlestep(void)
+{
+	handle_exception(DB_VECTOR, guest_rflags_test_db_handler);
+
+	/*
+	 * Trap expected after completion of first guest instruction
+	 */
+	vmcb->save.rflags |= X86_EFLAGS_TF;
+	report (__svm_vmrun((u64)guest_rflags_test_guest) == SVM_EXIT_VMMCALL &&
+		guest_rflags_test_trap_rip == (u64)&insn2,
+               "Test EFLAGS.TF on VMRUN: trap expected  after completion of first guest instruction");
+	/*
+	 * No trap expected
+	 */
+	guest_rflags_test_trap_rip = 0;
+	vmcb->save.rip += 3;
+	vmcb->save.rflags |= X86_EFLAGS_TF;
+	report (__svm_vmrun(vmcb->save.rip) == SVM_EXIT_VMMCALL &&
+		guest_rflags_test_trap_rip == 0, "Test EFLAGS.TF on VMRUN: trap not expected");
+
+	/*
+	 * Let guest finish execution
+	 */
+	vmcb->save.rip += 3;
+	report (__svm_vmrun(vmcb->save.rip) == SVM_EXIT_VMMCALL &&
+		vmcb->save.rip == (u64)&guest_end, "Test EFLAGS.TF on VMRUN: guest execution completion");
 }
 
 static void __svm_npt_rsvd_bits_test(u64 *pxe, u64 rsvd_bits, u64 efer,
@@ -2957,5 +3017,6 @@ struct svm_test svm_tests[] = {
     TEST(svm_npt_rsvd_bits_test),
     TEST(svm_vmrun_errata_test),
     TEST(svm_vmload_vmsave),
+    TEST(svm_test_singlestep),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
