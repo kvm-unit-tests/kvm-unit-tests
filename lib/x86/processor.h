@@ -187,6 +187,7 @@ static inline bool is_intel(void)
 #define	X86_FEATURE_AMD_IBPB		(CPUID(0x80000008, 0, EBX, 12))
 #define	X86_FEATURE_NPT			(CPUID(0x8000000A, 0, EDX, 0))
 #define	X86_FEATURE_NRIPS		(CPUID(0x8000000A, 0, EDX, 3))
+#define	X86_FEATURE_VGIF		(CPUID(0x8000000A, 0, EDX, 16))
 
 
 static inline bool this_cpu_has(u64 feature)

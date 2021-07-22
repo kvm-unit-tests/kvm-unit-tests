@@ -2772,6 +2772,73 @@ static void svm_vmload_vmsave(void)
 	vmcb->control.intercept = intercept_saved;
 }
 
+static void prepare_vgif_enabled(struct svm_test *test)
+{
+    default_prepare(test);
+}
+
+static void test_vgif(struct svm_test *test)
+{
+    asm volatile ("vmmcall\n\tstgi\n\tvmmcall\n\tclgi\n\tvmmcall\n\t");
+
+}
+
+static bool vgif_finished(struct svm_test *test)
+{
+    switch (get_test_stage(test))
+    {
+    case 0:
+        if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+            report(false, "VMEXIT not due to vmmcall.");
+            return true;
+        }
+        vmcb->control.int_ctl |= V_GIF_ENABLED_MASK;
+        vmcb->save.rip += 3;
+        inc_test_stage(test);
+        break;
+    case 1:
+        if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+            report(false, "VMEXIT not due to vmmcall.");
+            return true;
+        }
+        if (!(vmcb->control.int_ctl & V_GIF_MASK)) {
+            report(false, "Failed to set VGIF when executing STGI.");
+            vmcb->control.int_ctl &= ~V_GIF_ENABLED_MASK;
+            return true;
+        }
+        report(true, "STGI set VGIF bit.");
+        vmcb->save.rip += 3;
+        inc_test_stage(test);
+        break;
+    case 2:
+        if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+            report(false, "VMEXIT not due to vmmcall.");
+            return true;
+        }
+        if (vmcb->control.int_ctl & V_GIF_MASK) {
+            report(false, "Failed to clear VGIF when executing CLGI.");
+            vmcb->control.int_ctl &= ~V_GIF_ENABLED_MASK;
+            return true;
+        }
+        report(true, "CLGI cleared VGIF bit.");
+        vmcb->save.rip += 3;
+        inc_test_stage(test);
+        vmcb->control.int_ctl &= ~V_GIF_ENABLED_MASK;
+        break;
+    default:
+        return true;
+        break;
+    }
+
+    return get_test_stage(test) == 3;
+}
+
+static bool vgif_check(struct svm_test *test)
+{
+    return get_test_stage(test) == 3;
+}
+
+
 struct svm_test svm_tests[] = {
     { "null", default_supported, default_prepare,
       default_prepare_gif_clear, null_test,
@@ -2882,6 +2949,9 @@ struct svm_test svm_tests[] = {
     { "host_rflags", default_supported, host_rflags_prepare,
       host_rflags_prepare_gif_clear, host_rflags_test,
       host_rflags_finished, host_rflags_check },
+    { "vgif", vgif_supported, prepare_vgif_enabled,
+      default_prepare_gif_clear, test_vgif, vgif_finished,
+      vgif_check },
     TEST(svm_cr4_osxsave_test),
     TEST(svm_guest_state_test),
     TEST(svm_npt_rsvd_bits_test),

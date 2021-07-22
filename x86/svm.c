@@ -65,6 +65,11 @@ bool default_supported(void)
     return true;
 }
 
+bool vgif_supported(void)
+{
+	return this_cpu_has(X86_FEATURE_VGIF);
+}
+
 void default_prepare(struct svm_test *test)
 {
 	vmcb_ident(vmcb);
