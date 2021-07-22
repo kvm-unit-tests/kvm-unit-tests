@@ -13,7 +13,7 @@ jobs:
         apt_packages: qemu-system-aarch64
       env:
       - CONFIG="--arch=arm64 --cc=clang"
-      - TESTS="cache gicv2-active gicv2-ipi gicv2-mmio gicv3-active gicv3-ipi
+      - TESTS="cache gicv2-active gicv2-ipi gicv3-active gicv3-ipi
           pci-test pmu-cycle-counter pmu-event-counter-config pmu-sw-incr
           selftest-setup selftest-smp selftest-vectors-kernel
           selftest-vectors-user timer"
