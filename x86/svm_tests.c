@@ -1965,6 +1965,10 @@ static bool init_intercept_check(struct svm_test *test)
  * Setting host EFLAGS.TF causes a #DB trap after the VMRUN completes on the
  * host side (i.e., after the #VMEXIT from the guest).
  *
+ * Setting host EFLAGS.RF suppresses any potential instruction breakpoint
+ * match on the VMRUN and completion of the VMRUN instruction clears the
+ * host EFLAGS.RF bit.
+ *
  * [AMD APM]
  */
 static volatile u8 host_rflags_guest_main_flag = 0;
@@ -1972,7 +1976,8 @@ static volatile u8 host_rflags_db_handler_flag = 0;
 static volatile bool host_rflags_ss_on_vmrun = false;
 static volatile bool host_rflags_vmrun_reached = false;
 static volatile bool host_rflags_set_tf = false;
-static u64 post_vmrun_rip;
+static volatile bool host_rflags_set_rf = false;
+static u64 rip_detected;
 
 extern u64 *vmrun_rip;
 
@@ -1980,11 +1985,27 @@ static void host_rflags_db_handler(struct ex_regs *r)
 {
 	if (host_rflags_ss_on_vmrun) {
 		if (host_rflags_vmrun_reached) {
-			r->rflags &= ~X86_EFLAGS_TF;
-			post_vmrun_rip = r->rip;
+			if (!host_rflags_set_rf) {
+				r->rflags &= ~X86_EFLAGS_TF;
+				rip_detected = r->rip;
+			} else {
+				r->rflags |= X86_EFLAGS_RF;
+				++host_rflags_db_handler_flag;
+			}
 		} else {
-			if (r->rip == (u64)&vmrun_rip)
+			if (r->rip == (u64)&vmrun_rip) {
 				host_rflags_vmrun_reached = true;
+
+				if (host_rflags_set_rf) {
+					host_rflags_guest_main_flag = 0;
+					rip_detected = r->rip;
+					r->rflags &= ~X86_EFLAGS_TF;
+
+					/* Trigger #DB via debug registers */
+					write_dr0((void *)&vmrun_rip);
+					write_dr7(0x403);
+				}
+			}
 		}
 	} else {
 		r->rflags &= ~X86_EFLAGS_TF;
@@ -2007,11 +2028,13 @@ static void host_rflags_prepare_gif_clear(struct svm_test *test)
 static void host_rflags_test(struct svm_test *test)
 {
 	while (1) {
-		if (get_test_stage(test) > 0 && host_rflags_set_tf &&
-		    (!host_rflags_ss_on_vmrun) &&
-		    (!host_rflags_db_handler_flag))
-			host_rflags_guest_main_flag = 1;
-		if (get_test_stage(test) == 3)
+		if (get_test_stage(test) > 0) {
+			if ((host_rflags_set_tf && !host_rflags_ss_on_vmrun && !host_rflags_db_handler_flag) ||
+			    (host_rflags_set_rf && host_rflags_db_handler_flag == 1))
+				host_rflags_guest_main_flag = 1;
+		}
+
+		if (get_test_stage(test) == 4)
 			break;
 		vmmcall();
 	}
@@ -2035,7 +2058,7 @@ static bool host_rflags_finished(struct svm_test *test)
 		break;
 	case 1:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL ||
-		    (!host_rflags_guest_main_flag)) {
+		    host_rflags_guest_main_flag != 1) {
 			report(false, "Unexpected VMEXIT or #DB handler"
 			    " invoked before guest main. Exit reason 0x%x",
 			    vmcb->control.exit_code);
@@ -2051,26 +2074,45 @@ static bool host_rflags_finished(struct svm_test *test)
 		break;
 	case 2:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL ||
-		    (post_vmrun_rip - (u64)&vmrun_rip) != 3) {
+		    (rip_detected - (u64)&vmrun_rip) != 3) {
 			report(false, "Unexpected VMEXIT or RIP mismatch."
-			    " Exit reason 0x%x, VMRUN RIP: %lx, post-VMRUN"
-			    " RIP: %lx", vmcb->control.exit_code,
-			    (u64)&vmrun_rip, post_vmrun_rip);
+			    " Exit reason 0x%x, RIP actual: %lx, RIP expected: "
+			    "%lx", vmcb->control.exit_code,
+			    (u64)&vmrun_rip, rip_detected - 3);
+			return true;
+		}
+		host_rflags_set_rf = true;
+		host_rflags_guest_main_flag = 0;
+		host_rflags_vmrun_reached = false;
+		vmcb->save.rip += 3;
+		break;
+	case 3:
+		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL ||
+		    rip_detected != (u64)&vmrun_rip ||
+		    host_rflags_guest_main_flag != 1 ||
+		    host_rflags_db_handler_flag > 1 ||
+		    read_rflags() & X86_EFLAGS_RF) {
+			report(false, "Unexpected VMEXIT or RIP mismatch or "
+			    "EFLAGS.RF not cleared."
+			    " Exit reason 0x%x, RIP actual: %lx, RIP expected: "
+			    "%lx", vmcb->control.exit_code,
+			    (u64)&vmrun_rip, rip_detected);
 			return true;
 		}
 		host_rflags_set_tf = false;
+		host_rflags_set_rf = false;
 		vmcb->save.rip += 3;
 		break;
 	default:
 		return true;
 	}
 	inc_test_stage(test);
-	return get_test_stage(test) == 4;
+	return get_test_stage(test) == 5;
 }
 
 static bool host_rflags_check(struct svm_test *test)
 {
-	return get_test_stage(test) == 3;
+	return get_test_stage(test) == 4;
 }
 
 #define TEST(name) { #name, .v2 = name }
