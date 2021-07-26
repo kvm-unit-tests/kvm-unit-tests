@@ -471,6 +471,26 @@ static inline u16 str(void)
     return val;
 }
 
+static inline void write_dr0(void *val)
+{
+    asm volatile ("mov %0, %%dr0" : : "r"(val) : "memory");
+}
+
+static inline void write_dr1(void *val)
+{
+    asm volatile ("mov %0, %%dr1" : : "r"(val) : "memory");
+}
+
+static inline void write_dr2(void *val)
+{
+    asm volatile ("mov %0, %%dr2" : : "r"(val) : "memory");
+}
+
+static inline void write_dr3(void *val)
+{
+    asm volatile ("mov %0, %%dr3" : : "r"(val) : "memory");
+}
+
 static inline void write_dr6(ulong val)
 {
     asm volatile ("mov %0, %%dr6" : : "r"(val) : "memory");

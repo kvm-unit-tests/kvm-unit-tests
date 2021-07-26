@@ -18,58 +18,29 @@ static volatile unsigned long db_addr[10], dr6[10];
 static volatile unsigned int n;
 static volatile unsigned long value;
 
-static unsigned long get_dr4(void)
+static inline void write_dr4(ulong val)
 {
-	unsigned long value;
-
-	asm volatile("mov %%dr4, %0" : "=r" (value));
-	return value;
+    asm volatile ("mov %0, %%dr4" : : "r"(val) : "memory");
 }
 
-static unsigned long get_dr6(void)
+static inline ulong read_dr4(void)
 {
-	unsigned long value;
-
-	asm volatile("mov %%dr6,%0" : "=r" (value));
-	return value;
-}
-
-static void set_dr0(void *value)
-{
-	asm volatile("mov %0,%%dr0" : : "r" (value));
-}
-
-static void set_dr1(void *value)
-{
-	asm volatile("mov %0,%%dr1" : : "r" (value));
-}
-
-static void set_dr4(unsigned long value)
-{
-	asm volatile("mov %0,%%dr4" : : "r" (value));
-}
-
-static void set_dr6(unsigned long value)
-{
-	asm volatile("mov %0,%%dr6" : : "r" (value));
-}
-
-static void set_dr7(unsigned long value)
-{
-	asm volatile("mov %0,%%dr7" : : "r" (value));
+    ulong val;
+    asm volatile ("mov %%dr4, %0" : "=r"(val));
+    return val;
 }
 
 static void handle_db(struct ex_regs *regs)
 {
 	db_addr[n] = regs->rip;
-	dr6[n] = get_dr6();
+	dr6[n] = read_dr6();
 
 	if (dr6[n] & 0x1)
 		regs->rflags |= (1 << 16);
 
 	if (++n >= 10) {
 		regs->rflags &= ~(1 << 8);
-		set_dr7(0x00000400);
+		write_dr7(0x00000400);
 	}
 }
 
@@ -105,15 +76,15 @@ int main(int ac, char **av)
 	got_ud = 0;
 	cr4 = read_cr4();
 	write_cr4(cr4 & ~X86_CR4_DE);
-	set_dr4(0);
-	set_dr6(0xffff4ff2);
-	report(get_dr4() == 0xffff4ff2 && !got_ud, "reading DR4 with CR4.DE == 0");
+	write_dr4(0);
+	write_dr6(0xffff4ff2);
+	report(read_dr4() == 0xffff4ff2 && !got_ud, "reading DR4 with CR4.DE == 0");
 
 	cr4 = read_cr4();
 	write_cr4(cr4 | X86_CR4_DE);
-	get_dr4();
+	read_dr4();
 	report(got_ud, "reading DR4 with CR4.DE == 1");
-	set_dr6(0);
+	write_dr6(0);
 
 	extern unsigned char sw_bp;
 	asm volatile("int3; sw_bp:");
@@ -121,8 +92,8 @@ int main(int ac, char **av)
 
 	n = 0;
 	extern unsigned char hw_bp1;
-	set_dr0(&hw_bp1);
-	set_dr7(0x00000402);
+	write_dr0(&hw_bp1);
+	write_dr7(0x00000402);
 	asm volatile("hw_bp1: nop");
 	report(n == 1 &&
 	       db_addr[0] == ((unsigned long)&hw_bp1) && dr6[0] == 0xffff0ff1,
@@ -130,15 +101,15 @@ int main(int ac, char **av)
 
 	n = 0;
 	extern unsigned char hw_bp2;
-	set_dr0(&hw_bp2);
-	set_dr6(0x00004002);
+	write_dr0(&hw_bp2);
+	write_dr6(0x00004002);
 	asm volatile("hw_bp2: nop");
 	report(n == 1 &&
 	       db_addr[0] == ((unsigned long)&hw_bp2) && dr6[0] == 0xffff4ff1,
 	       "hw breakpoint (test that dr6.BS is not cleared)");
 
 	n = 0;
-	set_dr6(0);
+	write_dr6(0);
 	asm volatile(
 		"pushf\n\t"
 		"pop %%rax\n\t"
@@ -161,7 +132,7 @@ int main(int ac, char **av)
 	 * emulated. Test that single stepping works on emulated instructions.
 	 */
 	n = 0;
-	set_dr6(0);
+	write_dr6(0);
 	asm volatile(
 		"pushf\n\t"
 		"pop %%rax\n\t"
@@ -188,8 +159,8 @@ int main(int ac, char **av)
 	       "single step emulated instructions");
 
 	n = 0;
-	set_dr1((void *)&value);
-	set_dr7(0x00d0040a); // 4-byte write
+	write_dr1((void *)&value);
+	write_dr7(0x00d0040a); // 4-byte write
 
 	extern unsigned char hw_wp1;
 	asm volatile(
@@ -201,7 +172,7 @@ int main(int ac, char **av)
 	       "hw watchpoint (test that dr6.BS is not cleared)");
 
 	n = 0;
-	set_dr6(0);
+	write_dr6(0);
 
 	extern unsigned char hw_wp2;
 	asm volatile(
@@ -213,16 +184,16 @@ int main(int ac, char **av)
 	       "hw watchpoint (test that dr6.BS is not set)");
 
 	n = 0;
-	set_dr6(0);
+	write_dr6(0);
 	extern unsigned char sw_icebp;
 	asm volatile(".byte 0xf1; sw_icebp:");
 	report(n == 1 &&
 	       db_addr[0] == (unsigned long)&sw_icebp && dr6[0] == 0xffff0ff0,
 	       "icebp");
 
-	set_dr7(0x400);
+	write_dr7(0x400);
 	value = KERNEL_DS;
-	set_dr7(0x00f0040a); // 4-byte read or write
+	write_dr7(0x00f0040a); // 4-byte read or write
 
 	/*
 	 * Each invocation of the handler should shift n by 1 and set bit 0 to 1.
