@@ -254,7 +254,7 @@ int svm_vmrun(void)
 	return __svm_vmrun((u64)test_thunk);
 }
 
-extern u64 *vmrun_rip;
+extern u8 vmrun_rip;
 
 static void test_run(struct svm_test *test)
 {

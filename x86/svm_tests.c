@@ -2074,11 +2074,11 @@ static bool host_rflags_finished(struct svm_test *test)
 		break;
 	case 2:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL ||
-		    (rip_detected - (u64)&vmrun_rip) != 3) {
+		    rip_detected != (u64)&vmrun_rip + 3) {
 			report(false, "Unexpected VMEXIT or RIP mismatch."
 			    " Exit reason 0x%x, RIP actual: %lx, RIP expected: "
 			    "%lx", vmcb->control.exit_code,
-			    (u64)&vmrun_rip, rip_detected - 3);
+			    (u64)&vmrun_rip + 3, rip_detected);
 			return true;
 		}
 		host_rflags_set_rf = true;
