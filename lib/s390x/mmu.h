@@ -5,7 +5,7 @@
  * Copyright (c) 2018 IBM Corp
  *
  * Authors:
- *	Janosch Frank <frankja@de.ibm.com>
+ *	Janosch Frank <frankja@linux.ibm.com>
  */
 #ifndef _S390X_MMU_H_
 #define _S390X_MMU_H_

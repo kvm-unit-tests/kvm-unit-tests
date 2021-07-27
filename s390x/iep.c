@@ -5,7 +5,7 @@
  * Copyright (c) 2018 IBM Corp
  *
  * Authors:
- *	Janosch Frank <frankja@de.ibm.com>
+ *	Janosch Frank <frankja@linux.ibm.com>
  */
 #include <libcflat.h>
 #include <vmalloc.h>
