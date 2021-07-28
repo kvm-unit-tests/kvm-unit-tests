@@ -1,3 +1,13 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Tests SIE diagnose intercepts.
+ * Mainly used as a template for SIE tests.
+ *
+ * Copyright 2021 IBM Corp.
+ *
+ * Authors:
+ *    Janosch Frank <frankja@linux.ibm.com>
+ */
 #include <libcflat.h>
 #include <asm/asm-offsets.h>
 #include <asm/arch_def.h>
