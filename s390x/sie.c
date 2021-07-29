@@ -24,22 +24,6 @@ static u8 *guest;
 static u8 *guest_instr;
 static struct vm vm;
 
-
-static void sie(struct vm *vm)
-{
-	while (vm->sblk->icptcode == 0) {
-		sie64a(vm->sblk, &vm->save_area);
-		sie_handle_validity(vm);
-	}
-	vm->save_area.guest.grs[14] = vm->sblk->gg14;
-	vm->save_area.guest.grs[15] = vm->sblk->gg15;
-}
-
-static void sblk_cleanup(struct vm *vm)
-{
-	vm->sblk->icptcode = 0;
-}
-
 static void test_diag(u32 instr)
 {
 	vm.sblk->gpsw.addr = PAGE_SIZE * 2;
@@ -51,7 +35,6 @@ static void test_diag(u32 instr)
 	report(vm.sblk->icptcode == ICPT_INST &&
 	       vm.sblk->ipa == instr >> 16 && vm.sblk->ipb == instr << 16,
 	       "Intercept data");
-	sblk_cleanup(&vm);
 }
 
 static struct {

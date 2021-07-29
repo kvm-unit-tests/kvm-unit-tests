@@ -32,19 +32,6 @@ extern const char _binary_s390x_snippets_c_mvpg_snippet_gbin_start[];
 extern const char _binary_s390x_snippets_c_mvpg_snippet_gbin_end[];
 int binary_size;
 
-static void sie(struct vm *vm)
-{
-	/* Reset icptcode so we don't trip over it below */
-	vm->sblk->icptcode = 0;
-
-	while (vm->sblk->icptcode == 0) {
-		sie64a(vm->sblk, &vm->save_area);
-		sie_handle_validity(vm);
-	}
-	vm->save_area.guest.grs[14] = vm->sblk->gg14;
-	vm->save_area.guest.grs[15] = vm->sblk->gg15;
-}
-
 static void test_mvpg_pei(void)
 {
 	uint64_t **pei_dst = (uint64_t **)((uintptr_t) vm.sblk + 0xc0);

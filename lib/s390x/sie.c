@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Virtualization library that speeds up managing guests.
+ * Library for managing various aspects of guests
  *
  * Copyright (c) 2021 IBM Corp
  *
@@ -40,6 +40,19 @@ void sie_handle_validity(struct vm *vm)
 	if (!validity_expected)
 		report_abort("VALIDITY: %x", vir);
 	validity_expected = false;
+}
+
+void sie(struct vm *vm)
+{
+	/* Reset icptcode so we don't trip over it below */
+	vm->sblk->icptcode = 0;
+
+	while (vm->sblk->icptcode == 0) {
+		sie64a(vm->sblk, &vm->save_area);
+		sie_handle_validity(vm);
+	}
+	vm->save_area.guest.grs[14] = vm->sblk->gg14;
+	vm->save_area.guest.grs[15] = vm->sblk->gg15;
 }
 
 /* Initializes the struct vm members like the SIE control block. */
