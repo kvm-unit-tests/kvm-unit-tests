@@ -2502,32 +2502,49 @@ static void test_msrpm_iopm_bitmap_addrs(void)
 	vmcb->control.intercept = saved_intercept;
 }
 
-#define TEST_CANONICAL(seg_base, msg)					\
-	saved_addr = seg_base;						\
+/*
+ * Unlike VMSAVE, VMRUN seems not to update the value of noncanonical
+ * segment bases in the VMCB.  However, VMENTRY succeeds as documented.
+ */
+#define TEST_CANONICAL_VMRUN(seg_base, msg)					\
+	saved_addr = seg_base;					\
 	seg_base = (seg_base & ((1ul << addr_limit) - 1)) | noncanonical_mask; \
-	report(svm_vmrun() == SVM_EXIT_VMMCALL, "Test %s.base for canonical form: %lx", msg, seg_base);							\
+	return_value = svm_vmrun(); \
+	report(return_value == SVM_EXIT_VMMCALL, \
+			"Successful VMRUN with noncanonical %s.base", msg); \
 	seg_base = saved_addr;
 
-/*
- * VMRUN canonicalizes (i.e., sign-extend to bit 63) all base addresses
- • in the segment registers that have been loaded.
- */
-static void test_vmrun_canonicalization(void)
+
+#define TEST_CANONICAL_VMLOAD(seg_base, msg)					\
+	saved_addr = seg_base;					\
+	seg_base = (seg_base & ((1ul << addr_limit) - 1)) | noncanonical_mask; \
+	asm volatile ("vmload %0" : : "a"(vmcb_phys) : "memory"); \
+	asm volatile ("vmsave %0" : : "a"(vmcb_phys) : "memory"); \
+	report(is_canonical(seg_base), \
+			"Test %s.base for canonical form: %lx", msg, seg_base); \
+	seg_base = saved_addr;
+
+static void test_canonicalization(void)
 {
 	u64 saved_addr;
-	u8 addr_limit = cpuid_maxphyaddr();
+	u64 return_value;
+	u64 addr_limit;
+	u64 vmcb_phys = virt_to_phys(vmcb);
+
+	addr_limit = (this_cpu_has(X86_FEATURE_LA57)) ? 57 : 48;
 	u64 noncanonical_mask = NONCANONICAL & ~((1ul << addr_limit) - 1);
 
-	TEST_CANONICAL(vmcb->save.es.base, "ES");
-	TEST_CANONICAL(vmcb->save.cs.base, "CS");
-	TEST_CANONICAL(vmcb->save.ss.base, "SS");
-	TEST_CANONICAL(vmcb->save.ds.base, "DS");
-	TEST_CANONICAL(vmcb->save.fs.base, "FS");
-	TEST_CANONICAL(vmcb->save.gs.base, "GS");
-	TEST_CANONICAL(vmcb->save.gdtr.base, "GDTR");
-	TEST_CANONICAL(vmcb->save.ldtr.base, "LDTR");
-	TEST_CANONICAL(vmcb->save.idtr.base, "IDTR");
-	TEST_CANONICAL(vmcb->save.tr.base, "TR");
+	TEST_CANONICAL_VMLOAD(vmcb->save.fs.base, "FS");
+	TEST_CANONICAL_VMLOAD(vmcb->save.gs.base, "GS");
+	TEST_CANONICAL_VMLOAD(vmcb->save.ldtr.base, "LDTR");
+	TEST_CANONICAL_VMLOAD(vmcb->save.tr.base, "TR");
+	TEST_CANONICAL_VMLOAD(vmcb->save.kernel_gs_base, "KERNEL GS");
+	TEST_CANONICAL_VMRUN(vmcb->save.es.base, "ES");
+	TEST_CANONICAL_VMRUN(vmcb->save.cs.base, "CS");
+	TEST_CANONICAL_VMRUN(vmcb->save.ss.base, "SS");
+	TEST_CANONICAL_VMRUN(vmcb->save.ds.base, "DS");
+	TEST_CANONICAL_VMRUN(vmcb->save.gdtr.base, "GDTR");
+	TEST_CANONICAL_VMRUN(vmcb->save.idtr.base, "IDTR");
 }
 
 /*
@@ -2554,7 +2571,7 @@ static void svm_guest_state_test(void)
 	test_cr4();
 	test_dr();
 	test_msrpm_iopm_bitmap_addrs();
-	test_vmrun_canonicalization();
+	test_canonicalization();
 }
 
 extern void guest_rflags_test_guest(struct svm_test *test);
