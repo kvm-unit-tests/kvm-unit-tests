@@ -100,7 +100,7 @@ static void setup_guest(void)
 	sie_guest_create(&vm, (uint64_t)guest, HPAGE_SIZE);
 
 	vm.sblk->gpsw.addr = PAGE_SIZE * 4;
-	vm.sblk->gpsw.mask = 0x0000000180000000ULL;
+	vm.sblk->gpsw.mask = PSW_MASK_64;
 	vm.sblk->ictl = ICTL_OPEREXC | ICTL_PINT;
 	/* Enable MVPG interpretation as we want to test KVM and not ourselves */
 	vm.sblk->eca = ECA_MVPGI;

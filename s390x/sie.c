@@ -27,7 +27,7 @@ static struct vm vm;
 static void test_diag(u32 instr)
 {
 	vm.sblk->gpsw.addr = PAGE_SIZE * 2;
-	vm.sblk->gpsw.mask = 0x0000000180000000ULL;
+	vm.sblk->gpsw.mask = PSW_MASK_64;
 
 	memset(guest_instr, 0, PAGE_SIZE);
 	memcpy(guest_instr, &instr, 4);
