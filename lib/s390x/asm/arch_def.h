@@ -41,6 +41,11 @@ struct psw {
 	uint64_t	addr;
 };
 
+#define AS_PRIM				0
+#define AS_ACCR				1
+#define AS_SECN				2
+#define AS_HOME				3
+
 #define PSW_MASK_EXT			0x0100000000000000UL
 #define PSW_MASK_IO			0x0200000000000000UL
 #define PSW_MASK_DAT			0x0400000000000000UL
