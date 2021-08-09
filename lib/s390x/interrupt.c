@@ -115,6 +115,9 @@ static void fixup_pgm_int(struct stack_frame_int *stack)
 	case PGM_INT_CODE_REGION_THIRD_TRANS:
 	case PGM_INT_CODE_PER:
 	case PGM_INT_CODE_CRYPTO_OPERATION:
+	case PGM_INT_CODE_SECURE_STOR_ACCESS:
+	case PGM_INT_CODE_NON_SECURE_STOR_ACCESS:
+	case PGM_INT_CODE_SECURE_STOR_VIOLATION:
 		/* The interrupt was nullified, the old PSW points at the
 		 * responsible instruction. Forward the PSW so we don't loop.
 		 */
