@@ -49,6 +49,8 @@ int uv_setup(void)
 	if (!test_facility(158))
 		return 0;
 
-	assert(!uv_call(0, (u64)&uvcb_qui));
+	uv_call(0, (u64)&uvcb_qui);
+
+	assert(uvcb_qui.header.rc == 1 || uvcb_qui.header.rc == 0x100);
 	return 1;
 }
