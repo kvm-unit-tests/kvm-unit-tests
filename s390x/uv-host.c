@@ -444,13 +444,18 @@ static void test_clear(void)
 
 static void setup_vmem(void)
 {
-	uint64_t asce, mask;
+	uint64_t asce;
 
 	setup_mmu(get_max_ram_size(), NULL);
+	/*
+	 * setup_mmu() will enable DAT and set the primary address
+	 * space but we need to have a valid home space since UV calls
+	 * take home space virtual addresses.
+	 *
+	 * Hence we just copy the primary asce into the home space.
+	 */
 	asce = stctg(1);
 	lctlg(13, asce);
-	mask = extract_psw_mask() | 0x0000C00000000000UL;
-	load_psw_mask(mask);
 }
 
 int main(void)
