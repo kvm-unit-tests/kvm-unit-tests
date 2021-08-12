@@ -2672,6 +2672,14 @@ static void _svm_npt_rsvd_bits_test(u64 *pxe, u64 pxe_rsvd_bits,  u64 efer,
 	int i;
 
 	/*
+	 * RDTSC or RDRAND can sometimes fail to generate a valid reserved bits
+	 */
+	if (!pxe_rsvd_bits) {
+		report_skip("svm_npt_rsvd_bits_test: Reserved bits are not valid");
+		return;
+	}
+
+	/*
 	 * Test all combinations of guest/host EFER.NX and CR4.SMEP.  If host
 	 * EFER.NX=0, use NX as the reserved bit, otherwise use the passed in
 	 * @pxe_rsvd_bits.
@@ -2704,11 +2712,23 @@ static void _svm_npt_rsvd_bits_test(u64 *pxe, u64 pxe_rsvd_bits,  u64 efer,
 
 static u64 get_random_bits(u64 hi, u64 low)
 {
-	u64 rsvd_bits;
+	unsigned retry = 5;
+	u64 rsvd_bits = 0;
 
-	do {
-		rsvd_bits = (rdtsc() << low) & GENMASK_ULL(hi, low);
-	} while (!rsvd_bits);
+	if (this_cpu_has(X86_FEATURE_RDRAND)) {
+		do {
+			rsvd_bits = (rdrand() << low) & GENMASK_ULL(hi, low);
+			retry--;
+		} while (!rsvd_bits && retry);
+	}
+
+	if (!rsvd_bits) {
+		retry = 5;
+		do {
+			rsvd_bits = (rdtsc() << low) & GENMASK_ULL(hi, low);
+			retry--;
+		} while (!rsvd_bits && retry);
+	}
 
 	return rsvd_bits;
 }

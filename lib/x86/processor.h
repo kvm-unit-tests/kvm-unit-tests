@@ -531,6 +531,17 @@ static inline void sti(void)
     asm volatile ("sti");
 }
 
+static inline unsigned long long rdrand(void)
+{
+	long long r;
+
+	asm volatile("rdrand %0\n\t"
+		     "jc 1f\n\t"
+		     "mov $0, %0\n\t"
+		     "1:\n\t" : "=r" (r));
+	return r;
+}
+
 static inline unsigned long long rdtsc(void)
 {
 	long long r;
