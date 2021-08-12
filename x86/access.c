@@ -315,11 +315,14 @@ static _Bool ac_test_legal(ac_test_t *at)
         return false;
 
     /*
-     * Shorten the test by avoiding testing too many reserved bit combinations
+     * Shorten the test by avoiding testing too many reserved bit combinations.
+     * Skip testing multiple reserved bits to shorten the test. Reserved bit
+     * page faults are terminal and multiple reserved bits do not affect the
+     * error code; the odds of a KVM bug are super low, and the odds of actually
+     * being able to detect a bug are even lower.
      */
-    if ((F(AC_PDE_BIT51) + F(AC_PDE_BIT36) + F(AC_PDE_BIT13)) > 1)
-        return false;
-    if ((F(AC_PTE_BIT51) + F(AC_PTE_BIT36)) > 1)
+    if ((F(AC_PDE_BIT51) + F(AC_PDE_BIT36) + F(AC_PDE_BIT13) +
+        F(AC_PTE_BIT51) + F(AC_PTE_BIT36)) > 1)
         return false;
 
     return true;
