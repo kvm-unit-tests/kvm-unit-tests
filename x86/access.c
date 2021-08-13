@@ -324,6 +324,8 @@ static _Bool ac_test_legal(ac_test_t *at)
      */
     reserved = (AC_PDE_BIT51_MASK | AC_PDE_BIT36_MASK | AC_PDE_BIT13_MASK |
 	        AC_PTE_BIT51_MASK | AC_PTE_BIT36_MASK);
+    if (!F(AC_CPU_EFER_NX))
+        reserved |= AC_PDE_NX_MASK | AC_PTE_NX_MASK;
 
     /* Only test one reserved bit at a time.  */
     reserved &= flags;
