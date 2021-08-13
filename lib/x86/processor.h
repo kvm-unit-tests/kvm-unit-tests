@@ -651,7 +651,10 @@ static inline void write_pkru(u32 pkru)
 
 static inline bool is_canonical(u64 addr)
 {
-	return (s64)(addr << 16) >> 16 == addr;
+	int va_width = (raw_cpuid(0x80000008, 0).a & 0xff00) >> 8;
+	int shift_amt = 64 - va_width;
+
+	return (s64)(addr << shift_amt) >> shift_amt == addr;
 }
 
 static inline void clear_bit(int bit, u8 *addr)
