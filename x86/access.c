@@ -288,6 +288,7 @@ static int ac_test_bump_one(ac_test_t *at)
 static _Bool ac_test_legal(ac_test_t *at)
 {
     int flags = at->flags;
+    unsigned reserved;
 
     if (F(AC_ACCESS_FETCH) && F(AC_ACCESS_WRITE))
 	return false;
@@ -321,8 +322,12 @@ static _Bool ac_test_legal(ac_test_t *at)
      * error code; the odds of a KVM bug are super low, and the odds of actually
      * being able to detect a bug are even lower.
      */
-    if ((F(AC_PDE_BIT51) + F(AC_PDE_BIT36) + F(AC_PDE_BIT13) +
-        F(AC_PTE_BIT51) + F(AC_PTE_BIT36)) > 1)
+    reserved = (AC_PDE_BIT51_MASK | AC_PDE_BIT36_MASK | AC_PDE_BIT13_MASK |
+	        AC_PTE_BIT51_MASK | AC_PTE_BIT36_MASK);
+
+    /* Only test one reserved bit at a time.  */
+    reserved &= flags;
+    if (reserved & (reserved - 1))
         return false;
 
     return true;
