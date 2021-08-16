@@ -1,3 +1,13 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Tests SIE diagnose intercepts.
+ * Mainly used as a template for SIE tests.
+ *
+ * Copyright 2021 IBM Corp.
+ *
+ * Authors:
+ *    Janosch Frank <frankja@linux.ibm.com>
+ */
 #include <libcflat.h>
 #include <asm/asm-offsets.h>
 #include <asm/arch_def.h>
@@ -14,31 +24,10 @@ static u8 *guest;
 static u8 *guest_instr;
 static struct vm vm;
 
-static void handle_validity(struct vm *vm)
-{
-	report(0, "VALIDITY: %x", vm->sblk->ipb >> 16);
-}
-
-static void sie(struct vm *vm)
-{
-	while (vm->sblk->icptcode == 0) {
-		sie64a(vm->sblk, &vm->save_area);
-		if (vm->sblk->icptcode == ICPT_VALIDITY)
-			handle_validity(vm);
-	}
-	vm->save_area.guest.grs[14] = vm->sblk->gg14;
-	vm->save_area.guest.grs[15] = vm->sblk->gg15;
-}
-
-static void sblk_cleanup(struct vm *vm)
-{
-	vm->sblk->icptcode = 0;
-}
-
 static void test_diag(u32 instr)
 {
 	vm.sblk->gpsw.addr = PAGE_SIZE * 2;
-	vm.sblk->gpsw.mask = 0x0000000180000000ULL;
+	vm.sblk->gpsw.mask = PSW_MASK_64;
 
 	memset(guest_instr, 0, PAGE_SIZE);
 	memcpy(guest_instr, &instr, 4);
@@ -46,7 +35,6 @@ static void test_diag(u32 instr)
 	report(vm.sblk->icptcode == ICPT_INST &&
 	       vm.sblk->ipa == instr >> 16 && vm.sblk->ipb == instr << 16,
 	       "Intercept data");
-	sblk_cleanup(&vm);
 }
 
 static struct {
@@ -79,22 +67,7 @@ static void setup_guest(void)
 	/* The first two pages are the lowcore */
 	guest_instr = guest + PAGE_SIZE * 2;
 
-	vm.sblk = alloc_page();
-
-	vm.sblk->cpuflags = CPUSTAT_ZARCH | CPUSTAT_RUNNING;
-	vm.sblk->prefix = 0;
-	/*
-	 * Pageable guest with the same ASCE as the test programm, but
-	 * the guest memory 0x0 is offset to start at the allocated
-	 * guest pages and end after 1MB.
-	 *
-	 * It's not pretty but faster and easier than managing guest ASCEs.
-	 */
-	vm.sblk->mso = (u64)guest;
-	vm.sblk->msl = (u64)guest;
-	vm.sblk->ihcpu = 0xffff;
-
-	vm.sblk->crycbd = (uint64_t)alloc_page();
+	sie_guest_create(&vm, (uint64_t)guest, HPAGE_SIZE);
 }
 
 int main(void)
@@ -107,6 +80,8 @@ int main(void)
 
 	setup_guest();
 	test_diags();
+	sie_guest_destroy(&vm);
+
 done:
 	report_prefix_pop();
 	return report_summary();

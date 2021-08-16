@@ -1,3 +1,12 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Ultravisor related functionality
+ *
+ * Copyright 2020 IBM Corp.
+ *
+ * Authors:
+ *    Janosch Frank <frankja@linux.ibm.com>
+ */
 #include <libcflat.h>
 #include <bitops.h>
 #include <alloc.h>
@@ -40,6 +49,8 @@ int uv_setup(void)
 	if (!test_facility(158))
 		return 0;
 
-	assert(!uv_call(0, (u64)&uvcb_qui));
+	uv_call(0, (u64)&uvcb_qui);
+
+	assert(uvcb_qui.header.rc == 1 || uvcb_qui.header.rc == 0x100);
 	return 1;
 }

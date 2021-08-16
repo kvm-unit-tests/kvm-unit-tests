@@ -8,7 +8,7 @@
  * Authors:
  *  Thomas Huth <thuth@redhat.com>
  *  David Hildenbrand <david@redhat.com>
- *  Janosch Frank <frankja@de.ibm.com>
+ *  Janosch Frank <frankja@linux.ibm.com>
  */
 #include <libcflat.h>
 #include <stack.h>

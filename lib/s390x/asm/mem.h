@@ -3,7 +3,7 @@
  * Physical memory management related functions and definitions.
  *
  * Copyright IBM Corp. 2018
- * Author(s): Janosch Frank <frankja@de.ibm.com>
+ * Author(s): Janosch Frank <frankja@linux.ibm.com>
  */
 #ifndef _ASMS390X_MEM_H_
 #define _ASMS390X_MEM_H_

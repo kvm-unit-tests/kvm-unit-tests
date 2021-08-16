@@ -46,6 +46,9 @@ struct psw {
 #define PSW_MASK_DAT			0x0400000000000000UL
 #define PSW_MASK_WAIT			0x0002000000000000UL
 #define PSW_MASK_PSTATE			0x0001000000000000UL
+#define PSW_MASK_EA			0x0000000100000000UL
+#define PSW_MASK_BA			0x0000000080000000UL
+#define PSW_MASK_64			PSW_MASK_BA | PSW_MASK_EA;
 
 #define CR0_EXTM_SCLP			0x0000000000000200UL
 #define CR0_EXTM_EXTC			0x0000000000002000UL
@@ -177,6 +180,9 @@ _Static_assert(sizeof(struct lowcore) == 0x1900, "Lowcore size");
 #define PGM_INT_CODE_REGION_FIRST_TRANS		0x39
 #define PGM_INT_CODE_REGION_SECOND_TRANS	0x3a
 #define PGM_INT_CODE_REGION_THIRD_TRANS		0x3b
+#define PGM_INT_CODE_SECURE_STOR_ACCESS		0x3d
+#define PGM_INT_CODE_NON_SECURE_STOR_ACCESS	0x3e
+#define PGM_INT_CODE_SECURE_STOR_VIOLATION	0x3f
 #define PGM_INT_CODE_MONITOR_EVENT		0x40
 #define PGM_INT_CODE_PER			0x80
 #define PGM_INT_CODE_CRYPTO_OPERATION		0x119
@@ -326,6 +332,22 @@ static inline int stsi(void *addr, int fc, int sel1, int sel2)
 		: "d" (r1), "a" (addr)
 		: "cc", "memory");
 	return cc;
+}
+
+static inline unsigned long stsi_get_fc(void)
+{
+	register unsigned long r0 asm("0") = 0;
+	register unsigned long r1 asm("1") = 0;
+	int cc;
+
+	asm volatile("stsi	0\n"
+		     "ipm	%[cc]\n"
+		     "srl	%[cc],28\n"
+		     : "+d" (r0), [cc] "=d" (cc)
+		     : "d" (r1)
+		     : "cc", "memory");
+	assert(!cc);
+	return r0 >> 28;
 }
 
 static inline int servc(uint32_t command, unsigned long sccb)

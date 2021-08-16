@@ -1,3 +1,12 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Start assembly for snippets
+ *
+ * Copyright (c) 2021 IBM Corp.
+ *
+ * Authors:
+ *  Janosch Frank <frankja@linux.ibm.com>
+ */
 #include <asm/sigp.h>
 
 .section .init

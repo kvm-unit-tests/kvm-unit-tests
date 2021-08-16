@@ -6,7 +6,7 @@
  *
  * Authors:
  *    Martin Schwidefsky <schwidefsky@de.ibm.com>
- *    Janosch Frank <frankja@de.ibm.com>
+ *    Janosch Frank <frankja@linux.ibm.com>
  */
 #include <libcflat.h>
 #include <asm/page.h>
