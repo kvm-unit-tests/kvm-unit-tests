@@ -219,6 +219,20 @@ static inline unsigned short stap(void)
 	return cpu_address;
 }
 
+#define MACHINE_Z15A	0x8561
+#define MACHINE_Z15B	0x8562
+
+static inline uint16_t get_machine_id(void)
+{
+	uint64_t cpuid;
+
+	asm volatile("stidp %0" : "=Q" (cpuid));
+	cpuid = cpuid >> 16;
+	cpuid &= 0xffff;
+
+	return cpuid;
+}
+
 static inline int tprot(unsigned long addr)
 {
 	int cc;
