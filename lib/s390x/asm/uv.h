@@ -219,15 +219,8 @@ static inline int share(unsigned long addr, u16 cmd)
 		.header.len = sizeof(uvcb),
 		.paddr = addr
 	};
-	int cc;
 
-	cc = uv_call(0, (u64)&uvcb);
-	if (!cc && uvcb.header.rc == UVC_RC_EXECUTED)
-		return 0;
-
-	report_info("uv_call: cmd %04x cc %d response code: %04x", cc, cmd,
-		    uvcb.header.rc);
-	return -1;
+	return uv_call(0, (u64)&uvcb);
 }
 
 /*
