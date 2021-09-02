@@ -385,7 +385,7 @@ static void test_init(void)
 
 static void test_query(void)
 {
-	int i = 0;
+	int i = 0, cc;
 
 	uvcb_qui.header.cmd = UVC_CMD_QUI;
 	uvcb_qui.header.len = sizeof(uvcb_qui);
@@ -400,8 +400,10 @@ static void test_query(void)
 	report(uvcb_qui.header.rc == 0x100, "insf length");
 
 	uvcb_qui.header.len = sizeof(uvcb_qui);
-	uv_call(0, (uint64_t)&uvcb_qui);
-	report(uvcb_qui.header.rc == UVC_RC_EXECUTED, "successful query");
+	cc = uv_call(0, (uint64_t)&uvcb_qui);
+	report((!cc && uvcb_qui.header.rc == UVC_RC_EXECUTED) ||
+	       (cc == 1 && uvcb_qui.header.rc == 0x100),
+		"successful query");
 
 	for (i = 0; cmds[i].name; i++)
 		report(uv_query_test_call(cmds[i].call_bit), "%s", cmds[i].name);
