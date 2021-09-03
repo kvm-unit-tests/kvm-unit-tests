@@ -50,6 +50,18 @@ static inline unsigned char get_storage_key(void *addr)
 	return skey;
 }
 
+static inline unsigned char reset_reference_bit(void *addr)
+{
+	int cc;
+
+	asm volatile(
+		"rrbe	0,%1\n"
+		"ipm	%0\n"
+		"srl	%0,28\n"
+		: "=d" (cc) : "a" (addr) : "cc");
+	return cc;
+}
+
 #define PFMF_FSC_4K 0
 #define PFMF_FSC_1M 1
 #define PFMF_FSC_2G 2
