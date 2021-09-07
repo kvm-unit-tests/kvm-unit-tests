@@ -12,6 +12,11 @@
 #ifndef _ASMS390X_UV_H_
 #define _ASMS390X_UV_H_
 
+/* Enables printing of command code and return codes for failed UVCs */
+#ifndef UVC_ERR_DEBUG
+#define UVC_ERR_DEBUG	0
+#endif
+
 #define UVC_RC_EXECUTED		0x0001
 #define UVC_RC_INV_CMD		0x0002
 #define UVC_RC_INV_STATE	0x0003
@@ -194,6 +199,13 @@ static inline int uv_call_once(unsigned long r1, unsigned long r2)
 		: [cc] "=d" (cc)
 		: [r1] "a" (r1), [r2] "a" (r2)
 		: "memory", "cc");
+
+	if (UVC_ERR_DEBUG && cc == 1)
+		printf("UV call error: call %x rc %x rrc %x\n",
+		       ((struct uv_cb_header *)r2)->cmd,
+		       ((struct uv_cb_header *)r2)->rc,
+		       ((struct uv_cb_header *)r2)->rrc);
+
 	return cc;
 }
 
