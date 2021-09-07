@@ -169,7 +169,7 @@ static void print_pgm_info(struct stack_frame_int *stack)
 		  lc->pgm_old_psw.addr <= (uintptr_t)sie_exit);
 
 	printf("\n");
-	printf("Unexpected program interrupt %s: %d on cpu %d at %#lx, ilen %d\n",
+	printf("Unexpected program interrupt %s: %#x on cpu %d at %#lx, ilen %d\n",
 	       in_sie ? "in SIE" : "",
 	       lc->pgm_int_code, stap(), lc->pgm_old_psw.addr, lc->pgm_int_id);
 	print_int_regs(stack);
