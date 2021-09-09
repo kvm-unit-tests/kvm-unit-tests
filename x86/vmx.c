@@ -426,7 +426,7 @@ static void prep_flags_test_env(void **vpage, struct vmcs **vmcs, handler *old)
 	*old = handle_exception(PF_VECTOR, &pf_handler);
 }
 
-static void test_read_sentinel(void)
+static noinline void test_read_sentinel(void)
 {
 	void *vpage;
 	struct vmcs *vmcs;
@@ -474,7 +474,7 @@ static void test_vmread_flags_touch(void)
 	test_read_sentinel();
 }
 
-static void test_write_sentinel(void)
+static noinline void test_write_sentinel(void)
 {
 	void *vpage;
 	struct vmcs *vmcs;
@@ -1786,7 +1786,7 @@ static int exit_handler(union exit_reason exit_reason)
  * Tries to enter the guest, populates @result with VM-Fail, VM-Exit, entered,
  * etc...
  */
-static void vmx_enter_guest(struct vmentry_result *result)
+static noinline void vmx_enter_guest(struct vmentry_result *result)
 {
 	memset(result, 0, sizeof(*result));
 
