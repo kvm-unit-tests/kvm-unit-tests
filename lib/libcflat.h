@@ -22,6 +22,7 @@
 
 #ifndef __ASSEMBLY__
 
+#include <linux/compiler.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>

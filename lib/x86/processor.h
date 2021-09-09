@@ -216,11 +216,6 @@ struct descriptor_table_ptr {
     ulong base;
 } __attribute__((packed));
 
-static inline void barrier(void)
-{
-    asm volatile ("" : : : "memory");
-}
-
 static inline void clac(void)
 {
     asm volatile (".byte 0x0f, 0x01, 0xca" : : : "memory");
