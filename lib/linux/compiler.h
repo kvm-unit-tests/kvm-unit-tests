@@ -47,6 +47,7 @@
 
 #define __always_inline	inline __attribute__((always_inline))
 #define noinline __attribute__((noinline))
+#define __unused __attribute__((__unused__))
 
 static __always_inline void __read_once_size(const volatile void *p, void *res, int size)
 {
