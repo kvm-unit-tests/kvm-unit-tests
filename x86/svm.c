@@ -256,7 +256,7 @@ int svm_vmrun(void)
 
 extern u8 vmrun_rip;
 
-static void test_run(struct svm_test *test)
+static noinline void test_run(struct svm_test *test)
 {
 	u64 vmcb_phys = virt_to_phys(vmcb);
 
