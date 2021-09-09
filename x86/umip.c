@@ -114,7 +114,7 @@ static void test_umip_gp(const char *msg)
 
 /* The ugly mode switching code */
 
-static int do_ring3(void (*fn)(const char *), const char *arg)
+static noinline int do_ring3(void (*fn)(const char *), const char *arg)
 {
     static unsigned char user_stack[4096];
     int ret;
