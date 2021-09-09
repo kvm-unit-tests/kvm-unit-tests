@@ -1,3 +1,5 @@
+#include <linux/compiler.h>
+
 #ifndef USE_SERIAL
 #define USE_SERIAL
 #endif
@@ -178,7 +180,7 @@ static inline void init_inregs(struct regs *regs)
 		inregs.esp = (unsigned long)&tmp_stack.top;
 }
 
-static void exec_in_big_real_mode(struct insn_desc *insn)
+static noinline void exec_in_big_real_mode(struct insn_desc *insn)
 {
 	unsigned long tmp;
 	static struct regs save;
