@@ -46,6 +46,7 @@
 #define barrier()	asm volatile("" : : : "memory")
 
 #define __always_inline	inline __attribute__((always_inline))
+#define noinline __attribute__((noinline))
 
 static __always_inline void __read_once_size(const volatile void *p, void *res, int size)
 {

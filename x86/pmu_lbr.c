@@ -16,14 +16,14 @@
 
 volatile int count;
 
-static __attribute__((noinline)) int compute_flag(int i)
+static noinline int compute_flag(int i)
 {
 	if (i % 10 < 4)
 		return i + 1;
 	return 0;
 }
 
-static __attribute__((noinline)) int lbr_test(void)
+static noinline int lbr_test(void)
 {
 	int i;
 	int flag;
