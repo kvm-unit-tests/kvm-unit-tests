@@ -2383,13 +2383,9 @@ skip_npt_only:
 	vmcb->save.cr4 = cr4_saved;
 }
 
+/* Test CR4 MBZ bits based on legacy or long modes */
 static void test_cr4(void)
 {
-	/*
-	 * CR4 MBZ bits based on different modes:
-	 *   [15:12], 17, 19, [31:22] - legacy mode
-	 *   [15:12], 17, 19, [63:22] - long mode
-	 */
 	u64 cr4_saved = vmcb->save.cr4;
 	u64 efer_saved = vmcb->save.efer;
 	u64 efer = efer_saved;
