@@ -233,15 +233,15 @@ static inline uint16_t get_machine_id(void)
 	return cpuid;
 }
 
-static inline int tprot(unsigned long addr)
+static inline int tprot(unsigned long addr, char access_key)
 {
 	int cc;
 
 	asm volatile(
-		"	tprot	0(%1),0\n"
+		"	tprot	0(%1),0(%2)\n"
 		"	ipm	%0\n"
 		"	srl	%0,28\n"
-		: "=d" (cc) : "a" (addr) : "cc");
+		: "=d" (cc) : "a" (addr), "a" (access_key << 4) : "cc");
 	return cc;
 }
 

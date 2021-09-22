@@ -103,8 +103,7 @@ static void test_tprot(void)
 {
 	report_prefix_push("tprot");
 	expect_pgm_int();
-	asm volatile("tprot	%[addr],0xf0(0)\n"
-		     : : [addr] "a" (pagebuf) : );
+	tprot((unsigned long)pagebuf, 0xf);
 	check_pgm_int_code(PGM_INT_CODE_SPECIAL_OPERATION);
 	report_prefix_pop();
 }
