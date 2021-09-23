@@ -56,6 +56,7 @@ Maintainers
 M: Paolo Bonzini <pbonzini@redhat.com>
 M: Thomas Huth <thuth@redhat.com>
 M: Andrew Jones <drjones@redhat.com>
+S: Supported
 L: kvm@vger.kernel.org
 T: https://gitlab.com/kvm-unit-tests/kvm-unit-tests.git
 
@@ -64,6 +65,7 @@ Architecture Specific Code:
 
 ARM
 M: Andrew Jones <drjones@redhat.com>
+S: Supported
 L: kvm@vger.kernel.org
 L: kvmarm@lists.cs.columbia.edu
 F: arm/*
@@ -74,6 +76,7 @@ T: https://gitlab.com/rhdrjones/kvm-unit-tests.git
 POWERPC
 M: Laurent Vivier <lvivier@redhat.com>
 M: Thomas Huth <thuth@redhat.com>
+S: Maintained
 L: kvm@vger.kernel.org
 L: kvm-ppc@vger.kernel.org
 F: powerpc/*
@@ -83,6 +86,7 @@ F: lib/ppc64/*
 S390X
 M: Thomas Huth <thuth@redhat.com>
 M: Janosch Frank <frankja@linux.ibm.com>
+S: Supported
 R: Cornelia Huck <cohuck@redhat.com>
 R: Claudio Imbrenda <imbrenda@linux.ibm.com>
 R: David Hildenbrand <david@redhat.com>
@@ -93,6 +97,7 @@ F: lib/s390x/*
 
 X86
 M: Paolo Bonzini <pbonzini@redhat.com>
+S: Supported
 L: kvm@vger.kernel.org
 F: x86/*
 F: lib/x86/*
