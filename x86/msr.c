@@ -3,6 +3,16 @@
 #include "libcflat.h"
 #include "processor.h"
 #include "msr.h"
+#include <stdlib.h>
+
+/**
+ * This test allows two modes:
+ * 1. Default: the `msr_info' array contains the default test configurations
+ * 2. Custom: by providing command line arguments it is possible to test any MSR and value
+ *	Parameters order:
+ *		1. msr index as a base 16 number
+ *		2. value as a base 16 number
+ */
 
 struct msr_info {
 	int index;
@@ -100,8 +110,21 @@ int main(int ac, char **av)
 	bool is_64bit_host = this_cpu_has(X86_FEATURE_LM);
 	int i;
 
-	for (i = 0 ; i < ARRAY_SIZE(msr_info); i++) {
-		test_msr(&msr_info[i], is_64bit_host);
+	if (ac == 3) {
+		char msr_name[16];
+		int index = strtoul(av[1], NULL, 0x10);
+		snprintf(msr_name, sizeof(msr_name), "MSR:0x%x", index);
+
+		struct msr_info msr = {
+			.index = index,
+			.name = msr_name,
+			.value = strtoull(av[2], NULL, 0x10)
+		};
+		test_msr(&msr, is_64bit_host);
+	} else {
+		for (i = 0 ; i < ARRAY_SIZE(msr_info); i++) {
+			test_msr(&msr_info[i], is_64bit_host);
+		}
 	}
 
 	return report_summary();
