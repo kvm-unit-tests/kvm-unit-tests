@@ -77,26 +77,31 @@ static void test_rdmsr_fault(struct msr_info *msr)
 	       "Expected #GP on RDSMR(%s), got vector %d", msr->name, vector);
 }
 
+static void test_msr(struct msr_info *msr, bool is_64bit_host)
+{
+	if (is_64bit_host || !msr->is_64bit_only) {
+		test_msr_rw(msr, msr->value);
+
+		/*
+		 * The 64-bit only MSRs that take an address always perform
+		 * canonical checks on both Intel and AMD.
+		 */
+		if (msr->is_64bit_only &&
+		    msr->value == addr_64)
+			test_wrmsr_fault(msr, NONCANONICAL);
+	} else {
+		test_wrmsr_fault(msr, msr->value);
+		test_rdmsr_fault(msr);
+	}
+}
+
 int main(int ac, char **av)
 {
 	bool is_64bit_host = this_cpu_has(X86_FEATURE_LM);
 	int i;
 
 	for (i = 0 ; i < ARRAY_SIZE(msr_info); i++) {
-		if (is_64bit_host || !msr_info[i].is_64bit_only) {
-			test_msr_rw(&msr_info[i], msr_info[i].value);
-
-			/*
-			 * The 64-bit only MSRs that take an address always perform
-			 * canonical checks on both Intel and AMD.
-			 */
-			if (msr_info[i].is_64bit_only &&
-			    msr_info[i].value == addr_64)
-				test_wrmsr_fault(&msr_info[i], NONCANONICAL);
-		} else {
-			test_wrmsr_fault(&msr_info[i], msr_info[i].value);
-			test_rdmsr_fault(&msr_info[i]);
-		}
+		test_msr(&msr_info[i], is_64bit_host);
 	}
 
 	return report_summary();
