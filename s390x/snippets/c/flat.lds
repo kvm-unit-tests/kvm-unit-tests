@@ -15,6 +15,8 @@ SECTIONS
 		 QUAD(0x0000000000004000)
 	}
 	. = 0x4000;
+	stackptr = . - 160;
+	stacktop = .;
 	.text : {
 		*(.init)
 		*(.text)

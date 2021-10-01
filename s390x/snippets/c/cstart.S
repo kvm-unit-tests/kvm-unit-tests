@@ -17,7 +17,7 @@ start:
 	xgr \i,\i
 	.endr
 	/* 0x3000 is the stack page for now */
-	lghi	%r15, 0x4000 - 160
+	lghi	%r15, stackptr
 	sam64
 	brasl	%r14, main
 	/* For now let's only use cpu 0 in snippets so this will always work. */
