@@ -39,6 +39,7 @@ bool amd_sev_enabled(void);
 efi_status_t setup_amd_sev(void);
 
 unsigned long long get_amd_sev_c_bit_mask(void);
+unsigned long long get_amd_sev_addr_upperbound(void);
 
 #endif /* TARGET_EFI */
 

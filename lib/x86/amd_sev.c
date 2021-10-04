@@ -73,3 +73,13 @@ unsigned long long get_amd_sev_c_bit_mask(void)
 		return 0;
 	}
 }
+
+unsigned long long get_amd_sev_addr_upperbound(void)
+{
+	if (amd_sev_enabled()) {
+		return amd_sev_c_bit_pos - 1;
+	} else {
+		/* Default memory upper bound */
+		return PT_ADDR_UPPER_BOUND_DEFAULT;
+	}
+}

@@ -25,6 +25,12 @@ typedef unsigned long pgd_t;
 #define LARGE_PAGE_SIZE	(1024 * PAGE_SIZE)
 #endif
 
+#ifdef TARGET_EFI
+/* lib/x86/amd_sev.c */
+extern unsigned long long get_amd_sev_c_bit_mask(void);
+extern unsigned long long get_amd_sev_addr_upperbound(void);
+#endif /* TARGET_EFI */
+
 #define PT_PRESENT_MASK		(1ull << 0)
 #define PT_WRITABLE_MASK	(1ull << 1)
 #define PT_USER_MASK		(1ull << 2)
@@ -33,10 +39,25 @@ typedef unsigned long pgd_t;
 #define PT_PAGE_SIZE_MASK	(1ull << 7)
 #define PT_GLOBAL_MASK		(1ull << 8)
 #define PT64_NX_MASK		(1ull << 63)
-#define PT_ADDR_MASK		GENMASK_ULL(51, 12)
 
-#define PDPTE64_PAGE_SIZE_MASK	  (1ull << 7)
-#define PDPTE64_RSVD_MASK	  GENMASK_ULL(51, cpuid_maxphyaddr())
+/*
+ * Without AMD SEV, the default address upper bound is 51 (i.e., pte bit 51 and
+ * lower bits are addresses). But with AMD SEV enabled, the upper bound is one
+ * bit lower than the c-bit position.
+ */
+#define PT_ADDR_UPPER_BOUND_DEFAULT	(51)
+
+#ifdef TARGET_EFI
+#define PT_ADDR_UPPER_BOUND	(get_amd_sev_addr_upperbound())
+#else
+#define PT_ADDR_UPPER_BOUND	(PT_ADDR_UPPER_BOUND_DEFAULT)
+#endif /* TARGET_EFI */
+
+#define PT_ADDR_LOWER_BOUND	(PAGE_SHIFT)
+#define PT_ADDR_MASK		GENMASK_ULL(PT_ADDR_UPPER_BOUND, PT_ADDR_LOWER_BOUND)
+
+#define PDPTE64_PAGE_SIZE_MASK	(1ull << 7)
+#define PDPTE64_RSVD_MASK	GENMASK_ULL(PT_ADDR_UPPER_BOUND, cpuid_maxphyaddr())
 
 #define PT_AD_MASK              (PT_ACCESSED_MASK | PT_DIRTY_MASK)
 
