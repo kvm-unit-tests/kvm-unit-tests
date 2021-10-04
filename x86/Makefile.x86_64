@@ -5,7 +5,7 @@ ifeq ($(TARGET_EFI),y)
 exe = efi
 bin = so
 FORMAT = efi-app-x86_64
-cstart.o = x86/efi/crt0-efi-x86_64.o
+cstart.o = $(TEST_DIR)/efi/efistart64.o
 else
 exe = flat
 bin = elf

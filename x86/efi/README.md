@@ -22,13 +22,13 @@ To build:
 
 To run a test case with UEFI:
 
-    ./x86/efi/run ./x86/dummy.efi
+    ./x86/efi/run ./x86/msr.efi
 
 By default the runner script loads the UEFI firmware `/usr/share/ovmf/OVMF.fd`;
 please install UEFI firmware to this path, or specify the correct path through
 the env variable `EFI_UEFI`:
 
-    EFI_UEFI=/path/to/OVMF.fd ./x86/efi/run ./x86/dummy.efi
+    EFI_UEFI=/path/to/OVMF.fd ./x86/efi/run ./x86/msr.efi
 
 ## Code structure
 

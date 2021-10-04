@@ -1,4 +1,4 @@
-/* Copied from GNU-EFI/gnuefi/elf_x86_64_efi.lds, licensed under GNU GPL */
+/* Developed based on GNU-EFI/gnuefi/elf_x86_64_efi.lds, licensed under GNU GPL */
 /* Same as elf_x86_64_fbsd_efi.lds, except for OUTPUT_FORMAT below - KEEP IN SYNC */
 OUTPUT_FORMAT("elf64-x86-64", "elf64-x86-64", "elf64-x86-64")
 OUTPUT_ARCH(i386:x86-64)
@@ -38,6 +38,10 @@ SECTIONS
    *(.rodata*)
    *(.got.plt)
    *(.got)
+   /* Expected by lib/x86/desc.c to store exception_table */
+   exception_table_start = .;
+   *(.data.ex)
+   exception_table_end = .;
    *(.data*)
    *(.sdata)
    /* the EFI loader doesn't seem to like a .bss section, so we stick

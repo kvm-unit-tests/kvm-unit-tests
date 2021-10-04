@@ -169,9 +169,14 @@ void setup_multiboot(struct mbi_bootinfo *bi)
 
 #ifdef TARGET_EFI
 
+/* From x86/efi/efistart64.S */
+extern void load_idt(void);
+
 void setup_efi(void)
 {
 	reset_apic();
+	setup_idt();
+	load_idt();
 	mask_pic_interrupts();
 	enable_apic();
 	enable_x2apic();
