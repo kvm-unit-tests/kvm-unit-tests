@@ -58,6 +58,13 @@ typedef guid_t efi_guid_t;
 	(b) & 0xff, ((b) >> 8) & 0xff,						\
 	(c) & 0xff, ((c) >> 8) & 0xff, d } }
 
+#define ACPI_TABLE_GUID EFI_GUID(0xeb9d2d30, 0x2d88, 0x11d3, 0x9a, 0x16, 0x00, 0x90, 0x27, 0x3f, 0xc1, 0x4d)
+
+typedef struct {
+	efi_guid_t guid;
+	void *table;
+} efi_config_table_t;
+
 /*
  * Generic EFI table header
  */

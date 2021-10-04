@@ -70,6 +70,21 @@ efi_status_t efi_exit_boot_services(void *handle, unsigned long mapkey)
 	return efi_bs_call(exit_boot_services, handle, mapkey);
 }
 
+efi_status_t efi_get_system_config_table(efi_guid_t table_guid, void **table)
+{
+	size_t i;
+	efi_config_table_t *tables;
+
+	tables = (efi_config_table_t *)efi_system_table->tables;
+	for (i = 0; i < efi_system_table->nr_tables; i++) {
+		if (!memcmp(&table_guid, &tables[i].guid, sizeof(efi_guid_t))) {
+			*table = tables[i].table;
+			return EFI_SUCCESS;
+		}
+	}
+	return EFI_NOT_FOUND;
+}
+
 efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 {
 	int ret;

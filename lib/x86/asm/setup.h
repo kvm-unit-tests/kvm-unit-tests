@@ -4,6 +4,7 @@
 unsigned long setup_tss(u8 *stacktop);
 
 #ifdef TARGET_EFI
+#include "x86/acpi.h"
 #include "x86/apic.h"
 #include "x86/smp.h"
 #include "efi.h"
@@ -17,6 +18,7 @@ unsigned long setup_tss(u8 *stacktop);
 typedef struct {
 	phys_addr_t free_mem_start;
 	phys_addr_t free_mem_size;
+	struct rsdp_descriptor *rsdp;
 } efi_bootinfo_t;
 
 void setup_efi_bootinfo(efi_bootinfo_t *efi_bootinfo);
