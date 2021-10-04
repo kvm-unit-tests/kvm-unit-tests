@@ -31,6 +31,10 @@ tests += $(TEST_DIR)/rdpru.$(exe)
 tests += $(TEST_DIR)/pks.$(exe)
 tests += $(TEST_DIR)/pmu_lbr.$(exe)
 
+ifeq ($(TARGET_EFI),y)
+tests += $(TEST_DIR)/amd_sev.$(exe)
+endif
+
 # The following test cases are disabled when building EFI tests because they
 # use absolute addresses in their inline assembly code, which cannot compile
 # with the '-fPIC' flag

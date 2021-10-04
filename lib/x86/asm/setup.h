@@ -10,6 +10,7 @@ unsigned long setup_tss(u8 *stacktop);
 #include "x86/smp.h"
 #include "asm/page.h"
 #include "efi.h"
+#include "x86/amd_sev.h"
 
 /*
  * efi_bootinfo_t: stores EFI-related machine info retrieved by
