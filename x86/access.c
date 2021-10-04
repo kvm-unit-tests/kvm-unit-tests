@@ -1149,12 +1149,18 @@ int main(void)
     page_table_levels = 4;
     r = ac_test_run();
 
+#ifndef TARGET_EFI
+    /*
+     * Not supported yet for UEFI, because setting up 5
+     * level page table requires entering real mode.
+     */
     if (this_cpu_has(X86_FEATURE_LA57)) {
         page_table_levels = 5;
         printf("starting 5-level paging test.\n\n");
         setup_5level_page_table();
         r = ac_test_run();
     }
+#endif
 
     return r ? 0 : 1;
 }

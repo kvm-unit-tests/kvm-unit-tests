@@ -260,6 +260,39 @@ efi_status_t setup_efi_pre_boot(unsigned long *mapkey, efi_bootinfo_t *efi_booti
 	return EFI_SUCCESS;
 }
 
+/* Defined in cstart64.S or efistart64.S */
+extern u8 ptl4;
+extern u8 ptl3;
+extern u8 ptl2;
+
+static void setup_page_table(void)
+{
+	pgd_t *curr_pt;
+	phys_addr_t flags;
+	int i;
+
+	/* Set default flags */
+	flags = PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_USER_MASK;
+
+	/* Level 4 */
+	curr_pt = (pgd_t *)&ptl4;
+	curr_pt[0] = ((phys_addr_t)&ptl3) | flags;
+	/* Level 3 */
+	curr_pt = (pgd_t *)&ptl3;
+	for (i = 0; i < 4; i++) {
+		curr_pt[i] = (((phys_addr_t)&ptl2) + i * PAGE_SIZE) | flags;
+	}
+	/* Level 2 */
+	curr_pt = (pgd_t *)&ptl2;
+	flags |= PT_ACCESSED_MASK | PT_DIRTY_MASK | PT_PAGE_SIZE_MASK | PT_GLOBAL_MASK;
+	for (i = 0; i < 4 * 512; i++)	{
+		curr_pt[i] = ((phys_addr_t)(i << 21)) | flags;
+	}
+
+	/* Load 4-level page table */
+	write_cr3((ulong)&ptl4);
+}
+
 static void setup_gdt_tss(void)
 {
 	size_t tss_offset;
@@ -281,6 +314,7 @@ void setup_efi(efi_bootinfo_t *efi_bootinfo)
 	smp_init();
 	phys_alloc_init(efi_bootinfo->free_mem_start, efi_bootinfo->free_mem_size);
 	setup_efi_rsdp(efi_bootinfo->rsdp);
+	setup_page_table();
 }
 
 #endif /* TARGET_EFI */

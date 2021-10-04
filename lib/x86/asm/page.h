@@ -31,6 +31,7 @@ typedef unsigned long pgd_t;
 #define PT_ACCESSED_MASK	(1ull << 5)
 #define PT_DIRTY_MASK		(1ull << 6)
 #define PT_PAGE_SIZE_MASK	(1ull << 7)
+#define PT_GLOBAL_MASK		(1ull << 8)
 #define PT64_NX_MASK		(1ull << 63)
 #define PT_ADDR_MASK		GENMASK_ULL(51, 12)
 

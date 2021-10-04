@@ -4,6 +4,24 @@
 #include "asm-generic/page.h"
 #include "crt0-efi-x86_64.S"
 
+.data
+
+.align PAGE_SIZE
+.globl ptl2
+ptl2:
+	. = . + 4 * PAGE_SIZE
+.align PAGE_SIZE
+
+.globl ptl3
+ptl3:
+	. = . + PAGE_SIZE
+.align PAGE_SIZE
+
+.globl ptl4
+ptl4:
+	. = . + PAGE_SIZE
+.align PAGE_SIZE
+
 .section .init
 .code64
 .text
