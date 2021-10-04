@@ -87,6 +87,36 @@ bool amd_sev_es_enabled(void)
 	return sev_es_enabled;
 }
 
+efi_status_t setup_amd_sev_es(void)
+{
+	struct descriptor_table_ptr idtr;
+	idt_entry_t *idt;
+	idt_entry_t vc_handler_idt;
+
+	if (!amd_sev_es_enabled()) {
+		return EFI_UNSUPPORTED;
+	}
+
+	/*
+	 * Copy UEFI's #VC IDT entry, so KVM-Unit-Tests can reuse it and does
+	 * not have to re-implement a #VC handler. Also update the #VC IDT code
+	 * segment to use KVM-Unit-Tests segments, KERNEL_CS, so that we do not
+	 * have to copy the UEFI GDT entries into KVM-Unit-Tests GDT.
+	 *
+	 * TODO: Reusing UEFI #VC handler is a temporary workaround to simplify
+	 * the boot up process, the long-term solution is to implement a #VC
+	 * handler in kvm-unit-tests and load it, so that kvm-unit-tests does
+	 * not depend on specific UEFI #VC handler implementation.
+	 */
+	sidt(&idtr);
+	idt = (idt_entry_t *)idtr.base;
+	vc_handler_idt = idt[SEV_ES_VC_HANDLER_VECTOR];
+	vc_handler_idt.selector = KERNEL_CS;
+	boot_idt[SEV_ES_VC_HANDLER_VECTOR] = vc_handler_idt;
+
+	return EFI_SUCCESS;
+}
+
 unsigned long long get_amd_sev_c_bit_mask(void)
 {
 	if (amd_sev_enabled()) {
