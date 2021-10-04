@@ -22,6 +22,10 @@ cflatobjs += lib/x86/acpi.o
 cflatobjs += lib/x86/stack.o
 cflatobjs += lib/x86/fault_test.o
 cflatobjs += lib/x86/delay.o
+ifeq ($(TARGET_EFI),y)
+cflatobjs += lib/efi.o
+cflatobjs += x86/efi/reloc_x86_64.o
+endif
 
 OBJDIRS += lib/x86
 
@@ -37,10 +41,25 @@ COMMON_CFLAGS += -O1
 # stack.o relies on frame pointers.
 KEEP_FRAME_POINTER := y
 
-# We want to keep intermediate file: %.elf and %.o 
+FLATLIBS = lib/libcflat.a
+
+ifeq ($(TARGET_EFI),y)
+.PRECIOUS: %.efi %.so
+
+%.so: %.o $(FLATLIBS) $(SRCDIR)/x86/efi/elf_x86_64_efi.lds $(cstart.o)
+	$(LD) -T $(SRCDIR)/x86/efi/elf_x86_64_efi.lds $(EFI_LDFLAGS) -o $@ \
+		$(filter %.o, $^) $(FLATLIBS)
+	@chmod a-x $@
+
+%.efi: %.so
+	$(OBJCOPY) \
+		-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel \
+		-j .rela -j .reloc -S --target=$(FORMAT) $< $@
+	@chmod a-x $@
+else
+# We want to keep intermediate file: %.elf and %.o
 .PRECIOUS: %.elf %.o
 
-FLATLIBS = lib/libcflat.a
 %.elf: %.o $(FLATLIBS) $(SRCDIR)/x86/flat.lds $(cstart.o)
 	$(CC) $(CFLAGS) -nostdlib -o $@ -Wl,-T,$(SRCDIR)/x86/flat.lds \
 		$(filter %.o, $^) $(FLATLIBS)
@@ -49,18 +68,29 @@ FLATLIBS = lib/libcflat.a
 %.flat: %.elf
 	$(OBJCOPY) -O elf32-i386 $^ $@
 	@chmod a-x $@
+endif
 
-tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
-               $(TEST_DIR)/smptest.flat  \
-               $(TEST_DIR)/realmode.flat $(TEST_DIR)/msr.flat \
-               $(TEST_DIR)/hypercall.flat $(TEST_DIR)/sieve.flat \
-               $(TEST_DIR)/kvmclock_test.flat  $(TEST_DIR)/eventinj.flat \
-               $(TEST_DIR)/s3.flat $(TEST_DIR)/pmu.flat $(TEST_DIR)/setjmp.flat \
-               $(TEST_DIR)/tsc_adjust.flat $(TEST_DIR)/asyncpf.flat \
-               $(TEST_DIR)/init.flat $(TEST_DIR)/smap.flat \
-               $(TEST_DIR)/hyperv_synic.flat $(TEST_DIR)/hyperv_stimer.flat \
-               $(TEST_DIR)/hyperv_connections.flat \
-               $(TEST_DIR)/umip.flat $(TEST_DIR)/tsx-ctrl.flat
+tests-common = $(TEST_DIR)/vmexit.$(exe) $(TEST_DIR)/tsc.$(exe) \
+               $(TEST_DIR)/smptest.$(exe)  \
+               $(TEST_DIR)/msr.$(exe) \
+               $(TEST_DIR)/hypercall.$(exe) $(TEST_DIR)/sieve.$(exe) \
+               $(TEST_DIR)/kvmclock_test.$(exe) \
+               $(TEST_DIR)/s3.$(exe) $(TEST_DIR)/pmu.$(exe) $(TEST_DIR)/setjmp.$(exe) \
+               $(TEST_DIR)/tsc_adjust.$(exe) $(TEST_DIR)/asyncpf.$(exe) \
+               $(TEST_DIR)/init.$(exe) \
+               $(TEST_DIR)/hyperv_synic.$(exe) $(TEST_DIR)/hyperv_stimer.$(exe) \
+               $(TEST_DIR)/hyperv_connections.$(exe) \
+               $(TEST_DIR)/tsx-ctrl.$(exe)
+
+# The following test cases are disabled when building EFI tests because they
+# use absolute addresses in their inline assembly code, which cannot compile
+# with the '-fPIC' flag
+ifneq ($(TARGET_EFI),y)
+tests-common += $(TEST_DIR)/eventinj.$(exe) \
+                $(TEST_DIR)/smap.$(exe) \
+                $(TEST_DIR)/realmode.$(exe) \
+                $(TEST_DIR)/umip.$(exe)
+endif
 
 test_cases: $(tests-common) $(tests)
 
@@ -72,14 +102,16 @@ $(TEST_DIR)/realmode.elf: $(TEST_DIR)/realmode.o
 
 $(TEST_DIR)/realmode.o: bits = $(if $(call cc-option,-m16,""),16,32)
 
-$(TEST_DIR)/kvmclock_test.elf: $(TEST_DIR)/kvmclock.o
+$(TEST_DIR)/kvmclock_test.$(bin): $(TEST_DIR)/kvmclock.o
 
-$(TEST_DIR)/hyperv_synic.elf: $(TEST_DIR)/hyperv.o
+$(TEST_DIR)/hyperv_synic.$(bin): $(TEST_DIR)/hyperv.o
 
-$(TEST_DIR)/hyperv_stimer.elf: $(TEST_DIR)/hyperv.o
+$(TEST_DIR)/hyperv_stimer.$(bin): $(TEST_DIR)/hyperv.o
 
-$(TEST_DIR)/hyperv_connections.elf: $(TEST_DIR)/hyperv.o
+$(TEST_DIR)/hyperv_connections.$(bin): $(TEST_DIR)/hyperv.o
 
 arch_clean:
 	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
 	$(TEST_DIR)/.*.d lib/x86/.*.d \
+	$(TEST_DIR)/efi/*.o $(TEST_DIR)/efi/.*.d \
+	$(TEST_DIR)/*.so $(TEST_DIR)/*.efi

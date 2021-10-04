@@ -1,6 +1,15 @@
 cstart.o = $(TEST_DIR)/cstart64.o
 bits = 64
 ldarch = elf64-x86-64
+ifeq ($(TARGET_EFI),y)
+exe = efi
+bin = so
+FORMAT = efi-app-x86_64
+cstart.o = x86/efi/crt0-efi-x86_64.o
+else
+exe = flat
+bin = elf
+endif
 
 fcf_protection_full := $(call cc-option, -fcf-protection=full,)
 COMMON_CFLAGS += -mno-red-zone -mno-sse -mno-sse2 $(fcf_protection_full)
@@ -9,29 +18,36 @@ cflatobjs += lib/x86/setjmp64.o
 cflatobjs += lib/x86/intel-iommu.o
 cflatobjs += lib/x86/usermode.o
 
-tests = $(TEST_DIR)/access.flat $(TEST_DIR)/apic.flat \
-	  $(TEST_DIR)/emulator.flat $(TEST_DIR)/idt_test.flat \
-	  $(TEST_DIR)/xsave.flat $(TEST_DIR)/rmap_chain.flat \
-	  $(TEST_DIR)/pcid.flat $(TEST_DIR)/debug.flat \
-	  $(TEST_DIR)/ioapic.flat $(TEST_DIR)/memory.flat \
-	  $(TEST_DIR)/pku.flat $(TEST_DIR)/hyperv_clock.flat
-tests += $(TEST_DIR)/syscall.flat
-tests += $(TEST_DIR)/svm.flat
-tests += $(TEST_DIR)/vmx.flat
-tests += $(TEST_DIR)/tscdeadline_latency.flat
-tests += $(TEST_DIR)/intel-iommu.flat
-tests += $(TEST_DIR)/vmware_backdoors.flat
-tests += $(TEST_DIR)/rdpru.flat
-tests += $(TEST_DIR)/pks.flat
-tests += $(TEST_DIR)/pmu_lbr.flat
+tests = $(TEST_DIR)/apic.$(exe) \
+	  $(TEST_DIR)/idt_test.$(exe) \
+	  $(TEST_DIR)/xsave.$(exe) $(TEST_DIR)/rmap_chain.$(exe) \
+	  $(TEST_DIR)/pcid.$(exe) $(TEST_DIR)/debug.$(exe) \
+	  $(TEST_DIR)/ioapic.$(exe) $(TEST_DIR)/memory.$(exe) \
+	  $(TEST_DIR)/pku.$(exe) $(TEST_DIR)/hyperv_clock.$(exe)
+tests += $(TEST_DIR)/syscall.$(exe)
+tests += $(TEST_DIR)/tscdeadline_latency.$(exe)
+tests += $(TEST_DIR)/intel-iommu.$(exe)
+tests += $(TEST_DIR)/rdpru.$(exe)
+tests += $(TEST_DIR)/pks.$(exe)
+tests += $(TEST_DIR)/pmu_lbr.$(exe)
 
+# The following test cases are disabled when building EFI tests because they
+# use absolute addresses in their inline assembly code, which cannot compile
+# with the '-fPIC' flag
+ifneq ($(TARGET_EFI),y)
+tests += $(TEST_DIR)/access.$(exe)
+tests += $(TEST_DIR)/emulator.$(exe)
+tests += $(TEST_DIR)/svm.$(exe)
+tests += $(TEST_DIR)/vmx.$(exe)
+tests += $(TEST_DIR)/vmware_backdoors.$(exe)
 ifneq ($(fcf_protection_full),)
-tests += $(TEST_DIR)/cet.flat
+tests += $(TEST_DIR)/cet.$(exe)
+endif
 endif
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 
-$(TEST_DIR)/hyperv_clock.elf: $(TEST_DIR)/hyperv_clock.o
+$(TEST_DIR)/hyperv_clock.$(bin): $(TEST_DIR)/hyperv_clock.o
 
-$(TEST_DIR)/vmx.elf: $(TEST_DIR)/vmx_tests.o
-$(TEST_DIR)/svm.elf: $(TEST_DIR)/svm_tests.o
+$(TEST_DIR)/vmx.$(bin): $(TEST_DIR)/vmx_tests.o
+$(TEST_DIR)/svm.$(bin): $(TEST_DIR)/svm_tests.o

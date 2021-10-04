@@ -2,12 +2,22 @@
  * EFI-related functions to set up and run test cases in EFI
  *
  * Copyright (c) 2021, SUSE, Varad Gautam <varad.gautam@suse.com>
+ * Copyright (c) 2021, Google Inc, Zixuan Wang <zixuanwang@google.com>
  *
  * SPDX-License-Identifier: LGPL-2.0-or-later
  */
-#include <linux/efi.h>
 
-unsigned long __efiapi efi_main(efi_handle_t handle, efi_system_table_t *sys_tab);
+#include "efi.h"
+#include <libcflat.h>
+#include <asm/setup.h>
+
+/* From lib/argv.c */
+extern int __argc, __envc;
+extern char *__argv[100];
+extern char *__environ[200];
+
+extern int main(int argc, char **argv, char **envp);
+
 efi_system_table_t *efi_system_table = NULL;
 
 static void efi_free_pool(void *ptr)
@@ -15,7 +25,7 @@ static void efi_free_pool(void *ptr)
 	efi_bs_call(free_pool, ptr);
 }
 
-static efi_status_t efi_get_memory_map(struct efi_boot_memmap *map)
+efi_status_t efi_get_memory_map(struct efi_boot_memmap *map)
 {
 	efi_memory_desc_t *m = NULL;
 	efi_status_t status;
@@ -53,15 +63,24 @@ out:
 	return status;
 }
 
-static efi_status_t efi_exit_boot_services(void *handle,
-					   struct efi_boot_memmap *map)
+efi_status_t efi_exit_boot_services(void *handle, struct efi_boot_memmap *map)
 {
 	return efi_bs_call(exit_boot_services, handle, *map->key_ptr);
 }
 
-unsigned long __efiapi efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
+efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 {
+	int ret;
+
 	efi_system_table = sys_tab;
 
-	return 0;
+	setup_efi();
+	ret = main(__argc, __argv, __environ);
+	exit(ret);
+
+	/* Shutdown the guest VM in case exit() fails */
+	efi_rs_call(reset_system, EFI_RESET_SHUTDOWN, ret, 0, NULL);
+
+	/* Unreachable */
+	return EFI_UNSUPPORTED;
 }

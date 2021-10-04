@@ -4,6 +4,12 @@
 #ifndef __LINUX_UEFI_H
 #define __LINUX_UEFI_H
 
+#include "libcflat.h"
+
+#ifndef __packed
+# define __packed		__attribute__((__packed__))
+#endif
+
 #define BITS_PER_LONG 64
 
 #define EFI_SUCCESS		0
@@ -403,7 +409,7 @@ struct efi_boot_memmap {
 	unsigned long           *buff_size;
 };
 
-#define efi_bs_call(func, ...)						\
-	efi_system_table->boottime->func(__VA_ARGS__)
+#define efi_bs_call(func, ...) efi_system_table->boottime->func(__VA_ARGS__)
+#define efi_rs_call(func, ...) efi_system_table->runtime->func(__VA_ARGS__)
 
 #endif /* __LINUX_UEFI_H */

@@ -1,0 +1,62 @@
+#!/bin/bash
+
+set -e
+
+if [ $# -eq 0 ]; then
+	echo "Usage $0 TEST_CASE [QEMU_ARGS]"
+	exit 2
+fi
+
+if [ ! -f config.mak ]; then
+	echo "run './configure --target-efi && make' first. See ./configure -h"
+	exit 2
+fi
+source config.mak
+
+: "${EFI_SRC:=$(realpath "$(dirname "$0")/../")}"
+: "${EFI_UEFI:=/usr/share/ovmf/OVMF.fd}"
+: "${EFI_TEST:=efi-tests}"
+: "${EFI_SMP:=1}"
+: "${EFI_CASE:=$(basename $1 .efi)}"
+
+if [ ! -f "$EFI_UEFI" ]; then
+	echo "UEFI firmware not found: $EFI_UEFI"
+	echo "Please install the UEFI firmware to this path"
+	echo "Or specify the correct path with the env variable EFI_UEFI"
+	exit 2
+fi
+
+# Remove the TEST_CASE from $@
+shift 1
+
+# Prepare EFI boot file system
+#   - Copy .efi file to host dir $EFI_TEST/$EFI_CASE/
+#     This host dir will be loaded by QEMU as a FAT32 image
+#   - Make UEFI startup script that runs the .efi on boot
+mkdir -p "$EFI_TEST/$EFI_CASE/"
+cp "$EFI_SRC/$EFI_CASE.efi" "$EFI_TEST/$EFI_CASE/"
+
+pushd "$EFI_TEST/$EFI_CASE" || exit 2
+# 'startup.nsh' is the default script executed by UEFI on boot
+# Use this script to run the test binary automatically
+cat << EOF >startup.nsh
+@echo -off
+fs0:
+"$EFI_CASE.efi"
+EOF
+popd || exit 2
+
+# Run test case with 256MiB QEMU memory. QEMU default memory size is 128MiB.
+# After UEFI boot up and we call `LibMemoryMap()`, the largest consecutive
+# memory region is ~42MiB. Although this is sufficient for many test cases to
+# run in UEFI, some test cases, e.g. `x86/pmu.c`, require more free memory. A
+# simple fix is to increase the QEMU default memory size to 256MiB so that
+# UEFI's largest allocatable memory region is large enough.
+"$TEST_DIR/run" \
+	-drive file="$EFI_UEFI",format=raw,if=pflash,readonly=on \
+	-drive file.dir="$EFI_TEST/$EFI_CASE/",file.driver=vvfat,file.rw=on,format=raw,if=virtio \
+	-net none \
+	-nographic \
+	-smp "$EFI_SMP" \
+	-m 256 \
+	"$@"

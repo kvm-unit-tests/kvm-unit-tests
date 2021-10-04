@@ -54,6 +54,10 @@ ACCEL=name environment variable:
 
     ACCEL=kvm ./x86-run ./x86/msr.flat
 
+## Running the tests with UEFI
+
+Check [x86/efi/README.md](./x86/efi/README.md).
+
 # Tests configuration file
 
 The test case may need specific runtime configurations, for

@@ -31,7 +31,7 @@ specify the appropriate qemu binary for ARCH-run.
 EOF
 }
 
-RUNTIME_arch_run="./$TEST_DIR/run"
+RUNTIME_arch_run="./$TEST_SUBDIR/run"
 source scripts/runtime.bash
 
 # require enhanced getopt
