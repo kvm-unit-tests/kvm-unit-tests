@@ -11,6 +11,7 @@
 
 #include "amd_sev.h"
 #include "x86/processor.h"
+#include "x86/vm.h"
 
 static unsigned short amd_sev_c_bit_pos;
 
@@ -115,6 +116,42 @@ efi_status_t setup_amd_sev_es(void)
 	boot_idt[SEV_ES_VC_HANDLER_VECTOR] = vc_handler_idt;
 
 	return EFI_SUCCESS;
+}
+
+void setup_ghcb_pte(pgd_t *page_table)
+{
+	/*
+	 * SEV-ES guest uses GHCB page to communicate with the host. This page
+	 * must be unencrypted, i.e. its c-bit should be unset. To do so, this
+	 * function searches GHCB's L1 pte, creates corresponding L1 ptes if not
+	 * found, and unsets the c-bit of GHCB's L1 pte.
+	 */
+	phys_addr_t ghcb_addr, ghcb_base_addr;
+	pteval_t *pte;
+
+	/* Read the current GHCB page addr */
+	ghcb_addr = rdmsr(SEV_ES_GHCB_MSR_INDEX);
+
+	/* Search Level 1 page table entry for GHCB page */
+	pte = get_pte_level(page_table, (void *)ghcb_addr, 1);
+
+	/* Create Level 1 pte for GHCB page if not found */
+	if (pte == NULL) {
+		/* Find Level 2 page base address */
+		ghcb_base_addr = ghcb_addr & ~(LARGE_PAGE_SIZE - 1);
+		/* Install Level 1 ptes */
+		install_pages(page_table, ghcb_base_addr, LARGE_PAGE_SIZE, (void *)ghcb_base_addr);
+		/* Find Level 2 pte, set as 4KB pages */
+		pte = get_pte_level(page_table, (void *)ghcb_addr, 2);
+		assert(pte);
+		*pte &= ~(PT_PAGE_SIZE_MASK);
+		/* Find Level 1 GHCB pte */
+		pte = get_pte_level(page_table, (void *)ghcb_addr, 1);
+		assert(pte);
+	}
+
+	/* Unset c-bit in Level 1 GHCB pte */
+	*pte &= ~(get_amd_sev_c_bit_mask());
 }
 
 unsigned long long get_amd_sev_c_bit_mask(void)

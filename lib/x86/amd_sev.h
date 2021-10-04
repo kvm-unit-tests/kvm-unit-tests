@@ -45,8 +45,15 @@ efi_status_t setup_amd_sev(void);
  */
 #define SEV_ES_VC_HANDLER_VECTOR 29
 
+/*
+ * AMD Programmer's Manual Volume 2
+ *   - Section "GHCB"
+ */
+#define SEV_ES_GHCB_MSR_INDEX 0xc0010130
+
 bool amd_sev_es_enabled(void);
 efi_status_t setup_amd_sev_es(void);
+void setup_ghcb_pte(pgd_t *page_table);
 
 unsigned long long get_amd_sev_c_bit_mask(void);
 unsigned long long get_amd_sev_addr_upperbound(void);

@@ -316,6 +316,10 @@ static void setup_page_table(void)
 		curr_pt[i] = ((phys_addr_t)(i << 21)) | flags;
 	}
 
+	if (amd_sev_es_enabled()) {
+		setup_ghcb_pte((pgd_t *)&ptl4);
+	}
+
 	/* Load 4-level page table */
 	write_cr3((ulong)&ptl4);
 }
