@@ -65,6 +65,28 @@ efi_status_t setup_amd_sev(void)
 	return EFI_SUCCESS;
 }
 
+bool amd_sev_es_enabled(void)
+{
+	static bool sev_es_enabled;
+	static bool initialized = false;
+
+	if (!initialized) {
+		sev_es_enabled = false;
+		initialized = true;
+
+		if (!amd_sev_enabled()) {
+			return sev_es_enabled;
+		}
+
+		/* Test if SEV-ES is enabled */
+		if (rdmsr(MSR_SEV_STATUS) & SEV_ES_ENABLED_MASK) {
+			sev_es_enabled = true;
+		}
+	}
+
+	return sev_es_enabled;
+}
+
 unsigned long long get_amd_sev_c_bit_mask(void)
 {
 	if (amd_sev_enabled()) {

@@ -32,11 +32,14 @@
  * AMD Programmer's Manual Volume 2
  *   - Section "SEV_STATUS MSR"
  */
-#define MSR_SEV_STATUS   0xc0010131
-#define SEV_ENABLED_MASK 0b1
+#define MSR_SEV_STATUS      0xc0010131
+#define SEV_ENABLED_MASK    0b1
+#define SEV_ES_ENABLED_MASK 0b10
 
 bool amd_sev_enabled(void);
 efi_status_t setup_amd_sev(void);
+
+bool amd_sev_es_enabled(void);
 
 unsigned long long get_amd_sev_c_bit_mask(void);
 unsigned long long get_amd_sev_addr_upperbound(void);
