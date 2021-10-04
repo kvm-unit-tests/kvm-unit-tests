@@ -173,6 +173,81 @@ void setup_multiboot(struct mbi_bootinfo *bi)
 extern void load_idt(void);
 extern void load_gdt_tss(size_t tss_offset);
 
+void setup_efi_bootinfo(efi_bootinfo_t *efi_bootinfo)
+{
+	efi_bootinfo->free_mem_size = 0;
+	efi_bootinfo->free_mem_start = 0;
+}
+
+static efi_status_t setup_pre_boot_memory(unsigned long *mapkey, efi_bootinfo_t *efi_bootinfo)
+{
+	int i;
+	unsigned long free_mem_total_pages;
+	efi_status_t status;
+	struct efi_boot_memmap map;
+	efi_memory_desc_t *buffer, *d;
+	unsigned long map_size, desc_size, buff_size;
+	u32 desc_ver;
+
+	map.map = &buffer;
+	map.map_size = &map_size;
+	map.desc_size = &desc_size;
+	map.desc_ver = &desc_ver;
+	map.buff_size = &buff_size;
+	map.key_ptr = mapkey;
+
+	status = efi_get_memory_map(&map);
+	if (status != EFI_SUCCESS) {
+		return status;
+	}
+
+	/*
+	 * The 'buffer' contains multiple descriptors that describe memory
+	 * regions maintained by UEFI. This code records the largest free
+	 * EFI_CONVENTIONAL_MEMORY region which will be used to set up the
+	 * memory allocator, so that the memory allocator can work in the
+	 * largest free continuous memory region.
+	 */
+	free_mem_total_pages = 0;
+	for (i = 0; i < map_size; i += desc_size) {
+		d = (efi_memory_desc_t *)(&((u8 *)buffer)[i]);
+		if (d->type == EFI_CONVENTIONAL_MEMORY) {
+			if (free_mem_total_pages < d->num_pages) {
+				free_mem_total_pages = d->num_pages;
+				efi_bootinfo->free_mem_size = free_mem_total_pages << EFI_PAGE_SHIFT;
+				efi_bootinfo->free_mem_start = d->phys_addr;
+			}
+		}
+	}
+
+	if (efi_bootinfo->free_mem_size == 0) {
+		return EFI_OUT_OF_RESOURCES;
+	}
+
+	return EFI_SUCCESS;
+}
+
+efi_status_t setup_efi_pre_boot(unsigned long *mapkey, efi_bootinfo_t *efi_bootinfo)
+{
+	efi_status_t status;
+
+	status = setup_pre_boot_memory(mapkey, efi_bootinfo);
+	if (status != EFI_SUCCESS) {
+		printf("setup_pre_boot_memory() failed: ");
+		switch (status) {
+		case EFI_OUT_OF_RESOURCES:
+			printf("No free memory region\n");
+			break;
+		default:
+			printf("Unknown error\n");
+			break;
+		}
+		return status;
+	}
+
+	return EFI_SUCCESS;
+}
+
 static void setup_gdt_tss(void)
 {
 	size_t tss_offset;
@@ -182,7 +257,7 @@ static void setup_gdt_tss(void)
 	load_gdt_tss(tss_offset);
 }
 
-void setup_efi(void)
+void setup_efi(efi_bootinfo_t *efi_bootinfo)
 {
 	reset_apic();
 	setup_gdt_tss();
@@ -192,6 +267,7 @@ void setup_efi(void)
 	enable_apic();
 	enable_x2apic();
 	smp_init();
+	phys_alloc_init(efi_bootinfo->free_mem_start, efi_bootinfo->free_mem_size);
 }
 
 #endif /* TARGET_EFI */
