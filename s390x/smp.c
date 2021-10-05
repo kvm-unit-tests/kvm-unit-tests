@@ -47,7 +47,7 @@ static void test_start(void)
 	set_flag(0);
 	smp_cpu_start(1, psw);
 	wait_for_flag();
-	report(1, "start");
+	report_pass("start");
 }
 
 /*
@@ -75,7 +75,7 @@ static void test_restart(void)
 	set_flag(0);
 	smp_cpu_restart(1);
 	wait_for_flag();
-	report(1, "restart while running");
+	report_pass("restart while running");
 }
 
 static void test_stop(void)
@@ -87,7 +87,7 @@ static void test_stop(void)
 	 * implementation
 	 */
 	while (!smp_cpu_stopped(1)) {}
-	report(1, "stop");
+	report_pass("stop");
 }
 
 static void test_stop_store_status(void)
@@ -140,7 +140,7 @@ static void test_store_status(void)
 	smp_cpu_stop(1);
 	sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, NULL);
 	while (!status->prefix) { mb(); }
-	report(1, "status written");
+	report_pass("status written");
 	free_pages(status);
 	report_prefix_pop();
 	smp_cpu_stop(1);
@@ -160,7 +160,7 @@ static void ecall(void)
 	load_psw_mask(mask);
 	set_flag(1);
 	while (lc->ext_int_code != 0x1202) { mb(); }
-	report(1, "received");
+	report_pass("received");
 	set_flag(1);
 }
 
@@ -194,7 +194,7 @@ static void emcall(void)
 	load_psw_mask(mask);
 	set_flag(1);
 	while (lc->ext_int_code != 0x1201) { mb(); }
-	report(1, "received");
+	report_pass("received");
 	set_flag(1);
 }
 
@@ -225,7 +225,7 @@ static void test_sense_running(void)
 	smp_cpu_stop(1);
 	/* Make sure to have at least one time with a not running indication */
 	while(smp_sense_running_status(1));
-	report(true, "CPU1 sense claims not running");
+	report_pass("CPU1 sense claims not running");
 	report_prefix_pop();
 }
 
@@ -310,7 +310,7 @@ static void test_reset(void)
 	psw.addr = (unsigned long)test_local_ints;
 	smp_cpu_start(1, psw);
 	wait_for_flag();
-	report(true, "local interrupts cleared");
+	report_pass("local interrupts cleared");
 	report_prefix_pop();
 }
 

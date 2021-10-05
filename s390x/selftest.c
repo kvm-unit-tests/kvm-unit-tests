@@ -78,7 +78,7 @@ int main(int argc, char**argv)
 {
 	report_prefix_push("selftest");
 
-	report(true, "true");
+	report_pass("true");
 	report(argc == 3, "argc == 3");
 	report(!strcmp(argv[0], "s390x/selftest.elf"), "argv[0] == PROGNAME");
 	report(!strcmp(argv[1], "test"), "argv[1] == test");

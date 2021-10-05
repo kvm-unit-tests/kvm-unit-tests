@@ -268,7 +268,7 @@ static void test_pop(void *mem)
 		     "1: mov %[tmp], %%rsp"
 		     : [tmp]"=&r"(tmp) : [stack_top]"r"(stack_top)
 		     : "memory");
-	report(1, "ret");
+	report_pass("ret");
 
 	stack_top[-1] = 0x778899;
 	asm volatile("mov %[stack_top], %%r8 \n\t"

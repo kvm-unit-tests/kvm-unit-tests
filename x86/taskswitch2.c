@@ -260,7 +260,7 @@ static void test_vm86_switch(void)
         "popf\n"
         "iret\n"
     );
-    report(1, "VM86");
+    report_pass("VM86");
 }
 
 #define IOPL_SHIFT 12

@@ -1441,7 +1441,7 @@ static bool nmi_finished(struct svm_test *test)
             return true;
         }
 
-        report(true, "NMI intercept while running guest");
+        report_pass("NMI intercept while running guest");
         break;
 
     case 2:
@@ -1543,7 +1543,7 @@ static bool nmi_hlt_finished(struct svm_test *test)
             return true;
         }
 
-        report(true, "NMI intercept while running guest");
+        report_pass("NMI intercept while running guest");
         break;
 
     case 3:
@@ -1844,9 +1844,8 @@ static void reg_corruption_test(struct svm_test *test)
 static bool reg_corruption_finished(struct svm_test *test)
 {
     if (isr_cnt == 10000) {
-        report(true,
-               "No RIP corruption detected after %d timer interrupts",
-               isr_cnt);
+        report_pass("No RIP corruption detected after %d timer interrupts",
+                    isr_cnt);
         set_test_stage(test, 1);
         return true;
     }
@@ -1950,7 +1949,7 @@ static bool init_intercept_finished(struct svm_test *test)
 
     init_intercept = true;
 
-    report(true, "INIT to vcpu intercepted");
+    report_pass("INIT to vcpu intercepted");
 
     return true;
 }
@@ -2811,7 +2810,7 @@ static void svm_vmrun_errata_test(void)
         unsigned long *page = alloc_pages(1);
 
         if (!page) {
-            report(true, "All guest memory tested, no bug found");;
+            report_pass("All guest memory tested, no bug found");
             break;
         }
 
@@ -2940,7 +2939,7 @@ static bool vgif_finished(struct svm_test *test)
             vmcb->control.int_ctl &= ~V_GIF_ENABLED_MASK;
             return true;
         }
-        report(true, "STGI set VGIF bit.");
+        report_pass("STGI set VGIF bit.");
         vmcb->save.rip += 3;
         inc_test_stage(test);
         break;
@@ -2954,7 +2953,7 @@ static bool vgif_finished(struct svm_test *test)
             vmcb->control.int_ctl &= ~V_GIF_ENABLED_MASK;
             return true;
         }
-        report(true, "CLGI cleared VGIF bit.");
+        report_pass("CLGI cleared VGIF bit.");
         vmcb->save.rip += 3;
         inc_test_stage(test);
         vmcb->control.int_ctl &= ~V_GIF_ENABLED_MASK;

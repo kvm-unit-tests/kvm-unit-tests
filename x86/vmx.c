@@ -1127,9 +1127,9 @@ void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
 	}
 
 	if (!bad_pt_ad)
-		report(true, "EPT - guest page table structures A=%d/D=%d",
-		       !!(expected_pt_ad & EPT_ACCESS_FLAG),
-		       !!(expected_pt_ad & EPT_DIRTY_FLAG));
+		report_pass("EPT - guest page table structures A=%d/D=%d",
+			    !!(expected_pt_ad & EPT_ACCESS_FLAG),
+			    !!(expected_pt_ad & EPT_DIRTY_FLAG));
 
 	offset = (guest_addr >> EPT_LEVEL_SHIFT(l)) & EPT_PGDIR_MASK;
 	offset_in_page = guest_addr & ((1 << EPT_LEVEL_SHIFT(l)) - 1);

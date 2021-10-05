@@ -18,7 +18,7 @@ static void test_syscall_lazy_load(void)
     asm volatile("pushf; syscall; syscall_target: popf" : "=c"(tmp) : : "r11");
     write_ss(ss);
     // will crash horribly if broken
-    report(true, "MSR_*STAR eager loading");
+    report_pass("MSR_*STAR eager loading");
 }
 
 /*

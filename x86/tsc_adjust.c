@@ -34,7 +34,7 @@ int main(void)
 		       "MSR_IA32_TSC_ADJUST msr adjustment on tsc write");
 	}
 	else {
-		report(true, "MSR_IA32_TSC_ADJUST feature not enabled");
+		report_pass("MSR_IA32_TSC_ADJUST feature not enabled");
 	}
 	return report_summary();
 }

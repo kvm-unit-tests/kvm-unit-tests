@@ -31,7 +31,7 @@ static void test_enumerate(void)
 {
 	test_device_sid = css_enumerate();
 	if (test_device_sid & SCHID_ONE) {
-		report(1, "Schid of first I/O device: 0x%08x", test_device_sid);
+		report_pass("Schid of first I/O device: 0x%08x", test_device_sid);
 		return;
 	}
 	report_fail("No I/O device found");
@@ -178,7 +178,7 @@ static void test_schm(void)
 	/* Normal operation */
 	report_prefix_push("Normal operation");
 	schm(NULL, SCHM_MBU);
-	report(1, "SCHM call without address");
+	report_pass("SCHM call without address");
 	report_prefix_pop();
 }
 

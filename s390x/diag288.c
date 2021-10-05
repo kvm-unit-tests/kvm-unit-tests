@@ -99,7 +99,7 @@ static void test_bite(void)
 		     "0:	nop\n"
 		     "		j	0b\n"
 		     "1:");
-	report(true, "restart");
+	report_pass("restart");
 }
 
 int main(void)

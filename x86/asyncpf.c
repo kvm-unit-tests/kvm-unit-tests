@@ -61,16 +61,15 @@ static void pf_isr(struct ex_regs *r)
 			phys = virt_to_pte_phys(phys_to_virt(read_cr3()), virt);
 			install_pte(phys_to_virt(read_cr3()), 1, virt, phys, 0);
 			write_cr3(read_cr3());
-			report(true,
-			       "Got not present #PF token %lx virt addr %p phys addr %#" PRIx64,
-			       read_cr2(), virt, phys);
+			report_pass("Got not present #PF token %lx virt addr %p phys addr %#" PRIx64,
+				    read_cr2(), virt, phys);
 			while(phys) {
 				safe_halt(); /* enables irq */
 				irq_disable();
 			}
 			break;
 		case KVM_PV_REASON_PAGE_READY:
-			report(true, "Got present #PF token %lx", read_cr2());
+			report_pass("Got present #PF token %lx", read_cr2());
 			if ((uint32_t)read_cr2() == ~0)
 				break;
 			install_pte(phys_to_virt(read_cr3()), 1, virt, phys | PT_PRESENT_MASK | PT_WRITABLE_MASK, 0);

@@ -234,7 +234,7 @@ static void stimer_test_periodic(int vcpu, struct stimer *timer1,
            (atomic_read(&timer2->fire_count) < 1000)) {
         pause();
     }
-    report(true, "Hyper-V SynIC periodic timers test vcpu %d", vcpu);
+    report_pass("Hyper-V SynIC periodic timers test vcpu %d", vcpu);
     stimer_shutdown(timer1);
     stimer_shutdown(timer2);
 }
@@ -246,7 +246,7 @@ static void stimer_test_one_shot(int vcpu, struct stimer *timer)
     while (atomic_read(&timer->fire_count) < 1) {
         pause();
     }
-    report(true, "Hyper-V SynIC one-shot test vcpu %d", vcpu);
+    report_pass("Hyper-V SynIC one-shot test vcpu %d", vcpu);
     stimer_shutdown(timer);
 }
 
@@ -257,8 +257,7 @@ static void stimer_test_auto_enable_one_shot(int vcpu, struct stimer *timer)
     while (atomic_read(&timer->fire_count) < 1) {
         pause();
     }
-    report(true, "Hyper-V SynIC auto-enable one-shot timer test vcpu %d",
-           vcpu);
+    report_pass("Hyper-V SynIC auto-enable one-shot timer test vcpu %d", vcpu);
     stimer_shutdown(timer);
 }
 
@@ -269,8 +268,7 @@ static void stimer_test_auto_enable_periodic(int vcpu, struct stimer *timer)
     while (atomic_read(&timer->fire_count) < 1000) {
         pause();
     }
-    report(true, "Hyper-V SynIC auto-enable periodic timer test vcpu %d",
-           vcpu);
+    report_pass("Hyper-V SynIC auto-enable periodic timer test vcpu %d", vcpu);
     stimer_shutdown(timer);
 }
 
@@ -298,7 +296,7 @@ static void stimer_test_one_shot_busy(int vcpu, struct stimer *timer)
     while (atomic_read(&timer->fire_count) < 1) {
         pause();
     }
-    report(true, "timer resumed when msg slot released: vcpu %d", vcpu);
+    report_pass("timer resumed when msg slot released: vcpu %d", vcpu);
 
     stimer_shutdown(timer);
 }
@@ -355,17 +353,17 @@ int main(int ac, char **av)
 {
 
     if (!synic_supported()) {
-        report(true, "Hyper-V SynIC is not supported");
+        report_pass("Hyper-V SynIC is not supported");
         goto done;
     }
 
     if (!stimer_supported()) {
-        report(true, "Hyper-V SynIC timers are not supported");
+        report_pass("Hyper-V SynIC timers are not supported");
         goto done;
     }
 
     if (!hv_time_ref_counter_supported()) {
-        report(true, "Hyper-V time reference counter is not supported");
+        report_pass("Hyper-V time reference counter is not supported");
         goto done;
     }
 

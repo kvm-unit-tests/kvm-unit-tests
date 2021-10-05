@@ -53,7 +53,7 @@ static inline void vmcall(void)
 
 static void basic_guest_main(void)
 {
-	report(1, "Basic VMX test");
+	report_pass("Basic VMX test");
 }
 
 static int basic_exit_handler(union exit_reason exit_reason)
@@ -68,7 +68,7 @@ static void vmenter_main(void)
 	u64 rax;
 	u64 rsp, resume_rsp;
 
-	report(1, "test vmlaunch");
+	report_pass("test vmlaunch");
 
 	asm volatile(
 		"mov %%rsp, %0\n\t"
@@ -1184,9 +1184,9 @@ static void ept_common(void)
 		if (vmx_get_test_stage() == 1) {
 			if (*((u32 *)data_page1) == MAGIC_VAL_3 &&
 					*((u32 *)data_page2) == MAGIC_VAL_2)
-				report(1, "EPT basic framework");
+				report_pass("EPT basic framework");
 			else
-				report(1, "EPT basic framework - remap");
+				report_pass("EPT basic framework - remap");
 		}
 	}
 	// Test EPT Misconfigurations
@@ -1897,7 +1897,7 @@ static int nmi_hlt_exit_handler(union exit_reason exit_reason)
             print_vmexit_info(exit_reason);
             return VMX_TEST_VMEXIT;
         }
-        report(true, "NMI intercept while running guest");
+        report_pass("NMI intercept while running guest");
         vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
         break;
 
@@ -2156,12 +2156,12 @@ static void disable_rdtscp_ud_handler(struct ex_regs *regs)
 {
 	switch (vmx_get_test_stage()) {
 	case 0:
-		report(true, "RDTSCP triggers #UD");
+		report_pass("RDTSCP triggers #UD");
 		vmx_inc_test_stage();
 		regs->rip += 3;
 		break;
 	case 2:
-		report(true, "RDPID triggers #UD");
+		report_pass("RDPID triggers #UD");
 		vmx_inc_test_stage();
 		regs->rip += 4;
 		break;
@@ -2328,7 +2328,7 @@ static void v2_null_test(void)
 {
 	test_set_guest(v2_null_test_guest);
 	enter_guest();
-	report(1, __func__);
+	report_pass(__func__);
 }
 
 static void v2_multiple_entries_test_guest(void)
@@ -2346,7 +2346,7 @@ static void v2_multiple_entries_test(void)
 	skip_exit_vmcall();
 	enter_guest();
 	TEST_ASSERT_EQ(vmx_get_test_stage(), 2);
-	report(1, __func__);
+	report_pass(__func__);
 }
 
 static int fixture_test_data = 1;
@@ -2377,7 +2377,7 @@ static void fixture_test_case1(void)
 	TEST_ASSERT_EQ(2, fixture_test_data);
 	enter_guest();
 	TEST_ASSERT_EQ(3, fixture_test_data);
-	report(1, __func__);
+	report_pass(__func__);
 }
 
 static void fixture_test_case2(void)
@@ -2386,7 +2386,7 @@ static void fixture_test_case2(void)
 	TEST_ASSERT_EQ(2, fixture_test_data);
 	enter_guest();
 	TEST_ASSERT_EQ(3, fixture_test_data);
-	report(1, __func__);
+	report_pass(__func__);
 }
 
 enum ept_access_op {
@@ -6971,7 +6971,7 @@ static void test_x2apic_wr(
 			       got, val);
 			apic_write(reg, restore_val);
 		} else {
-			report(true, "non-virtualized and write-only OK");
+			report_pass("non-virtualized and write-only OK");
 		}
 	}
 	skip_exit_insn();
@@ -9581,7 +9581,7 @@ static void vmx_eoi_bitmap_ioapic_scan_test(void)
 
 	/* Let L2 finish */
 	enter_guest();
-	report(1, __func__);
+	report_pass(__func__);
 }
 
 #define HLT_WITH_RVI_VECTOR		(0xf1)
@@ -9709,7 +9709,7 @@ static void vmx_apic_passthrough(bool set_irq_line_from_thread)
 
 	/* Let L2 finish */
 	enter_guest();
-	report(1, __func__);
+	report_pass(__func__);
 }
 
 static void vmx_apic_passthrough_test(void)
@@ -9761,7 +9761,7 @@ static void vmx_apic_passthrough_tpr_threshold_test(void)
 	asm volatile ("nop");
 	report(vmx_apic_passthrough_tpr_threshold_ipi_isr_fired, "self-IPI fired");
 
-	report(1, __func__);
+	report_pass(__func__);
 }
 
 static u64 init_signal_test_exit_reason;
@@ -9958,7 +9958,7 @@ static void vmx_sipi_test_guest(void)
 
 		/* First SIPI signal */
 		apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_STARTUP | APIC_INT_ASSERT, id_map[1]);
-		report(1, "BSP(L2): Send first SIPI to cpu[%d]", id_map[1]);
+		report_pass("BSP(L2): Send first SIPI to cpu[%d]", id_map[1]);
 
 		/* wait AP enter guest */
 		while (vmx_get_test_stage() != 2)
@@ -9967,7 +9967,7 @@ static void vmx_sipi_test_guest(void)
 
 		/* Second SIPI signal should be ignored since AP is not in WAIT_SIPI state */
 		apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_STARTUP | APIC_INT_ASSERT, id_map[1]);
-		report(1, "BSP(L2): Send second SIPI to cpu[%d]", id_map[1]);
+		report_pass("BSP(L2): Send second SIPI to cpu[%d]", id_map[1]);
 
 		/* Delay a while to check whether second SIPI would cause VMExit */
 		delay(SIPI_SIGNAL_TEST_DELAY);
@@ -10025,7 +10025,7 @@ static void sipi_test_ap_thread(void *data)
 	enter_guest();
 
 	if (vmcs_read(EXI_REASON) == VMX_SIPI) {
-		report(1, "AP: Handle SIPI VMExit");
+		report_pass("AP: Handle SIPI VMExit");
 		vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 		vmx_set_test_stage(2);
 	} else {
