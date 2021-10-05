@@ -34,7 +34,7 @@ static void test_enumerate(void)
 		report(1, "Schid of first I/O device: 0x%08x", test_device_sid);
 		return;
 	}
-	report(0, "No I/O device found");
+	report_fail("No I/O device found");
 }
 
 static void test_enable(void)
@@ -69,8 +69,8 @@ static void test_sense(void)
 
 	ret = css_enable(test_device_sid, IO_SCH_ISC);
 	if (ret) {
-		report(0, "Could not enable the subchannel: %08x",
-		       test_device_sid);
+		report_fail("Could not enable the subchannel: %08x",
+			    test_device_sid);
 		return;
 	}
 
@@ -78,19 +78,19 @@ static void test_sense(void)
 
 	senseid = alloc_io_mem(sizeof(*senseid), 0);
 	if (!senseid) {
-		report(0, "Allocation of senseid");
+		report_fail("Allocation of senseid");
 		return;
 	}
 
 	ccw = ccw_alloc(CCW_CMD_SENSE_ID, senseid, sizeof(*senseid), CCW_F_SLI);
 	if (!ccw) {
-		report(0, "Allocation of CCW");
+		report_fail("Allocation of CCW");
 		goto error_ccw;
 	}
 
 	ret = start_ccw1_chain(test_device_sid, ccw);
 	if (ret) {
-		report(0, "Starting CCW chain");
+		report_fail("Starting CCW chain");
 		goto error;
 	}
 
@@ -107,14 +107,14 @@ static void test_sense(void)
 	} else if (ret != 0) {
 		len = sizeof(*senseid) - ret;
 		if (ret && len < CSS_SENSEID_COMMON_LEN) {
-			report(0, "transferred a too short length: %d", ret);
+			report_fail("transferred a too short length: %d", ret);
 			goto error;
 		} else if (ret && len)
 			report_info("transferred a shorter length: %d", len);
 	}
 
 	if (senseid->reserved != 0xff) {
-		report(0, "transferred garbage: 0x%02x", senseid->reserved);
+		report_fail("transferred garbage: 0x%02x", senseid->reserved);
 		goto error;
 	}
 
@@ -265,7 +265,7 @@ static void msch_with_wrong_fmt1_mbo(unsigned int schid, uint64_t mb)
 	/* Read the SCHIB for this subchannel */
 	cc = stsch(schid, &schib);
 	if (cc) {
-		report(0, "stsch: sch %08x failed with cc=%d", schid, cc);
+		report_fail("stsch: sch %08x failed with cc=%d", schid, cc);
 		return;
 	}
 

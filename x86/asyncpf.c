@@ -55,7 +55,7 @@ static void pf_isr(struct ex_regs *r)
 
 	switch (reason) {
 		case 0:
-			report(false, "unexpected #PF at %#lx", read_cr2());
+			report_fail("unexpected #PF at %#lx", read_cr2());
 			break;
 		case KVM_PV_REASON_PAGE_NOT_PRESENT:
 			phys = virt_to_pte_phys(phys_to_virt(read_cr3()), virt);
@@ -78,7 +78,7 @@ static void pf_isr(struct ex_regs *r)
 			phys = 0;
 			break;
 		default:
-			report(false, "unexpected async pf reason %" PRId32, reason);
+			report_fail("unexpected async pf reason %" PRId32, reason);
 			break;
 	}
 }

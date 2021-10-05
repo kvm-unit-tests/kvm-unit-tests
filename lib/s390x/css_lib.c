@@ -360,9 +360,8 @@ void css_irq_io(void)
 	sid = lowcore_ptr->subsys_id_word;
 	/* Lowlevel set the SID as interrupt parameter. */
 	if (lowcore_ptr->io_int_param != sid) {
-		report(0,
-		       "io_int_param: %x differs from subsys_id_word: %x",
-		       lowcore_ptr->io_int_param, sid);
+		report_fail("io_int_param: %x differs from subsys_id_word: %x",
+			    lowcore_ptr->io_int_param, sid);
 		goto pop;
 	}
 	report_prefix_pop();
@@ -373,15 +372,14 @@ void css_irq_io(void)
 	case 1:
 		dump_irb(&irb);
 		flags = dump_scsw_flags(irb.scsw.ctrl);
-		report(0,
-		       "I/O interrupt, but tsch returns CC 1 for subchannel %08x. SCSW flags: %s",
-		       sid, flags);
+		report_fail("I/O interrupt, but tsch returns CC 1 for subchannel %08x.SCSW flags: %s",
+			    sid, flags);
 		break;
 	case 2:
-		report(0, "tsch returns unexpected CC 2");
+		report_fail("tsch returns unexpected CC 2");
 		break;
 	case 3:
-		report(0, "tsch reporting sch %08x as not operational", sid);
+		report_fail("tsch reporting sch %08x as not operational", sid);
 		break;
 	case 0:
 		/* Stay humble on success */
@@ -435,30 +433,30 @@ int wait_and_check_io_completion(int schid)
 	report_prefix_push("check I/O completion");
 
 	if (lowcore_ptr->io_int_param != schid) {
-		report(0, "interrupt parameter: expected %08x got %08x",
-		       schid, lowcore_ptr->io_int_param);
+		report_fail("interrupt parameter: expected %08x got %08x",
+			    schid, lowcore_ptr->io_int_param);
 		ret = -1;
 		goto end;
 	}
 
 	/* Verify that device status is valid */
 	if (!(irb.scsw.ctrl & SCSW_SC_PENDING)) {
-		report(0, "No status pending after interrupt. Subch Ctrl: %08x",
-		       irb.scsw.ctrl);
+		report_fail("No status pending after interrupt. Subch Ctrl: %08x",
+			    irb.scsw.ctrl);
 		ret = -1;
 		goto end;
 	}
 
 	if (!(irb.scsw.ctrl & (SCSW_SC_SECONDARY | SCSW_SC_PRIMARY))) {
-		report(0, "Primary or secondary status missing. Subch Ctrl: %08x",
-		       irb.scsw.ctrl);
+		report_fail("Primary or secondary status missing. Subch Ctrl: %08x",
+			    irb.scsw.ctrl);
 		ret = -1;
 		goto end;
 	}
 
 	if (!(irb.scsw.dev_stat & (SCSW_DEVS_DEV_END | SCSW_DEVS_SCH_END))) {
-		report(0, "No device end or sch end. Dev. status: %02x",
-		       irb.scsw.dev_stat);
+		report_fail("No device end or sch end. Dev. status: %02x",
+			    irb.scsw.dev_stat);
 		ret = -1;
 		goto end;
 	}

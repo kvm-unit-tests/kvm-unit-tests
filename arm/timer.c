@@ -311,7 +311,7 @@ static void test_init(void)
 	if (ptimer_unsupported && !ERRATA(7b6b46311a85)) {
 		report_skip("Skipping ptimer tests. Set ERRATA_7b6b46311a85=y to enable.");
 	} else if (ptimer_unsupported) {
-		report(false, "ptimer: read CNTP_CTL_EL0");
+		report_fail("ptimer: read CNTP_CTL_EL0");
 		report_info("ptimer: skipping remaining tests");
 	}
 

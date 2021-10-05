@@ -156,7 +156,7 @@ done:
 #if 0
 	report_summary();
 	psci_invoke(PSCI_0_2_FN_SYSTEM_OFF, 0, 0, 0);
-	report(false, "system-off");
+	report_fail("system-off");
 	return 1; /* only reaches here if system-off fails */
 #else
 	return report_summary();

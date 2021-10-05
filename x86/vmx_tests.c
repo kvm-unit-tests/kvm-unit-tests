@@ -58,7 +58,7 @@ static void basic_guest_main(void)
 
 static int basic_exit_handler(union exit_reason exit_reason)
 {
-	report(0, "Basic VMX test");
+	report_fail("Basic VMX test");
 	print_vmexit_info(exit_reason);
 	return VMX_TEST_EXIT;
 }
@@ -88,14 +88,14 @@ static int vmenter_exit_handler(union exit_reason exit_reason)
 	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		if (regs.rax != 0xABCD) {
-			report(0, "test vmresume");
+			report_fail("test vmresume");
 			return VMX_TEST_VMEXIT;
 		}
 		regs.rax = 0xFFFF;
 		vmcs_write(GUEST_RIP, guest_rip + 3);
 		return VMX_TEST_RESUME;
 	default:
-		report(0, "test vmresume");
+		report_fail("test vmresume");
 		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
@@ -184,7 +184,7 @@ static int preemption_timer_exit_handler(union exit_reason exit_reason)
 			       "preemption timer with 0 value");
 			break;
 		default:
-			report(false, "Invalid stage.");
+			report_fail("Invalid stage.");
 			print_vmexit_info(exit_reason);
 			break;
 		}
@@ -206,12 +206,12 @@ static int preemption_timer_exit_handler(union exit_reason exit_reason)
 			       "Save preemption value");
 			return VMX_TEST_RESUME;
 		case 2:
-			report(0, "busy-wait for preemption timer");
+			report_fail("busy-wait for preemption timer");
 			vmx_set_test_stage(3);
 			vmcs_write(PREEMPT_TIMER_VALUE, preempt_val);
 			return VMX_TEST_RESUME;
 		case 3:
-			report(0, "preemption timer during hlt");
+			report_fail("preemption timer during hlt");
 			vmx_set_test_stage(4);
 			/* fall through */
 		case 4:
@@ -221,19 +221,18 @@ static int preemption_timer_exit_handler(union exit_reason exit_reason)
 			saved_rip = guest_rip + insn_len;
 			return VMX_TEST_RESUME;
 		case 5:
-			report(0,
-			       "preemption timer with 0 value (vmcall stage 5)");
+			report_fail("preemption timer with 0 value (vmcall stage 5)");
 			break;
 		default:
 			// Should not reach here
-			report(false, "unexpected stage, %d",
-			       vmx_get_test_stage());
+			report_fail("unexpected stage, %d",
+				    vmx_get_test_stage());
 			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		break;
 	default:
-		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
+		report_fail("Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info(exit_reason);
 	}
 	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_PREEMPT);
@@ -317,7 +316,7 @@ static void test_ctrl_pat_main(void)
 		printf("\tENT_LOAD_PAT is not supported.\n");
 	else {
 		if (guest_ia32_pat != 0) {
-			report(0, "Entry load PAT");
+			report_fail("Entry load PAT");
 			return;
 		}
 	}
@@ -383,7 +382,7 @@ static void test_ctrl_efer_main(void)
 		printf("\tENT_LOAD_EFER is not supported.\n");
 	else {
 		if (guest_ia32_efer != (ia32_efer ^ EFER_NX)) {
-			report(0, "Entry load EFER");
+			report_fail("Entry load EFER");
 			return;
 		}
 	}
@@ -436,13 +435,13 @@ static void cr_shadowing_main(void)
 	vmx_set_test_stage(0);
 	guest_cr0 = read_cr0();
 	if (vmx_get_test_stage() == 1)
-		report(0, "Read through CR0");
+		report_fail("Read through CR0");
 	else
 		vmcall();
 	vmx_set_test_stage(1);
 	guest_cr4 = read_cr4();
 	if (vmx_get_test_stage() == 2)
-		report(0, "Read through CR4");
+		report_fail("Read through CR4");
 	else
 		vmcall();
 	// Test write through
@@ -451,13 +450,13 @@ static void cr_shadowing_main(void)
 	vmx_set_test_stage(2);
 	write_cr0(guest_cr0);
 	if (vmx_get_test_stage() == 3)
-		report(0, "Write throuth CR0");
+		report_fail("Write throuth CR0");
 	else
 		vmcall();
 	vmx_set_test_stage(3);
 	write_cr4(guest_cr4);
 	if (vmx_get_test_stage() == 4)
-		report(0, "Write through CR4");
+		report_fail("Write through CR4");
 	else
 		vmcall();
 	// Test read shadow
@@ -474,13 +473,13 @@ static void cr_shadowing_main(void)
 	vmx_set_test_stage(6);
 	write_cr0(guest_cr0);
 	if (vmx_get_test_stage() == 7)
-		report(0, "Write shadowing CR0 (same value with shadow)");
+		report_fail("Write shadowing CR0 (same value with shadow)");
 	else
 		vmcall();
 	vmx_set_test_stage(7);
 	write_cr4(guest_cr4);
 	if (vmx_get_test_stage() == 8)
-		report(0, "Write shadowing CR4 (same value with shadow)");
+		report_fail("Write shadowing CR4 (same value with shadow)");
 	else
 		vmcall();
 	// Test write shadow (different value)
@@ -564,8 +563,8 @@ static int cr_shadowing_exit_handler(union exit_reason exit_reason)
 			break;
 		default:
 			// Should not reach here
-			report(false, "unexpected stage, %d",
-			       vmx_get_test_stage());
+			report_fail("unexpected stage, %d",
+				    vmx_get_test_stage());
 			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
@@ -574,19 +573,19 @@ static int cr_shadowing_exit_handler(union exit_reason exit_reason)
 	case VMX_CR:
 		switch (vmx_get_test_stage()) {
 		case 4:
-			report(0, "Read shadowing CR0");
+			report_fail("Read shadowing CR0");
 			vmx_inc_test_stage();
 			break;
 		case 5:
-			report(0, "Read shadowing CR4");
+			report_fail("Read shadowing CR4");
 			vmx_inc_test_stage();
 			break;
 		case 6:
-			report(0, "Write shadowing CR0 (same value)");
+			report_fail("Write shadowing CR0 (same value)");
 			vmx_inc_test_stage();
 			break;
 		case 7:
-			report(0, "Write shadowing CR4 (same value)");
+			report_fail("Write shadowing CR4 (same value)");
 			vmx_inc_test_stage();
 			break;
 		case 8:
@@ -603,15 +602,15 @@ static int cr_shadowing_exit_handler(union exit_reason exit_reason)
 			break;
 		default:
 			// Should not reach here
-			report(false, "unexpected stage, %d",
-			       vmx_get_test_stage());
+			report_fail("unexpected stage, %d",
+				    vmx_get_test_stage());
 			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
+		report_fail("Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
@@ -740,8 +739,8 @@ static int iobmp_exit_handler(union exit_reason exit_reason)
 			break;
 		default:
 			// Should not reach here
-			report(false, "unexpected stage, %d",
-			       vmx_get_test_stage());
+			report_fail("unexpected stage, %d",
+				    vmx_get_test_stage());
 			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
@@ -761,8 +760,8 @@ static int iobmp_exit_handler(union exit_reason exit_reason)
 			break;
 		default:
 			// Should not reach here
-			report(false, "unexpected stage, %d",
-			       vmx_get_test_stage());
+			report_fail("unexpected stage, %d",
+				    vmx_get_test_stage());
 			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
@@ -1178,7 +1177,7 @@ static void ept_common(void)
 	vmx_set_test_stage(0);
 	if (*((u32 *)data_page2) != MAGIC_VAL_1 ||
 			*((u32 *)data_page1) != MAGIC_VAL_1)
-		report(0, "EPT basic framework - read");
+		report_fail("EPT basic framework - read");
 	else {
 		*((u32 *)data_page2) = MAGIC_VAL_3;
 		vmcall();
@@ -1195,7 +1194,7 @@ static void ept_common(void)
 	vmcall();
 	*((u32 *)data_page1) = MAGIC_VAL_1;
 	if (vmx_get_test_stage() != 2) {
-		report(0, "EPT misconfigurations");
+		report_fail("EPT misconfigurations");
 		goto t1;
 	}
 	vmx_set_test_stage(2);
@@ -1283,7 +1282,7 @@ static int pml_exit_handler(union exit_reason exit_reason)
 			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page2);
 			break;
 		default:
-			report(false, "unexpected stage, %d.",
+			report_fail("unexpected stage, %d.",
 			       vmx_get_test_stage());
 			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
@@ -1295,7 +1294,7 @@ static int pml_exit_handler(union exit_reason exit_reason)
 		vmcs_write(GUEST_PML_INDEX, PML_INDEX - 1);
 		return VMX_TEST_RESUME;
 	default:
-		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
+		report_fail("Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
@@ -1338,7 +1337,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 						(unsigned long)data_page2,
 						EPT_RA | EPT_WA | EPT_EA);
 			} else
-				report(0, "EPT basic framework - write");
+				report_fail("EPT basic framework - write");
 			break;
 		case 1:
 			install_ept(pml4, (unsigned long)data_page1,
@@ -1380,7 +1379,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 			break;
 		// Should not reach here
 		default:
-			report(false, "ERROR - unexpected stage, %d.",
+			report_fail("ERROR - unexpected stage, %d.",
 			       vmx_get_test_stage());
 			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
@@ -1399,7 +1398,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 			break;
 		// Should not reach here
 		default:
-			report(false, "ERROR - unexpected stage, %d.",
+			report_fail("ERROR - unexpected stage, %d.",
 			       vmx_get_test_stage());
 			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
@@ -1455,14 +1454,14 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 			break;
 		default:
 			// Should not reach here
-			report(false, "ERROR : unexpected stage, %d",
+			report_fail("ERROR : unexpected stage, %d",
 			       vmx_get_test_stage());
 			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
 		}
 		return VMX_TEST_RESUME;
 	default:
-		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
+		report_fail("Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
@@ -1612,7 +1611,7 @@ static int vpid_exit_handler(union exit_reason exit_reason)
 				vmx_inc_test_stage();
 			break;
 		default:
-			report(false, "ERROR: unexpected stage, %d",
+			report_fail("ERROR: unexpected stage, %d",
 					vmx_get_test_stage());
 			print_vmexit_info(exit_reason);
 			return VMX_TEST_VMEXIT;
@@ -1620,7 +1619,7 @@ static int vpid_exit_handler(union exit_reason exit_reason)
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
+		report_fail("Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
@@ -1791,7 +1790,7 @@ static int interrupt_exit_handler(union exit_reason exit_reason)
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 		return VMX_TEST_RESUME;
 	default:
-		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
+		report_fail("Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info(exit_reason);
 	}
 
@@ -1878,8 +1877,8 @@ static int nmi_hlt_exit_handler(union exit_reason exit_reason)
     switch (vmx_get_test_stage()) {
     case 1:
         if (exit_reason.basic != VMX_VMCALL) {
-            report(false, "VMEXIT not due to vmcall. Exit reason 0x%x",
-                   exit_reason.full);
+            report_fail("VMEXIT not due to vmcall. Exit reason 0x%x",
+                        exit_reason.full);
             print_vmexit_info(exit_reason);
             return VMX_TEST_VMEXIT;
         }
@@ -1893,8 +1892,8 @@ static int nmi_hlt_exit_handler(union exit_reason exit_reason)
 
     case 2:
         if (exit_reason.basic != VMX_EXC_NMI) {
-            report(false, "VMEXIT not due to NMI intercept. Exit reason 0x%x",
-                   exit_reason.full);
+            report_fail("VMEXIT not due to NMI intercept. Exit reason 0x%x",
+                        exit_reason.full);
             print_vmexit_info(exit_reason);
             return VMX_TEST_VMEXIT;
         }
@@ -2022,7 +2021,7 @@ static int dbgctls_exit_handler(union exit_reason exit_reason)
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		report(false, "Unknown exit reason, %d", exit_reason.full);
+		report_fail("Unknown exit reason, %d", exit_reason.full);
 		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
@@ -2118,7 +2117,7 @@ static void vmmcall_main(void)
 		"vmmcall\n\t"
 		::: "rax");
 
-	report(0, "VMMCALL");
+	report_fail("VMMCALL");
 }
 
 static int vmmcall_exit_handler(union exit_reason exit_reason)
@@ -2126,14 +2125,14 @@ static int vmmcall_exit_handler(union exit_reason exit_reason)
 	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		printf("here\n");
-		report(0, "VMMCALL triggers #UD");
+		report_fail("VMMCALL triggers #UD");
 		break;
 	case VMX_EXC_NMI:
 		report((vmcs_read(EXI_INTR_INFO) & 0xff) == UD_VECTOR,
 		       "VMMCALL triggers #UD");
 		break;
 	default:
-		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
+		report_fail("Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info(exit_reason);
 	}
 
@@ -2191,7 +2190,7 @@ static int disable_rdtscp_exit_handler(union exit_reason exit_reason)
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
-			report(false, "RDTSCP triggers #UD");
+			report_fail("RDTSCP triggers #UD");
 			vmx_inc_test_stage();
 			/* fallthrough */
 		case 1:
@@ -2199,13 +2198,13 @@ static int disable_rdtscp_exit_handler(union exit_reason exit_reason)
 			vmcs_write(GUEST_RIP, vmcs_read(GUEST_RIP) + 3);
 			return VMX_TEST_RESUME;
 		case 2:
-			report(false, "RDPID triggers #UD");
+			report_fail("RDPID triggers #UD");
 			break;
 		}
 		break;
 
 	default:
-		report(false, "Unknown exit reason, 0x%x", exit_reason.full);
+		report_fail("Unknown exit reason, 0x%x", exit_reason.full);
 		print_vmexit_info(exit_reason);
 	}
 	return VMX_TEST_VMEXIT;
@@ -2295,7 +2294,7 @@ static void exit_monitor_from_l2_main(void)
 
 static int exit_monitor_from_l2_handler(union exit_reason exit_reason)
 {
-	report(false, "The guest should have killed the VMM");
+	report_fail("The guest should have killed the VMM");
 	return VMX_TEST_EXIT;
 }
 
@@ -6070,8 +6069,7 @@ static void test_xapic_rd(
 		/* Reenter guest so it can consume/check rcx and exit again. */
 		enter_guest();
 	} else if (exit_reason_want != VMX_VMCALL) {
-		report(false, "Oops, bad exit expectation: %u.",
-		       exit_reason_want);
+		report_fail("Oops, bad exit expectation: %u.", exit_reason_want);
 	}
 
 	skip_exit_vmcall();
@@ -6134,8 +6132,7 @@ static void test_xapic_wr(
 		/* Reenter guest so it can consume/check rcx and exit again. */
 		enter_guest();
 	} else if (exit_reason_want != VMX_VMCALL) {
-		report(false, "Oops, bad exit expectation: %u.",
-		       exit_reason_want);
+		report_fail("Oops, bad exit expectation: %u.", exit_reason_want);
 	}
 
 	assert_exit_reason(VMX_VMCALL);
@@ -6153,8 +6150,7 @@ static void test_xapic_wr(
 		       "non-virtualized write; val is 0x%x, want 0x%x", got,
 		       val);
 	} else if (!expectation->virtualize_apic_accesses && checked) {
-		report(false,
-		       "Non-virtualized write was prematurely checked!");
+		report_fail("Non-virtualized write was prematurely checked!");
 	}
 
 	skip_exit_vmcall();
@@ -6313,7 +6309,7 @@ static void apic_reg_virt_test(void)
 			ok = apic_reg_virt_exit_expectation(
 				reg, apic_reg_virt_config, &expectation);
 			if (!ok) {
-				report(false, "Malformed test.");
+				report_fail("Malformed test.");
 				break;
 			}
 
@@ -6862,8 +6858,7 @@ static void test_x2apic_rd(
 	enter_guest();
 
 	if (exit_reason_want != VMX_VMCALL) {
-		report(false, "Oops, bad exit expectation: %u.",
-		       exit_reason_want);
+		report_fail("Oops, bad exit expectation: %u.", exit_reason_want);
 	}
 
 	skip_exit_vmcall();
@@ -6933,8 +6928,7 @@ static void test_x2apic_wr(
 		/* Reenter guest so it can consume/check rcx and exit again. */
 		enter_guest();
 	} else if (exit_reason_want != VMX_VMCALL) {
-		report(false, "Oops, bad exit expectation: %u.",
-		       exit_reason_want);
+		report_fail("Oops, bad exit expectation: %u.", exit_reason_want);
 	}
 
 	assert_exit_reason(VMX_VMCALL);
@@ -9901,7 +9895,7 @@ static void vmx_init_signal_test(void)
 	 */
 	delay(INIT_SIGNAL_TEST_DELAY);
 	if (vmx_get_test_stage() != 5) {
-		report(false, "Pending INIT signal didn't result in VMX exit");
+		report_fail("Pending INIT signal didn't result in VMX exit");
 		return;
 	}
 	report(init_signal_test_exit_reason == VMX_INIT,
@@ -10035,7 +10029,7 @@ static void sipi_test_ap_thread(void *data)
 		vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 		vmx_set_test_stage(2);
 	} else {
-		report(0, "AP: Unexpected VMExit, reason=%ld", vmcs_read(EXI_REASON));
+		report_fail("AP: Unexpected VMExit, reason=%ld", vmcs_read(EXI_REASON));
 		vmx_off();
 		return;
 	}
@@ -10522,12 +10516,12 @@ static int invalid_msr_init(struct vmcs *vmcs)
 
 static void invalid_msr_main(void)
 {
-	report(0, "Invalid MSR load");
+	report_fail("Invalid MSR load");
 }
 
 static int invalid_msr_exit_handler(union exit_reason exit_reason)
 {
-	report(0, "Invalid MSR load");
+	report_fail("Invalid MSR load");
 	print_vmexit_info(exit_reason);
 	return VMX_TEST_EXIT;
 }

@@ -1112,11 +1112,10 @@ void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
 		if (!bad_pt_ad) {
 			bad_pt_ad |= (ept_pte & (EPT_ACCESS_FLAG|EPT_DIRTY_FLAG)) != expected_pt_ad;
 			if (bad_pt_ad)
-				report(false,
-				       "EPT - guest level %d page table A=%d/D=%d",
-				       l,
-				       !!(expected_pt_ad & EPT_ACCESS_FLAG),
-				       !!(expected_pt_ad & EPT_DIRTY_FLAG));
+				report_fail("EPT - guest level %d page table A=%d/D=%d",
+					    l,
+					    !!(expected_pt_ad & EPT_ACCESS_FLAG),
+					    !!(expected_pt_ad & EPT_DIRTY_FLAG));
 		}
 
 		pte = pt[offset];
@@ -1137,7 +1136,7 @@ void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
 	gpa = (pt[offset] & PT_ADDR_MASK) | (guest_addr & offset_in_page);
 
 	if (!get_ept_pte(pml4, gpa, 1, &ept_pte)) {
-		report(false, "EPT - guest physical address is not mapped");
+		report_fail("EPT - guest physical address is not mapped");
 		return;
 	}
 	report((ept_pte & (EPT_ACCESS_FLAG | EPT_DIRTY_FLAG)) == expected_gpa_ad,
@@ -1883,7 +1882,7 @@ static int test_run(struct vmx_test *test)
 		int ret = 0;
 		if (test->init || test->guest_main || test->exit_handler ||
 		    test->syscall_handler) {
-			report(0, "V2 test cannot specify V1 callbacks.");
+			report_fail("V2 test cannot specify V1 callbacks.");
 			ret = 1;
 		}
 		if (ret)
@@ -1928,7 +1927,7 @@ static int test_run(struct vmx_test *test)
 		run_teardown_step(&teardown_steps[--teardown_count]);
 
 	if (launched && !guest_finished)
-		report(0, "Guest didn't run to completion.");
+		report_fail("Guest didn't run to completion.");
 
 out:
 	if (vmx_off()) {
@@ -2123,7 +2122,7 @@ int main(int argc, const char *argv[])
 			goto exit;
 	} else {
 		if (vmx_on()) {
-			report(0, "vmxon");
+			report_fail("vmxon");
 			goto exit;
 		}
 	}

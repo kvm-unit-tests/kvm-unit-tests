@@ -90,7 +90,7 @@ static void synic_test_prepare(void *ctx)
     }
     r = rdmsr(HV_X64_MSR_EOM);
     if (r != 0) {
-        report(false, "Hyper-V SynIC test, EOM read %#" PRIx64, r);
+        report_fail("Hyper-V SynIC test, EOM read %#" PRIx64, r);
         return;
     }
 
