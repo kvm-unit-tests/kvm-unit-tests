@@ -106,7 +106,11 @@ extern void report_skip(const char *msg_fmt, ...)
 					__attribute__((format(printf, 1, 2)));
 extern void report_info(const char *msg_fmt, ...)
 					__attribute__((format(printf, 1, 2)));
-extern void report_pass(void);
+extern void report_pass(const char *msg_fmt, ...)
+					__attribute__((format(printf, 1, 2)));
+extern void report_fail(const char *msg_fmt, ...)
+					__attribute__((format(printf, 1, 2)));
+extern void report_passed(void);
 extern int report_summary(void);
 
 bool simple_glob(const char *text, const char *pattern);

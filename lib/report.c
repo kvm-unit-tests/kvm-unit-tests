@@ -19,7 +19,7 @@ static struct spinlock lock;
 
 #define PREFIX_DELIMITER ": "
 
-void report_pass(void)
+void report_passed(void)
 {
 	spin_lock(&lock);
 	tests++;
@@ -109,6 +109,24 @@ void report(bool pass, const char *msg_fmt, ...)
 	va_list va;
 	va_start(va, msg_fmt);
 	va_report(msg_fmt, pass, false, false, va);
+	va_end(va);
+}
+
+void report_pass(const char *msg_fmt, ...)
+{
+	va_list va;
+
+	va_start(va, msg_fmt);
+	va_report(msg_fmt, true, false, false, va);
+	va_end(va);
+}
+
+void report_fail(const char *msg_fmt, ...)
+{
+	va_list va;
+
+	va_start(va, msg_fmt);
+	va_report(msg_fmt, false, false, false, va);
 	va_end(va);
 }
 
