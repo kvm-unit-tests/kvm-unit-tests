@@ -21,7 +21,6 @@
 #include <sie.h>
 
 static u8 *guest;
-static u8 *guest_instr;
 static struct vm vm;
 
 static uint8_t *src;
@@ -94,8 +93,6 @@ static void setup_guest(void)
 
 	/* Allocate 1MB as guest memory */
 	guest = alloc_pages(8);
-	/* The first two pages are the lowcore */
-	guest_instr = guest + PAGE_SIZE * 2;
 
 	sie_guest_create(&vm, (uint64_t)guest, HPAGE_SIZE);
 
