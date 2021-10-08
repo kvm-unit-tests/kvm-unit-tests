@@ -19,16 +19,19 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <libcflat.h>
+#include <util.h>
 #include <asm/gic.h>
 #include <asm/gic-v3-its.h>
 #include <asm/timer.h>
 
-#define NS_5_SECONDS (5 * 1000 * 1000 * 1000UL)
+#define NS_5_SECONDS		(5 * 1000 * 1000 * 1000UL)
+#define QEMU_MMIO_ADDR		0x0a000008
 
 static u32 cntfrq;
 
 static volatile bool irq_ready, irq_received;
 static int nr_ipi_received;
+static unsigned long mmio_addr = QEMU_MMIO_ADDR;
 
 static void *vgic_dist_base;
 static void (*write_eoir)(u32 irqstat);
@@ -278,12 +281,14 @@ static void *userspace_emulated_addr;
 static bool mmio_read_user_prep(void)
 {
 	/*
-	 * FIXME: Read device-id in virtio mmio here in order to
-	 * force an exit to userspace. This address needs to be
-	 * updated in the future if any relevant changes in QEMU
-	 * test-dev are made.
+	 * FIXME: We need an MMIO address that we can safely read to test
+	 * exits to userspace. Ideally, the test-dev would provide us this
+	 * address (and one we could write to too), but until it does we
+	 * use a virtio-mmio transport address. FIXME2: We should be getting
+	 * this address (and the future test-dev address) from the devicetree,
+	 * but so far we lazily hardcode it.
 	 */
-	userspace_emulated_addr = (void*)ioremap(0x0a000008, sizeof(u32));
+	userspace_emulated_addr = (void *)ioremap(mmio_addr, sizeof(u32));
 	return true;
 }
 
@@ -378,9 +383,28 @@ static void loop_test(struct exit_test *test)
 		test->name, total_ns.ns, total_ns.ns_frac, avg_ns.ns, avg_ns.ns_frac);
 }
 
+static void parse_args(int argc, char **argv)
+{
+	int i, len;
+	long val;
+
+	for (i = 1; i < argc; ++i) {
+		len = parse_keyval(argv[i], &val);
+		if (len == -1)
+			continue;
+
+		if (strncmp(argv[i], "mmio-addr", len) == 0) {
+			mmio_addr = val;
+			report_info("found mmio_addr=0x%lx", mmio_addr);
+		}
+	}
+}
+
 int main(int argc, char **argv)
 {
 	int i;
+
+	parse_args(argc, argv);
 
 	if (!test_init())
 		return 1;
