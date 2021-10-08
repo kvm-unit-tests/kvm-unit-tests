@@ -19,6 +19,7 @@
 #include <vm.h>
 #include <sclp.h>
 #include <sie.h>
+#include <snippet.h>
 
 static u8 *guest;
 static struct vm vm;
@@ -27,8 +28,8 @@ static uint8_t *src;
 static uint8_t *dst;
 static uint8_t *cmp;
 
-extern const char _binary_s390x_snippets_c_mvpg_snippet_gbin_start[];
-extern const char _binary_s390x_snippets_c_mvpg_snippet_gbin_end[];
+extern const char SNIPPET_NAME_START(c, mvpg_snippet)[];
+extern const char SNIPPET_NAME_END(c, mvpg_snippet)[];
 int binary_size;
 
 static void test_mvpg_pei(void)
@@ -77,10 +78,9 @@ static void test_mvpg_pei(void)
 
 static void test_mvpg(void)
 {
-	int binary_size = ((uintptr_t)_binary_s390x_snippets_c_mvpg_snippet_gbin_end -
-			   (uintptr_t)_binary_s390x_snippets_c_mvpg_snippet_gbin_start);
+	int binary_size = SNIPPET_LEN(c, mvpg_snippet);
 
-	memcpy(guest, _binary_s390x_snippets_c_mvpg_snippet_gbin_start, binary_size);
+	memcpy(guest, SNIPPET_NAME_START(c, mvpg_snippet), binary_size);
 	memset(src, 0x42, PAGE_SIZE);
 	memset(dst, 0x43, PAGE_SIZE);
 	sie(&vm);
@@ -96,8 +96,7 @@ static void setup_guest(void)
 
 	sie_guest_create(&vm, (uint64_t)guest, HPAGE_SIZE);
 
-	vm.sblk->gpsw.addr = PAGE_SIZE * 4;
-	vm.sblk->gpsw.mask = PSW_MASK_64;
+	vm.sblk->gpsw = snippet_psw;
 	vm.sblk->ictl = ICTL_OPEREXC | ICTL_PINT;
 	/* Enable MVPG interpretation as we want to test KVM and not ourselves */
 	vm.sblk->eca = ECA_MVPGI;
