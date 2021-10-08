@@ -4,6 +4,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <libcflat.h>
+#include <stdlib.h>
 #include "util.h"
 
 int parse_keyval(char *s, long *val)
@@ -14,6 +15,6 @@ int parse_keyval(char *s, long *val)
 	if (!p)
 		return -1;
 
-	*val = atol(p+1);
+	*val = strtol(p+1, NULL, 0);
 	return p - s;
 }
