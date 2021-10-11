@@ -171,17 +171,17 @@ void gicv3_lpi_alloc_tables(void)
 	u64 prop_val;
 	int cpu;
 
-	assert(gicv3_redist_base());
-
 	gicv3_data.lpi_prop = alloc_pages(order);
 
 	/* ID bits = 13, ie. up to 14b LPI INTID */
 	prop_val = (u64)(virt_to_phys(gicv3_data.lpi_prop)) | 13;
 
-	for_each_present_cpu(cpu) {
+	for_each_online_cpu(cpu) {
 		u64 pend_val;
 		void *ptr;
 
+		assert_msg(gicv3_data.redist_base[cpu], "Redistributor for cpu%d not initialized. "
+							"Did cpu%d enable the GIC?", cpu, cpu);
 		ptr = gicv3_data.redist_base[cpu];
 
 		writeq(prop_val, ptr + GICR_PROPBASER);
