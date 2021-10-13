@@ -33,8 +33,8 @@
 #elif GCC_VERSION >= 70100
 #define COMPILER_HAS_GENERIC_BUILTIN_OVERFLOW 1
 #define check_add_overflow(a, b) __builtin_add_overflow_p(a, b, (typeof((a) + (b)))0)
-#define check_sub_overflow(a, b) __builtin_add_overflow_p(a, b, (typeof((a) - (b)))0)
-#define check_mul_overflow(a, b) __builtin_add_overflow_p(a, b, (typeof((a) * (b)))0)
+#define check_sub_overflow(a, b) __builtin_sub_overflow_p(a, b, (typeof((a) - (b)))0)
+#define check_mul_overflow(a, b) __builtin_mul_overflow_p(a, b, (typeof((a) * (b)))0)
 #else
 #define check_add_overflow(a, b) ({ (void)((int)(a) == (int)(b)); 0; })
 #define check_sub_overflow(a, b) ({ (void)((int)(a) == (int)(b)); 0; })
