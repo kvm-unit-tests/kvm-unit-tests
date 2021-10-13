@@ -2,7 +2,7 @@
 /*
  * CSS definitions
  *
- * Copyright IBM, Corp. 2020
+ * Copyright IBM Corp. 2020
  * Author: Pierre Morel <pmorel@linux.ibm.com>
  */
 
