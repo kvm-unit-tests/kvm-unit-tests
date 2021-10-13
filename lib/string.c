@@ -168,9 +168,10 @@ static int isspace(int c)
     return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v' || c == '\f';
 }
 
-static unsigned long __strtol(const char *nptr, char **endptr,
-                              int base, bool is_signed) {
-    unsigned long acc = 0;
+static unsigned long long __strtoll(const char *nptr, char **endptr,
+                                    int base, bool is_signed,
+                                    bool is_longlong) {
+    unsigned long long ull = 0;
     const char *s = nptr;
     int neg, c;
 
@@ -210,36 +211,58 @@ static unsigned long __strtol(const char *nptr, char **endptr,
         else
             break;
 
-        if (is_signed) {
-            long sacc = (long)acc;
-            assert(!check_mul_overflow(sacc, base));
-            assert(!check_add_overflow(sacc * base, c));
+        if (!is_longlong) {
+            if (is_signed) {
+                long sl = (long)ull;
+                assert(!check_mul_overflow(sl, base));
+                assert(!check_add_overflow(sl * base, c));
+            } else {
+                unsigned long ul = (unsigned long)ull;
+                assert(!check_mul_overflow(ul, base));
+                assert(!check_add_overflow(ul * base, c));
+            }
         } else {
-            assert(!check_mul_overflow(acc, base));
-            assert(!check_add_overflow(acc * base, c));
+            if (is_signed) {
+                long long sll = (long long)ull;
+                assert(!check_mul_overflow(sll, base));
+                assert(!check_add_overflow(sll * base, c));
+            } else {
+                assert(!check_mul_overflow(ull, base));
+                assert(!check_add_overflow(ull * base, c));
+            }
         }
 
-        acc = acc * base + c;
+        ull = ull * base + c;
         s++;
     }
 
     if (neg)
-        acc = -acc;
+        ull = -ull;
 
     if (endptr)
         *endptr = (char *)s;
 
-    return acc;
+    return ull;
 }
 
 long int strtol(const char *nptr, char **endptr, int base)
 {
-    return __strtol(nptr, endptr, base, true);
+    return __strtoll(nptr, endptr, base, true, false);
 }
 
 unsigned long int strtoul(const char *nptr, char **endptr, int base)
 {
-    return __strtol(nptr, endptr, base, false);
+    return __strtoll(nptr, endptr, base, false, false);
+}
+
+long long int strtoll(const char *nptr, char **endptr, int base)
+{
+    return __strtoll(nptr, endptr, base, true, true);
+}
+
+unsigned long long int strtoull(const char *nptr, char **endptr, int base)
+{
+    return __strtoll(nptr, endptr, base, false, true);
 }
 
 long atol(const char *ptr)
