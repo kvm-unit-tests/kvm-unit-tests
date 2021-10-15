@@ -8363,6 +8363,44 @@ static void vmentry_movss_shadow_test(void)
 	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED);
 }
 
+static void vmx_ldtr_test_guest(void)
+{
+	u16 ldtr = sldt();
+
+	report(ldtr == NP_SEL, "Expected %x for L2 LDTR selector (got %x)",
+	       NP_SEL, ldtr);
+}
+
+/*
+ * Ensure that the L1 LDTR is set to 0 on VM-exit.
+ */
+static void vmx_ldtr_test(void)
+{
+	const u8 ldt_ar = 0x82; /* Present LDT */
+	u16 sel = FIRST_SPARE_SEL;
+
+	/* Set up a non-zero L1 LDTR prior to VM-entry. */
+	set_gdt_entry(sel, 0, 0, ldt_ar, 0);
+	lldt(sel);
+
+	test_set_guest(vmx_ldtr_test_guest);
+	/*
+	 * Set up a different LDTR for L2. The actual GDT contents are
+	 * irrelevant, since we stuff the hidden descriptor state
+	 * straight into the VMCS rather than reading it from the GDT.
+	 */
+	vmcs_write(GUEST_SEL_LDTR, NP_SEL);
+	vmcs_write(GUEST_AR_LDTR, ldt_ar);
+	enter_guest();
+
+	/*
+	 * VM-exit should clear LDTR (and make it unusable, but we
+	 * won't verify that here).
+	 */
+	sel = sldt();
+	report(!sel, "Expected 0 for L1 LDTR selector (got %x)", sel);
+}
+
 static void vmx_single_vmcall_guest(void)
 {
 	vmcall();
@@ -10724,6 +10762,7 @@ struct vmx_test vmx_tests[] = {
 	/* VMCS Shadowing tests */
 	TEST(vmx_vmcs_shadow_test),
 	/* Regression tests */
+	TEST(vmx_ldtr_test),
 	TEST(vmx_cr_load_test),
 	TEST(vmx_cr4_osxsave_test),
 	TEST(vmx_nm_test),
