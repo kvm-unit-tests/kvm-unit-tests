@@ -443,7 +443,7 @@ static inline void sidt(struct descriptor_table_ptr *ptr)
     asm volatile ("sidt %0" : "=m"(*ptr));
 }
 
-static inline void lldt(unsigned val)
+static inline void lldt(u16 val)
 {
     asm volatile ("lldt %0" : : "rm"(val));
 }
