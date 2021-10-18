@@ -12,6 +12,8 @@
 #include <sclp.h>
 #include <interrupt.h>
 #include <sie.h>
+#include <fault.h>
+#include <asm/page.h>
 
 static bool pgm_int_expected;
 static bool ext_int_expected;
@@ -76,8 +78,7 @@ static void fixup_pgm_int(struct stack_frame_int *stack)
 		break;
 	case PGM_INT_CODE_PROTECTION:
 		/* Handling for iep.c test case. */
-		if (lc->trans_exc_id & 0x80UL && lc->trans_exc_id & 0x04UL &&
-		    !(lc->trans_exc_id & 0x08UL))
+		if (prot_is_iep(lc->trans_exc_id))
 			/*
 			 * We branched to the instruction that caused
 			 * the exception so we can use the return
@@ -126,6 +127,24 @@ static void fixup_pgm_int(struct stack_frame_int *stack)
 	/* suppressed/terminated/completed point already at the next address */
 }
 
+static void print_storage_exception_information(void)
+{
+	switch (lc->pgm_int_code) {
+	case PGM_INT_CODE_PROTECTION:
+	case PGM_INT_CODE_PAGE_TRANSLATION:
+	case PGM_INT_CODE_SEGMENT_TRANSLATION:
+	case PGM_INT_CODE_ASCE_TYPE:
+	case PGM_INT_CODE_REGION_FIRST_TRANS:
+	case PGM_INT_CODE_REGION_SECOND_TRANS:
+	case PGM_INT_CODE_REGION_THIRD_TRANS:
+	case PGM_INT_CODE_SECURE_STOR_ACCESS:
+	case PGM_INT_CODE_NON_SECURE_STOR_ACCESS:
+	case PGM_INT_CODE_SECURE_STOR_VIOLATION:
+		print_decode_teid(lc->trans_exc_id);
+		break;
+	}
+}
+
 static void print_int_regs(struct stack_frame_int *stack)
 {
 	printf("\n");
@@ -150,11 +169,15 @@ static void print_pgm_info(struct stack_frame_int *stack)
 		  lc->pgm_old_psw.addr <= (uintptr_t)sie_exit);
 
 	printf("\n");
-	printf("Unexpected program interrupt %s: %d on cpu %d at %#lx, ilen %d\n",
+	printf("Unexpected program interrupt %s: %#x on cpu %d at %#lx, ilen %d\n",
 	       in_sie ? "in SIE" : "",
 	       lc->pgm_int_code, stap(), lc->pgm_old_psw.addr, lc->pgm_int_id);
 	print_int_regs(stack);
 	dump_stack();
+
+	/* Dump stack doesn't end with a \n so we add it here instead */
+	printf("\n");
+	print_storage_exception_information();
 	report_summary();
 	abort();
 }

@@ -71,7 +71,9 @@ static void test_query(void)
 
 	uvcb.header.len = sizeof(uvcb);
 	cc = uv_call(0, (u64)&uvcb);
-	report(cc == 0 && uvcb.header.rc == UVC_RC_EXECUTED, "successful query");
+	report((!cc && uvcb.header.rc == UVC_RC_EXECUTED) ||
+	       (cc == 1 && uvcb.header.rc == 0x100),
+		"successful query");
 
 	/*
 	 * These bits have been introduced with the very first

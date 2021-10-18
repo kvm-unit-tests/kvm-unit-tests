@@ -111,6 +111,7 @@ static void test_config_destroy(void)
 static void test_cpu_destroy(void)
 {
 	int rc;
+	uint16_t machineid = get_machine_id();
 	struct uv_cb_nodata uvcb = {
 		.header.len = sizeof(uvcb),
 		.header.cmd = UVC_CMD_DESTROY_SEC_CPU,
@@ -125,10 +126,12 @@ static void test_cpu_destroy(void)
 	       "hdr invalid length");
 	uvcb.header.len += 8;
 
-	uvcb.handle += 1;
-	rc = uv_call(0, (uint64_t)&uvcb);
-	report(rc == 1 && uvcb.header.rc == UVC_RC_INV_CHANDLE, "invalid handle");
-	uvcb.handle -= 1;
+	if (machineid != MACHINE_Z15A && machineid != MACHINE_Z15B) {
+		uvcb.handle += 1;
+		rc = uv_call(0, (uint64_t)&uvcb);
+		report(rc == 1 && uvcb.header.rc == UVC_RC_INV_CHANDLE, "invalid handle");
+		uvcb.handle -= 1;
+	}
 
 	rc = uv_call(0, (uint64_t)&uvcb);
 	report(rc == 0 && uvcb.header.rc == UVC_RC_EXECUTED, "success");
@@ -385,7 +388,7 @@ static void test_init(void)
 
 static void test_query(void)
 {
-	int i = 0;
+	int i = 0, cc;
 
 	uvcb_qui.header.cmd = UVC_CMD_QUI;
 	uvcb_qui.header.len = sizeof(uvcb_qui);
@@ -400,8 +403,10 @@ static void test_query(void)
 	report(uvcb_qui.header.rc == 0x100, "insf length");
 
 	uvcb_qui.header.len = sizeof(uvcb_qui);
-	uv_call(0, (uint64_t)&uvcb_qui);
-	report(uvcb_qui.header.rc == UVC_RC_EXECUTED, "successful query");
+	cc = uv_call(0, (uint64_t)&uvcb_qui);
+	report((!cc && uvcb_qui.header.rc == UVC_RC_EXECUTED) ||
+	       (cc == 1 && uvcb_qui.header.rc == 0x100),
+		"successful query");
 
 	for (i = 0; cmds[i].name; i++)
 		report(uv_query_test_call(cmds[i].call_bit), "%s", cmds[i].name);
@@ -444,13 +449,18 @@ static void test_clear(void)
 
 static void setup_vmem(void)
 {
-	uint64_t asce, mask;
+	uint64_t asce;
 
 	setup_mmu(get_max_ram_size(), NULL);
+	/*
+	 * setup_mmu() will enable DAT and set the primary address
+	 * space but we need to have a valid home space since UV calls
+	 * take home space virtual addresses.
+	 *
+	 * Hence we just copy the primary asce into the home space.
+	 */
 	asce = stctg(1);
 	lctlg(13, asce);
-	mask = extract_psw_mask() | 0x0000C00000000000UL;
-	load_psw_mask(mask);
 }
 
 int main(void)

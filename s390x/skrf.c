@@ -8,6 +8,7 @@
  *  Janosch Frank <frankja@linux.ibm.com>
  */
 #include <libcflat.h>
+#include <bitops.h>
 #include <asm/asm-offsets.h>
 #include <asm-generic/barrier.h>
 #include <asm/interrupt.h>
@@ -102,8 +103,7 @@ static void test_tprot(void)
 {
 	report_prefix_push("tprot");
 	expect_pgm_int();
-	asm volatile("tprot	%[addr],0xf0(0)\n"
-		     : : [addr] "a" (pagebuf) : );
+	tprot((unsigned long)pagebuf, 0xf);
 	check_pgm_int_code(PGM_INT_CODE_SPECIAL_OPERATION);
 	report_prefix_pop();
 }
@@ -125,8 +125,8 @@ static void ecall_cleanup(void)
 {
 	struct lowcore *lc = (void *)0x0;
 
-	lc->sw_int_crs[0] = 0x0000000000040000;
 	lc->ext_new_psw.mask = PSW_MASK_64;
+	lc->sw_int_crs[0] = BIT_ULL(CTL0_AFP);
 
 	/*
 	 * PGM old contains the ext new PSW, we need to clean it up,

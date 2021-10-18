@@ -41,6 +41,11 @@ struct psw {
 	uint64_t	addr;
 };
 
+#define AS_PRIM				0
+#define AS_ACCR				1
+#define AS_SECN				2
+#define AS_HOME				3
+
 #define PSW_MASK_EXT			0x0100000000000000UL
 #define PSW_MASK_IO			0x0200000000000000UL
 #define PSW_MASK_DAT			0x0400000000000000UL
@@ -48,12 +53,20 @@ struct psw {
 #define PSW_MASK_PSTATE			0x0001000000000000UL
 #define PSW_MASK_EA			0x0000000100000000UL
 #define PSW_MASK_BA			0x0000000080000000UL
-#define PSW_MASK_64			PSW_MASK_BA | PSW_MASK_EA;
+#define PSW_MASK_64			(PSW_MASK_BA | PSW_MASK_EA)
 
-#define CR0_EXTM_SCLP			0x0000000000000200UL
-#define CR0_EXTM_EXTC			0x0000000000002000UL
-#define CR0_EXTM_EMGC			0x0000000000004000UL
-#define CR0_EXTM_MASK			0x0000000000006200UL
+#define CTL0_LOW_ADDR_PROT		(63 - 35)
+#define CTL0_EDAT			(63 - 40)
+#define CTL0_IEP			(63 - 43)
+#define CTL0_AFP			(63 - 45)
+#define CTL0_VECTOR			(63 - 46)
+#define CTL0_EMERGENCY_SIGNAL		(63 - 49)
+#define CTL0_EXTERNAL_CALL		(63 - 50)
+#define CTL0_CLOCK_COMPARATOR		(63 - 52)
+#define CTL0_SERVICE_SIGNAL		(63 - 54)
+#define CR0_EXTM_MASK			0x0000000000006200UL /* Combined external masks */
+
+#define CTL2_GUARDED_STORAGE		(63 - 59)
 
 struct lowcore {
 	uint8_t		pad_0x0000[0x0080 - 0x0000];	/* 0x0000 */
@@ -206,15 +219,29 @@ static inline unsigned short stap(void)
 	return cpu_address;
 }
 
-static inline int tprot(unsigned long addr)
+#define MACHINE_Z15A	0x8561
+#define MACHINE_Z15B	0x8562
+
+static inline uint16_t get_machine_id(void)
+{
+	uint64_t cpuid;
+
+	asm volatile("stidp %0" : "=Q" (cpuid));
+	cpuid = cpuid >> 16;
+	cpuid &= 0xffff;
+
+	return cpuid;
+}
+
+static inline int tprot(unsigned long addr, char access_key)
 {
 	int cc;
 
 	asm volatile(
-		"	tprot	0(%1),0\n"
+		"	tprot	0(%1),0(%2)\n"
 		"	ipm	%0\n"
 		"	srl	%0,28\n"
-		: "=d" (cc) : "a" (addr) : "cc");
+		: "=d" (cc) : "a" (addr), "a" (access_key << 4) : "cc");
 	return cc;
 }
 
@@ -234,18 +261,6 @@ static inline uint64_t stctg(int cr)
 		: "=Q" (value) : "i" (cr) : "memory");
 	return value;
 }
-
-#define CTL0_LOW_ADDR_PROT	(63 - 35)
-#define CTL0_EDAT		(63 - 40)
-#define CTL0_IEP		(63 - 43)
-#define CTL0_AFP		(63 - 45)
-#define CTL0_VECTOR		(63 - 46)
-#define CTL0_EMERGENCY_SIGNAL	(63 - 49)
-#define CTL0_EXTERNAL_CALL	(63 - 50)
-#define CTL0_CLOCK_COMPARATOR	(63 - 52)
-#define CTL0_SERVICE_SIGNAL	(63 - 54)
-
-#define CTL2_GUARDED_STORAGE	(63 - 59)
 
 static inline void ctl_set_bit(int cr, unsigned int bit)
 {

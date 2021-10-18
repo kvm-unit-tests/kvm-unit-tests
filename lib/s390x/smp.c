@@ -10,6 +10,7 @@
  *  Janosch Frank <frankja@linux.ibm.com>
  */
 #include <libcflat.h>
+#include <bitops.h>
 #include <asm/arch_def.h>
 #include <asm/sigp.h>
 #include <asm/page.h>
@@ -204,7 +205,7 @@ int smp_cpu_setup(uint16_t addr, struct psw psw)
 	cpu->lowcore->sw_int_grs[15] = (uint64_t)cpu->stack + (PAGE_SIZE * 4);
 	lc->restart_new_psw.mask = PSW_MASK_64;
 	lc->restart_new_psw.addr = (uint64_t)smp_cpu_setup_state;
-	lc->sw_int_crs[0] = 0x0000000000040000UL;
+	lc->sw_int_crs[0] = BIT_ULL(CTL0_AFP);
 
 	/* Start processing */
 	smp_cpu_restart_nolock(addr, NULL);

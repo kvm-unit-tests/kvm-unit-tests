@@ -24,16 +24,16 @@ static inline int sthyi(uint64_t vaddr, uint64_t fcode, uint64_t *rc,
 {
 	register uint64_t code asm("0") = fcode;
 	register uint64_t addr asm("2") = vaddr;
-	register uint64_t rc3 asm("3") = 0;
+	register uint64_t rc3 asm("3") = 42;
 	int cc = 0;
 
-	asm volatile(".insn rre,0xB2560000,%[r1],%[r2]\n"
-		     "ipm	 %[cc]\n"
-		     "srl	 %[cc],28\n"
-		     : [cc] "=d" (cc)
-		     : [code] "d" (code), [addr] "a" (addr), [r1] "i" (r1),
-		       [r2] "i" (r2)
-		     : "memory", "cc", "r3");
+	asm volatile(
+		".insn   rre,0xB2560000,%[r1],%[r2]\n"
+		"ipm     %[cc]\n"
+		"srl     %[cc],28\n"
+		: [cc] "=d" (cc), "+d" (rc3)
+		: [code] "d" (code), [addr] "a" (addr), [r1] "i" (r1), [r2] "i" (r2)
+		: "memory", "cc");
 	if (rc)
 		*rc = rc3;
 	return cc;
@@ -139,16 +139,19 @@ static void test_fcode0(void)
 	struct sthyi_hdr_sctn *hdr;
 	struct sthyi_mach_sctn *mach;
 	struct sthyi_par_sctn *par;
+	uint64_t rc = 42;
+	int cc;
 
 	/* Zero destination memory. */
 	memset(pagebuf, 0, PAGE_SIZE);
 
 	report_prefix_push("fcode 0");
-	sthyi((uint64_t)pagebuf, 0, NULL, 0, 2);
+	cc = sthyi((uint64_t)pagebuf, 0, &rc, 0, 2);
 	hdr = (void *)pagebuf;
 	mach = (void *)pagebuf + hdr->INFMOFF;
 	par = (void *)pagebuf + hdr->INFPOFF;
 
+	report(cc == 0 && rc == CODE_SUCCES, "r2 + 1 == 0");
 	test_fcode0_hdr(hdr);
 	test_fcode0_mach(mach);
 	test_fcode0_par(par);

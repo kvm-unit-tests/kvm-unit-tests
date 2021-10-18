@@ -6,7 +6,7 @@
  * Copyright (c) 2013 Alexander Graf <agraf@suse.de>
  *
  * and based on the file include/hw/s390x/sclp.h from QEMU
- * Copyright IBM, Corp. 2012
+ * Copyright IBM Corp. 2012
  * Author: Christian Borntraeger <borntraeger@de.ibm.com>
  */
 

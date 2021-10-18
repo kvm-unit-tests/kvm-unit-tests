@@ -120,6 +120,33 @@ static void test_priv(void)
 	report_prefix_pop();
 }
 
+static void test_invalid_address(void)
+{
+	void *inv_addr = (void *)-1ull;
+
+	report_prefix_push("invalid address");
+
+	report_prefix_push("sske");
+	expect_pgm_int();
+	set_storage_key(inv_addr, 0, 0);
+	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
+	report_prefix_pop();
+
+	report_prefix_push("iske");
+	expect_pgm_int();
+	get_storage_key(inv_addr);
+	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
+	report_prefix_pop();
+
+	report_prefix_push("rrbe");
+	expect_pgm_int();
+	reset_reference_bit(inv_addr);
+	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
+	report_prefix_pop();
+
+	report_prefix_pop();
+}
+
 int main(void)
 {
 	report_prefix_push("skey");
@@ -128,6 +155,7 @@ int main(void)
 		goto done;
 	}
 	test_priv();
+	test_invalid_address();
 	test_set();
 	test_set_mb();
 	test_chg();
