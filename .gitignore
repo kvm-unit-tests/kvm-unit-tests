@@ -5,6 +5,7 @@ tags
 *.o
 *.flat
 *.elf
+*.patch
 .pc
 patches
 .stgit-*
