@@ -103,7 +103,7 @@ static void self_ipi_sti_hlt(void)
 	x = 0;
 	irq_disable();
 	apic_self_ipi(IPI_TEST_VECTOR);
-	asm volatile("sti; hlt");
+	safe_halt();
 	if (x != 1) printf("%d", x);
 }
 
@@ -135,7 +135,7 @@ static void self_ipi_tpr_sti_hlt(void)
 	apic_set_tpr(0x0f);
 	apic_self_ipi(IPI_TEST_VECTOR);
 	apic_set_tpr(0x00);
-	asm volatile("sti; hlt");
+	safe_halt();
 	if (x != 1) printf("%d", x);
 }
 
@@ -155,7 +155,7 @@ static void x2apic_self_ipi_sti_hlt(void)
 {
 	irq_disable();
 	x2apic_self_ipi(IPI_TEST_VECTOR);
-	asm volatile("sti; hlt");
+	safe_halt();
 }
 
 static void x2apic_self_ipi_tpr(void)
@@ -181,7 +181,7 @@ static void x2apic_self_ipi_tpr_sti_hlt(void)
 	apic_set_tpr(0x0f);
 	x2apic_self_ipi(IPI_TEST_VECTOR);
 	apic_set_tpr(0x00);
-	asm volatile("sti; hlt");
+	safe_halt();
 }
 
 static void ipi(void)

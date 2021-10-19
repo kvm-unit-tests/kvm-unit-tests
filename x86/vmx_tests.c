@@ -1674,7 +1674,7 @@ static void interrupt_main(void)
 	start = rdtsc();
 	apic_write(APIC_TMICT, 1000000);
 
-	asm volatile ("sti; hlt");
+	safe_halt();
 
 	report(rdtsc() - start > 1000000 && timer_fired,
 	       "direct interrupt + hlt");
@@ -1686,7 +1686,7 @@ static void interrupt_main(void)
 	start = rdtsc();
 	apic_write(APIC_TMICT, 1000000);
 
-	asm volatile ("sti; hlt");
+	safe_halt();
 
 	report(rdtsc() - start > 10000 && timer_fired,
 	       "intercepted interrupt + hlt");

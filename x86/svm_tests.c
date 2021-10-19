@@ -1302,7 +1302,7 @@ static void interrupt_test(struct svm_test *test)
     timer_fired = false;
     start = rdtsc();
     apic_write(APIC_TMICT, 1000000);
-    asm volatile ("sti; hlt");
+    safe_halt();
 
     report(rdtsc() - start > 10000 && timer_fired,
           "direct interrupt + hlt");
