@@ -164,14 +164,27 @@ typedef struct {
 } idt_entry_t;
 
 typedef struct {
-	u16 limit_low;
-	u16 base_low;
-	u8 base_middle;
-	u8 access;
-	u8 granularity;
-	u8 base_high;
-} gdt_entry_t;
+	uint16_t limit1;
+	uint16_t base1;
+	uint8_t  base2;
+	union {
+		uint16_t  type_limit_flags;      /* Type and limit flags */
+		struct {
+			uint16_t type:4;
+			uint16_t s:1;
+			uint16_t dpl:2;
+			uint16_t p:1;
+			uint16_t limit2:4;
+			uint16_t avl:1;
+			uint16_t l:1;
+			uint16_t db:1;
+			uint16_t g:1;
+		} __attribute__((__packed__));
+	} __attribute__((__packed__));
+	uint8_t  base3;
+} __attribute__((__packed__)) gdt_entry_t;
 
+#ifdef __x86_64__
 struct system_desc64 {
 	uint16_t limit1;
 	uint16_t base1;
@@ -194,6 +207,7 @@ struct system_desc64 {
 	uint32_t base4;
 	uint32_t zero;
 } __attribute__((__packed__));
+#endif
 
 #define DESC_BUSY ((uint64_t) 1 << 41)
 
