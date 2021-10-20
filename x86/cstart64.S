@@ -4,7 +4,6 @@
 .globl boot_idt
 
 .globl idt_descr
-.globl tss_descr
 .globl gdt64_desc
 .globl online_cpus
 .globl cpu_online_count

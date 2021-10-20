@@ -186,30 +186,13 @@ typedef struct {
 
 #ifdef __x86_64__
 struct system_desc64 {
-	uint16_t limit1;
-	uint16_t base1;
-	uint8_t  base2;
-	union {
-		uint16_t  type_limit_flags;      /* Type and limit flags */
-		struct {
-			uint16_t type:4;
-			uint16_t s:1;
-			uint16_t dpl:2;
-			uint16_t p:1;
-			uint16_t limit2:4;
-			uint16_t avl:1;
-			uint16_t l:1;
-			uint16_t db:1;
-			uint16_t g:1;
-		} __attribute__((__packed__));
-	} __attribute__((__packed__));
-	uint8_t  base3;
+	gdt_entry_t common;
 	uint32_t base4;
 	uint32_t zero;
 } __attribute__((__packed__));
 #endif
 
-#define DESC_BUSY ((uint64_t) 1 << 41)
+#define DESC_BUSY 2
 
 extern idt_entry_t boot_idt[256];
 
@@ -252,5 +235,9 @@ static inline void *get_idt_addr(idt_entry_t *entry)
 #endif
 	return (void *)addr;
 }
+
+extern gdt_entry_t *get_tss_descr(void);
+extern unsigned long get_gdt_entry_base(gdt_entry_t *entry);
+extern unsigned long get_gdt_entry_limit(gdt_entry_t *entry);
 
 #endif

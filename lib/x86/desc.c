@@ -409,3 +409,35 @@ void __set_exception_jmpbuf(jmp_buf *addr)
 {
 	exception_jmpbuf = addr;
 }
+
+gdt_entry_t *get_tss_descr(void)
+{
+	struct descriptor_table_ptr gdt_ptr;
+	gdt_entry_t *gdt;
+
+	sgdt(&gdt_ptr);
+	gdt = (gdt_entry_t *)gdt_ptr.base;
+	return &gdt[str() / 8];
+}
+
+unsigned long get_gdt_entry_base(gdt_entry_t *entry)
+{
+	unsigned long base;
+	base = entry->base1 | ((u32)entry->base2 << 16) | ((u32)entry->base3 << 24);
+#ifdef __x86_64__
+	if (!entry->s) {
+		base |= (u64)((struct system_desc64 *)entry)->base4 << 32;
+	}
+#endif
+	return base;
+}
+
+unsigned long get_gdt_entry_limit(gdt_entry_t *entry)
+{
+	unsigned long limit;
+	limit = entry->limit1 | ((u32)entry->limit2 << 16);
+	if (entry->g) {
+		limit = (limit << 12) | 0xFFF;
+	}
+	return limit;
+}

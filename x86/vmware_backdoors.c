@@ -132,23 +132,13 @@ struct fault_test vmware_backdoor_tests[] = {
  */
 static void set_tss_ioperm(void)
 {
-	struct descriptor_table_ptr gdt;
-	gdt_entry_t *gdt_table;
-	struct system_desc64 *tss_entry;
-	u16 tr = 0;
+	gdt_entry_t *tss_entry;
 	tss64_t *tss;
 	unsigned char *ioperm_bitmap;
-	uint64_t tss_base;
+	u16 tr = str();
 
-	sgdt(&gdt);
-	tr = str();
-	gdt_table = (gdt_entry_t *) gdt.base;
-	tss_entry = (struct system_desc64 *) &gdt_table[tr / 8];
-	tss_base = ((uint64_t) tss_entry->base1 |
-			((uint64_t) tss_entry->base2 << 16) |
-			((uint64_t) tss_entry->base3 << 24) |
-			((uint64_t) tss_entry->base4 << 32));
-	tss = (tss64_t *)tss_base;
+	tss_entry = get_tss_descr();
+	tss = (tss64_t *)get_gdt_entry_base(tss_entry);
 	tss->iomap_base = sizeof(*tss);
 	ioperm_bitmap = ((unsigned char *)tss+tss->iomap_base);
 
@@ -157,7 +147,7 @@ static void set_tss_ioperm(void)
 		1 << (RANDOM_IO_PORT % 8);
 	ioperm_bitmap[VMWARE_BACKDOOR_PORT / 8] |=
 		1 << (VMWARE_BACKDOOR_PORT % 8);
-	*(uint64_t *)tss_entry &= ~DESC_BUSY;
+	tss_entry->type &= ~DESC_BUSY;
 
 	/* Update TSS */
 	ltr(tr);
