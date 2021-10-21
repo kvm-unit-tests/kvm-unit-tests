@@ -47,8 +47,8 @@ uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
 	}
 
 	asm volatile (
-			/* Backing Up Stack in rdi */
-			"mov %%rsp, %%rdi\n\t"
+			/* Prepare kernel SP for exception handlers */
+			"mov %%rsp, %[rsp0]\n\t"
 			/* Load user_ds to DS and ES */
 			"mov %[user_ds], %%ax\n\t"
 			"mov %%ax, %%ds\n\t"
@@ -92,9 +92,10 @@ uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
 			"int %[kernel_entry_vector]\n\t"
 			/* Kernel Mode */
 			"ret_to_kernel:\n\t"
-			"mov %%rdi, %%rsp\n\t"
+			"mov %[rsp0], %%rsp\n\t"
 			:
-			"+a"(rax)
+			"+a"(rax),
+			[rsp0]"=m"(tss.rsp0)
 			:
 			[arg1]"m"(arg1),
 			[arg2]"m"(arg2),

@@ -60,6 +60,7 @@ static void test_syscall_tf(void)
 {
     extern void syscall32_target(void);
     extern void syscall_tf_user32(void);
+    ulong rax;
     ulong rcx;
 
     wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_SCE);
@@ -84,15 +85,17 @@ static void test_syscall_tf(void)
      *   handle_db sets code_segment_upon_db to KERNEL_CS64
      *   syscall32_target jumps to back_to_test
      */
+    rax = (ulong)&tss.rsp0;
     rcx = (ulong)syscall_tf_user32;
     asm volatile("  push %%rbp\n"
+                 "  mov %%rsp, (%%rax)\n"  // stack pointer for exception handler
                  "  pushf; pop %%rax\n"   // expected by syscall32_target
                  "  sysret\n"
                  "back_to_test:\n"
                  "  pop %%rbp"
-                 : "+c"(rcx) :
-                 : "rax", "rbx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11",
-                   "r12", "r13", "r14", "r15");
+                 : [sysret_target] "+c"(rcx), [sp0] "+a" (rax) :
+                 : "rbx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11",
+                   "r12", "r13", "r14", "r15", "memory");
     if (code_segment_upon_db != USER_CS32) {
         printf("wrong CS (%#04x)!\n", code_segment_upon_db);
     }

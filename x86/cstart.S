@@ -13,10 +13,6 @@ max_cpus = MAX_TEST_CPUS
 	.align 16
 stacktop:
 
-	. = . + 4096
-	.align 16
-ring0stacktop:
-
 .data
 
 .align 4096
@@ -62,7 +58,7 @@ i = 0
 tss:
         .rept max_cpus
         .long 0
-        .long ring0stacktop - i * 4096
+        .long 0
         .long 16
         .quad 0, 0
         .quad 0, 0, 0, 0, 0, 0, 0, 0
