@@ -86,8 +86,8 @@ F: lib/ppc64/
 S390X
 M: Thomas Huth <thuth@redhat.com>
 M: Janosch Frank <frankja@linux.ibm.com>
+M: Claudio Imbrenda <imbrenda@linux.ibm.com>
 S: Supported
-R: Claudio Imbrenda <imbrenda@linux.ibm.com>
 R: David Hildenbrand <david@redhat.com>
 L: kvm@vger.kernel.org
 L: linux-s390@vger.kernel.org
