@@ -336,7 +336,7 @@ void setup_tss32(void)
 	tss_intr.ds = tss_intr.es = tss_intr.fs = tss_intr.ss = 0x10;
 	tss_intr.gs = read_gs();
 	tss_intr.iomap_base = (u16)desc_size;
-	set_gdt_entry(TSS_INTR, (u32)&tss_intr, desc_size - 1, 0x89, 0x0f);
+	set_gdt_entry(TSS_INTR, (u32)&tss_intr, desc_size - 1, 0x89, 0);
 }
 
 void set_intr_task_gate(int e, void *fn)
