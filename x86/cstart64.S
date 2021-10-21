@@ -1,8 +1,6 @@
 
 #include "apic-defs.h"
 
-.globl gdt
-.globl gdt_descr
 .globl online_cpus
 .globl cpu_online_count
 
@@ -44,49 +42,6 @@ ptl5:
 
 .align 4096
 
-gdt_descr:
-	.word gdt_end - gdt - 1
-	.quad gdt
-
-gdt:
-	.quad 0
-	.quad 0x00af9b000000ffff // 64-bit code segment
-	.quad 0x00cf93000000ffff // 32/64-bit data segment
-	.quad 0x00af1b000000ffff // 64-bit code segment, not present
-	.quad 0x00cf9b000000ffff // 32-bit code segment
-	.quad 0x008f9b000000FFFF // 16-bit code segment
-	.quad 0x008f93000000FFFF // 16-bit data segment
-	.quad 0x00cffb000000ffff // 32-bit code segment (user)
-	.quad 0x00cff3000000ffff // 32/64-bit data segment (user)
-	.quad 0x00affb000000ffff // 64-bit code segment (user)
-
-	.quad 0			 // 6 spare selectors
-	.quad 0
-	.quad 0
-	.quad 0
-	.quad 0
-	.quad 0
-
-tss_descr:
-	.rept max_cpus
-	.quad 0x000089000000ffff // 64-bit avail tss
-	.quad 0                  // tss high addr
-	.endr
-gdt_end:
-
-i = 0
-.globl tss
-tss:
-	.rept max_cpus
-	.long 0
-	.quad 0
-	.quad 0, 0
-	.quad 0, 0, 0, 0, 0, 0, 0, 0
-	.long 0, 0, 0
-i = i + 1
-	.endr
-tss_end:
-
 mb_boot_info:	.quad 0
 
 pt_root:	.quad ptl4
@@ -109,6 +64,12 @@ MSR_GS_BASE = 0xc0000101
 	mov $0, %edx
 	mov $MSR_GS_BASE, %ecx
 	wrmsr
+.endm
+
+.macro load_tss
+	lidtq idt_descr
+	call setup_tss
+	ltr %ax
 .endm
 
 .macro setup_segments
@@ -228,7 +189,7 @@ save_id:
 
 ap_start64:
 	call reset_apic
-	call load_tss
+	load_tss
 	call enable_apic
 	call save_id
 	call enable_x2apic
@@ -241,7 +202,7 @@ ap_start64:
 
 start64:
 	call reset_apic
-	call load_tss
+	load_tss
 	call mask_pic_interrupts
 	call enable_apic
 	call save_id
@@ -279,27 +240,6 @@ lvl5:
 
 online_cpus:
 	.fill (max_cpus + 7) / 8, 1, 0
-
-load_tss:
-	lidtq idt_descr
-	mov $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
-	mov (%rax), %eax
-	shr $24, %eax
-	mov %eax, %ebx
-	shl $4, %ebx
-	mov $((tss_end - tss) / max_cpus), %edx
-	imul %edx
-	add $tss, %rax
-	mov %ax, tss_descr+2(%rbx)
-	shr $16, %rax
-	mov %al, tss_descr+4(%rbx)
-	shr $8, %rax
-	mov %al, tss_descr+7(%rbx)
-	shr $8, %rax
-	mov %eax, tss_descr+8(%rbx)
-	lea tss_descr-gdt(%rbx), %rax
-	ltr %ax
-	ret
 
 ap_init:
 	cld

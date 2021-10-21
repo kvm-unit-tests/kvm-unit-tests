@@ -95,7 +95,7 @@ uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
 			"mov %[rsp0], %%rsp\n\t"
 			:
 			"+a"(rax),
-			[rsp0]"=m"(tss.rsp0)
+			[rsp0]"=m"(tss[0].rsp0)
 			:
 			[arg1]"m"(arg1),
 			[arg2]"m"(arg2),

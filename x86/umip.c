@@ -159,7 +159,7 @@ static noinline int do_ring3(void (*fn)(const char *), const char *arg)
 		  "1:\n\t"
 		  : [ret] "=&a" (ret),
 #ifdef __x86_64__
-		    [sp0] "=m" (tss.rsp0)
+		    [sp0] "=m" (tss[0].rsp0)
 #else
 		    [sp0] "=m" (tss.esp0)
 #endif

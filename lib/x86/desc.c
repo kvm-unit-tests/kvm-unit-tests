@@ -2,6 +2,7 @@
 #include "desc.h"
 #include "processor.h"
 #include <setjmp.h>
+#include "apic-defs.h"
 
 /* Boot-related data structures */
 
@@ -12,6 +13,29 @@ struct descriptor_table_ptr idt_descr = {
 	.limit = sizeof(boot_idt) - 1,
 	.base = (unsigned long)boot_idt,
 };
+
+#ifdef __x86_64__
+/* GDT, TSS and descriptors */
+gdt_entry_t gdt[TSS_MAIN / 8 + MAX_TEST_CPUS * 2] = {
+	{     0, 0, 0, .type_limit_flags = 0x0000}, /* 0x00 null */
+	{0xffff, 0, 0, .type_limit_flags = 0xaf9b}, /* 0x08 64-bit code segment */
+	{0xffff, 0, 0, .type_limit_flags = 0xcf93}, /* 0x10 32/64-bit data segment */
+	{0xffff, 0, 0, .type_limit_flags = 0xaf1b}, /* 0x18 64-bit code segment, not present */
+	{0xffff, 0, 0, .type_limit_flags = 0xcf9b}, /* 0x20 32-bit code segment */
+	{0xffff, 0, 0, .type_limit_flags = 0x8f9b}, /* 0x28 16-bit code segment */
+	{0xffff, 0, 0, .type_limit_flags = 0x8f93}, /* 0x30 16-bit data segment */
+	{0xffff, 0, 0, .type_limit_flags = 0xcffb}, /* 0x38 32-bit code segment (user) */
+	{0xffff, 0, 0, .type_limit_flags = 0xcff3}, /* 0x40 32/64-bit data segment (user) */
+	{0xffff, 0, 0, .type_limit_flags = 0xaffb}, /* 0x48 64-bit code segment (user) */
+};
+
+tss64_t tss[MAX_TEST_CPUS] = {0};
+
+struct descriptor_table_ptr gdt_descr = {
+	.limit = sizeof(gdt) - 1,
+	.base = (unsigned long)gdt,
+};
+#endif
 
 #ifndef __x86_64__
 __attribute__((regparm(1)))
@@ -289,8 +313,7 @@ bool exception_rflags_rf(void)
 
 static char intr_alt_stack[4096];
 
-#ifndef __x86_64__
-void set_gdt_entry(int sel, u32 base,  u32 limit, u8 type, u8 flags)
+void set_gdt_entry(int sel, unsigned long base,  u32 limit, u8 type, u8 flags)
 {
 	gdt_entry_t *entry = &gdt[sel >> 3];
 
@@ -302,8 +325,17 @@ void set_gdt_entry(int sel, u32 base,  u32 limit, u8 type, u8 flags)
 	/* Setup the descriptor limits, type and flags */
 	entry->limit1 = (limit & 0xFFFF);
 	entry->type_limit_flags = ((limit & 0xF0000) >> 8) | ((flags & 0xF0) << 8) | type;
+
+#ifdef __x86_64__
+	if (!entry->s) {
+		struct system_desc64 *entry16 = (struct system_desc64 *)entry;
+		entry16->zero = 0;
+		entry16->base4 = base >> 32;
+	}
+#endif
 }
 
+#ifndef __x86_64__
 void set_gdt_task_gate(u16 sel, u16 tss_sel)
 {
     set_gdt_entry(sel, tss_sel, 0, 0x85, 0); // task, present
@@ -380,7 +412,7 @@ void set_intr_alt_stack(int e, void *addr)
 
 void setup_alt_stack(void)
 {
-	tss.ist1 = (u64)intr_alt_stack + 4096;
+	tss[0].ist1 = (u64)intr_alt_stack + 4096;
 }
 #endif
 

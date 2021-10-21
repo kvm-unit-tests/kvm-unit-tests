@@ -85,7 +85,7 @@ static void test_syscall_tf(void)
      *   handle_db sets code_segment_upon_db to KERNEL_CS64
      *   syscall32_target jumps to back_to_test
      */
-    rax = (ulong)&tss.rsp0;
+    rax = (ulong)&tss[0].rsp0;
     rcx = (ulong)syscall_tf_user32;
     asm volatile("  push %%rbp\n"
                  "  mov %%rsp, (%%rax)\n"  // stack pointer for exception handler

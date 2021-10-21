@@ -741,7 +741,7 @@ static int ac_test_do_access(ac_test_t *at)
 		  ".section .text \n\t"
 		  "back_to_kernel:"
 		  : [reg]"+r"(r), "+a"(fault), "=b"(e), "=&d"(rsp),
-		    [rsp0]"=m"(tss.rsp0)
+		    [rsp0]"=m"(tss[0].rsp0)
 		  : [addr]"r"(at->virt),
 		    [write]"r"(F(AC_ACCESS_WRITE)),
 		    [user]"r"(F(AC_ACCESS_USER)),
