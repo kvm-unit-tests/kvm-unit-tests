@@ -3,6 +3,16 @@
 #include "processor.h"
 #include <setjmp.h>
 
+/* Boot-related data structures */
+
+/* IDT and IDT descriptor */
+idt_entry_t boot_idt[256] = {0};
+
+struct descriptor_table_ptr idt_descr = {
+	.limit = sizeof(boot_idt) - 1,
+	.base = (unsigned long)boot_idt,
+};
+
 #ifndef __x86_64__
 __attribute__((regparm(1)))
 #endif

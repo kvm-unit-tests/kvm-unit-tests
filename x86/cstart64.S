@@ -1,9 +1,6 @@
 
 #include "apic-defs.h"
 
-.globl boot_idt
-
-.globl idt_descr
 .globl gdt64_desc
 .globl online_cpus
 .globl cpu_online_count
@@ -49,13 +46,6 @@ ptl5:
 	.quad ptl4 + 7
 
 .align 4096
-
-boot_idt:
-	.rept 256
-	.quad 0
-	.quad 0
-	.endr
-end_boot_idt:
 
 gdt64_desc:
 	.word gdt64_end - gdt64 - 1
@@ -289,10 +279,6 @@ setup_5level_page_table:
 	lretq
 lvl5:
 	retq
-
-idt_descr:
-	.word end_boot_idt - boot_idt - 1
-	.quad boot_idt
 
 online_cpus:
 	.fill (max_cpus + 7) / 8, 1, 0

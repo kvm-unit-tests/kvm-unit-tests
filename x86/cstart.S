@@ -1,7 +1,6 @@
 
 #include "apic-defs.h"
 
-.globl boot_idt
 .global online_cpus
 
 ipi_vector = 0x20
@@ -27,12 +26,6 @@ i = 0
         .long 0x1e7 | (i << 22)
         i = i + 1
         .endr
-
-boot_idt:
-	.rept 256
-	.quad 0
-	.endr
-end_boot_idt:
 
 .globl gdt32
 gdt32:
@@ -77,10 +70,6 @@ tss:
         i = i + 1
         .endr
 tss_end:
-
-idt_descr:
-	.word end_boot_idt - boot_idt - 1
-	.long boot_idt
 
 .section .init
 
