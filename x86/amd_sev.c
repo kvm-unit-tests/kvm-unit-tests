@@ -13,6 +13,7 @@
 #include "libcflat.h"
 #include "x86/processor.h"
 #include "x86/amd_sev.h"
+#include "msr.h"
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
@@ -55,10 +56,20 @@ static int test_sev_activation(void)
 	return EXIT_SUCCESS;
 }
 
+static void test_sev_es_activation(void)
+{
+	if (rdmsr(MSR_SEV_STATUS) & SEV_ES_ENABLED_MASK) {
+		printf("SEV-ES is enabled.\n");
+	} else {
+		printf("SEV-ES is not enabled.\n");
+	}
+}
+
 int main(void)
 {
 	int rtn;
 	rtn = test_sev_activation();
 	report(rtn == EXIT_SUCCESS, "SEV activation test.");
+	test_sev_es_activation();
 	return report_summary();
 }
