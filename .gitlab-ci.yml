@@ -62,7 +62,7 @@ build-s390x:
  - ../configure --arch=s390x --cross-prefix=s390x-linux-gnu-
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     selftest-setup intercept emulator sieve skey diag10 diag308 vector diag288
+     selftest-setup intercept emulator sieve diag10 diag308 vector diag288
      stsi sclp-1g sclp-3g
      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
