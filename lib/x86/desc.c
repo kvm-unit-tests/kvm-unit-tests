@@ -14,8 +14,22 @@ struct descriptor_table_ptr idt_descr = {
 	.base = (unsigned long)boot_idt,
 };
 
-#ifdef __x86_64__
+#ifndef __x86_64__
 /* GDT, TSS and descriptors */
+gdt_entry_t gdt[TSS_MAIN / 8 + MAX_TEST_CPUS * 2] = {
+	{     0, 0, 0, .type_limit_flags = 0x0000}, /* 0x00 null */
+	{0xffff, 0, 0, .type_limit_flags = 0xcf9b}, /* flat 32-bit code segment */
+	{0xffff, 0, 0, .type_limit_flags = 0xcf93}, /* flat 32-bit data segment */
+	{0xffff, 0, 0, .type_limit_flags = 0xcf1b}, /* flat 32-bit code segment, not present */
+	{     0, 0, 0, .type_limit_flags = 0x0000}, /* TSS for task gates */
+	{0xffff, 0, 0, .type_limit_flags = 0x8f9b}, /* 16-bit code segment */
+	{0xffff, 0, 0, .type_limit_flags = 0x8f93}, /* 16-bit data segment */
+	{0xffff, 0, 0, .type_limit_flags = 0xcffb}, /* 32-bit code segment (user) */
+	{0xffff, 0, 0, .type_limit_flags = 0xcff3}, /* 32-bit data segment (user) */
+};
+
+tss32_t tss[MAX_TEST_CPUS] = {0};
+#else
 gdt_entry_t gdt[TSS_MAIN / 8 + MAX_TEST_CPUS * 2] = {
 	{     0, 0, 0, .type_limit_flags = 0x0000}, /* 0x00 null */
 	{0xffff, 0, 0, .type_limit_flags = 0xaf9b}, /* 0x08 64-bit code segment */
@@ -30,12 +44,12 @@ gdt_entry_t gdt[TSS_MAIN / 8 + MAX_TEST_CPUS * 2] = {
 };
 
 tss64_t tss[MAX_TEST_CPUS] = {0};
+#endif
 
 struct descriptor_table_ptr gdt_descr = {
 	.limit = sizeof(gdt) - 1,
 	.base = (unsigned long)gdt,
 };
-#endif
 
 #ifndef __x86_64__
 __attribute__((regparm(1)))
@@ -365,7 +379,7 @@ void setup_tss32(void)
 {
 	u16 desc_size = sizeof(tss32_t);
 
-	tss.cr3 = read_cr3();
+	tss[0].cr3 = read_cr3();
 	tss_intr.cr3 = read_cr3();
 	tss_intr.ss0 = tss_intr.ss1 = tss_intr.ss2 = 0x10;
 	tss_intr.esp = tss_intr.esp0 = tss_intr.esp1 = tss_intr.esp2 =
@@ -401,7 +415,7 @@ void print_current_tss_info(void)
 		printf("Unknown TSS %x\n", tr);
 	else
 		printf("TR=%x (%s) Main TSS back link %x. Intr TSS back link %x\n",
-		       tr, tr ? "interrupt" : "main", tss.prev, tss_intr.prev);
+		       tr, tr ? "interrupt" : "main", tss[0].prev, tss_intr.prev);
 }
 #else
 void set_intr_alt_stack(int e, void *addr)

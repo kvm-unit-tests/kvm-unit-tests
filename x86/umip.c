@@ -161,7 +161,7 @@ static noinline int do_ring3(void (*fn)(const char *), const char *arg)
 #ifdef __x86_64__
 		    [sp0] "=m" (tss[0].rsp0)
 #else
-		    [sp0] "=m" (tss.esp0)
+		    [sp0] "=m" (tss[0].esp0)
 #endif
 		  : [user_ds] "i" (USER_DS),
 		    [user_cs] "i" (USER_CS),

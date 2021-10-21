@@ -68,6 +68,7 @@ MSR_GS_BASE = 0xc0000101
 
 .macro load_tss
 	lidtq idt_descr
+	movq %rsp, %rdi
 	call setup_tss
 	ltr %ax
 .endm

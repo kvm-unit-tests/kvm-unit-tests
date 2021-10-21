@@ -104,7 +104,7 @@ void find_highmem(void)
 }
 
 /* Setup TSS for the current processor, and return TSS offset within GDT */
-unsigned long setup_tss(void)
+unsigned long setup_tss(u8 *stacktop)
 {
 	u32 id;
 	tss64_t *tss_entry;
@@ -121,6 +121,30 @@ unsigned long setup_tss(void)
 	set_gdt_entry(TSS_MAIN + id * 16, (unsigned long)tss_entry, 0xffff, 0x89, 0);
 
 	return TSS_MAIN + id * 16;
+}
+#else
+/* Setup TSS for the current processor, and return TSS offset within GDT */
+unsigned long setup_tss(u8 *stacktop)
+{
+	u32 id;
+	tss32_t *tss_entry;
+
+	id = apic_id();
+
+	/* Runtime address of current TSS */
+	tss_entry = &tss[id];
+
+	/* Update TSS */
+	memset((void *)tss_entry, 0, sizeof(tss32_t));
+	tss_entry->ss0 = KERNEL_DS;
+
+	/* Update descriptors for TSS and percpu data segment.  */
+	set_gdt_entry(TSS_MAIN + id * 8,
+		      (unsigned long)tss_entry, 0xffff, 0x89, 0);
+	set_gdt_entry(TSS_MAIN + MAX_TEST_CPUS * 8 + id * 8,
+		      (unsigned long)stacktop - 4096, 0xfffff, 0x93, 0xc0);
+
+	return TSS_MAIN + id * 8;
 }
 #endif
 

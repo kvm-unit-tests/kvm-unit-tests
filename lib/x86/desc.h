@@ -197,7 +197,7 @@ struct system_desc64 {
 extern idt_entry_t boot_idt[256];
 
 #ifndef __x86_64__
-extern tss32_t tss;
+extern tss32_t tss[];
 extern tss32_t tss_intr;
 void set_gdt_task_gate(u16 tss_sel, u16 sel);
 void set_idt_task_gate(int vec, u16 sel);

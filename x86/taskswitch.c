@@ -19,7 +19,7 @@ fault_handler(unsigned long error_code)
 	print_current_tss_info();
 	printf("error code %lx\n", error_code);
 
-	tss.eip += 2;
+	tss[0].eip += 2;
 
 	gdt[TSS_MAIN / 8].type &= ~DESC_BUSY;
 
