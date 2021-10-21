@@ -172,7 +172,7 @@ typedef struct {
 	u8 base_high;
 } gdt_entry_t;
 
-struct segment_desc64 {
+struct system_desc64 {
 	uint16_t limit1;
 	uint16_t base1;
 	uint8_t  base2;
@@ -183,7 +183,7 @@ struct segment_desc64 {
 			uint16_t s:1;
 			uint16_t dpl:2;
 			uint16_t p:1;
-			uint16_t limit:4;
+			uint16_t limit2:4;
 			uint16_t avl:1;
 			uint16_t l:1;
 			uint16_t db:1;

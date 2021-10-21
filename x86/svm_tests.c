@@ -1876,22 +1876,22 @@ static bool reg_corruption_check(struct svm_test *test)
 static void get_tss_entry(void *data)
 {
     struct descriptor_table_ptr gdt;
-    struct segment_desc64 *gdt_table;
-    struct segment_desc64 *tss_entry;
+    gdt_entry_t *gdt_table;
+    struct system_desc64 *tss_entry;
     u16 tr = 0;
 
     sgdt(&gdt);
     tr = str();
-    gdt_table = (struct segment_desc64 *) gdt.base;
-    tss_entry = &gdt_table[tr / sizeof(struct segment_desc64)];
-    *((struct segment_desc64 **)data) = tss_entry;
+    gdt_table = (gdt_entry_t *) gdt.base;
+    tss_entry = (struct system_desc64 *) &gdt_table[tr / 8];
+    *((struct system_desc64 **)data) = tss_entry;
 }
 
 static int orig_cpu_count;
 
 static void init_startup_prepare(struct svm_test *test)
 {
-    struct segment_desc64 *tss_entry;
+    struct system_desc64 *tss_entry;
     int i;
 
     on_cpu(1, get_tss_entry, &tss_entry);

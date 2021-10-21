@@ -133,8 +133,8 @@ struct fault_test vmware_backdoor_tests[] = {
 static void set_tss_ioperm(void)
 {
 	struct descriptor_table_ptr gdt;
-	struct segment_desc64 *gdt_table;
-	struct segment_desc64 *tss_entry;
+	gdt_entry_t *gdt_table;
+	struct system_desc64 *tss_entry;
 	u16 tr = 0;
 	tss64_t *tss;
 	unsigned char *ioperm_bitmap;
@@ -142,8 +142,8 @@ static void set_tss_ioperm(void)
 
 	sgdt(&gdt);
 	tr = str();
-	gdt_table = (struct segment_desc64 *) gdt.base;
-	tss_entry = &gdt_table[tr / sizeof(struct segment_desc64)];
+	gdt_table = (gdt_entry_t *) gdt.base;
+	tss_entry = (struct system_desc64 *) &gdt_table[tr / 8];
 	tss_base = ((uint64_t) tss_entry->base1 |
 			((uint64_t) tss_entry->base2 << 16) |
 			((uint64_t) tss_entry->base3 << 24) |
