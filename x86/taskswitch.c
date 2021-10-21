@@ -21,7 +21,7 @@ fault_handler(unsigned long error_code)
 
 	tss.eip += 2;
 
-	gdt32[TSS_MAIN / 8].type &= ~DESC_BUSY;
+	gdt[TSS_MAIN / 8].type &= ~DESC_BUSY;
 
 	set_gdt_task_gate(TSS_RETURN, tss_intr.prev);
 }

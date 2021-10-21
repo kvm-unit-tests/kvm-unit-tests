@@ -197,7 +197,6 @@ struct system_desc64 {
 extern idt_entry_t boot_idt[256];
 
 #ifndef __x86_64__
-extern gdt_entry_t gdt32[];
 extern tss32_t tss;
 extern tss32_t tss_intr;
 void set_gdt_task_gate(u16 tss_sel, u16 sel);
@@ -207,6 +206,7 @@ void setup_tss32(void);
 #else
 extern tss64_t tss;
 #endif
+extern gdt_entry_t gdt[];
 
 unsigned exception_vector(void);
 int write_cr4_checking(unsigned long val);

@@ -73,7 +73,7 @@ union vmx_ctrl_msr ctrl_exit_rev;
 union vmx_ctrl_msr ctrl_enter_rev;
 union vmx_ept_vpid  ept_vpid;
 
-extern struct descriptor_table_ptr gdt64_desc;
+extern struct descriptor_table_ptr gdt_descr;
 extern struct descriptor_table_ptr idt_descr;
 extern void *vmx_return;
 extern void *entry_sysenter;
@@ -1275,7 +1275,7 @@ static void init_vmcs_host(void)
 	vmcs_write(HOST_SEL_GS, KERNEL_DS);
 	vmcs_write(HOST_SEL_TR, TSS_MAIN);
 	vmcs_write(HOST_BASE_TR, get_gdt_entry_base(get_tss_descr()));
-	vmcs_write(HOST_BASE_GDTR, gdt64_desc.base);
+	vmcs_write(HOST_BASE_GDTR, gdt_descr.base);
 	vmcs_write(HOST_BASE_IDTR, idt_descr.base);
 	vmcs_write(HOST_BASE_FS, 0);
 	vmcs_write(HOST_BASE_GS, 0);
@@ -1354,9 +1354,9 @@ static void init_vmcs_guest(void)
 	vmcs_write(GUEST_AR_TR, 0x8b);
 
 	/* 26.3.1.3 */
-	vmcs_write(GUEST_BASE_GDTR, gdt64_desc.base);
+	vmcs_write(GUEST_BASE_GDTR, gdt_descr.base);
 	vmcs_write(GUEST_BASE_IDTR, idt_descr.base);
-	vmcs_write(GUEST_LIMIT_GDTR, gdt64_desc.limit);
+	vmcs_write(GUEST_LIMIT_GDTR, gdt_descr.limit);
 	vmcs_write(GUEST_LIMIT_IDTR, idt_descr.limit);
 
 	/* 26.3.1.4 */

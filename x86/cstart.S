@@ -27,8 +27,8 @@ i = 0
         i = i + 1
         .endr
 
-.globl gdt32
-gdt32:
+.globl gdt
+gdt:
 	.quad 0
 	.quad 0x00cf9b000000ffff // flat 32-bit code segment
 	.quad 0x00cf93000000ffff // flat 32-bit data segment
@@ -55,7 +55,7 @@ percpu_descr:
         .rept max_cpus
         .quad 0x00cf93000000ffff // 32-bit data segment for perCPU area
         .endr
-gdt32_end:
+gdt_end:
 
 i = 0
 .globl tss
@@ -94,7 +94,7 @@ mb_cmdline = 16
 	mov %al, percpu_descr+4(,%ecx,8)
 	mov %ah, percpu_descr+7(,%ecx,8)
 
-	lea percpu_descr-gdt32(,%ecx,8), %eax
+	lea percpu_descr-gdt(,%ecx,8), %eax
 	mov %ax, %gs
 
 .endm
@@ -110,7 +110,7 @@ mb_cmdline = 16
 
 .globl start
 start:
-        lgdtl gdt32_descr
+        lgdtl gdt_descr
         setup_segments
         mov $stacktop, %esp
         setup_percpu_area
@@ -195,7 +195,7 @@ load_tss:
 	shr $16, %eax
 	mov %al, tss_descr+4(,%ebx,8)
 	mov %ah, tss_descr+7(,%ebx,8)
-	lea tss_descr-gdt32(,%ebx,8), %eax
+	lea tss_descr-gdt(,%ebx,8), %eax
 	ltr %ax
 	ret
 
@@ -224,11 +224,11 @@ sipi_entry:
 	mov %cr0, %eax
 	or $1, %eax
 	mov %eax, %cr0
-	lgdtl gdt32_descr - sipi_entry
+	lgdtl gdt_descr - sipi_entry
 	ljmpl $8, $ap_start32
 
-gdt32_descr:
-	.word gdt32_end - gdt32 - 1
-	.long gdt32
+gdt_descr:
+	.word gdt_end - gdt - 1
+	.long gdt
 
 sipi_end:

@@ -1,7 +1,8 @@
 
 #include "apic-defs.h"
 
-.globl gdt64_desc
+.globl gdt
+.globl gdt_descr
 .globl online_cpus
 .globl cpu_online_count
 
@@ -47,11 +48,11 @@ ptl5:
 
 .align 4096
 
-gdt64_desc:
-	.word gdt64_end - gdt64 - 1
-	.quad gdt64
+gdt_descr:
+	.word gdt_end - gdt - 1
+	.quad gdt
 
-gdt64:
+gdt:
 	.quad 0
 	.quad 0x00af9b000000ffff // 64-bit code segment
 	.quad 0x00cf93000000ffff // 32/64-bit data segment
@@ -75,7 +76,7 @@ tss_descr:
 	.quad 0x000089000000ffff // 64-bit avail tss
 	.quad 0                  // tss high addr
 	.endr
-gdt64_end:
+gdt_end:
 
 i = 0
 .globl tss
@@ -162,7 +163,7 @@ switch_to_5level:
 	jmpl $8, $lvl5
 
 prepare_64:
-	lgdt gdt64_desc
+	lgdt gdt_descr
 	setup_segments
 
 	xor %eax, %eax
@@ -300,7 +301,7 @@ load_tss:
 	mov %al, tss_descr+7(%rbx)
 	shr $8, %rax
 	mov %eax, tss_descr+8(%rbx)
-	lea tss_descr-gdt64(%rbx), %rax
+	lea tss_descr-gdt(%rbx), %rax
 	ltr %ax
 	ret
 
