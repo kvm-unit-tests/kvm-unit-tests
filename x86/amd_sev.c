@@ -18,6 +18,10 @@
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 
+#define TESTDEV_IO_PORT 0xe0
+
+static char st1[] = "abcdefghijklmnop";
+
 static int test_sev_activation(void)
 {
 	struct cpuid cpuid_out;
@@ -65,11 +69,29 @@ static void test_sev_es_activation(void)
 	}
 }
 
+static void test_stringio(void)
+{
+	int st1_len = sizeof(st1) - 1;
+	u16 got;
+
+	asm volatile("cld \n\t"
+		     "movw %0, %%dx \n\t"
+		     "rep outsw \n\t"
+		     : : "i"((short)TESTDEV_IO_PORT),
+		         "S"(st1), "c"(st1_len / 2));
+
+	asm volatile("inw %1, %0\n\t" : "=a"(got) : "i"((short)TESTDEV_IO_PORT));
+
+	report((got & 0xff) == st1[sizeof(st1) - 3], "outsb nearly up");
+	report((got & 0xff00) >> 8 == st1[sizeof(st1) - 2], "outsb up");
+}
+
 int main(void)
 {
 	int rtn;
 	rtn = test_sev_activation();
 	report(rtn == EXIT_SUCCESS, "SEV activation test.");
 	test_sev_es_activation();
+	test_stringio();
 	return report_summary();
 }
