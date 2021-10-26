@@ -86,8 +86,25 @@ static void test_lswi(void)
 	for (i = 0; i < 128; i++)
 		addr[i] = 1 + i;
 
-	/* check incomplete register filling */
+#if  __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+
+	/*
+	 * lswi is supposed to cause an alignment exception in little endian
+	 * mode, but to be able to check this, we also have to specify the
+	 * opcode without mnemonic here since newer versions of GCC refuse
+	 * "lswi" when compiling in little endian mode.
+	 */
 	alignment = 0;
+	asm volatile ("mr r12,%[addr];"
+		      ".long 0x7d6c24aa;"       /* lswi r11,r12,4 */
+		      "std r11,0(%[regs]);"
+		       :: [addr] "r" (addr), [regs] "r" (regs)
+		       : "r11", "r12", "memory");
+	report(alignment, "alignment");
+
+#else
+
+	/* check incomplete register filling */
 	asm volatile ("li r12,-1;"
 		      "mr r11, r12;"
 		      "lswi r11, %[addr], %[len];"
@@ -99,19 +116,6 @@ static void test_lswi(void)
 		      [regs] "r" (regs)
 		      :
 		      "r11", "r12", "memory");
-
-#if  __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	/*
-	 * lswi is supposed to cause an alignment exception in little endian
-	 * mode, but QEMU does not support it. So in case we do not get an
-	 * exception, this is an expected failure and we run the other tests
-	 */
-	report_xfail(!alignment, alignment, "alignment");
-	if (alignment) {
-		report_prefix_pop();
-		return;
-	}
-#endif
 	report(regs[0] == 0x01020300 && regs[1] == (uint64_t)-1, "partial");
 
 	/* check NB = 0 ==> 32 bytes. */
@@ -191,6 +195,8 @@ static void test_lswi(void)
 	 */
 	report(regs[2] == (uint64_t)addr, "Don't overwrite Ra");
 
+#endif
+
 	report_prefix_pop();
 }
 
@@ -224,13 +230,29 @@ static void test_lswx(void)
 	report_prefix_push("lswx");
 
 	/* fill memory with sequence */
-
 	for (i = 0; i < 128; i++)
 		addr[i] = 1 + i;
 
-	/* check incomplete register filling */
+#if  __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
+	/*
+	 * lswx is supposed to cause an alignment exception in little endian
+	 * mode, but to be able to check this, we also have to specify the
+	 * opcode without mnemonic here since newer versions of GCC refuse
+	 * "lswx" when compiling in little endian mode.
+	 */
 	alignment = 0;
+	asm volatile ("mtxer %[len];"
+		      "mr r11,%[addr];"
+		      ".long 0x7d805c2a;"       /* lswx r12,0,r11 */
+		      "std r12,0(%[regs]);"
+		      :: [len]"r"(4), [addr]"r"(addr), [regs]"r"(regs)
+		      : "r11", "r12", "memory");
+	report(alignment, "alignment");
+
+#else
+
+	/* check incomplete register filling */
 	asm volatile ("mtxer %[len];"
 		      "li r12,-1;"
 		      "mr r11, r12;"
@@ -243,19 +265,6 @@ static void test_lswx(void)
 		      [regs] "r" (regs)
 		      :
 		      "xer", "r11", "r12", "memory");
-
-#if  __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	/*
-	 * lswx is supposed to cause an alignment exception in little endian
-	 * mode, but QEMU does not support it. So in case we do not get an
-	 * exception, this is an expected failure and we run the other tests
-	 */
-	report_xfail(!alignment, alignment, "alignment");
-	if (alignment) {
-		report_prefix_pop();
-		return;
-	}
-#endif
 	report(regs[0] == 0x01020300 && regs[1] == (uint64_t)-1, "partial");
 
 	/* check an old know bug: the number of bytes is used as
@@ -343,6 +352,8 @@ static void test_lswx(void)
 	 * In all the cases, the register must stay untouched
 	 */
 	report(regs[1] == (uint64_t)addr, "Don't overwrite Rb");
+
+#endif
 
 	report_prefix_pop();
 }
