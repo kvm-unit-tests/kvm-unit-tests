@@ -4,29 +4,35 @@
 #ifdef TARGET_EFI
 struct rsdp_descriptor *efi_rsdp = NULL;
 
-void setup_efi_rsdp(struct rsdp_descriptor *rsdp) {
+void set_efi_rsdp(struct rsdp_descriptor *rsdp)
+{
 	efi_rsdp = rsdp;
 }
 
-static struct rsdp_descriptor *get_rsdp(void) {
+static struct rsdp_descriptor *get_rsdp(void)
+{
 	if (efi_rsdp == NULL) {
-		printf("Can't find RSDP from UEFI, maybe setup_efi_rsdp() was not called\n");
+		printf("Can't find RSDP from UEFI, maybe set_efi_rsdp() was not called\n");
 	}
 	return efi_rsdp;
 }
 #else
-static struct rsdp_descriptor *get_rsdp(void) {
-    struct rsdp_descriptor *rsdp;
-    unsigned long addr;
-    for(addr = 0xf0000; addr < 0x100000; addr += 16) {
-	rsdp = (void*)addr;
-	if (rsdp->signature == RSDP_SIGNATURE_8BYTE)
-          break;
-    }
-    if (addr == 0x100000) {
-        return NULL;
-    }
-    return rsdp;
+static struct rsdp_descriptor *get_rsdp(void)
+{
+	struct rsdp_descriptor *rsdp;
+	unsigned long addr;
+
+	for (addr = 0xf0000; addr < 0x100000; addr += 16) {
+		rsdp = (void *)addr;
+		if (rsdp->signature == RSDP_SIGNATURE_8BYTE)
+			break;
+	}
+
+	if (addr == 0x100000) {
+		return NULL;
+	}
+
+	return rsdp;
 }
 #endif /* TARGET_EFI */
 

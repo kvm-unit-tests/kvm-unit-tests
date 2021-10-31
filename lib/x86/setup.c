@@ -173,34 +173,14 @@ void setup_multiboot(struct mbi_bootinfo *bi)
 extern void load_idt(void);
 extern void load_gdt_tss(size_t tss_offset);
 
-void setup_efi_bootinfo(efi_bootinfo_t *efi_bootinfo)
-{
-	efi_bootinfo->free_mem_size = 0;
-	efi_bootinfo->free_mem_start = 0;
-	efi_bootinfo->rsdp = NULL;
-}
-
-static efi_status_t setup_pre_boot_memory(unsigned long *mapkey, efi_bootinfo_t *efi_bootinfo)
+static efi_status_t setup_memory_allocator(efi_bootinfo_t *efi_bootinfo)
 {
 	int i;
-	unsigned long free_mem_total_pages;
-	efi_status_t status;
-	struct efi_boot_memmap map;
-	efi_memory_desc_t *buffer, *d;
-	unsigned long map_size, desc_size, buff_size;
-	u32 desc_ver;
-
-	map.map = &buffer;
-	map.map_size = &map_size;
-	map.desc_size = &desc_size;
-	map.desc_ver = &desc_ver;
-	map.buff_size = &buff_size;
-	map.key_ptr = mapkey;
-
-	status = efi_get_memory_map(&map);
-	if (status != EFI_SUCCESS) {
-		return status;
-	}
+	unsigned long free_mem_pages = 0;
+	unsigned long free_mem_start = 0;
+	struct efi_boot_memmap *map = &(efi_bootinfo->mem_map);
+	efi_memory_desc_t *buffer = *map->map;
+	efi_memory_desc_t *d = NULL;
 
 	/*
 	 * The 'buffer' contains multiple descriptors that describe memory
@@ -209,77 +189,42 @@ static efi_status_t setup_pre_boot_memory(unsigned long *mapkey, efi_bootinfo_t 
 	 * memory allocator, so that the memory allocator can work in the
 	 * largest free continuous memory region.
 	 */
-	free_mem_total_pages = 0;
-	for (i = 0; i < map_size; i += desc_size) {
+	for (i = 0; i < *(map->map_size); i += *(map->desc_size)) {
 		d = (efi_memory_desc_t *)(&((u8 *)buffer)[i]);
 		if (d->type == EFI_CONVENTIONAL_MEMORY) {
-			if (free_mem_total_pages < d->num_pages) {
-				free_mem_total_pages = d->num_pages;
-				efi_bootinfo->free_mem_size = free_mem_total_pages << EFI_PAGE_SHIFT;
-				efi_bootinfo->free_mem_start = d->phys_addr;
+			if (free_mem_pages < d->num_pages) {
+				free_mem_pages = d->num_pages;
+				free_mem_start = d->phys_addr;
 			}
 		}
 	}
 
-	if (efi_bootinfo->free_mem_size == 0) {
+	if (free_mem_pages == 0) {
 		return EFI_OUT_OF_RESOURCES;
 	}
+
+	phys_alloc_init(free_mem_start, free_mem_pages << EFI_PAGE_SHIFT);
 
 	return EFI_SUCCESS;
 }
 
-static efi_status_t setup_pre_boot_rsdp(efi_bootinfo_t *efi_bootinfo)
-{
-	return efi_get_system_config_table(ACPI_TABLE_GUID, (void **)&efi_bootinfo->rsdp);
-}
-
-efi_status_t setup_efi_pre_boot(unsigned long *mapkey, efi_bootinfo_t *efi_bootinfo)
+static efi_status_t setup_rsdp(efi_bootinfo_t *efi_bootinfo)
 {
 	efi_status_t status;
+	struct rsdp_descriptor *rsdp;
 
-	status = setup_pre_boot_memory(mapkey, efi_bootinfo);
+	/*
+	 * RSDP resides in an EFI_ACPI_RECLAIM_MEMORY region, which is not used
+	 * by kvm-unit-tests x86's memory allocator. So it is not necessary to
+	 * copy the data structure to another memory region to prevent
+	 * unintentional overwrite.
+	 */
+	status = efi_get_system_config_table(ACPI_TABLE_GUID, (void **)&rsdp);
 	if (status != EFI_SUCCESS) {
-		printf("setup_pre_boot_memory() failed: ");
-		switch (status) {
-		case EFI_OUT_OF_RESOURCES:
-			printf("No free memory region\n");
-			break;
-		default:
-			printf("Unknown error\n");
-			break;
-		}
 		return status;
 	}
 
-	status = setup_pre_boot_rsdp(efi_bootinfo);
-	if (status != EFI_SUCCESS) {
-		printf("Cannot find RSDP in EFI system table\n");
-		return status;
-	}
-
-	status = setup_amd_sev();
-	if (status != EFI_SUCCESS) {
-		switch (status) {
-		case EFI_UNSUPPORTED:
-			/* Continue if AMD SEV is not supported */
-			break;
-		default:
-			printf("Set up AMD SEV failed\n");
-			return status;
-		}
-	}
-
-	status = setup_amd_sev_es();
-	if (status != EFI_SUCCESS) {
-		switch (status) {
-		case EFI_UNSUPPORTED:
-			/* Continue if AMD SEV-ES is not supported */
-			break;
-		default:
-			printf("Set up AMD SEV-ES failed\n");
-			return status;
-		}
-	}
+	set_efi_rsdp(rsdp);
 
 	return EFI_SUCCESS;
 }
@@ -333,8 +278,54 @@ static void setup_gdt_tss(void)
 	load_gdt_tss(tss_offset);
 }
 
-void setup_efi(efi_bootinfo_t *efi_bootinfo)
+efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 {
+	efi_status_t status;
+
+	status = setup_memory_allocator(efi_bootinfo);
+	if (status != EFI_SUCCESS) {
+		printf("Failed to set up memory allocator: ");
+		switch (status) {
+		case EFI_OUT_OF_RESOURCES:
+			printf("No free memory region\n");
+			break;
+		default:
+			printf("Unknown error\n");
+			break;
+		}
+		return status;
+	}
+	
+	status = setup_rsdp(efi_bootinfo);
+	if (status != EFI_SUCCESS) {
+		printf("Cannot find RSDP in EFI system table\n");
+		return status;
+	}
+
+	status = setup_amd_sev();
+	if (status != EFI_SUCCESS) {
+		switch (status) {
+		case EFI_UNSUPPORTED:
+			/* Continue if AMD SEV is not supported */
+			break;
+		default:
+			printf("Set up AMD SEV failed\n");
+			return status;
+		}
+	}
+
+	status = setup_amd_sev_es();
+	if (status != EFI_SUCCESS) {
+		switch (status) {
+		case EFI_UNSUPPORTED:
+			/* Continue if AMD SEV-ES is not supported */
+			break;
+		default:
+			printf("Set up AMD SEV-ES failed\n");
+			return status;
+		}
+	}
+
 	reset_apic();
 	setup_gdt_tss();
 	setup_idt();
@@ -343,9 +334,9 @@ void setup_efi(efi_bootinfo_t *efi_bootinfo)
 	enable_apic();
 	enable_x2apic();
 	smp_init();
-	phys_alloc_init(efi_bootinfo->free_mem_start, efi_bootinfo->free_mem_size);
-	setup_efi_rsdp(efi_bootinfo->rsdp);
 	setup_page_table();
+
+	return EFI_SUCCESS;
 }
 
 #endif /* TARGET_EFI */

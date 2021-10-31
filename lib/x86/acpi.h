@@ -106,10 +106,7 @@ struct facs_descriptor_rev1
     u8  reserved3 [40];         /* Reserved - must be zero */
 };
 
+void set_efi_rsdp(struct rsdp_descriptor *rsdp);
 void* find_acpi_table_addr(u32 sig);
-
-#ifdef TARGET_EFI
-void setup_efi_rsdp(struct rsdp_descriptor *rsdp);
-#endif /* TARGET_EFI */
 
 #endif
