@@ -81,16 +81,16 @@ tests-common = $(TEST_DIR)/vmexit.$(exe) $(TEST_DIR)/tsc.$(exe) \
                $(TEST_DIR)/init.$(exe) \
                $(TEST_DIR)/hyperv_synic.$(exe) $(TEST_DIR)/hyperv_stimer.$(exe) \
                $(TEST_DIR)/hyperv_connections.$(exe) \
-               $(TEST_DIR)/tsx-ctrl.$(exe)
+               $(TEST_DIR)/tsx-ctrl.$(exe) \
+	       $(TEST_DIR)/eventinj.$(exe) \
+               $(TEST_DIR)/umip.$(exe)
 
 # The following test cases are disabled when building EFI tests because they
 # use absolute addresses in their inline assembly code, which cannot compile
 # with the '-fPIC' flag
 ifneq ($(TARGET_EFI),y)
-tests-common += $(TEST_DIR)/eventinj.$(exe) \
-                $(TEST_DIR)/smap.$(exe) \
-                $(TEST_DIR)/realmode.$(exe) \
-                $(TEST_DIR)/umip.$(exe)
+tests-common += $(TEST_DIR)/smap.$(exe) \
+                $(TEST_DIR)/realmode.$(exe)
 endif
 
 test_cases: $(tests-common) $(tests)

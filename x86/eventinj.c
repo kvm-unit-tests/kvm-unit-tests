@@ -155,9 +155,17 @@ asm("do_iret:"
 	"pushf"W" \n\t"
 	"mov %cs, %ecx \n\t"
 	"push"W" %"R "cx \n\t"
+#ifndef __x86_64__
 	"push"W" $2f \n\t"
 
 	"cmpb $0, no_test_device\n\t"	// see if need to flush
+#else
+	"leaq 2f(%rip), %rbx \n\t"
+	"pushq %rbx \n\t"
+
+	"mov no_test_device(%rip), %bl \n\t"
+	"cmpb $0, %bl\n\t"		// see if need to flush
+#endif
 	"jnz 1f\n\t"
 	"outl %eax, $0xe4 \n\t"		// flush page
 	"1: \n\t"

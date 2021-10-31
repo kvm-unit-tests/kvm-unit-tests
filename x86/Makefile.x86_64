@@ -30,6 +30,8 @@ tests += $(TEST_DIR)/intel-iommu.$(exe)
 tests += $(TEST_DIR)/rdpru.$(exe)
 tests += $(TEST_DIR)/pks.$(exe)
 tests += $(TEST_DIR)/pmu_lbr.$(exe)
+tests += $(TEST_DIR)/emulator.$(exe)
+tests += $(TEST_DIR)/vmware_backdoors.$(exe)
 
 ifeq ($(TARGET_EFI),y)
 tests += $(TEST_DIR)/amd_sev.$(exe)
@@ -40,13 +42,12 @@ endif
 # with the '-fPIC' flag
 ifneq ($(TARGET_EFI),y)
 tests += $(TEST_DIR)/access.$(exe)
-tests += $(TEST_DIR)/emulator.$(exe)
 tests += $(TEST_DIR)/svm.$(exe)
 tests += $(TEST_DIR)/vmx.$(exe)
-tests += $(TEST_DIR)/vmware_backdoors.$(exe)
+endif
+
 ifneq ($(fcf_protection_full),)
 tests += $(TEST_DIR)/cet.$(exe)
-endif
 endif
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common

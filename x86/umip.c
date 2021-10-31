@@ -20,10 +20,20 @@ static void gp_handler(struct ex_regs *regs)
     }
 }
 
+#ifndef __x86_64__
+#define GP_ASM_MOVE_TO_RIP                  \
+	"mov" W " $1f, %[expected_rip]\n\t"
+#else
+#define GP_ASM_MOVE_TO_RIP                  \
+	"pushq %%rax\n\t"                   \
+	"lea 1f(%%rip), %%rax\n\t"          \
+	"mov %%rax, %[expected_rip]\n\t"    \
+	"popq %%rax\n\t"
+#endif
 
 #define GP_ASM(stmt, in, clobber)                  \
     asm volatile (                                 \
-          "mov" W " $1f, %[expected_rip]\n\t"      \
+	  GP_ASM_MOVE_TO_RIP                       \
           "movl $2f-1f, %[skip_count]\n\t"         \
           "1: " stmt "\n\t"                        \
           "2: "                                    \
@@ -125,12 +135,18 @@ static noinline int do_ring3(void (*fn)(const char *), const char *arg)
 		  "mov %%dx, %%fs\n\t"
 		  "mov %%dx, %%gs\n\t"
 		  "mov %%" R "sp, %[sp0]\n\t" /* kernel sp for exception handlers */
+		  "mov %[sp0], %%" R "bx\n\t" /* ebx/rbx is preserved before and after 'call' instruction */
 		  "push" W " %%" R "dx \n\t"
 		  "lea %[user_stack_top], %%" R "dx \n\t"
 		  "push" W " %%" R "dx \n\t"
 		  "pushf" W "\n\t"
 		  "push" W " %[user_cs] \n\t"
+#ifndef __x86_64__
 		  "push" W " $1f \n\t"
+#else
+		  "lea 1f(%%rip), %%rdx \n\t"
+		  "pushq %%rdx \n\t"
+#endif
 		  "iret" W "\n"
 		  "1: \n\t"
 #ifndef __x86_64__
@@ -140,12 +156,16 @@ static noinline int do_ring3(void (*fn)(const char *), const char *arg)
 #ifndef __x86_64__
 		  "pop %%ecx\n\t"
 #endif
+#ifndef __x86_64__
 		  "mov $1f, %%" R "dx\n\t"
+#else
+		  "lea 1f(%%" R "ip), %%" R "dx\n\t"
+#endif
 		  "int %[kernel_entry_vector]\n\t"
 		  ".section .text.entry \n\t"
 		  "kernel_entry: \n\t"
 #ifdef __x86_64__
-		  "mov %[sp0], %%" R "sp\n\t"
+		  "mov %%rbx, %%rsp\n\t"
 #else
 		  "add $(5 * " S "), %%esp\n\t"
 #endif
@@ -171,7 +191,7 @@ static noinline int do_ring3(void (*fn)(const char *), const char *arg)
 		    [arg]"D"(arg),
 		    [kernel_ds]"i"(KERNEL_DS),
 		    [kernel_entry_vector]"i"(0x20)
-		  : "rcx", "rdx");
+		  : "rcx", "rdx", "rbx");
     return ret;
 }
 
