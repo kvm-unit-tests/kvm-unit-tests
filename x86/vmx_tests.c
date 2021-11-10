@@ -20,6 +20,7 @@
 #include "alloc_page.h"
 #include "smp.h"
 #include "delay.h"
+#include "access.h"
 
 #define VPID_CAP_INVVPID_TYPES_SHIFT 40
 
@@ -10696,6 +10697,53 @@ static void atomic_switch_overflow_msrs_test(void)
 		test_skip("Test is only supported on KVM");
 }
 
+static void vmx_pf_exception_test_guest(void)
+{
+	ac_test_run(PT_LEVEL_PML4);
+}
+
+static void vmx_pf_exception_test(void)
+{
+	u64 efer;
+	struct cpuid cpuid;
+
+	test_set_guest(vmx_pf_exception_test_guest);
+
+	enter_guest();
+
+	while (vmcs_read(EXI_REASON) != VMX_VMCALL) {
+		switch (vmcs_read(EXI_REASON)) {
+		case VMX_RDMSR:
+			assert(regs.rcx == MSR_EFER);
+			efer = vmcs_read(GUEST_EFER);
+			regs.rdx = efer >> 32;
+			regs.rax = efer & 0xffffffff;
+			break;
+		case VMX_WRMSR:
+			assert(regs.rcx == MSR_EFER);
+			efer = regs.rdx << 32 | (regs.rax & 0xffffffff);
+			vmcs_write(GUEST_EFER, efer);
+			break;
+		case VMX_CPUID:
+			cpuid = (struct cpuid) {0, 0, 0, 0};
+			cpuid = raw_cpuid(regs.rax, regs.rcx);
+			regs.rax = cpuid.a;
+			regs.rbx = cpuid.b;
+			regs.rcx = cpuid.c;
+			regs.rdx = cpuid.d;
+			break;
+		default:
+			assert_msg(false,
+				"Unexpected exit to L1, exit_reason: %s (0x%lx)",
+				exit_reason_description(vmcs_read(EXI_REASON)),
+				vmcs_read(EXI_REASON));
+		}
+		skip_exit_insn();
+		enter_guest();
+	}
+
+	assert_exit_reason(VMX_VMCALL);
+}
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -10802,5 +10850,6 @@ struct vmx_test vmx_tests[] = {
 	TEST(rdtsc_vmexit_diff_test),
 	TEST(vmx_mtf_test),
 	TEST(vmx_mtf_pdpte_test),
+	TEST(vmx_pf_exception_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
