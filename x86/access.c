@@ -14,7 +14,6 @@ static _Bool verbose = false;
 
 typedef unsigned long pt_element_t;
 static int invalid_mask;
-int page_table_levels;
 
 #define PT_BASE_ADDR_MASK ((pt_element_t)((((pt_element_t)1 << 36) - 1) & PAGE_MASK))
 #define PT_PSE_BASE_ADDR_MASK (PT_BASE_ADDR_MASK & ~(1ull << 21))
@@ -174,6 +173,7 @@ typedef struct {
 	pt_element_t ignore_pde;
 	int expected_fault;
 	unsigned expected_error;
+	int page_table_levels;
 } ac_test_t;
 
 typedef struct {
@@ -278,13 +278,14 @@ static void ac_env_int(ac_pool_t *pool)
 	pool->pt_pool_current = 0;
 }
 
-static void ac_test_init(ac_test_t *at, void *virt)
+static void ac_test_init(ac_test_t *at, void *virt, int page_table_levels)
 {
 	set_efer_nx(1);
 	set_cr0_wp(1);
 	at->flags = 0;
 	at->virt = virt;
 	at->phys = 32 * 1024 * 1024;
+	at->page_table_levels = page_table_levels;
 }
 
 static int ac_test_bump_one(ac_test_t *at)
@@ -518,7 +519,7 @@ static void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, bool reuse
 		ac_test_reset_pt_pool(pool);
 
 	at->ptep = 0;
-	for (int i = page_table_levels; i >= 1 && (i >= 2 || !F(AC_PDE_PSE)); --i) {
+	for (int i = at->page_table_levels; i >= 1 && (i >= 2 || !F(AC_PDE_PSE)); --i) {
 		pt_element_t *vroot = va(root & PT_BASE_ADDR_MASK);
 		unsigned index = PT_INDEX((unsigned long)at->virt, i);
 		pt_element_t pte = 0;
@@ -635,7 +636,7 @@ static void dump_mapping(ac_test_t *at)
 	int i;
 
 	printf("Dump mapping: address: %p\n", at->virt);
-	for (i = page_table_levels; i >= 1 && (i >= 2 || !F(AC_PDE_PSE)); --i) {
+	for (i = at->page_table_levels; i >= 1 && (i >= 2 || !F(AC_PDE_PSE)); --i) {
 		pt_element_t *vroot = va(root & PT_BASE_ADDR_MASK);
 		unsigned index = PT_INDEX((unsigned long)at->virt, i);
 		pt_element_t pte = vroot[index];
@@ -812,12 +813,12 @@ static void ac_test_show(ac_test_t *at)
  * This test case is used to triger the bug which is fixed by
  * commit e09e90a5 in the kvm tree
  */
-static int corrupt_hugepage_triger(ac_pool_t *pool)
+static int corrupt_hugepage_triger(ac_pool_t *pool, int page_table_levels)
 {
 	ac_test_t at1, at2;
 
-	ac_test_init(&at1, (void *)(0x123400000000));
-	ac_test_init(&at2, (void *)(0x666600000000));
+	ac_test_init(&at1, (void *)(0x123400000000), page_table_levels);
+	ac_test_init(&at2, (void *)(0x666600000000), page_table_levels);
 
 	at2.flags = AC_CPU_CR0_WP_MASK | AC_PDE_PSE_MASK | AC_PDE_PRESENT_MASK;
 	ac_test_setup_pte(&at2, pool);
@@ -850,12 +851,12 @@ err:
  * This test case is used to triger the bug which is fixed by
  * commit 3ddf6c06e13e in the kvm tree
  */
-static int check_pfec_on_prefetch_pte(ac_pool_t *pool)
+static int check_pfec_on_prefetch_pte(ac_pool_t *pool, int page_table_levels)
 {
 	ac_test_t at1, at2;
 
-	ac_test_init(&at1, (void *)(0x123406001000));
-	ac_test_init(&at2, (void *)(0x123406003000));
+	ac_test_init(&at1, (void *)(0x123406001000), page_table_levels);
+	ac_test_init(&at2, (void *)(0x123406003000), page_table_levels);
 
 	at1.flags = AC_PDE_PRESENT_MASK | AC_PTE_PRESENT_MASK;
 	ac_setup_specific_pages(&at1, pool, 30 * 1024 * 1024, 30 * 1024 * 1024);
@@ -895,12 +896,12 @@ err:
  *
  * Note: to trigger this bug, hugepage should be disabled on host.
  */
-static int check_large_pte_dirty_for_nowp(ac_pool_t *pool)
+static int check_large_pte_dirty_for_nowp(ac_pool_t *pool, int page_table_levels)
 {
 	ac_test_t at1, at2;
 
-	ac_test_init(&at1, (void *)(0x123403000000));
-	ac_test_init(&at2, (void *)(0x666606000000));
+	ac_test_init(&at1, (void *)(0x123403000000), page_table_levels);
+	ac_test_init(&at2, (void *)(0x666606000000), page_table_levels);
 
 	at2.flags = AC_PDE_PRESENT_MASK | AC_PDE_PSE_MASK;
 	ac_test_setup_pte(&at2, pool);
@@ -929,7 +930,7 @@ err:
 	return 0;
 }
 
-static int check_smep_andnot_wp(ac_pool_t *pool)
+static int check_smep_andnot_wp(ac_pool_t *pool, int page_table_levels)
 {
 	ac_test_t at1;
 	int err_prepare_andnot_wp, err_smep_andnot_wp;
@@ -938,7 +939,7 @@ static int check_smep_andnot_wp(ac_pool_t *pool)
 		return 1;
 	}
 
-	ac_test_init(&at1, (void *)(0x123406001000));
+	ac_test_init(&at1, (void *)(0x123406001000), page_table_levels);
 
 	at1.flags = AC_PDE_PRESENT_MASK | AC_PTE_PRESENT_MASK |
 		    AC_PDE_USER_MASK | AC_PTE_USER_MASK |
@@ -979,7 +980,7 @@ err:
 	return 0;
 }
 
-static int check_effective_sp_permissions(ac_pool_t *pool)
+static int check_effective_sp_permissions(ac_pool_t *pool, int page_table_levels)
 {
 	unsigned long ptr1 = 0x123480000000;
 	unsigned long ptr2 = ptr1 + SZ_2M;
@@ -1000,22 +1001,22 @@ static int check_effective_sp_permissions(ac_pool_t *pool)
 	 * pud1 and pud2 point to the same pmd page.
 	 */
 
-	ac_test_init(&at1, (void *)(ptr1));
+	ac_test_init(&at1, (void *)(ptr1), page_table_levels);
 	at1.flags = AC_PDE_PRESENT_MASK | AC_PTE_PRESENT_MASK |
 		    AC_PDE_USER_MASK | AC_PTE_USER_MASK |
 		    AC_PDE_ACCESSED_MASK | AC_PTE_ACCESSED_MASK |
 		    AC_PTE_WRITABLE_MASK | AC_ACCESS_USER_MASK;
 	__ac_setup_specific_pages(&at1, pool, false, pmd, 0);
 
-	ac_test_init(&at2, (void *)(ptr2));
+	ac_test_init(&at2, (void *)(ptr2), page_table_levels);
 	at2.flags = at1.flags | AC_PDE_WRITABLE_MASK | AC_PTE_DIRTY_MASK | AC_ACCESS_WRITE_MASK;
 	__ac_setup_specific_pages(&at2, pool, true, pmd, 0);
 
-	ac_test_init(&at3, (void *)(ptr3));
+	ac_test_init(&at3, (void *)(ptr3), page_table_levels);
 	at3.flags = AC_PDPTE_NO_WRITABLE_MASK | at1.flags;
 	__ac_setup_specific_pages(&at3, pool, true, pmd, 0);
 
-	ac_test_init(&at4, (void *)(ptr4));
+	ac_test_init(&at4, (void *)(ptr4), page_table_levels);
 	at4.flags = AC_PDPTE_NO_WRITABLE_MASK | at2.flags;
 	__ac_setup_specific_pages(&at4, pool, true, pmd, 0);
 
@@ -1058,7 +1059,7 @@ static int ac_test_exec(ac_test_t *at, ac_pool_t *pool)
 	return r;
 }
 
-typedef int (*ac_test_fn)(ac_pool_t *pool);
+typedef int (*ac_test_fn)(ac_pool_t *pool, int page_table_levels);
 const ac_test_fn ac_test_cases[] =
 {
 	corrupt_hugepage_triger,
@@ -1068,7 +1069,7 @@ const ac_test_fn ac_test_cases[] =
 	check_effective_sp_permissions,
 };
 
-int ac_test_run()
+int ac_test_run(int page_table_levels)
 {
 	ac_test_t at;
 	ac_pool_t pool;
@@ -1134,7 +1135,8 @@ int ac_test_run()
 	}
 
 	ac_env_int(&pool);
-	ac_test_init(&at, (void *)(0x123400000000 + 16 * smp_id()));
+	ac_test_init(&at, (void *)(0x123400000000 + 16 * smp_id()),
+		page_table_levels);
 	do {
 		++tests;
 		successes += ac_test_exec(&at, &pool);
@@ -1142,7 +1144,7 @@ int ac_test_run()
 
 	for (i = 0; i < ARRAY_SIZE(ac_test_cases); i++) {
 		++tests;
-		successes += ac_test_cases[i](&pool);
+		successes += ac_test_cases[i](&pool, page_table_levels);
 	}
 
 	printf("\n%d tests, %d failures\n", tests, tests - successes);
