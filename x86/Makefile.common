@@ -72,6 +72,8 @@ $(TEST_DIR)/realmode.elf: $(TEST_DIR)/realmode.o
 
 $(TEST_DIR)/realmode.o: bits = $(if $(call cc-option,-m16,""),16,32)
 
+$(TEST_DIR)/access_test.elf: $(TEST_DIR)/access.o
+
 $(TEST_DIR)/kvmclock_test.elf: $(TEST_DIR)/kvmclock.o
 
 $(TEST_DIR)/hyperv_synic.elf: $(TEST_DIR)/hyperv.o

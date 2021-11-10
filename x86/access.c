@@ -1,9 +1,9 @@
-
 #include "libcflat.h"
 #include "desc.h"
 #include "processor.h"
 #include "asm/page.h"
 #include "x86/vm.h"
+#include "access.h"
 
 #define smp_id() 0
 
@@ -14,7 +14,7 @@ static _Bool verbose = false;
 
 typedef unsigned long pt_element_t;
 static int invalid_mask;
-static int page_table_levels;
+int page_table_levels;
 
 #define PT_BASE_ADDR_MASK ((pt_element_t)((((pt_element_t)1 << 36) - 1) & PAGE_MASK))
 #define PT_PSE_BASE_ADDR_MASK (PT_BASE_ADDR_MASK & ~(1ull << 21))
@@ -1069,7 +1069,7 @@ const ac_test_fn ac_test_cases[] =
 	check_effective_sp_permissions,
 };
 
-static int ac_test_run(void)
+int ac_test_run()
 {
     ac_test_t at;
     ac_pool_t pool;
@@ -1149,22 +1149,4 @@ static int ac_test_run(void)
     printf("\n%d tests, %d failures\n", tests, tests - successes);
 
     return successes == tests;
-}
-
-int main(void)
-{
-    int r;
-
-    printf("starting test\n\n");
-    page_table_levels = 4;
-    r = ac_test_run();
-
-    if (this_cpu_has(X86_FEATURE_LA57)) {
-        page_table_levels = 5;
-        printf("starting 5-level paging test.\n\n");
-        setup_5level_page_table();
-        r = ac_test_run();
-    }
-
-    return r ? 0 : 1;
 }
