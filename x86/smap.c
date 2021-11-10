@@ -20,7 +20,7 @@ void do_pf_tss(unsigned long error_code)
 	save = test;
 
 #ifndef __x86_64__
-	tss.eflags |= X86_EFLAGS_AC;
+	tss[0].eflags |= X86_EFLAGS_AC;
 #endif
 }
 

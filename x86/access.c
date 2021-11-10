@@ -711,7 +711,7 @@ static int ac_test_do_access(ac_test_t *at)
     }
 
     asm volatile ("mov $fixed1, %%rsi \n\t"
-		  "mov %%rsp, %%rdx \n\t"
+		  "mov %%rsp, %[rsp0] \n\t"
 		  "cmp $0, %[user] \n\t"
 		  "jz do_access \n\t"
 		  "push %%rax; mov %[user_ds], %%ax; mov %%ax, %%ds; pop %%rax  \n\t"
@@ -734,8 +734,14 @@ static int ac_test_do_access(ac_test_t *at)
 		  "done: \n"
 		  "fixed1: \n"
 		  "int %[kernel_entry_vector] \n\t"
+		  ".section .text.entry \n\t"
+		  "kernel_entry: \n\t"
+		  "mov %[rsp0], %%rsp \n\t"
+		  "jmp back_to_kernel \n\t"
+		  ".section .text \n\t"
 		  "back_to_kernel:"
-		  : [reg]"+r"(r), "+a"(fault), "=b"(e), "=&d"(rsp)
+		  : [reg]"+r"(r), "+a"(fault), "=b"(e), "=&d"(rsp),
+		    [rsp0]"=m"(tss[0].rsp0)
 		  : [addr]"r"(at->virt),
 		    [write]"r"(F(AC_ACCESS_WRITE)),
 		    [user]"r"(F(AC_ACCESS_USER)),
@@ -752,12 +758,6 @@ static int ac_test_do_access(ac_test_t *at)
 		  "mov %rsi, (%rsp) \n\t"
 		  "movl $1, %eax \n\t"
 		  "iretq \n\t"
-		  ".section .text");
-
-    asm volatile (".section .text.entry \n\t"
-		  "kernel_entry: \n\t"
-		  "mov %rdx, %rsp \n\t"
-		  "jmp back_to_kernel \n\t"
 		  ".section .text");
 
     ac_test_check(at, &success, fault && !at->expected_fault,

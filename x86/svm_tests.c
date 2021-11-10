@@ -1875,23 +1875,14 @@ static bool reg_corruption_check(struct svm_test *test)
 
 static void get_tss_entry(void *data)
 {
-    struct descriptor_table_ptr gdt;
-    struct segment_desc64 *gdt_table;
-    struct segment_desc64 *tss_entry;
-    u16 tr = 0;
-
-    sgdt(&gdt);
-    tr = str();
-    gdt_table = (struct segment_desc64 *) gdt.base;
-    tss_entry = &gdt_table[tr / sizeof(struct segment_desc64)];
-    *((struct segment_desc64 **)data) = tss_entry;
+    *((gdt_entry_t **)data) = get_tss_descr();
 }
 
 static int orig_cpu_count;
 
 static void init_startup_prepare(struct svm_test *test)
 {
-    struct segment_desc64 *tss_entry;
+    gdt_entry_t *tss_entry;
     int i;
 
     on_cpu(1, get_tss_entry, &tss_entry);
@@ -1905,7 +1896,7 @@ static void init_startup_prepare(struct svm_test *test)
 
     --cpu_online_count;
 
-    *(uint64_t *)tss_entry &= ~DESC_BUSY;
+    tss_entry->type &= ~DESC_BUSY;
 
     apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_STARTUP, id_map[1]);
 

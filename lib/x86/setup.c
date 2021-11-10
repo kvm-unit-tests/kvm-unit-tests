@@ -2,6 +2,7 @@
  * Initialize machine setup information
  *
  * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ * Copyright (C) 2021, Google Inc, Zixuan Wang <zixuanwang@google.com>
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
@@ -9,6 +10,10 @@
 #include "fwcfg.h"
 #include "alloc_phys.h"
 #include "argv.h"
+#include "desc.h"
+#include "apic.h"
+#include "apic-defs.h"
+#include "asm/setup.h"
 
 extern char edata;
 
@@ -96,6 +101,50 @@ void find_highmem(void)
 		best_end = best_end & -HUGEPAGE_SIZE;
 		phys_alloc_init(best_start, best_end - best_start);
 	}
+}
+
+/* Setup TSS for the current processor, and return TSS offset within GDT */
+unsigned long setup_tss(u8 *stacktop)
+{
+	u32 id;
+	tss64_t *tss_entry;
+
+	id = apic_id();
+
+	/* Runtime address of current TSS */
+	tss_entry = &tss[id];
+
+	/* Update TSS */
+	memset((void *)tss_entry, 0, sizeof(tss64_t));
+
+	/* Update TSS descriptors; each descriptor takes up 2 entries */
+	set_gdt_entry(TSS_MAIN + id * 16, (unsigned long)tss_entry, 0xffff, 0x89, 0);
+
+	return TSS_MAIN + id * 16;
+}
+#else
+/* Setup TSS for the current processor, and return TSS offset within GDT */
+unsigned long setup_tss(u8 *stacktop)
+{
+	u32 id;
+	tss32_t *tss_entry;
+
+	id = apic_id();
+
+	/* Runtime address of current TSS */
+	tss_entry = &tss[id];
+
+	/* Update TSS */
+	memset((void *)tss_entry, 0, sizeof(tss32_t));
+	tss_entry->ss0 = KERNEL_DS;
+
+	/* Update descriptors for TSS and percpu data segment.  */
+	set_gdt_entry(TSS_MAIN + id * 8,
+		      (unsigned long)tss_entry, 0xffff, 0x89, 0);
+	set_gdt_entry(TSS_MAIN + MAX_TEST_CPUS * 8 + id * 8,
+		      (unsigned long)stacktop - 4096, 0xfffff, 0x93, 0xc0);
+
+	return TSS_MAIN + id * 8;
 }
 #endif
 

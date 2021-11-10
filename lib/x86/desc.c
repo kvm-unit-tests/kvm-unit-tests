@@ -2,6 +2,54 @@
 #include "desc.h"
 #include "processor.h"
 #include <setjmp.h>
+#include "apic-defs.h"
+
+/* Boot-related data structures */
+
+/* IDT and IDT descriptor */
+idt_entry_t boot_idt[256] = {0};
+
+struct descriptor_table_ptr idt_descr = {
+	.limit = sizeof(boot_idt) - 1,
+	.base = (unsigned long)boot_idt,
+};
+
+#ifndef __x86_64__
+/* GDT, TSS and descriptors */
+gdt_entry_t gdt[TSS_MAIN / 8 + MAX_TEST_CPUS * 2] = {
+	{     0, 0, 0, .type_limit_flags = 0x0000}, /* 0x00 null */
+	{0xffff, 0, 0, .type_limit_flags = 0xcf9b}, /* flat 32-bit code segment */
+	{0xffff, 0, 0, .type_limit_flags = 0xcf93}, /* flat 32-bit data segment */
+	{0xffff, 0, 0, .type_limit_flags = 0xcf1b}, /* flat 32-bit code segment, not present */
+	{     0, 0, 0, .type_limit_flags = 0x0000}, /* TSS for task gates */
+	{0xffff, 0, 0, .type_limit_flags = 0x8f9b}, /* 16-bit code segment */
+	{0xffff, 0, 0, .type_limit_flags = 0x8f93}, /* 16-bit data segment */
+	{0xffff, 0, 0, .type_limit_flags = 0xcffb}, /* 32-bit code segment (user) */
+	{0xffff, 0, 0, .type_limit_flags = 0xcff3}, /* 32-bit data segment (user) */
+};
+
+tss32_t tss[MAX_TEST_CPUS] = {0};
+#else
+gdt_entry_t gdt[TSS_MAIN / 8 + MAX_TEST_CPUS * 2] = {
+	{     0, 0, 0, .type_limit_flags = 0x0000}, /* 0x00 null */
+	{0xffff, 0, 0, .type_limit_flags = 0xaf9b}, /* 0x08 64-bit code segment */
+	{0xffff, 0, 0, .type_limit_flags = 0xcf93}, /* 0x10 32/64-bit data segment */
+	{0xffff, 0, 0, .type_limit_flags = 0xaf1b}, /* 0x18 64-bit code segment, not present */
+	{0xffff, 0, 0, .type_limit_flags = 0xcf9b}, /* 0x20 32-bit code segment */
+	{0xffff, 0, 0, .type_limit_flags = 0x8f9b}, /* 0x28 16-bit code segment */
+	{0xffff, 0, 0, .type_limit_flags = 0x8f93}, /* 0x30 16-bit data segment */
+	{0xffff, 0, 0, .type_limit_flags = 0xcffb}, /* 0x38 32-bit code segment (user) */
+	{0xffff, 0, 0, .type_limit_flags = 0xcff3}, /* 0x40 32/64-bit data segment (user) */
+	{0xffff, 0, 0, .type_limit_flags = 0xaffb}, /* 0x48 64-bit code segment (user) */
+};
+
+tss64_t tss[MAX_TEST_CPUS] = {0};
+#endif
+
+struct descriptor_table_ptr gdt_descr = {
+	.limit = sizeof(gdt) - 1,
+	.base = (unsigned long)gdt,
+};
 
 #ifndef __x86_64__
 __attribute__((regparm(1)))
@@ -279,25 +327,29 @@ bool exception_rflags_rf(void)
 
 static char intr_alt_stack[4096];
 
-#ifndef __x86_64__
-void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran)
+void set_gdt_entry(int sel, unsigned long base,  u32 limit, u8 type, u8 flags)
 {
-	int num = sel >> 3;
+	gdt_entry_t *entry = &gdt[sel >> 3];
 
 	/* Setup the descriptor base address */
-	gdt32[num].base_low = (base & 0xFFFF);
-	gdt32[num].base_middle = (base >> 16) & 0xFF;
-	gdt32[num].base_high = (base >> 24) & 0xFF;
+	entry->base1 = (base & 0xFFFF);
+	entry->base2 = (base >> 16) & 0xFF;
+	entry->base3 = (base >> 24) & 0xFF;
 
-	/* Setup the descriptor limits */
-	gdt32[num].limit_low = (limit & 0xFFFF);
-	gdt32[num].granularity = ((limit >> 16) & 0x0F);
+	/* Setup the descriptor limits, type and flags */
+	entry->limit1 = (limit & 0xFFFF);
+	entry->type_limit_flags = ((limit & 0xF0000) >> 8) | ((flags & 0xF0) << 8) | type;
 
-	/* Finally, set up the granularity and access flags */
-	gdt32[num].granularity |= (gran & 0xF0);
-	gdt32[num].access = access;
+#ifdef __x86_64__
+	if (!entry->s) {
+		struct system_desc64 *entry16 = (struct system_desc64 *)entry;
+		entry16->zero = 0;
+		entry16->base4 = base >> 32;
+	}
+#endif
 }
 
+#ifndef __x86_64__
 void set_gdt_task_gate(u16 sel, u16 tss_sel)
 {
     set_gdt_entry(sel, tss_sel, 0, 0x85, 0); // task, present
@@ -327,7 +379,7 @@ void setup_tss32(void)
 {
 	u16 desc_size = sizeof(tss32_t);
 
-	tss.cr3 = read_cr3();
+	tss[0].cr3 = read_cr3();
 	tss_intr.cr3 = read_cr3();
 	tss_intr.ss0 = tss_intr.ss1 = tss_intr.ss2 = 0x10;
 	tss_intr.esp = tss_intr.esp0 = tss_intr.esp1 = tss_intr.esp2 =
@@ -336,7 +388,7 @@ void setup_tss32(void)
 	tss_intr.ds = tss_intr.es = tss_intr.fs = tss_intr.ss = 0x10;
 	tss_intr.gs = read_gs();
 	tss_intr.iomap_base = (u16)desc_size;
-	set_gdt_entry(TSS_INTR, (u32)&tss_intr, desc_size - 1, 0x89, 0x0f);
+	set_gdt_entry(TSS_INTR, (u32)&tss_intr, desc_size - 1, 0x89, 0);
 }
 
 void set_intr_task_gate(int e, void *fn)
@@ -363,7 +415,7 @@ void print_current_tss_info(void)
 		printf("Unknown TSS %x\n", tr);
 	else
 		printf("TR=%x (%s) Main TSS back link %x. Intr TSS back link %x\n",
-		       tr, tr ? "interrupt" : "main", tss.prev, tss_intr.prev);
+		       tr, tr ? "interrupt" : "main", tss[0].prev, tss_intr.prev);
 }
 #else
 void set_intr_alt_stack(int e, void *addr)
@@ -374,7 +426,7 @@ void set_intr_alt_stack(int e, void *addr)
 
 void setup_alt_stack(void)
 {
-	tss.ist1 = (u64)intr_alt_stack + 4096;
+	tss[0].ist1 = (u64)intr_alt_stack + 4096;
 }
 #endif
 
@@ -412,4 +464,36 @@ bool test_for_exception(unsigned int ex, void (*trigger_func)(void *data),
 void __set_exception_jmpbuf(jmp_buf *addr)
 {
 	exception_jmpbuf = addr;
+}
+
+gdt_entry_t *get_tss_descr(void)
+{
+	struct descriptor_table_ptr gdt_ptr;
+	gdt_entry_t *gdt;
+
+	sgdt(&gdt_ptr);
+	gdt = (gdt_entry_t *)gdt_ptr.base;
+	return &gdt[str() / 8];
+}
+
+unsigned long get_gdt_entry_base(gdt_entry_t *entry)
+{
+	unsigned long base;
+	base = entry->base1 | ((u32)entry->base2 << 16) | ((u32)entry->base3 << 24);
+#ifdef __x86_64__
+	if (!entry->s) {
+		base |= (u64)((struct system_desc64 *)entry)->base4 << 32;
+	}
+#endif
+	return base;
+}
+
+unsigned long get_gdt_entry_limit(gdt_entry_t *entry)
+{
+	unsigned long limit;
+	limit = entry->limit1 | ((u32)entry->limit2 << 16);
+	if (entry->g) {
+		limit = (limit << 12) | 0xFFF;
+	}
+	return limit;
 }

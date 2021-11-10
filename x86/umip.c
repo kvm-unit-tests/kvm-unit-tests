@@ -124,7 +124,7 @@ static noinline int do_ring3(void (*fn)(const char *), const char *arg)
 		  "mov %%dx, %%es\n\t"
 		  "mov %%dx, %%fs\n\t"
 		  "mov %%dx, %%gs\n\t"
-		  "mov %%" R "sp, %%" R "cx\n\t"
+		  "mov %%" R "sp, %[sp0]\n\t" /* kernel sp for exception handlers */
 		  "push" W " %%" R "dx \n\t"
 		  "lea %[user_stack_top], %%" R "dx \n\t"
 		  "push" W " %%" R "dx \n\t"
@@ -133,8 +133,6 @@ static noinline int do_ring3(void (*fn)(const char *), const char *arg)
 		  "push" W " $1f \n\t"
 		  "iret" W "\n"
 		  "1: \n\t"
-		  "push %%" R "cx\n\t"   /* save kernel SP */
-
 #ifndef __x86_64__
 		  "push %[arg]\n\t"
 #endif
@@ -142,13 +140,15 @@ static noinline int do_ring3(void (*fn)(const char *), const char *arg)
 #ifndef __x86_64__
 		  "pop %%ecx\n\t"
 #endif
-
-		  "pop %%" R "cx\n\t"
 		  "mov $1f, %%" R "dx\n\t"
 		  "int %[kernel_entry_vector]\n\t"
 		  ".section .text.entry \n\t"
 		  "kernel_entry: \n\t"
-		  "mov %%" R "cx, %%" R "sp \n\t"
+#ifdef __x86_64__
+		  "mov %[sp0], %%" R "sp\n\t"
+#else
+		  "add $(5 * " S "), %%esp\n\t"
+#endif
 		  "mov %[kernel_ds], %%cx\n\t"
 		  "mov %%cx, %%ds\n\t"
 		  "mov %%cx, %%es\n\t"
@@ -157,7 +157,12 @@ static noinline int do_ring3(void (*fn)(const char *), const char *arg)
 		  "jmp *%%" R "dx \n\t"
 		  ".section .text\n\t"
 		  "1:\n\t"
-		  : [ret] "=&a" (ret)
+		  : [ret] "=&a" (ret),
+#ifdef __x86_64__
+		    [sp0] "=m" (tss[0].rsp0)
+#else
+		    [sp0] "=m" (tss[0].esp0)
+#endif
 		  : [user_ds] "i" (USER_DS),
 		    [user_cs] "i" (USER_CS),
 		    [user_stack_top]"m"(user_stack[sizeof(user_stack) -

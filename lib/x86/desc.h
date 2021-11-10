@@ -164,15 +164,6 @@ typedef struct {
 } idt_entry_t;
 
 typedef struct {
-	u16 limit_low;
-	u16 base_low;
-	u8 base_middle;
-	u8 access;
-	u8 granularity;
-	u8 base_high;
-} gdt_entry_t;
-
-struct segment_desc64 {
 	uint16_t limit1;
 	uint16_t base1;
 	uint8_t  base2;
@@ -183,7 +174,7 @@ struct segment_desc64 {
 			uint16_t s:1;
 			uint16_t dpl:2;
 			uint16_t p:1;
-			uint16_t limit:4;
+			uint16_t limit2:4;
 			uint16_t avl:1;
 			uint16_t l:1;
 			uint16_t db:1;
@@ -191,25 +182,31 @@ struct segment_desc64 {
 		} __attribute__((__packed__));
 	} __attribute__((__packed__));
 	uint8_t  base3;
+} __attribute__((__packed__)) gdt_entry_t;
+
+#ifdef __x86_64__
+struct system_desc64 {
+	gdt_entry_t common;
 	uint32_t base4;
 	uint32_t zero;
 } __attribute__((__packed__));
+#endif
 
-#define DESC_BUSY ((uint64_t) 1 << 41)
+#define DESC_BUSY 2
 
 extern idt_entry_t boot_idt[256];
 
 #ifndef __x86_64__
-extern gdt_entry_t gdt32[];
-extern tss32_t tss;
+extern tss32_t tss[];
 extern tss32_t tss_intr;
 void set_gdt_task_gate(u16 tss_sel, u16 sel);
 void set_idt_task_gate(int vec, u16 sel);
 void set_intr_task_gate(int vec, void *fn);
 void setup_tss32(void);
 #else
-extern tss64_t tss;
+extern tss64_t tss[];
 #endif
+extern gdt_entry_t gdt[];
 
 unsigned exception_vector(void);
 int write_cr4_checking(unsigned long val);
@@ -218,7 +215,7 @@ bool exception_rflags_rf(void);
 void set_idt_entry(int vec, void *addr, int dpl);
 void set_idt_sel(int vec, u16 sel);
 void set_idt_dpl(int vec, u16 dpl);
-void set_gdt_entry(int sel, u32 base,  u32 limit, u8 access, u8 gran);
+void set_gdt_entry(int sel, unsigned long base, u32 limit, u8 access, u8 gran);
 void set_intr_alt_stack(int e, void *fn);
 void print_current_tss_info(void);
 handler handle_exception(u8 v, handler fn);
@@ -238,5 +235,9 @@ static inline void *get_idt_addr(idt_entry_t *entry)
 #endif
 	return (void *)addr;
 }
+
+extern gdt_entry_t *get_tss_descr(void);
+extern unsigned long get_gdt_entry_base(gdt_entry_t *entry);
+extern unsigned long get_gdt_entry_limit(gdt_entry_t *entry);
 
 #endif
