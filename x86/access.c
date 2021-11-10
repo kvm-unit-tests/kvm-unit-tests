@@ -201,10 +201,24 @@ static void set_cr0_wp(int wp)
     }
 }
 
+static void clear_user_mask(struct pte_search search, void *va)
+{
+	*search.pte &= ~PT_USER_MASK;
+}
+
+static void set_user_mask(struct pte_search search, void *va)
+{
+	*search.pte |= PT_USER_MASK;
+
+	/* Flush to avoid spurious #PF */
+	invlpg(va);
+}
+
 static unsigned set_cr4_smep(int smep)
 {
+    extern char stext, etext;
+    size_t len = (size_t)&etext - (size_t)&stext;
     unsigned long cr4 = shadow_cr4;
-    extern u64 ptl2[];
     unsigned r;
 
     cr4 &= ~CR4_SMEP_MASK;
@@ -214,14 +228,10 @@ static unsigned set_cr4_smep(int smep)
         return 0;
 
     if (smep)
-        ptl2[2] &= ~PT_USER_MASK;
+        walk_pte(&stext, len, clear_user_mask);
     r = write_cr4_checking(cr4);
-    if (r || !smep) {
-        ptl2[2] |= PT_USER_MASK;
-
-	/* Flush to avoid spurious #PF */
-	invlpg((void *)(2 << 21));
-    }
+    if (r || !smep)
+        walk_pte(&stext, len, set_user_mask);
     if (!r)
         shadow_cr4 = cr4;
     return r;

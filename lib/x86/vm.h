@@ -52,4 +52,7 @@ struct vm_vcpu_info {
         u64 cr0;
 };
 
+typedef void (*pte_callback_t)(struct pte_search search, void *va);
+void walk_pte(void *virt, size_t len, pte_callback_t callback);
+
 #endif

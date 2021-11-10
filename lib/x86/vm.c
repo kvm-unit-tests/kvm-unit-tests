@@ -281,3 +281,24 @@ void force_4k_page(void *addr)
 	if (pte & PT_PAGE_SIZE_MASK)
 		split_large_page(ptep, 2);
 }
+
+/*
+ * Call the callback on each page from virt to virt + len.
+ */
+void walk_pte(void *virt, size_t len, pte_callback_t callback)
+{
+    pgd_t *cr3 = current_page_table();
+    uintptr_t start = (uintptr_t)virt;
+    uintptr_t end = (uintptr_t)virt + len;
+    struct pte_search search;
+    size_t page_size;
+    uintptr_t curr;
+
+    for (curr = start; curr < end; curr = ALIGN_DOWN(curr + page_size, page_size)) {
+        search = find_pte_level(cr3, (void *)curr, 1);
+        assert(found_leaf_pte(search));
+        page_size = 1ul << PGDIR_BITS(search.level);
+
+        callback(search, (void *)curr);
+    }
+}

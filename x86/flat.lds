@@ -3,6 +3,7 @@ SECTIONS
     . = 4M + SIZEOF_HEADERS;
     stext = .;
     .text : { *(.init) *(.text) *(.text.*) }
+    etext = .;
     . = ALIGN(4K);
     .data : {
           *(.data)
