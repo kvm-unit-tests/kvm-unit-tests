@@ -33,6 +33,12 @@
 
 #define N 1000000
 
+#define KVM_FEP "ud2; .byte 'k', 'v', 'm';"
+// These values match the number of instructions and branches in the
+// assembly block in check_emulated_instr().
+#define EXPECTED_INSTR 17
+#define EXPECTED_BRNCH 5
+
 typedef struct {
 	uint32_t ctr;
 	uint32_t config;
@@ -468,6 +474,77 @@ static void check_running_counter_wrmsr(void)
 	report_prefix_pop();
 }
 
+static void check_emulated_instr(void)
+{
+	uint64_t status, instr_start, brnch_start;
+	pmu_counter_t brnch_cnt = {
+		.ctr = MSR_IA32_PERFCTR0,
+		/* branch instructions */
+		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[5].unit_sel,
+		.count = 0,
+	};
+	pmu_counter_t instr_cnt = {
+		.ctr = MSR_IA32_PERFCTR0 + 1,
+		/* instructions */
+		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel,
+		.count = 0,
+	};
+	report_prefix_push("emulated instruction");
+
+	wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL,
+	      rdmsr(MSR_CORE_PERF_GLOBAL_STATUS));
+
+	start_event(&brnch_cnt);
+	start_event(&instr_cnt);
+
+	brnch_start = -EXPECTED_BRNCH;
+	instr_start = -EXPECTED_INSTR;
+	wrmsr(MSR_IA32_PERFCTR0, brnch_start);
+	wrmsr(MSR_IA32_PERFCTR0 + 1, instr_start);
+	// KVM_FEP is a magic prefix that forces emulation so
+	// 'KVM_FEP "jne label\n"' just counts as a single instruction.
+	asm volatile(
+		"mov $0x0, %%eax\n"
+		"cmp $0x0, %%eax\n"
+		KVM_FEP "jne label\n"
+		KVM_FEP "jne label\n"
+		KVM_FEP "jne label\n"
+		KVM_FEP "jne label\n"
+		KVM_FEP "jne label\n"
+		"mov $0xa, %%eax\n"
+		"cpuid\n"
+		"mov $0xa, %%eax\n"
+		"cpuid\n"
+		"mov $0xa, %%eax\n"
+		"cpuid\n"
+		"mov $0xa, %%eax\n"
+		"cpuid\n"
+		"mov $0xa, %%eax\n"
+		"cpuid\n"
+		"label:\n"
+		:
+		:
+		: "eax", "ebx", "ecx", "edx");
+
+	wrmsr(MSR_CORE_PERF_GLOBAL_CTRL, 0);
+
+	stop_event(&brnch_cnt);
+	stop_event(&instr_cnt);
+
+	// Check that the end count - start count is at least the expected
+	// number of instructions and branches.
+	report(instr_cnt.count - instr_start >= EXPECTED_INSTR,
+	       "instruction count");
+	report(brnch_cnt.count - brnch_start >= EXPECTED_BRNCH,
+	       "branch count");
+	// Additionally check that those counters overflowed properly.
+	status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
+	report(status & 1, "instruction counter overflow");
+	report(status & 2, "branch counter overflow");
+
+	report_prefix_pop();
+}
+
 static void check_counters(void)
 {
 	check_gp_counters();
@@ -562,6 +639,9 @@ int main(int ac, char **av)
 	apic_write(APIC_LVTPC, PC_VECTOR);
 
 	check_counters();
+
+	if (ac > 1 && !strcmp(av[1], "emulation"))
+		check_emulated_instr();
 
 	if (rdmsr(MSR_IA32_PERF_CAPABILITIES) & PMU_CAP_FW_WRITES) {
 		gp_counter_base = MSR_IA32_PMC0;
