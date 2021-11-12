@@ -101,7 +101,7 @@ host. kvm-unit-tests provides two ways to handle tests like those.
      a) independently, `ARCH-run ARCH/test`
 
      b) by specifying any other non-nodefault group it is in,
-        groups = nodefault,mygroup : `./run_tests.sh -g mygroup`
+        groups = nodefault mygroup : `./run_tests.sh -g mygroup`
 
      c) by specifying all tests should be run, `./run_tests.sh -a`
 
