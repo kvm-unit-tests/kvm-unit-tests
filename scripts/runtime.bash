@@ -132,7 +132,7 @@ function run()
     }
 
     cmdline=$(get_cmdline $kernel)
-    if grep -qw "migration" <<<$groups ; then
+    if find_word "migration" "$groups"; then
         cmdline="MIGRATION=yes $cmdline"
     fi
     if [ "$verbose" = "yes" ]; then
