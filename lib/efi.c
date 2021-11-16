@@ -85,6 +85,17 @@ efi_status_t efi_get_system_config_table(efi_guid_t table_guid, void **table)
 	return EFI_NOT_FOUND;
 }
 
+static void efi_exit(efi_status_t code)
+{
+	exit(code);
+
+	/*
+	 * Fallback to UEFI reset_system() service, in case testdev is
+	 * missing and exit() does not properly exit.
+	 */
+	efi_rs_call(reset_system, EFI_RESET_SHUTDOWN, code, 0, NULL);
+}
+
 efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 {
 	int ret;
@@ -132,18 +143,16 @@ efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 
 	/* Run the test case */
 	ret = main(__argc, __argv, __environ);
-	exit(ret);
 
-	/* Shutdown the guest VM in case exit() fails */
-	efi_rs_call(reset_system, EFI_RESET_SHUTDOWN, ret, 0, NULL);
+	/* Shutdown the guest VM */
+	efi_exit(ret);
 
 	/* Unreachable */
 	return EFI_UNSUPPORTED;
 
 efi_main_error:
 	/* Shutdown the guest with error EFI status */
-	exit(status);
-	efi_rs_call(reset_system, EFI_RESET_SHUTDOWN, status, 0, NULL);
+	efi_exit(status);
 
 	/* Unreachable */
 	return EFI_UNSUPPORTED;
