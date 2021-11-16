@@ -34,16 +34,27 @@ shift 1
 #     This host dir will be loaded by QEMU as a FAT32 image
 #   - Make UEFI startup script that runs the .efi on boot
 mkdir -p "$EFI_TEST/$EFI_CASE/"
-cp "$EFI_SRC/$EFI_CASE.efi" "$EFI_TEST/$EFI_CASE/"
+if [ $EFI_CASE != "_NO_FILE_4Uhere_" ]; then
+  cp "$EFI_SRC/$EFI_CASE.efi" "$EFI_TEST/$EFI_CASE/"
+else
+  touch "$EFI_TEST/$EFI_CASE/$EFI_CASE.efi"
+fi
 
 pushd "$EFI_TEST/$EFI_CASE" || exit 2
 # 'startup.nsh' is the default script executed by UEFI on boot
 # Use this script to run the test binary automatically
-cat << EOF >startup.nsh
+if [ $EFI_CASE != "_NO_FILE_4Uhere_" ]; then
+  cat << EOF >startup.nsh
 @echo -off
 fs0:
 "$EFI_CASE.efi"
 EOF
+else
+  cat << EOF >startup.nsh
+@echo -off
+reset -s
+EOF
+fi
 popd || exit 2
 
 # Run test case with 256MiB QEMU memory. QEMU default memory size is 128MiB.
@@ -52,11 +63,16 @@ popd || exit 2
 # run in UEFI, some test cases, e.g. `x86/pmu.c`, require more free memory. A
 # simple fix is to increase the QEMU default memory size to 256MiB so that
 # UEFI's largest allocatable memory region is large enough.
+#
+# Also, pass in an EFI-specific smp count (i.e., `-smp 1`) as the last argument
+# to x86/run. This `smp` flag overrides any previous `smp` flags (e.g.,
+# `-smp 4`). This is necessary because KVM-Unit-Tests do not currently support
+# SMP under UEFI. This last flag should be removed when this issue is resolved.
 "$TEST_DIR/run" \
 	-drive file="$EFI_UEFI",format=raw,if=pflash,readonly=on \
 	-drive file.dir="$EFI_TEST/$EFI_CASE/",file.driver=vvfat,file.rw=on,format=raw,if=virtio \
 	-net none \
 	-nographic \
-	-smp "$EFI_SMP" \
 	-m 256 \
-	"$@"
+	"$@" \
+	-smp "$EFI_SMP"
