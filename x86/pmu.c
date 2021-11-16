@@ -638,16 +638,17 @@ int main(int ac, char **av)
 
 	apic_write(APIC_LVTPC, PC_VECTOR);
 
-	check_counters();
-
-	if (ac > 1 && !strcmp(av[1], "emulation"))
+	if (ac > 1 && !strcmp(av[1], "emulation")) {
 		check_emulated_instr();
-
-	if (rdmsr(MSR_IA32_PERF_CAPABILITIES) & PMU_CAP_FW_WRITES) {
-		gp_counter_base = MSR_IA32_PMC0;
-		report_prefix_push("full-width writes");
+	} else {
 		check_counters();
-		check_gp_counters_write_width();
+
+		if (rdmsr(MSR_IA32_PERF_CAPABILITIES) & PMU_CAP_FW_WRITES) {
+			gp_counter_base = MSR_IA32_PMC0;
+			report_prefix_push("full-width writes");
+			check_counters();
+			check_gp_counters_write_width();
+		}
 	}
 
 	return report_summary();
