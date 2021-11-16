@@ -72,7 +72,7 @@ else
 endif
 
 tests-common = $(TEST_DIR)/vmexit.$(exe) $(TEST_DIR)/tsc.$(exe) \
-               $(TEST_DIR)/smptest.$(exe)  \
+               $(TEST_DIR)/smptest.$(exe) $(TEST_DIR)/dummy.$(exe) \
                $(TEST_DIR)/msr.$(exe) \
                $(TEST_DIR)/hypercall.$(exe) $(TEST_DIR)/sieve.$(exe) \
                $(TEST_DIR)/kvmclock_test.$(exe) \

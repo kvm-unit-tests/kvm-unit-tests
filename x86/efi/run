@@ -29,6 +29,10 @@ fi
 # Remove the TEST_CASE from $@
 shift 1
 
+if [ "$EFI_CASE" = "_NO_FILE_4Uhere_" ]; then
+	EFI_CASE=dummy
+fi
+
 # Prepare EFI boot file system
 #   - Copy .efi file to host dir $EFI_TEST/$EFI_CASE/EFI/BOOT/BOOTX64.EFI
 #     This host dir will be loaded by QEMU as a FAT32 image
@@ -37,9 +41,7 @@ shift 1
 : "${EFI_CASE_BINARY:="$EFI_CASE_DIR/BOOTX64.EFI"}"
 
 mkdir -p "$EFI_CASE_DIR"
-if [ "$EFI_CASE" != "_NO_FILE_4Uhere_" ]; then
-	cp "$EFI_SRC/$EFI_CASE.efi" "$EFI_CASE_BINARY"
-fi
+cp "$EFI_SRC/$EFI_CASE.efi" "$EFI_CASE_BINARY"
 
 # Run test case with 256MiB QEMU memory. QEMU default memory size is 128MiB.
 # After UEFI boot up and we call `LibMemoryMap()`, the largest consecutive
