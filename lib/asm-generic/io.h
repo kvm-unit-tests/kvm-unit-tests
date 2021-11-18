@@ -13,6 +13,14 @@
 #include "asm/page.h"
 #include "asm/barrier.h"
 
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define __cpu_is_be() (0)
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define __cpu_is_be() (1)
+#else
+#error Undefined byte order
+#endif
+
 #ifndef __raw_readb
 static inline u8 __raw_readb(const volatile void *addr)
 {
@@ -98,10 +106,6 @@ static inline u64 __bswap64(u64 x)
 	       ((x & 0x00ff000000000000ULL) >> 40) |
 	       ((x & 0xff00000000000000ULL) >> 56);
 }
-#endif
-
-#ifndef __cpu_is_be
-#define __cpu_is_be() (0)
 #endif
 
 #define le16_to_cpu(x) \
