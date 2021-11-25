@@ -3161,14 +3161,7 @@ static void ept_access_test_force_2m_page(void)
 
 static bool invvpid_valid(u64 type, u64 vpid, u64 gla)
 {
-	u64 msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
-
-	TEST_ASSERT(msr & VPID_CAP_INVVPID);
-
-	if (type < INVVPID_ADDR || type > INVVPID_CONTEXT_LOCAL)
-		return false;
-
-	if (!(msr & (1ull << (type + VPID_CAP_INVVPID_TYPES_SHIFT))))
+	if (!is_invvpid_type_supported(type))
 		return false;
 
 	if (vpid >> 16)
@@ -3321,13 +3314,13 @@ static void invvpid_test(void)
 	if (!(msr & VPID_CAP_INVVPID))
 		test_skip("INVVPID not supported.\n");
 
-	if (msr & VPID_CAP_INVVPID_ADDR)
+	if (is_invvpid_type_supported(INVVPID_ADDR))
 		types |= 1u << INVVPID_ADDR;
-	if (msr & VPID_CAP_INVVPID_CXTGLB)
+	if (is_invvpid_type_supported(INVVPID_CONTEXT_GLOBAL))
 		types |= 1u << INVVPID_CONTEXT_GLOBAL;
-	if (msr & VPID_CAP_INVVPID_ALL)
+	if (is_invvpid_type_supported(INVVPID_ALL))
 		types |= 1u << INVVPID_ALL;
-	if (msr & VPID_CAP_INVVPID_CXTLOC)
+	if (is_invvpid_type_supported(INVVPID_CONTEXT_LOCAL))
 		types |= 1u << INVVPID_CONTEXT_LOCAL;
 
 	if (!types)
