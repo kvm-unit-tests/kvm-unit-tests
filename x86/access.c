@@ -34,7 +34,7 @@ static int invalid_mask;
 #define EFER_NX_MASK            (1ull << 11)
 
 #define PT_INDEX(address, level)       \
-	  ((address) >> (12 + ((level)-1) * 9)) & 511
+	  (((address) >> (12 + ((level)-1) * 9)) & 511)
 
 /*
  * page table access check tests
@@ -340,12 +340,21 @@ static void ac_test_reset_pt_pool(ac_pt_env_t *pt_env)
 	pt_env->pt_pool_current = 0;
 }
 
-static void ac_test_init(ac_test_t *at, void *virt, ac_pt_env_t *pt_env)
+static void ac_test_init(ac_test_t *at, unsigned long virt, ac_pt_env_t *pt_env)
 {
+	/*
+	 * The test infrastructure, e.g. this function, must use a different
+	 * top-level SPTE than the test, otherwise modifying SPTEs can affect
+	 * normal behavior, e.g. crash the test due to marking code SPTEs
+	 * USER when CR4.SMEP=1.
+	 */
+	assert(PT_INDEX(virt, pt_env->pt_levels) !=
+	       PT_INDEX((unsigned long)ac_test_init, pt_env->pt_levels));
+
 	set_efer_nx(1);
 	set_cr0_wp(1);
 	at->flags = 0;
-	at->virt = virt;
+	at->virt = (void *)virt;
 	at->phys = AT_CODE_DATA_PHYS;
 	at->pt_levels = pt_env->pt_levels;
 }
@@ -571,12 +580,13 @@ static void __ac_setup_specific_pages(ac_test_t *at, ac_pt_env_t *pt_env, bool r
 		pt_element_t pte;
 
 		/*
-		 * Reuse existing page tables along the path to the test code and data
-		 * (which is in the bottom 2MB).
+		 * Reuse existing page tables along the highest index, some
+		 * tests rely on sharing upper level paging structures between
+		 * two separate sub-tests.
 		 */
-		if (skip && i >= 2 && index == 0) {
+		if (skip && i >= 2 && index == 511 && (*ptep & PT_PRESENT_MASK))
 			goto next;
-		}
+
 		skip = false;
 		if (reuse && *ptep) {
 			switch (i) {
@@ -863,8 +873,8 @@ static int corrupt_hugepage_triger(ac_pt_env_t *pt_env)
 {
 	ac_test_t at1, at2;
 
-	ac_test_init(&at1, (void *)(0x123400000000), pt_env);
-	ac_test_init(&at2, (void *)(0x666600000000), pt_env);
+	ac_test_init(&at1, 0xffff923400000000ul, pt_env);
+	ac_test_init(&at2, 0xffffe66600000000ul, pt_env);
 
 	at2.flags = AC_CPU_CR0_WP_MASK | AC_PDE_PSE_MASK | AC_PDE_PRESENT_MASK;
 	ac_test_setup_pte(&at2, pt_env);
@@ -901,8 +911,8 @@ static int check_pfec_on_prefetch_pte(ac_pt_env_t *pt_env)
 {
 	ac_test_t at1, at2;
 
-	ac_test_init(&at1, (void *)(0x123406001000), pt_env);
-	ac_test_init(&at2, (void *)(0x123406003000), pt_env);
+	ac_test_init(&at1, 0xffff923406001000ul, pt_env);
+	ac_test_init(&at2, 0xffff923406003000ul, pt_env);
 
 	at1.flags = AC_PDE_PRESENT_MASK | AC_PTE_PRESENT_MASK;
 	ac_setup_specific_pages(&at1, pt_env, 30 * 1024 * 1024, 30 * 1024 * 1024);
@@ -946,8 +956,8 @@ static int check_large_pte_dirty_for_nowp(ac_pt_env_t *pt_env)
 {
 	ac_test_t at1, at2;
 
-	ac_test_init(&at1, (void *)(0x123403000000), pt_env);
-	ac_test_init(&at2, (void *)(0x666606000000), pt_env);
+	ac_test_init(&at1, 0xffff923403000000ul, pt_env);
+	ac_test_init(&at2, 0xffffe66606000000ul, pt_env);
 
 	at2.flags = AC_PDE_PRESENT_MASK | AC_PDE_PSE_MASK;
 	ac_test_setup_pte(&at2, pt_env);
@@ -985,7 +995,7 @@ static int check_smep_andnot_wp(ac_pt_env_t *pt_env)
 		return 1;
 	}
 
-	ac_test_init(&at1, (void *)(0x123406001000), pt_env);
+	ac_test_init(&at1, 0xffff923406001000ul, pt_env);
 
 	at1.flags = AC_PDE_PRESENT_MASK | AC_PTE_PRESENT_MASK |
 		    AC_PDE_USER_MASK | AC_PTE_USER_MASK |
@@ -1028,7 +1038,7 @@ err:
 
 static int check_effective_sp_permissions(ac_pt_env_t *pt_env)
 {
-	unsigned long ptr1 = 0x123480000000;
+	unsigned long ptr1 = 0xffff923480000000;
 	unsigned long ptr2 = ptr1 + SZ_2M;
 	unsigned long ptr3 = ptr1 + SZ_1G;
 	unsigned long ptr4 = ptr3 + SZ_2M;
@@ -1047,22 +1057,22 @@ static int check_effective_sp_permissions(ac_pt_env_t *pt_env)
 	 * pud1 and pud2 point to the same pmd page.
 	 */
 
-	ac_test_init(&at1, (void *)(ptr1), pt_env);
+	ac_test_init(&at1, ptr1, pt_env);
 	at1.flags = AC_PDE_PRESENT_MASK | AC_PTE_PRESENT_MASK |
 		    AC_PDE_USER_MASK | AC_PTE_USER_MASK |
 		    AC_PDE_ACCESSED_MASK | AC_PTE_ACCESSED_MASK |
 		    AC_PTE_WRITABLE_MASK | AC_ACCESS_USER_MASK;
 	__ac_setup_specific_pages(&at1, pt_env, false, pmd, 0);
 
-	ac_test_init(&at2, (void *)(ptr2), pt_env);
+	ac_test_init(&at2, ptr2, pt_env);
 	at2.flags = at1.flags | AC_PDE_WRITABLE_MASK | AC_PTE_DIRTY_MASK | AC_ACCESS_WRITE_MASK;
 	__ac_setup_specific_pages(&at2, pt_env, true, pmd, 0);
 
-	ac_test_init(&at3, (void *)(ptr3), pt_env);
+	ac_test_init(&at3, ptr3, pt_env);
 	at3.flags = AC_PDPTE_NO_WRITABLE_MASK | at1.flags;
 	__ac_setup_specific_pages(&at3, pt_env, true, pmd, 0);
 
-	ac_test_init(&at4, (void *)(ptr4), pt_env);
+	ac_test_init(&at4, ptr4, pt_env);
 	at4.flags = AC_PDPTE_NO_WRITABLE_MASK | at2.flags;
 	__ac_setup_specific_pages(&at4, pt_env, true, pmd, 0);
 
@@ -1139,7 +1149,7 @@ int ac_test_run(int pt_levels)
 	}
 
 	ac_env_int(&pt_env, pt_levels);
-	ac_test_init(&at, (void *)(0x123400000000), &pt_env);
+	ac_test_init(&at, 0xffff923400000000ul, &pt_env);
 
 	if (this_cpu_has(X86_FEATURE_PKU)) {
 		set_cr4_pke(1);
