@@ -1545,92 +1545,6 @@ static int eptad_exit_handler(union exit_reason exit_reason)
 	return ept_exit_handler_common(exit_reason, true);
 }
 
-static bool invvpid_test(int type, u16 vpid)
-{
-	bool ret, supported;
-
-	supported = ept_vpid.val &
-		(VPID_CAP_INVVPID_ADDR >> INVVPID_ADDR << type);
-	ret = __invvpid(type, vpid, 0);
-
-	if (ret == !supported)
-		return false;
-
-	if (!supported)
-		printf("WARNING: unsupported invvpid passed!\n");
-	else
-		printf("WARNING: invvpid failed!\n");
-
-	return true;
-}
-
-static int vpid_init(struct vmcs *vmcs)
-{
-	u32 ctrl_cpu1;
-
-	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
-		!(ctrl_cpu_rev[1].clr & CPU_VPID)) {
-		printf("\tVPID is not supported");
-		return VMX_TEST_EXIT;
-	}
-
-	ctrl_cpu1 = vmcs_read(CPU_EXEC_CTRL1);
-	ctrl_cpu1 |= CPU_VPID;
-	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu1);
-	return VMX_TEST_START;
-}
-
-static void vpid_main(void)
-{
-	vmx_set_test_stage(0);
-	vmcall();
-	report(vmx_get_test_stage() == 1, "INVVPID SINGLE ADDRESS");
-	vmx_set_test_stage(2);
-	vmcall();
-	report(vmx_get_test_stage() == 3, "INVVPID SINGLE");
-	vmx_set_test_stage(4);
-	vmcall();
-	report(vmx_get_test_stage() == 5, "INVVPID ALL");
-}
-
-static int vpid_exit_handler(union exit_reason exit_reason)
-{
-	u64 guest_rip;
-	u32 insn_len;
-
-	guest_rip = vmcs_read(GUEST_RIP);
-	insn_len = vmcs_read(EXI_INST_LEN);
-
-	switch (exit_reason.basic) {
-	case VMX_VMCALL:
-		switch(vmx_get_test_stage()) {
-		case 0:
-			if (!invvpid_test(INVVPID_ADDR, 1))
-				vmx_inc_test_stage();
-			break;
-		case 2:
-			if (!invvpid_test(INVVPID_CONTEXT_GLOBAL, 1))
-				vmx_inc_test_stage();
-			break;
-		case 4:
-			if (!invvpid_test(INVVPID_ALL, 1))
-				vmx_inc_test_stage();
-			break;
-		default:
-			report_fail("ERROR: unexpected stage, %d",
-					vmx_get_test_stage());
-			print_vmexit_info(exit_reason);
-			return VMX_TEST_VMEXIT;
-		}
-		vmcs_write(GUEST_RIP, guest_rip + insn_len);
-		return VMX_TEST_RESUME;
-	default:
-		report_fail("Unknown exit reason, 0x%x", exit_reason.full);
-		print_vmexit_info(exit_reason);
-	}
-	return VMX_TEST_VMEXIT;
-}
-
 #define TIMER_VECTOR	222
 
 static volatile bool timer_fired;
@@ -3391,7 +3305,7 @@ static void invvpid_test_not_in_vmx_operation(void)
  * This does not test real-address mode, virtual-8086 mode, protected mode,
  * or CPL > 0.
  */
-static void invvpid_test_v2(void)
+static void invvpid_test(void)
 {
 	u64 msr;
 	int i;
@@ -10770,7 +10684,6 @@ struct vmx_test vmx_tests[] = {
 	{ "EPT A/D disabled", ept_init, ept_main, ept_exit_handler, NULL, {0} },
 	{ "EPT A/D enabled", eptad_init, eptad_main, eptad_exit_handler, NULL, {0} },
 	{ "PML", pml_init, pml_main, pml_exit_handler, NULL, {0} },
-	{ "VPID", vpid_init, vpid_main, vpid_exit_handler, NULL, {0} },
 	{ "interrupt", interrupt_init, interrupt_main,
 		interrupt_exit_handler, NULL, {0} },
 	{ "nmi_hlt", nmi_hlt_init, nmi_hlt_main,
@@ -10794,7 +10707,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(fixture_test_case1),
 	TEST(fixture_test_case2),
 	/* Opcode tests. */
-	TEST(invvpid_test_v2),
+	TEST(invvpid_test),
 	/* VM-entry tests */
 	TEST(vmx_controls_test),
 	TEST(vmx_host_state_area_test),
