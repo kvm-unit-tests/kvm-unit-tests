@@ -1485,7 +1485,7 @@ static int eptad_init(struct vmcs *vmcs)
 	if (r == VMX_TEST_EXIT)
 		return r;
 
-	if ((rdmsr(MSR_IA32_VMX_EPT_VPID_CAP) & EPT_CAP_AD_FLAG) == 0) {
+	if (!ept_ad_bits_supported()) {
 		printf("\tEPT A/D bits are not supported");
 		return VMX_TEST_EXIT;
 	}
@@ -4805,7 +4805,7 @@ static void test_ept_eptp(void)
 	/*
 	 * Accessed and dirty flag (bit 6)
 	 */
-	if (msr & EPT_CAP_AD_FLAG) {
+	if (ept_ad_bits_supported()) {
 		report_info("Processor supports accessed and dirty flag");
 		eptp &= ~EPTP_AD_FLAG;
 		test_eptp_ad_bit(eptp, true);
