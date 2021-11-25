@@ -530,7 +530,7 @@ static void __ac_setup_specific_pages(ac_test_t *at, ac_pt_env_t *pt_env, bool r
 		pt_element_t *parent_pt = va(parent_pte & PT_BASE_ADDR_MASK);
 		unsigned index = PT_INDEX((unsigned long)at->virt, i);
 		pt_element_t *ptep = &parent_pt[index];
-		pt_element_t pte = 0;
+		pt_element_t pte;
 
 		/*
 		 * Reuse existing page tables along the path to the test code and data
@@ -618,7 +618,10 @@ static void __ac_setup_specific_pages(ac_test_t *at, ac_pt_env_t *pt_env, bool r
 				pte |= 1ull << 36;
 			at->ptep = ptep;
 			break;
+		default:
+			assert(0);
 		}
+
 		*ptep = pte;
  next:
 		parent_pte = *ptep;
