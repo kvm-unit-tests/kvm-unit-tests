@@ -355,9 +355,10 @@ static int ac_test_bump(ac_test_t *at)
 {
 	int ret;
 
-	ret = ac_test_bump_one(at);
-	while (ret && !ac_test_legal(at))
+	do {
 		ret = ac_test_bump_one(at);
+	} while (ret && !ac_test_legal(at));
+
 	return ret;
 }
 
