@@ -159,8 +159,7 @@ static inline void *va(pt_element_t phys)
 }
 
 typedef struct {
-	pt_element_t pt_pool;
-	unsigned pt_pool_size;
+	pt_element_t pt_pool_pa;
 	unsigned pt_pool_current;
 } ac_pool_t;
 
@@ -276,8 +275,7 @@ static void ac_env_int(ac_pool_t *pool)
 	set_idt_entry(14, &page_fault, 0);
 	set_idt_entry(0x20, &kernel_entry, 3);
 
-	pool->pt_pool = AT_PAGING_STRUCTURES_PHYS;
-	pool->pt_pool_size = 120 * 1024 * 1024 - pool->pt_pool;
+	pool->pt_pool_pa = AT_PAGING_STRUCTURES_PHYS;
 	pool->pt_pool_current = 0;
 }
 
@@ -362,15 +360,18 @@ static int ac_test_bump(ac_test_t *at)
 
 static pt_element_t ac_test_alloc_pt(ac_pool_t *pool)
 {
-	pt_element_t ret = pool->pt_pool + pool->pt_pool_current;
-	pool->pt_pool_current += PAGE_SIZE;
-	memset(va(ret), 0, PAGE_SIZE);
-	return ret;
+	pt_element_t pt;
+
+	pt = pool->pt_pool_pa + (pool->pt_pool_current * PAGE_SIZE);
+	pool->pt_pool_current++;
+	memset(va(pt), 0, PAGE_SIZE);
+	return pt;
 }
 
 static _Bool ac_test_enough_room(ac_pool_t *pool)
 {
-	return pool->pt_pool_current + 5 * PAGE_SIZE <= pool->pt_pool_size;
+	/* 30720 (120 MiB) is completely arbitrary. */
+	return (pool->pt_pool_current + 5) < 30720;
 }
 
 static void ac_test_reset_pt_pool(ac_pool_t *pool)
