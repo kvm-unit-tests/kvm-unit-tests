@@ -823,6 +823,11 @@ static inline bool is_invept_type_supported(u64 type)
 	return ept_vpid.val & (EPT_CAP_INVEPT_SINGLE << (type - INVEPT_SINGLE));
 }
 
+static inline bool is_invvpid_supported(void)
+{
+	return ept_vpid.val & VPID_CAP_INVVPID;
+}
+
 static inline bool is_invvpid_type_supported(unsigned long type)
 {
 	if (type < INVVPID_ADDR || type > INVVPID_CONTEXT_LOCAL)

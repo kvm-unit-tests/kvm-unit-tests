@@ -3300,7 +3300,6 @@ static void invvpid_test_not_in_vmx_operation(void)
  */
 static void invvpid_test(void)
 {
-	u64 msr;
 	int i;
 	unsigned types = 0;
 	unsigned type;
@@ -3309,9 +3308,7 @@ static void invvpid_test(void)
 	    !(ctrl_cpu_rev[1].clr & CPU_VPID))
 		test_skip("VPID not supported");
 
-	msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
-
-	if (!(msr & VPID_CAP_INVVPID))
+	if (!is_invvpid_supported())
 		test_skip("INVVPID not supported.\n");
 
 	if (is_invvpid_type_supported(INVVPID_ADDR))
