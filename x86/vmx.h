@@ -844,6 +844,12 @@ static inline bool is_invept_type_supported(u64 type)
 	return ept_vpid.val & (EPT_CAP_INVEPT_SINGLE << (type - INVEPT_SINGLE));
 }
 
+static inline bool is_vpid_supported(void)
+{
+	return (ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
+	       (ctrl_cpu_rev[1].clr & CPU_VPID);
+}
+
 static inline bool is_invvpid_supported(void)
 {
 	return ept_vpid.val & VPID_CAP_INVVPID;

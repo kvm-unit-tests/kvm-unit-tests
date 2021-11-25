@@ -3304,8 +3304,7 @@ static void invvpid_test(void)
 	unsigned types = 0;
 	unsigned type;
 
-	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
-	    !(ctrl_cpu_rev[1].clr & CPU_VPID))
+	if (!is_vpid_supported())
 		test_skip("VPID not supported");
 
 	if (!is_invvpid_supported())
@@ -4099,8 +4098,7 @@ static void test_vpid(void)
 	u16 vpid = 0x0000;
 	int i;
 
-	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
-	    (ctrl_cpu_rev[1].clr & CPU_VPID))) {
+	if (!is_vpid_supported()) {
 		printf("Secondary controls and/or VPID not supported\n");
 		return;
 	}
