@@ -690,7 +690,7 @@ static void ac_setup_specific_pages(ac_test_t *at, ac_pt_env_t *pt_env,
 
 static void __dump_pte(pt_element_t *ptep, int level, unsigned long virt)
 {
-	printf("------L%d: %lx\n", level, *ptep);
+	printf("------L%d I%lu: %lx\n", level, PT_INDEX(virt, level), *ptep);
 }
 
 static void dump_mapping(ac_test_t *at)
