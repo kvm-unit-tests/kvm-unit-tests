@@ -281,6 +281,27 @@ static void ac_env_int(ac_pt_env_t *pt_env, int page_table_levels)
 	pt_env->pt_levels = page_table_levels;
 }
 
+static pt_element_t ac_test_alloc_pt(ac_pt_env_t *pt_env)
+{
+	pt_element_t pt;
+
+	pt = pt_env->pt_pool_pa + (pt_env->pt_pool_current * PAGE_SIZE);
+	pt_env->pt_pool_current++;
+	memset(va(pt), 0, PAGE_SIZE);
+	return pt;
+}
+
+static _Bool ac_test_enough_room(ac_pt_env_t *pt_env)
+{
+	/* 30720 (120 MiB) is completely arbitrary. */
+	return (pt_env->pt_pool_current + 5) < 30720;
+}
+
+static void ac_test_reset_pt_pool(ac_pt_env_t *pt_env)
+{
+	pt_env->pt_pool_current = 0;
+}
+
 static void ac_test_init(ac_test_t *at, void *virt, ac_pt_env_t *pt_env)
 {
 	set_efer_nx(1);
@@ -358,27 +379,6 @@ static int ac_test_bump(ac_test_t *at)
 	} while (ret && !ac_test_legal(at));
 
 	return ret;
-}
-
-static pt_element_t ac_test_alloc_pt(ac_pt_env_t *pt_env)
-{
-	pt_element_t pt;
-
-	pt = pt_env->pt_pool_pa + (pt_env->pt_pool_current * PAGE_SIZE);
-	pt_env->pt_pool_current++;
-	memset(va(pt), 0, PAGE_SIZE);
-	return pt;
-}
-
-static _Bool ac_test_enough_room(ac_pt_env_t *pt_env)
-{
-	/* 30720 (120 MiB) is completely arbitrary. */
-	return (pt_env->pt_pool_current + 5) < 30720;
-}
-
-static void ac_test_reset_pt_pool(ac_pt_env_t *pt_env)
-{
-	pt_env->pt_pool_current = 0;
 }
 
 static pt_element_t ac_test_permissions(ac_test_t *at, unsigned flags,
