@@ -4712,9 +4712,7 @@ static void test_ept_eptp(void)
 	u64 eptp_saved = vmcs_read(EPTP);
 	u32 primary = primary_saved;
 	u32 secondary = secondary_saved;
-	u64 msr, eptp = eptp_saved;
-	bool un_cache = false;
-	bool wr_bk = false;
+	u64 eptp = eptp_saved;
 	bool ctrl;
 	u32 i, maxphysaddr;
 	u64 j, resv_bits_mask = 0;
@@ -4724,15 +4722,6 @@ static void test_ept_eptp(void)
 		printf("\"CPU secondary\" and/or \"enable EPT\" execution controls are not supported !\n");
 		return;
 	}
-
-	/*
-	 * Memory type (bits 2:0)
-	 */
-	msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
-	if (msr & EPT_CAP_UC)
-		un_cache = true;
-	if (msr & EPT_CAP_WB)
-		wr_bk = true;
 
 	/* Support for 4-level EPT is mandatory. */
 	report(is_4_level_ept_supported(), "4-level EPT support check");
@@ -4746,29 +4735,11 @@ static void test_ept_eptp(void)
 	vmcs_write(EPTP, eptp);
 
 	for (i = 0; i < 8; i++) {
-		if (i == 0) {
-			if (un_cache) {
-				report_info("EPT paging structure memory-type is Un-cacheable\n");
-				ctrl = true;
-			} else {
-				ctrl = false;
-			}
-		} else if (i == 6) {
-			if (wr_bk) {
-				report_info("EPT paging structure memory-type is Write-back\n");
-				ctrl = true;
-			} else {
-				ctrl = false;
-			}
-		} else {
-			ctrl = false;
-		}
-
 		eptp = (eptp & ~EPT_MEM_TYPE_MASK) | i;
 		vmcs_write(EPTP, eptp);
 		report_prefix_pushf("Enable-EPT enabled; EPT memory type %lu",
 		    eptp & EPT_MEM_TYPE_MASK);
-		if (ctrl)
+		if (is_ept_memtype_supported(i))
 			test_vmx_valid_controls();
 		else
 			test_vmx_invalid_controls();

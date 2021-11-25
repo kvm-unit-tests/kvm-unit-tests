@@ -825,6 +825,17 @@ static inline bool is_5_level_ept_supported(void)
 	return ept_vpid.val & EPT_CAP_PWL5;
 }
 
+static inline bool is_ept_memtype_supported(int type)
+{
+	if (type == EPT_MEM_TYPE_UC)
+		return ept_vpid.val & EPT_CAP_UC;
+
+	if (type == EPT_MEM_TYPE_WB)
+		return ept_vpid.val & EPT_CAP_WB;
+
+	return false;
+}
+
 static inline bool is_invept_type_supported(u64 type)
 {
 	if (type < INVEPT_SINGLE || type > INVEPT_GLOBAL)
