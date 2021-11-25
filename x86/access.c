@@ -518,7 +518,7 @@ static void ac_set_expected_status(ac_test_t *at)
 static void __ac_setup_specific_pages(ac_test_t *at, ac_pt_env_t *pt_env, bool reuse,
 				      u64 pd_page, u64 pt_page)
 {
-	unsigned long root = shadow_cr3;
+	unsigned long parent_pte = shadow_cr3;
 	int flags = at->flags;
 	bool skip = true;
 
@@ -527,8 +527,9 @@ static void __ac_setup_specific_pages(ac_test_t *at, ac_pt_env_t *pt_env, bool r
 
 	at->ptep = 0;
 	for (int i = at->pt_levels; i >= 1 && (i >= 2 || !F(AC_PDE_PSE)); --i) {
-		pt_element_t *vroot = va(root & PT_BASE_ADDR_MASK);
+		pt_element_t *parent_pt = va(parent_pte & PT_BASE_ADDR_MASK);
 		unsigned index = PT_INDEX((unsigned long)at->virt, i);
+		pt_element_t *ptep = &parent_pt[index];
 		pt_element_t pte = 0;
 
 		/*
@@ -539,13 +540,13 @@ static void __ac_setup_specific_pages(ac_test_t *at, ac_pt_env_t *pt_env, bool r
 			goto next;
 		}
 		skip = false;
-		if (reuse && vroot[index]) {
+		if (reuse && *ptep) {
 			switch (i) {
 			case 2:
-				at->pdep = &vroot[index];
+				at->pdep = ptep;
 				break;
 			case 1:
-				at->ptep = &vroot[index];
+				at->ptep = ptep;
 				break;
 			}
 			goto next;
@@ -593,7 +594,7 @@ static void __ac_setup_specific_pages(ac_test_t *at, ac_pt_env_t *pt_env, bool r
 				pte |= 1ull << 36;
 			if (F(AC_PDE_BIT13))
 				pte |= 1ull << 13;
-			at->pdep = &vroot[index];
+			at->pdep = ptep;
 			break;
 		case 1:
 			pte = at->phys & PT_BASE_ADDR_MASK;
@@ -615,12 +616,12 @@ static void __ac_setup_specific_pages(ac_test_t *at, ac_pt_env_t *pt_env, bool r
 				pte |= 1ull << 51;
 			if (F(AC_PTE_BIT36))
 				pte |= 1ull << 36;
-			at->ptep = &vroot[index];
+			at->ptep = ptep;
 			break;
 		}
-		vroot[index] = pte;
+		*ptep = pte;
  next:
-		root = vroot[index];
+		parent_pte = *ptep;
 	}
 	ac_set_expected_status(at);
 }
@@ -638,18 +639,18 @@ static void ac_setup_specific_pages(ac_test_t *at, ac_pt_env_t *pt_env,
 
 static void dump_mapping(ac_test_t *at)
 {
-	unsigned long root = shadow_cr3;
+	unsigned long parent_pte = shadow_cr3;
 	int flags = at->flags;
 	int i;
 
 	printf("Dump mapping: address: %p\n", at->virt);
 	for (i = at->pt_levels; i >= 1 && (i >= 2 || !F(AC_PDE_PSE)); --i) {
-		pt_element_t *vroot = va(root & PT_BASE_ADDR_MASK);
+		pt_element_t *parent_pt = va(parent_pte & PT_BASE_ADDR_MASK);
 		unsigned index = PT_INDEX((unsigned long)at->virt, i);
-		pt_element_t pte = vroot[index];
+		pt_element_t pte = parent_pt[index];
 
 		printf("------L%d: %lx\n", i, pte);
-		root = vroot[index];
+		parent_pte = pte;
 	}
 }
 
