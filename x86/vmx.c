@@ -1606,7 +1606,7 @@ static void test_vmx_caps(void)
 	       "MSR_IA32_VMX_VMCS_ENUM");
 
 	fixed0 = -1ull;
-	fixed0 &= ~(EPT_CAP_WT |
+	fixed0 &= ~(EPT_CAP_EXEC_ONLY |
 		    EPT_CAP_PWL4 |
 		    EPT_CAP_PWL5 |
 		    EPT_CAP_UC |

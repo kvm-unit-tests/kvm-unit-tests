@@ -697,7 +697,7 @@ enum vm_entry_failure_code {
 #define EPT_IGNORE_PAT		(1ul << 6)
 #define EPT_SUPPRESS_VE		(1ull << 63)
 
-#define EPT_CAP_WT		1ull
+#define EPT_CAP_EXEC_ONLY	(1ull << 0)
 #define EPT_CAP_PWL4		(1ull << 6)
 #define EPT_CAP_PWL5		(1ull << 7)
 #define EPT_CAP_UC		(1ull << 8)
@@ -807,7 +807,7 @@ static inline bool ept_huge_pages_supported(int level)
 
 static inline bool ept_execute_only_supported(void)
 {
-	return ept_vpid.val & EPT_CAP_WT;
+	return ept_vpid.val & EPT_CAP_EXEC_ONLY;
 }
 
 static inline bool ept_ad_bits_supported(void)
