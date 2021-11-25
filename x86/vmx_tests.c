@@ -1248,7 +1248,7 @@ static bool invept_test(int type, u64 eptp)
 	bool ret, supported;
 
 	supported = ept_vpid.val & (EPT_CAP_INVEPT_SINGLE >> INVEPT_SINGLE << type);
-	ret = invept(type, eptp);
+	ret = __invept(type, eptp);
 
 	if (ret == !supported)
 		return false;
@@ -1551,7 +1551,7 @@ static bool invvpid_test(int type, u16 vpid)
 
 	supported = ept_vpid.val &
 		(VPID_CAP_INVVPID_ADDR >> INVVPID_ADDR << type);
-	ret = invvpid(type, vpid, 0);
+	ret = __invvpid(type, vpid, 0);
 
 	if (ret == !supported)
 		return false;
@@ -3280,7 +3280,7 @@ static void try_invvpid(u64 type, u64 vpid, u64 gla)
 	 * that we can tell if it is updated by INVVPID.
 	 */
 	vmcs_read(~0);
-	rc = invvpid(type, vpid, gla);
+	rc = __invvpid(type, vpid, gla);
 	report(!rc == valid, "INVVPID type %ld VPID %lx GLA %lx %s", type,
 	       vpid, gla,
 	       valid ? "passes" : "fails");

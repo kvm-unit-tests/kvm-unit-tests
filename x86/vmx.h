@@ -912,28 +912,38 @@ static inline int vmcs_save(struct vmcs **vmcs)
 	return ret;
 }
 
-static inline bool invept(unsigned long type, u64 eptp)
+static inline int __invept(unsigned long type, u64 eptp)
 {
-	bool ret;
+	bool failed = false;
 	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
 
 	struct {
 		u64 eptp, gpa;
 	} operand = {eptp, 0};
 	asm volatile("push %1; popf; invept %2, %3; setbe %0"
-		     : "=q" (ret) : "r" (rflags), "m"(operand),"r"(type) : "cc");
-	return ret;
+		     : "=q" (failed) : "r" (rflags), "m"(operand),"r"(type) : "cc");
+	return failed ? -1: 0;
 }
 
-static inline bool invvpid(unsigned long type, u64 vpid, u64 gla)
+static inline void invept(unsigned long type, u64 eptp)
 {
-	bool ret;
+	__TEST_ASSERT(!__invept(type, eptp));
+}
+
+static inline int __invvpid(unsigned long type, u64 vpid, u64 gla)
+{
+	bool failed = false;
 	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
 
 	struct invvpid_operand operand = {vpid, gla};
 	asm volatile("push %1; popf; invvpid %2, %3; setbe %0"
-		     : "=q" (ret) : "r" (rflags), "m"(operand),"r"(type) : "cc");
-	return ret;
+		     : "=q" (failed) : "r" (rflags), "m"(operand),"r"(type) : "cc");
+	return failed ? -1: 0;
+}
+
+static inline void invvpid(unsigned long type, u64 vpid, u64 gla)
+{
+	__TEST_ASSERT(!__invvpid(type, vpid, gla));
 }
 
 void enable_vmx(void);
