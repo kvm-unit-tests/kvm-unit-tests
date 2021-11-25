@@ -10575,12 +10575,20 @@ static void vmx_pf_exception_test_guest(void)
 	ac_test_run(PT_LEVEL_PML4);
 }
 
-static void vmx_pf_exception_test(void)
+typedef void (*invalidate_tlb_t)(void *data);
+
+static void __vmx_pf_exception_test(invalidate_tlb_t inv_fn, void *data)
 {
 	u64 efer;
 	struct cpuid cpuid;
 
 	test_set_guest(vmx_pf_exception_test_guest);
+
+	/* Intercept INVLPG when to perform TLB invalidation from L1 (this). */
+	if (inv_fn)
+		vmcs_set_bits(CPU_EXEC_CTRL0, CPU_INVLPG);
+	else
+		vmcs_clear_bits(CPU_EXEC_CTRL0, CPU_INVLPG);
 
 	enter_guest();
 
@@ -10605,6 +10613,9 @@ static void vmx_pf_exception_test(void)
 			regs.rcx = cpuid.c;
 			regs.rdx = cpuid.d;
 			break;
+		case VMX_INVLPG:
+			inv_fn(data);
+			break;
 		default:
 			assert_msg(false,
 				"Unexpected exit to L1, exit_reason: %s (0x%lx)",
@@ -10617,6 +10628,79 @@ static void vmx_pf_exception_test(void)
 
 	assert_exit_reason(VMX_VMCALL);
 }
+
+static void vmx_pf_exception_test(void)
+{
+	__vmx_pf_exception_test(NULL, NULL);
+}
+
+static void invalidate_tlb_no_vpid(void *data)
+{
+	/* If VPID is disabled, the TLB is flushed on VM-Enter and VM-Exit. */
+}
+
+static void vmx_pf_no_vpid_test(void)
+{
+	if (is_vpid_supported())
+		vmcs_clear_bits(CPU_EXEC_CTRL1, CPU_VPID);
+
+	__vmx_pf_exception_test(invalidate_tlb_no_vpid, NULL);
+}
+
+static void invalidate_tlb_invvpid_addr(void *data)
+{
+	invvpid(INVVPID_ALL, *(u16 *)data, vmcs_read(EXI_QUALIFICATION));
+}
+
+static void invalidate_tlb_new_vpid(void *data)
+{
+	u16 *vpid = data;
+
+	/*
+	 * Bump VPID to effectively flush L2's TLB from L0's perspective.
+	 * Invalidate all VPIDs when the VPID wraps to zero as hardware/KVM is
+	 * architecturally allowed to keep TLB entries indefinitely.
+	 */
+	++(*vpid);
+	if (*vpid == 0) {
+		++(*vpid);
+		invvpid(INVVPID_ALL, 0, 0);
+	}
+	vmcs_write(VPID, *vpid);
+}
+
+static void __vmx_pf_vpid_test(invalidate_tlb_t inv_fn, u16 vpid)
+{
+	if (!is_vpid_supported())
+		test_skip("VPID unsupported");
+
+	if (!is_invvpid_supported())
+		test_skip("INVVPID unsupported");
+
+	vmcs_set_bits(CPU_EXEC_CTRL0, CPU_SECONDARY);
+	vmcs_set_bits(CPU_EXEC_CTRL1, CPU_VPID);
+	vmcs_write(VPID, vpid);
+
+	__vmx_pf_exception_test(inv_fn, &vpid);
+}
+
+static void vmx_pf_invvpid_test(void)
+{
+	if (!is_invvpid_type_supported(INVVPID_ADDR))
+		test_skip("INVVPID ADDR unsupported");
+
+	__vmx_pf_vpid_test(invalidate_tlb_invvpid_addr, 0xaaaa);
+}
+
+static void vmx_pf_vpid_test(void)
+{
+	/* Need INVVPID(ALL) to flush VPIDs upon wrap/reuse. */
+	if (!is_invvpid_type_supported(INVVPID_ALL))
+		test_skip("INVVPID ALL unsupported");
+
+	__vmx_pf_vpid_test(invalidate_tlb_new_vpid, 1);
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -10723,5 +10807,8 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_mtf_test),
 	TEST(vmx_mtf_pdpte_test),
 	TEST(vmx_pf_exception_test),
+	TEST(vmx_pf_no_vpid_test),
+	TEST(vmx_pf_invvpid_test),
+	TEST(vmx_pf_vpid_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
