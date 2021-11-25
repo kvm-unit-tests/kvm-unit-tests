@@ -15,6 +15,10 @@ static _Bool verbose = false;
 typedef unsigned long pt_element_t;
 static int invalid_mask;
 
+/* Test code/data is at 32MiB, paging structures at 33MiB. */
+#define AT_CODE_DATA_PHYS	  32 * 1024 * 1024
+#define AT_PAGING_STRUCTURES_PHYS 33 * 1024 * 1024
+
 #define PT_BASE_ADDR_MASK ((pt_element_t)((((pt_element_t)1 << 36) - 1) & PAGE_MASK))
 #define PT_PSE_BASE_ADDR_MASK (PT_BASE_ADDR_MASK & ~(1ull << 21))
 
@@ -273,7 +277,7 @@ static void ac_env_int(ac_pool_t *pool)
 	set_idt_entry(14, &page_fault, 0);
 	set_idt_entry(0x20, &kernel_entry, 3);
 
-	pool->pt_pool = 33 * 1024 * 1024;
+	pool->pt_pool = AT_PAGING_STRUCTURES_PHYS;
 	pool->pt_pool_size = 120 * 1024 * 1024 - pool->pt_pool;
 	pool->pt_pool_current = 0;
 }
@@ -284,7 +288,7 @@ static void ac_test_init(ac_test_t *at, void *virt, int page_table_levels)
 	set_cr0_wp(1);
 	at->flags = 0;
 	at->virt = virt;
-	at->phys = 32 * 1024 * 1024;
+	at->phys = AT_CODE_DATA_PHYS;
 	at->page_table_levels = page_table_levels;
 }
 
