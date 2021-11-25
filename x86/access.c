@@ -37,26 +37,30 @@ static int invalid_mask;
 	  (((address) >> (12 + ((level)-1) * 9)) & 511)
 
 /*
- * page table access check tests
+ * Page table access check tests.  Each number/bit represent an individual
+ * test case.  The main test will bump a counter by 1 to run all permutations
+ * of the below test cases (sans illegal combinations).
+ *
+ * Keep the PRESENT and reserved bits in the higher numbers so that they aren't
+ * toggled on every test, e.g. to keep entries in the TLB.
  */
-
 enum {
-	AC_PTE_PRESENT_BIT,
 	AC_PTE_WRITABLE_BIT,
 	AC_PTE_USER_BIT,
 	AC_PTE_ACCESSED_BIT,
 	AC_PTE_DIRTY_BIT,
 	AC_PTE_NX_BIT,
+	AC_PTE_PRESENT_BIT,
 	AC_PTE_BIT51_BIT,
 	AC_PTE_BIT36_BIT,
 
-	AC_PDE_PRESENT_BIT,
 	AC_PDE_WRITABLE_BIT,
 	AC_PDE_USER_BIT,
 	AC_PDE_ACCESSED_BIT,
 	AC_PDE_DIRTY_BIT,
 	AC_PDE_PSE_BIT,
 	AC_PDE_NX_BIT,
+	AC_PDE_PRESENT_BIT,
 	AC_PDE_BIT51_BIT,
 	AC_PDE_BIT36_BIT,
 	AC_PDE_BIT13_BIT,
