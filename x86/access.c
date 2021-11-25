@@ -189,6 +189,7 @@ typedef struct {
 static void ac_test_show(ac_test_t *at);
 
 static unsigned long shadow_cr0;
+static unsigned long shadow_cr3;
 static unsigned long shadow_cr4;
 static unsigned long long shadow_efer;
 
@@ -515,7 +516,7 @@ static void ac_set_expected_status(ac_test_t *at)
 static void __ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool, bool reuse,
 				      u64 pd_page, u64 pt_page)
 {
-	unsigned long root = read_cr3();
+	unsigned long root = shadow_cr3;
 	int flags = at->flags;
 	bool skip = true;
 
@@ -635,7 +636,7 @@ static void ac_setup_specific_pages(ac_test_t *at, ac_pool_t *pool,
 
 static void dump_mapping(ac_test_t *at)
 {
-	unsigned long root = read_cr3();
+	unsigned long root = shadow_cr3;
 	int flags = at->flags;
 	int i;
 
@@ -1084,6 +1085,7 @@ int ac_test_run(int page_table_levels)
 
 	shadow_cr0 = read_cr0();
 	shadow_cr4 = read_cr4();
+	shadow_cr3 = read_cr3();
 	shadow_efer = rdmsr(MSR_EFER);
 
 	if (cpuid_maxphyaddr() >= 52) {
