@@ -9,7 +9,7 @@
 
 void __abort_test(void);
 
-#define TEST_ASSERT(cond)					\
+#define __TEST_ASSERT(cond)					\
 do {								\
 	if (!(cond)) {						\
 		report_fail("%s:%d: Assertion failed: %s",	\
@@ -17,6 +17,11 @@ do {								\
 		dump_stack();					\
 		__abort_test();					\
 	}							\
+} while (0)
+
+#define TEST_ASSERT(cond)					\
+do {								\
+	__TEST_ASSERT(cond);					\
 	report_passed();					\
 } while (0)
 
