@@ -815,6 +815,16 @@ static inline bool ept_ad_bits_supported(void)
 	return ept_vpid.val & EPT_CAP_AD_FLAG;
 }
 
+static inline bool is_4_level_ept_supported(void)
+{
+	return ept_vpid.val & EPT_CAP_PWL4;
+}
+
+static inline bool is_5_level_ept_supported(void)
+{
+	return ept_vpid.val & EPT_CAP_PWL5;
+}
+
 static inline bool is_invept_type_supported(u64 type)
 {
 	if (type < INVEPT_SINGLE || type > INVEPT_GLOBAL)

@@ -4735,7 +4735,7 @@ static void test_ept_eptp(void)
 		wr_bk = true;
 
 	/* Support for 4-level EPT is mandatory. */
-	report(msr & EPT_CAP_PWL4, "4-level EPT support check");
+	report(is_4_level_ept_supported(), "4-level EPT support check");
 
 	primary |= CPU_SECONDARY;
 	vmcs_write(CPU_EXEC_CTRL0, primary);
@@ -4784,7 +4784,7 @@ static void test_ept_eptp(void)
 	for (i = 0; i < 8; i++) {
 		eptp = (eptp & ~EPTP_PG_WALK_LEN_MASK) |
 		    (i << EPTP_PG_WALK_LEN_SHIFT);
-		if (i == 3 || (i == 4 && (msr & EPT_CAP_PWL5)))
+		if (i == 3 || (i == 4 && is_5_level_ept_supported()))
 			ctrl = true;
 		else
 			ctrl = false;
