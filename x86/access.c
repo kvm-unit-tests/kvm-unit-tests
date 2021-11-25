@@ -957,10 +957,10 @@ static int check_pfec_on_prefetch_pte(ac_pt_env_t *pt_env)
 	__ac_test_init(&at2, 0xffff923406003000ul, pt_env, &at1);
 
 	at1.flags = AC_PDE_PRESENT_MASK | AC_PTE_PRESENT_MASK;
-	ac_setup_specific_pages(&at1, 30 * 1024 * 1024, 30 * 1024 * 1024);
+	ac_setup_specific_pages(&at1, 0, 0);
 
 	at2.flags = at1.flags | AC_PTE_NX_MASK;
-	ac_setup_specific_pages(&at2, 30 * 1024 * 1024, 30 * 1024 * 1024);
+	ac_setup_specific_pages(&at2, 0, 0);
 
 	if (!ac_test_do_access(&at1)) {
 		printf("%s: prepare fail\n", __FUNCTION__);
