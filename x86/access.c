@@ -621,7 +621,7 @@ static pt_element_t ac_get_pt(ac_test_t *at, int i, pt_element_t *ptep)
 	return pte;
 }
 
-static void __ac_setup_specific_pages(ac_test_t *at, u64 pd_page, u64 pt_page)
+static void ac_test_setup_ptes(ac_test_t *at)
 {
 	unsigned long parent_pte = shadow_cr3;
 	int flags = at->flags;
@@ -641,21 +641,14 @@ static void __ac_setup_specific_pages(ac_test_t *at, u64 pd_page, u64 pt_page)
 			pte |= PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_USER_MASK;
 			break;
 		case 3:
-			if (pd_page)
-				pte = pd_page;
-			else
-				pte = ac_get_pt(at, i, ptep);
-
+			pte = ac_get_pt(at, i, ptep);
 			pte |= PT_PRESENT_MASK | PT_USER_MASK;
 			if (!F(AC_PDPTE_NO_WRITABLE))
 				pte |= PT_WRITABLE_MASK;
 			break;
 		case 2:
 			if (!F(AC_PDE_PSE)) {
-				if (pt_page)
-					pte = pt_page;
-				else
-					pte = ac_get_pt(at, i, ptep);
+				pte = ac_get_pt(at, i, ptep);
 
 				/* The protection key is ignored on non-leaf entries.  */
 				if (F(AC_PKU_PKEY))
@@ -718,16 +711,6 @@ static void __ac_setup_specific_pages(ac_test_t *at, u64 pd_page, u64 pt_page)
 		parent_pte = pte;
 	}
 	ac_set_expected_status(at);
-}
-
-static void ac_test_setup_pte(ac_test_t *at)
-{
-	__ac_setup_specific_pages(at, 0, 0);
-}
-
-static void ac_setup_specific_pages(ac_test_t *at, u64 pd_page, u64 pt_page)
-{
-	return __ac_setup_specific_pages(at, pd_page, pt_page);
 }
 
 static void __dump_pte(pt_element_t *ptep, int level, unsigned long virt)
@@ -919,12 +902,12 @@ static int corrupt_hugepage_triger(ac_pt_env_t *pt_env)
 	__ac_test_init(&at2, 0xffffe66600000000ul, pt_env, &at1);
 
 	at2.flags = AC_CPU_CR0_WP_MASK | AC_PDE_PSE_MASK | AC_PDE_PRESENT_MASK;
-	ac_test_setup_pte(&at2);
+	ac_test_setup_ptes(&at2);
 	if (!ac_test_do_access(&at2))
 		goto err;
 
 	at1.flags = at2.flags | AC_PDE_WRITABLE_MASK;
-	ac_test_setup_pte(&at1);
+	ac_test_setup_ptes(&at1);
 	if (!ac_test_do_access(&at1))
 		goto err;
 
@@ -957,10 +940,10 @@ static int check_pfec_on_prefetch_pte(ac_pt_env_t *pt_env)
 	__ac_test_init(&at2, 0xffff923406003000ul, pt_env, &at1);
 
 	at1.flags = AC_PDE_PRESENT_MASK | AC_PTE_PRESENT_MASK;
-	ac_setup_specific_pages(&at1, 0, 0);
+	ac_test_setup_ptes(&at1);
 
 	at2.flags = at1.flags | AC_PTE_NX_MASK;
-	ac_setup_specific_pages(&at2, 0, 0);
+	ac_test_setup_ptes(&at2);
 
 	if (!ac_test_do_access(&at1)) {
 		printf("%s: prepare fail\n", __FUNCTION__);
@@ -1002,14 +985,14 @@ static int check_large_pte_dirty_for_nowp(ac_pt_env_t *pt_env)
 	__ac_test_init(&at2, 0xffffe66606000000ul, pt_env, &at1);
 
 	at2.flags = AC_PDE_PRESENT_MASK | AC_PDE_PSE_MASK;
-	ac_test_setup_pte(&at2);
+	ac_test_setup_ptes(&at2);
 	if (!ac_test_do_access(&at2)) {
 		printf("%s: read on the first mapping fail.\n", __FUNCTION__);
 		goto err;
 	}
 
 	at1.flags = at2.flags | AC_ACCESS_WRITE_MASK;
-	ac_test_setup_pte(&at1);
+	ac_test_setup_ptes(&at1);
 	if (!ac_test_do_access(&at1)) {
 		printf("%s: write on the second mapping fail.\n", __FUNCTION__);
 		goto err;
@@ -1045,7 +1028,7 @@ static int check_smep_andnot_wp(ac_pt_env_t *pt_env)
 		    AC_CPU_CR4_SMEP_MASK |
 		    AC_CPU_CR0_WP_MASK |
 		    AC_ACCESS_WRITE_MASK;
-	ac_test_setup_pte(&at1);
+	ac_test_setup_ptes(&at1);
 
 	/*
 	 * Here we write the ro user page when
@@ -1103,23 +1086,23 @@ static int check_effective_sp_permissions(ac_pt_env_t *pt_env)
 		    AC_PDE_USER_MASK | AC_PTE_USER_MASK |
 		    AC_PDE_ACCESSED_MASK | AC_PTE_ACCESSED_MASK |
 		    AC_PTE_WRITABLE_MASK | AC_ACCESS_USER_MASK;
-	__ac_setup_specific_pages(&at1, 0, 0);
+	ac_test_setup_ptes(&at1);
 
 	__ac_test_init(&at2, ptr2, pt_env, &at1);
 	at2.flags = at1.flags | AC_PDE_WRITABLE_MASK | AC_PTE_DIRTY_MASK | AC_ACCESS_WRITE_MASK;
-	__ac_setup_specific_pages(&at2, 0, 0);
+	ac_test_setup_ptes(&at2);
 
 	__ac_test_init(&at3, ptr3, pt_env, &at1);
 	/* Override the PMD (1-based index) to point at ptr1's PMD. */
 	at3.page_tables[3] = at1.page_tables[3];
 	at3.flags = AC_PDPTE_NO_WRITABLE_MASK | at1.flags;
-	__ac_setup_specific_pages(&at3, 0, 0);
+	ac_test_setup_ptes(&at3);
 
 	/* Alias ptr2, only the PMD will differ; manually override the PMD. */
 	__ac_test_init(&at4, ptr4, pt_env, &at2);
 	at4.page_tables[3] = at1.page_tables[3];
 	at4.flags = AC_PDPTE_NO_WRITABLE_MASK | at2.flags;
-	__ac_setup_specific_pages(&at4, 0, 0);
+	ac_test_setup_ptes(&at4);
 
 	err_read_at1 = ac_test_do_access(&at1);
 	if (!err_read_at1) {
@@ -1155,7 +1138,7 @@ static int ac_test_exec(ac_test_t *at, ac_pt_env_t *pt_env)
 	if (verbose) {
 		ac_test_show(at);
 	}
-	ac_test_setup_pte(at);
+	ac_test_setup_ptes(at);
 	r = ac_test_do_access(at);
 	return r;
 }
