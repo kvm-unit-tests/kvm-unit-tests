@@ -3819,7 +3819,7 @@ static void test_apic_virtual_ctls(void)
 	u32 saved_secondary = vmcs_read(CPU_EXEC_CTRL1);
 	u32 primary = saved_primary;
 	u32 secondary = saved_secondary;
-	bool ctrl = false;
+	bool is_ctrl_valid = false;
 	char str[10] = "disabled";
 	u8 i = 0, j;
 
@@ -3838,18 +3838,18 @@ static void test_apic_virtual_ctls(void)
 		for (j = 1; j < 8; j++) {
 			secondary &= ~(CPU_VIRT_X2APIC | CPU_APIC_REG_VIRT | CPU_VINTD);
 			if (primary & CPU_TPR_SHADOW) {
-				ctrl = true;
+				is_ctrl_valid = true;
 			} else {
 				if (! set_bit_pattern(j, &secondary))
-					ctrl = true;
+					is_ctrl_valid = true;
 				else
-					ctrl = false;
+					is_ctrl_valid = false;
 			}
 
 			vmcs_write(CPU_EXEC_CTRL1, secondary);
 			report_prefix_pushf("Use TPR shadow %s, virtualize x2APIC mode %s, APIC-register virtualization %s, virtual-interrupt delivery %s",
 				str, (secondary & CPU_VIRT_X2APIC) ? "enabled" : "disabled", (secondary & CPU_APIC_REG_VIRT) ? "enabled" : "disabled", (secondary & CPU_VINTD) ? "enabled" : "disabled");
-			if (ctrl)
+			if (is_ctrl_valid)
 				test_vmx_valid_controls();
 			else
 				test_vmx_invalid_controls();
@@ -3946,11 +3946,11 @@ static void test_virtual_intr_ctls(void)
 	vmcs_write(PIN_CONTROLS, saved_pin);
 }
 
-static void test_pi_desc_addr(u64 addr, bool ctrl)
+static void test_pi_desc_addr(u64 addr, bool is_ctrl_valid)
 {
 	vmcs_write(POSTED_INTR_DESC_ADDR, addr);
 	report_prefix_pushf("Process-posted-interrupts enabled; posted-interrupt-descriptor-address 0x%lx", addr);
-	if (ctrl)
+	if (is_ctrl_valid)
 		test_vmx_valid_controls();
 	else
 		test_vmx_invalid_controls();
@@ -4674,12 +4674,12 @@ done:
 	vmcs_write(PIN_CONTROLS, pin_ctrls);
 }
 
-static void test_eptp_ad_bit(u64 eptp, bool ctrl)
+static void test_eptp_ad_bit(u64 eptp, bool is_ctrl_valid)
 {
 	vmcs_write(EPTP, eptp);
 	report_prefix_pushf("Enable-EPT enabled; EPT accessed and dirty flag %s",
 	    (eptp & EPTP_AD_FLAG) ? "1": "0");
-	if (ctrl)
+	if (is_ctrl_valid)
 		test_vmx_valid_controls();
 	else
 		test_vmx_invalid_controls();
