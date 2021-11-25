@@ -4713,7 +4713,6 @@ static void test_ept_eptp(void)
 	u32 primary = primary_saved;
 	u32 secondary = secondary_saved;
 	u64 eptp = eptp_saved;
-	bool ctrl;
 	u32 i, maxphysaddr;
 	u64 j, resv_bits_mask = 0;
 
@@ -4755,15 +4754,11 @@ static void test_ept_eptp(void)
 	for (i = 0; i < 8; i++) {
 		eptp = (eptp & ~EPTP_PG_WALK_LEN_MASK) |
 		    (i << EPTP_PG_WALK_LEN_SHIFT);
-		if (i == 3 || (i == 4 && is_5_level_ept_supported()))
-			ctrl = true;
-		else
-			ctrl = false;
 
 		vmcs_write(EPTP, eptp);
 		report_prefix_pushf("Enable-EPT enabled; EPT page walk length %lu",
 		    eptp & EPTP_PG_WALK_LEN_MASK);
-		if (ctrl)
+		if (i == 3 || (i == 4 && is_5_level_ept_supported()))
 			test_vmx_valid_controls();
 		else
 			test_vmx_invalid_controls();
