@@ -1148,8 +1148,13 @@ static int ept_init_common(bool have_ad)
 	int ret;
 	struct pci_dev pcidev;
 
+	/* INVEPT is required by the EPT violation handler. */
+	if (!is_invept_type_supported(INVEPT_SINGLE))
+		return VMX_TEST_EXIT;
+
 	if (setup_ept(have_ad))
 		return VMX_TEST_EXIT;
+
 	data_page1 = alloc_page();
 	data_page2 = alloc_page();
 	*((u32 *)data_page1) = MAGIC_VAL_1;

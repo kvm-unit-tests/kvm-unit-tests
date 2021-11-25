@@ -725,6 +725,14 @@ extern union vmx_ctrl_msr ctrl_exit_rev;
 extern union vmx_ctrl_msr ctrl_enter_rev;
 extern union vmx_ept_vpid  ept_vpid;
 
+static inline bool is_invept_type_supported(u64 type)
+{
+	if (type < INVEPT_SINGLE || type > INVEPT_GLOBAL)
+		return false;
+
+	return ept_vpid.val & (EPT_CAP_INVEPT_SINGLE << (type - INVEPT_SINGLE));
+}
+
 extern u64 *bsp_vmxon_region;
 extern bool launched;
 
