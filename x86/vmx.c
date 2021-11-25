@@ -1164,36 +1164,6 @@ void set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
 	pt[offset] = pte_val;
 }
 
-bool ept_2m_supported(void)
-{
-	return ept_vpid.val & EPT_CAP_2M_PAGE;
-}
-
-bool ept_1g_supported(void)
-{
-	return ept_vpid.val & EPT_CAP_1G_PAGE;
-}
-
-bool ept_huge_pages_supported(int level)
-{
-	if (level == 2)
-		return ept_2m_supported();
-	else if (level == 3)
-		return ept_1g_supported();
-	else
-		return false;
-}
-
-bool ept_execute_only_supported(void)
-{
-	return ept_vpid.val & EPT_CAP_WT;
-}
-
-bool ept_ad_bits_supported(void)
-{
-	return ept_vpid.val & EPT_CAP_AD_FLAG;
-}
-
 void vpid_sync(int type, u16 vpid)
 {
 	switch(type) {

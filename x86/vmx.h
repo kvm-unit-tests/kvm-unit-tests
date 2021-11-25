@@ -785,6 +785,36 @@ extern union vmx_ctrl_msr ctrl_exit_rev;
 extern union vmx_ctrl_msr ctrl_enter_rev;
 extern union vmx_ept_vpid  ept_vpid;
 
+static inline bool ept_2m_supported(void)
+{
+	return ept_vpid.val & EPT_CAP_2M_PAGE;
+}
+
+static inline bool ept_1g_supported(void)
+{
+	return ept_vpid.val & EPT_CAP_1G_PAGE;
+}
+
+static inline bool ept_huge_pages_supported(int level)
+{
+	if (level == 2)
+		return ept_2m_supported();
+	else if (level == 3)
+		return ept_1g_supported();
+	else
+		return false;
+}
+
+static inline bool ept_execute_only_supported(void)
+{
+	return ept_vpid.val & EPT_CAP_WT;
+}
+
+static inline bool ept_ad_bits_supported(void)
+{
+	return ept_vpid.val & EPT_CAP_AD_FLAG;
+}
+
 static inline bool is_invept_type_supported(u64 type)
 {
 	if (type < INVEPT_SINGLE || type > INVEPT_GLOBAL)
@@ -974,12 +1004,6 @@ void check_ept_ad(unsigned long *pml4, u64 guest_cr3,
 		  int expected_pt_ad);
 void clear_ept_ad(unsigned long *pml4, u64 guest_cr3,
 		  unsigned long guest_addr);
-
-bool ept_2m_supported(void);
-bool ept_1g_supported(void);
-bool ept_huge_pages_supported(int level);
-bool ept_execute_only_supported(void);
-bool ept_ad_bits_supported(void);
 
 #define        ABORT_ON_EARLY_VMENTRY_FAIL     0x1
 #define        ABORT_ON_INVALID_GUEST_STATE    0x2
