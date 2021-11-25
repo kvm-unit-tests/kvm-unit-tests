@@ -609,7 +609,11 @@ static pt_element_t ac_get_pt(ac_test_t *at, int i, pt_element_t *ptep)
 		abort();
 	}
 
-	pte = at->page_tables[i];
+	/*
+	 * Preserve A/D bits to avoid writing upper level PTEs,
+	 * which cannot be unsyc'd when KVM uses shadow paging.
+	 */
+	pte = at->page_tables[i] | (pte & (PT_DIRTY_MASK | PT_ACCESSED_MASK));
 	return pte;
 }
 
