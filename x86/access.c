@@ -1084,18 +1084,17 @@ static int check_effective_sp_permissions(ac_pt_env_t *pt_env)
 	unsigned long ptr2 = ptr1 + SZ_2M;
 	unsigned long ptr3 = ptr1 + SZ_1G;
 	unsigned long ptr4 = ptr3 + SZ_2M;
-	pt_element_t pmd = ac_test_alloc_pt(pt_env);
 	ac_test_t at1, at2, at3, at4;
 	int err_read_at1, err_write_at2;
 	int err_read_at3, err_write_at4;
 
 	/*
 	 * pgd[]   pud[]        pmd[]            virtual address pointers
-	 *                   /->pmd1(u--)->pte1(uw-)->page1 <- ptr1 (u--)
-	 *      /->pud1(uw-)--->pmd2(uw-)->pte2(uw-)->page2 <- ptr2 (uw-)
-	 * pgd-|           (shared pmd[] as above)
-	 *      \->pud2(u--)--->pmd1(u--)->pte1(uw-)->page1 <- ptr3 (u--)
-	 *                   \->pmd2(uw-)->pte2(uw-)->page2 <- ptr4 (u--)
+	 *                   /->pmd(u--)->pte1(uw-)->page1 <- ptr1 (u--)
+	 *      /->pud1(uw-)--->pmd(uw-)->pte2(uw-)->page2 <- ptr2 (uw-)
+	 * pgd-|
+	 *      \->pud2(u--)--->pmd(u--)->pte1(uw-)->page1 <- ptr3 (u--)
+	 *                   \->pmd(uw-)->pte2(uw-)->page2 <- ptr4 (u--)
 	 * pud1 and pud2 point to the same pmd page.
 	 */
 
@@ -1104,19 +1103,23 @@ static int check_effective_sp_permissions(ac_pt_env_t *pt_env)
 		    AC_PDE_USER_MASK | AC_PTE_USER_MASK |
 		    AC_PDE_ACCESSED_MASK | AC_PTE_ACCESSED_MASK |
 		    AC_PTE_WRITABLE_MASK | AC_ACCESS_USER_MASK;
-	__ac_setup_specific_pages(&at1, pmd, 0);
+	__ac_setup_specific_pages(&at1, 0, 0);
 
 	__ac_test_init(&at2, ptr2, pt_env, &at1);
 	at2.flags = at1.flags | AC_PDE_WRITABLE_MASK | AC_PTE_DIRTY_MASK | AC_ACCESS_WRITE_MASK;
-	__ac_setup_specific_pages(&at2, pmd, 0);
+	__ac_setup_specific_pages(&at2, 0, 0);
 
 	__ac_test_init(&at3, ptr3, pt_env, &at1);
+	/* Override the PMD (1-based index) to point at ptr1's PMD. */
+	at3.page_tables[3] = at1.page_tables[3];
 	at3.flags = AC_PDPTE_NO_WRITABLE_MASK | at1.flags;
-	__ac_setup_specific_pages(&at3, pmd, 0);
+	__ac_setup_specific_pages(&at3, 0, 0);
 
+	/* Alias ptr2, only the PMD will differ; manually override the PMD. */
 	__ac_test_init(&at4, ptr4, pt_env, &at2);
+	at4.page_tables[3] = at1.page_tables[3];
 	at4.flags = AC_PDPTE_NO_WRITABLE_MASK | at2.flags;
-	__ac_setup_specific_pages(&at4, pmd, 0);
+	__ac_setup_specific_pages(&at4, 0, 0);
 
 	err_read_at1 = ac_test_do_access(&at1);
 	if (!err_read_at1) {
