@@ -3197,16 +3197,20 @@ static void try_invvpid(u64 type, u64 vpid, u64 gla)
 	       expected, vmcs_read(VMX_INST_ERROR));
 }
 
+static inline unsigned long get_first_supported_invvpid_type(void)
+{
+	u64 type = ffs(ept_vpid.val >> VPID_CAP_INVVPID_TYPES_SHIFT) - 1;
+
+	__TEST_ASSERT(type >= INVVPID_ADDR && type <= INVVPID_CONTEXT_LOCAL);
+	return type;
+}
+
 static void ds_invvpid(void *data)
 {
-	u64 msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
-	u64 type = ffs(msr >> VPID_CAP_INVVPID_TYPES_SHIFT) - 1;
-
-	TEST_ASSERT(type >= INVVPID_ADDR && type <= INVVPID_CONTEXT_LOCAL);
 	asm volatile("invvpid %0, %1"
 		     :
 		     : "m"(*(struct invvpid_operand *)data),
-		       "r"(type));
+		       "r"(get_first_supported_invvpid_type()));
 }
 
 /*
@@ -3216,13 +3220,9 @@ static void ds_invvpid(void *data)
  */
 static void ss_invvpid(void *data)
 {
-	u64 msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
-	u64 type = ffs(msr >> VPID_CAP_INVVPID_TYPES_SHIFT) - 1;
-
-	TEST_ASSERT(type >= INVVPID_ADDR && type <= INVVPID_CONTEXT_LOCAL);
 	asm volatile("sub %%rsp,%0; invvpid (%%rsp,%0,1), %1"
 		     : "+r"(data)
-		     : "r"(type));
+		     : "r"(get_first_supported_invvpid_type()));
 }
 
 static void invvpid_test_gp(void)
