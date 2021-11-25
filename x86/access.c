@@ -5,8 +5,6 @@
 #include "x86/vm.h"
 #include "access.h"
 
-#define smp_id() 0
-
 #define true 1
 #define false 0
 
@@ -1142,8 +1140,7 @@ int ac_test_run(int page_table_levels)
 	}
 
 	ac_env_int(&pool);
-	ac_test_init(&at, (void *)(0x123400000000 + 16 * smp_id()),
-		page_table_levels);
+	ac_test_init(&at, (void *)(0x123400000000), page_table_levels);
 	do {
 		++tests;
 		successes += ac_test_exec(&at, &pool);
