@@ -704,7 +704,8 @@ static void __ac_setup_specific_pages(ac_test_t *at, u64 pd_page, u64 pt_page)
 			assert(0);
 		}
 
-		*ptep = pte;
+		if (pte != *ptep)
+			*ptep = pte;
 
 		parent_pte = pte;
 	}
