@@ -1335,7 +1335,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page1);
 			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page2);
 			if (have_ad)
-				ept_sync(INVEPT_SINGLE, eptp);;
+				invept(INVEPT_SINGLE, eptp);
 			if (*((u32 *)data_page1) == MAGIC_VAL_3 &&
 					*((u32 *)data_page2) == MAGIC_VAL_2) {
 				vmx_inc_test_stage();
@@ -1348,14 +1348,14 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 		case 1:
 			install_ept(pml4, (unsigned long)data_page1,
  				(unsigned long)data_page1, EPT_WA);
-			ept_sync(INVEPT_SINGLE, eptp);
+			invept(INVEPT_SINGLE, eptp);
 			break;
 		case 2:
 			install_ept(pml4, (unsigned long)data_page1,
  				(unsigned long)data_page1,
  				EPT_RA | EPT_WA | EPT_EA |
  				(2 << EPT_MEM_TYPE_SHIFT));
-			ept_sync(INVEPT_SINGLE, eptp);
+			invept(INVEPT_SINGLE, eptp);
 			break;
 		case 3:
 			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page1);
@@ -1363,7 +1363,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 						1, &data_page1_pte));
 			set_ept_pte(pml4, (unsigned long)data_page1, 
 				1, data_page1_pte & ~EPT_PRESENT);
-			ept_sync(INVEPT_SINGLE, eptp);
+			invept(INVEPT_SINGLE, eptp);
 			break;
 		case 4:
 			ptep = get_pte_level((pgd_t *)guest_cr3, data_page1, /*level=*/2);
@@ -1372,12 +1372,12 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 			TEST_ASSERT(get_ept_pte(pml4, guest_pte_addr, 2, &data_page1_pte_pte));
 			set_ept_pte(pml4, guest_pte_addr, 2,
 				data_page1_pte_pte & ~EPT_PRESENT);
-			ept_sync(INVEPT_SINGLE, eptp);
+			invept(INVEPT_SINGLE, eptp);
 			break;
 		case 5:
 			install_ept(pml4, (unsigned long)pci_physaddr,
 				(unsigned long)pci_physaddr, 0);
-			ept_sync(INVEPT_SINGLE, eptp);
+			invept(INVEPT_SINGLE, eptp);
 			break;
 		case 7:
 			if (!invept_test(0, eptp))
@@ -1400,7 +1400,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 			install_ept(pml4, (unsigned long)data_page1,
  				(unsigned long)data_page1,
  				EPT_RA | EPT_WA | EPT_EA);
-			ept_sync(INVEPT_SINGLE, eptp);
+			invept(INVEPT_SINGLE, eptp);
 			break;
 		// Should not reach here
 		default:
@@ -1428,7 +1428,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 				vmx_inc_test_stage();
 			set_ept_pte(pml4, (unsigned long)data_page1,
 				1, data_page1_pte | (EPT_PRESENT));
-			ept_sync(INVEPT_SINGLE, eptp);
+			invept(INVEPT_SINGLE, eptp);
 			break;
 		case 4:
 			check_ept_ad(pml4, guest_cr3, (unsigned long)data_page1, 0,
@@ -1440,7 +1440,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 				vmx_inc_test_stage();
 			set_ept_pte(pml4, guest_pte_addr, 2,
 				data_page1_pte_pte | (EPT_PRESENT));
-			ept_sync(INVEPT_SINGLE, eptp);
+			invept(INVEPT_SINGLE, eptp);
 			break;
 		case 5:
 			if (exit_qual & EPT_VLT_RD)
@@ -1448,7 +1448,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 			TEST_ASSERT(get_ept_pte(pml4, (unsigned long)pci_physaddr,
 						1, &memaddr_pte));
 			set_ept_pte(pml4, memaddr_pte, 1, memaddr_pte | EPT_RA);
-			ept_sync(INVEPT_SINGLE, eptp);
+			invept(INVEPT_SINGLE, eptp);
 			break;
 		case 6:
 			if (exit_qual & EPT_VLT_WR)
@@ -1456,7 +1456,7 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 			TEST_ASSERT(get_ept_pte(pml4, (unsigned long)pci_physaddr,
 						1, &memaddr_pte));
 			set_ept_pte(pml4, memaddr_pte, 1, memaddr_pte | EPT_RA | EPT_WA);
-			ept_sync(INVEPT_SINGLE, eptp);
+			invept(INVEPT_SINGLE, eptp);
 			break;
 		default:
 			// Should not reach here
@@ -2483,7 +2483,7 @@ static unsigned long ept_twiddle(unsigned long gpa, bool mkhuge, int level,
 		pte = orig_pte;
 	pte = (pte & ~clear) | set;
 	set_ept_pte(pml4, gpa, level, pte);
-	ept_sync(INVEPT_SINGLE, eptp);
+	invept(INVEPT_SINGLE, eptp);
 
 	return orig_pte;
 }
@@ -2491,7 +2491,7 @@ static unsigned long ept_twiddle(unsigned long gpa, bool mkhuge, int level,
 static void ept_untwiddle(unsigned long gpa, int level, unsigned long orig_pte)
 {
 	set_ept_pte(pml4, gpa, level, orig_pte);
-	ept_sync(INVEPT_SINGLE, eptp);
+	invept(INVEPT_SINGLE, eptp);
 }
 
 static void do_ept_violation(bool leaf, enum ept_access_op op,

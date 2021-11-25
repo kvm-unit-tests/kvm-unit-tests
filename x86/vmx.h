@@ -953,7 +953,6 @@ int init_vmcs(struct vmcs **vmcs);
 const char *exit_reason_description(u64 reason);
 void print_vmexit_info(union exit_reason exit_reason);
 void print_vmentry_failure_info(struct vmentry_result *result);
-void ept_sync(int type, u64 eptp);
 void vpid_sync(int type, u16 vpid);
 void install_ept_entry(unsigned long *pml4, int pte_level,
 		unsigned long guest_addr, unsigned long pte,
