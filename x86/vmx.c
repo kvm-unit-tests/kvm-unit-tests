@@ -1164,24 +1164,6 @@ void set_ept_pte(unsigned long *pml4, unsigned long guest_addr,
 	pt[offset] = pte_val;
 }
 
-void vpid_sync(int type, u16 vpid)
-{
-	switch(type) {
-	case INVVPID_CONTEXT_GLOBAL:
-		if (ept_vpid.val & VPID_CAP_INVVPID_CXTGLB) {
-			invvpid(INVVPID_CONTEXT_GLOBAL, vpid, 0);
-			break;
-		}
-	case INVVPID_ALL:
-		if (ept_vpid.val & VPID_CAP_INVVPID_ALL) {
-			invvpid(INVVPID_ALL, vpid, 0);
-			break;
-		}
-	default:
-		printf("WARNING: invvpid is not supported\n");
-	}
-}
-
 static void init_vmcs_ctrl(void)
 {
 	/* 26.2 CHECKS ON VMX CONTROLS AND HOST-STATE AREA */
