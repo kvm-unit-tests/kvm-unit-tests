@@ -116,14 +116,15 @@ int main(void)
 
 	report_prefix_push("dependency");
 	for (i = 0; i < ARRAY_SIZE(dep); i++) {
+		report_prefix_pushf("%d implies %d", dep[i].facility, dep[i].implied);
 		if (test_facility(dep[i].facility)) {
 			report_xfail(dep[i].expected_tcg_fail && vm_is_tcg(),
 				     test_facility(dep[i].implied),
-				     "%d implies %d",
-				     dep[i].facility, dep[i].implied);
+				     "implication not correct");
 		} else {
 			report_skip("facility %d not present", dep[i].facility);
 		}
+		report_prefix_pop();
 	}
 	report_prefix_pop();
 
