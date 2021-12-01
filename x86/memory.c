@@ -67,13 +67,6 @@ int main(int ac, char **av)
 	asm volatile(".byte 0x66, 0x0f, 0xae, 0x33" : : "b" (&target));
 	report(ud == expected, "clwb (%s)", expected ? "ABSENT" : "present");
 
-	ud = 0;
-	/* clwb requires a memory operand, the following is NOT a valid
-	 * CLWB instruction (modrm == 0xF0).
-	 */
-	asm volatile(".byte 0x66, 0x0f, 0xae, 0xf0");
-	report(ud, "invalid clwb");
-
 	expected = !this_cpu_has(X86_FEATURE_PCOMMIT); /* PCOMMIT */
 	ud = 0;
 	/* pcommit: */
