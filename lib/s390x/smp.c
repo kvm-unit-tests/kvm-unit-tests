@@ -212,6 +212,7 @@ int smp_cpu_setup(uint16_t addr, struct psw psw)
 	/* Wait until the cpu has finished setup and started the provided psw */
 	while (lc->restart_new_psw.addr != psw.addr)
 		mb();
+	rc = 0;
 out:
 	spin_unlock(&lock);
 	return rc;
