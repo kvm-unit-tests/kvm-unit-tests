@@ -62,7 +62,6 @@ SECTIONS
     /DISCARD/ : {
         *(.note*)
         *(.interp)
-        *(.debug*)
         *(.comment)
         *(.dynamic)
     }
