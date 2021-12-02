@@ -190,3 +190,6 @@ the code files.  We also start with common code and finish with unit test
 code. git-diff's orderFile feature allows us to specify the order in a
 file.  The orderFile we use is `scripts/git.difforder`; adding the config
 with `git config diff.orderFile scripts/git.difforder` enables it.
+
+We strive to follow the Linux kernels coding style so it's recommended
+to run the kernel's ./scripts/checkpatch.pl on new patches.
