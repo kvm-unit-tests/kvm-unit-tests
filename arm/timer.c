@@ -277,7 +277,7 @@ static void test_timer(struct timer_info *info)
 	local_irq_enable();
 	left = info->read_tval();
 	report(info->irq_received, "interrupt received after TVAL/WFI");
-	report(left < 0, "timer has expired");
+	report(left <= 0, "timer has expired");
 	report_info("TVAL is %d ticks", left);
 }
 
