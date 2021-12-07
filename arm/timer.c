@@ -298,8 +298,8 @@ static void test_timer_tval(struct timer_info *info)
 
 static void test_timer(struct timer_info *info)
 {
-	test_timer_pending(info);
 	test_timer_cval(info);
+	test_timer_pending(info);
 	test_timer_tval(info);
 }
 
