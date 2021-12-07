@@ -226,16 +226,23 @@ static bool test_cval_10msec(struct timer_info *info)
 	return difference < time_10ms;
 }
 
-static void test_timer(struct timer_info *info)
+static void disable_timer(struct timer_info *info)
+{
+	info->write_ctl(0);
+	info->irq_received = false;
+}
+
+static void test_timer_pending(struct timer_info *info)
 {
 	u64 now = info->read_counter();
 	u64 time_10s = read_sysreg(cntfrq_el0) * 10;
 	u64 later = now + time_10s;
-	s32 left;
 
-	/* We don't want the irq handler to fire because that will change the
+	/*
+	 * We don't want the irq handler to fire because that will change the
 	 * timer state and we want to test the timer output signal.  We can
-	 * still read the pending state even if it's disabled. */
+	 * still read the pending state even if it's disabled.
+	 */
 	set_timer_irq_enabled(info, false);
 
 	/* Enable the timer, but schedule it for much later */
@@ -248,10 +255,9 @@ static void test_timer(struct timer_info *info)
 	report(timer_pending(info) && gic_timer_check_state(info, GIC_IRQ_STATE_PENDING),
 			"interrupt signal pending");
 
-	/* Disable the timer again and prepare to take interrupts */
-	info->write_ctl(0);
-	info->irq_received = false;
+	disable_timer(info);
 	set_timer_irq_enabled(info, true);
+
 	report(!info->irq_received, "no interrupt when timer is disabled");
 	report(!timer_pending(info) && gic_timer_check_state(info, GIC_IRQ_STATE_INACTIVE),
 			"interrupt signal no longer pending");
@@ -261,14 +267,21 @@ static void test_timer(struct timer_info *info)
 	report(timer_pending(info) && gic_timer_check_state(info, GIC_IRQ_STATE_INACTIVE),
 			"interrupt signal not pending");
 
+	disable_timer(info);
+}
+
+static void test_timer_cval(struct timer_info *info)
+{
 	report(test_cval_10msec(info), "latency within 10 ms");
 	report(info->irq_received, "interrupt received");
 
-	/* Disable the timer again */
-	info->write_ctl(0);
+	disable_timer(info);
+}
 
-	/* Test TVAL and IRQ trigger */
-	info->irq_received = false;
+static void test_timer_tval(struct timer_info *info)
+{
+	s32 left;
+
 	info->write_tval(read_sysreg(cntfrq_el0) / 100);	/* 10 ms */
 	local_irq_disable();
 	info->write_ctl(ARCH_TIMER_CTL_ENABLE);
@@ -279,6 +292,15 @@ static void test_timer(struct timer_info *info)
 	report(info->irq_received, "interrupt received after TVAL/WFI");
 	report(left <= 0, "timer has expired");
 	report_info("TVAL is %d ticks", left);
+
+	disable_timer(info);
+}
+
+static void test_timer(struct timer_info *info)
+{
+	test_timer_pending(info);
+	test_timer_cval(info);
+	test_timer_tval(info);
 }
 
 static void test_vtimer(void)
@@ -329,6 +351,8 @@ static void test_init(void)
 	}
 
 	install_irq_handler(EL1H_IRQ, irq_handler);
+	set_timer_irq_enabled(&ptimer_info, true);
+	set_timer_irq_enabled(&vtimer_info, true);
 	local_irq_enable();
 }
 
