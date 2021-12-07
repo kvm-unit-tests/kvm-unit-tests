@@ -278,17 +278,44 @@ static void test_timer_cval(struct timer_info *info)
 	disable_timer(info);
 }
 
-static void test_timer_tval(struct timer_info *info)
+static void timer_do_wfi(struct timer_info *info)
 {
-	s32 left;
-
-	info->write_tval(read_sysreg(cntfrq_el0) / 100);	/* 10 ms */
 	local_irq_disable();
-	info->write_ctl(ARCH_TIMER_CTL_ENABLE);
+	if (info->irq_received)
+		goto out;
 	report_info("waiting for interrupt...");
 	wfi();
+out:
 	local_irq_enable();
-	left = info->read_tval();
+}
+
+static void test_timer_tval(struct timer_info *info)
+{
+	u64 time_10ms = read_sysreg(cntfrq_el0) / 100;
+	s32 left;
+	int i;
+
+	info->write_tval(time_10ms);
+	info->write_ctl(ARCH_TIMER_CTL_ENABLE);
+
+	for (;;) {
+		timer_do_wfi(info);
+		left = info->read_tval();
+		if (info->irq_received || left <= 0)
+			break;
+	}
+
+	/* Wait one second for the GIC to update the interrupt state. */
+	if (left <= 0 && !info->irq_received) {
+		for (i = 0; i < 10; i++) {
+			timer_do_wfi(info);
+			if (info->irq_received)
+				break;
+			mdelay(100);
+		}
+		left = info->read_tval();
+	}
+
 	report(info->irq_received, "interrupt received after TVAL/WFI");
 	report(left <= 0, "timer has expired");
 	report_info("TVAL is %d ticks", left);
