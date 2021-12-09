@@ -318,6 +318,7 @@ void sclp_setup_int(void);
 void sclp_handle_ext(void);
 void sclp_wait_busy(void);
 void sclp_mark_busy(void);
+void sclp_clear_busy(void);
 void sclp_console_setup(void);
 void sclp_print(const char *str);
 void sclp_read_info(void);

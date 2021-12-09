@@ -41,7 +41,7 @@ static void unshare_pages(void *p, int count)
 
 void *alloc_io_mem(int size, int flags)
 {
-	int order = get_order(size >> PAGE_SHIFT);
+	int order = get_order(PAGE_ALIGN(size) >> PAGE_SHIFT);
 	void *p;
 	int n;
 
@@ -62,7 +62,7 @@ void *alloc_io_mem(int size, int flags)
 
 void free_io_mem(void *p, int size)
 {
-	int order = get_order(size >> PAGE_SHIFT);
+	int order = get_order(PAGE_ALIGN(size) >> PAGE_SHIFT);
 
 	assert(IS_ALIGNED((uintptr_t)p, PAGE_SIZE));
 

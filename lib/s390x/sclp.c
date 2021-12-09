@@ -60,9 +60,7 @@ void sclp_setup_int(void)
 void sclp_handle_ext(void)
 {
 	ctl_clear_bit(0, CTL0_SERVICE_SIGNAL);
-	spin_lock(&sclp_lock);
-	sclp_busy = false;
-	spin_unlock(&sclp_lock);
+	sclp_clear_busy();
 }
 
 void sclp_wait_busy(void)
@@ -87,6 +85,13 @@ void sclp_mark_busy(void)
 		}
 		spin_unlock(&sclp_lock);
 	}
+}
+
+void sclp_clear_busy(void)
+{
+	spin_lock(&sclp_lock);
+	sclp_busy = false;
+	spin_unlock(&sclp_lock);
 }
 
 static void sclp_read_scp_info(ReadInfo *ri, int length)
