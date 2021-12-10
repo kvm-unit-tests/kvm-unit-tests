@@ -23,8 +23,10 @@
 #define DBGWCR_E		(0x1 << 0)
 
 #define SPSR_D			(1 << 9)
+#define SPSR_SS			(1 << 21)
 
 #define ESR_EC_HW_BP_CURRENT    0x31
+#define ESR_EC_SSTEP_CURRENT    0x33
 #define ESR_EC_WP_CURRENT       0x35
 
 #define ID_AA64DFR0_BRPS_SHIFT	12
@@ -34,6 +36,7 @@
 
 static volatile uint64_t hw_bp_idx, hw_bp_addr[16];
 static volatile uint64_t wp_idx, wp_data_addr[16];
+static volatile uint64_t ss_addr[4], ss_idx;
 
 static void hw_bp_handler(struct pt_regs *regs, unsigned int esr)
 {
@@ -45,6 +48,12 @@ static void wp_handler(struct pt_regs *regs, unsigned int esr)
 {
 	wp_data_addr[wp_idx++] = read_sysreg(far_el1);
 	regs->pstate |= SPSR_D;
+}
+
+static void ss_handler(struct pt_regs *regs, unsigned int esr)
+{
+	ss_addr[ss_idx++] = regs->pc;
+	regs->pstate |= SPSR_SS;
 }
 
 static int get_num_hw_bp(void)
@@ -344,6 +353,36 @@ static void test_wp(bool migrate)
 	}
 }
 
+static void test_ss(bool migrate)
+{
+	extern unsigned char ss_start;
+	uint32_t mdscr;
+
+	install_exception_handler(EL1H_SYNC, ESR_EC_SSTEP_CURRENT, ss_handler);
+
+	reset_debug_state();
+
+	ss_idx = 0;
+
+	mdscr = read_sysreg(mdscr_el1) | MDSCR_KDE | MDSCR_SS;
+	write_sysreg(mdscr, mdscr_el1);
+	isb();
+
+	if (migrate) {
+		do_migrate();
+	}
+
+	asm volatile("msr daifclr, #8");
+
+	asm volatile("ss_start:\n"
+			"mrs x0, esr_el1\n"
+			"add x0, x0, #1\n"
+			"msr daifset, #8\n"
+			: : : "x0");
+
+	report(ss_addr[0] == (uint64_t)&ss_start, "single step");
+}
+
 int main(int argc, char **argv)
 {
 	if (argc < 2)
@@ -364,6 +403,14 @@ int main(int argc, char **argv)
 	} else if (strcmp(argv[1], "wp-migration") == 0) {
 		report_prefix_push(argv[1]);
 		test_wp(true);
+		report_prefix_pop();
+	} else if (strcmp(argv[1], "ss") == 0) {
+		report_prefix_push(argv[1]);
+		test_ss(false);
+		report_prefix_pop();
+	} else if (strcmp(argv[1], "ss-migration") == 0) {
+		report_prefix_push(argv[1]);
+		test_ss(true);
 		report_prefix_pop();
 	} else {
 		report_abort("Unknown subtest '%s'", argv[1]);
