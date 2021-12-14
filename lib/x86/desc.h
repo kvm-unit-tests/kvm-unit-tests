@@ -18,6 +18,10 @@ struct ex_regs {
     unsigned long rip;
     unsigned long cs;
     unsigned long rflags;
+#ifdef __x86_64__
+    unsigned long rsp;
+    unsigned long ss;
+#endif
 };
 
 typedef void (*handler)(struct ex_regs *regs);

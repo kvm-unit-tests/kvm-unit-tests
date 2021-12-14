@@ -26,6 +26,9 @@ static void restore_exec_to_jmpbuf_exception_handler(struct ex_regs *regs)
 	/* longjmp must happen after iret, so do not do it now.  */
 	regs->rip = (unsigned long)&restore_exec_to_jmpbuf;
 	regs->cs = KERNEL_CS;
+#ifdef __x86_64__
+	regs->ss = KERNEL_DS;
+#endif
 }
 
 uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
