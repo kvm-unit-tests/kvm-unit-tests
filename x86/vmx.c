@@ -42,7 +42,7 @@
 u64 *bsp_vmxon_region;
 struct vmcs *vmcs_root;
 u32 vpid_cnt;
-void *guest_stack, *guest_syscall_stack;
+u64 guest_stack_top, guest_syscall_stack_top;
 u32 ctrl_pin, ctrl_enter, ctrl_exit, ctrl_cpu[2];
 struct regs regs;
 
@@ -1241,8 +1241,7 @@ static void init_vmcs_guest(void)
 	vmcs_write(GUEST_CR3, guest_cr3);
 	vmcs_write(GUEST_CR4, guest_cr4);
 	vmcs_write(GUEST_SYSENTER_CS,  KERNEL_CS);
-	vmcs_write(GUEST_SYSENTER_ESP,
-		(u64)(guest_syscall_stack + PAGE_SIZE - 1));
+	vmcs_write(GUEST_SYSENTER_ESP, guest_syscall_stack_top);
 	vmcs_write(GUEST_SYSENTER_EIP, (u64)(&entry_sysenter));
 	vmcs_write(GUEST_DR7, 0);
 	vmcs_write(GUEST_EFER, rdmsr(MSR_EFER));
@@ -1292,7 +1291,7 @@ static void init_vmcs_guest(void)
 
 	/* 26.3.1.4 */
 	vmcs_write(GUEST_RIP, (u64)(&guest_entry));
-	vmcs_write(GUEST_RSP, (u64)(guest_stack + PAGE_SIZE - 1));
+	vmcs_write(GUEST_RSP, guest_stack_top);
 	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED);
 
 	/* 26.3.1.5 */
@@ -1388,8 +1387,8 @@ void init_vmx(u64 *vmxon_region)
 static void alloc_bsp_vmx_pages(void)
 {
 	bsp_vmxon_region = alloc_page();
-	guest_stack = alloc_page();
-	guest_syscall_stack = alloc_page();
+	guest_stack_top = (uintptr_t)alloc_page() + PAGE_SIZE;
+	guest_syscall_stack_top = (uintptr_t)alloc_page() + PAGE_SIZE;
 	vmcs_root = alloc_page();
 }
 
