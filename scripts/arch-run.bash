@@ -108,7 +108,7 @@ run_migration ()
 {
 	if ! command -v ncat >/dev/null 2>&1; then
 		echo "${FUNCNAME[0]} needs ncat (netcat)" >&2
-		return 2
+		return 77
 	fi
 
 	migsock=$(mktemp -u -t mig-helper-socket.XXXXXXXXXX)
