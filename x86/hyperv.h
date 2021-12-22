@@ -190,7 +190,7 @@ static inline bool synic_supported(void)
 
 static inline bool stimer_supported(void)
 {
-    return cpuid(HYPERV_CPUID_FEATURES).a & HV_X64_MSR_SYNIC_AVAILABLE;
+    return cpuid(HYPERV_CPUID_FEATURES).a & HV_X64_MSR_SYNTIMER_AVAILABLE;
 }
 
 static inline bool hv_time_ref_counter_supported(void)
