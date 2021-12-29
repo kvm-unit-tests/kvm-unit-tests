@@ -2962,6 +2962,53 @@ static bool vgif_check(struct svm_test *test)
     return get_test_stage(test) == 3;
 }
 
+static int of_test_counter;
+
+static void guest_test_of_handler(struct ex_regs *r)
+{
+    of_test_counter++;
+}
+
+static void svm_of_test_guest(struct svm_test *test)
+{
+    struct far_pointer32 fp = {
+        .offset = (uintptr_t)&&into,
+        .selector = KERNEL_CS32,
+    };
+    uintptr_t rsp;
+
+    asm volatile ("mov %%rsp, %0" : "=r"(rsp));
+
+    if (fp.offset != (uintptr_t)&&into) {
+        printf("Codee address too high.\n");
+        return;
+    }
+
+    if ((u32)rsp != rsp) {
+        printf("Stack address too high.\n");
+    }
+
+    asm goto("lcall *%0" : : "m" (fp) : "rax" : into);
+    return;
+into:
+
+    asm volatile (".code32;"
+            "movl $0x7fffffff, %eax;"
+            "addl %eax, %eax;"
+            "into;"
+            "lret;"
+            ".code64");
+    __builtin_unreachable();
+}
+
+static void svm_into_test(void)
+{
+    handle_exception(OF_VECTOR, guest_test_of_handler);
+    test_set_guest(svm_of_test_guest);
+    report(svm_vmrun() == SVM_EXIT_VMMCALL && of_test_counter == 1,
+        "#OF is generated in L2 exception handler0");
+}
+
 static int bp_test_counter;
 
 static void guest_test_bp_handler(struct ex_regs *r)
@@ -3148,5 +3195,6 @@ struct svm_test svm_tests[] = {
     TEST(svm_test_singlestep),
     TEST(svm_nm_test),
     TEST(svm_int3_test),
+    TEST(svm_into_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
