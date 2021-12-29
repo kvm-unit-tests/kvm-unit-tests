@@ -2962,6 +2962,50 @@ static bool vgif_check(struct svm_test *test)
     return get_test_stage(test) == 3;
 }
 
+static int nm_test_counter;
+
+static void guest_test_nm_handler(struct ex_regs *r)
+{
+    nm_test_counter++; 
+    write_cr0(read_cr0() & ~X86_CR0_TS);
+    write_cr0(read_cr0() & ~X86_CR0_EM);
+}
+
+static void svm_nm_test_guest(struct svm_test *test)
+{
+    asm volatile("fnop");
+}
+
+/* This test checks that:
+ *
+ * (a) If CR0.TS is set in L2, #NM is handled by L2 when
+ *     just an L2 handler is registered.
+ *
+ * (b) If CR0.TS is cleared and CR0.EM is set, #NM is handled
+ *     by L2 when just an l2 handler is registered.
+ *
+ * (c) If CR0.TS and CR0.EM are cleared in L2, no exception
+ *     is generated.
+ */
+
+static void svm_nm_test(void)
+{
+    handle_exception(NM_VECTOR, guest_test_nm_handler);
+    write_cr0(read_cr0() & ~X86_CR0_TS);
+    test_set_guest(svm_nm_test_guest);
+
+    vmcb->save.cr0 = vmcb->save.cr0 | X86_CR0_TS;
+    report(svm_vmrun() == SVM_EXIT_VMMCALL && nm_test_counter == 1,
+        "fnop with CR0.TS set in L2, #NM is triggered");
+
+    vmcb->save.cr0 = (vmcb->save.cr0 & ~X86_CR0_TS) | X86_CR0_EM;
+    report(svm_vmrun() == SVM_EXIT_VMMCALL && nm_test_counter == 2,
+        "fnop with CR0.EM set in L2, #NM is triggered");
+
+    vmcb->save.cr0 = vmcb->save.cr0 & ~(X86_CR0_TS | X86_CR0_EM);
+    report(svm_vmrun() == SVM_EXIT_VMMCALL && nm_test_counter == 2,
+        "fnop with CR0.TS and CR0.EM unset no #NM excpetion");
+}
 
 struct svm_test svm_tests[] = {
     { "null", default_supported, default_prepare,
@@ -3082,5 +3126,6 @@ struct svm_test svm_tests[] = {
     TEST(svm_vmrun_errata_test),
     TEST(svm_vmload_vmsave),
     TEST(svm_test_singlestep),
+    TEST(svm_nm_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
