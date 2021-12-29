@@ -2962,6 +2962,26 @@ static bool vgif_check(struct svm_test *test)
     return get_test_stage(test) == 3;
 }
 
+static int bp_test_counter;
+
+static void guest_test_bp_handler(struct ex_regs *r)
+{
+    bp_test_counter++;
+}
+
+static void svm_bp_test_guest(struct svm_test *test)
+{
+    asm volatile("int3");
+}
+
+static void svm_int3_test(void)
+{
+    handle_exception(BP_VECTOR, guest_test_bp_handler);
+    test_set_guest(svm_bp_test_guest);
+    report(svm_vmrun() == SVM_EXIT_VMMCALL && bp_test_counter == 1,
+        "#BP is handled in L2 exception handler");
+}
+
 static int nm_test_counter;
 
 static void guest_test_nm_handler(struct ex_regs *r)
@@ -3127,5 +3147,6 @@ struct svm_test svm_tests[] = {
     TEST(svm_vmload_vmsave),
     TEST(svm_test_singlestep),
     TEST(svm_nm_test),
+    TEST(svm_int3_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
