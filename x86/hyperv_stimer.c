@@ -352,12 +352,12 @@ static void stimer_test_all(void)
 int main(int ac, char **av)
 {
 
-    if (!synic_supported()) {
+    if (!hv_synic_supported()) {
         report_pass("Hyper-V SynIC is not supported");
         goto done;
     }
 
-    if (!stimer_supported()) {
+    if (!hv_stimer_supported()) {
         report_pass("Hyper-V SynIC timers are not supported");
         goto done;
     }

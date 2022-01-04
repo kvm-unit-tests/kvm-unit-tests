@@ -266,7 +266,7 @@ int main(int ac, char **av)
 {
 	int ncpus, ncpus_ok, i;
 
-	if (!synic_supported()) {
+	if (!hv_synic_supported()) {
 		report_skip("Hyper-V SynIC is not supported");
 		goto summary;
 	}

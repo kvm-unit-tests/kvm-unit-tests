@@ -142,7 +142,7 @@ static void synic_test_cleanup(void *ctx)
 int main(int ac, char **av)
 {
 
-    if (synic_supported()) {
+    if (hv_synic_supported()) {
         int ncpus, i;
         bool ok;
 

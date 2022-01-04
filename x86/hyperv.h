@@ -183,12 +183,12 @@ struct hv_input_post_message {
 	u64 payload[HV_MESSAGE_PAYLOAD_QWORD_COUNT];
 };
 
-static inline bool synic_supported(void)
+static inline bool hv_synic_supported(void)
 {
    return cpuid(HYPERV_CPUID_FEATURES).a & HV_X64_MSR_SYNIC_AVAILABLE;
 }
 
-static inline bool stimer_supported(void)
+static inline bool hv_stimer_supported(void)
 {
     return cpuid(HYPERV_CPUID_FEATURES).a & HV_X64_MSR_SYNTIMER_AVAILABLE;
 }
