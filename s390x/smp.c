@@ -19,6 +19,47 @@
 #include <alloc_page.h>
 
 static int testflag = 0;
+#define INVALID_CPU_ADDRESS -4711
+#define INVALID_ORDER_CODE 0xFF
+struct sigp_invalid_cases {
+	int order;
+	char message[100];
+};
+static const struct sigp_invalid_cases cases_invalid_cpu_addr[] = {
+	{ SIGP_STOP,                  "stop with invalid CPU address" },
+	{ SIGP_START,                 "start with invalid CPU address" },
+	{ SIGP_CPU_RESET,             "reset with invalid CPU address" },
+	{ INVALID_ORDER_CODE,         "invalid order code and CPU address" },
+	{ SIGP_SENSE,                 "sense with invalid CPU address" },
+	{ SIGP_STOP_AND_STORE_STATUS, "stop and store status with invalid CPU address" },
+};
+static const struct sigp_invalid_cases cases_valid_cpu_addr[] = {
+	{ INVALID_ORDER_CODE,         "invalid order code" },
+};
+
+static void test_invalid(void)
+{
+	const struct sigp_invalid_cases *c;
+	uint32_t status;
+	int cc;
+	int i;
+
+	report_prefix_push("invalid parameters");
+
+	for (i = 0; i < ARRAY_SIZE(cases_invalid_cpu_addr); i++) {
+		c = &cases_invalid_cpu_addr[i];
+		cc = sigp(INVALID_CPU_ADDRESS, c->order, 0, &status);
+		report(cc == 3, "%s", c->message);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(cases_valid_cpu_addr); i++) {
+		c = &cases_valid_cpu_addr[i];
+		cc = smp_sigp(1, c->order, 0, &status);
+		report(cc == 1, "%s", c->message);
+	}
+
+	report_prefix_pop();
+}
 
 static void wait_for_flag(void)
 {
@@ -136,9 +177,15 @@ static void test_store_status(void)
 {
 	struct cpu_status *status = alloc_pages_flags(1, AREA_DMA31);
 	uint32_t r;
+	int cc;
 
 	report_prefix_push("store status at address");
 	memset(status, 0, PAGE_SIZE * 2);
+
+	report_prefix_push("invalid CPU address");
+	cc = sigp(INVALID_CPU_ADDRESS, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, &r);
+	report(cc == 3, "returned with CC = 3");
+	report_prefix_pop();
 
 	report_prefix_push("running");
 	smp_cpu_restart(1);
@@ -344,6 +391,7 @@ int main(void)
 	smp_cpu_stop(1);
 
 	test_start();
+	test_invalid();
 	test_restart();
 	test_stop();
 	test_stop_store_status();
