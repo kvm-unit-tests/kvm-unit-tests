@@ -37,6 +37,8 @@ static const struct sigp_invalid_cases cases_valid_cpu_addr[] = {
 	{ INVALID_ORDER_CODE,         "invalid order code" },
 };
 
+static uint32_t cpu1_prefix;
+
 static void test_invalid(void)
 {
 	const struct sigp_invalid_cases *c;
@@ -211,6 +213,76 @@ static void test_store_status(void)
 	smp_cpu_stop(1);
 
 	report_prefix_pop();
+}
+
+static void loop(void)
+{
+	while (1)
+		;
+}
+
+static void stpx_and_set_flag(void)
+{
+	asm volatile (
+		"	stpx %[prefix]\n"
+		: [prefix] "=Q" (cpu1_prefix)
+		:
+		:
+	);
+
+	set_flag(1);
+}
+
+static void test_set_prefix(void)
+{
+	struct lowcore *new_lc = alloc_pages_flags(1, AREA_DMA31);
+	struct cpu *cpu1 = smp_cpu_from_idx(1);
+	uint32_t status = 0;
+	struct psw new_psw;
+	int cc;
+
+	report_prefix_push("set prefix");
+
+	assert(new_lc);
+
+	memcpy(new_lc, cpu1->lowcore, sizeof(struct lowcore));
+	new_lc->restart_new_psw.addr = (unsigned long)loop;
+
+	report_prefix_push("running");
+	set_flag(0);
+	new_psw.addr = (unsigned long)stpx_and_set_flag;
+	new_psw.mask = extract_psw_mask();
+	smp_cpu_start(1, new_psw);
+	wait_for_flag();
+	cpu1_prefix = 0xFFFFFFFF;
+
+	cc = smp_sigp(1, SIGP_SET_PREFIX, (unsigned long)new_lc, &status);
+	report(cc == 1, "CC = 1");
+	report(status == SIGP_STATUS_INCORRECT_STATE, "status = INCORRECT_STATE");
+
+	/*
+	 * If the prefix of the other CPU was changed it will enter an endless
+	 * loop. Otherwise, it should eventually set the flag.
+	 */
+	smp_cpu_stop(1);
+	set_flag(0);
+	smp_cpu_restart(1);
+	wait_for_flag();
+	report(cpu1_prefix == (uint64_t)cpu1->lowcore, "prefix unchanged");
+
+	report_prefix_pop();
+
+	report_prefix_push("invalid CPU address");
+
+	cc = sigp(INVALID_CPU_ADDRESS, SIGP_SET_PREFIX, (unsigned long)new_lc, &status);
+	report(cc == 3, "CC = 3");
+
+	report_prefix_pop();
+
+	free_pages(new_lc);
+
+	report_prefix_pop();
+
 }
 
 static void ecall(void)
@@ -401,6 +473,7 @@ int main(void)
 	test_stop();
 	test_stop_store_status();
 	test_store_status();
+	test_set_prefix();
 	test_ecall();
 	test_emcall();
 	test_sense_running();
