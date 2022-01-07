@@ -140,6 +140,11 @@ static void test_stop(void)
 	report(!rc, "return code");
 	report(smp_cpu_stopped(1), "cpu stopped");
 
+	report_prefix_push("stop stopped CPU");
+	report(!smp_cpu_stop(1), "STOP succeeds");
+	report(smp_cpu_stopped(1), "CPU is stopped");
+	report_prefix_pop();
+
 	report_prefix_pop();
 }
 
