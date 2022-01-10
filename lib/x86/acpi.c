@@ -19,7 +19,7 @@ void* find_acpi_table_addr(u32 sig)
         return (void*)(ulong)fadt->firmware_ctrl;
     }
 
-    for(addr = 0xf0000; addr < 0x100000; addr += 16) {
+    for(addr = 0xe0000; addr < 0x100000; addr += 16) {
 	rsdp = (void*)addr;
 	if (rsdp->signature == 0x2052545020445352LL)
           break;
