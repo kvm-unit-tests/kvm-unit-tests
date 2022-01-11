@@ -16,6 +16,7 @@
 #include <asm/sigp.h>
 
 #include <smp.h>
+#include <uv.h>
 #include <alloc_page.h>
 
 static int testflag = 0;
@@ -362,6 +363,47 @@ static void test_emcall(void)
 	report_prefix_pop();
 }
 
+static void test_cond_emcall(void)
+{
+	uint32_t status = 0;
+	struct psw psw;
+	int cc;
+	psw.mask = extract_psw_mask() & ~PSW_MASK_IO;
+	psw.addr = (unsigned long)emcall;
+
+	report_prefix_push("conditional emergency call");
+
+	if (uv_os_is_guest()) {
+		report_skip("unsupported under PV");
+		goto out;
+	}
+
+	report_prefix_push("invalid CPU address");
+
+	cc = sigp(INVALID_CPU_ADDRESS, SIGP_COND_EMERGENCY_SIGNAL, 0, NULL);
+	report(cc == 3, "CC = 3");
+
+	report_prefix_pop();
+
+	report_prefix_push("success");
+	set_flag(0);
+
+	smp_cpu_start(1, psw);
+	wait_for_flag();
+	set_flag(0);
+	cc = smp_sigp(1, SIGP_COND_EMERGENCY_SIGNAL, 0, &status);
+	report(!cc, "CC = 0");
+
+	wait_for_flag();
+	smp_cpu_stop(1);
+
+	report_prefix_pop();
+
+out:
+	report_prefix_pop();
+
+}
+
 static void test_sense_running(void)
 {
 	report_prefix_push("sense_running");
@@ -485,6 +527,7 @@ int main(void)
 	test_set_prefix();
 	test_ecall();
 	test_emcall();
+	test_cond_emcall();
 	test_sense_running();
 	test_reset();
 	test_reset_initial();
