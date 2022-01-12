@@ -3,6 +3,7 @@ tests += $(TEST_DIR)/intercept.elf
 tests += $(TEST_DIR)/emulator.elf
 tests += $(TEST_DIR)/sieve.elf
 tests += $(TEST_DIR)/sthyi.elf
+tests += $(TEST_DIR)/tprot.elf
 tests += $(TEST_DIR)/skey.elf
 tests += $(TEST_DIR)/diag10.elf
 tests += $(TEST_DIR)/diag308.elf
