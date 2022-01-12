@@ -264,7 +264,7 @@ static void do_migrate(void)
 	report_info("Migration complete");
 }
 
-static void test_hw_bp(bool migrate)
+static noinline void test_hw_bp(bool migrate)
 {
 	extern unsigned char hw_bp0;
 	uint32_t bcr;
@@ -310,7 +310,7 @@ static void test_hw_bp(bool migrate)
 
 static volatile char write_data[16];
 
-static void test_wp(bool migrate)
+static noinline void test_wp(bool migrate)
 {
 	uint32_t wcr;
 	uint32_t mdscr;
@@ -353,7 +353,7 @@ static void test_wp(bool migrate)
 	}
 }
 
-static void test_ss(bool migrate)
+static noinline void test_ss(bool migrate)
 {
 	extern unsigned char ss_start;
 	uint32_t mdscr;
