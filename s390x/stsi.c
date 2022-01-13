@@ -9,6 +9,7 @@
  */
 
 #include <libcflat.h>
+#include <bitops.h>
 #include <asm/page.h>
 #include <asm/asm-offsets.h>
 #include <asm/interrupt.h>
@@ -19,19 +20,40 @@ static uint8_t pagebuf[PAGE_SIZE * 2] __attribute__((aligned(PAGE_SIZE * 2)));
 
 static void test_specs(void)
 {
+	int i;
+	int cc;
+
 	report_prefix_push("specification");
 
-	report_prefix_push("inv r0");
-	expect_pgm_int();
-	stsi(pagebuf, 0, 1 << 8, 0);
-	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
-	report_prefix_pop();
+	for (i = 36; i <= 55; i++) {
+		report_prefix_pushf("set invalid r0 bit %d", i);
+		expect_pgm_int();
+		stsi(pagebuf, 0, BIT(63 - i), 0);
+		check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
+		report_prefix_pop();
+	}
 
-	report_prefix_push("inv r1");
-	expect_pgm_int();
-	stsi(pagebuf, 1, 0, 1 << 16);
-	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
-	report_prefix_pop();
+	for (i = 32; i <= 47; i++) {
+		report_prefix_pushf("set invalid r1 bit %d", i);
+		expect_pgm_int();
+		stsi(pagebuf, 1, 0, BIT(63 - i));
+		check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
+		report_prefix_pop();
+	}
+
+	for (i = 0; i < 32; i++) {
+		report_prefix_pushf("r0 bit %d ignored", i);
+		cc = stsi(pagebuf, 3, 2 | BIT(63 - i), 2);
+		report(!cc, "CC = 0");
+		report_prefix_pop();
+	}
+
+	for (i = 0; i < 32; i++) {
+		report_prefix_pushf("r1 bit %d ignored", i);
+		cc = stsi(pagebuf, 3, 2, 2 | BIT(63 - i));
+		report(!cc, "CC = 0");
+		report_prefix_pop();
+	}
 
 	report_prefix_push("unaligned");
 	expect_pgm_int();
