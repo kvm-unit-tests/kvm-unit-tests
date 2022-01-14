@@ -121,7 +121,7 @@ static void test_stop_store_status(void)
 
 static void test_store_status(void)
 {
-	struct cpu_status *status = alloc_pages(1);
+	struct cpu_status *status = alloc_pages_flags(1, AREA_DMA31);
 	uint32_t r;
 
 	report_prefix_push("store status at address");
@@ -241,7 +241,7 @@ static void test_func_initial(void)
 
 static void test_reset_initial(void)
 {
-	struct cpu_status *status = alloc_pages(0);
+	struct cpu_status *status = alloc_pages_flags(0, AREA_DMA31);
 	struct psw psw;
 	int i;
 
