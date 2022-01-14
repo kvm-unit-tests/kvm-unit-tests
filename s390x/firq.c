@@ -87,7 +87,7 @@ static void test_wait_state_delivery(void)
 	 */
 	while(smp_sense_running_status(1));
 
-	h = alloc_page();
+	h = alloc_pages_flags(0, AREA_DMA31);
 	h->length = 4096;
 	ret = servc(SCLP_CMDW_READ_CPU_INFO, __pa(h));
 	if (ret) {
