@@ -5,9 +5,9 @@
 #include "desc.h"
 
 struct invpcid_desc {
-    unsigned long pcid : 12;
-    unsigned long rsv  : 52;
-    unsigned long addr : 64;
+    u64 pcid : 12;
+    u64 rsv  : 52;
+    u64 addr : 64;
 };
 
 static int write_cr0_checking(unsigned long val)
@@ -73,12 +73,12 @@ static void test_invpcid_enabled(int pcid_enabled)
     int passed = 0, i;
     ulong cr4 = read_cr4();
     struct invpcid_desc desc;
-    desc.rsv = 0;
+
+    memset(&desc, 0, sizeof(desc));
 
     /* try executing invpcid when CR4.PCIDE=0, desc.pcid=0 and type=0..3
      * no exception expected
      */
-    desc.pcid = 0;
     for (i = 0; i < 4; i++) {
         if (invpcid_checking(i, &desc) != 0)
             goto report;
