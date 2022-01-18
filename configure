@@ -28,6 +28,7 @@ erratatxt="$srcdir/errata.txt"
 host_key_document=
 page_size=
 earlycon=
+target_efi=
 
 usage() {
     cat <<-EOF
@@ -69,6 +70,7 @@ usage() {
 	               pl011,mmio32,ADDR
 	                           Specify a PL011 compatible UART at address ADDR. Supported
 	                           register stride is 32 bit only.
+	    --target-efi           Boot and run from UEFI
 EOF
     exit 1
 }
@@ -132,6 +134,9 @@ while [[ "$1" = -* ]]; do
 	    ;;
 	--earlycon)
 	    earlycon="$arg"
+	    ;;
+	--target-efi)
+	    target_efi=y
 	    ;;
 	--help)
 	    usage
@@ -260,6 +265,11 @@ if [ -f "$srcdir/$testdir/run" ]; then
     ln -fs "$srcdir/$testdir/run" $testdir-run
 fi
 
+testsubdir=$testdir
+if [ -n "$target_efi" ]; then
+    testsubdir=$testdir/efi
+fi
+
 # check if uint32_t needs a long format modifier
 cat << EOF > lib-test.c
 __UINT32_TYPE__
@@ -291,8 +301,11 @@ if test ! -e Makefile; then
     ln -s "$srcdir/Makefile" .
 
     echo "linking tests..."
-    mkdir -p $testdir
+    mkdir -p $testsubdir
     ln -sf "$srcdir/$testdir/run" $testdir/
+    if test "$testdir" != "$testsubdir"; then
+        ln -sf "$srcdir/$testsubdir/run" $testsubdir/
+    fi
     ln -sf "$srcdir/$testdir/unittests.cfg" $testdir/
     ln -sf "$srcdir/run_tests.sh"
 
@@ -332,6 +345,7 @@ OBJDUMP=$cross_prefix$objdump
 AR=$cross_prefix$ar
 ADDR2LINE=$cross_prefix$addr2line
 TEST_DIR=$testdir
+TEST_SUBDIR=$testsubdir
 FIRMWARE=$firmware
 ENDIAN=$endian
 PRETTY_PRINT_STACKS=$pretty_print_stacks
@@ -341,6 +355,7 @@ U32_LONG_FMT=$u32_long
 WA_DIVIDE=$wa_divide
 GENPROTIMG=${GENPROTIMG-genprotimg}
 HOST_KEY_DOCUMENT=$host_key_document
+TARGET_EFI=$target_efi
 EOF
 if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
     echo "TARGET=$target" >> config.mak

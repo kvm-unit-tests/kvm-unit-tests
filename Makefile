@@ -38,6 +38,29 @@ LIBFDT_archive = $(LIBFDT_objdir)/libfdt.a
 
 OBJDIRS += $(LIBFDT_objdir)
 
+# EFI App
+ifeq ($(TARGET_EFI),y)
+ifeq ($(ARCH_NAME),x86_64)
+EFI_ARCH = x86_64
+else
+$(error Cannot build $(ARCH_NAME) tests as EFI apps)
+endif
+EFI_CFLAGS := -DTARGET_EFI
+# The following CFLAGS and LDFLAGS come from:
+#   - GNU-EFI/Makefile.defaults
+#   - GNU-EFI/apps/Makefile
+# Function calls must include the number of arguments passed to the functions
+# More details: https://wiki.osdev.org/GNU-EFI
+EFI_CFLAGS += -maccumulate-outgoing-args
+# GCC defines wchar to be 32 bits, but EFI expects 16 bits
+EFI_CFLAGS += -fshort-wchar
+# EFI applications use PIC as they are loaded to dynamic addresses, not a fixed
+# starting address
+EFI_CFLAGS += -fPIC
+# Create shared library
+EFI_LDFLAGS := -Bsymbolic -shared -nostdlib
+endif
+
 #include architecture specific make rules
 include $(SRCDIR)/$(TEST_DIR)/Makefile
 
@@ -62,7 +85,11 @@ COMMON_CFLAGS += $(fno_stack_protector)
 COMMON_CFLAGS += $(fno_stack_protector_all)
 COMMON_CFLAGS += $(wno_frame_address)
 COMMON_CFLAGS += $(if $(U32_LONG_FMT),-D__U32_LONG_FMT__,)
+ifeq ($(TARGET_EFI),y)
+COMMON_CFLAGS += $(EFI_CFLAGS)
+else
 COMMON_CFLAGS += $(fno_pic) $(no_pie)
+endif
 COMMON_CFLAGS += $(wclobbered)
 COMMON_CFLAGS += $(wunused_but_set_parameter)
 
@@ -113,7 +140,7 @@ clean: arch_clean libfdt_clean
 
 distclean: clean
 	$(RM) lib/asm lib/config.h config.mak $(TEST_DIR)-run msr.out cscope.* build-head
-	$(RM) -r tests logs logs.old
+	$(RM) -r tests logs logs.old efi-tests
 
 cscope: cscope_dirs = lib lib/libfdt lib/linux $(TEST_DIR) $(ARCH_LIBDIRS) lib/asm-generic
 cscope:

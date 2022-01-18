@@ -11,6 +11,13 @@
 #define FACP_SIGNATURE ACPI_SIGNATURE('F','A','C','P')
 #define FACS_SIGNATURE ACPI_SIGNATURE('F','A','C','S')
 
+
+#define ACPI_SIGNATURE_8BYTE(c1, c2, c3, c4, c5, c6, c7, c8) \
+	((uint64_t)(ACPI_SIGNATURE(c1, c2, c3, c4))) |       \
+	((uint64_t)(ACPI_SIGNATURE(c5, c6, c7, c8)) << 32)
+
+#define RSDP_SIGNATURE_8BYTE (ACPI_SIGNATURE_8BYTE('R', 'S', 'D', ' ', 'P', 'T', 'R', ' '))
+
 struct rsdp_descriptor {        /* Root System Descriptor Pointer */
     u64 signature;              /* ACPI signature, contains "RSD PTR " */
     u8  checksum;               /* To make sum of struct == 0 */
@@ -99,6 +106,7 @@ struct facs_descriptor_rev1
     u8  reserved3 [40];         /* Reserved - must be zero */
 };
 
+void set_efi_rsdp(struct rsdp_descriptor *rsdp);
 void* find_acpi_table_addr(u32 sig);
 
 #endif

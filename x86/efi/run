@@ -1,0 +1,64 @@
+#!/bin/bash
+
+set -e
+
+if [ $# -eq 0 ]; then
+	echo "Usage $0 TEST_CASE [QEMU_ARGS]"
+	exit 2
+fi
+
+if [ ! -f config.mak ]; then
+	echo "run './configure --target-efi && make' first. See ./configure -h"
+	exit 2
+fi
+source config.mak
+
+: "${EFI_SRC:=$(realpath "$(dirname "$0")/../")}"
+: "${EFI_UEFI:=/usr/share/ovmf/OVMF.fd}"
+: "${EFI_TEST:=efi-tests}"
+: "${EFI_SMP:=1}"
+: "${EFI_CASE:=$(basename $1 .efi)}"
+
+if [ ! -f "$EFI_UEFI" ]; then
+	echo "UEFI firmware not found: $EFI_UEFI"
+	echo "Please install the UEFI firmware to this path"
+	echo "Or specify the correct path with the env variable EFI_UEFI"
+	exit 2
+fi
+
+# Remove the TEST_CASE from $@
+shift 1
+
+if [ "$EFI_CASE" = "_NO_FILE_4Uhere_" ]; then
+	EFI_CASE=dummy
+fi
+
+# Prepare EFI boot file system
+#   - Copy .efi file to host dir $EFI_TEST/$EFI_CASE/EFI/BOOT/BOOTX64.EFI
+#     This host dir will be loaded by QEMU as a FAT32 image
+#   - UEFI firmware by default loads the file EFI/BOOT/BOOTX64.EFI
+: "${EFI_CASE_DIR:="$EFI_TEST/$EFI_CASE/EFI/BOOT"}"
+: "${EFI_CASE_BINARY:="$EFI_CASE_DIR/BOOTX64.EFI"}"
+
+mkdir -p "$EFI_CASE_DIR"
+cp "$EFI_SRC/$EFI_CASE.efi" "$EFI_CASE_BINARY"
+
+# Run test case with 256MiB QEMU memory. QEMU default memory size is 128MiB.
+# After UEFI boot up and we call `LibMemoryMap()`, the largest consecutive
+# memory region is ~42MiB. Although this is sufficient for many test cases to
+# run in UEFI, some test cases, e.g. `x86/pmu.c`, require more free memory. A
+# simple fix is to increase the QEMU default memory size to 256MiB so that
+# UEFI's largest allocatable memory region is large enough.
+#
+# Also, pass in an EFI-specific smp count (i.e., `-smp 1`) as the last argument
+# to x86/run. This `smp` flag overrides any previous `smp` flags (e.g.,
+# `-smp 4`). This is necessary because KVM-Unit-Tests do not currently support
+# SMP under UEFI. This last flag should be removed when this issue is resolved.
+"$TEST_DIR/run" \
+	-drive file="$EFI_UEFI",format=raw,if=pflash,readonly=on \
+	-drive file.dir="$EFI_TEST/$EFI_CASE/",file.driver=vvfat,file.rw=on,format=raw,if=virtio \
+	-net none \
+	-nographic \
+	-m 256 \
+	"$@" \
+	-smp "$EFI_SMP"

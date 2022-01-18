@@ -58,6 +58,10 @@ For running tests that involve migration from one QEMU instance to another
 you also need to have the "ncat" binary (from the nmap.org project) installed,
 otherwise the related tests will be skipped.
 
+## Running the tests with UEFI
+
+Check [x86/efi/README.md](./x86/efi/README.md).
+
 # Tests configuration file
 
 The test case may need specific runtime configurations, for

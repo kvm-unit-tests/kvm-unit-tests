@@ -38,7 +38,19 @@ else
 fi
 
 command="${qemu} --no-reboot -nodefaults $pc_testdev -vnc none -serial stdio $pci_testdev"
-command+=" -machine accel=$ACCEL -kernel"
+command+=" -machine accel=$ACCEL"
+if [ "${TARGET_EFI}" != y ]; then
+	command+=" -kernel"
+fi
 command="$(timeout_cmd) $command"
 
-run_qemu ${command} "$@"
+if [ "${TARGET_EFI}" = y ]; then
+	# Set ENVIRON_DEFAULT=n to remove '-initrd' flag for QEMU (see
+	# 'scripts/arch-run.bash' for more details). This is because when using
+	# UEFI, the test case binaries are passed to QEMU through the disk
+	# image, not through the '-kernel' flag. And QEMU reports an error if it
+	# gets '-initrd' without a '-kernel'
+	ENVIRON_DEFAULT=n run_qemu ${command} "$@"
+else
+	run_qemu ${command} "$@"
+fi

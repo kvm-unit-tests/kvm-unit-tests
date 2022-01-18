@@ -26,6 +26,9 @@ pteval_t *install_pte(pgd_t *cr3,
                 pt_page = 0;
 	    memset(new_pt, 0, PAGE_SIZE);
 	    pt[offset] = virt_to_phys(new_pt) | PT_PRESENT_MASK | PT_WRITABLE_MASK | pte_opt_mask;
+#ifdef TARGET_EFI
+	    pt[offset] |= get_amd_sev_c_bit_mask();
+#endif /* TARGET_EFI */
 	}
 	pt = phys_to_virt(pt[offset] & PT_ADDR_MASK);
     }
@@ -63,7 +66,7 @@ struct pte_search find_pte_level(pgd_t *cr3, void *virt,
 		if (r.level == lowest_level)
 			return r;
 
-		pt = phys_to_virt(pte & 0xffffffffff000ull);
+		pt = phys_to_virt(pte & PT_ADDR_MASK);
 	}
 }
 
@@ -94,13 +97,20 @@ pteval_t *get_pte_level(pgd_t *cr3, void *virt, int pte_level)
 
 pteval_t *install_large_page(pgd_t *cr3, phys_addr_t phys, void *virt)
 {
-    return install_pte(cr3, 2, virt,
-		       phys | PT_PRESENT_MASK | PT_WRITABLE_MASK | pte_opt_mask | PT_PAGE_SIZE_MASK, 0);
+    phys_addr_t flags = PT_PRESENT_MASK | PT_WRITABLE_MASK | pte_opt_mask | PT_PAGE_SIZE_MASK;
+#ifdef TARGET_EFI
+    flags |= get_amd_sev_c_bit_mask();
+#endif /* TARGET_EFI */
+    return install_pte(cr3, 2, virt, phys | flags, 0);
 }
 
 pteval_t *install_page(pgd_t *cr3, phys_addr_t phys, void *virt)
 {
-    return install_pte(cr3, 1, virt, phys | PT_PRESENT_MASK | PT_WRITABLE_MASK | pte_opt_mask, 0);
+    phys_addr_t flags = PT_PRESENT_MASK | PT_WRITABLE_MASK | pte_opt_mask;
+#ifdef TARGET_EFI
+    flags |= get_amd_sev_c_bit_mask();
+#endif /* TARGET_EFI */
+    return install_pte(cr3, 1, virt, phys | flags, 0);
 }
 
 void install_pages(pgd_t *cr3, phys_addr_t phys, size_t len, void *virt)
