@@ -281,6 +281,7 @@ static void setup_gdt_tss(void)
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 {
 	efi_status_t status;
+	const char *phase;
 
 	status = setup_memory_allocator(efi_bootinfo);
 	if (status != EFI_SUCCESS) {
@@ -302,28 +303,18 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 		return status;
 	}
 
+	phase = "AMD SEV";
 	status = setup_amd_sev();
-	if (status != EFI_SUCCESS) {
-		switch (status) {
-		case EFI_UNSUPPORTED:
-			/* Continue if AMD SEV is not supported */
-			break;
-		default:
-			printf("Set up AMD SEV failed\n");
-			return status;
-		}
+
+	/* Continue if AMD SEV is not supported, but skip SEV-ES setup */
+	if (status == EFI_SUCCESS) {
+		phase = "AMD SEV-ES";
+		status = setup_amd_sev_es();
 	}
 
-	status = setup_amd_sev_es();
-	if (status != EFI_SUCCESS) {
-		switch (status) {
-		case EFI_UNSUPPORTED:
-			/* Continue if AMD SEV-ES is not supported */
-			break;
-		default:
-			printf("Set up AMD SEV-ES failed\n");
-			return status;
-		}
+	if (status != EFI_SUCCESS && status != EFI_UNSUPPORTED) {
+		printf("%s setup failed, error = 0x%lx\n", phase, status);
+		return status;
 	}
 
 	reset_apic();
