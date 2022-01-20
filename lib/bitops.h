@@ -1,6 +1,9 @@
 #ifndef _BITOPS_H_
 #define _BITOPS_H_
 
+#include <stdbool.h>
+#include <stddef.h>
+
 /*
  * Adapted from
  *   include/linux/bitops.h
