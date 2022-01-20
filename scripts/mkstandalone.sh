@@ -35,7 +35,7 @@ generate_test ()
 	done
 
 	echo "#!/usr/bin/env bash"
-	echo "export STANDALONE=yes"
+	echo "export KUT_STANDALONE=yes"
 	echo "export ENVIRON_DEFAULT=$ENVIRON_DEFAULT"
 	echo "export HOST=\$(uname -m | sed -e 's/i.86/i386/;s/arm.*/arm/;s/ppc64.*/ppc64/')"
 	echo "export PRETTY_PRINT_STACKS=no"

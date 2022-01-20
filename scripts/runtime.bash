@@ -36,7 +36,7 @@ get_cmdline()
 skip_nodefault()
 {
     [ "$run_all_tests" = "yes" ] && return 1
-    [ "$STANDALONE" != "yes" ] && return 0
+    [ "$KUT_STANDALONE" != "yes" ] && return 0
 
     while true; do
         read -r -p "Test marked not to be run by default, are you sure (y/N)? " yn
@@ -155,7 +155,7 @@ function run()
     summary=$(eval $cmdline 2> >(RUNTIME_log_stderr $testname) \
                              > >(tee >(RUNTIME_log_stdout $testname $kernel) | extract_summary))
     ret=$?
-    [ "$STANDALONE" != "yes" ] && echo > >(RUNTIME_log_stdout $testname $kernel)
+    [ "$KUT_STANDALONE" != "yes" ] && echo > >(RUNTIME_log_stdout $testname $kernel)
 
     if [ $ret -eq 0 ]; then
         print_result "PASS" $testname "$summary"

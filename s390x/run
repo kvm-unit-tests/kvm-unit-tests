@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ -z "$STANDALONE" ]; then
+if [ -z "$KUT_STANDALONE" ]; then
 	if [ ! -f config.mak ]; then
 		echo "run ./configure && make first. See ./configure -h"
 		exit 2
