@@ -44,6 +44,10 @@ void sie_handle_validity(struct vm *vm)
 
 void sie(struct vm *vm)
 {
+	if (vm->sblk->sdf == 2)
+		memcpy(vm->sblk->pv_grregs, vm->save_area.guest.grs,
+		       sizeof(vm->save_area.guest.grs));
+
 	/* Reset icptcode so we don't trip over it below */
 	vm->sblk->icptcode = 0;
 
@@ -53,6 +57,20 @@ void sie(struct vm *vm)
 	}
 	vm->save_area.guest.grs[14] = vm->sblk->gg14;
 	vm->save_area.guest.grs[15] = vm->sblk->gg15;
+
+	if (vm->sblk->sdf == 2)
+		memcpy(vm->save_area.guest.grs, vm->sblk->pv_grregs,
+		       sizeof(vm->save_area.guest.grs));
+}
+
+void sie_guest_sca_create(struct vm *vm)
+{
+	vm->sca = (struct esca_block *)alloc_page();
+
+	/* Let's start out with one page of ESCA for now */
+	vm->sblk->scaoh = ((uint64_t)vm->sca >> 32);
+	vm->sblk->scaol = (uint64_t)vm->sca & ~0x3fU;
+	vm->sblk->ecb2 |= ECB2_ESCA;
 }
 
 /* Initializes the struct vm members like the SIE control block. */
@@ -80,4 +98,6 @@ void sie_guest_destroy(struct vm *vm)
 {
 	free_page(vm->crycb);
 	free_page(vm->sblk);
+	if (vm->sblk->ecb2 & ECB2_ESCA)
+		free_page(vm->sca);
 }

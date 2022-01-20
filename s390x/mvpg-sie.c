@@ -21,16 +21,11 @@
 #include <sie.h>
 #include <snippet.h>
 
-static u8 *guest;
 static struct vm vm;
 
 static uint8_t *src;
 static uint8_t *dst;
 static uint8_t *cmp;
-
-extern const char SNIPPET_NAME_START(c, mvpg_snippet)[];
-extern const char SNIPPET_NAME_END(c, mvpg_snippet)[];
-int binary_size;
 
 static void test_mvpg_pei(void)
 {
@@ -78,9 +73,6 @@ static void test_mvpg_pei(void)
 
 static void test_mvpg(void)
 {
-	int binary_size = SNIPPET_LEN(c, mvpg_snippet);
-
-	memcpy(guest, SNIPPET_NAME_START(c, mvpg_snippet), binary_size);
 	memset(src, 0x42, PAGE_SIZE);
 	memset(dst, 0x43, PAGE_SIZE);
 	sie(&vm);
@@ -89,20 +81,20 @@ static void test_mvpg(void)
 
 static void setup_guest(void)
 {
+	extern const char SNIPPET_NAME_START(c, mvpg_snippet)[];
+	extern const char SNIPPET_NAME_END(c, mvpg_snippet)[];
+
 	setup_vm();
 
-	/* Allocate 1MB as guest memory */
-	guest = alloc_pages(8);
+	snippet_setup_guest(&vm, false);
+	snippet_init(&vm, SNIPPET_NAME_START(c, mvpg_snippet),
+		     SNIPPET_LEN(c, mvpg_snippet), SNIPPET_OFF_C);
 
-	sie_guest_create(&vm, (uint64_t)guest, HPAGE_SIZE);
-
-	vm.sblk->gpsw = snippet_psw;
-	vm.sblk->ictl = ICTL_OPEREXC | ICTL_PINT;
 	/* Enable MVPG interpretation as we want to test KVM and not ourselves */
 	vm.sblk->eca = ECA_MVPGI;
 
-	src = guest + PAGE_SIZE * 6;
-	dst = guest + PAGE_SIZE * 5;
+	src = (uint8_t *) vm.sblk->mso + PAGE_SIZE * 6;
+	dst = (uint8_t *) vm.sblk->mso + PAGE_SIZE * 5;
 	cmp = alloc_page();
 	memset(cmp, 0, PAGE_SIZE);
 }

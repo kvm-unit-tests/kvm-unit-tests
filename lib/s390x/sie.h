@@ -38,7 +38,13 @@ struct kvm_s390_sie_block {
 	uint8_t		reserved08[4];		/* 0x0008 */
 #define PROG_IN_SIE (1<<0)
 	uint32_t	prog0c;			/* 0x000c */
-	uint8_t		reserved10[16];		/* 0x0010 */
+union {
+		uint8_t	reserved10[16];		/* 0x0010 */
+		struct {
+			uint64_t	pv_handle_cpu;
+			uint64_t	pv_handle_config;
+		};
+	};
 #define PROG_BLOCK_SIE	(1<<0)
 #define PROG_REQUEST	(1<<1)
 	uint32_t 	prog20;		/* 0x0020 */
@@ -87,10 +93,22 @@ struct kvm_s390_sie_block {
 #define ICPT_PARTEXEC	0x38
 #define ICPT_IOINST	0x40
 #define ICPT_KSS	0x5c
+#define ICPT_INT_ENABLE	0x64
+#define ICPT_PV_INSTR	0x68
+#define ICPT_PV_NOTIFY	0x6c
+#define ICPT_PV_PREF	0x70
 	uint8_t		icptcode;		/* 0x0050 */
 	uint8_t		icptstatus;		/* 0x0051 */
 	uint16_t	ihcpu;			/* 0x0052 */
-	uint8_t		reserved54[2];		/* 0x0054 */
+	uint8_t		reserved54;		/* 0x0054 */
+#define IICTL_CODE_NONE		 0x00
+#define IICTL_CODE_MCHK		 0x01
+#define IICTL_CODE_EXT		 0x02
+#define IICTL_CODE_IO		 0x03
+#define IICTL_CODE_RESTART	 0x04
+#define IICTL_CODE_SPECIFICATION 0x10
+#define IICTL_CODE_OPERAND	 0x11
+	uint8_t		iictl;			/* 0x0055 */
 	uint16_t	ipa;			/* 0x0056 */
 	uint32_t	ipb;			/* 0x0058 */
 	uint32_t	scaoh;			/* 0x005c */
@@ -112,7 +130,7 @@ struct kvm_s390_sie_block {
 #define ECB3_RI  0x01
 	uint8_t    	ecb3;			/* 0x0063 */
 	uint32_t	scaol;			/* 0x0064 */
-	uint8_t		reserved68;		/* 0x0068 */
+	uint8_t		sdf;			/* 0x0068 */
 	uint8_t    	epdx;			/* 0x0069 */
 	uint8_t    	reserved6a[2];		/* 0x006a */
 	uint32_t	todpr;			/* 0x006c */
@@ -128,9 +146,15 @@ struct kvm_s390_sie_block {
 #define HPID_KVM	0x4
 #define HPID_VSIE	0x5
 	uint8_t		hpid;			/* 0x00b8 */
-	uint8_t		reservedb9[11];		/* 0x00b9 */
-	uint16_t	extcpuaddr;		/* 0x00c4 */
-	uint16_t	eic;			/* 0x00c6 */
+	uint8_t		reservedb9[7];		/* 0x00b9 */
+	union {
+		struct {
+			uint32_t	eiparams;	/* 0x00c0 */
+			uint16_t	extcpuaddr;	/* 0x00c4 */
+			uint16_t	eic;		/* 0x00c6 */
+		};
+		uint64_t	mcic;			/* 0x00c0 */
+	} __attribute__ ((__packed__));
 	uint32_t	reservedc8;		/* 0x00c8 */
 	uint16_t	pgmilc;			/* 0x00cc */
 	uint16_t	iprcc;			/* 0x00ce */
@@ -152,7 +176,10 @@ struct kvm_s390_sie_block {
 #define CRYCB_FORMAT2 0x00000003
 	uint32_t	crycbd;			/* 0x00fc */
 	uint64_t	gcr[16];		/* 0x0100 */
-	uint64_t	gbea;			/* 0x0180 */
+	union {
+		uint64_t	gbea;			/* 0x0180 */
+		uint64_t	sidad;
+	};
 	uint8_t		reserved188[8];		/* 0x0188 */
 	uint64_t   	sdnxo;			/* 0x0190 */
 	uint8_t    	reserved198[8];		/* 0x0198 */
@@ -171,7 +198,17 @@ struct kvm_s390_sie_block {
 	uint64_t	itdba;			/* 0x01e8 */
 	uint64_t   	riccbd;			/* 0x01f0 */
 	uint64_t	gvrd;			/* 0x01f8 */
+	uint64_t	reserved200[48];	/* 0x0200 */
+	uint64_t	pv_grregs[16];		/* 0x0380 */
 } __attribute__((packed));
+
+struct vm_uv {
+	uint64_t vm_handle;
+	uint64_t vcpu_handle;
+	void *conf_base_stor;
+	void *conf_var_stor;
+	void *cpu_stor;
+};
 
 struct vm_save_regs {
 	uint64_t grs[16];
@@ -191,7 +228,9 @@ struct vm_save_area {
 struct vm {
 	struct kvm_s390_sie_block *sblk;
 	struct vm_save_area save_area;
+	void *sca;				/* System Control Area */
 	uint8_t *crycb;				/* Crypto Control Block */
+	struct vm_uv uv;			/* PV UV information */
 	/* Ptr to first guest page */
 	uint8_t *guest_mem;
 };
@@ -203,6 +242,7 @@ void sie(struct vm *vm);
 void sie_expect_validity(void);
 void sie_check_validity(uint16_t vir_exp);
 void sie_handle_validity(struct vm *vm);
+void sie_guest_sca_create(struct vm *vm);
 void sie_guest_create(struct vm *vm, uint64_t guest_mem, uint64_t guest_mem_len);
 void sie_guest_destroy(struct vm *vm);
 

@@ -7,7 +7,6 @@
  * Authors:
  *  Janosch Frank <frankja@linux.ibm.com>
  */
-#include <libcflat.h>
 
 static inline void force_exit(void)
 {

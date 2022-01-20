@@ -26,6 +26,7 @@ target=
 errata_force=0
 erratatxt="$srcdir/errata.txt"
 host_key_document=
+gen_se_header=
 page_size=
 earlycon=
 target_efi=
@@ -55,6 +56,9 @@ usage() {
 	    --host-key-document=HOST_KEY_DOCUMENT
 	                           Specify the machine-specific host-key document for creating
 	                           a PVM image with 'genprotimg' (s390x only)
+	    --gen-se-header=GEN_SE_HEADER
+	                           Provide an executable to generate a PV header
+				   requires --host-key-document. (s390x-snippets only)
 	    --page-size=PAGE_SIZE
 	                           Specify the page size (translation granule) (4k, 16k or
 	                           64k, default is 64k, arm64 only)
@@ -128,6 +132,9 @@ while [[ "$1" = -* ]]; do
 	    ;;
 	--host-key-document)
 	    host_key_document="$arg"
+	    ;;
+	--gen-se-header)
+	    gen_se_header="$arg"
 	    ;;
 	--page-size)
 	    page_size="$arg"
@@ -356,6 +363,7 @@ WA_DIVIDE=$wa_divide
 GENPROTIMG=${GENPROTIMG-genprotimg}
 HOST_KEY_DOCUMENT=$host_key_document
 TARGET_EFI=$target_efi
+GEN_SE_HEADER=$gen_se_header
 EOF
 if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
     echo "TARGET=$target" >> config.mak
