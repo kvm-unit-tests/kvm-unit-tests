@@ -36,12 +36,22 @@ static void handle_db(struct ex_regs *regs)
 	dr6[n] = read_dr6();
 
 	if (dr6[n] & 0x1)
-		regs->rflags |= (1 << 16);
+		regs->rflags |= X86_EFLAGS_RF;
 
 	if (++n >= 10) {
-		regs->rflags &= ~(1 << 8);
+		regs->rflags &= ~X86_EFLAGS_TF;
 		write_dr7(0x00000400);
 	}
+}
+
+static inline bool is_single_step_db(unsigned long dr6_val)
+{
+	return dr6_val == 0xffff4ff0;
+}
+
+static inline bool is_icebp_db(unsigned long dr6_val)
+{
+	return dr6_val == 0xffff0ff0;
 }
 
 extern unsigned char handle_db_save_rip;
@@ -64,15 +74,106 @@ static void handle_ud(struct ex_regs *regs)
 	got_ud = 1;
 }
 
-int main(int ac, char **av)
+typedef unsigned long (*db_test_fn)(void);
+typedef void (*db_report_fn)(unsigned long);
+
+static void __run_single_step_db_test(db_test_fn test, db_report_fn report_fn)
 {
 	unsigned long start;
+
+	n = 0;
+	write_dr6(0);
+
+	start = test();
+	report_fn(start);
+}
+
+#define run_ss_db_test(name) __run_single_step_db_test(name, report_##name)
+
+static void report_singlestep_basic(unsigned long start)
+{
+	report(n == 3 &&
+	       is_single_step_db(dr6[0]) && db_addr[0] == start &&
+	       is_single_step_db(dr6[1]) && db_addr[1] == start + 1 &&
+	       is_single_step_db(dr6[2]) && db_addr[2] == start + 1 + 1,
+	       "Single-step #DB basic test");
+}
+
+static unsigned long singlestep_basic(void)
+{
+	unsigned long start;
+
+	/*
+	 * After being enabled, single-step breakpoints have a one instruction
+	 * delay before the first #DB is generated.
+	 */
+	asm volatile (
+		"pushf\n\t"
+		"pop %%rax\n\t"
+		"or $(1<<8),%%rax\n\t"
+		"push %%rax\n\t"
+		"popf\n\t"
+		"and $~(1<<8),%%rax\n\t"
+		"1:push %%rax\n\t"
+		"popf\n\t"
+		"lea 1b, %0\n\t"
+		: "=r" (start) : : "rax"
+	);
+	return start;
+}
+
+static void report_singlestep_emulated_instructions(unsigned long start)
+{
+	report(n == 7 &&
+	       is_single_step_db(dr6[0]) && db_addr[0] == start &&
+	       is_single_step_db(dr6[1]) && db_addr[1] == start + 1 &&
+	       is_single_step_db(dr6[2]) && db_addr[2] == start + 1 + 3 &&
+	       is_single_step_db(dr6[3]) && db_addr[3] == start + 1 + 3 + 2 &&
+	       is_single_step_db(dr6[4]) && db_addr[4] == start + 1 + 3 + 2 + 5 &&
+	       is_single_step_db(dr6[5]) && db_addr[5] == start + 1 + 3 + 2 + 5 + 2 &&
+	       is_single_step_db(dr6[6]) && db_addr[6] == start + 1 + 3 + 2 + 5 + 2 + 1,
+	       "Single-step #DB on emulated instructions");
+}
+
+static unsigned long singlestep_emulated_instructions(void)
+{
+	unsigned long start;
+
+	/*
+	 * Verify single-step #DB are generated correctly on emulated
+	 * instructions, e.g. CPUID and RDMSR.
+	 */
+	asm volatile (
+		"pushf\n\t"
+		"pop %%rax\n\t"
+		"or $(1<<8),%%rax\n\t"
+		"push %%rax\n\t"
+		"popf\n\t"
+		"and $~(1<<8),%%rax\n\t"
+		"1:push %%rax\n\t"
+		"xor %%rax,%%rax\n\t"
+		"cpuid\n\t"
+		"movl $0x1a0,%%ecx\n\t"
+		"rdmsr\n\t"
+		"popf\n\t"
+		"lea 1b,%0\n\t"
+		: "=r" (start) : : "rax", "ebx", "ecx", "edx"
+	);
+	return start;
+}
+
+int main(int ac, char **av)
+{
 	unsigned long cr4;
 
 	handle_exception(DB_VECTOR, handle_db);
 	handle_exception(BP_VECTOR, handle_bp);
 	handle_exception(UD_VECTOR, handle_ud);
 
+	/*
+	 * DR4 is an alias for DR6 (and DR5 aliases DR7) if CR4.DE is NOT set,
+	 * and is reserved if CR4.DE=1 (Debug Extensions enabled).
+	 */
 	got_ud = 0;
 	cr4 = read_cr4();
 	write_cr4(cr4 & ~X86_CR4_DE);
@@ -83,13 +184,21 @@ int main(int ac, char **av)
 	cr4 = read_cr4();
 	write_cr4(cr4 | X86_CR4_DE);
 	read_dr4();
-	report(got_ud, "reading DR4 with CR4.DE == 1");
+	report(got_ud, "DR4 read got #UD with CR4.DE == 1");
 	write_dr6(0);
 
 	extern unsigned char sw_bp;
 	asm volatile("int3; sw_bp:");
 	report(bp_addr == (unsigned long)&sw_bp, "#BP");
 
+	/*
+	 * The CPU sets/clears bits 0-3 (trap bits for DR0-3) on #DB based on
+	 * whether or not the corresponding DR0-3 got a match.  All other bits
+	 * in DR6 are set if and only if their associated breakpoint condition
+	 * is active, and are never cleared by the CPU.  Verify a match on DR0
+	 * is reported correctly, and that DR6.BS is not set when single-step
+	 * breakpoints are disabled, but is left set (if set by software).
+	 */
 	n = 0;
 	extern unsigned char hw_bp1;
 	write_dr0(&hw_bp1);
@@ -108,55 +217,8 @@ int main(int ac, char **av)
 	       db_addr[0] == ((unsigned long)&hw_bp2) && dr6[0] == 0xffff4ff1,
 	       "hw breakpoint (test that dr6.BS is not cleared)");
 
-	n = 0;
-	write_dr6(0);
-	asm volatile(
-		"pushf\n\t"
-		"pop %%rax\n\t"
-		"or $(1<<8),%%rax\n\t"
-		"push %%rax\n\t"
-		"lea (%%rip),%0\n\t"
-		"popf\n\t"
-		"and $~(1<<8),%%rax\n\t"
-		"push %%rax\n\t"
-		"popf\n\t"
-		: "=r" (start) : : "rax");
-	report(n == 3 &&
-	       db_addr[0] == start + 1 + 6 && dr6[0] == 0xffff4ff0 &&
-	       db_addr[1] == start + 1 + 6 + 1 && dr6[1] == 0xffff4ff0 &&
-	       db_addr[2] == start + 1 + 6 + 1 + 1 && dr6[2] == 0xffff4ff0,
-	       "single step");
-
-	/*
-	 * cpuid and rdmsr (among others) trigger VM exits and are then
-	 * emulated. Test that single stepping works on emulated instructions.
-	 */
-	n = 0;
-	write_dr6(0);
-	asm volatile(
-		"pushf\n\t"
-		"pop %%rax\n\t"
-		"or $(1<<8),%%rax\n\t"
-		"push %%rax\n\t"
-		"lea (%%rip),%0\n\t"
-		"popf\n\t"
-		"and $~(1<<8),%%rax\n\t"
-		"push %%rax\n\t"
-		"xor %%rax,%%rax\n\t"
-		"cpuid\n\t"
-		"movl $0x1a0,%%ecx\n\t"
-		"rdmsr\n\t"
-		"popf\n\t"
-		: "=r" (start) : : "rax", "ebx", "ecx", "edx");
-	report(n == 7 &&
-	       db_addr[0] == start + 1 + 6 && dr6[0] == 0xffff4ff0 &&
-	       db_addr[1] == start + 1 + 6 + 1 && dr6[1] == 0xffff4ff0 &&
-	       db_addr[2] == start + 1 + 6 + 1 + 3 && dr6[2] == 0xffff4ff0 &&
-	       db_addr[3] == start + 1 + 6 + 1 + 3 + 2 && dr6[3] == 0xffff4ff0 &&
-	       db_addr[4] == start + 1 + 6 + 1 + 3 + 2 + 5 && dr6[4] == 0xffff4ff0 &&
-	       db_addr[5] == start + 1 + 6 + 1 + 3 + 2 + 5 + 2 && dr6[5] == 0xffff4ff0 &&
-	       db_addr[6] == start + 1 + 6 + 1 + 3 + 2 + 5 + 2 + 1 && dr6[6] == 0xffff4ff0,
-	       "single step emulated instructions");
+	run_ss_db_test(singlestep_basic);
+	run_ss_db_test(singlestep_emulated_instructions);
 
 	n = 0;
 	write_dr1((void *)&value);
