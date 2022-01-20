@@ -1,3 +1,5 @@
+#include <asm/debugreg.h>
+
 #include "ioram.h"
 #include "vm.h"
 #include "libcflat.h"
@@ -883,12 +885,14 @@ static void test_nop(uint64_t *mem)
 static void test_mov_dr(uint64_t *mem)
 {
 	unsigned long rax;
-	const unsigned long in_rax = 0;
-	bool rtm_support = this_cpu_has(X86_FEATURE_RTM);
-	unsigned long dr6_fixed_1 = rtm_support ? 0xfffe0ff0ul : 0xffff0ff0ul;
+
 	asm(KVM_FEP "movq %0, %%dr6\n\t"
-	    KVM_FEP "movq %%dr6, %0\n\t" : "=a" (rax) : "a" (in_rax));
-	report(rax == dr6_fixed_1, "mov_dr6");
+	    KVM_FEP "movq %%dr6, %0\n\t" : "=a" (rax) : "a" (0));
+
+	if (this_cpu_has(X86_FEATURE_RTM))
+		report(rax == (DR6_ACTIVE_LOW & ~DR6_RTM), "mov_dr6");
+	else
+		report(rax == DR6_ACTIVE_LOW, "mov_dr6");
 }
 
 static void test_push16(uint64_t *mem)

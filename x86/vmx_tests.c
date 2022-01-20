@@ -23,6 +23,13 @@
 #include "access.h"
 #include "x86/usermode.h"
 
+/*
+ * vmcs.GUEST_PENDING_DEBUG has the same format as DR6, although some bits that
+ * are legal in DR6 are reserved in vmcs.GUEST_PENDING_DEBUG.  And if any data
+ * or I/O breakpoint matches *and* was enabled, bit 12 is also set.
+ */
+#define PENDING_DBG_TRAP	BIT(12)
+
 #define VPID_CAP_INVVPID_TYPES_SHIFT 40
 
 u64 ia32_pat;
@@ -5081,9 +5088,9 @@ static void vmx_mtf_test(void)
 	enter_guest();
 	report_mtf("OUT", (unsigned long) &test_mtf2);
 	pending_dbg = vmcs_read(GUEST_PENDING_DEBUG);
-	report(pending_dbg & DR_STEP,
+	report(pending_dbg & DR6_BS,
 	       "'pending debug exceptions' field after MTF VM-exit: 0x%lx (expected 0x%lx)",
-	       pending_dbg, (unsigned long) DR_STEP);
+	       pending_dbg, (unsigned long) DR6_BS);
 
 	disable_mtf();
 	disable_tf();
@@ -8932,7 +8939,7 @@ static void vmx_preemption_timer_zero_inject_db(bool intercept_db)
 static void vmx_preemption_timer_zero_set_pending_dbg(u32 exception_bitmap)
 {
 	vmx_preemption_timer_zero_activate_preemption_timer();
-	vmcs_write(GUEST_PENDING_DEBUG, BIT(12) | DR_TRAP1);
+	vmcs_write(GUEST_PENDING_DEBUG, PENDING_DBG_TRAP | DR6_TRAP1);
 	vmcs_write(EXC_BITMAP, exception_bitmap);
 	enter_guest();
 }
@@ -9316,7 +9323,7 @@ static void vmx_db_test(void)
 	 * (b) stale bits in DR6 (DR6.BD, in particular) don't leak into
          *     the exit qualification field for a subsequent #DB exception.
 	 */
-	const u64 starting_dr6 = DR6_RESERVED | BIT(13) | DR_TRAP3 | DR_TRAP1;
+	const u64 starting_dr6 = DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP3 | DR6_TRAP1;
 	extern char post_nop asm(".Lpost_nop");
 	extern char post_movss_nop asm(".Lpost_movss_nop");
 	extern char post_wbinvd asm(".Lpost_wbinvd");
@@ -9340,7 +9347,7 @@ static void vmx_db_test(void)
 	 * standard that L0 has to follow for emulated instructions.
 	 */
 	single_step_guest("Hardware delivered single-step", starting_dr6, 0);
-	check_db_exit(false, false, false, &post_nop, DR_STEP, starting_dr6);
+	check_db_exit(false, false, false, &post_nop, DR6_BS, starting_dr6);
 
 	/*
 	 * Hardware-delivered #DB trap for single-step in MOVSS shadow
@@ -9350,8 +9357,8 @@ static void vmx_db_test(void)
 	 * data breakpoint as well as the single-step trap.
 	 */
 	single_step_guest("Hardware delivered single-step in MOVSS shadow",
-			  starting_dr6, BIT(12) | DR_STEP | DR_TRAP0 );
-	check_db_exit(false, false, false, &post_movss_nop, DR_STEP | DR_TRAP0,
+			  starting_dr6, DR6_BS | PENDING_DBG_TRAP | DR6_TRAP0);
+	check_db_exit(false, false, false, &post_movss_nop, DR6_BS | DR6_TRAP0,
 		      starting_dr6);
 
 	/*
@@ -9361,7 +9368,7 @@ static void vmx_db_test(void)
 	 * modified DR6, but fails miserably.
 	 */
 	single_step_guest("Software synthesized single-step", starting_dr6, 0);
-	check_db_exit(false, false, false, &post_wbinvd, DR_STEP, starting_dr6);
+	check_db_exit(false, false, false, &post_wbinvd, DR6_BS, starting_dr6);
 
 	/*
 	 * L0 synthesized #DB trap for single-step in MOVSS shadow is
@@ -9370,8 +9377,8 @@ static void vmx_db_test(void)
 	 * the exit qualification field for the #DB exception.
 	 */
 	single_step_guest("Software synthesized single-step in MOVSS shadow",
-			  starting_dr6, BIT(12) | DR_STEP | DR_TRAP0);
-	check_db_exit(true, false, true, &post_movss_wbinvd, DR_STEP | DR_TRAP0,
+			  starting_dr6, DR6_BS | PENDING_DBG_TRAP | DR6_TRAP0);
+	check_db_exit(true, false, true, &post_movss_wbinvd, DR6_BS | DR6_TRAP0,
 		      starting_dr6);
 
 	/*

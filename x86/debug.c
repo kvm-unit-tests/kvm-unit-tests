@@ -8,6 +8,7 @@
  *
  * This work is licensed under the terms of the GNU GPL, version 2.
  */
+#include <asm/debugreg.h>
 
 #include "libcflat.h"
 #include "processor.h"
@@ -47,12 +48,12 @@ static void handle_db(struct ex_regs *regs)
 
 static inline bool is_single_step_db(unsigned long dr6_val)
 {
-	return dr6_val == 0xffff4ff0;
+	return dr6_val == (DR6_ACTIVE_LOW | DR6_BS);
 }
 
 static inline bool is_icebp_db(unsigned long dr6_val)
 {
-	return dr6_val == 0xffff0ff0;
+	return dr6_val == DR6_ACTIVE_LOW;
 }
 
 extern unsigned char handle_db_save_rip;
@@ -195,8 +196,9 @@ int main(int ac, char **av)
 	cr4 = read_cr4();
 	write_cr4(cr4 & ~X86_CR4_DE);
 	write_dr4(0);
-	write_dr6(0xffff4ff2);
-	report(read_dr4() == 0xffff4ff2 && !got_ud, "reading DR4 with CR4.DE == 0");
+	write_dr6(DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP1);
+	report(read_dr4() == (DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP1) && !got_ud,
+	       "DR4==DR6 with CR4.DE == 0");
 
 	cr4 = read_cr4();
 	write_cr4(cr4 | X86_CR4_DE);
@@ -219,19 +221,21 @@ int main(int ac, char **av)
 	n = 0;
 	extern unsigned char hw_bp1;
 	write_dr0(&hw_bp1);
-	write_dr7(0x00000402);
+	write_dr7(DR7_FIXED_1 | DR7_GLOBAL_ENABLE_DR0);
 	asm volatile("hw_bp1: nop");
 	report(n == 1 &&
-	       db_addr[0] == ((unsigned long)&hw_bp1) && dr6[0] == 0xffff0ff1,
+	       db_addr[0] == ((unsigned long)&hw_bp1) &&
+	       dr6[0] == (DR6_ACTIVE_LOW | DR6_TRAP0),
 	       "hw breakpoint (test that dr6.BS is not set)");
 
 	n = 0;
 	extern unsigned char hw_bp2;
 	write_dr0(&hw_bp2);
-	write_dr6(0x00004002);
+	write_dr6(DR6_BS | DR6_TRAP1);
 	asm volatile("hw_bp2: nop");
 	report(n == 1 &&
-	       db_addr[0] == ((unsigned long)&hw_bp2) && dr6[0] == 0xffff4ff1,
+	       db_addr[0] == ((unsigned long)&hw_bp2) &&
+	       dr6[0] == (DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP0),
 	       "hw breakpoint (test that dr6.BS is not cleared)");
 
 	run_ss_db_test(singlestep_basic);
@@ -247,7 +251,8 @@ int main(int ac, char **av)
 		"mov %%rax,%0\n\t; hw_wp1:"
 		: "=m" (value) : : "rax");
 	report(n == 1 &&
-	       db_addr[0] == ((unsigned long)&hw_wp1) && dr6[0] == 0xffff4ff2,
+	       db_addr[0] == ((unsigned long)&hw_wp1) &&
+	       dr6[0] == (DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP1),
 	       "hw watchpoint (test that dr6.BS is not cleared)");
 
 	n = 0;
@@ -259,7 +264,8 @@ int main(int ac, char **av)
 		"mov %%rax,%0\n\t; hw_wp2:"
 		: "=m" (value) : : "rax");
 	report(n == 1 &&
-	       db_addr[0] == ((unsigned long)&hw_wp2) && dr6[0] == 0xffff0ff2,
+	       db_addr[0] == ((unsigned long)&hw_wp2) &&
+	       dr6[0] == (DR6_ACTIVE_LOW | DR6_TRAP1),
 	       "hw watchpoint (test that dr6.BS is not set)");
 
 	n = 0;
@@ -267,7 +273,7 @@ int main(int ac, char **av)
 	extern unsigned char sw_icebp;
 	asm volatile(".byte 0xf1; sw_icebp:");
 	report(n == 1 &&
-	       db_addr[0] == (unsigned long)&sw_icebp && dr6[0] == 0xffff0ff0,
+	       db_addr[0] == (unsigned long)&sw_icebp && dr6[0] == DR6_ACTIVE_LOW,
 	       "icebp");
 
 	write_dr7(0x400);

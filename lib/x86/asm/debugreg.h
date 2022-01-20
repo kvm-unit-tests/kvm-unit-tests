@@ -2,80 +2,63 @@
 #ifndef _ASMX86_DEBUGREG_H_
 #define _ASMX86_DEBUGREG_H_
 
-
-/* Indicate the register numbers for a number of the specific
-   debug registers.  Registers 0-3 contain the addresses we wish to trap on */
-#define DR_FIRSTADDR 0        /* u_debugreg[DR_FIRSTADDR] */
-#define DR_LASTADDR 3         /* u_debugreg[DR_LASTADDR]  */
-
-#define DR_STATUS 6           /* u_debugreg[DR_STATUS]     */
-#define DR_CONTROL 7          /* u_debugreg[DR_CONTROL] */
-
-/* Define a few things for the status register.  We can use this to determine
-   which debugging register was responsible for the trap.  The other bits
-   are either reserved or not of interest to us. */
-
-/* Define reserved bits in DR6 which are always set to 1 */
-#define DR6_RESERVED	(0xFFFF0FF0)
-
-#define DR_TRAP0	(0x1)		/* db0 */
-#define DR_TRAP1	(0x2)		/* db1 */
-#define DR_TRAP2	(0x4)		/* db2 */
-#define DR_TRAP3	(0x8)		/* db3 */
-#define DR_TRAP_BITS	(DR_TRAP0|DR_TRAP1|DR_TRAP2|DR_TRAP3)
-
-#define DR_STEP		(0x4000)	/* single-step */
-#define DR_SWITCH	(0x8000)	/* task switch */
-
-/* Now define a bunch of things for manipulating the control register.
-   The top two bytes of the control register consist of 4 fields of 4
-   bits - each field corresponds to one of the four debug registers,
-   and indicates what types of access we trap on, and how large the data
-   field is that we are looking at */
-
-#define DR_CONTROL_SHIFT 16 /* Skip this many bits in ctl register */
-#define DR_CONTROL_SIZE 4   /* 4 control bits per register */
-
-#define DR_RW_EXECUTE (0x0)   /* Settings for the access types to trap on */
-#define DR_RW_WRITE (0x1)
-#define DR_RW_READ (0x3)
-
-#define DR_LEN_1 (0x0) /* Settings for data length to trap on */
-#define DR_LEN_2 (0x4)
-#define DR_LEN_4 (0xC)
-#define DR_LEN_8 (0x8)
-
-/* The low byte to the control register determine which registers are
-   enabled.  There are 4 fields of two bits.  One bit is "local", meaning
-   that the processor will reset the bit after a task switch and the other
-   is global meaning that we have to explicitly reset the bit.  With linux,
-   you can use either one, since we explicitly zero the register when we enter
-   kernel mode. */
-
-#define DR_LOCAL_ENABLE_SHIFT 0    /* Extra shift to the local enable bit */
-#define DR_GLOBAL_ENABLE_SHIFT 1   /* Extra shift to the global enable bit */
-#define DR_LOCAL_ENABLE (0x1)      /* Local enable for reg 0 */
-#define DR_GLOBAL_ENABLE (0x2)     /* Global enable for reg 0 */
-#define DR_ENABLE_SIZE 2           /* 2 enable bits per register */
-
-#define DR_LOCAL_ENABLE_MASK (0x55)  /* Set  local bits for all 4 regs */
-#define DR_GLOBAL_ENABLE_MASK (0xAA) /* Set global bits for all 4 regs */
-
-/* The second byte to the control register has a few special things.
-   We can slow the instruction pipeline for instructions coming via the
-   gdt or the ldt if we want to.  I am not sure why this is an advantage */
-
-#ifdef __i386__
-#define DR_CONTROL_RESERVED (0xFC00) /* Reserved by Intel */
-#else
-#define DR_CONTROL_RESERVED (0xFFFFFFFF0000FC00UL) /* Reserved */
-#endif
-
-#define DR_LOCAL_SLOWDOWN (0x100)   /* Local slow the pipeline */
-#define DR_GLOBAL_SLOWDOWN (0x200)  /* Global slow the pipeline */
+#include <bitops.h>
 
 /*
- * HW breakpoint additions
+ * DR6_ACTIVE_LOW combines fixed-1 and active-low bits (e.g. RTM), and is also
+ * the init/reset value for DR6.
  */
+#define DR6_ACTIVE_LOW	0xffff0ff0
+#define DR6_VOLATILE	0x0001e80f
+#define DR6_FIXED_1	(DR6_ACTIVE_LOW & ~DR6_VOLATILE)
+
+#define DR6_TRAP0	BIT(0)		/* DR0 matched */
+#define DR6_TRAP1	BIT(1)		/* DR1 matched */
+#define DR6_TRAP2	BIT(2)		/* DR2 matched */
+#define DR6_TRAP3	BIT(3)		/* DR3 matched */
+#define DR6_TRAP_BITS	(DR6_TRAP0|DR6_TRAP1|DR6_TRAP2|DR6_TRAP3)
+
+#define DR6_BUS_LOCK	BIT(11)		/* Bus lock	    0x800 */
+#define DR6_BD		BIT(13)		/* General Detect  0x2000 */
+#define DR6_BS		BIT(14)		/* Single-Step	   0x4000 */
+#define DR6_BT		BIT(15)		/* Task Switch	   0x8000 */
+#define DR6_RTM		BIT(16)		/* RTM / TSX	  0x10000 */
+
+#define DR7_FIXED_1	0x00000400	/* init/reset value, too */
+#define DR7_VOLATILE	0xffff2bff
+#define DR7_BP_EN_MASK	0x000000ff
+#define DR7_LE		BIT(8)		/* Local Exact	    0x100 */
+#define DR7_GE		BIT(9)		/* Global Exact     0x200 */
+#define DR7_RTM		BIT(11)		/* RTM / TSX	    0x800 */
+#define DR7_GD		BIT(13)		/* General Detect  0x2000 */
+
+/*
+ * Enable bits for DR0-D3.  Bits 0, 2, 4, and 6 are local enable bits (cleared
+ * by the CPU on task switch), bits 1, 3, 5, and 7 are global enable bits
+ * (never cleared by the CPU).
+ */
+#define DR7_LOCAL_ENABLE_DRx(x)		(BIT(0) << (x))
+#define DR7_GLOBAL_ENABLE_DRx(x)	(BIT(1) << (x))
+#define DR7_ENABLE_DRx(x) \
+	(DR7_LOCAL_ENABLE_DRx(x) | DR7_GLOBAL_ENABLE_DRx(x))
+
+#define DR7_GLOBAL_ENABLE_DR0	DR7_GLOBAL_ENABLE_DRx(0)
+#define DR7_GLOBAL_ENABLE_DR1	DR7_GLOBAL_ENABLE_DRx(1)
+#define DR7_GLOBAL_ENABLE_DR2	DR7_GLOBAL_ENABLE_DRx(2)
+#define DR7_GLOBAL_ENABLE_DR3	DR7_GLOBAL_ENABLE_DRx(3)
+
+/* Condition/type of the breakpoint for DR0-3. */
+#define DR7_RW_TYPE_DRx(x, rw)	((rw) << (((x) * 4) + 16))
+#define DR7_EXECUTE_DRx(x)	DR7_RW_TYPE_DRx(x, 0)
+#define DR7_WRITE_DRx(x)	DR7_RW_TYPE_DRx(x, 1)
+#define DR7_PORT_IO_DRx(x)	DR7_RW_TYPE_DRx(x, 2)
+#define DR7_DATA_IO_DRx(x)	DR7_RW_TYPE_DRx(x, 3)	/* Read or Write */
+
+/* Length of the breakpoint for DR0-3. */
+#define DR7_LEN_DRx(x, enc)	((enc) << (((x) * 4) + 18))
+#define DR7_LEN_1_DRx(x)	DR7_LEN_DRx(x, 0)
+#define DR7_LEN_2_DRx(x)	DR7_LEN_DRx(x, 1)
+#define DR7_LEN_4_DRx(x)	DR7_LEN_DRx(x, 3)
+#define DR7_LEN_8_DRx(x)	DR7_LEN_DRx(x, 2) /* Out of sequence, undefined for 32-bit CPUs. */
 
 #endif /* _ASMX86_DEBUGREG_H_ */
