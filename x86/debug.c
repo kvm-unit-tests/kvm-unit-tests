@@ -419,6 +419,7 @@ int main(int ac, char **av)
 
 	n = 0;
 	write_dr1((void *)&value);
+	write_dr6(DR6_BS);
 	write_dr7(0x00d0040a); // 4-byte write
 
 	extern unsigned char hw_wp1;
