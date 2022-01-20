@@ -12,6 +12,7 @@
 #include "libcflat.h"
 #include "processor.h"
 #include "desc.h"
+#include "usermode.h"
 
 static volatile unsigned long bp_addr;
 static volatile unsigned long db_addr[10], dr6[10];
@@ -75,28 +76,43 @@ static void handle_ud(struct ex_regs *regs)
 }
 
 typedef unsigned long (*db_test_fn)(void);
-typedef void (*db_report_fn)(unsigned long);
+typedef void (*db_report_fn)(unsigned long, const char *);
 
 static void __run_single_step_db_test(db_test_fn test, db_report_fn report_fn)
 {
 	unsigned long start;
+	bool ign;
 
 	n = 0;
 	write_dr6(0);
 
 	start = test();
-	report_fn(start);
+	report_fn(start, "");
+
+	n = 0;
+	write_dr6(0);
+	/*
+	 * Run the test in usermode.  Use the expected start RIP from the first
+	 * run, the usermode framework doesn't make it easy to get the expected
+	 * RIP out of the test, and it shouldn't change in any case.  Run the
+	 * test with IOPL=3 so that it can use OUT, CLI, STI, etc...
+	 */
+	set_iopl(3);
+	run_in_user((usermode_func)test, GP_VECTOR, 0, 0, 0, 0, &ign);
+	set_iopl(0);
+
+	report_fn(start, "Usermode ");
 }
 
 #define run_ss_db_test(name) __run_single_step_db_test(name, report_##name)
 
-static void report_singlestep_basic(unsigned long start)
+static void report_singlestep_basic(unsigned long start, const char *usermode)
 {
 	report(n == 3 &&
 	       is_single_step_db(dr6[0]) && db_addr[0] == start &&
 	       is_single_step_db(dr6[1]) && db_addr[1] == start + 1 &&
 	       is_single_step_db(dr6[2]) && db_addr[2] == start + 1 + 1,
-	       "Single-step #DB basic test");
+	       "%sSingle-step #DB basic test", usermode);
 }
 
 static unsigned long singlestep_basic(void)
@@ -122,7 +138,8 @@ static unsigned long singlestep_basic(void)
 	return start;
 }
 
-static void report_singlestep_emulated_instructions(unsigned long start)
+static void report_singlestep_emulated_instructions(unsigned long start,
+						    const char *usermode)
 {
 	report(n == 7 &&
 	       is_single_step_db(dr6[0]) && db_addr[0] == start &&
@@ -132,7 +149,7 @@ static void report_singlestep_emulated_instructions(unsigned long start)
 	       is_single_step_db(dr6[4]) && db_addr[4] == start + 1 + 3 + 2 + 5 &&
 	       is_single_step_db(dr6[5]) && db_addr[5] == start + 1 + 3 + 2 + 5 + 1 &&
 	       is_single_step_db(dr6[6]) && db_addr[6] == start + 1 + 3 + 2 + 5 + 1 + 1,
-	       "Single-step #DB on emulated instructions");
+	       "%sSingle-step #DB on emulated instructions", usermode);
 }
 
 static unsigned long singlestep_emulated_instructions(void)
