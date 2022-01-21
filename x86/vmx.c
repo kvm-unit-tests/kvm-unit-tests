@@ -1209,7 +1209,7 @@ static void init_vmcs_host(void)
 	vmcs_write(HOST_BASE_GDTR, gdt_descr.base);
 	vmcs_write(HOST_BASE_IDTR, idt_descr.base);
 	vmcs_write(HOST_BASE_FS, 0);
-	vmcs_write(HOST_BASE_GS, 0);
+	vmcs_write(HOST_BASE_GS, rdmsr(MSR_GS_BASE));
 
 	/* Set other vmcs area */
 	vmcs_write(PF_ERROR_MASK, 0);
@@ -1261,7 +1261,7 @@ static void init_vmcs_guest(void)
 	vmcs_write(GUEST_BASE_SS, 0);
 	vmcs_write(GUEST_BASE_DS, 0);
 	vmcs_write(GUEST_BASE_FS, 0);
-	vmcs_write(GUEST_BASE_GS, 0);
+	vmcs_write(GUEST_BASE_GS, rdmsr(MSR_GS_BASE));
 	vmcs_write(GUEST_BASE_TR, get_gdt_entry_base(tss_descr));
 	vmcs_write(GUEST_BASE_LDTR, 0);
 
