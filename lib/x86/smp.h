@@ -15,6 +15,7 @@ struct percpu_data {
 		};
 		uint32_t exception_data;
 	};
+	void *apic_ops;
 };
 
 #define typeof_percpu(name) typeof(((struct percpu_data *)0)->name)
@@ -66,6 +67,7 @@ BUILD_PERCPU_OP(smp_id);
 BUILD_PERCPU_OP(exception_vector);
 BUILD_PERCPU_OP(exception_rflags_rf);
 BUILD_PERCPU_OP(exception_error_code);
+BUILD_PERCPU_OP(apic_ops);
 
 void smp_init(void);
 

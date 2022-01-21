@@ -2,6 +2,7 @@
 #include "apic.h"
 #include "msr.h"
 #include "processor.h"
+#include "smp.h"
 #include "asm/barrier.h"
 
 void *g_apic = (void *)0xfee00000;
@@ -14,6 +15,11 @@ struct apic_ops {
 	void (*icr_write)(u32 val, u32 dest);
 	u32 (*id)(void);
 };
+
+static struct apic_ops *get_apic_ops(void)
+{
+	return this_cpu_read_apic_ops();
+}
 
 static void outb(unsigned char data, unsigned short port)
 {
@@ -60,8 +66,6 @@ static const struct apic_ops xapic_ops = {
 	.id = xapic_id,
 };
 
-static const struct apic_ops *apic_ops = &xapic_ops;
-
 static u32 x2apic_read(unsigned reg)
 {
 	unsigned a, d;
@@ -96,12 +100,12 @@ static const struct apic_ops x2apic_ops = {
 
 u32 apic_read(unsigned reg)
 {
-	return apic_ops->reg_read(reg);
+	return get_apic_ops()->reg_read(reg);
 }
 
 void apic_write(unsigned reg, u32 val)
 {
-	apic_ops->reg_write(reg, val);
+	get_apic_ops()->reg_write(reg, val);
 }
 
 bool apic_read_bit(unsigned reg, int n)
@@ -113,12 +117,12 @@ bool apic_read_bit(unsigned reg, int n)
 
 void apic_icr_write(u32 val, u32 dest)
 {
-	apic_ops->icr_write(val, dest);
+	get_apic_ops()->icr_write(val, dest);
 }
 
 uint32_t apic_id(void)
 {
-	return apic_ops->id();
+	return get_apic_ops()->id();
 }
 
 uint8_t apic_get_tpr(void)
@@ -152,7 +156,7 @@ int enable_x2apic(void)
 		asm ("rdmsr" : "=a"(a), "=d"(d) : "c"(MSR_IA32_APICBASE));
 		a |= 1 << 10;
 		asm ("wrmsr" : : "a"(a), "d"(d), "c"(MSR_IA32_APICBASE));
-		apic_ops = &x2apic_ops;
+		this_cpu_write_apic_ops((void *)&x2apic_ops);
 		return 1;
 	} else {
 		return 0;
@@ -162,7 +166,7 @@ int enable_x2apic(void)
 void disable_apic(void)
 {
 	wrmsr(MSR_IA32_APICBASE, rdmsr(MSR_IA32_APICBASE) & ~(APIC_EN | APIC_EXTD));
-	apic_ops = &xapic_ops;
+	this_cpu_write_apic_ops((void *)&xapic_ops);
 }
 
 void reset_apic(void)
