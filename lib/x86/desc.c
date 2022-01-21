@@ -58,35 +58,35 @@ void do_handle_exception(struct ex_regs *regs);
 
 void set_idt_entry(int vec, void *addr, int dpl)
 {
-    idt_entry_t *e = &boot_idt[vec];
-    memset(e, 0, sizeof *e);
-    e->offset0 = (unsigned long)addr;
-    e->selector = read_cs();
-    e->ist = 0;
-    e->type = 14;
-    e->dpl = dpl;
-    e->p = 1;
-    e->offset1 = (unsigned long)addr >> 16;
+	idt_entry_t *e = &boot_idt[vec];
+	memset(e, 0, sizeof *e);
+	e->offset0 = (unsigned long)addr;
+	e->selector = read_cs();
+	e->ist = 0;
+	e->type = 14;
+	e->dpl = dpl;
+	e->p = 1;
+	e->offset1 = (unsigned long)addr >> 16;
 #ifdef __x86_64__
-    e->offset2 = (unsigned long)addr >> 32;
+	e->offset2 = (unsigned long)addr >> 32;
 #endif
 }
 
 void set_idt_dpl(int vec, u16 dpl)
 {
-    idt_entry_t *e = &boot_idt[vec];
-    e->dpl = dpl;
+	idt_entry_t *e = &boot_idt[vec];
+	e->dpl = dpl;
 }
 
 void set_idt_sel(int vec, u16 sel)
 {
-    idt_entry_t *e = &boot_idt[vec];
-    e->selector = sel;
+	idt_entry_t *e = &boot_idt[vec];
+	e->selector = sel;
 }
 
 struct ex_record {
-    unsigned long rip;
-    unsigned long handler;
+	unsigned long rip;
+	unsigned long handler;
 };
 
 extern struct ex_record exception_table_start, exception_table_end;
@@ -154,20 +154,20 @@ void unhandled_exception(struct ex_regs *regs, bool cpu)
 
 static void check_exception_table(struct ex_regs *regs)
 {
-    struct ex_record *ex;
-    unsigned ex_val;
+	struct ex_record *ex;
+	unsigned ex_val;
 
-    ex_val = regs->vector | (regs->error_code << 16) |
+	ex_val = regs->vector | (regs->error_code << 16) |
 		(((regs->rflags >> 16) & 1) << 8);
-    asm("mov %0, %%gs:4" : : "r"(ex_val));
+	asm("mov %0, %%gs:4" : : "r"(ex_val));
 
-    for (ex = &exception_table_start; ex != &exception_table_end; ++ex) {
-        if (ex->rip == regs->rip) {
-            regs->rip = ex->handler;
-            return;
-        }
-    }
-    unhandled_exception(regs, false);
+	for (ex = &exception_table_start; ex != &exception_table_end; ++ex) {
+		if (ex->rip == regs->rip) {
+			regs->rip = ex->handler;
+			return;
+		}
+	}
+	unhandled_exception(regs, false);
 }
 
 static handler exception_handlers[32];
@@ -278,51 +278,52 @@ static void *idt_handlers[32] = {
 
 void setup_idt(void)
 {
-    int i;
-    static bool idt_initialized = false;
+	int i;
+	static bool idt_initialized = false;
 
-    if (idt_initialized) {
-        return;
-    }
-    idt_initialized = true;
-    for (i = 0; i < 32; i++)
-	    if (idt_handlers[i])
-		    set_idt_entry(i, idt_handlers[i], 0);
-    handle_exception(0, check_exception_table);
-    handle_exception(6, check_exception_table);
-    handle_exception(13, check_exception_table);
+	if (idt_initialized)
+		return;
+
+	idt_initialized = true;
+	for (i = 0; i < 32; i++) {
+		if (idt_handlers[i])
+			set_idt_entry(i, idt_handlers[i], 0);
+	}
+	handle_exception(0, check_exception_table);
+	handle_exception(6, check_exception_table);
+	handle_exception(13, check_exception_table);
 }
 
 unsigned exception_vector(void)
 {
-    unsigned char vector;
+	unsigned char vector;
 
-    asm volatile("movb %%gs:4, %0" : "=q"(vector));
-    return vector;
+	asm volatile("movb %%gs:4, %0" : "=q"(vector));
+	return vector;
 }
 
 int write_cr4_checking(unsigned long val)
 {
-    asm volatile(ASM_TRY("1f")
-            "mov %0,%%cr4\n\t"
-            "1:": : "r" (val));
-    return exception_vector();
+	asm volatile(ASM_TRY("1f")
+		"mov %0,%%cr4\n\t"
+		"1:": : "r" (val));
+	return exception_vector();
 }
 
 unsigned exception_error_code(void)
 {
-    unsigned short error_code;
+	unsigned short error_code;
 
-    asm volatile("mov %%gs:6, %0" : "=r"(error_code));
-    return error_code;
+	asm volatile("mov %%gs:6, %0" : "=r"(error_code));
+	return error_code;
 }
 
 bool exception_rflags_rf(void)
 {
-    unsigned char rf_flag;
+	unsigned char rf_flag;
 
-    asm volatile("movb %%gs:5, %b0" : "=q"(rf_flag));
-    return rf_flag & 1;
+	asm volatile("movb %%gs:5, %b0" : "=q"(rf_flag));
+	return rf_flag & 1;
 }
 
 static char intr_alt_stack[4096];
@@ -352,20 +353,20 @@ void set_gdt_entry(int sel, unsigned long base,  u32 limit, u8 type, u8 flags)
 #ifndef __x86_64__
 void set_gdt_task_gate(u16 sel, u16 tss_sel)
 {
-    set_gdt_entry(sel, tss_sel, 0, 0x85, 0); // task, present
+	set_gdt_entry(sel, tss_sel, 0, 0x85, 0); // task, present
 }
 
 void set_idt_task_gate(int vec, u16 sel)
 {
-    idt_entry_t *e = &boot_idt[vec];
+	idt_entry_t *e = &boot_idt[vec];
 
-    memset(e, 0, sizeof *e);
+	memset(e, 0, sizeof *e);
 
-    e->selector = sel;
-    e->ist = 0;
-    e->type = 5;
-    e->dpl = 0;
-    e->p = 1;
+	e->selector = sel;
+	e->ist = 0;
+	e->type = 5;
+	e->dpl = 0;
+	e->p = 1;
 }
 
 /*
