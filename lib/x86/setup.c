@@ -109,7 +109,7 @@ unsigned long setup_tss(u8 *stacktop)
 	u32 id;
 	tss64_t *tss_entry;
 
-	id = apic_id();
+	id = pre_boot_apic_id();
 
 	/* Runtime address of current TSS */
 	tss_entry = &tss[id];
@@ -129,7 +129,7 @@ unsigned long setup_tss(u8 *stacktop)
 	u32 id;
 	tss32_t *tss_entry;
 
-	id = apic_id();
+	id = pre_boot_apic_id();
 
 	/* Runtime address of current TSS */
 	tss_entry = &tss[id];

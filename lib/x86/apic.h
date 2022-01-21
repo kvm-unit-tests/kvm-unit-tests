@@ -53,6 +53,8 @@ bool apic_read_bit(unsigned reg, int n);
 void apic_write(unsigned reg, uint32_t val);
 void apic_icr_write(uint32_t val, uint32_t dest);
 uint32_t apic_id(void);
+uint32_t pre_boot_apic_id(void);
+
 
 int enable_x2apic(void);
 void disable_apic(void);
