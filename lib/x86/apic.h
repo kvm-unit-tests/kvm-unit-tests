@@ -6,9 +6,6 @@
 
 extern u8 id_map[MAX_TEST_CPUS];
 
-extern void *g_apic;
-extern void *g_ioapic;
-
 typedef struct {
     uint8_t vector;
     uint8_t delivery_mode:3;

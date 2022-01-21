@@ -14,8 +14,9 @@
  * Alan Cox <Alan.Cox@linux.org>, 1995.
  * Ingo Molnar <mingo@redhat.com>, 1999, 2000
  */
+#define IO_APIC_DEFAULT_PHYS_BASE	0xfec00000
+#define	APIC_DEFAULT_PHYS_BASE		0xfee00000
 
-#define	APIC_DEFAULT_PHYS_BASE	0xfee00000
 #define APIC_BSP		(1UL << 8)
 #define APIC_EXTD		(1UL << 10)
 #define APIC_EN			(1UL << 11)

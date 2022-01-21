@@ -5,8 +5,10 @@
 #include "smp.h"
 #include "asm/barrier.h"
 
-void *g_apic = (void *)0xfee00000;
-void *g_ioapic = (void *)0xfec00000;
+/* xAPIC and I/O APIC are identify mapped, and never relocated. */
+static void *g_apic = (void *)APIC_DEFAULT_PHYS_BASE;
+static void *g_ioapic = (void *)IO_APIC_DEFAULT_PHYS_BASE;
+
 u8 id_map[MAX_TEST_CPUS];
 
 struct apic_ops {
