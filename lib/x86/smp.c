@@ -54,15 +54,12 @@ int cpu_count(void)
 
 int smp_id(void)
 {
-	unsigned id;
-
-	asm ("mov %%gs:0, %0" : "=r"(id));
-	return id;
+	return this_cpu_read_smp_id();
 }
 
 static void setup_smp_id(void *data)
 {
-	asm ("mov %0, %%gs:0" : : "r"(apic_id()) : "memory");
+	this_cpu_write_smp_id(apic_id());
 }
 
 static void __on_cpu(int cpu, void (*function)(void *data), void *data, int wait)

@@ -1,6 +1,7 @@
 #include "libcflat.h"
 #include "desc.h"
 #include "processor.h"
+#include "smp.h"
 #include <setjmp.h>
 #include "apic-defs.h"
 
@@ -155,11 +156,10 @@ void unhandled_exception(struct ex_regs *regs, bool cpu)
 static void check_exception_table(struct ex_regs *regs)
 {
 	struct ex_record *ex;
-	unsigned ex_val;
 
-	ex_val = regs->vector | (regs->error_code << 16) |
-		(((regs->rflags >> 16) & 1) << 8);
-	asm("mov %0, %%gs:4" : : "r"(ex_val));
+	this_cpu_write_exception_vector(regs->vector);
+	this_cpu_write_exception_rflags_rf((regs->rflags >> 16) & 1);
+	this_cpu_write_exception_error_code(regs->error_code);
 
 	for (ex = &exception_table_start; ex != &exception_table_end; ++ex) {
 		if (ex->rip == regs->rip) {
@@ -296,10 +296,7 @@ void setup_idt(void)
 
 unsigned exception_vector(void)
 {
-	unsigned char vector;
-
-	asm volatile("movb %%gs:4, %0" : "=q"(vector));
-	return vector;
+	return this_cpu_read_exception_vector();
 }
 
 int write_cr4_checking(unsigned long val)
@@ -312,18 +309,12 @@ int write_cr4_checking(unsigned long val)
 
 unsigned exception_error_code(void)
 {
-	unsigned short error_code;
-
-	asm volatile("mov %%gs:6, %0" : "=r"(error_code));
-	return error_code;
+	return this_cpu_read_exception_error_code();
 }
 
 bool exception_rflags_rf(void)
 {
-	unsigned char rf_flag;
-
-	asm volatile("movb %%gs:5, %b0" : "=q"(rf_flag));
-	return rf_flag & 1;
+	return this_cpu_read_exception_rflags_rf() & 1;
 }
 
 static char intr_alt_stack[4096];
