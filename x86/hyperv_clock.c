@@ -181,7 +181,8 @@ int main(int ac, char **av)
 		exit(1);
 	}
 
-	printf("scale: %" PRIx64" offset: %" PRId64"\n", shadow.tsc_scale, shadow.tsc_offset);
+	printf("sequence: %u. scale: %" PRIx64" offset: %" PRId64"\n",
+	       shadow.tsc_sequence, shadow.tsc_scale, shadow.tsc_offset);
 	ref1 = rdmsr(HV_X64_MSR_TIME_REF_COUNT);
 	tsc1 = rdtsc();
 	t1 = hvclock_tsc_to_ticks(&shadow, tsc1);
