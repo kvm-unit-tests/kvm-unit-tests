@@ -63,7 +63,7 @@ uint64_t loops[MAX_CPU];
 
 static void hv_clock_test(void *data)
 {
-	int i = smp_id();
+	int i = (long)data;
 	uint64_t t = rdmsr(HV_X64_MSR_TIME_REF_COUNT);
 	uint64_t end = t + 3 * TICKS_PER_SEC;
 	uint64_t msr_sample = t + TICKS_PER_SEC;
@@ -80,7 +80,7 @@ static void hv_clock_test(void *data)
 		if (t < msr_sample) {
 			max_delta = delta > max_delta ? delta: max_delta;
 		} else if (delta < 0 || delta > max_delta * 3 / 2) {
-			printf("suspecting drift on CPU %d? delta = %d, acceptable [0, %d)\n", smp_id(),
+			printf("suspecting drift on CPU %d? delta = %d, acceptable [0, %d)\n", i,
 			       delta, max_delta);
 			ok[i] = false;
 			got_drift = true;
@@ -88,7 +88,7 @@ static void hv_clock_test(void *data)
 		}
 
 		if (now < t && !got_warp) {
-			printf("warp on CPU %d!\n", smp_id());
+			printf("warp on CPU %d!\n", i);
 			ok[i] = false;
 			got_warp = true;
 			break;
@@ -97,7 +97,7 @@ static void hv_clock_test(void *data)
 	} while(t < end);
 
 	if (!got_drift)
-		printf("delta on CPU %d was %d...%d\n", smp_id(), min_delta, max_delta);
+		printf("delta on CPU %d was %d...%d\n", i, min_delta, max_delta);
 	barrier();
 }
 
@@ -106,7 +106,11 @@ static void check_test(int ncpus)
 	int i;
 	bool pass;
 
-	on_cpus(hv_clock_test, NULL);
+	for (i = ncpus - 1; i >= 0; i--)
+		on_cpu_async(i, hv_clock_test, (void *)(long)i);
+
+	while (cpus_active() > 1)
+		pause();
 
 	pass = true;
 	for (i = ncpus - 1; i >= 0; i--)
@@ -117,6 +121,7 @@ static void check_test(int ncpus)
 
 static void hv_perf_test(void *data)
 {
+	int i = (long)data;
 	uint64_t t = hv_clock_read();
 	uint64_t end = t + 1000000000 / 100;
 	uint64_t local_loops = 0;
@@ -126,7 +131,7 @@ static void hv_perf_test(void *data)
 		local_loops++;
 	} while(t < end);
 
-	loops[smp_id()] = local_loops;
+	loops[i] = local_loops;
 }
 
 static void perf_test(int ncpus)
@@ -134,7 +139,11 @@ static void perf_test(int ncpus)
 	int i;
 	uint64_t total_loops;
 
-	on_cpus(hv_perf_test, NULL);
+	for (i = ncpus - 1; i >= 0; i--)
+		on_cpu_async(i, hv_perf_test, (void *)(long)i);
+
+	while (cpus_active() > 1)
+		pause();
 
 	total_loops = 0;
 	for (i = ncpus - 1; i >= 0; i--)
