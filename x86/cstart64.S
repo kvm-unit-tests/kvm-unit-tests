@@ -256,4 +256,5 @@ ap_init:
 	jne 1b
 	ret
 
+.align 2
 cpu_online_count:	.word 1

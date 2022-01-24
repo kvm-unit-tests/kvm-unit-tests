@@ -143,6 +143,7 @@ ap_init:
 online_cpus:
 	.fill (max_cpus + 7) / 8, 1, 0
 
+.align 2
 cpu_online_count:	.word 1
 
 .code16
