@@ -1910,6 +1910,11 @@ void test_override_guest(test_guest_func func)
 	init_vmcs_guest();
 }
 
+void test_set_guest_finished(void)
+{
+	guest_finished = 1;
+}
+
 static void check_for_guest_termination(union exit_reason exit_reason)
 {
 	if (is_hypercall(exit_reason)) {
