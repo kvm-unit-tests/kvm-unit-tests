@@ -44,24 +44,13 @@ static void test_wait_state_delivery(void)
 		goto out;
 	}
 
-	if (stap()) {
-		report_skip("need to start on CPU #0");
-		goto out;
-	}
-
-	/*
-	 * We want CPU #2 to be stopped. This should be the case at this
-	 * point, however, we want to sense if it even exists as well.
-	 */
+	/* Stop CPU #2. It must succeed because we have at least 3 CPUs */
 	ret = smp_cpu_stop(2);
-	if (ret) {
-		report_skip("CPU #2 not found");
-		goto out;
-	}
+	assert(!ret);
 
 	/*
-	 * We're going to perform an SCLP service call but expect
-	 * the interrupt on CPU #1 while it is in the wait state.
+	 * We're going to perform an SCLP service call but expect the
+	 * interrupt on CPU #1 while it is in the wait state.
 	 */
 	sclp_mark_busy();
 
@@ -69,11 +58,8 @@ static void test_wait_state_delivery(void)
 	psw.mask = extract_psw_mask();
 	psw.addr = (unsigned long)wait_for_sclp_int;
 	ret = smp_cpu_setup(1, psw);
-	if (ret) {
-		sclp_clear_busy();
-		report_skip("cpu #1 not found");
-		goto out;
-	}
+	/* This must not fail because we have at least 3 CPUs */
+	assert(!ret);
 
 	/*
 	 * We'd have to jump trough some hoops to sense e.g., via SIGP
