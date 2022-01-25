@@ -1884,15 +1884,30 @@ void test_add_teardown(test_teardown_func func, void *data)
 	step->data = data;
 }
 
+static void __test_set_guest(test_guest_func func)
+{
+	assert(current->v2);
+	v2_guest_main = func;
+}
+
 /*
  * Set the target of the first enter_guest call. Can only be called once per
  * test. Must be called before first enter_guest call.
  */
 void test_set_guest(test_guest_func func)
 {
-	assert(current->v2);
 	TEST_ASSERT_MSG(!v2_guest_main, "Already set guest func.");
-	v2_guest_main = func;
+	__test_set_guest(func);
+}
+
+/*
+ * Set the target of the enter_guest call and reset the RIP so 'func' will
+ * start from the beginning.  This can be called multiple times per test.
+ */
+void test_override_guest(test_guest_func func)
+{
+	__test_set_guest(func);
+	init_vmcs_guest();
 }
 
 static void check_for_guest_termination(union exit_reason exit_reason)
