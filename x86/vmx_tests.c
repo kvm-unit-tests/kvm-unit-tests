@@ -21,6 +21,7 @@
 #include "smp.h"
 #include "delay.h"
 #include "access.h"
+#include "x86/usermode.h"
 
 #define VPID_CAP_INVVPID_TYPES_SHIFT 40
 
@@ -10701,6 +10702,134 @@ static void vmx_pf_vpid_test(void)
 	__vmx_pf_vpid_test(invalidate_tlb_new_vpid, 1);
 }
 
+static void vmx_l2_gp_test(void)
+{
+	*(volatile u64 *)NONCANONICAL = 0;
+}
+
+static void vmx_l2_ud_test(void)
+{
+	asm volatile ("ud2");
+}
+
+static void vmx_l2_de_test(void)
+{
+	asm volatile (
+		"xor %%eax, %%eax\n\t"
+		"xor %%ebx, %%ebx\n\t"
+		"xor %%edx, %%edx\n\t"
+		"idiv %%ebx\n\t"
+		::: "eax", "ebx", "edx");
+}
+
+static void vmx_l2_bp_test(void)
+{
+	asm volatile ("int3");
+}
+
+static void vmx_l2_db_test(void)
+{
+	write_rflags(read_rflags() | X86_EFLAGS_TF);
+}
+
+static uint64_t usermode_callback(void)
+{
+	/*
+	 * Trigger an #AC by writing 8 bytes to a 4-byte aligned address.
+	 * Disclaimer: It is assumed that the stack pointer is aligned
+	 * on a 16-byte boundary as x86_64 stacks should be.
+	 */
+	asm volatile("movq $0, -0x4(%rsp)");
+
+	return 0;
+}
+
+static void vmx_l2_ac_test(void)
+{
+	bool hit_ac = false;
+
+	write_cr0(read_cr0() | X86_CR0_AM);
+	write_rflags(read_rflags() | X86_EFLAGS_AC);
+
+	run_in_user(usermode_callback, AC_VECTOR, 0, 0, 0, 0, &hit_ac);
+	report(hit_ac, "Usermode #AC handled in L2");
+	vmcall();
+}
+
+struct vmx_exception_test {
+	u8 vector;
+	void (*guest_code)(void);
+};
+
+struct vmx_exception_test vmx_exception_tests[] = {
+	{ GP_VECTOR, vmx_l2_gp_test },
+	{ UD_VECTOR, vmx_l2_ud_test },
+	{ DE_VECTOR, vmx_l2_de_test },
+	{ DB_VECTOR, vmx_l2_db_test },
+	{ BP_VECTOR, vmx_l2_bp_test },
+	{ AC_VECTOR, vmx_l2_ac_test },
+};
+
+static u8 vmx_exception_test_vector;
+
+static void vmx_exception_handler(struct ex_regs *regs)
+{
+	report(regs->vector == vmx_exception_test_vector,
+	       "Handling %s in L2's exception handler",
+	       exception_mnemonic(vmx_exception_test_vector));
+	vmcall();
+}
+
+static void handle_exception_in_l2(u8 vector)
+{
+	handler old_handler = handle_exception(vector, vmx_exception_handler);
+
+	vmx_exception_test_vector = vector;
+
+	enter_guest();
+	report(vmcs_read(EXI_REASON) == VMX_VMCALL,
+	       "%s handled by L2", exception_mnemonic(vector));
+
+	handle_exception(vector, old_handler);
+}
+
+static void handle_exception_in_l1(u32 vector)
+{
+	u32 old_eb = vmcs_read(EXC_BITMAP);
+
+	vmcs_write(EXC_BITMAP, old_eb | (1u << vector));
+
+	enter_guest();
+
+	report((vmcs_read(EXI_REASON) == VMX_EXC_NMI) &&
+	       ((vmcs_read(EXI_INTR_INFO) & 0xff) == vector),
+	       "%s handled by L1", exception_mnemonic(vector));
+
+	vmcs_write(EXC_BITMAP, old_eb);
+}
+
+static void vmx_exception_test(void)
+{
+	struct vmx_exception_test *t;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vmx_exception_tests); i++) {
+		t = &vmx_exception_tests[i];
+
+		/*
+		 * Override the guest code before each run even though it's the
+		 * same code, the VMCS guest state needs to be reinitialized.
+		 */
+		test_override_guest(t->guest_code);
+		handle_exception_in_l2(t->vector);
+
+		test_override_guest(t->guest_code);
+		handle_exception_in_l1(t->vector);
+	}
+
+	test_set_guest_finished();
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -10810,5 +10939,6 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_pf_no_vpid_test),
 	TEST(vmx_pf_invvpid_test),
 	TEST(vmx_pf_vpid_test),
+	TEST(vmx_exception_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
