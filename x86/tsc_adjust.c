@@ -4,7 +4,6 @@
 int main(void)
 {
 	u64 t1, t2, t3, t4, t5;
-	u64 est_delta_time;
 
 	if (this_cpu_has(X86_FEATURE_TSC_ADJUST)) { // MSR_IA32_TSC_ADJUST Feature is enabled?
 		report(rdmsr(MSR_IA32_TSC_ADJUST) == 0x0,
@@ -26,12 +25,9 @@ int main(void)
 		wrtsc(t4);
 		t2 = rdtsc();
 		t5 = rdmsr(MSR_IA32_TSC_ADJUST);
-		// est of time between reading tsc and writing tsc,
-		// (based on MSR_IA32_TSC_ADJUST msr value) should be small
-		est_delta_time = t4 - t5 - t1;
-		// arbitray 2x latency (wrtsc->rdtsc) threshold
-		report(est_delta_time <= (2 * (t2 - t4)),
-		       "MSR_IA32_TSC_ADJUST msr adjustment on tsc write");
+		report(t1 <= t4 - t5,
+		       "Internal TSC advances across write to IA32_TSC");
+		report(t2 >= t4, "IA32_TSC advances after write to IA32_TSC");
 	}
 	else {
 		report_pass("MSR_IA32_TSC_ADJUST feature not enabled");
