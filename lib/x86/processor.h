@@ -592,9 +592,7 @@ static inline unsigned long long rdtscp(u32 *aux)
 
 static inline void wrtsc(u64 tsc)
 {
-	unsigned a = tsc, d = tsc >> 32;
-
-	asm volatile("wrmsr" : : "a"(a), "d"(d), "c"(0x10));
+	wrmsr(MSR_IA32_TSC, tsc);
 }
 
 static inline void irq_disable(void)
