@@ -176,7 +176,7 @@ static void test_exception_ext_new(void)
 	wait_for_flag();
 	set_flag(0);
 
-	sigp(1, SIGP_EXTERNAL_CALL, 0, NULL);
+	smp_sigp(1, SIGP_EXTERNAL_CALL, 0, NULL);
 	wait_for_flag();
 	smp_cpu_stop(1);
 	report_prefix_pop();
