@@ -25,7 +25,6 @@
 #include "sclp.h"
 
 static struct cpu *cpus;
-static struct cpu *cpu0;
 static struct spinlock lock;
 
 extern void smp_cpu_setup_state(void);
@@ -69,7 +68,7 @@ static int smp_cpu_stop_nolock(uint16_t addr, bool store)
 	uint8_t order = store ? SIGP_STOP_AND_STORE_STATUS : SIGP_STOP;
 
 	cpu = smp_cpu_from_addr(addr);
-	if (!cpu || cpu == cpu0)
+	if (!cpu || addr == cpus[0].addr)
 		return -1;
 
 	if (sigp_retry(addr, order, 0, NULL))
@@ -193,7 +192,7 @@ int smp_cpu_setup(uint16_t addr, struct psw psw)
 	sigp_retry(cpu->addr, SIGP_SET_PREFIX, (unsigned long )lc, NULL);
 
 	/* Copy all exception psws. */
-	memcpy(lc, cpu0->lowcore, 512);
+	memcpy(lc, cpus[0].lowcore, 512);
 
 	/* Setup stack */
 	cpu->stack = (uint64_t *)alloc_pages(2);
@@ -251,15 +250,27 @@ void smp_setup(void)
 	if (num > 1)
 		printf("SMP: Initializing, found %d cpus\n", num);
 
-	cpus = calloc(num, sizeof(cpus));
+	cpus = calloc(num, sizeof(*cpus));
 	for (i = 0; i < num; i++) {
 		cpus[i].addr = entry[i].address;
 		cpus[i].active = false;
+		/*
+		 * Fill in the boot CPU. If the boot CPU is not at index 0,
+		 * swap it with the one at index 0. This guarantees that the
+		 * boot CPU will always have index 0. If the boot CPU was
+		 * already at index 0, a few extra useless assignments are
+		 * performed, but everything will work ok.
+		 * Notice that there is no guarantee that the list of CPUs
+		 * returned by the Read SCP Info command is in any
+		 * particular order, or that its order will stay consistent
+		 * across multiple invocations.
+		 */
 		if (entry[i].address == cpu0_addr) {
-			cpu0 = &cpus[i];
-			cpu0->stack = stackptr;
-			cpu0->lowcore = (void *)0;
-			cpu0->active = true;
+			cpus[i].addr = cpus[0].addr;
+			cpus[0].addr = cpu0_addr;
+			cpus[0].stack = stackptr;
+			cpus[0].lowcore = (void *)0;
+			cpus[0].active = true;
 		}
 	}
 	spin_unlock(&lock);
