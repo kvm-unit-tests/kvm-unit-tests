@@ -56,7 +56,7 @@ static void test_start(void)
  */
 static void test_restart(void)
 {
-	struct cpu *cpu = smp_cpu_from_addr(1);
+	struct cpu *cpu = smp_cpu_from_idx(1);
 	struct lowcore *lc = cpu->lowcore;
 
 	lc->restart_new_psw.mask = extract_psw_mask();
@@ -92,7 +92,7 @@ static void test_stop(void)
 
 static void test_stop_store_status(void)
 {
-	struct cpu *cpu = smp_cpu_from_addr(1);
+	struct cpu *cpu = smp_cpu_from_idx(1);
 	struct lowcore *lc = (void *)0x0;
 
 	report_prefix_push("stop store status");
@@ -129,7 +129,7 @@ static void test_store_status(void)
 
 	report_prefix_push("running");
 	smp_cpu_restart(1);
-	sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, &r);
+	smp_sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, &r);
 	report(r == SIGP_STATUS_INCORRECT_STATE, "incorrect state");
 	report(!memcmp(status, (void *)status + PAGE_SIZE, PAGE_SIZE),
 	       "status not written");
@@ -138,7 +138,7 @@ static void test_store_status(void)
 	memset(status, 0, PAGE_SIZE);
 	report_prefix_push("stopped");
 	smp_cpu_stop(1);
-	sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, NULL);
+	smp_sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, NULL);
 	while (!status->prefix) { mb(); }
 	report_pass("status written");
 	free_pages(status);
@@ -176,7 +176,7 @@ static void test_ecall(void)
 	smp_cpu_start(1, psw);
 	wait_for_flag();
 	set_flag(0);
-	sigp(1, SIGP_EXTERNAL_CALL, 0, NULL);
+	smp_sigp(1, SIGP_EXTERNAL_CALL, 0, NULL);
 	wait_for_flag();
 	smp_cpu_stop(1);
 	report_prefix_pop();
@@ -210,7 +210,7 @@ static void test_emcall(void)
 	smp_cpu_start(1, psw);
 	wait_for_flag();
 	set_flag(0);
-	sigp(1, SIGP_EMERGENCY_SIGNAL, 0, NULL);
+	smp_sigp(1, SIGP_EMERGENCY_SIGNAL, 0, NULL);
 	wait_for_flag();
 	smp_cpu_stop(1);
 	report_prefix_pop();
@@ -253,8 +253,8 @@ static void test_reset_initial(void)
 	smp_cpu_start(1, psw);
 	wait_for_flag();
 
-	sigp_retry(1, SIGP_INITIAL_CPU_RESET, 0, NULL);
-	sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, NULL);
+	smp_sigp_retry(1, SIGP_INITIAL_CPU_RESET, 0, NULL);
+	smp_sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, NULL);
 
 	report_prefix_push("clear");
 	report(!status->psw.mask && !status->psw.addr, "psw");
@@ -299,11 +299,11 @@ static void test_reset(void)
 	psw.addr = (unsigned long)test_func;
 
 	report_prefix_push("cpu reset");
-	sigp(1, SIGP_EMERGENCY_SIGNAL, 0, NULL);
-	sigp(1, SIGP_EXTERNAL_CALL, 0, NULL);
+	smp_sigp(1, SIGP_EMERGENCY_SIGNAL, 0, NULL);
+	smp_sigp(1, SIGP_EXTERNAL_CALL, 0, NULL);
 	smp_cpu_start(1, psw);
 
-	sigp_retry(1, SIGP_CPU_RESET, 0, NULL);
+	smp_sigp_retry(1, SIGP_CPU_RESET, 0, NULL);
 	report(smp_cpu_stopped(1), "cpu stopped");
 
 	set_flag(0);
