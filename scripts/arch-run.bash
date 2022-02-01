@@ -267,7 +267,9 @@ env_file ()
 
 env_errata ()
 {
-	if [ "$ERRATATXT" ] && [ ! -f "$ERRATATXT" ]; then
+	if [ "$ACCEL" = "tcg" ]; then
+		export "ERRATA_FORCE=y"
+	elif [ "$ERRATATXT" ] && [ ! -f "$ERRATATXT" ]; then
 		echo "$ERRATATXT not found. (ERRATATXT=$ERRATATXT)" >&2
 		return 2
 	elif [ "$ERRATATXT" ]; then
