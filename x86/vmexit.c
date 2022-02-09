@@ -20,6 +20,7 @@ struct test {
 #define GOAL (1ull << 30)
 
 static int nr_cpus;
+static u64 cr4_shadow;
 
 static void cpuid_test(void)
 {
@@ -459,6 +460,18 @@ static void wr_ibpb_msr(void)
 	wrmsr(MSR_IA32_PRED_CMD, 1);
 }
 
+static void toggle_cr0_wp(void)
+{
+	write_cr0(X86_CR0_PE|X86_CR0_PG);
+	write_cr0(X86_CR0_PE|X86_CR0_WP|X86_CR0_PG);
+}
+
+static void toggle_cr4_pge(void)
+{
+	write_cr4(cr4_shadow ^ X86_CR4_PGE);
+	write_cr4(cr4_shadow);
+}
+
 static struct test tests[] = {
 	{ cpuid_test, "cpuid", .parallel = 1,  },
 	{ vmcall, "vmcall", .parallel = 1, },
@@ -492,6 +505,8 @@ static struct test tests[] = {
 	{ wr_ibpb_msr, "wr_ibpb_msr", has_ibpb, .parallel = 1 },
 	{ wr_tsc_adjust_msr, "wr_tsc_adjust_msr", .parallel = 1 },
 	{ rd_tsc_adjust_msr, "rd_tsc_adjust_msr", .parallel = 1 },
+	{ toggle_cr0_wp, "toggle_cr0_wp" , .parallel = 1, },
+	{ toggle_cr4_pge, "toggle_cr4_pge" , .parallel = 1, },
 	{ NULL, "pci-mem", .parallel = 0, .next = pci_mem_next },
 	{ NULL, "pci-io", .parallel = 0, .next = pci_io_next },
 };
@@ -580,6 +595,7 @@ int main(int ac, char **av)
 	int ret;
 
 	setup_vm();
+	cr4_shadow = read_cr4();
 	handle_irq(IPI_TEST_VECTOR, self_ipi_isr);
 	nr_cpus = cpu_count();
 

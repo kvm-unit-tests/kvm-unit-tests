@@ -251,6 +251,9 @@ static void set_cr0_wp(int wp)
 static void clear_user_mask(pt_element_t *ptep, int level, unsigned long virt)
 {
 	*ptep &= ~PT_USER_MASK;
+
+	/* Flush to avoid spurious #PF */
+	invlpg((void*)virt);
 }
 
 static void set_user_mask(pt_element_t *ptep, int level, unsigned long virt)
