@@ -145,7 +145,7 @@ static unsigned long singlestep_basic(void)
 		"and $~(1<<8),%%rax\n\t"
 		"1:push %%rax\n\t"
 		"popf\n\t"
-		"lea 1b, %0\n\t"
+		"lea 1b(%%rip), %0\n\t"
 		: "=r" (start) : : "rax"
 	);
 	return start;
@@ -186,7 +186,7 @@ static unsigned long singlestep_emulated_instructions(void)
 		"movl $0x3fd, %%edx\n\t"
 		"inb %%dx, %%al\n\t"
 		"popf\n\t"
-		"lea 1b,%0\n\t"
+		"lea 1b(%%rip),%0\n\t"
 		: "=r" (start) : : "rax", "ebx", "ecx", "edx"
 	);
 	return start;
@@ -223,7 +223,7 @@ static unsigned long singlestep_with_sti_blocking(void)
 		"1:and $~(1<<8),%%rax\n\t"
 		"push %%rax\n\t"
 		"popf\n\t"
-		"lea 1b,%0\n\t"
+		"lea 1b(%%rip),%0\n\t"
 		: "=r" (start_rip) : : "rax"
 	);
 	return start_rip;
@@ -259,7 +259,7 @@ static unsigned long singlestep_with_movss_blocking(void)
 		"and $~(1<<8),%%rax\n\t"
 		"1: push %%rax\n\t"
 		"popf\n\t"
-		"lea 1b,%0\n\t"
+		"lea 1b(%%rip),%0\n\t"
 		: "=r" (start_rip) : : "rax"
 	);
 	return start_rip;
@@ -302,7 +302,7 @@ static unsigned long singlestep_with_movss_blocking_and_icebp(void)
 		"1:and $~(1<<8),%%rax\n\t"
 		"push %%rax\n\t"
 		"popf\n\t"
-		"lea 1b,%0\n\t"
+		"lea 1b(%%rip),%0\n\t"
 		: "=r" (start) : : "rax"
 	);
 	return start;
@@ -346,7 +346,7 @@ static unsigned long singlestep_with_movss_blocking_and_dr7_gd(void)
 		"and $~(1<<8),%%rax\n\t"
 		"push %%rax\n\t"
 		"popf\n\t"
-		"lea 1b,%0\n\t"
+		"lea 1b(%%rip),%0\n\t"
 		: "=r" (start_rip) : : "rax"
 	);
 	return start_rip;
