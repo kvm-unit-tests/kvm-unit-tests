@@ -86,8 +86,8 @@ struct pmu_event {
 } gp_events[] = {
 	{"core cycles", 0x003c, 1*N, 50*N},
 	{"instructions", 0x00c0, 10*N, 10.2*N},
-	{"ref cycles", 0x013c, 0.1*N, 30*N},
-	{"llc refference", 0x4f2e, 1, 2*N},
+	{"ref cycles", 0x013c, 1*N, 30*N},
+	{"llc references", 0x4f2e, 1, 2*N},
 	{"llc misses", 0x412e, 1, 1*N},
 	{"branches", 0x00c4, 1*N, 1.1*N},
 	{"branch misses", 0x00c5, 0, 0.1*N},
@@ -223,7 +223,7 @@ static void measure(pmu_counter_t *evt, int count)
 
 static bool verify_event(uint64_t count, struct pmu_event *e)
 {
-	// printf("%lld >= %lld <= %lld\n", e->min, count, e->max);
+	// printf("%d <= %ld <= %d\n", e->min, count, e->max);
 	return count >= e->min  && count <= e->max;
 
 }
@@ -605,6 +605,54 @@ static void  check_gp_counters_write_width(void)
 	}
 }
 
+/*
+ * Per the SDM, reference cycles are currently implemented using the
+ * core crystal clock, TSC, or bus clock. Calibrate to the TSC
+ * frequency to set reasonable expectations.
+ */
+static void set_ref_cycle_expectations(void)
+{
+	pmu_counter_t cnt = {
+		.ctr = MSR_IA32_PERFCTR0,
+		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[2].unit_sel,
+		.count = 0,
+	};
+	uint64_t tsc_delta;
+	uint64_t t0, t1, t2, t3;
+
+	if (!eax.split.num_counters || (ebx.full & (1 << 2)))
+		return;
+
+	wrmsr(MSR_CORE_PERF_GLOBAL_CTRL, 0);
+
+	t0 = fenced_rdtsc();
+	start_event(&cnt);
+	t1 = fenced_rdtsc();
+
+	/*
+	 * This loop has to run long enough to dominate the VM-exit
+	 * costs for playing with the PMU MSRs on start and stop.
+	 *
+	 * On a 2.6GHz Ice Lake, with the TSC frequency at 104 times
+	 * the core crystal clock, this function calculated a guest
+	 * TSC : ref cycles ratio of around 105 with ECX initialized
+	 * to one billion.
+	 */
+	asm volatile("loop ." : "+c"((int){1000000000ull}));
+
+	t2 = fenced_rdtsc();
+	stop_event(&cnt);
+	t3 = fenced_rdtsc();
+
+	tsc_delta = ((t2 - t1) + (t3 - t0)) / 2;
+
+	if (!tsc_delta)
+		return;
+
+	gp_events[2].min = (gp_events[2].min * cnt.count) / tsc_delta;
+	gp_events[2].max = (gp_events[2].max * cnt.count) / tsc_delta;
+}
+
 int main(int ac, char **av)
 {
 	struct cpuid id = cpuid(10);
@@ -626,6 +674,8 @@ int main(int ac, char **av)
 		printf("PMU version 1 is not supported\n");
 		return report_summary();
 	}
+
+	set_ref_cycle_expectations();
 
 	printf("PMU version:         %d\n", eax.split.version_id);
 	printf("GP counters:         %d\n", eax.split.num_counters);
