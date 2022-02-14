@@ -288,7 +288,7 @@ int dt_get_default_console_node(void)
 int dt_get_initrd(const char **initrd, u32 *size)
 {
 	const struct fdt_property *prop;
-	const char *start, *end;
+	u64 start, end;
 	int node, len;
 	u32 *data;
 
@@ -303,7 +303,12 @@ int dt_get_initrd(const char **initrd, u32 *size)
 	if (!prop)
 		return len;
 	data = (u32 *)prop->data;
-	start = (const char *)(unsigned long)fdt32_to_cpu(*data);
+	start = fdt32_to_cpu(*data);
+	if (len == 8) {
+		assert(sizeof(long) == 8);
+		data++;
+		start = (start << 32) | fdt32_to_cpu(*data);
+	}
 
 	prop = fdt_get_property(fdt, node, "linux,initrd-end", &len);
 	if (!prop) {
@@ -311,10 +316,14 @@ int dt_get_initrd(const char **initrd, u32 *size)
 		return len;
 	}
 	data = (u32 *)prop->data;
-	end = (const char *)(unsigned long)fdt32_to_cpu(*data);
+	end = fdt32_to_cpu(*data);
+	if (len == 8) {
+		data++;
+		end = (end << 32) | fdt32_to_cpu(*data);
+	}
 
-	*initrd = start;
-	*size = (unsigned long)end - (unsigned long)start;
+	*initrd = (char *)(unsigned long)start;
+	*size = end - start;
 
 	return 0;
 }
