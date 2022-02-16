@@ -9,5 +9,7 @@
 #define _S390X_VM_H_
 
 bool vm_is_tcg(void);
+bool vm_is_kvm(void);
+bool vm_is_lpar(void);
 
 #endif  /* _S390X_VM_H_ */
