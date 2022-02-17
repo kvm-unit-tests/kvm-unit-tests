@@ -37,15 +37,19 @@ struct cpu_status {
 
 int smp_query_num_cpus(void);
 struct cpu *smp_cpu_from_addr(uint16_t addr);
-bool smp_cpu_stopped(uint16_t addr);
-bool smp_sense_running_status(uint16_t addr);
-int smp_cpu_restart(uint16_t addr);
-int smp_cpu_start(uint16_t addr, struct psw psw);
-int smp_cpu_stop(uint16_t addr);
-int smp_cpu_stop_store_status(uint16_t addr);
-int smp_cpu_destroy(uint16_t addr);
-int smp_cpu_setup(uint16_t addr, struct psw psw);
+struct cpu *smp_cpu_from_idx(uint16_t idx);
+uint16_t smp_cpu_addr(uint16_t idx);
+bool smp_cpu_stopped(uint16_t idx);
+bool smp_sense_running_status(uint16_t idx);
+int smp_cpu_restart(uint16_t idx);
+int smp_cpu_start(uint16_t idx, struct psw psw);
+int smp_cpu_stop(uint16_t idx);
+int smp_cpu_stop_store_status(uint16_t idx);
+int smp_cpu_destroy(uint16_t idx);
+int smp_cpu_setup(uint16_t idx, struct psw psw);
 void smp_teardown(void);
 void smp_setup(void);
+int smp_sigp(uint16_t idx, uint8_t order, unsigned long parm, uint32_t *status);
+int smp_sigp_retry(uint16_t idx, uint8_t order, unsigned long parm, uint32_t *status);
 
 #endif
