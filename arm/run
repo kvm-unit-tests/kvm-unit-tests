@@ -27,6 +27,9 @@ if [ "$ACCEL" = "kvm" ]; then
 	if $qemu $M,\? 2>&1 | grep gic-version > /dev/null; then
 		M+=',gic-version=host'
 	fi
+fi
+
+if [ "$ACCEL" = "kvm" ] || [ "$ACCEL" = "hvf" ]; then
 	if [ "$HOST" = "aarch64" ] || [ "$HOST" = "arm" ]; then
 		processor="host"
 		if [ "$ARCH" = "arm" ] && [ "$HOST" = "aarch64" ]; then
