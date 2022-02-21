@@ -71,7 +71,8 @@ static inline enum prot_code teid_esop2_prot_code(union teid teid)
 	return (enum prot_code)code;
 }
 
-void register_pgm_cleanup_func(void (*f)(void));
+void register_pgm_cleanup_func(void (*f)(struct stack_frame_int *));
+void register_ext_cleanup_func(void (*f)(struct stack_frame_int *));
 void handle_pgm_int(struct stack_frame_int *stack);
 void handle_ext_int(struct stack_frame_int *stack);
 void handle_mcck_int(void);

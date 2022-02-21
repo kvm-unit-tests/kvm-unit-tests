@@ -119,7 +119,7 @@ static void set_flag(int val)
 	mb();
 }
 
-static void ecall_cleanup(void)
+static void ecall_cleanup(struct stack_frame_int *stack)
 {
 	lowcore.ext_new_psw.mask = PSW_MASK_64;
 	lowcore.sw_int_crs[0] = BIT_ULL(CTL0_AFP);

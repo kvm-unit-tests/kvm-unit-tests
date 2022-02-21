@@ -39,6 +39,15 @@ int smp_query_num_cpus(void)
 	return sclp_get_cpu_num();
 }
 
+struct lowcore *smp_get_lowcore(uint16_t idx)
+{
+	if (THIS_CPU->idx == idx)
+		return &lowcore;
+
+	check_idx(idx);
+	return cpus[idx].lowcore;
+}
+
 int smp_sigp(uint16_t idx, uint8_t order, unsigned long parm, uint32_t *status)
 {
 	check_idx(idx);
@@ -253,6 +262,7 @@ static int smp_cpu_setup_nolock(uint16_t idx, struct psw psw)
 
 	/* Copy all exception psws. */
 	memcpy(lc, cpus[0].lowcore, 512);
+	lc->this_cpu = &cpus[idx];
 
 	/* Setup stack */
 	cpus[idx].stack = (uint64_t *)alloc_pages(2);
@@ -325,6 +335,7 @@ void smp_setup(void)
 	for (i = 0; i < num; i++) {
 		cpus[i].addr = entry[i].address;
 		cpus[i].active = false;
+		cpus[i].idx = i;
 		/*
 		 * Fill in the boot CPU. If the boot CPU is not at index 0,
 		 * swap it with the one at index 0. This guarantees that the

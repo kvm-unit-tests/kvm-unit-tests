@@ -15,25 +15,36 @@
 #include <fault.h>
 #include <asm/page.h>
 
-static bool pgm_int_expected;
-static bool ext_int_expected;
-static void (*pgm_cleanup_func)(void);
-
+/**
+ * expect_pgm_int - Expect a program interrupt on the current CPU.
+ */
 void expect_pgm_int(void)
 {
-	pgm_int_expected = true;
+	THIS_CPU->pgm_int_expected = true;
 	lowcore.pgm_int_code = 0;
 	lowcore.trans_exc_id = 0;
 	mb();
 }
 
+/**
+ * expect_ext_int - Expect an external interrupt on the current CPU.
+ */
 void expect_ext_int(void)
 {
-	ext_int_expected = true;
+	THIS_CPU->ext_int_expected = true;
 	lowcore.ext_int_code = 0;
 	mb();
 }
 
+/**
+ * clear_pgm_int - Clear program interrupt information
+ *
+ * Clear program interrupt information, including the expected program
+ * interrupt flag.
+ * No program interrupts are expected after calling this function.
+ *
+ * Return: the program interrupt code before clearing
+ */
 uint16_t clear_pgm_int(void)
 {
 	uint16_t code;
@@ -42,10 +53,17 @@ uint16_t clear_pgm_int(void)
 	code = lowcore.pgm_int_code;
 	lowcore.pgm_int_code = 0;
 	lowcore.trans_exc_id = 0;
-	pgm_int_expected = false;
+	THIS_CPU->pgm_int_expected = false;
 	return code;
 }
 
+/**
+ * check_pgm_int_code - Check the program interrupt code on the current CPU.
+ * @code the expected program interrupt code on the current CPU
+ *
+ * Check and report if the program interrupt on the current CPU matches the
+ * expected one.
+ */
 void check_pgm_int_code(uint16_t code)
 {
 	mb();
@@ -54,9 +72,34 @@ void check_pgm_int_code(uint16_t code)
 	       lowcore.pgm_int_code);
 }
 
-void register_pgm_cleanup_func(void (*f)(void))
+/**
+ * register_pgm_cleanup_func - Register a cleanup function for progam
+ * interrupts for the current CPU.
+ * @f the cleanup function to be registered on the current CPU
+ *
+ * Register a cleanup function to be called at the end of the normal
+ * interrupt handling for program interrupts for this CPU.
+ *
+ * Pass NULL to unregister a previously registered cleanup function.
+ */
+void register_pgm_cleanup_func(void (*f)(struct stack_frame_int *))
 {
-	pgm_cleanup_func = f;
+	THIS_CPU->pgm_cleanup_func = f;
+}
+
+/**
+ * register_ext_cleanup_func - Register a cleanup function for external
+ * interrupts for the current CPU.
+ * @f the cleanup function to be registered on the current CPU
+ *
+ * Register a cleanup function to be called at the end of the normal
+ * interrupt handling for external interrupts for this CPU.
+ *
+ * Pass NULL to unregister a previously registered cleanup function.
+ */
+void register_ext_cleanup_func(void (*f)(struct stack_frame_int *))
+{
+	THIS_CPU->ext_cleanup_func = f;
 }
 
 static void fixup_pgm_int(struct stack_frame_int *stack)
@@ -183,24 +226,23 @@ static void print_pgm_info(struct stack_frame_int *stack)
 
 void handle_pgm_int(struct stack_frame_int *stack)
 {
-	if (!pgm_int_expected) {
+	if (!THIS_CPU->pgm_int_expected) {
 		/* Force sclp_busy to false, otherwise we will loop forever */
 		sclp_handle_ext();
 		print_pgm_info(stack);
 	}
 
-	pgm_int_expected = false;
+	THIS_CPU->pgm_int_expected = false;
 
-	if (pgm_cleanup_func)
-		(*pgm_cleanup_func)();
+	if (THIS_CPU->pgm_cleanup_func)
+		THIS_CPU->pgm_cleanup_func(stack);
 	else
 		fixup_pgm_int(stack);
 }
 
 void handle_ext_int(struct stack_frame_int *stack)
 {
-	if (!ext_int_expected &&
-	    lowcore.ext_int_code != EXT_IRQ_SERVICE_SIG) {
+	if (!THIS_CPU->ext_int_expected && lowcore.ext_int_code != EXT_IRQ_SERVICE_SIG) {
 		report_abort("Unexpected external call interrupt (code %#x): on cpu %d at %#lx",
 			     lowcore.ext_int_code, stap(), lowcore.ext_old_psw.addr);
 		return;
@@ -210,11 +252,14 @@ void handle_ext_int(struct stack_frame_int *stack)
 		stack->crs[0] &= ~(1UL << 9);
 		sclp_handle_ext();
 	} else {
-		ext_int_expected = false;
+		THIS_CPU->ext_int_expected = false;
 	}
 
 	if (!(stack->crs[0] & CR0_EXTM_MASK))
 		lowcore.ext_old_psw.mask &= ~PSW_MASK_EXT;
+
+	if (THIS_CPU->ext_cleanup_func)
+		THIS_CPU->ext_cleanup_func(stack);
 }
 
 void handle_mcck_int(void)

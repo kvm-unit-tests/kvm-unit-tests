@@ -41,6 +41,18 @@ struct psw {
 	uint64_t	addr;
 };
 
+struct cpu {
+	struct lowcore *lowcore;
+	uint64_t *stack;
+	void (*pgm_cleanup_func)(struct stack_frame_int *);
+	void (*ext_cleanup_func)(struct stack_frame_int *);
+	uint16_t addr;
+	uint16_t idx;
+	bool active;
+	bool pgm_int_expected;
+	bool ext_int_expected;
+};
+
 #define AS_PRIM				0
 #define AS_ACCR				1
 #define AS_SECN				2
@@ -125,7 +137,8 @@ struct lowcore {
 	uint8_t		pad_0x0280[0x0308 - 0x0280];	/* 0x0280 */
 	uint64_t	sw_int_crs[16];			/* 0x0308 */
 	struct psw	sw_int_psw;			/* 0x0388 */
-	uint8_t		pad_0x0310[0x11b0 - 0x0398];	/* 0x0398 */
+	struct cpu	*this_cpu;			/* 0x0398 */
+	uint8_t		pad_0x03a0[0x11b0 - 0x03a0];	/* 0x03a0 */
 	uint64_t	mcck_ext_sa_addr;		/* 0x11b0 */
 	uint8_t		pad_0x11b8[0x1200 - 0x11b8];	/* 0x11b8 */
 	uint64_t	fprs_sa[16];			/* 0x1200 */
@@ -147,6 +160,8 @@ struct lowcore {
 _Static_assert(sizeof(struct lowcore) == 0x1900, "Lowcore size");
 
 extern struct lowcore lowcore;
+
+#define THIS_CPU (lowcore.this_cpu)
 
 #define PGM_INT_CODE_OPERATION			0x01
 #define PGM_INT_CODE_PRIVILEGED_OPERATION	0x02
