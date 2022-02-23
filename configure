@@ -74,7 +74,7 @@ usage() {
 	               pl011,mmio32,ADDR
 	                           Specify a PL011 compatible UART at address ADDR. Supported
 	                           register stride is 32 bit only.
-	    --target-efi           Boot and run from UEFI
+	    --target-efi           Boot and run from UEFI (x86_64 only)
 EOF
     exit 1
 }
@@ -175,6 +175,11 @@ else
         echo "--target is not supported for $arch"
         usage
     fi
+fi
+
+if [ "$target_efi" ] && [ "$arch" != "x86_64" ]; then
+    echo "--target-efi is not supported for $arch"
+    usage
 fi
 
 if [ -z "$page_size" ]; then

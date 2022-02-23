@@ -40,11 +40,7 @@ OBJDIRS += $(LIBFDT_objdir)
 
 # EFI App
 ifeq ($(TARGET_EFI),y)
-ifeq ($(ARCH_NAME),x86_64)
 EFI_ARCH = x86_64
-else
-$(error Cannot build $(ARCH_NAME) tests as EFI apps)
-endif
 EFI_CFLAGS := -DTARGET_EFI
 # The following CFLAGS and LDFLAGS come from:
 #   - GNU-EFI/Makefile.defaults
