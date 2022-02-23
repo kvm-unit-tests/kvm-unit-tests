@@ -15,7 +15,7 @@ The following dependencies should be installed:
 
 To build:
 
-    ./configure --target-efi
+    ./configure --enable-efi
     make
 
 ### Run test cases with UEFI

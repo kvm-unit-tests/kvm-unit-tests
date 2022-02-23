@@ -82,7 +82,7 @@ function run()
     local accel="$8"
     local timeout="${9:-$TIMEOUT}" # unittests.cfg overrides the default
 
-    if [ "${TARGET_EFI}" == "y" ]; then
+    if [ "${CONFIG_EFI}" == "y" ]; then
         kernel=$(basename $kernel .flat)
     fi
 
@@ -132,7 +132,7 @@ function run()
 
     last_line=$(premature_failure > >(tail -1)) && {
         skip=true
-        if [ "${TARGET_EFI}" == "y" ] && [[ "${last_line}" =~ "enabling apic" ]]; then
+        if [ "${CONFIG_EFI}" == "y" ] && [[ "${last_line}" =~ "enabling apic" ]]; then
             skip=false
         fi
         if [ ${skip} == true ]; then

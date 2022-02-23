@@ -22,7 +22,7 @@ cflatobjs += lib/x86/acpi.o
 cflatobjs += lib/x86/stack.o
 cflatobjs += lib/x86/fault_test.o
 cflatobjs += lib/x86/delay.o
-ifeq ($(TARGET_EFI),y)
+ifeq ($(CONFIG_EFI),y)
 cflatobjs += lib/x86/amd_sev.o
 cflatobjs += lib/efi.o
 cflatobjs += x86/efi/reloc_x86_64.o
@@ -44,7 +44,7 @@ KEEP_FRAME_POINTER := y
 
 FLATLIBS = lib/libcflat.a
 
-ifeq ($(TARGET_EFI),y)
+ifeq ($(CONFIG_EFI),y)
 .PRECIOUS: %.efi %.so
 
 %.so: %.o $(FLATLIBS) $(SRCDIR)/x86/efi/elf_x86_64_efi.lds $(cstart.o)
@@ -89,7 +89,7 @@ tests-common = $(TEST_DIR)/vmexit.$(exe) $(TEST_DIR)/tsc.$(exe) \
 # The following test cases are disabled when building EFI tests because they
 # use absolute addresses in their inline assembly code, which cannot compile
 # with the '-fPIC' flag
-ifneq ($(TARGET_EFI),y)
+ifneq ($(CONFIG_EFI),y)
 tests-common += $(TEST_DIR)/realmode.$(exe)
 endif
 

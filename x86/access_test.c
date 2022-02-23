@@ -10,7 +10,7 @@ int main(void)
     printf("starting test\n\n");
     r = ac_test_run(PT_LEVEL_PML4);
 
-#ifndef TARGET_EFI
+#ifndef CONFIG_EFI
     /*
      * Not supported yet for UEFI, because setting up 5
      * level page table requires entering real mode.

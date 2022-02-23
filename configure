@@ -29,7 +29,7 @@ host_key_document=
 gen_se_header=
 page_size=
 earlycon=
-target_efi=
+efi=
 
 usage() {
     cat <<-EOF
@@ -74,7 +74,7 @@ usage() {
 	               pl011,mmio32,ADDR
 	                           Specify a PL011 compatible UART at address ADDR. Supported
 	                           register stride is 32 bit only.
-	    --target-efi           Boot and run from UEFI (x86_64 only)
+	    --[enable|disable]-efi Boot and run from UEFI (disabled by default, x86_64 only)
 EOF
     exit 1
 }
@@ -142,8 +142,11 @@ while [[ "$1" = -* ]]; do
 	--earlycon)
 	    earlycon="$arg"
 	    ;;
-	--target-efi)
-	    target_efi=y
+	--enable-efi)
+	    efi=y
+	    ;;
+	--disable-efi)
+	    efi=n
 	    ;;
 	--help)
 	    usage
@@ -177,8 +180,8 @@ else
     fi
 fi
 
-if [ "$target_efi" ] && [ "$arch" != "x86_64" ]; then
-    echo "--target-efi is not supported for $arch"
+if [ "$efi" ] && [ "$arch" != "x86_64" ]; then
+    echo "--[enable|disable]-efi is not supported for $arch"
     usage
 fi
 
@@ -278,7 +281,7 @@ if [ -f "$srcdir/$testdir/run" ]; then
 fi
 
 testsubdir=$testdir
-if [ -n "$target_efi" ]; then
+if [ "$efi" = "y" ]; then
     testsubdir=$testdir/efi
 fi
 
@@ -367,7 +370,7 @@ U32_LONG_FMT=$u32_long
 WA_DIVIDE=$wa_divide
 GENPROTIMG=${GENPROTIMG-genprotimg}
 HOST_KEY_DOCUMENT=$host_key_document
-TARGET_EFI=$target_efi
+CONFIG_EFI=$efi
 GEN_SE_HEADER=$gen_se_header
 EOF
 if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then

@@ -39,9 +39,9 @@ LIBFDT_archive = $(LIBFDT_objdir)/libfdt.a
 OBJDIRS += $(LIBFDT_objdir)
 
 # EFI App
-ifeq ($(TARGET_EFI),y)
+ifeq ($(CONFIG_EFI),y)
 EFI_ARCH = x86_64
-EFI_CFLAGS := -DTARGET_EFI
+EFI_CFLAGS := -DCONFIG_EFI
 # The following CFLAGS and LDFLAGS come from:
 #   - GNU-EFI/Makefile.defaults
 #   - GNU-EFI/apps/Makefile
@@ -81,7 +81,7 @@ COMMON_CFLAGS += $(fno_stack_protector)
 COMMON_CFLAGS += $(fno_stack_protector_all)
 COMMON_CFLAGS += $(wno_frame_address)
 COMMON_CFLAGS += $(if $(U32_LONG_FMT),-D__U32_LONG_FMT__,)
-ifeq ($(TARGET_EFI),y)
+ifeq ($(CONFIG_EFI),y)
 COMMON_CFLAGS += $(EFI_CFLAGS)
 else
 COMMON_CFLAGS += $(fno_pic) $(no_pie)

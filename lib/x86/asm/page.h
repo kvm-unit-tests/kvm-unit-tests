@@ -25,11 +25,11 @@ typedef unsigned long pgd_t;
 #define LARGE_PAGE_SIZE	(1024 * PAGE_SIZE)
 #endif
 
-#ifdef TARGET_EFI
+#ifdef CONFIG_EFI
 /* lib/x86/amd_sev.c */
 extern unsigned long long get_amd_sev_c_bit_mask(void);
 extern unsigned long long get_amd_sev_addr_upperbound(void);
-#endif /* TARGET_EFI */
+#endif /* CONFIG_EFI */
 
 #define PT_PRESENT_MASK		(1ull << 0)
 #define PT_WRITABLE_MASK	(1ull << 1)
@@ -47,11 +47,11 @@ extern unsigned long long get_amd_sev_addr_upperbound(void);
  */
 #define PT_ADDR_UPPER_BOUND_DEFAULT	(51)
 
-#ifdef TARGET_EFI
+#ifdef CONFIG_EFI
 #define PT_ADDR_UPPER_BOUND	(get_amd_sev_addr_upperbound())
 #else
 #define PT_ADDR_UPPER_BOUND	(PT_ADDR_UPPER_BOUND_DEFAULT)
-#endif /* TARGET_EFI */
+#endif /* CONFIG_EFI */
 
 #define PT_ADDR_LOWER_BOUND	(PAGE_SHIFT)
 #define PT_ADDR_MASK		GENMASK_ULL(PT_ADDR_UPPER_BOUND, PT_ADDR_LOWER_BOUND)

@@ -12,7 +12,7 @@
 #ifndef _X86_AMD_SEV_H_
 #define _X86_AMD_SEV_H_
 
-#ifdef TARGET_EFI
+#ifdef CONFIG_EFI
 
 #include "libcflat.h"
 #include "desc.h"
@@ -58,6 +58,6 @@ void setup_ghcb_pte(pgd_t *page_table);
 unsigned long long get_amd_sev_c_bit_mask(void);
 unsigned long long get_amd_sev_addr_upperbound(void);
 
-#endif /* TARGET_EFI */
+#endif /* CONFIG_EFI */
 
 #endif /* _X86_AMD_SEV_H_ */
