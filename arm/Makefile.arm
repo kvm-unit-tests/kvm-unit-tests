@@ -14,7 +14,13 @@ CFLAGS += $(machine)
 CFLAGS += -mcpu=$(PROCESSOR)
 CFLAGS += -mno-unaligned-access
 
+ifeq ($(TARGET),qemu)
 arch_LDFLAGS = -Ttext=40010000
+else ifeq ($(TARGET),kvmtool)
+arch_LDFLAGS = -Ttext=80008000
+else
+$(error Unknown target $(TARGET))
+endif
 
 define arch_elf_check =
 endef
