@@ -194,6 +194,30 @@ int smp_cpu_restart(uint16_t idx)
 	return rc;
 }
 
+/*
+ * Functionally equivalent to smp_cpu_restart(), but without the
+ * elements that wait/serialize matters here in the test.
+ * Used to see if KVM itself is serialized correctly.
+ */
+int smp_cpu_restart_nowait(uint16_t idx)
+{
+	check_idx(idx);
+
+	spin_lock(&lock);
+
+	/* Don't suppress a CC2 with sigp_retry() */
+	if (sigp(cpus[idx].addr, SIGP_RESTART, 0, NULL)) {
+		spin_unlock(&lock);
+		return -1;
+	}
+
+	cpus[idx].active = true;
+
+	spin_unlock(&lock);
+
+	return 0;
+}
+
 int smp_cpu_start(uint16_t idx, struct psw psw)
 {
 	int rc;

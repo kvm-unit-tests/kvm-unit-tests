@@ -42,6 +42,7 @@ uint16_t smp_cpu_addr(uint16_t idx);
 bool smp_cpu_stopped(uint16_t idx);
 bool smp_sense_running_status(uint16_t idx);
 int smp_cpu_restart(uint16_t idx);
+int smp_cpu_restart_nowait(uint16_t idx);
 int smp_cpu_start(uint16_t idx, struct psw psw);
 int smp_cpu_stop(uint16_t idx);
 int smp_cpu_stop_nowait(uint16_t idx);

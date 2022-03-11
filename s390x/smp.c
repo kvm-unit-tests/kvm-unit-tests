@@ -54,6 +54,10 @@ static void test_restart(void)
 {
 	struct cpu *cpu = smp_cpu_from_idx(1);
 	struct lowcore *lc = cpu->lowcore;
+	int rc;
+
+	report_prefix_push("restart");
+	report_prefix_push("stopped");
 
 	lc->restart_new_psw.mask = extract_psw_mask();
 	lc->restart_new_psw.addr = (unsigned long)test_func;
@@ -61,17 +65,28 @@ static void test_restart(void)
 	/* Make sure cpu is stopped */
 	smp_cpu_stop(1);
 	set_flag(0);
-	smp_cpu_restart(1);
+	rc = smp_cpu_restart_nowait(1);
+	report(!rc, "return code");
+	report(!smp_cpu_stopped(1), "cpu started");
 	wait_for_flag();
+	report_pass("test flag");
+
+	report_prefix_pop();
+	report_prefix_push("running");
 
 	/*
 	 * Wait until cpu 1 has set the flag because it executed the
 	 * restart function.
 	 */
 	set_flag(0);
-	smp_cpu_restart(1);
+	rc = smp_cpu_restart_nowait(1);
+	report(!rc, "return code");
+	report(!smp_cpu_stopped(1), "cpu started");
 	wait_for_flag();
-	report_pass("restart while running");
+	report_pass("test flag");
+
+	report_prefix_pop();
+	report_prefix_pop();
 }
 
 static void test_stop(void)
