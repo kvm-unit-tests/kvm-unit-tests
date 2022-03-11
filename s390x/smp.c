@@ -266,7 +266,7 @@ static void test_reset_initial(void)
 	smp_cpu_start(1, psw);
 	wait_for_flag();
 
-	smp_sigp_retry(1, SIGP_INITIAL_CPU_RESET, 0, NULL);
+	smp_sigp(1, SIGP_INITIAL_CPU_RESET, 0, NULL);
 	smp_sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, NULL);
 
 	report_prefix_push("clear");
@@ -316,7 +316,7 @@ static void test_reset(void)
 	smp_sigp(1, SIGP_EXTERNAL_CALL, 0, NULL);
 	smp_cpu_start(1, psw);
 
-	smp_sigp_retry(1, SIGP_CPU_RESET, 0, NULL);
+	smp_sigp(1, SIGP_CPU_RESET, 0, NULL);
 	report(smp_cpu_stopped(1), "cpu stopped");
 
 	set_flag(0);

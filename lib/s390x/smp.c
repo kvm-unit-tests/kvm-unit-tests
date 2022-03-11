@@ -42,12 +42,6 @@ int smp_query_num_cpus(void)
 int smp_sigp(uint16_t idx, uint8_t order, unsigned long parm, uint32_t *status)
 {
 	check_idx(idx);
-	return sigp(cpus[idx].addr, order, parm, status);
-}
-
-int smp_sigp_retry(uint16_t idx, uint8_t order, unsigned long parm, uint32_t *status)
-{
-	check_idx(idx);
 	return sigp_retry(cpus[idx].addr, order, parm, status);
 }
 
@@ -78,7 +72,7 @@ bool smp_cpu_stopped(uint16_t idx)
 {
 	uint32_t status;
 
-	if (smp_sigp_retry(idx, SIGP_SENSE, 0, &status) != SIGP_CC_STATUS_STORED)
+	if (smp_sigp(idx, SIGP_SENSE, 0, &status) != SIGP_CC_STATUS_STORED)
 		return false;
 	return !!(status & (SIGP_STATUS_CHECK_STOP|SIGP_STATUS_STOPPED));
 }
@@ -99,7 +93,7 @@ static int smp_cpu_stop_nolock(uint16_t idx, bool store)
 	if (idx == 0)
 		return -1;
 
-	if (smp_sigp_retry(idx, order, 0, NULL))
+	if (smp_sigp(idx, order, 0, NULL))
 		return -1;
 
 	while (!smp_cpu_stopped(idx))
@@ -251,11 +245,11 @@ static int smp_cpu_setup_nolock(uint16_t idx, struct psw psw)
 	if (cpus[idx].active)
 		return -1;
 
-	smp_sigp_retry(idx, SIGP_INITIAL_CPU_RESET, 0, NULL);
+	smp_sigp(idx, SIGP_INITIAL_CPU_RESET, 0, NULL);
 
 	lc = alloc_pages_flags(1, AREA_DMA31);
 	cpus[idx].lowcore = lc;
-	smp_sigp_retry(idx, SIGP_SET_PREFIX, (unsigned long )lc, NULL);
+	smp_sigp(idx, SIGP_SET_PREFIX, (unsigned long )lc, NULL);
 
 	/* Copy all exception psws. */
 	memcpy(lc, cpus[0].lowcore, 512);
