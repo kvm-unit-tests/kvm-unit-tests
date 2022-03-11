@@ -50,10 +50,6 @@ static void test_start(void)
 	report_pass("start");
 }
 
-/*
- * Does only test restart when the target is running.
- * The other tests do restarts when stopped multiple times already.
- */
 static void test_restart(void)
 {
 	struct cpu *cpu = smp_cpu_from_idx(1);
@@ -62,8 +58,8 @@ static void test_restart(void)
 	lc->restart_new_psw.mask = extract_psw_mask();
 	lc->restart_new_psw.addr = (unsigned long)test_func;
 
-	/* Make sure cpu is running */
-	smp_cpu_stop(0);
+	/* Make sure cpu is stopped */
+	smp_cpu_stop(1);
 	set_flag(0);
 	smp_cpu_restart(1);
 	wait_for_flag();
