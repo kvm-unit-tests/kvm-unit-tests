@@ -44,7 +44,7 @@ start:
 
 	/*
 	 * set stack, making room at top of stack for cpu0's
-	 * exception stacks. Must start wtih stackptr, not
+	 * exception stacks. Must start with stackptr, not
 	 * stacktop, so the thread size masking (shifts) work.
 	 */
 	ldr	sp, =stackptr
