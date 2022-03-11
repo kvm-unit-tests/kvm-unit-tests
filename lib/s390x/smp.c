@@ -119,6 +119,33 @@ int smp_cpu_stop(uint16_t idx)
 	return rc;
 }
 
+/*
+ * Functionally equivalent to smp_cpu_stop(), but without the
+ * elements that wait/serialize matters itself.
+ * Used to see if KVM itself is serialized correctly.
+ */
+int smp_cpu_stop_nowait(uint16_t idx)
+{
+	check_idx(idx);
+
+	/* refuse to work on the boot CPU */
+	if (idx == 0)
+		return -1;
+
+	spin_lock(&lock);
+
+	/* Don't suppress a CC2 with sigp_retry() */
+	if (sigp(cpus[idx].addr, SIGP_STOP, 0, NULL)) {
+		spin_unlock(&lock);
+		return -1;
+	}
+
+	cpus[idx].active = false;
+	spin_unlock(&lock);
+
+	return 0;
+}
+
 int smp_cpu_stop_store_status(uint16_t idx)
 {
 	int rc;

@@ -76,14 +76,15 @@ static void test_restart(void)
 
 static void test_stop(void)
 {
-	smp_cpu_stop(1);
-	/*
-	 * The smp library waits for the CPU to shut down, but let's
-	 * also do it here, so we don't rely on the library
-	 * implementation
-	 */
-	while (!smp_cpu_stopped(1)) {}
-	report_pass("stop");
+	int rc;
+
+	report_prefix_push("stop");
+
+	rc = smp_cpu_stop_nowait(1);
+	report(!rc, "return code");
+	report(smp_cpu_stopped(1), "cpu stopped");
+
+	report_prefix_pop();
 }
 
 static void test_stop_store_status(void)
