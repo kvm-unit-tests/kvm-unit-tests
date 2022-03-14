@@ -1,7 +1,7 @@
 #include "libcflat.h"
 #include "acpi.h"
 
-#ifdef TARGET_EFI
+#ifdef CONFIG_EFI
 struct rsdp_descriptor *efi_rsdp = NULL;
 
 void set_efi_rsdp(struct rsdp_descriptor *rsdp)
@@ -34,7 +34,7 @@ static struct rsdp_descriptor *get_rsdp(void)
 
 	return rsdp;
 }
-#endif /* TARGET_EFI */
+#endif /* CONFIG_EFI */
 
 void* find_acpi_table_addr(u32 sig)
 {

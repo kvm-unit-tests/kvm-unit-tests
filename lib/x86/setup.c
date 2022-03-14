@@ -167,7 +167,7 @@ void setup_multiboot(struct mbi_bootinfo *bi)
 	initrd_size = mods->end - mods->start;
 }
 
-#ifdef TARGET_EFI
+#ifdef CONFIG_EFI
 
 /* From x86/efi/efistart64.S */
 extern void load_idt(void);
@@ -330,7 +330,7 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	return EFI_SUCCESS;
 }
 
-#endif /* TARGET_EFI */
+#endif /* CONFIG_EFI */
 
 void setup_libcflat(void)
 {

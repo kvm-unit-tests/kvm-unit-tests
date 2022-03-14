@@ -305,7 +305,6 @@ int dt_get_initrd(const char **initrd, u32 *size)
 	data = (u32 *)prop->data;
 	start = fdt32_to_cpu(*data);
 	if (len == 8) {
-		assert(sizeof(long) == 8);
 		data++;
 		start = (start << 32) | fdt32_to_cpu(*data);
 	}
@@ -321,6 +320,9 @@ int dt_get_initrd(const char **initrd, u32 *size)
 		data++;
 		end = (end << 32) | fdt32_to_cpu(*data);
 	}
+
+	assert(start < end);
+	assert(sizeof(long) == 8 || !(end >> 32));
 
 	*initrd = (char *)(unsigned long)start;
 	*size = end - start;

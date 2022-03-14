@@ -3,7 +3,7 @@
 
 unsigned long setup_tss(u8 *stacktop);
 
-#ifdef TARGET_EFI
+#ifdef CONFIG_EFI
 #include "x86/acpi.h"
 #include "x86/apic.h"
 #include "x86/processor.h"
@@ -14,6 +14,6 @@ unsigned long setup_tss(u8 *stacktop);
 
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo);
 void setup_5level_page_table(void);
-#endif /* TARGET_EFI */
+#endif /* CONFIG_EFI */
 
 #endif /* _X86_ASM_SETUP_H_ */

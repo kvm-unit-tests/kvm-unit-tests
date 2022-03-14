@@ -8,7 +8,7 @@ if [ $# -eq 0 ]; then
 fi
 
 if [ ! -f config.mak ]; then
-	echo "run './configure --target-efi && make' first. See ./configure -h"
+	echo "run './configure --enable-efi && make' first. See ./configure -h"
 	exit 2
 fi
 source config.mak
