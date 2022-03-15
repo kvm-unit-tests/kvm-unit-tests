@@ -265,7 +265,7 @@ static void timer_post(uint64_t ntimes, uint64_t *total_ticks)
 {
 	/*
 	 * We use a 10msec timer to test the latency of PPI,
-	 * so we substract the ticks of 10msec to get the
+	 * so we subtract the ticks of 10msec to get the
 	 * actual latency
 	 */
 	*total_ticks -= ntimes * (cntfrq / 100);

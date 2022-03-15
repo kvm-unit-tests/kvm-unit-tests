@@ -909,7 +909,7 @@ static void test_its_pending_migration(void)
 	gicv3_lpi_rdist_disable(pe0);
 	gicv3_lpi_rdist_disable(pe1);
 
-	/* lpis are interleaved inbetween the 2 PEs */
+	/* lpis are interleaved between the 2 PEs */
 	for (i = 0; i < 256; i++) {
 		struct its_collection *col = i % 2 ? collection[0] :
 						     collection[1];

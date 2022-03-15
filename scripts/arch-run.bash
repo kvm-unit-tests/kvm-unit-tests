@@ -176,8 +176,10 @@ search_qemu_binary ()
 	local save_path=$PATH
 	local qemucmd qemu
 
+	: "${QEMU_ARCH:=$ARCH_NAME}"
+
 	export PATH=$PATH:/usr/libexec
-	for qemucmd in ${QEMU:-qemu-system-$ARCH_NAME qemu-kvm}; do
+	for qemucmd in ${QEMU:-qemu-system-$QEMU_ARCH qemu-kvm}; do
 		if $qemucmd --help 2>/dev/null | grep -q 'QEMU'; then
 			qemu="$qemucmd"
 			break

@@ -32,7 +32,7 @@
  * kvm-unit-tests has no concept of scheduling.
  *
  * 	op:		operation passed to dc instruction
- * 	domain:		domain used in dsb instruciton
+ * 	domain:		domain used in dsb instruction
  * 	addr:		starting virtual address of the region
  * 	size:		size of the region
  * 	Corrupts:	addr, size, tmp1, tmp2
