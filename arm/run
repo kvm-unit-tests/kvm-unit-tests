@@ -13,6 +13,10 @@ processor="$PROCESSOR"
 ACCEL=$(get_qemu_accelerator) ||
 	exit $?
 
+if [ "$ACCEL" = "kvm" ]; then
+	QEMU_ARCH=$HOST
+fi
+
 qemu=$(search_qemu_binary) ||
 	exit $?
 
