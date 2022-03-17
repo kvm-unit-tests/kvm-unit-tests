@@ -10,15 +10,23 @@ if [ -z "$KUT_STANDALONE" ]; then
 fi
 processor="$PROCESSOR"
 
-ACCEL=$(get_qemu_accelerator) ||
+accel=$(get_qemu_accelerator) ||
 	exit $?
 
-if [ "$ACCEL" = "kvm" ]; then
+if [ "$accel" = "kvm" ]; then
 	QEMU_ARCH=$HOST
 fi
 
 qemu=$(search_qemu_binary) ||
 	exit $?
+
+if [ "$QEMU" ] && [ -z "$ACCEL" ] &&
+   [ "$HOST" = "aarch64" ] && [ "$ARCH" = "arm" ] &&
+   [ "$(basename $QEMU)" = "qemu-system-arm" ]; then
+	accel=tcg
+fi
+
+ACCEL=$accel
 
 if ! $qemu -machine '?' 2>&1 | grep 'ARM Virtual Machine' > /dev/null; then
 	echo "$qemu doesn't support mach-virt ('-machine virt'). Exiting."
