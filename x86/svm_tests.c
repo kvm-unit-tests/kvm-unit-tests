@@ -1384,17 +1384,16 @@ static bool interrupt_check(struct svm_test *test)
 
 static volatile bool nmi_fired;
 
-static void nmi_handler(isr_regs_t *regs)
+static void nmi_handler(struct ex_regs *regs)
 {
     nmi_fired = true;
-    apic_write(APIC_EOI, 0);
 }
 
 static void nmi_prepare(struct svm_test *test)
 {
     default_prepare(test);
     nmi_fired = false;
-    handle_irq(NMI_VECTOR, nmi_handler);
+    handle_exception(NMI_VECTOR, nmi_handler);
     set_test_stage(test, 0);
 }
 
