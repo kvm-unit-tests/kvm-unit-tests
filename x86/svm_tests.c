@@ -3078,6 +3078,240 @@ static void svm_nm_test(void)
         "fnop with CR0.TS and CR0.EM unset no #NM excpetion");
 }
 
+
+static bool check_lbr(u64 *from_excepted, u64 *to_expected)
+{
+	u64 from = rdmsr(MSR_IA32_LASTBRANCHFROMIP);
+	u64 to = rdmsr(MSR_IA32_LASTBRANCHTOIP);
+
+	if ((u64)from_excepted != from) {
+		report(false, "MSR_IA32_LASTBRANCHFROMIP, expected=0x%lx, actual=0x%lx",
+			(u64)from_excepted, from);
+		return false;
+	}
+
+	if ((u64)to_expected != to) {
+		report(false, "MSR_IA32_LASTBRANCHFROMIP, expected=0x%lx, actual=0x%lx",
+			(u64)from_excepted, from);
+		return false;
+	}
+
+	return true;
+}
+
+static bool check_dbgctl(u64 dbgctl, u64 dbgctl_expected)
+{
+	if (dbgctl != dbgctl_expected) {
+		report(false, "Unexpected MSR_IA32_DEBUGCTLMSR value 0x%lx", dbgctl);
+		return false;
+	}
+	return true;
+}
+
+
+#define DO_BRANCH(branch_name) \
+	asm volatile ( \
+		# branch_name "_from:" \
+		"jmp " # branch_name  "_to\n" \
+		"nop\n" \
+		"nop\n" \
+		# branch_name  "_to:" \
+		"nop\n" \
+	)
+
+
+extern u64 guest_branch0_from, guest_branch0_to;
+extern u64 guest_branch2_from, guest_branch2_to;
+
+extern u64 host_branch0_from, host_branch0_to;
+extern u64 host_branch2_from, host_branch2_to;
+extern u64 host_branch3_from, host_branch3_to;
+extern u64 host_branch4_from, host_branch4_to;
+
+u64 dbgctl;
+
+static void svm_lbrv_test_guest1(void)
+{
+	/*
+	 * This guest expects the LBR to be already enabled when it starts,
+	 * it does a branch, and then disables the LBR and then checks.
+	 */
+
+	DO_BRANCH(guest_branch0);
+
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+
+	if (dbgctl != DEBUGCTLMSR_LBR)
+		asm volatile("ud2\n");
+	if (rdmsr(MSR_IA32_DEBUGCTLMSR) != 0)
+		asm volatile("ud2\n");
+	if (rdmsr(MSR_IA32_LASTBRANCHFROMIP) != (u64)&guest_branch0_from)
+		asm volatile("ud2\n");
+	if (rdmsr(MSR_IA32_LASTBRANCHTOIP) != (u64)&guest_branch0_to)
+		asm volatile("ud2\n");
+
+	asm volatile ("vmmcall\n");
+}
+
+static void svm_lbrv_test_guest2(void)
+{
+	/*
+	 * This guest expects the LBR to be disabled when it starts,
+	 * enables it, does a branch, disables it and then checks.
+	 */
+
+	DO_BRANCH(guest_branch1);
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+
+	if (dbgctl != 0)
+		asm volatile("ud2\n");
+
+	if (rdmsr(MSR_IA32_LASTBRANCHFROMIP) != (u64)&host_branch2_from)
+		asm volatile("ud2\n");
+	if (rdmsr(MSR_IA32_LASTBRANCHTOIP) != (u64)&host_branch2_to)
+		asm volatile("ud2\n");
+
+
+	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	DO_BRANCH(guest_branch2);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+
+	if (dbgctl != DEBUGCTLMSR_LBR)
+		asm volatile("ud2\n");
+	if (rdmsr(MSR_IA32_LASTBRANCHFROMIP) != (u64)&guest_branch2_from)
+		asm volatile("ud2\n");
+	if (rdmsr(MSR_IA32_LASTBRANCHTOIP) != (u64)&guest_branch2_to)
+		asm volatile("ud2\n");
+
+	asm volatile ("vmmcall\n");
+}
+
+static void svm_lbrv_test0(void)
+{
+	report(true, "Basic LBR test");
+	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
+	DO_BRANCH(host_branch0);
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+
+	check_dbgctl(dbgctl, DEBUGCTLMSR_LBR);
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	check_dbgctl(dbgctl, 0);
+
+	check_lbr(&host_branch0_from, &host_branch0_to);
+}
+
+static void svm_lbrv_test1(void)
+{
+	report(true, "Test that without LBRV enabled, guest LBR state does 'leak' to the host(1)");
+
+	vmcb->save.rip = (ulong)svm_lbrv_test_guest1;
+	vmcb->control.virt_ext = 0;
+
+	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
+	DO_BRANCH(host_branch1);
+	SVM_BARE_VMRUN;
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+
+	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+		report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
+		vmcb->control.exit_code);
+		return;
+	}
+
+	check_dbgctl(dbgctl, 0);
+	check_lbr(&guest_branch0_from, &guest_branch0_to);
+}
+
+static void svm_lbrv_test2(void)
+{
+	report(true, "Test that without LBRV enabled, guest LBR state does 'leak' to the host(2)");
+
+	vmcb->save.rip = (ulong)svm_lbrv_test_guest2;
+	vmcb->control.virt_ext = 0;
+
+	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
+	DO_BRANCH(host_branch2);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+	SVM_BARE_VMRUN;
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+
+	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+		report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
+		vmcb->control.exit_code);
+		return;
+	}
+
+	check_dbgctl(dbgctl, 0);
+	check_lbr(&guest_branch2_from, &guest_branch2_to);
+}
+
+static void svm_lbrv_nested_test1(void)
+{
+	if (!lbrv_supported()) {
+		report_skip("LBRV not supported in the guest");
+		return;
+	}
+
+	report(true, "Test that with LBRV enabled, guest LBR state doesn't leak (1)");
+	vmcb->save.rip = (ulong)svm_lbrv_test_guest1;
+	vmcb->control.virt_ext = LBR_CTL_ENABLE_MASK;
+	vmcb->save.dbgctl = DEBUGCTLMSR_LBR;
+
+	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
+	DO_BRANCH(host_branch3);
+	SVM_BARE_VMRUN;
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+
+	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+		report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
+		vmcb->control.exit_code);
+		return;
+	}
+
+	if (vmcb->save.dbgctl != 0) {
+		report(false, "unexpected virtual guest MSR_IA32_DEBUGCTLMSR value 0x%lx", vmcb->save.dbgctl);
+		return;
+	}
+
+	check_dbgctl(dbgctl, DEBUGCTLMSR_LBR);
+	check_lbr(&host_branch3_from, &host_branch3_to);
+}
+static void svm_lbrv_nested_test2(void)
+{
+	if (!lbrv_supported()) {
+		report_skip("LBRV not supported in the guest");
+		return;
+	}
+
+	report(true, "Test that with LBRV enabled, guest LBR state doesn't leak (2)");
+	vmcb->save.rip = (ulong)svm_lbrv_test_guest2;
+	vmcb->control.virt_ext = LBR_CTL_ENABLE_MASK;
+
+	vmcb->save.dbgctl = 0;
+	vmcb->save.br_from = (u64)&host_branch2_from;
+	vmcb->save.br_to = (u64)&host_branch2_to;
+
+	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
+	DO_BRANCH(host_branch4);
+	SVM_BARE_VMRUN;
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+
+	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+		report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
+		vmcb->control.exit_code);
+		return;
+	}
+
+	check_dbgctl(dbgctl, DEBUGCTLMSR_LBR);
+	check_lbr(&host_branch4_from, &host_branch4_to);
+}
+
 struct svm_test svm_tests[] = {
     { "null", default_supported, default_prepare,
       default_prepare_gif_clear, null_test,
@@ -3200,5 +3434,10 @@ struct svm_test svm_tests[] = {
     TEST(svm_nm_test),
     TEST(svm_int3_test),
     TEST(svm_into_test),
+    TEST(svm_lbrv_test0),
+    TEST(svm_lbrv_test1),
+    TEST(svm_lbrv_test2),
+    TEST(svm_lbrv_nested_test1),
+    TEST(svm_lbrv_nested_test2),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };

@@ -70,6 +70,11 @@ bool vgif_supported(void)
 	return this_cpu_has(X86_FEATURE_VGIF);
 }
 
+bool lbrv_supported(void)
+{
+    return this_cpu_has(X86_FEATURE_LBRV);
+}
+
 void default_prepare(struct svm_test *test)
 {
 	vmcb_ident(vmcb);
