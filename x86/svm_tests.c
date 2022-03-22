@@ -1847,7 +1847,7 @@ static bool reg_corruption_finished(struct svm_test *test)
         report_pass("No RIP corruption detected after %d timer interrupts",
                     isr_cnt);
         set_test_stage(test, 1);
-        return true;
+        goto cleanup;
     }
 
     if (vmcb->control.exit_code == SVM_EXIT_INTR) {
@@ -1861,11 +1861,16 @@ static bool reg_corruption_finished(struct svm_test *test)
         if (guest_rip == insb_instruction_label && io_port_var != 0xAA) {
             report_fail("RIP corruption detected after %d timer interrupts",
                         isr_cnt);
-            return true;
+            goto cleanup;
         }
 
     }
     return false;
+cleanup:
+    apic_write(APIC_LVTT, APIC_LVT_TIMER_MASK);
+    apic_write(APIC_TMICT, 0);
+    return true;
+
 }
 
 static bool reg_corruption_check(struct svm_test *test)
