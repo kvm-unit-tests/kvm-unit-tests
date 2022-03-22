@@ -163,8 +163,17 @@ function run()
         print_result "SKIP" $testname "$summary"
     elif [ $ret -eq 124 ]; then
         print_result "FAIL" $testname "" "timeout; duration=$timeout"
+        if [ "$tap_output" = "yes" ]; then
+            echo "not ok TEST_NUMBER - ${testname}: timeout; duration=$timeout" >&3
+        fi
     elif [ $ret -gt 127 ]; then
-        print_result "FAIL" $testname "" "terminated on SIG$(kill -l $(($ret - 128)))"
+        signame="SIG"$(kill -l $(($ret - 128)))
+        print_result "FAIL" $testname "" "terminated on $signame"
+        if [ "$tap_output" = "yes" ]; then
+            echo "not ok TEST_NUMBER - ${testname}: terminated on $signame" >&3
+        fi
+    elif [ $ret -eq 127 ] && [ "$tap_output" = "yes" ]; then
+        echo "not ok TEST_NUMBER - ${testname}: aborted" >&3
     else
         print_result "FAIL" $testname "$summary"
     fi
