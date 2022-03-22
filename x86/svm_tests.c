@@ -3312,6 +3312,195 @@ static void svm_lbrv_nested_test2(void)
 	check_lbr(&host_branch4_from, &host_branch4_to);
 }
 
+
+// test that a nested guest which does enable INTR interception
+// but doesn't enable virtual interrupt masking works
+
+static volatile int dummy_isr_recevied;
+static void dummy_isr(isr_regs_t *regs)
+{
+	dummy_isr_recevied++;
+	eoi();
+}
+
+
+static volatile int nmi_recevied;
+static void dummy_nmi_handler(struct ex_regs *regs)
+{
+	nmi_recevied++;
+}
+
+
+static void svm_intr_intercept_mix_run_guest(volatile int *counter, int expected_vmexit)
+{
+	if (counter)
+		*counter = 0;
+
+	sti();  // host IF value should not matter
+	clgi(); // vmrun will set back GI to 1
+
+	svm_vmrun();
+
+	if (counter)
+		report(!*counter, "No interrupt expected");
+
+	stgi();
+
+	if (counter)
+		report(*counter == 1, "Interrupt is expected");
+
+	report (vmcb->control.exit_code == expected_vmexit, "Test expected VM exit");
+	report(vmcb->save.rflags & X86_EFLAGS_IF, "Guest should have EFLAGS.IF set now");
+	cli();
+}
+
+
+// subtest: test that enabling EFLAGS.IF is enought to trigger an interrupt
+static void svm_intr_intercept_mix_if_guest(struct svm_test *test)
+{
+	asm volatile("nop;nop;nop;nop");
+	report(!dummy_isr_recevied, "No interrupt expected");
+	sti();
+	asm volatile("nop");
+	report(0, "must not reach here");
+}
+
+static void svm_intr_intercept_mix_if(void)
+{
+	// make a physical interrupt to be pending
+	handle_irq(0x55, dummy_isr);
+
+	vmcb->control.intercept |= (1 << INTERCEPT_INTR);
+	vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
+	vmcb->save.rflags &= ~X86_EFLAGS_IF;
+
+	test_set_guest(svm_intr_intercept_mix_if_guest);
+	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED | 0x55, 0);
+	svm_intr_intercept_mix_run_guest(&dummy_isr_recevied, SVM_EXIT_INTR);
+}
+
+
+// subtest: test that a clever guest can trigger an interrupt by setting GIF
+// if GIF is not intercepted
+static void svm_intr_intercept_mix_gif_guest(struct svm_test *test)
+{
+
+	asm volatile("nop;nop;nop;nop");
+	report(!dummy_isr_recevied, "No interrupt expected");
+
+	// clear GIF and enable IF
+	// that should still not cause VM exit
+	clgi();
+	sti();
+	asm volatile("nop");
+	report(!dummy_isr_recevied, "No interrupt expected");
+
+	stgi();
+	asm volatile("nop");
+	report(0, "must not reach here");
+}
+
+static void svm_intr_intercept_mix_gif(void)
+{
+	handle_irq(0x55, dummy_isr);
+
+	vmcb->control.intercept |= (1 << INTERCEPT_INTR);
+	vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
+	vmcb->save.rflags &= ~X86_EFLAGS_IF;
+
+	test_set_guest(svm_intr_intercept_mix_gif_guest);
+	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED | 0x55, 0);
+	svm_intr_intercept_mix_run_guest(&dummy_isr_recevied, SVM_EXIT_INTR);
+}
+
+
+
+// subtest: test that a clever guest can trigger an interrupt by setting GIF
+// if GIF is not intercepted and interrupt comes after guest
+// started running
+static void svm_intr_intercept_mix_gif_guest2(struct svm_test *test)
+{
+	asm volatile("nop;nop;nop;nop");
+	report(!dummy_isr_recevied, "No interrupt expected");
+
+	clgi();
+	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED | 0x55, 0);
+	report(!dummy_isr_recevied, "No interrupt expected");
+
+	stgi();
+	asm volatile("nop");
+	report(0, "must not reach here");
+}
+
+static void svm_intr_intercept_mix_gif2(void)
+{
+	handle_irq(0x55, dummy_isr);
+
+	vmcb->control.intercept |= (1 << INTERCEPT_INTR);
+	vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
+	vmcb->save.rflags |= X86_EFLAGS_IF;
+
+	test_set_guest(svm_intr_intercept_mix_gif_guest2);
+	svm_intr_intercept_mix_run_guest(&dummy_isr_recevied, SVM_EXIT_INTR);
+}
+
+
+// subtest: test that pending NMI will be handled when guest enables GIF
+static void svm_intr_intercept_mix_nmi_guest(struct svm_test *test)
+{
+	asm volatile("nop;nop;nop;nop");
+	report(!nmi_recevied, "No NMI expected");
+	cli(); // should have no effect
+
+	clgi();
+	asm volatile("nop");
+	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_NMI, 0);
+	sti(); // should have no effect
+	asm volatile("nop");
+	report(!nmi_recevied, "No NMI expected");
+
+	stgi();
+	asm volatile("nop");
+	report(0, "must not reach here");
+}
+
+static void svm_intr_intercept_mix_nmi(void)
+{
+	handle_exception(2, dummy_nmi_handler);
+
+	vmcb->control.intercept |= (1 << INTERCEPT_NMI);
+	vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
+	vmcb->save.rflags |= X86_EFLAGS_IF;
+
+	test_set_guest(svm_intr_intercept_mix_nmi_guest);
+	svm_intr_intercept_mix_run_guest(&nmi_recevied, SVM_EXIT_NMI);
+}
+
+// test that pending SMI will be handled when guest enables GIF
+// TODO: can't really count #SMIs so just test that guest doesn't hang
+// and VMexits on SMI
+static void svm_intr_intercept_mix_smi_guest(struct svm_test *test)
+{
+	asm volatile("nop;nop;nop;nop");
+
+	clgi();
+	asm volatile("nop");
+	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_SMI, 0);
+	sti(); // should have no effect
+	asm volatile("nop");
+	stgi();
+	asm volatile("nop");
+	report(0, "must not reach here");
+}
+
+static void svm_intr_intercept_mix_smi(void)
+{
+	vmcb->control.intercept |= (1 << INTERCEPT_SMI);
+	vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
+	test_set_guest(svm_intr_intercept_mix_smi_guest);
+	svm_intr_intercept_mix_run_guest(NULL, SVM_EXIT_SMI);
+}
+
 struct svm_test svm_tests[] = {
     { "null", default_supported, default_prepare,
       default_prepare_gif_clear, null_test,
@@ -3439,5 +3628,10 @@ struct svm_test svm_tests[] = {
     TEST(svm_lbrv_test2),
     TEST(svm_lbrv_nested_test1),
     TEST(svm_lbrv_nested_test2),
+    TEST(svm_intr_intercept_mix_if),
+    TEST(svm_intr_intercept_mix_gif),
+    TEST(svm_intr_intercept_mix_gif2),
+    TEST(svm_intr_intercept_mix_nmi),
+    TEST(svm_intr_intercept_mix_smi),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };

@@ -426,6 +426,17 @@ void test_set_guest(test_guest_func func);
 extern struct vmcb *vmcb;
 extern struct svm_test svm_tests[];
 
+static inline void stgi(void)
+{
+    asm volatile ("stgi");
+}
+
+static inline void clgi(void)
+{
+    asm volatile ("clgi");
+}
+
+
 
 #define SAVE_GPR_C                              \
         "xchg %%rbx, regs+0x8\n\t"              \
