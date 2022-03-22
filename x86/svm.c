@@ -80,6 +80,17 @@ bool tsc_scale_supported(void)
     return this_cpu_has(X86_FEATURE_TSCRATEMSR);
 }
 
+bool pause_filter_supported(void)
+{
+    return this_cpu_has(X86_FEATURE_PAUSEFILTER);
+}
+
+bool pause_threshold_supported(void)
+{
+    return this_cpu_has(X86_FEATURE_PFTHRESHOLD);
+}
+
+
 void default_prepare(struct svm_test *test)
 {
 	vmcb_ident(vmcb);

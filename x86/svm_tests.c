@@ -3030,6 +3030,75 @@ static bool vgif_check(struct svm_test *test)
     return get_test_stage(test) == 3;
 }
 
+
+static int pause_test_counter;
+static int wait_counter;
+
+static void pause_filter_test_guest_main(struct svm_test *test)
+{
+    int i;
+    for (i = 0 ; i < pause_test_counter ; i++)
+        pause();
+
+    if (!wait_counter)
+        return;
+
+    for (i = 0; i < wait_counter; i++)
+        ;
+
+    for (i = 0 ; i < pause_test_counter ; i++)
+        pause();
+
+}
+
+static void pause_filter_run_test(int pause_iterations, int filter_value, int wait_iterations, int threshold)
+{
+    test_set_guest(pause_filter_test_guest_main);
+
+    pause_test_counter = pause_iterations;
+    wait_counter = wait_iterations;
+
+    vmcb->control.pause_filter_count = filter_value;
+    vmcb->control.pause_filter_thresh = threshold;
+    svm_vmrun();
+
+    if (filter_value <= pause_iterations || wait_iterations < threshold)
+        report(vmcb->control.exit_code == SVM_EXIT_PAUSE, "expected PAUSE vmexit");
+    else
+        report(vmcb->control.exit_code == SVM_EXIT_VMMCALL, "no expected PAUSE vmexit");
+}
+
+static void pause_filter_test(void)
+{
+    if (!pause_filter_supported()) {
+            report_skip("PAUSE filter not supported in the guest");
+            return;
+    }
+
+    vmcb->control.intercept |= (1 << INTERCEPT_PAUSE);
+
+    // filter count more that pause count - no VMexit
+    pause_filter_run_test(10, 9, 0, 0);
+
+    // filter count smaller pause count - no VMexit
+    pause_filter_run_test(20, 21, 0, 0);
+
+
+    if (pause_threshold_supported()) {
+        // filter count smaller pause count - no VMexit +  large enough threshold
+        // so that filter counter resets
+        pause_filter_run_test(20, 21, 1000, 10);
+
+        // filter count smaller pause count - no VMexit +  small threshold
+        // so that filter doesn't reset
+        pause_filter_run_test(20, 21, 10, 1000);
+    } else {
+        report_skip("PAUSE threshold not supported in the guest");
+        return;
+    }
+}
+
+
 static int of_test_counter;
 
 static void guest_test_of_handler(struct ex_regs *r)
@@ -3698,5 +3767,6 @@ struct svm_test svm_tests[] = {
     TEST(svm_intr_intercept_mix_nmi),
     TEST(svm_intr_intercept_mix_smi),
     TEST(svm_tsc_scale_test),
+    TEST(pause_filter_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };

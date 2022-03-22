@@ -190,8 +190,9 @@ static inline bool is_intel(void)
 #define	X86_FEATURE_LBRV		(CPUID(0x8000000A, 0, EDX, 1))
 #define	X86_FEATURE_NRIPS		(CPUID(0x8000000A, 0, EDX, 3))
 #define X86_FEATURE_TSCRATEMSR  (CPUID(0x8000000A, 0, EDX, 4))
+#define X86_FEATURE_PAUSEFILTER     (CPUID(0x8000000A, 0, EDX, 10))
+#define X86_FEATURE_PFTHRESHOLD     (CPUID(0x8000000A, 0, EDX, 12))
 #define	X86_FEATURE_VGIF		(CPUID(0x8000000A, 0, EDX, 16))
-
 
 
 static inline bool this_cpu_has(u64 feature)
