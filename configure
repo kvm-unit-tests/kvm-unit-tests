@@ -31,6 +31,13 @@ page_size=
 earlycon=
 efi=
 
+# Enable -Werror by default for git repositories only (i.e. developer builds)
+if [ -e "$srcdir"/.git ]; then
+    werror=-Werror
+else
+    werror=
+fi
+
 usage() {
     cat <<-EOF
 	Usage: $0 [options]
@@ -75,6 +82,8 @@ usage() {
 	                           Specify a PL011 compatible UART at address ADDR. Supported
 	                           register stride is 32 bit only.
 	    --[enable|disable]-efi Boot and run from UEFI (disabled by default, x86_64 only)
+	    --[enable|disable]-werror
+	                           Select whether to compile with the -Werror compiler flag
 EOF
     exit 1
 }
@@ -147,6 +156,12 @@ while [[ "$1" = -* ]]; do
 	    ;;
 	--disable-efi)
 	    efi=n
+	    ;;
+	--enable-werror)
+	    werror=-Werror
+	    ;;
+	--disable-werror)
+	    werror=
 	    ;;
 	--help)
 	    usage
@@ -371,6 +386,7 @@ WA_DIVIDE=$wa_divide
 GENPROTIMG=${GENPROTIMG-genprotimg}
 HOST_KEY_DOCUMENT=$host_key_document
 CONFIG_EFI=$efi
+CONFIG_WERROR=$werror
 GEN_SE_HEADER=$gen_se_header
 EOF
 if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
