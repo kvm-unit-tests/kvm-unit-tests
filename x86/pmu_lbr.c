@@ -68,6 +68,12 @@ int main(int ac, char **av)
 	int max, i;
 
 	setup_vm();
+
+	if (!is_intel()) {
+		report_skip("PMU_LBR test is for intel CPU's only");
+		return 0;
+	}
+
 	perf_cap = rdmsr(MSR_IA32_PERF_CAPABILITIES);
 	eax.full = id.a;
 
