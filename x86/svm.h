@@ -147,6 +147,8 @@ struct __attribute__ ((__packed__)) vmcb_control_area {
 #define SVM_VM_CR_SVM_LOCK_MASK 0x0008ULL
 #define SVM_VM_CR_SVM_DIS_MASK  0x0010ULL
 
+#define TSC_RATIO_DEFAULT   0x0100000000ULL
+
 struct __attribute__ ((__packed__)) vmcb_seg {
 	u16 selector;
 	u16 attrib;
@@ -408,6 +410,7 @@ bool smp_supported(void);
 bool default_supported(void);
 bool vgif_supported(void);
 bool lbrv_supported(void);
+bool tsc_scale_supported(void);
 void default_prepare(struct svm_test *test);
 void default_prepare_gif_clear(struct svm_test *test);
 bool default_finished(struct svm_test *test);

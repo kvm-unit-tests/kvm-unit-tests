@@ -918,6 +918,70 @@ static bool tsc_adjust_check(struct svm_test *test)
     return ok && adjust <= -2 * TSC_ADJUST_VALUE;
 }
 
+
+static u64 guest_tsc_delay_value;
+/* number of bits to shift tsc right for stable result */
+#define TSC_SHIFT 24
+#define TSC_SCALE_ITERATIONS 10
+
+static void svm_tsc_scale_guest(struct svm_test *test)
+{
+    u64 start_tsc = rdtsc();
+
+    while (rdtsc() - start_tsc < guest_tsc_delay_value)
+        cpu_relax();
+}
+
+static void svm_tsc_scale_run_testcase(u64 duration,
+        double tsc_scale, u64 tsc_offset)
+{
+    u64 start_tsc, actual_duration;
+
+    guest_tsc_delay_value = (duration << TSC_SHIFT) * tsc_scale;
+
+    test_set_guest(svm_tsc_scale_guest);
+    vmcb->control.tsc_offset = tsc_offset;
+    wrmsr(MSR_AMD64_TSC_RATIO, (u64)(tsc_scale * (1ULL << 32)));
+
+    start_tsc = rdtsc();
+
+    if (svm_vmrun() != SVM_EXIT_VMMCALL)
+        report_fail("unexpected vm exit code 0x%x", vmcb->control.exit_code);
+
+    actual_duration = (rdtsc() - start_tsc) >> TSC_SHIFT;
+
+    report(duration == actual_duration, "tsc delay (expected: %lu, actual: %lu)",
+            duration, actual_duration);
+}
+
+static void svm_tsc_scale_test(void)
+{
+    int i;
+
+    if (!tsc_scale_supported()) {
+        report_skip("TSC scale not supported in the guest");
+        return;
+    }
+
+    report(rdmsr(MSR_AMD64_TSC_RATIO) == TSC_RATIO_DEFAULT,
+           "initial TSC scale ratio");
+
+    for (i = 0 ; i < TSC_SCALE_ITERATIONS; i++) {
+
+        double tsc_scale = (double)(rdrand() % 100 + 1) / 10;
+        int duration = rdrand() % 50 + 1;
+        u64 tsc_offset = rdrand();
+
+        report_info("duration=%d, tsc_scale=%d, tsc_offset=%ld",
+                    duration, (int)(tsc_scale * 100), tsc_offset);
+
+        svm_tsc_scale_run_testcase(duration, tsc_scale, tsc_offset);
+    }
+
+    svm_tsc_scale_run_testcase(50, 255, rdrand());
+    svm_tsc_scale_run_testcase(50, 0.0001, rdrand());
+}
+
 static void latency_prepare(struct svm_test *test)
 {
     default_prepare(test);
@@ -3633,5 +3697,6 @@ struct svm_test svm_tests[] = {
     TEST(svm_intr_intercept_mix_gif2),
     TEST(svm_intr_intercept_mix_nmi),
     TEST(svm_intr_intercept_mix_smi),
+    TEST(svm_tsc_scale_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };

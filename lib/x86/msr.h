@@ -431,6 +431,7 @@
 
 /* AMD-V MSRs */
 
+#define MSR_AMD64_TSC_RATIO             0xc0000104
 #define MSR_VM_CR                       0xc0010114
 #define MSR_VM_IGNNE                    0xc0010115
 #define MSR_VM_HSAVE_PA                 0xc0010117
