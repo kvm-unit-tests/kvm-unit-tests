@@ -174,7 +174,9 @@ void vmcb_ident(struct vmcb *vmcb)
 	save->cr2 = read_cr2();
 	save->g_pat = rdmsr(MSR_IA32_CR_PAT);
 	save->dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
-	ctrl->intercept = (1ULL << INTERCEPT_VMRUN) | (1ULL << INTERCEPT_VMMCALL);
+	ctrl->intercept = (1ULL << INTERCEPT_VMRUN) |
+			  (1ULL << INTERCEPT_VMMCALL) |
+			  (1ULL << INTERCEPT_SHUTDOWN);
 	ctrl->iopm_base_pa = virt_to_phys(io_bitmap);
 	ctrl->msrpm_base_pa = virt_to_phys(msr_bitmap);
 
