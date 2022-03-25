@@ -19,7 +19,6 @@
 #include <asm/sigp.h>
 #include <smp.h>
 #include <alloc_page.h>
-#include <vm.h>
 #include <vmalloc.h>
 #include <sclp.h>
 #include <snippet.h>
