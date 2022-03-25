@@ -9,6 +9,7 @@
  */
 
 #include <libcflat.h>
+#include <hardware.h>
 #include <alloc.h>
 #include <vmalloc.h>
 #include <sclp.h>
@@ -111,7 +112,6 @@ static void test_config_destroy(void)
 static void test_cpu_destroy(void)
 {
 	int rc;
-	uint16_t machineid = get_machine_id();
 	struct uv_cb_nodata uvcb = {
 		.header.len = sizeof(uvcb),
 		.header.cmd = UVC_CMD_DESTROY_SEC_CPU,
@@ -126,7 +126,7 @@ static void test_cpu_destroy(void)
 	       "hdr invalid length");
 	uvcb.header.len += 8;
 
-	if (machineid != MACHINE_Z15A && machineid != MACHINE_Z15B) {
+	if (!machine_is_z15()) {
 		uvcb.handle += 1;
 		rc = uv_call(0, (uint64_t)&uvcb);
 		report(rc == 1 && uvcb.header.rc == UVC_RC_INV_CHANDLE, "invalid handle");
