@@ -9,7 +9,7 @@
  */
 #include <libcflat.h>
 #include <css.h>
-#include <vm.h>
+#include <hardware.h>
 
 static uint32_t zero_out_cc_from_epsw_op1(uint32_t epsw_op1)
 {
@@ -97,7 +97,7 @@ static void test_epsw(void)
 
 int main(int argc, char **argv)
 {
-	if (!vm_is_kvm() && !vm_is_tcg()) {
+	if (!host_is_kvm() && !host_is_tcg()) {
 		report_skip("Not running under QEMU");
 		goto done;
 	}

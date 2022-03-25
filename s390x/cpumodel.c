@@ -10,7 +10,7 @@
  */
 
 #include <asm/facility.h>
-#include <vm.h>
+#include <hardware.h>
 #include <sclp.h>
 #include <uv.h>
 #include <asm/uv.h>
@@ -118,7 +118,7 @@ int main(void)
 	for (i = 0; i < ARRAY_SIZE(dep); i++) {
 		report_prefix_pushf("%d implies %d", dep[i].facility, dep[i].implied);
 		if (test_facility(dep[i].facility)) {
-			report_xfail(dep[i].expected_tcg_fail && vm_is_tcg(),
+			report_xfail(dep[i].expected_tcg_fail && host_is_tcg(),
 				     test_facility(dep[i].implied),
 				     "implication not correct");
 		} else {
