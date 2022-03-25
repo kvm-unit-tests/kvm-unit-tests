@@ -25,6 +25,11 @@ enum s390_host {
 
 enum s390_host detect_host(void);
 
+static inline uint16_t get_machine_id(void)
+{
+	return stidp() >> 16;
+}
+
 static inline bool host_is_tcg(void)
 {
 	return detect_host() == HOST_IS_TCG;
