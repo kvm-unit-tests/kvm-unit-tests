@@ -16,9 +16,53 @@
 #include <asm/sigp.h>
 
 #include <smp.h>
+#include <uv.h>
 #include <alloc_page.h>
 
 static int testflag = 0;
+#define INVALID_CPU_ADDRESS -4711
+#define INVALID_ORDER_CODE 0xFF
+struct sigp_invalid_cases {
+	int order;
+	char message[100];
+};
+static const struct sigp_invalid_cases cases_invalid_cpu_addr[] = {
+	{ SIGP_STOP,                  "stop with invalid CPU address" },
+	{ SIGP_START,                 "start with invalid CPU address" },
+	{ SIGP_CPU_RESET,             "reset with invalid CPU address" },
+	{ INVALID_ORDER_CODE,         "invalid order code and CPU address" },
+	{ SIGP_SENSE,                 "sense with invalid CPU address" },
+	{ SIGP_STOP_AND_STORE_STATUS, "stop and store status with invalid CPU address" },
+};
+static const struct sigp_invalid_cases cases_valid_cpu_addr[] = {
+	{ INVALID_ORDER_CODE,         "invalid order code" },
+};
+
+static uint32_t cpu1_prefix;
+
+static void test_invalid(void)
+{
+	const struct sigp_invalid_cases *c;
+	uint32_t status;
+	int cc;
+	int i;
+
+	report_prefix_push("invalid parameters");
+
+	for (i = 0; i < ARRAY_SIZE(cases_invalid_cpu_addr); i++) {
+		c = &cases_invalid_cpu_addr[i];
+		cc = sigp(INVALID_CPU_ADDRESS, c->order, 0, &status);
+		report(cc == 3, "%s", c->message);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(cases_valid_cpu_addr); i++) {
+		c = &cases_valid_cpu_addr[i];
+		cc = smp_sigp(1, c->order, 0, &status);
+		report(cc == 1, "%s", c->message);
+	}
+
+	report_prefix_pop();
+}
 
 static void wait_for_flag(void)
 {
@@ -50,44 +94,61 @@ static void test_start(void)
 	report_pass("start");
 }
 
-/*
- * Does only test restart when the target is running.
- * The other tests do restarts when stopped multiple times already.
- */
 static void test_restart(void)
 {
 	struct cpu *cpu = smp_cpu_from_idx(1);
 	struct lowcore *lc = cpu->lowcore;
+	int rc;
+
+	report_prefix_push("restart");
+	report_prefix_push("stopped");
 
 	lc->restart_new_psw.mask = extract_psw_mask();
 	lc->restart_new_psw.addr = (unsigned long)test_func;
 
-	/* Make sure cpu is running */
-	smp_cpu_stop(0);
+	/* Make sure cpu is stopped */
+	smp_cpu_stop(1);
 	set_flag(0);
-	smp_cpu_restart(1);
+	rc = smp_cpu_restart_nowait(1);
+	report(!rc, "return code");
+	report(!smp_cpu_stopped(1), "cpu started");
 	wait_for_flag();
+	report_pass("test flag");
+
+	report_prefix_pop();
+	report_prefix_push("running");
 
 	/*
 	 * Wait until cpu 1 has set the flag because it executed the
 	 * restart function.
 	 */
 	set_flag(0);
-	smp_cpu_restart(1);
+	rc = smp_cpu_restart_nowait(1);
+	report(!rc, "return code");
+	report(!smp_cpu_stopped(1), "cpu started");
 	wait_for_flag();
-	report_pass("restart while running");
+	report_pass("test flag");
+
+	report_prefix_pop();
+	report_prefix_pop();
 }
 
 static void test_stop(void)
 {
-	smp_cpu_stop(1);
-	/*
-	 * The smp library waits for the CPU to shut down, but let's
-	 * also do it here, so we don't rely on the library
-	 * implementation
-	 */
-	while (!smp_cpu_stopped(1)) {}
-	report_pass("stop");
+	int rc;
+
+	report_prefix_push("stop");
+
+	rc = smp_cpu_stop_nowait(1);
+	report(!rc, "return code");
+	report(smp_cpu_stopped(1), "cpu stopped");
+
+	report_prefix_push("stop stopped CPU");
+	report(!smp_cpu_stop(1), "STOP succeeds");
+	report(smp_cpu_stopped(1), "CPU is stopped");
+	report_prefix_pop();
+
+	report_prefix_pop();
 }
 
 static void test_stop_store_status(void)
@@ -102,9 +163,9 @@ static void test_stop_store_status(void)
 	lc->grs_sa[15] = 0;
 	smp_cpu_stop_store_status(1);
 	mb();
+	report(smp_cpu_stopped(1), "cpu stopped");
 	report(lc->prefix_sa == (uint32_t)(uintptr_t)cpu->lowcore, "prefix");
 	report(lc->grs_sa[15], "stack");
-	report(smp_cpu_stopped(1), "cpu stopped");
 	report_prefix_pop();
 
 	report_prefix_push("stopped");
@@ -112,6 +173,7 @@ static void test_stop_store_status(void)
 	lc->grs_sa[15] = 0;
 	smp_cpu_stop_store_status(1);
 	mb();
+	report(smp_cpu_stopped(1), "cpu stopped");
 	report(lc->prefix_sa == (uint32_t)(uintptr_t)cpu->lowcore, "prefix");
 	report(lc->grs_sa[15], "stack");
 	report_prefix_pop();
@@ -123,9 +185,15 @@ static void test_store_status(void)
 {
 	struct cpu_status *status = alloc_pages_flags(1, AREA_DMA31);
 	uint32_t r;
+	int cc;
 
 	report_prefix_push("store status at address");
 	memset(status, 0, PAGE_SIZE * 2);
+
+	report_prefix_push("invalid CPU address");
+	cc = sigp(INVALID_CPU_ADDRESS, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, &r);
+	report(cc == 3, "returned with CC = 3");
+	report_prefix_pop();
 
 	report_prefix_push("running");
 	smp_cpu_restart(1);
@@ -146,6 +214,76 @@ static void test_store_status(void)
 	smp_cpu_stop(1);
 
 	report_prefix_pop();
+}
+
+static void loop(void)
+{
+	while (1)
+		;
+}
+
+static void stpx_and_set_flag(void)
+{
+	asm volatile (
+		"	stpx %[prefix]\n"
+		: [prefix] "=Q" (cpu1_prefix)
+		:
+		:
+	);
+
+	set_flag(1);
+}
+
+static void test_set_prefix(void)
+{
+	struct lowcore *new_lc = alloc_pages_flags(1, AREA_DMA31);
+	struct cpu *cpu1 = smp_cpu_from_idx(1);
+	uint32_t status = 0;
+	struct psw new_psw;
+	int cc;
+
+	report_prefix_push("set prefix");
+
+	assert(new_lc);
+
+	memcpy(new_lc, cpu1->lowcore, sizeof(struct lowcore));
+	new_lc->restart_new_psw.addr = (unsigned long)loop;
+
+	report_prefix_push("running");
+	set_flag(0);
+	new_psw.addr = (unsigned long)stpx_and_set_flag;
+	new_psw.mask = extract_psw_mask();
+	smp_cpu_start(1, new_psw);
+	wait_for_flag();
+	cpu1_prefix = 0xFFFFFFFF;
+
+	cc = smp_sigp(1, SIGP_SET_PREFIX, (unsigned long)new_lc, &status);
+	report(cc == 1, "CC = 1");
+	report(status == SIGP_STATUS_INCORRECT_STATE, "status = INCORRECT_STATE");
+
+	/*
+	 * If the prefix of the other CPU was changed it will enter an endless
+	 * loop. Otherwise, it should eventually set the flag.
+	 */
+	smp_cpu_stop(1);
+	set_flag(0);
+	smp_cpu_restart(1);
+	wait_for_flag();
+	report(cpu1_prefix == (uint64_t)cpu1->lowcore, "prefix unchanged");
+
+	report_prefix_pop();
+
+	report_prefix_push("invalid CPU address");
+
+	cc = sigp(INVALID_CPU_ADDRESS, SIGP_SET_PREFIX, (unsigned long)new_lc, &status);
+	report(cc == 3, "CC = 3");
+
+	report_prefix_pop();
+
+	free_pages(new_lc);
+
+	report_prefix_pop();
+
 }
 
 static void ecall(void)
@@ -201,6 +339,7 @@ static void emcall(void)
 static void test_emcall(void)
 {
 	struct psw psw;
+	int cc;
 	psw.mask = extract_psw_mask();
 	psw.addr = (unsigned long)emcall;
 
@@ -213,7 +352,56 @@ static void test_emcall(void)
 	smp_sigp(1, SIGP_EMERGENCY_SIGNAL, 0, NULL);
 	wait_for_flag();
 	smp_cpu_stop(1);
+
+	report_prefix_push("invalid CPU address");
+
+	cc = sigp(INVALID_CPU_ADDRESS, SIGP_EMERGENCY_SIGNAL, 0, NULL);
+	report(cc == 3, "CC = 3");
+
 	report_prefix_pop();
+
+	report_prefix_pop();
+}
+
+static void test_cond_emcall(void)
+{
+	uint32_t status = 0;
+	struct psw psw;
+	int cc;
+	psw.mask = extract_psw_mask() & ~PSW_MASK_IO;
+	psw.addr = (unsigned long)emcall;
+
+	report_prefix_push("conditional emergency call");
+
+	if (uv_os_is_guest()) {
+		report_skip("unsupported under PV");
+		goto out;
+	}
+
+	report_prefix_push("invalid CPU address");
+
+	cc = sigp(INVALID_CPU_ADDRESS, SIGP_COND_EMERGENCY_SIGNAL, 0, NULL);
+	report(cc == 3, "CC = 3");
+
+	report_prefix_pop();
+
+	report_prefix_push("success");
+	set_flag(0);
+
+	smp_cpu_start(1, psw);
+	wait_for_flag();
+	set_flag(0);
+	cc = smp_sigp(1, SIGP_COND_EMERGENCY_SIGNAL, 0, &status);
+	report(!cc, "CC = 0");
+
+	wait_for_flag();
+	smp_cpu_stop(1);
+
+	report_prefix_pop();
+
+out:
+	report_prefix_pop();
+
 }
 
 static void test_sense_running(void)
@@ -253,7 +441,7 @@ static void test_reset_initial(void)
 	smp_cpu_start(1, psw);
 	wait_for_flag();
 
-	smp_sigp_retry(1, SIGP_INITIAL_CPU_RESET, 0, NULL);
+	smp_sigp(1, SIGP_INITIAL_CPU_RESET, 0, NULL);
 	smp_sigp(1, SIGP_STORE_STATUS_AT_ADDRESS, (uintptr_t)status, NULL);
 
 	report_prefix_push("clear");
@@ -303,7 +491,7 @@ static void test_reset(void)
 	smp_sigp(1, SIGP_EXTERNAL_CALL, 0, NULL);
 	smp_cpu_start(1, psw);
 
-	smp_sigp_retry(1, SIGP_CPU_RESET, 0, NULL);
+	smp_sigp(1, SIGP_CPU_RESET, 0, NULL);
 	report(smp_cpu_stopped(1), "cpu stopped");
 
 	set_flag(0);
@@ -331,12 +519,15 @@ int main(void)
 	smp_cpu_stop(1);
 
 	test_start();
+	test_invalid();
 	test_restart();
 	test_stop();
 	test_stop_store_status();
 	test_store_status();
+	test_set_prefix();
 	test_ecall();
 	test_emcall();
+	test_cond_emcall();
 	test_sense_running();
 	test_reset();
 	test_reset_initial();

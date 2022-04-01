@@ -20,7 +20,7 @@
 #include <smp.h>
 #include <alloc_page.h>
 #include <bitops.h>
-#include <vm.h>
+#include <hardware.h>
 
 /* Used to build the appropriate test values for register 0 */
 #define KFC(x) ((x) << 10)
@@ -251,7 +251,7 @@ static void test_mmu_prot(void)
 	fresh += PAGE_SIZE;
 
 	/* Known issue in TCG: CCO flag is not honoured */
-	if (vm_is_tcg()) {
+	if (host_is_tcg()) {
 		report_prefix_push("TCG");
 		report_skip("destination invalid");
 		report_skip("source invalid");

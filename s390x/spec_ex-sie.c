@@ -11,7 +11,6 @@
 #include <asm/page.h>
 #include <asm/arch_def.h>
 #include <alloc_page.h>
-#include <vm.h>
 #include <sie.h>
 #include <snippet.h>
 

@@ -42,14 +42,15 @@ uint16_t smp_cpu_addr(uint16_t idx);
 bool smp_cpu_stopped(uint16_t idx);
 bool smp_sense_running_status(uint16_t idx);
 int smp_cpu_restart(uint16_t idx);
+int smp_cpu_restart_nowait(uint16_t idx);
 int smp_cpu_start(uint16_t idx, struct psw psw);
 int smp_cpu_stop(uint16_t idx);
+int smp_cpu_stop_nowait(uint16_t idx);
 int smp_cpu_stop_store_status(uint16_t idx);
 int smp_cpu_destroy(uint16_t idx);
 int smp_cpu_setup(uint16_t idx, struct psw psw);
 void smp_teardown(void);
 void smp_setup(void);
 int smp_sigp(uint16_t idx, uint8_t order, unsigned long parm, uint32_t *status);
-int smp_sigp_retry(uint16_t idx, uint8_t order, unsigned long parm, uint32_t *status);
 
 #endif

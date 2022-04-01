@@ -42,12 +42,6 @@ int smp_query_num_cpus(void)
 int smp_sigp(uint16_t idx, uint8_t order, unsigned long parm, uint32_t *status)
 {
 	check_idx(idx);
-	return sigp(cpus[idx].addr, order, parm, status);
-}
-
-int smp_sigp_retry(uint16_t idx, uint8_t order, unsigned long parm, uint32_t *status)
-{
-	check_idx(idx);
 	return sigp_retry(cpus[idx].addr, order, parm, status);
 }
 
@@ -99,7 +93,7 @@ static int smp_cpu_stop_nolock(uint16_t idx, bool store)
 	if (idx == 0)
 		return -1;
 
-	if (smp_sigp_retry(idx, order, 0, NULL))
+	if (smp_sigp(idx, order, 0, NULL))
 		return -1;
 
 	while (!smp_cpu_stopped(idx))
@@ -117,6 +111,33 @@ int smp_cpu_stop(uint16_t idx)
 	rc = smp_cpu_stop_nolock(idx, false);
 	spin_unlock(&lock);
 	return rc;
+}
+
+/*
+ * Functionally equivalent to smp_cpu_stop(), but without the
+ * elements that wait/serialize matters itself.
+ * Used to see if KVM itself is serialized correctly.
+ */
+int smp_cpu_stop_nowait(uint16_t idx)
+{
+	check_idx(idx);
+
+	/* refuse to work on the boot CPU */
+	if (idx == 0)
+		return -1;
+
+	spin_lock(&lock);
+
+	/* Don't suppress a CC2 with sigp_retry() */
+	if (sigp(cpus[idx].addr, SIGP_STOP, 0, NULL)) {
+		spin_unlock(&lock);
+		return -1;
+	}
+
+	cpus[idx].active = false;
+	spin_unlock(&lock);
+
+	return 0;
 }
 
 int smp_cpu_stop_store_status(uint16_t idx)
@@ -167,6 +188,30 @@ int smp_cpu_restart(uint16_t idx)
 	return rc;
 }
 
+/*
+ * Functionally equivalent to smp_cpu_restart(), but without the
+ * elements that wait/serialize matters here in the test.
+ * Used to see if KVM itself is serialized correctly.
+ */
+int smp_cpu_restart_nowait(uint16_t idx)
+{
+	check_idx(idx);
+
+	spin_lock(&lock);
+
+	/* Don't suppress a CC2 with sigp_retry() */
+	if (sigp(cpus[idx].addr, SIGP_RESTART, 0, NULL)) {
+		spin_unlock(&lock);
+		return -1;
+	}
+
+	cpus[idx].active = true;
+
+	spin_unlock(&lock);
+
+	return 0;
+}
+
 int smp_cpu_start(uint16_t idx, struct psw psw)
 {
 	int rc;
@@ -200,11 +245,11 @@ static int smp_cpu_setup_nolock(uint16_t idx, struct psw psw)
 	if (cpus[idx].active)
 		return -1;
 
-	smp_sigp_retry(idx, SIGP_INITIAL_CPU_RESET, 0, NULL);
+	smp_sigp(idx, SIGP_INITIAL_CPU_RESET, 0, NULL);
 
 	lc = alloc_pages_flags(1, AREA_DMA31);
 	cpus[idx].lowcore = lc;
-	smp_sigp_retry(idx, SIGP_SET_PREFIX, (unsigned long )lc, NULL);
+	smp_sigp(idx, SIGP_SET_PREFIX, (unsigned long )lc, NULL);
 
 	/* Copy all exception psws. */
 	memcpy(lc, cpus[0].lowcore, 512);

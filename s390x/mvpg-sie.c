@@ -16,7 +16,6 @@
 #include <asm/facility.h>
 #include <asm/mem.h>
 #include <alloc_page.h>
-#include <vm.h>
 #include <sclp.h>
 #include <sie.h>
 #include <snippet.h>
