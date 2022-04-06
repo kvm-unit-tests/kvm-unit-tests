@@ -8,16 +8,8 @@
 #include "alloc_page.h"
 #include "fault_test.h"
 
-
-static unsigned char user_stack[0x400];
-static unsigned long rbx, rsi, rdi, rsp, rbp, r8, r9,
-		     r10, r11, r12, r13, r14, r15;
-
-static unsigned long expected_rip;
 static int cp_count;
-typedef u64 (*cet_test_func)(void);
-
-cet_test_func func;
+static unsigned long invalid_offset = 0xffffffffffffff;
 
 static u64 cet_shstk_func(void)
 {
@@ -59,77 +51,6 @@ static u64 cet_ibt_func(void)
 	return 0;
 }
 
-void test_func(void);
-void test_func(void) {
-	asm volatile (
-			/* IRET into user mode */
-			"pushq %[user_ds]\n\t"
-			"pushq %[user_stack_top]\n\t"
-			"pushfq\n\t"
-			"pushq %[user_cs]\n\t"
-			"lea user_mode(%%rip), %%rax\n\t"
-			"pushq %%rax\n\t"
-			"iretq\n"
-
-			"user_mode:\n\t"
-			"call *%[func]\n\t"
-			::
-			[func]"m"(func),
-			[user_ds]"i"(USER_DS),
-			[user_cs]"i"(USER_CS),
-			[user_stack_top]"r"(user_stack +
-					sizeof(user_stack))
-			: "rax");
-}
-
-#define SAVE_REGS() \
-	asm ("movq %%rbx, %0\t\n"  \
-	     "movq %%rsi, %1\t\n"  \
-	     "movq %%rdi, %2\t\n"  \
-	     "movq %%rsp, %3\t\n"  \
-	     "movq %%rbp, %4\t\n"  \
-	     "movq %%r8, %5\t\n"   \
-	     "movq %%r9, %6\t\n"   \
-	     "movq %%r10, %7\t\n"  \
-	     "movq %%r11, %8\t\n"  \
-	     "movq %%r12, %9\t\n"  \
-	     "movq %%r13, %10\t\n" \
-	     "movq %%r14, %11\t\n" \
-	     "movq %%r15, %12\t\n" :: \
-	     "m"(rbx), "m"(rsi), "m"(rdi), "m"(rsp), "m"(rbp), \
-	     "m"(r8), "m"(r9), "m"(r10),  "m"(r11), "m"(r12),  \
-	     "m"(r13), "m"(r14), "m"(r15));
-
-#define RESTOR_REGS() \
-	asm ("movq %0, %%rbx\t\n"  \
-	     "movq %1, %%rsi\t\n"  \
-	     "movq %2, %%rdi\t\n"  \
-	     "movq %3, %%rsp\t\n"  \
-	     "movq %4, %%rbp\t\n"  \
-	     "movq %5, %%r8\t\n"   \
-	     "movq %6, %%r9\t\n"   \
-	     "movq %7, %%r10\t\n"  \
-	     "movq %8, %%r11\t\n"  \
-	     "movq %9, %%r12\t\n"  \
-	     "movq %10, %%r13\t\n" \
-	     "movq %11, %%r14\t\n" \
-	     "movq %12, %%r15\t\n" ::\
-	     "m"(rbx), "m"(rsi), "m"(rdi), "m"(rsp), "m"(rbp), \
-	     "m"(r8), "m"(r9), "m"(r10), "m"(r11), "m"(r12),   \
-	     "m"(r13), "m"(r14), "m"(r15));
-
-#define RUN_TEST() \
-	do {		\
-		SAVE_REGS();    \
-		asm volatile ("pushq %%rax\t\n"           \
-			      "leaq 1f(%%rip), %%rax\t\n" \
-			      "movq %%rax, %0\t\n"        \
-			      "popq %%rax\t\n"            \
-			      "call test_func\t\n"         \
-			      "1:" ::"m"(expected_rip) : "rax", "rdi"); \
-		RESTOR_REGS(); \
-	} while (0)
-
 #define ENABLE_SHSTK_BIT 0x1
 #define ENABLE_IBT_BIT   0x4
 
@@ -138,7 +59,8 @@ static void handle_cp(struct ex_regs *regs)
 	cp_count++;
 	printf("In #CP exception handler, error_code = 0x%lx\n",
 		regs->error_code);
-	asm("jmp *%0" :: "m"(expected_rip));
+	/* Below jmp is expected to trigger #GP */
+	asm("jmp %0": :"m"(invalid_offset));
 }
 
 int main(int ac, char **av)
@@ -147,6 +69,7 @@ int main(int ac, char **av)
 	unsigned long shstk_phys;
 	unsigned long *ptep;
 	pteval_t pte = 0;
+	bool rvc;
 
 	cp_count = 0;
 	if (!this_cpu_has(X86_FEATURE_SHSTK)) {
@@ -160,7 +83,6 @@ int main(int ac, char **av)
 	}
 
 	setup_vm();
-	setup_idt();
 	handle_exception(21, handle_cp);
 
 	/* Allocate one page for shadow-stack. */
@@ -189,17 +111,15 @@ int main(int ac, char **av)
 	/* Enable CET master control bit in CR4. */
 	write_cr4(read_cr4() | X86_CR4_CET);
 
-	func = cet_shstk_func;
-	RUN_TEST();
+	printf("Unit test for CET user mode...\n");
+	run_in_user((usermode_func)cet_shstk_func, GP_VECTOR, 0, 0, 0, 0, &rvc);
 	report(cp_count == 1, "Completed shadow-stack protection test successfully.");
 	cp_count = 0;
 
-	/* Do user-mode indirect-branch-tracking test.*/
-	func = cet_ibt_func;
 	/* Enable indirect-branch tracking */
 	wrmsr(MSR_IA32_U_CET, ENABLE_IBT_BIT);
 
-	RUN_TEST();
+	run_in_user((usermode_func)cet_ibt_func, GP_VECTOR, 0, 0, 0, 0, &rvc);
 	report(cp_count == 1, "Completed Indirect-branch tracking test successfully.");
 
 	write_cr4(read_cr4() & ~X86_CR4_CET);
