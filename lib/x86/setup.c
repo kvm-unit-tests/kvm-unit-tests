@@ -258,7 +258,7 @@ static void setup_page_table(void)
 	curr_pt = (pgd_t *)&ptl2;
 	flags |= PT_ACCESSED_MASK | PT_DIRTY_MASK | PT_PAGE_SIZE_MASK | PT_GLOBAL_MASK;
 	for (i = 0; i < 4 * 512; i++)	{
-		curr_pt[i] = ((phys_addr_t)(i << 21)) | flags;
+		curr_pt[i] = ((phys_addr_t) i << 21) | flags;
 	}
 
 	if (amd_sev_es_enabled()) {
