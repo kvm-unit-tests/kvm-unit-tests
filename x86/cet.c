@@ -60,7 +60,7 @@ static void handle_cp(struct ex_regs *regs)
 	printf("In #CP exception handler, error_code = 0x%lx\n",
 		regs->error_code);
 	/* Below jmp is expected to trigger #GP */
-	asm("jmp %0": :"m"(invalid_offset));
+	asm("jmpq *%0": :"m"(invalid_offset));
 }
 
 int main(int ac, char **av)
