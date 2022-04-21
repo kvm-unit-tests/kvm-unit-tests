@@ -97,12 +97,12 @@ static void test_epsw(void)
 
 int main(int argc, char **argv)
 {
+	report_prefix_push("epsw");
+
 	if (!host_is_kvm() && !host_is_tcg()) {
 		report_skip("Not running under QEMU");
 		goto done;
 	}
-
-	report_prefix_push("epsw");
 
 	test_epsw();
 
