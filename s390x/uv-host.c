@@ -76,7 +76,7 @@ static void test_priv(void)
 		uvcb.cmd = cmds[i].cmd;
 		uvcb.len = cmds[i].len;
 		enter_pstate();
-		uv_call(0, (uint64_t)&uvcb);
+		uv_call_once(0, (uint64_t)&uvcb);
 		pgm = clear_pgm_int();
 		report(pgm == PGM_INT_CODE_PRIVILEGED_OPERATION, "%s", cmds[i].name);
 	}
