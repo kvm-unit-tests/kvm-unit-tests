@@ -9,17 +9,14 @@
  */
 
 #include <libcflat.h>
-#include <alloc_phys.h>
-#include <asm/page.h>
-#include <string.h>
 #include <interrupt.h>
-#include <asm/arch_def.h>
-#include <alloc_page.h>
 #include <hardware.h>
+
+#include <asm/arch_def.h>
+#include <asm/page.h>
 
 #include <malloc_io.h>
 #include <css.h>
-#include <asm/barrier.h>
 
 #define DEFAULT_CU_TYPE		0x3832 /* virtio-ccw */
 static unsigned long cu_type = DEFAULT_CU_TYPE;
