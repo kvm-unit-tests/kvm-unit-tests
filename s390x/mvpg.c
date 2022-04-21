@@ -9,15 +9,12 @@
  */
 #include <libcflat.h>
 #include <asm/asm-offsets.h>
-#include <asm-generic/barrier.h>
 #include <asm/interrupt.h>
 #include <asm/pgtable.h>
 #include <mmu.h>
 #include <asm/page.h>
 #include <asm/facility.h>
 #include <asm/mem.h>
-#include <asm/sigp.h>
-#include <smp.h>
 #include <alloc_page.h>
 #include <bitops.h>
 #include <hardware.h>
