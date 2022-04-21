@@ -12,7 +12,7 @@
 #include <bitops.h>
 #include <asm/pgtable.h>
 #include <asm/interrupt.h>
-#include "mmu.h"
+#include <mmu.h>
 #include <vmalloc.h>
 #include <sclp.h>
 
