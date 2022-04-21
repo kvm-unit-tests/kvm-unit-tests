@@ -15,6 +15,7 @@
 #include <interrupt.h>
 #include <asm/arch_def.h>
 #include <alloc_page.h>
+#include <hardware.h>
 
 #include <malloc_io.h>
 #include <css.h>
@@ -642,13 +643,21 @@ int main(int argc, char *argv[])
 	int i;
 
 	report_prefix_push("Channel Subsystem");
+
+	/* There's no guarantee where our devices are without qemu */
+	if (!host_is_qemu()) {
+		report_skip("Not running under QEMU");
+		goto done;
+	}
+
 	enable_io_isc(0x80 >> IO_SCH_ISC);
 	for (i = 0; tests[i].name; i++) {
 		report_prefix_push(tests[i].name);
 		tests[i].func();
 		report_prefix_pop();
 	}
-	report_prefix_pop();
 
+done:
+	report_prefix_pop();
 	return report_summary();
 }
