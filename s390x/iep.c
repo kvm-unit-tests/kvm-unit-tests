@@ -9,11 +9,10 @@
  */
 #include <libcflat.h>
 #include <vmalloc.h>
+#include <mmu.h>
 #include <asm/facility.h>
 #include <asm/interrupt.h>
-#include <mmu.h>
 #include <asm/pgtable.h>
-#include <asm-generic/barrier.h>
 
 static void test_iep(void)
 {
