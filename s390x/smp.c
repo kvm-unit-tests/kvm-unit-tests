@@ -144,8 +144,9 @@ static void test_stop(void)
 	report(smp_cpu_stopped(1), "cpu stopped");
 
 	report_prefix_push("stop stopped CPU");
-	report(!smp_cpu_stop(1), "STOP succeeds");
-	report(smp_cpu_stopped(1), "CPU is stopped");
+	rc = smp_cpu_stop_nowait(1);
+	report(!rc, "return code");
+	report(smp_cpu_stopped(1), "cpu stopped");
 	report_prefix_pop();
 
 	report_prefix_pop();
