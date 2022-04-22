@@ -30,6 +30,7 @@ tests += $(TEST_DIR)/spec_ex-sie.elf
 tests += $(TEST_DIR)/firq.elf
 tests += $(TEST_DIR)/epsw.elf
 tests += $(TEST_DIR)/adtl-status.elf
+tests += $(TEST_DIR)/migration.elf
 
 pv-tests += $(TEST_DIR)/pv-diags.elf
 
