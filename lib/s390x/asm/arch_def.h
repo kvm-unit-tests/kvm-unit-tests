@@ -228,7 +228,14 @@ static inline uint64_t stidp(void)
 	return cpuid;
 }
 
-static inline int tprot(unsigned long addr, char access_key)
+enum tprot_permission {
+	TPROT_READ_WRITE = 0,
+	TPROT_READ = 1,
+	TPROT_RW_PROTECTED = 2,
+	TPROT_TRANSL_UNAVAIL = 3,
+};
+
+static inline enum tprot_permission tprot(unsigned long addr, char access_key)
 {
 	int cc;
 
@@ -237,7 +244,7 @@ static inline int tprot(unsigned long addr, char access_key)
 		"	ipm	%0\n"
 		"	srl	%0,28\n"
 		: "=d" (cc) : "a" (addr), "a" (access_key << 4) : "cc");
-	return cc;
+	return (enum tprot_permission)cc;
 }
 
 static inline void lctlg(int cr, uint64_t value)
