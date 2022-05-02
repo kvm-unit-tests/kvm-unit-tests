@@ -10,6 +10,7 @@
 #include <libcflat.h>
 #include <asm/asm-offsets.h>
 #include <asm/interrupt.h>
+#include <vmalloc.h>
 #include <asm/page.h>
 #include <asm/facility.h>
 #include <asm/mem.h>
@@ -118,6 +119,249 @@ static void test_invalid_address(void)
 	report_prefix_pop();
 }
 
+static void test_test_protection(void)
+{
+	unsigned long addr = (unsigned long)pagebuf;
+
+	report_prefix_push("TPROT");
+
+	set_storage_key(pagebuf, 0x10, 0);
+	report(tprot(addr, 0) == TPROT_READ_WRITE, "zero key: no protection");
+	report(tprot(addr, 1) == TPROT_READ_WRITE, "matching key: no protection");
+
+	report_prefix_push("mismatching key");
+
+	report(tprot(addr, 2) == TPROT_READ, "no fetch protection: store protection");
+
+	set_storage_key(pagebuf, 0x18, 0);
+	report(tprot(addr, 2) == TPROT_RW_PROTECTED,
+	       "fetch protection: fetch & store protection");
+
+	report_prefix_push("fetch-protection override");
+	set_storage_key(0, 0x18, 0);
+	report(tprot(0, 2) == TPROT_RW_PROTECTED, "disabled: fetch & store protection");
+	ctl_set_bit(0, CTL0_FETCH_PROTECTION_OVERRIDE);
+	report(tprot(0, 2) == TPROT_READ, "enabled: store protection");
+	report(tprot(2048, 2) == TPROT_RW_PROTECTED, "invalid: fetch & store protection");
+	ctl_clear_bit(0, CTL0_FETCH_PROTECTION_OVERRIDE);
+	set_storage_key(0, 0x00, 0);
+	report_prefix_pop();
+
+	ctl_set_bit(0, CTL0_STORAGE_PROTECTION_OVERRIDE);
+	set_storage_key(pagebuf, 0x90, 0);
+	report(tprot(addr, 2) == TPROT_READ_WRITE,
+	       "storage-protection override: no protection");
+	ctl_clear_bit(0, CTL0_STORAGE_PROTECTION_OVERRIDE);
+
+	report_prefix_pop();
+	set_storage_key(pagebuf, 0x00, 0);
+	report_prefix_pop();
+}
+
+/*
+ * Perform STORE CPU ADDRESS (STAP) instruction while temporarily executing
+ * with access key 1.
+ */
+static void store_cpu_address_key_1(uint16_t *out)
+{
+	asm volatile (
+		"spka	0x10\n\t"
+		"stap	%0\n\t"
+		"spka	0\n"
+	     : "+Q" (*out) /* exception: old value remains in out -> + constraint */
+	);
+}
+
+static void test_store_cpu_address(void)
+{
+	uint16_t *out = (uint16_t *)pagebuf;
+	uint16_t cpu_addr;
+
+	report_prefix_push("STORE CPU ADDRESS");
+	asm ("stap %0" : "=Q" (cpu_addr));
+
+	report_prefix_push("zero key");
+	set_storage_key(pagebuf, 0x20, 0);
+	WRITE_ONCE(*out, 0xbeef);
+	asm ("stap %0" : "=Q" (*out));
+	report(*out == cpu_addr, "store occurred");
+	report_prefix_pop();
+
+	report_prefix_push("matching key");
+	set_storage_key(pagebuf, 0x10, 0);
+	*out = 0xbeef;
+	store_cpu_address_key_1(out);
+	report(*out == cpu_addr, "store occurred");
+	report_prefix_pop();
+
+	report_prefix_push("mismatching key");
+	set_storage_key(pagebuf, 0x20, 0);
+	expect_pgm_int();
+	*out = 0xbeef;
+	store_cpu_address_key_1(out);
+	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
+	report(*out == 0xbeef, "no store occurred");
+	report_prefix_pop();
+
+	ctl_set_bit(0, CTL0_STORAGE_PROTECTION_OVERRIDE);
+
+	report_prefix_push("storage-protection override, invalid key");
+	set_storage_key(pagebuf, 0x20, 0);
+	expect_pgm_int();
+	*out = 0xbeef;
+	store_cpu_address_key_1(out);
+	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
+	report(*out == 0xbeef, "no store occurred");
+	report_prefix_pop();
+
+	report_prefix_push("storage-protection override, override key");
+	set_storage_key(pagebuf, 0x90, 0);
+	*out = 0xbeef;
+	store_cpu_address_key_1(out);
+	report(*out == cpu_addr, "override occurred");
+	report_prefix_pop();
+
+	ctl_clear_bit(0, CTL0_STORAGE_PROTECTION_OVERRIDE);
+
+	report_prefix_push("storage-protection override disabled, override key");
+	set_storage_key(pagebuf, 0x90, 0);
+	expect_pgm_int();
+	*out = 0xbeef;
+	store_cpu_address_key_1(out);
+	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
+	report(*out == 0xbeef, "no store occurred");
+	report_prefix_pop();
+
+	set_storage_key(pagebuf, 0x00, 0);
+	report_prefix_pop();
+}
+
+/*
+ * Perform SET PREFIX (SPX) instruction while temporarily executing
+ * with access key 1.
+ */
+static void set_prefix_key_1(uint32_t *prefix_ptr)
+{
+	asm volatile (
+		"spka	0x10\n\t"
+		"spx	%0\n\t"
+		"spka	0\n"
+	     :: "Q" (*prefix_ptr)
+	);
+}
+
+/*
+ * We remapped page 0, making the lowcore inaccessible, which breaks the normal
+ * handler and breaks skipping the faulting instruction.
+ * Just disable dynamic address translation to make things work.
+ */
+static void dat_fixup_pgm_int(void)
+{
+	uint64_t psw_mask = extract_psw_mask();
+
+	psw_mask &= ~PSW_MASK_DAT;
+	load_psw_mask(psw_mask);
+}
+
+#define PREFIX_AREA_SIZE (PAGE_SIZE * 2)
+static char lowcore_tmp[PREFIX_AREA_SIZE] __attribute__((aligned(PREFIX_AREA_SIZE)));
+
+/*
+ * Test accessibility of the operand to SET PREFIX given different configurations
+ * with regards to storage keys. That is, check the accessibility of the location
+ * holding the new prefix, not that of the new prefix area. The new prefix area
+ * is a valid lowcore, so that the test does not crash on failure.
+ */
+static void test_set_prefix(void)
+{
+	uint32_t *prefix_ptr = (uint32_t *)pagebuf;
+	uint32_t *no_override_prefix_ptr;
+	uint32_t old_prefix;
+	pgd_t *root;
+
+	report_prefix_push("SET PREFIX");
+	root = (pgd_t *)(stctg(1) & PAGE_MASK);
+	old_prefix = get_prefix();
+	memcpy(lowcore_tmp, 0, sizeof(lowcore_tmp));
+	assert(((uint64_t)&lowcore_tmp >> 31) == 0);
+	*prefix_ptr = (uint32_t)(uint64_t)&lowcore_tmp;
+
+	report_prefix_push("zero key");
+	set_prefix(old_prefix);
+	set_storage_key(prefix_ptr, 0x20, 0);
+	set_prefix(*prefix_ptr);
+	report(get_prefix() == *prefix_ptr, "set prefix");
+	report_prefix_pop();
+
+	report_prefix_push("matching key");
+	set_prefix(old_prefix);
+	set_storage_key(pagebuf, 0x10, 0);
+	set_prefix_key_1(prefix_ptr);
+	report(get_prefix() == *prefix_ptr, "set prefix");
+	report_prefix_pop();
+
+	report_prefix_push("mismatching key");
+
+	report_prefix_push("no fetch protection");
+	set_prefix(old_prefix);
+	set_storage_key(pagebuf, 0x20, 0);
+	set_prefix_key_1(prefix_ptr);
+	report(get_prefix() == *prefix_ptr, "set prefix");
+	report_prefix_pop();
+
+	report_prefix_push("fetch protection");
+	set_prefix(old_prefix);
+	set_storage_key(pagebuf, 0x28, 0);
+	expect_pgm_int();
+	set_prefix_key_1(prefix_ptr);
+	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
+	report(get_prefix() == old_prefix, "did not set prefix");
+	report_prefix_pop();
+
+	register_pgm_cleanup_func(dat_fixup_pgm_int);
+
+	report_prefix_push("remapped page, fetch protection");
+	set_prefix(old_prefix);
+	set_storage_key(pagebuf, 0x28, 0);
+	expect_pgm_int();
+	install_page(root, virt_to_pte_phys(root, pagebuf), 0);
+	set_prefix_key_1((uint32_t *)0);
+	install_page(root, 0, 0);
+	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
+	report(get_prefix() == old_prefix, "did not set prefix");
+	report_prefix_pop();
+
+	ctl_set_bit(0, CTL0_FETCH_PROTECTION_OVERRIDE);
+
+	report_prefix_push("fetch protection override applies");
+	set_prefix(old_prefix);
+	set_storage_key(pagebuf, 0x28, 0);
+	install_page(root, virt_to_pte_phys(root, pagebuf), 0);
+	set_prefix_key_1((uint32_t *)0);
+	install_page(root, 0, 0);
+	report(get_prefix() == *prefix_ptr, "set prefix");
+	report_prefix_pop();
+
+	no_override_prefix_ptr = (uint32_t *)(pagebuf + 2048);
+	WRITE_ONCE(*no_override_prefix_ptr, (uint32_t)(uint64_t)&lowcore_tmp);
+	report_prefix_push("fetch protection override does not apply");
+	set_prefix(old_prefix);
+	set_storage_key(pagebuf, 0x28, 0);
+	expect_pgm_int();
+	install_page(root, virt_to_pte_phys(root, pagebuf), 0);
+	set_prefix_key_1((uint32_t *)2048);
+	install_page(root, 0, 0);
+	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
+	report(get_prefix() == old_prefix, "did not set prefix");
+	report_prefix_pop();
+
+	ctl_clear_bit(0, CTL0_FETCH_PROTECTION_OVERRIDE);
+	register_pgm_cleanup_func(NULL);
+	report_prefix_pop();
+	set_storage_key(pagebuf, 0x00, 0);
+	report_prefix_pop();
+}
+
 int main(void)
 {
 	report_prefix_push("skey");
@@ -130,6 +374,11 @@ int main(void)
 	test_set();
 	test_set_mb();
 	test_chg();
+	test_test_protection();
+	test_store_cpu_address();
+
+	setup_vm();
+	test_set_prefix();
 done:
 	report_prefix_pop();
 	return report_summary();
