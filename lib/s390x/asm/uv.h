@@ -108,7 +108,10 @@ struct uv_cb_qui {
 	u8  reserved88[158 - 136];	/* 0x0088 */
 	uint16_t max_guest_cpus;	/* 0x009e */
 	u64 uv_feature_indications;	/* 0x00a0 */
-	u8  reserveda8[200 - 168];	/* 0x00a8 */
+	uint8_t  reserveda8[224 - 168];	/* 0x00a8 */
+	uint64_t supp_att_hdr_ver;	/* 0x00e0 */
+	uint64_t supp_paf;		/* 0x00e8 */
+	uint8_t  reservedf0[256 - 240];	/* 0x00f0 */
 }  __attribute__((packed))  __attribute__((aligned(8)));
 
 struct uv_cb_cgc {
