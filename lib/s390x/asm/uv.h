@@ -1,7 +1,7 @@
 /*
  * s390x Ultravisor related definitions
  *
- * Copyright (c) 2020 IBM Corp
+ * Copyright IBM Corp. 2020, 2022
  *
  * Authors:
  *  Janosch Frank <frankja@linux.ibm.com>
@@ -47,6 +47,7 @@
 #define UVC_CMD_UNPIN_PAGE_SHARED	0x0342
 #define UVC_CMD_SET_SHARED_ACCESS	0x1000
 #define UVC_CMD_REMOVE_SHARED_ACCESS	0x1001
+#define UVC_CMD_ATTESTATION		0x1020
 
 /* Bits in installed uv calls */
 enum uv_cmds_inst {
@@ -71,6 +72,7 @@ enum uv_cmds_inst {
 	BIT_UVC_CMD_UNSHARE_ALL = 20,
 	BIT_UVC_CMD_PIN_PAGE_SHARED = 21,
 	BIT_UVC_CMD_UNPIN_PAGE_SHARED = 22,
+	BIT_UVC_CMD_ATTESTATION = 28,
 };
 
 struct uv_cb_header {
@@ -176,6 +178,25 @@ struct uv_cb_cfs {
 	struct uv_cb_header header;
 	u64 reserved08[2];
 	u64 paddr;
+}  __attribute__((packed))  __attribute__((aligned(8)));
+
+/* Retrieve Attestation Measurement */
+struct uv_cb_attest {
+	struct uv_cb_header header;	/* 0x0000 */
+	uint64_t reserved08[2];		/* 0x0008 */
+	uint64_t arcb_addr;		/* 0x0018 */
+	uint64_t continuation_token;	/* 0x0020 */
+	uint8_t  reserved28[6];		/* 0x0028 */
+	uint16_t user_data_length;	/* 0x002e */
+	uint8_t  user_data[256];	/* 0x0030 */
+	uint32_t reserved130[3];	/* 0x0130 */
+	uint32_t measurement_length;	/* 0x013c */
+	uint64_t measurement_address;	/* 0x0140 */
+	uint8_t  config_uid[16];	/* 0x0148 */
+	uint32_t reserved158;		/* 0x0158 */
+	uint32_t add_data_length;	/* 0x015c */
+	uint64_t add_data_address;	/* 0x0160 */
+	uint64_t reserved168[4];	/* 0x0168 */
 }  __attribute__((packed))  __attribute__((aligned(8)));
 
 /* Set Secure Config Parameter */
