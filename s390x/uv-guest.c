@@ -157,6 +157,16 @@ static void test_invalid(void)
 	report_prefix_pop();
 }
 
+static void test_share_bits(void)
+{
+	bool unshare = uv_query_test_call(BIT_UVC_CMD_REMOVE_SHARED_ACCESS);
+	bool share = uv_query_test_call(BIT_UVC_CMD_SET_SHARED_ACCESS);
+
+	report_prefix_push("query");
+	report(!(share ^ unshare), "share bits are identical");
+	report_prefix_pop();
+}
+
 int main(void)
 {
 	bool has_uvc = test_facility(158);
@@ -166,6 +176,12 @@ int main(void)
 		report_skip("Ultravisor call facility is not available");
 		goto done;
 	}
+
+	/*
+	 * Needs to be done before the guest-fence,
+	 * as the fence tests if both shared bits are present
+	 */
+	test_share_bits();
 
 	if (!uv_os_is_guest()) {
 		report_skip("Not a protected guest");
