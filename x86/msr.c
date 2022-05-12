@@ -51,52 +51,55 @@ struct msr_info msr_info[] =
 //	MSR_VM_HSAVE_PA only AMD host
 };
 
-static void test_msr_rw(struct msr_info *msr, unsigned long long val)
+static void test_msr_rw(u32 msr, const char *name, unsigned long long val,
+			unsigned long long keep_mask)
 {
 	unsigned long long r, orig;
 
-	orig = rdmsr(msr->index);
+	orig = rdmsr(msr);
 	/*
 	 * Special case EFER since clearing LME/LMA is not allowed in 64-bit mode,
 	 * and conversely setting those bits on 32-bit CPUs is not allowed.  Treat
 	 * the desired value as extra bits to set.
 	 */
-	if (msr->index == MSR_EFER)
+	if (msr == MSR_EFER)
 		val |= orig;
 	else
-		val = (val & ~msr->keep) | (orig & msr->keep);
-	wrmsr(msr->index, val);
-	r = rdmsr(msr->index);
-	wrmsr(msr->index, orig);
+		val = (val & ~keep_mask) | (orig & keep_mask);
+
+	wrmsr(msr, val);
+	r = rdmsr(msr);
+	wrmsr(msr, orig);
+
 	if (r != val) {
 		printf("testing %s: output = %#" PRIx32 ":%#" PRIx32
-		       " expected = %#" PRIx32 ":%#" PRIx32 "\n", msr->name,
+		       " expected = %#" PRIx32 ":%#" PRIx32 "\n", name,
 		       (u32)(r >> 32), (u32)r, (u32)(val >> 32), (u32)val);
 	}
-	report(val == r, "%s", msr->name);
+	report(val == r, "%s", name);
 }
 
-static void test_wrmsr_fault(struct msr_info *msr, unsigned long long val)
+static void test_wrmsr_fault(u32 msr, const char *name, unsigned long long val)
 {
-	unsigned char vector = wrmsr_checking(msr->index, val);
+	unsigned char vector = wrmsr_checking(msr, val);
 
 	report(vector == GP_VECTOR,
 	       "Expected #GP on WRSMR(%s, 0x%llx), got vector %d",
-	       msr->name, val, vector);
+	       name, val, vector);
 }
 
-static void test_rdmsr_fault(struct msr_info *msr)
+static void test_rdmsr_fault(u32 msr, const char *name)
 {
-	unsigned char vector = rdmsr_checking(msr->index);
+	unsigned char vector = rdmsr_checking(msr);
 
 	report(vector == GP_VECTOR,
-	       "Expected #GP on RDSMR(%s), got vector %d", msr->name, vector);
+	       "Expected #GP on RDSMR(%s), got vector %d", name, vector);
 }
 
 static void test_msr(struct msr_info *msr, bool is_64bit_host)
 {
 	if (is_64bit_host || !msr->is_64bit_only) {
-		test_msr_rw(msr, msr->value);
+		test_msr_rw(msr->index, msr->name, msr->value, msr->keep);
 
 		/*
 		 * The 64-bit only MSRs that take an address always perform
@@ -104,10 +107,10 @@ static void test_msr(struct msr_info *msr, bool is_64bit_host)
 		 */
 		if (msr->is_64bit_only &&
 		    msr->value == addr_64)
-			test_wrmsr_fault(msr, NONCANONICAL);
+			test_wrmsr_fault(msr->index, msr->name, NONCANONICAL);
 	} else {
-		test_wrmsr_fault(msr, msr->value);
-		test_rdmsr_fault(msr);
+		test_wrmsr_fault(msr->index, msr->name, msr->value);
+		test_rdmsr_fault(msr->index, msr->name);
 	}
 }
 
