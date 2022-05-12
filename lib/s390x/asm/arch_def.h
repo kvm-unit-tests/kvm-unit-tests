@@ -55,15 +55,17 @@ struct psw {
 #define PSW_MASK_BA			0x0000000080000000UL
 #define PSW_MASK_64			(PSW_MASK_BA | PSW_MASK_EA)
 
-#define CTL0_LOW_ADDR_PROT		(63 - 35)
-#define CTL0_EDAT			(63 - 40)
-#define CTL0_IEP			(63 - 43)
-#define CTL0_AFP			(63 - 45)
-#define CTL0_VECTOR			(63 - 46)
-#define CTL0_EMERGENCY_SIGNAL		(63 - 49)
-#define CTL0_EXTERNAL_CALL		(63 - 50)
-#define CTL0_CLOCK_COMPARATOR		(63 - 52)
-#define CTL0_SERVICE_SIGNAL		(63 - 54)
+#define CTL0_LOW_ADDR_PROT			(63 - 35)
+#define CTL0_EDAT				(63 - 40)
+#define CTL0_FETCH_PROTECTION_OVERRIDE		(63 - 38)
+#define CTL0_STORAGE_PROTECTION_OVERRIDE	(63 - 39)
+#define CTL0_IEP				(63 - 43)
+#define CTL0_AFP				(63 - 45)
+#define CTL0_VECTOR				(63 - 46)
+#define CTL0_EMERGENCY_SIGNAL			(63 - 49)
+#define CTL0_EXTERNAL_CALL			(63 - 50)
+#define CTL0_CLOCK_COMPARATOR			(63 - 52)
+#define CTL0_SERVICE_SIGNAL			(63 - 54)
 #define CR0_EXTM_MASK			0x0000000000006200UL /* Combined external masks */
 
 #define CTL2_GUARDED_STORAGE		(63 - 59)
@@ -228,7 +230,14 @@ static inline uint64_t stidp(void)
 	return cpuid;
 }
 
-static inline int tprot(unsigned long addr, char access_key)
+enum tprot_permission {
+	TPROT_READ_WRITE = 0,
+	TPROT_READ = 1,
+	TPROT_RW_PROTECTED = 2,
+	TPROT_TRANSL_UNAVAIL = 3,
+};
+
+static inline enum tprot_permission tprot(unsigned long addr, char access_key)
 {
 	int cc;
 
@@ -237,7 +246,7 @@ static inline int tprot(unsigned long addr, char access_key)
 		"	ipm	%0\n"
 		"	srl	%0,28\n"
 		: "=d" (cc) : "a" (addr), "a" (access_key << 4) : "cc");
-	return cc;
+	return (enum tprot_permission)cc;
 }
 
 static inline void lctlg(int cr, uint64_t value)

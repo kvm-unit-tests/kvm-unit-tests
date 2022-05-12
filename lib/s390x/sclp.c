@@ -198,7 +198,7 @@ int sclp_service_call(unsigned int command, void *sccb)
 void sclp_memory_setup(void)
 {
 	uint64_t rnmax, rnsize;
-	int cc;
+	enum tprot_permission permission;
 
 	assert(read_info);
 
@@ -222,9 +222,9 @@ void sclp_memory_setup(void)
 	/* probe for r/w memory up to max memory size */
 	while (ram_size < max_ram_size) {
 		expect_pgm_int();
-		cc = tprot(ram_size + storage_increment_size - 1, 0);
+		permission = tprot(ram_size + storage_increment_size - 1, 0);
 		/* stop once we receive an exception or have protected memory */
-		if (clear_pgm_int() || cc != 0)
+		if (clear_pgm_int() || permission != TPROT_READ_WRITE)
 			break;
 		ram_size += storage_increment_size;
 	}

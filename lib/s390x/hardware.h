@@ -45,6 +45,11 @@ static inline bool host_is_lpar(void)
 	return detect_host() == HOST_IS_LPAR;
 }
 
+static inline bool host_is_qemu(void)
+{
+	return host_is_tcg() || host_is_kvm();
+}
+
 static inline bool machine_is_z15(void)
 {
 	uint16_t machine = get_machine_id();

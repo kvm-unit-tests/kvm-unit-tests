@@ -29,6 +29,9 @@ tests += $(TEST_DIR)/mvpg-sie.elf
 tests += $(TEST_DIR)/spec_ex-sie.elf
 tests += $(TEST_DIR)/firq.elf
 tests += $(TEST_DIR)/epsw.elf
+tests += $(TEST_DIR)/adtl-status.elf
+tests += $(TEST_DIR)/migration.elf
+tests += $(TEST_DIR)/pv-attest.elf
 
 pv-tests += $(TEST_DIR)/pv-diags.elf
 
@@ -74,6 +77,7 @@ cflatobjs += lib/alloc_phys.o
 cflatobjs += lib/alloc_page.o
 cflatobjs += lib/vmalloc.o
 cflatobjs += lib/alloc_phys.o
+cflatobjs += lib/getchar.o
 cflatobjs += lib/s390x/io.o
 cflatobjs += lib/s390x/stack.o
 cflatobjs += lib/s390x/sclp.o

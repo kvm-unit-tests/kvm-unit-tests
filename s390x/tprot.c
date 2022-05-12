@@ -12,7 +12,7 @@
 #include <bitops.h>
 #include <asm/pgtable.h>
 #include <asm/interrupt.h>
-#include "mmu.h"
+#include <mmu.h>
 #include <vmalloc.h>
 #include <sclp.h>
 
@@ -20,26 +20,26 @@ static uint8_t pagebuf[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
 
 static void test_tprot_rw(void)
 {
-	int cc;
+	enum tprot_permission permission;
 
 	report_prefix_push("Page read/writeable");
 
-	cc = tprot((unsigned long)pagebuf, 0);
-	report(cc == 0, "CC = 0");
+	permission = tprot((unsigned long)pagebuf, 0);
+	report(permission == TPROT_READ_WRITE, "CC = 0");
 
 	report_prefix_pop();
 }
 
 static void test_tprot_ro(void)
 {
-	int cc;
+	enum tprot_permission permission;
 
 	report_prefix_push("Page readonly");
 
 	protect_dat_entry(pagebuf, PAGE_ENTRY_P, 5);
 
-	cc = tprot((unsigned long)pagebuf, 0);
-	report(cc == 1, "CC = 1");
+	permission = tprot((unsigned long)pagebuf, 0);
+	report(permission == TPROT_READ, "CC = 1");
 
 	unprotect_dat_entry(pagebuf, PAGE_ENTRY_P, 5);
 
@@ -48,28 +48,28 @@ static void test_tprot_ro(void)
 
 static void test_tprot_low_addr_prot(void)
 {
-	int cc;
+	enum tprot_permission permission;
 
 	report_prefix_push("low-address protection");
 
 	low_prot_enable();
-	cc = tprot(0, 0);
+	permission = tprot(0, 0);
 	low_prot_disable();
-	report(cc == 1, "CC = 1");
+	report(permission == TPROT_READ, "CC = 1");
 
 	report_prefix_pop();
 }
 
 static void test_tprot_transl_unavail(void)
 {
-	int cc;
+	enum tprot_permission permission;
 
 	report_prefix_push("Page translation unavailable");
 
 	protect_dat_entry(pagebuf, PAGE_ENTRY_I, 5);
 
-	cc = tprot((unsigned long)pagebuf, 0);
-	report(cc == 3, "CC = 3");
+	permission = tprot((unsigned long)pagebuf, 0);
+	report(permission == TPROT_TRANSL_UNAVAIL, "CC = 3");
 
 	unprotect_dat_entry(pagebuf, PAGE_ENTRY_I, 5);
 

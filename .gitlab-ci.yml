@@ -166,7 +166,7 @@ s390x-kvm:
   - ./configure --arch=s390x
   - make -j$(nproc)
   - ACCEL=kvm ./run_tests.sh
-      selftest-setup intercept emulator sieve sthyi skey diag10 diag308 pfmf
+      selftest-setup intercept emulator sieve sthyi diag10 diag308 pfmf
       cmm vector gs iep cpumodel diag288 stsi sclp-1g sclp-3g css skrf sie
       | tee results.txt
   - grep -q PASS results.txt && ! grep -q FAIL results.txt

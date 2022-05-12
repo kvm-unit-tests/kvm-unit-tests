@@ -8,23 +8,10 @@
  *  Janosch Frank <frankja@linux.ibm.com>
  */
 #include <libcflat.h>
-#include <asm/asm-offsets.h>
-#include <asm-generic/barrier.h>
-#include <asm/interrupt.h>
-#include <asm/pgtable.h>
-#include <mmu.h>
-#include <asm/page.h>
-#include <asm/facility.h>
-#include <asm/mem.h>
-#include <asm/sigp.h>
-#include <smp.h>
-#include <alloc_page.h>
-#include <vmalloc.h>
-#include <sclp.h>
 #include <snippet.h>
 #include <sie.h>
-#include <uv.h>
-#include <asm/uv.h>
+#include <sclp.h>
+#include <asm/facility.h>
 
 static struct vm vm;
 
