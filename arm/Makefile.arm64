@@ -14,9 +14,9 @@ mno_outline_atomics := $(call cc-option, -mno-outline-atomics, "")
 CFLAGS += $(mno_outline_atomics)
 
 define arch_elf_check =
-	$(if $(shell ! $(OBJDUMP) -R $(1) >&/dev/null && echo "nok"),
-		$(error $(shell $(OBJDUMP) -R $(1) 2>&1)))
-	$(if $(shell $(OBJDUMP) -R $(1) | grep R_ | grep -v R_AARCH64_RELATIVE),
+	$(if $(shell ! $(READELF) -rW $(1) >&/dev/null && echo "nok"),
+		$(error $(shell $(READELF) -rW $(1) 2>&1)))
+	$(if $(shell $(READELF) -rW $(1) | grep R_ | grep -v R_AARCH64_RELATIVE),
 		$(error $(1) has unsupported reloc types))
 endef
 
