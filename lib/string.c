@@ -6,6 +6,7 @@
  */
 
 #include "libcflat.h"
+#include "ctype.h"
 #include "stdlib.h"
 #include "linux/compiler.h"
 
@@ -161,11 +162,6 @@ void *memchr(const void *s, int c, size_t n)
 		if (*str++ == chr)
 			return (void *)(str - 1);
 	return NULL;
-}
-
-static int isspace(int c)
-{
-	return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v' || c == '\f';
 }
 
 static unsigned long long __strtoll(const char *nptr, char **endptr,
