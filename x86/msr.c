@@ -19,6 +19,7 @@ struct msr_info {
 	bool is_64bit_only;
 	const char *name;
 	unsigned long long value;
+	unsigned long long keep;
 };
 
 
@@ -27,6 +28,8 @@ struct msr_info {
 
 #define MSR_TEST(msr, val, only64)	\
 	{ .index = msr, .name = #msr, .value = val, .is_64bit_only = only64 }
+#define MSR_TEST_RO_BITS(msr, val, only64, ro)	\
+	{ .index = msr, .name = #msr, .value = val, .is_64bit_only = only64, .keep = ro }
 
 struct msr_info msr_info[] =
 {
@@ -34,7 +37,8 @@ struct msr_info msr_info[] =
 	MSR_TEST(MSR_IA32_SYSENTER_ESP, addr_ul, false),
 	MSR_TEST(MSR_IA32_SYSENTER_EIP, addr_ul, false),
 	// reserved: 1:2, 4:6, 8:10, 13:15, 17, 19:21, 24:33, 35:63
-	MSR_TEST(MSR_IA32_MISC_ENABLE, 0x400c51889, false),
+	// read-only: 7, 11, 12
+	MSR_TEST_RO_BITS(MSR_IA32_MISC_ENABLE, 0x400c50809, false, 0x1880),
 	MSR_TEST(MSR_IA32_CR_PAT, 0x07070707, false),
 	MSR_TEST(MSR_FS_BASE, addr_64, true),
 	MSR_TEST(MSR_GS_BASE, addr_64, true),
@@ -59,6 +63,8 @@ static void test_msr_rw(struct msr_info *msr, unsigned long long val)
 	 */
 	if (msr->index == MSR_EFER)
 		val |= orig;
+	else
+		val = (val & ~msr->keep) | (orig & msr->keep);
 	wrmsr(msr->index, val);
 	r = rdmsr(msr->index);
 	wrmsr(msr->index, orig);
