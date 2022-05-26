@@ -6,6 +6,7 @@
  */
 
 #include "libcflat.h"
+#include "ctype.h"
 #include "argv.h"
 #include "auxinfo.h"
 
@@ -18,10 +19,6 @@ char **environ = __environ;
 
 static char args_copy[1000];
 static char *copy_ptr = args_copy;
-
-#define isblank(c) ((c) == ' ' || (c) == '\t')
-#define isalpha(c) (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' && (c) <= 'z') || (c) == '_')
-#define isalnum(c) (isalpha(c) || ((c) >= '0' && (c) <= '9'))
 
 static const char *skip_blanks(const char *p)
 {
@@ -92,12 +89,12 @@ static char *env_next(char *env)
 	if (!*env)
 		return env;
 
-	if (isalpha(*env)) {
+	if (isalpha(*env) || *env == '_') {
 		bool invalid = false;
 
 		p = env + 1;
 		while (*p && *p != '=' && *p != '\n') {
-			if (!isalnum(*p))
+			if (!(isalnum(*p) || *p == '_'))
 				invalid = true;
 			++p;
 		}
