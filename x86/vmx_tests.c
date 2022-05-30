@@ -459,7 +459,7 @@ static void cr_shadowing_main(void)
 	vmx_set_test_stage(2);
 	write_cr0(guest_cr0);
 	if (vmx_get_test_stage() == 3)
-		report_fail("Write throuth CR0");
+		report_fail("Write through CR0");
 	else
 		vmcall();
 	vmx_set_test_stage(3);
@@ -2549,7 +2549,7 @@ static void ept_access_paddr(unsigned long ept_access, unsigned long pte_ad,
 	 * constructed our test such that those other 511 PTEs aren't used by
 	 * the guest: data->gva is at the beginning of a 1G huge page, thus the
 	 * PTE we're modifying is at the beginning of a 4K page and the
-	 * following 511 entires are also under our control (and not touched by
+	 * following 511 entries are also under our control (and not touched by
 	 * the guest).
 	 */
 	gpa = virt_to_phys(ptep);
@@ -4063,7 +4063,7 @@ static void test_posted_intr(void)
 	report_prefix_pop();
 
 	/*
-	 * Test posted-interrupt descriptor addresss
+	 * Test posted-interrupt descriptor address
 	 */
 	for (i = 0; i < 6; i++) {
 		test_pi_desc_addr(1ul << i, false);
@@ -10499,7 +10499,7 @@ static void atomic_switch_msrs_test(int count)
         struct vmx_msr_entry *vm_exit_store;
 	int max_allowed = max_msr_list_size();
 	int byte_capacity = 1ul << (msr_list_page_order + PAGE_SHIFT);
-	/* Exceeding the max MSR list size at exit trigers KVM to abort. */
+	/* Exceeding the max MSR list size at exit triggers KVM to abort. */
 	int exit_count = count > max_allowed ? max_allowed : count;
 	int cleanup_count = count > max_allowed ? 2 : 1;
 	int i;

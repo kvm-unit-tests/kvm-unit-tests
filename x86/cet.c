@@ -37,7 +37,7 @@ static u64 cet_shstk_func(void)
 static u64 cet_ibt_func(void)
 {
 	/*
-	 * In below assembly code, the first instruction at lable 2 is not
+	 * In below assembly code, the first instruction at label 2 is not
 	 * endbr64, it'll trigger #CP with error code 0x3, and the execution
 	 * is terminated when HW detects the violation.
 	 */

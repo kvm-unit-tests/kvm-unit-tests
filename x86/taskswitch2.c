@@ -148,13 +148,13 @@ static void test_kernel_mode_int(void)
 
 	/* test that HW exception triggesr task gate */
 	set_intr_task_gate(0, de_tss);
-	printf("Try to devide by 0\n");
+	printf("Try to divide by 0\n");
 	asm volatile ("divl %3": "=a"(res)
 		      : "d"(0), "a"(1500), "m"(test_divider));
 	printf("Result is %d\n", res);
-	report(res == 150, "DE exeption");
+	report(res == 150, "DE exception");
 
-	/* test if call HW exeption DE by int $0 triggers task gate */
+	/* test if call HW exception DE by int $0 triggers task gate */
 	test_count = 0;
 	set_intr_task_gate(0, de_tss);
 	printf("Call int 0\n");
@@ -168,7 +168,7 @@ static void test_kernel_mode_int(void)
 	printf("Call into\n");
 	asm volatile ("addb $127, %b0\ninto"::"a"(127));
 	printf("Return from into\n");
-	report(test_count, "OF exeption");
+	report(test_count, "OF exception");
 
 	/* test if HW exception BP triggers task gate */
 	test_count = 0;
@@ -176,7 +176,7 @@ static void test_kernel_mode_int(void)
 	printf("Call int 3\n");
 	asm volatile ("int $3");
 	printf("Return from int 3\n");
-	report(test_count == 1, "BP exeption");
+	report(test_count == 1, "BP exception");
 
 	/*
 	 * test that PF triggers task gate and error code is placed on
@@ -189,7 +189,7 @@ static void test_kernel_mode_int(void)
 	printf("Access unmapped page\n");
 	*fault_addr = 0;
 	printf("Return from pf tss\n");
-	report(test_count == 1, "PF exeption");
+	report(test_count == 1, "PF exception");
 }
 
 static void test_gdt_task_gate(void)

@@ -286,7 +286,7 @@ int main(void)
 	printf("After int $33\n");
 	report(test_count == 1, "int $33");
 
-	/* Inject two HW interrupt than open iterrupt windows. Both interrupt
+	/* Inject two HW interrupt than open interrupt windows. Both interrupt
 	   will fault on IDT access */
 	test_count = 0;
 	flush_idt_page();
@@ -302,8 +302,8 @@ int main(void)
 
 
 	/* Inject HW interrupt, do sti and than (while in irq shadow) inject
-	   soft interrupt. Fault during soft interrupt. Soft interrup shoud be
-	   handled before HW interrupt */
+	   soft interrupt. Fault during soft interrupt. Soft interrupt should
+	   be handled before HW interrupt */
 	test_count = 0;
 	flush_idt_page();
 	printf("Sending vec 32 and int $33\n");

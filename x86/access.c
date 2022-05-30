@@ -894,10 +894,10 @@ static void ac_test_show(ac_test_t *at)
 }
 
 /*
- * This test case is used to triger the bug which is fixed by
+ * This test case is used to trigger the bug which is fixed by
  * commit e09e90a5 in the kvm tree
  */
-static int corrupt_hugepage_triger(ac_pt_env_t *pt_env)
+static int corrupt_hugepage_trigger(ac_pt_env_t *pt_env)
 {
 	ac_test_t at1, at2;
 
@@ -927,12 +927,12 @@ static int corrupt_hugepage_triger(ac_pt_env_t *pt_env)
 	return 1;
 
 err:
-	printf("corrupt_hugepage_triger test fail\n");
+	printf("corrupt_hugepage_trigger test fail\n");
 	return 0;
 }
 
 /*
- * This test case is used to triger the bug which is fixed by
+ * This test case is used to trigger the bug which is fixed by
  * commit 3ddf6c06e13e in the kvm tree
  */
 static int check_pfec_on_prefetch_pte(ac_pt_env_t *pt_env)
@@ -1149,7 +1149,7 @@ static int ac_test_exec(ac_test_t *at, ac_pt_env_t *pt_env)
 typedef int (*ac_test_fn)(ac_pt_env_t *pt_env);
 const ac_test_fn ac_test_cases[] =
 {
-	corrupt_hugepage_triger,
+	corrupt_hugepage_trigger,
 	check_pfec_on_prefetch_pte,
 	check_large_pte_dirty_for_nowp,
 	check_smep_andnot_wp,

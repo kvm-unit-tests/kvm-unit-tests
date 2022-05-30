@@ -201,8 +201,8 @@ static cycle_t pvclock_clocksource_read(struct pvclock_vcpu_time_info *src)
 	/*
 	 * Assumption here is that last_value, a global accumulator, always goes
 	 * forward. If we are less than that, we should not be much smaller.
-	 * We assume there is an error marging we're inside, and then the correction
-	 * does not sacrifice accuracy.
+	 * We assume there is an error margin we're inside, and then the
+	 * correction does not sacrifice accuracy.
 	 *
 	 * For reads: global may have changed between test and return,
 	 * but this means someone else updated poked the clock at a later time.

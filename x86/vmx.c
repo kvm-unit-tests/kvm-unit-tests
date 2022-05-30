@@ -1477,7 +1477,7 @@ static int test_vmxon(void)
 		goto out;
 	}
 
-	/* invalid revision indentifier */
+	/* invalid revision identifier */
 	*bsp_vmxon_region = 0xba9da9;
 	ret1 = vmx_on();
 	report(ret1, "test vmxon with invalid revision identifier");
