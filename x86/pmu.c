@@ -176,7 +176,7 @@ static void stop_event(pmu_counter_t *evt)
 	evt->count = rdmsr(evt->ctr);
 }
 
-static void measure(pmu_counter_t *evt, int count)
+static noinline void measure(pmu_counter_t *evt, int count)
 {
 	int i;
 	for (i = 0; i < count; i++)
