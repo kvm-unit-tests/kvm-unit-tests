@@ -4,6 +4,7 @@ ldarch = elf32-i386
 exe = flat
 bin = elf
 COMMON_CFLAGS += -mno-sse -mno-sse2
+arch_LDFLAGS = -m elf_i386
 
 cflatobjs += lib/x86/setjmp32.o lib/ldiv32.o
 

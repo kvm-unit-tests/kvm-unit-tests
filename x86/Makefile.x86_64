@@ -6,9 +6,11 @@ exe = efi
 bin = so
 FORMAT = efi-app-x86_64
 cstart.o = $(TEST_DIR)/efi/efistart64.o
+arch_LDFLAGS = ''
 else
 exe = flat
 bin = elf
+arch_LDFLAGS = -m elf_x86_64
 endif
 
 fcf_protection_full := $(call cc-option, -fcf-protection=full,)
