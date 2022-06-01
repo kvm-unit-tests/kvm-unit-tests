@@ -318,11 +318,11 @@ EOF
   rm -f lib-test.{o,S}
 fi
 
-# require enhanced getopt
+# warn if enhanced getopt is unavailable
 getopt -T > /dev/null
 if [ $? -ne 4 ]; then
-    echo "Enhanced getopt is not available, add it to your PATH?"
-    exit 1
+    echo "Without enhanced getopt you won't be able to use run_tests.sh."
+    echo "Add it to your PATH?"
 fi
 
 # Are we in a separate build tree? If so, link the Makefile
