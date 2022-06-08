@@ -1401,8 +1401,8 @@ static void init_bsp_vmx(void)
 
 static void do_vmxon_off(void *data)
 {
-	vmx_on();
-	vmx_off();
+	TEST_ASSERT(!vmx_on());
+	TEST_ASSERT(!vmx_off());
 }
 
 static void do_write_feature_control(void *data)
