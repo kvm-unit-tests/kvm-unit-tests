@@ -12,6 +12,7 @@
 #include <asm/cpacf.h>
 #include <asm/interrupt.h>
 #include <asm/float.h>
+#include <asm/mem.h>
 #include <linux/compiler.h>
 
 static inline void __test_spm_ipm(uint8_t cc, uint8_t key)
@@ -138,7 +139,7 @@ static __always_inline void __test_cpacf_invalid_parm(unsigned int opcode)
 {
 	report_prefix_push("invalid parm address");
 	expect_pgm_int();
-	__cpacf_query(opcode, (void *) -1);
+	__cpacf_query(opcode, OPAQUE_PTR(-1));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 	report_prefix_pop();
 }
@@ -148,7 +149,7 @@ static __always_inline void __test_cpacf_protected_parm(unsigned int opcode)
 	report_prefix_push("protected parm address");
 	expect_pgm_int();
 	low_prot_enable();
-	__cpacf_query(opcode, (void *) 8);
+	__cpacf_query(opcode, OPAQUE_PTR(8));
 	low_prot_disable();
 	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
 	report_prefix_pop();
