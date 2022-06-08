@@ -357,11 +357,11 @@ void css_irq_io(void)
 	int sid;
 
 	report_prefix_push("Interrupt");
-	sid = lowcore_ptr->subsys_id_word;
+	sid = lowcore.subsys_id_word;
 	/* Lowlevel set the SID as interrupt parameter. */
-	if (lowcore_ptr->io_int_param != sid) {
+	if (lowcore.io_int_param != sid) {
 		report_fail("io_int_param: %x differs from subsys_id_word: %x",
-			    lowcore_ptr->io_int_param, sid);
+			    lowcore.io_int_param, sid);
 		goto pop;
 	}
 	report_prefix_pop();
@@ -387,7 +387,7 @@ void css_irq_io(void)
 	}
 pop:
 	report_prefix_pop();
-	lowcore_ptr->io_old_psw.mask &= ~PSW_MASK_WAIT;
+	lowcore.io_old_psw.mask &= ~PSW_MASK_WAIT;
 }
 
 int start_ccw1_chain(unsigned int sid, struct ccw1 *ccw)
@@ -432,9 +432,9 @@ int wait_and_check_io_completion(int schid)
 
 	report_prefix_push("check I/O completion");
 
-	if (lowcore_ptr->io_int_param != schid) {
+	if (lowcore.io_int_param != schid) {
 		report_fail("interrupt parameter: expected %08x got %08x",
-			    schid, lowcore_ptr->io_int_param);
+			    schid, lowcore.io_int_param);
 		ret = -1;
 		goto end;
 	}

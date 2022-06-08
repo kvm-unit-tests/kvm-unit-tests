@@ -14,8 +14,6 @@
 #include <asm/float.h>
 #include <linux/compiler.h>
 
-struct lowcore *lc = NULL;
-
 static inline void __test_spm_ipm(uint8_t cc, uint8_t key)
 {
 	uint64_t in = (cc << 28) | (key << 24);
@@ -262,7 +260,7 @@ static void test_prno(void)
 static void test_dxc(void)
 {
 	/* DXC (0xff) is to be stored in LC and FPC on a trap (CRT) with AFP */
-	lc->dxc_vxc = 0x12345678;
+	lowcore.dxc_vxc = 0x12345678;
 	set_fpc_dxc(0);
 
 	report_prefix_push("afp");
@@ -271,12 +269,12 @@ static void test_dxc(void)
 		     : : "r"(0) : "memory");
 	check_pgm_int_code(PGM_INT_CODE_DATA);
 
-	report(lc->dxc_vxc == 0xff, "dxc in LC");
+	report(lowcore.dxc_vxc == 0xff, "dxc in LC");
 	report(get_fpc_dxc() == 0xff, "dxc in FPC");
 	report_prefix_pop();
 
 	/* DXC (0xff) is to be stored in LC only on a trap (CRT) without AFP */
-	lc->dxc_vxc = 0x12345678;
+	lowcore.dxc_vxc = 0x12345678;
 	set_fpc_dxc(0);
 
 	report_prefix_push("no-afp");
@@ -288,7 +286,7 @@ static void test_dxc(void)
 	afp_enable();
 	check_pgm_int_code(PGM_INT_CODE_DATA);
 
-	report(lc->dxc_vxc == 0xff, "dxc in LC");
+	report(lowcore.dxc_vxc == 0xff, "dxc in LC");
 	report(get_fpc_dxc() == 0, "dxc not in FPC");
 	report_prefix_pop();
 }

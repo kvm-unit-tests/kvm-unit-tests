@@ -18,20 +18,19 @@
 static bool pgm_int_expected;
 static bool ext_int_expected;
 static void (*pgm_cleanup_func)(void);
-static struct lowcore *lc;
 
 void expect_pgm_int(void)
 {
 	pgm_int_expected = true;
-	lc->pgm_int_code = 0;
-	lc->trans_exc_id = 0;
+	lowcore.pgm_int_code = 0;
+	lowcore.trans_exc_id = 0;
 	mb();
 }
 
 void expect_ext_int(void)
 {
 	ext_int_expected = true;
-	lc->ext_int_code = 0;
+	lowcore.ext_int_code = 0;
 	mb();
 }
 
@@ -40,9 +39,9 @@ uint16_t clear_pgm_int(void)
 	uint16_t code;
 
 	mb();
-	code = lc->pgm_int_code;
-	lc->pgm_int_code = 0;
-	lc->trans_exc_id = 0;
+	code = lowcore.pgm_int_code;
+	lowcore.pgm_int_code = 0;
+	lowcore.trans_exc_id = 0;
 	pgm_int_expected = false;
 	return code;
 }
@@ -50,9 +49,9 @@ uint16_t clear_pgm_int(void)
 void check_pgm_int_code(uint16_t code)
 {
 	mb();
-	report(code == lc->pgm_int_code,
+	report(code == lowcore.pgm_int_code,
 	       "Program interrupt: expected(%d) == received(%d)", code,
-	       lc->pgm_int_code);
+	       lowcore.pgm_int_code);
 }
 
 void register_pgm_cleanup_func(void (*f)(void))
@@ -63,29 +62,29 @@ void register_pgm_cleanup_func(void (*f)(void))
 static void fixup_pgm_int(struct stack_frame_int *stack)
 {
 	/* If we have an error on SIE we directly move to sie_exit */
-	if (lc->pgm_old_psw.addr >= (uint64_t)&sie_entry &&
-	    lc->pgm_old_psw.addr <= (uint64_t)&sie_exit) {
-		lc->pgm_old_psw.addr = (uint64_t)&sie_exit;
+	if (lowcore.pgm_old_psw.addr >= (uint64_t)&sie_entry &&
+	    lowcore.pgm_old_psw.addr <= (uint64_t)&sie_exit) {
+		lowcore.pgm_old_psw.addr = (uint64_t)&sie_exit;
 	}
 
-	switch (lc->pgm_int_code) {
+	switch (lowcore.pgm_int_code) {
 	case PGM_INT_CODE_PRIVILEGED_OPERATION:
 		/* Normal operation is in supervisor state, so this exception
 		 * was produced intentionally and we should return to the
 		 * supervisor state.
 		 */
-		lc->pgm_old_psw.mask &= ~PSW_MASK_PSTATE;
+		lowcore.pgm_old_psw.mask &= ~PSW_MASK_PSTATE;
 		break;
 	case PGM_INT_CODE_PROTECTION:
 		/* Handling for iep.c test case. */
-		if (prot_is_iep(lc->trans_exc_id))
+		if (prot_is_iep(lowcore.trans_exc_id))
 			/*
 			 * We branched to the instruction that caused
 			 * the exception so we can use the return
 			 * address in GR14 to jump back and continue
 			 * executing test code.
 			 */
-			lc->pgm_old_psw.addr = stack->grs0[12];
+			lowcore.pgm_old_psw.addr = stack->grs0[12];
 		break;
 	case PGM_INT_CODE_SEGMENT_TRANSLATION:
 	case PGM_INT_CODE_PAGE_TRANSLATION:
@@ -122,14 +121,14 @@ static void fixup_pgm_int(struct stack_frame_int *stack)
 		/* The interrupt was nullified, the old PSW points at the
 		 * responsible instruction. Forward the PSW so we don't loop.
 		 */
-		lc->pgm_old_psw.addr += lc->pgm_int_id;
+		lowcore.pgm_old_psw.addr += lowcore.pgm_int_id;
 	}
 	/* suppressed/terminated/completed point already at the next address */
 }
 
 static void print_storage_exception_information(void)
 {
-	switch (lc->pgm_int_code) {
+	switch (lowcore.pgm_int_code) {
 	case PGM_INT_CODE_PROTECTION:
 	case PGM_INT_CODE_PAGE_TRANSLATION:
 	case PGM_INT_CODE_SEGMENT_TRANSLATION:
@@ -140,7 +139,7 @@ static void print_storage_exception_information(void)
 	case PGM_INT_CODE_SECURE_STOR_ACCESS:
 	case PGM_INT_CODE_NON_SECURE_STOR_ACCESS:
 	case PGM_INT_CODE_SECURE_STOR_VIOLATION:
-		print_decode_teid(lc->trans_exc_id);
+		print_decode_teid(lowcore.trans_exc_id);
 		break;
 	}
 }
@@ -165,13 +164,13 @@ static void print_pgm_info(struct stack_frame_int *stack)
 {
 	bool in_sie;
 
-	in_sie = (lc->pgm_old_psw.addr >= (uintptr_t)sie_entry &&
-		  lc->pgm_old_psw.addr <= (uintptr_t)sie_exit);
+	in_sie = (lowcore.pgm_old_psw.addr >= (uintptr_t)sie_entry &&
+		  lowcore.pgm_old_psw.addr <= (uintptr_t)sie_exit);
 
 	printf("\n");
 	printf("Unexpected program interrupt %s: %#x on cpu %d at %#lx, ilen %d\n",
 	       in_sie ? "in SIE" : "",
-	       lc->pgm_int_code, stap(), lc->pgm_old_psw.addr, lc->pgm_int_id);
+	       lowcore.pgm_int_code, stap(), lowcore.pgm_old_psw.addr, lowcore.pgm_int_id);
 	print_int_regs(stack);
 	dump_stack();
 
@@ -201,13 +200,13 @@ void handle_pgm_int(struct stack_frame_int *stack)
 void handle_ext_int(struct stack_frame_int *stack)
 {
 	if (!ext_int_expected &&
-	    lc->ext_int_code != EXT_IRQ_SERVICE_SIG) {
+	    lowcore.ext_int_code != EXT_IRQ_SERVICE_SIG) {
 		report_abort("Unexpected external call interrupt (code %#x): on cpu %d at %#lx",
-			     lc->ext_int_code, stap(), lc->ext_old_psw.addr);
+			     lowcore.ext_int_code, stap(), lowcore.ext_old_psw.addr);
 		return;
 	}
 
-	if (lc->ext_int_code == EXT_IRQ_SERVICE_SIG) {
+	if (lowcore.ext_int_code == EXT_IRQ_SERVICE_SIG) {
 		stack->crs[0] &= ~(1UL << 9);
 		sclp_handle_ext();
 	} else {
@@ -215,13 +214,13 @@ void handle_ext_int(struct stack_frame_int *stack)
 	}
 
 	if (!(stack->crs[0] & CR0_EXTM_MASK))
-		lc->ext_old_psw.mask &= ~PSW_MASK_EXT;
+		lowcore.ext_old_psw.mask &= ~PSW_MASK_EXT;
 }
 
 void handle_mcck_int(void)
 {
 	report_abort("Unexpected machine check interrupt: on cpu %d at %#lx",
-		     stap(), lc->mcck_old_psw.addr);
+		     stap(), lowcore.mcck_old_psw.addr);
 }
 
 static void (*io_int_func)(void);
@@ -232,7 +231,7 @@ void handle_io_int(void)
 		return io_int_func();
 
 	report_abort("Unexpected io interrupt: on cpu %d at %#lx",
-		     stap(), lc->io_old_psw.addr);
+		     stap(), lowcore.io_old_psw.addr);
 }
 
 int register_io_int_func(void (*f)(void))
@@ -253,14 +252,14 @@ int unregister_io_int_func(void (*f)(void))
 
 void handle_svc_int(void)
 {
-	uint16_t code = lc->svc_int_code;
+	uint16_t code = lowcore.svc_int_code;
 
 	switch (code) {
 	case SVC_LEAVE_PSTATE:
-		lc->svc_old_psw.mask &= ~PSW_MASK_PSTATE;
+		lowcore.svc_old_psw.mask &= ~PSW_MASK_PSTATE;
 		break;
 	default:
 		report_abort("Unexpected supervisor call interrupt: code %#x on cpu %d at %#lx",
-			      code, stap(), lc->svc_old_psw.addr);
+			      code, stap(), lowcore.svc_old_psw.addr);
 	}
 }

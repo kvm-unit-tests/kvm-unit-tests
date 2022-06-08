@@ -31,7 +31,6 @@ static union {
 	WriteEventData data;
 } sccb_template;
 static uint32_t valid_code;						/* valid command code for READ SCP INFO */
-static struct lowcore *lc;
 
 /**
  * Perform one service call, handling exceptions and interrupts.
@@ -43,7 +42,7 @@ static int sclp_service_call_test(unsigned int command, void *sccb)
 	sclp_mark_busy();
 	sclp_setup_int();
 	cc = servc(command, __pa(sccb));
-	if (lc->pgm_int_code) {
+	if (lowcore.pgm_int_code) {
 		sclp_handle_ext();
 		return 0;
 	}

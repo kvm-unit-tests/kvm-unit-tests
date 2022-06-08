@@ -12,8 +12,6 @@
 #include <asm/asm-offsets.h>
 #include <asm/interrupt.h>
 
-struct lowcore *lc = (struct lowcore *)0x0;
-
 #define CODE_INIT	0
 #define CODE_CHANGE	1
 #define CODE_CANCEL	2
@@ -92,7 +90,7 @@ static void test_bite(void)
 	load_psw_mask(mask);
 
 	/* Arm watchdog */
-	lc->restart_new_psw.mask = extract_psw_mask() & ~PSW_MASK_EXT;
+	lowcore.restart_new_psw.mask = extract_psw_mask() & ~PSW_MASK_EXT;
 	diag288(CODE_INIT, 15, ACTION_RESTART);
 	asm volatile("		larl	%r0, 1f\n"
 		     "		stg	%r0, 424\n"
