@@ -319,7 +319,7 @@ unsigned exception_vector(void)
 	return this_cpu_read_exception_vector();
 }
 
-int write_cr4_checking(unsigned long val)
+int write_cr4_safe(unsigned long val)
 {
 	asm volatile(ASM_TRY("1f")
 		"mov %0,%%cr4\n\t"

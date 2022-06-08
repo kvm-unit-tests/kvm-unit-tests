@@ -86,7 +86,7 @@ static void test_msr_rw(u32 msr, const char *name, unsigned long long val)
 
 static void test_wrmsr_fault(u32 msr, const char *name, unsigned long long val)
 {
-	unsigned char vector = wrmsr_checking(msr, val);
+	unsigned char vector = wrmsr_safe(msr, val);
 
 	report(vector == GP_VECTOR,
 	       "Expected #GP on WRSMR(%s, 0x%llx), got vector %d",
@@ -95,7 +95,7 @@ static void test_wrmsr_fault(u32 msr, const char *name, unsigned long long val)
 
 static void test_rdmsr_fault(u32 msr, const char *name)
 {
-	unsigned char vector = rdmsr_checking(msr);
+	unsigned char vector = rdmsr_safe(msr);
 
 	report(vector == GP_VECTOR,
 	       "Expected #GP on RDSMR(%s), got vector %d", name, vector);

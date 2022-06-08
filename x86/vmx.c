@@ -292,7 +292,7 @@ static bool check_vmcs_field(struct vmcs_field *f, u8 cookie)
 		return true;
 	}
 
-	ret = vmcs_read_checking(f->encoding, &actual);
+	ret = vmcs_read_safe(f->encoding, &actual);
 	assert(!(ret & X86_EFLAGS_CF));
 	/* Skip VMCS fields that aren't recognized by the CPU */
 	if (ret & X86_EFLAGS_ZF)
@@ -352,7 +352,7 @@ static u32 find_vmcs_max_index(void)
 				      (type << VMCS_FIELD_TYPE_SHIFT) |
 				      (width << VMCS_FIELD_WIDTH_SHIFT);
 
-				ret = vmcs_read_checking(enc, &actual);
+				ret = vmcs_read_safe(enc, &actual);
 				assert(!(ret & X86_EFLAGS_CF));
 				if (!(ret & X86_EFLAGS_ZF))
 					return idx;

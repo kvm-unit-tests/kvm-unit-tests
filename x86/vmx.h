@@ -933,7 +933,7 @@ static inline u64 vmcs_readm(enum Encoding enc)
 	return val;
 }
 
-static inline int vmcs_read_checking(enum Encoding enc, u64 *value)
+static inline int vmcs_read_safe(enum Encoding enc, u64 *value)
 {
 	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
 	u64 encoding = enc;

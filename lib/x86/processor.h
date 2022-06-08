@@ -354,7 +354,7 @@ static inline void wrmsr(u32 index, u64 val)
 	asm volatile ("wrmsr" : : "a"(a), "d"(d), "c"(index) : "memory");
 }
 
-static inline int rdmsr_checking(u32 index)
+static inline int rdmsr_safe(u32 index)
 {
 	asm volatile (ASM_TRY("1f")
 		      "rdmsr\n\t"
@@ -363,7 +363,7 @@ static inline int rdmsr_checking(u32 index)
 	return exception_vector();
 }
 
-static inline int wrmsr_checking(u32 index, u64 val)
+static inline int wrmsr_safe(u32 index, u64 val)
 {
 	u32 a = val, d = val >> 32;
 

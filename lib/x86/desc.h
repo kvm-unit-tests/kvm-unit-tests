@@ -214,7 +214,7 @@ extern tss64_t tss[];
 extern gdt_entry_t gdt[];
 
 unsigned exception_vector(void);
-int write_cr4_checking(unsigned long val);
+int write_cr4_safe(unsigned long val);
 unsigned exception_error_code(void);
 bool exception_rflags_rf(void);
 void set_desc_entry(idt_entry_t *e, size_t e_sz, void *addr,

@@ -8311,7 +8311,7 @@ static void vmx_cr_load_test(void)
 	/* Enable PCID for L1. */
 	cr4 = orig_cr4 | X86_CR4_PCIDE;
 	cr3 = orig_cr3 | 0x1;
-	TEST_ASSERT(!write_cr4_checking(cr4));
+	TEST_ASSERT(!write_cr4_safe(cr4));
 	write_cr3(cr3);
 
 	test_set_guest(vmx_single_vmcall_guest);
@@ -8328,11 +8328,11 @@ static void vmx_cr_load_test(void)
 	 *     have no side effect because normally no guest MCE (e.g., as the
 	 *     result of bad memory) would happen during this test.
 	 */
-	TEST_ASSERT(!write_cr4_checking(cr4 ^ X86_CR4_MCE));
+	TEST_ASSERT(!write_cr4_safe(cr4 ^ X86_CR4_MCE));
 
 	/* Cleanup L1 state. */
 	write_cr3(orig_cr3);
-	TEST_ASSERT(!write_cr4_checking(orig_cr4));
+	TEST_ASSERT(!write_cr4_safe(orig_cr4));
 
 	if (!this_cpu_has(X86_FEATURE_LA57))
 		goto done;

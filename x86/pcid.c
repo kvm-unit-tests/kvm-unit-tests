@@ -10,7 +10,7 @@ struct invpcid_desc {
     u64 addr : 64;
 };
 
-static int write_cr0_checking(unsigned long val)
+static int write_cr0_safe(unsigned long val)
 {
     asm volatile(ASM_TRY("1f")
                  "mov %0, %%cr0\n\t"
@@ -18,7 +18,7 @@ static int write_cr0_checking(unsigned long val)
     return exception_vector();
 }
 
-static int invpcid_checking(unsigned long type, void *desc)
+static int invpcid_safe(unsigned long type, void *desc)
 {
     asm volatile (ASM_TRY("1f")
                   ".byte 0x66,0x0f,0x38,0x82,0x18 \n\t" /* invpcid (%rax), %rbx */
@@ -32,18 +32,18 @@ static void test_pcid_enabled(void)
     ulong cr0 = read_cr0(), cr3 = read_cr3(), cr4 = read_cr4();
 
     /* try setting CR4.PCIDE, no exception expected */
-    if (write_cr4_checking(cr4 | X86_CR4_PCIDE) != 0)
+    if (write_cr4_safe(cr4 | X86_CR4_PCIDE) != 0)
         goto report;
 
     /* try clearing CR0.PG when CR4.PCIDE=1, #GP expected */
-    if (write_cr0_checking(cr0 & ~X86_CR0_PG) != GP_VECTOR)
+    if (write_cr0_safe(cr0 & ~X86_CR0_PG) != GP_VECTOR)
         goto report;
 
     write_cr4(cr4);
 
     /* try setting CR4.PCIDE when CR3[11:0] != 0 , #GP expected */
     write_cr3(cr3 | 0x001);
-    if (write_cr4_checking(cr4 | X86_CR4_PCIDE) != GP_VECTOR)
+    if (write_cr4_safe(cr4 | X86_CR4_PCIDE) != GP_VECTOR)
         goto report;
     write_cr3(cr3);
 
@@ -59,7 +59,7 @@ static void test_pcid_disabled(void)
     ulong cr4 = read_cr4();
 
     /* try setting CR4.PCIDE, #GP expected */
-    if (write_cr4_checking(cr4 | X86_CR4_PCIDE) != GP_VECTOR)
+    if (write_cr4_safe(cr4 | X86_CR4_PCIDE) != GP_VECTOR)
         goto report;
 
     passed = 1;
@@ -80,7 +80,7 @@ static void test_invpcid_enabled(int pcid_enabled)
      * no exception expected
      */
     for (i = 0; i < 4; i++) {
-        if (invpcid_checking(i, &desc) != 0)
+        if (invpcid_safe(i, &desc) != 0)
             goto report;
     }
 
@@ -89,7 +89,7 @@ static void test_invpcid_enabled(int pcid_enabled)
      */
     desc.pcid = 1;
     for (i = 0; i < 2; i++) {
-        if (invpcid_checking(i, &desc) != GP_VECTOR)
+        if (invpcid_safe(i, &desc) != GP_VECTOR)
             goto report;
     }
 
@@ -97,14 +97,14 @@ static void test_invpcid_enabled(int pcid_enabled)
     if (!pcid_enabled)
         goto success;
 
-    if (write_cr4_checking(cr4 | X86_CR4_PCIDE) != 0)
+    if (write_cr4_safe(cr4 | X86_CR4_PCIDE) != 0)
         goto report;
 
     /* try executing invpcid when CR4.PCIDE=1
      * no exception expected
      */
     desc.pcid = 10;
-    if (invpcid_checking(2, &desc) != 0)
+    if (invpcid_safe(2, &desc) != 0)
         goto report;
 
 success:
@@ -120,7 +120,7 @@ static void test_invpcid_disabled(void)
     struct invpcid_desc desc;
 
     /* try executing invpcid, #UD expected */
-    if (invpcid_checking(2, &desc) != UD_VECTOR)
+    if (invpcid_safe(2, &desc) != UD_VECTOR)
         goto report;
 
     passed = 1;
