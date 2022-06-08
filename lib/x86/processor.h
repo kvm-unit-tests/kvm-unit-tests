@@ -4,6 +4,7 @@
 #include "libcflat.h"
 #include "desc.h"
 #include "msr.h"
+#include <bitops.h>
 #include <stdint.h>
 
 #define NONCANONICAL            0xaaaaaaaaaaaaaaaaull
@@ -30,49 +31,67 @@
 #define AC_VECTOR 17
 #define CP_VECTOR 21
 
-#define X86_CR0_PE	0x00000001
-#define X86_CR0_MP	0x00000002
-#define X86_CR0_EM	0x00000004
-#define X86_CR0_TS	0x00000008
-#define X86_CR0_WP	0x00010000
-#define X86_CR0_AM	0x00040000
-#define X86_CR0_NW	0x20000000
-#define X86_CR0_CD	0x40000000
-#define X86_CR0_PG	0x80000000
-#define X86_CR3_PCID_MASK 0x00000fff
-#define X86_CR4_TSD	0x00000004
-#define X86_CR4_DE	0x00000008
-#define X86_CR4_PSE	0x00000010
-#define X86_CR4_PAE	0x00000020
-#define X86_CR4_MCE	0x00000040
-#define X86_CR4_PGE	0x00000080
-#define X86_CR4_PCE	0x00000100
-#define X86_CR4_UMIP	0x00000800
-#define X86_CR4_LA57	0x00001000
-#define X86_CR4_VMXE	0x00002000
-#define X86_CR4_PCIDE	0x00020000
-#define X86_CR4_OSXSAVE	0x00040000
-#define X86_CR4_SMEP	0x00100000
-#define X86_CR4_SMAP	0x00200000
-#define X86_CR4_PKE	0x00400000
-#define X86_CR4_CET	0x00800000
-#define X86_CR4_PKS	0x01000000
+#define X86_CR0_PE	BIT(0)
+#define X86_CR0_MP	BIT(1)
+#define X86_CR0_EM	BIT(2)
+#define X86_CR0_TS	BIT(3)
+#define X86_CR0_ET	BIT(4)
+#define X86_CR0_NE	BIT(5)
+#define X86_CR0_WP	BIT(16)
+#define X86_CR0_AM	BIT(18)
+#define X86_CR0_NW	BIT(29)
+#define X86_CR0_CD	BIT(30)
+#define X86_CR0_PG	BIT(31)
 
-#define X86_EFLAGS_CF    0x00000001
-#define X86_EFLAGS_FIXED 0x00000002
-#define X86_EFLAGS_PF    0x00000004
-#define X86_EFLAGS_AF    0x00000010
-#define X86_EFLAGS_ZF    0x00000040
-#define X86_EFLAGS_SF    0x00000080
-#define X86_EFLAGS_TF    0x00000100
-#define X86_EFLAGS_IF    0x00000200
-#define X86_EFLAGS_DF    0x00000400
-#define X86_EFLAGS_OF    0x00000800
-#define X86_EFLAGS_IOPL  0x00003000
-#define X86_EFLAGS_NT    0x00004000
-#define X86_EFLAGS_RF    0x00010000
-#define X86_EFLAGS_VM    0x00020000
-#define X86_EFLAGS_AC    0x00040000
+#define X86_CR3_PCID_MASK	GENMASK(11, 0)
+
+#define X86_CR4_VME		BIT(0)
+#define X86_CR4_PVI		BIT(1)
+#define X86_CR4_TSD		BIT(2)
+#define X86_CR4_DE		BIT(3)
+#define X86_CR4_PSE		BIT(4)
+#define X86_CR4_PAE		BIT(5)
+#define X86_CR4_MCE		BIT(6)
+#define X86_CR4_PGE		BIT(7)
+#define X86_CR4_PCE		BIT(8)
+#define X86_CR4_OSFXSR		BIT(9)
+#define X86_CR4_OSXMMEXCPT	BIT(10)
+#define X86_CR4_UMIP		BIT(11)
+#define X86_CR4_LA57		BIT(12)
+#define X86_CR4_VMXE		BIT(13)
+#define X86_CR4_SMXE		BIT(14)
+/* UNUSED			BIT(15) */
+#define X86_CR4_FSGSBASE	BIT(16)
+#define X86_CR4_PCIDE		BIT(17)
+#define X86_CR4_OSXSAVE		BIT(18)
+#define X86_CR4_KL		BIT(19)
+#define X86_CR4_SMEP		BIT(20)
+#define X86_CR4_SMAP		BIT(21)
+#define X86_CR4_PKE		BIT(22)
+#define X86_CR4_CET		BIT(23)
+#define X86_CR4_PKS		BIT(24)
+
+#define X86_EFLAGS_CF		BIT(0)
+#define X86_EFLAGS_FIXED	BIT(1)
+#define X86_EFLAGS_PF		BIT(2)
+/* RESERVED 0			BIT(3) */
+#define X86_EFLAGS_AF		BIT(4)
+/* RESERVED 0			BIT(5) */
+#define X86_EFLAGS_ZF		BIT(6)
+#define X86_EFLAGS_SF		BIT(7)
+#define X86_EFLAGS_TF		BIT(8)
+#define X86_EFLAGS_IF		BIT(9)
+#define X86_EFLAGS_DF		BIT(10)
+#define X86_EFLAGS_OF		BIT(11)
+#define X86_EFLAGS_IOPL		GENMASK(13, 12)
+#define X86_EFLAGS_NT		BIT(14)
+/* RESERVED 0			BIT(15) */
+#define X86_EFLAGS_RF		BIT(16)
+#define X86_EFLAGS_VM		BIT(17)
+#define X86_EFLAGS_AC		BIT(18)
+#define X86_EFLAGS_VIF		BIT(19)
+#define X86_EFLAGS_VIP		BIT(20)
+#define X86_EFLAGS_ID		BIT(21)
 
 #define X86_EFLAGS_ALU (X86_EFLAGS_CF | X86_EFLAGS_PF | X86_EFLAGS_AF | \
 			X86_EFLAGS_ZF | X86_EFLAGS_SF | X86_EFLAGS_OF)

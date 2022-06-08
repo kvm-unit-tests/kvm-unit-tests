@@ -42,7 +42,6 @@ static uint64_t get_supported_xcr0(void)
     return r.a + ((u64)r.d << 32);
 }
 
-#define X86_CR4_OSXSAVE			0x00040000
 #define XCR_XFEATURE_ENABLED_MASK       0x00000000
 #define XCR_XFEATURE_ILLEGAL_MASK       0x00000010
 
