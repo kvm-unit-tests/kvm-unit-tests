@@ -870,18 +870,35 @@ void vmx_set_test_stage(u32 s);
 u32 vmx_get_test_stage(void);
 void vmx_inc_test_stage(void);
 
-static int _vmx_on(u64 *vmxon_region)
+/* -1 on VM-Fail, 0 on success, >1 on fault */
+static int __vmxon_safe(u64 *vmxon_region)
 {
-	bool ret;
+	bool vmfail;
 	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
-	asm volatile ("push %1; popf; vmxon %2; setbe %0\n\t"
-		      : "=q" (ret) : "q" (rflags), "m" (vmxon_region) : "cc");
-	return ret;
+
+	asm volatile ("push %1\n\t"
+		      "popf\n\t"
+		      ASM_TRY("1f") "vmxon %2\n\t"
+		      "setbe %0\n\t"
+		      "jmp 2f\n\t"
+		      "1: movb $0, %0\n\t"
+		      "2:\n\t"
+		      : "=q" (vmfail) : "q" (rflags), "m" (vmxon_region) : "cc");
+
+	if (vmfail)
+		return -1;
+
+	return exception_vector();
+}
+
+static int vmxon_safe(void)
+{
+	return __vmxon_safe(bsp_vmxon_region);
 }
 
 static int vmx_on(void)
 {
-	return _vmx_on(bsp_vmxon_region);
+	return vmxon_safe();
 }
 
 static int vmx_off(void)

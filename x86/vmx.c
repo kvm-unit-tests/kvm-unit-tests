@@ -1461,34 +1461,34 @@ static int test_vmxon(void)
 
 	/* Unaligned page access */
 	vmxon_region = (u64 *)((intptr_t)bsp_vmxon_region + 1);
-	ret1 = _vmx_on(vmxon_region);
-	report(ret1, "test vmxon with unaligned vmxon region");
-	if (!ret1) {
+	ret1 = __vmxon_safe(vmxon_region);
+	report(ret1 < 0, "test vmxon with unaligned vmxon region");
+	if (ret1 >= 0) {
 		ret = 1;
 		goto out;
 	}
 
 	/* gpa bits beyond physical address width are set*/
 	vmxon_region = (u64 *)((intptr_t)bsp_vmxon_region | ((u64)1 << (width+1)));
-	ret1 = _vmx_on(vmxon_region);
-	report(ret1, "test vmxon with bits set beyond physical address width");
-	if (!ret1) {
+	ret1 = __vmxon_safe(vmxon_region);
+	report(ret1 < 0, "test vmxon with bits set beyond physical address width");
+	if (ret1 >= 0) {
 		ret = 1;
 		goto out;
 	}
 
 	/* invalid revision identifier */
 	*bsp_vmxon_region = 0xba9da9;
-	ret1 = vmx_on();
-	report(ret1, "test vmxon with invalid revision identifier");
-	if (!ret1) {
+	ret1 = vmxon_safe();
+	report(ret1 < 0, "test vmxon with invalid revision identifier");
+	if (ret1 >= 0) {
 		ret = 1;
 		goto out;
 	}
 
 	/* and finally a valid region */
 	*bsp_vmxon_region = basic.revision;
-	ret = vmx_on();
+	ret = vmxon_safe();
 	report(!ret, "test vmxon with valid vmxon region");
 
 out:

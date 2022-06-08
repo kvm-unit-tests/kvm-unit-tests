@@ -9695,7 +9695,7 @@ static void init_signal_test_thread(void *data)
 	u64 *ap_vmxon_region = alloc_page();
 	enable_vmx();
 	init_vmx(ap_vmxon_region);
-	TEST_ASSERT(!_vmx_on(ap_vmxon_region));
+	TEST_ASSERT(!__vmxon_safe(ap_vmxon_region));
 
 	/* Signal CPU have entered VMX operation */
 	vmx_set_test_stage(1);
@@ -9743,7 +9743,7 @@ static void init_signal_test_thread(void *data)
 	while (vmx_get_test_stage() != 8)
 		;
 	/* Enter VMX operation (i.e. exec VMXON) */
-	TEST_ASSERT(!_vmx_on(ap_vmxon_region));
+	TEST_ASSERT(!__vmxon_safe(ap_vmxon_region));
 	/* Signal to BSP we are in VMX operation */
 	vmx_set_test_stage(9);
 
@@ -9920,7 +9920,7 @@ static void sipi_test_ap_thread(void *data)
 	ap_vmxon_region = alloc_page();
 	enable_vmx();
 	init_vmx(ap_vmxon_region);
-	TEST_ASSERT(!_vmx_on(ap_vmxon_region));
+	TEST_ASSERT(!__vmxon_safe(ap_vmxon_region));
 	init_vmcs(&ap_vmcs);
 	make_vmcs_current(ap_vmcs);
 
