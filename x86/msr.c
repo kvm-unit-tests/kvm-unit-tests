@@ -95,7 +95,8 @@ static void test_wrmsr_fault(u32 msr, const char *name, unsigned long long val)
 
 static void test_rdmsr_fault(u32 msr, const char *name)
 {
-	unsigned char vector = rdmsr_safe(msr);
+	uint64_t ignored;
+	unsigned char vector = rdmsr_safe(msr, &ignored);
 
 	report(vector == GP_VECTOR,
 	       "Expected #GP on RDSMR(%s), got vector %d", name, vector);
