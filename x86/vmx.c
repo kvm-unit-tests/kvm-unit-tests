@@ -1453,11 +1453,100 @@ static int test_vmx_feature_control(void)
 	return !vmx_enabled;
 }
 
+
+static void write_cr(int cr_number, unsigned long val)
+{
+	if (!cr_number)
+		write_cr0(val);
+	else
+		write_cr4(val);
+}
+
+static int write_cr_safe(int cr_number, unsigned long val)
+{
+	if (!cr_number)
+		return write_cr0_safe(val);
+	else
+		return write_cr4_safe(val);
+}
+
+static int test_vmxon_bad_cr(int cr_number, unsigned long orig_cr,
+			     unsigned long *flexible_bits)
+{
+	unsigned long required1, disallowed1, val, bit;
+	int ret, i;
+
+	if (!cr_number) {
+		required1 =  rdmsr(MSR_IA32_VMX_CR0_FIXED0);
+		disallowed1 = ~rdmsr(MSR_IA32_VMX_CR0_FIXED1);
+	} else {
+		required1 =  rdmsr(MSR_IA32_VMX_CR4_FIXED0);
+		disallowed1 = ~rdmsr(MSR_IA32_VMX_CR4_FIXED1);
+	}
+
+	*flexible_bits = 0;
+
+	for (i = 0; i < BITS_PER_LONG; i++) {
+		bit = BIT(i);
+
+		/*
+		 * Don't touch bits that will affect the current paging mode,
+		 * toggling them will send the test into the weeds before it
+		 * gets to VMXON.  nVMX tests are 64-bit only, so CR4.PAE is
+		 * guaranteed to be '1', i.e. PSE is fair game.  PKU/PKS are
+		 * also fair game as KVM doesn't configure any keys.  SMAP and
+		 * SMEP are off limits because the page tables have the USER
+		 * bit set at all levels.
+		 */
+		if ((cr_number == 0 && (bit == X86_CR0_PE || bit == X86_CR0_PG)) ||
+		    (cr_number == 4 && (bit == X86_CR4_PAE || bit == X86_CR4_SMAP || X86_CR4_SMEP)))
+			continue;
+
+		if (!(bit & required1) && !(bit & disallowed1)) {
+			if (!write_cr_safe(cr_number, orig_cr ^ bit)) {
+				*flexible_bits |= bit;
+				write_cr(cr_number, orig_cr);
+			}
+			continue;
+		}
+
+		assert(!(required1 & disallowed1));
+
+		if (required1 & bit)
+			val = orig_cr & ~bit;
+		else
+			val = orig_cr | bit;
+
+		if (write_cr_safe(cr_number, val))
+			continue;
+
+		ret = vmx_on();
+		report(ret == UD_VECTOR,
+		       "VMXON with CR%d bit %d %s should #UD, got '%d'",
+		       cr_number, i, (required1 & bit) ? "cleared" : "set", ret);
+
+		write_cr(cr_number, orig_cr);
+
+		if (ret <= 0)
+			return 1;
+	}
+	return 0;
+}
+
 static int test_vmxon(void)
 {
-	u64 *vmxon_region;
+	unsigned long orig_cr0, flexible_cr0, orig_cr4, flexible_cr4;
 	int width = cpuid_maxphyaddr();
+	u64 *vmxon_region;
 	int ret;
+
+	orig_cr0 = read_cr0();
+	if (test_vmxon_bad_cr(0, orig_cr0, &flexible_cr0))
+		return 1;
+
+	orig_cr4 = read_cr4();
+	if (test_vmxon_bad_cr(4, orig_cr4, &flexible_cr4))
+		return 1;
 
 	/* Unaligned page access */
 	vmxon_region = (u64 *)((intptr_t)bsp_vmxon_region + 1);
@@ -1480,10 +1569,14 @@ static int test_vmxon(void)
 	if (ret >= 0)
 		return 1;
 
-	/* and finally a valid region */
+	/* and finally a valid region, with valid-but-tweaked cr0/cr4 */
+	write_cr0(orig_cr0 ^ flexible_cr0);
+	write_cr4(orig_cr4 ^ flexible_cr4);
 	*bsp_vmxon_region = basic.revision;
 	ret = vmxon_safe();
 	report(!ret, "test vmxon with valid vmxon region");
+	write_cr0(orig_cr0);
+	write_cr4(orig_cr4);
 	return ret;
 }
 
