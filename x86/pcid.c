@@ -10,14 +10,6 @@ struct invpcid_desc {
     u64 addr : 64;
 };
 
-static int write_cr0_safe(unsigned long val)
-{
-    asm volatile(ASM_TRY("1f")
-                 "mov %0, %%cr0\n\t"
-                 "1:": : "r" (val));
-    return exception_vector();
-}
-
 static int invpcid_safe(unsigned long type, void *desc)
 {
     asm volatile (ASM_TRY("1f")

@@ -341,6 +341,12 @@ static inline void set_iopl(int iopl)
 	write_rflags(flags);
 }
 
+/*
+ * Don't use the safe variants for rdmsr() or wrmsr().  The exception fixup
+ * infrastructure uses per-CPU data and thus consumes GS.base.  Various tests
+ * temporarily modify MSR_GS_BASE and will explode when trying to determine
+ * whether or not RDMSR/WRMSR faulted.
+ */
 static inline u64 rdmsr(u32 index)
 {
 	u32 a, d;
@@ -381,9 +387,20 @@ static inline uint64_t rdpmc(uint32_t index)
 	return a | ((uint64_t)d << 32);
 }
 
+static inline int write_cr0_safe(ulong val)
+{
+	asm volatile(ASM_TRY("1f")
+		     "mov %0,%%cr0\n\t"
+		     "1:": : "r" (val));
+	return exception_vector();
+}
+
 static inline void write_cr0(ulong val)
 {
-	asm volatile ("mov %0, %%cr0" : : "r"(val) : "memory");
+	int vector = write_cr0_safe(val);
+
+	assert_msg(!vector, "Unexpected fault '%d' writing CR0 = %lx",
+		   vector, val);
 }
 
 static inline ulong read_cr0(void)
@@ -405,9 +422,20 @@ static inline ulong read_cr2(void)
 	return val;
 }
 
+static inline int write_cr3_safe(ulong val)
+{
+	asm volatile(ASM_TRY("1f")
+		     "mov %0,%%cr3\n\t"
+		     "1:": : "r" (val));
+	return exception_vector();
+}
+
 static inline void write_cr3(ulong val)
 {
-	asm volatile ("mov %0, %%cr3" : : "r"(val) : "memory");
+	int vector = write_cr3_safe(val);
+
+	assert_msg(!vector, "Unexpected fault '%d' writing CR3 = %lx",
+		   vector, val);
 }
 
 static inline ulong read_cr3(void)
@@ -422,9 +450,20 @@ static inline void update_cr3(void *cr3)
 	write_cr3((ulong)cr3);
 }
 
+static inline int write_cr4_safe(ulong val)
+{
+	asm volatile(ASM_TRY("1f")
+		     "mov %0,%%cr4\n\t"
+		     "1:": : "r" (val));
+	return exception_vector();
+}
+
 static inline void write_cr4(ulong val)
 {
-	asm volatile ("mov %0, %%cr4" : : "r"(val) : "memory");
+	int vector = write_cr4_safe(val);
+
+	assert_msg(!vector, "Unexpected fault '%d' writing CR4 = %lx",
+		   vector, val);
 }
 
 static inline ulong read_cr4(void)
