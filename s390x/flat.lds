@@ -7,6 +7,7 @@ SECTIONS
 		 * address 0x10000 (cstart64.S .init).
 		 */
 		. = 0;
+		lowcore = .;
 		 LONG(0x00080000)
 		 LONG(0x80010000)
 		 /* Restart new PSW for booting via PSW restart. */

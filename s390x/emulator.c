@@ -12,9 +12,8 @@
 #include <asm/cpacf.h>
 #include <asm/interrupt.h>
 #include <asm/float.h>
+#include <asm/mem.h>
 #include <linux/compiler.h>
-
-struct lowcore *lc = NULL;
 
 static inline void __test_spm_ipm(uint8_t cc, uint8_t key)
 {
@@ -140,7 +139,7 @@ static __always_inline void __test_cpacf_invalid_parm(unsigned int opcode)
 {
 	report_prefix_push("invalid parm address");
 	expect_pgm_int();
-	__cpacf_query(opcode, (void *) -1);
+	__cpacf_query(opcode, OPAQUE_PTR(-1));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 	report_prefix_pop();
 }
@@ -150,7 +149,7 @@ static __always_inline void __test_cpacf_protected_parm(unsigned int opcode)
 	report_prefix_push("protected parm address");
 	expect_pgm_int();
 	low_prot_enable();
-	__cpacf_query(opcode, (void *) 8);
+	__cpacf_query(opcode, OPAQUE_PTR(8));
 	low_prot_disable();
 	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
 	report_prefix_pop();
@@ -262,7 +261,7 @@ static void test_prno(void)
 static void test_dxc(void)
 {
 	/* DXC (0xff) is to be stored in LC and FPC on a trap (CRT) with AFP */
-	lc->dxc_vxc = 0x12345678;
+	lowcore.dxc_vxc = 0x12345678;
 	set_fpc_dxc(0);
 
 	report_prefix_push("afp");
@@ -271,12 +270,12 @@ static void test_dxc(void)
 		     : : "r"(0) : "memory");
 	check_pgm_int_code(PGM_INT_CODE_DATA);
 
-	report(lc->dxc_vxc == 0xff, "dxc in LC");
+	report(lowcore.dxc_vxc == 0xff, "dxc in LC");
 	report(get_fpc_dxc() == 0xff, "dxc in FPC");
 	report_prefix_pop();
 
 	/* DXC (0xff) is to be stored in LC only on a trap (CRT) without AFP */
-	lc->dxc_vxc = 0x12345678;
+	lowcore.dxc_vxc = 0x12345678;
 	set_fpc_dxc(0);
 
 	report_prefix_push("no-afp");
@@ -288,7 +287,7 @@ static void test_dxc(void)
 	afp_enable();
 	check_pgm_int_code(PGM_INT_CODE_DATA);
 
-	report(lc->dxc_vxc == 0xff, "dxc in LC");
+	report(lowcore.dxc_vxc == 0xff, "dxc in LC");
 	report(get_fpc_dxc() == 0, "dxc not in FPC");
 	report_prefix_pop();
 }

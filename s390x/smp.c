@@ -155,28 +155,27 @@ static void test_stop(void)
 static void test_stop_store_status(void)
 {
 	struct cpu *cpu = smp_cpu_from_idx(1);
-	struct lowcore *lc = (void *)0x0;
 
 	report_prefix_push("stop store status");
 	report_prefix_push("running");
 	smp_cpu_restart(1);
-	lc->prefix_sa = 0;
-	lc->grs_sa[15] = 0;
+	lowcore.prefix_sa = 0;
+	lowcore.grs_sa[15] = 0;
 	smp_cpu_stop_store_status(1);
 	mb();
 	report(smp_cpu_stopped(1), "cpu stopped");
-	report(lc->prefix_sa == (uint32_t)(uintptr_t)cpu->lowcore, "prefix");
-	report(lc->grs_sa[15], "stack");
+	report(lowcore.prefix_sa == (uint32_t)(uintptr_t)cpu->lowcore, "prefix");
+	report(lowcore.grs_sa[15], "stack");
 	report_prefix_pop();
 
 	report_prefix_push("stopped");
-	lc->prefix_sa = 0;
-	lc->grs_sa[15] = 0;
+	lowcore.prefix_sa = 0;
+	lowcore.grs_sa[15] = 0;
 	smp_cpu_stop_store_status(1);
 	mb();
 	report(smp_cpu_stopped(1), "cpu stopped");
-	report(lc->prefix_sa == (uint32_t)(uintptr_t)cpu->lowcore, "prefix");
-	report(lc->grs_sa[15], "stack");
+	report(lowcore.prefix_sa == (uint32_t)(uintptr_t)cpu->lowcore, "prefix");
+	report(lowcore.grs_sa[15], "stack");
 	report_prefix_pop();
 
 	report_prefix_pop();
@@ -290,7 +289,6 @@ static void test_set_prefix(void)
 static void ecall(void)
 {
 	unsigned long mask;
-	struct lowcore *lc = (void *)0x0;
 
 	expect_ext_int();
 	ctl_set_bit(0, CTL0_EXTERNAL_CALL);
@@ -298,7 +296,7 @@ static void ecall(void)
 	mask |= PSW_MASK_EXT;
 	load_psw_mask(mask);
 	set_flag(1);
-	while (lc->ext_int_code != 0x1202) { mb(); }
+	while (lowcore.ext_int_code != 0x1202) { mb(); }
 	report_pass("received");
 	set_flag(1);
 }
@@ -324,7 +322,6 @@ static void test_ecall(void)
 static void emcall(void)
 {
 	unsigned long mask;
-	struct lowcore *lc = (void *)0x0;
 
 	expect_ext_int();
 	ctl_set_bit(0, CTL0_EMERGENCY_SIGNAL);
@@ -332,7 +329,7 @@ static void emcall(void)
 	mask |= PSW_MASK_EXT;
 	load_psw_mask(mask);
 	set_flag(1);
-	while (lc->ext_int_code != 0x1201) { mb(); }
+	while (lowcore.ext_int_code != 0x1201) { mb(); }
 	report_pass("received");
 	set_flag(1);
 }

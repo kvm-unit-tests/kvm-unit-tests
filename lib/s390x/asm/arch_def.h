@@ -145,6 +145,8 @@ struct lowcore {
 } __attribute__ ((__packed__));
 _Static_assert(sizeof(struct lowcore) == 0x1900, "Lowcore size");
 
+extern struct lowcore lowcore;
+
 #define PGM_INT_CODE_OPERATION			0x01
 #define PGM_INT_CODE_PRIVILEGED_OPERATION	0x02
 #define PGM_INT_CODE_EXECUTE			0x03

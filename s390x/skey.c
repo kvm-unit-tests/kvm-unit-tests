@@ -349,7 +349,7 @@ static void test_set_prefix(void)
 	set_storage_key(pagebuf, 0x28, 0);
 	expect_pgm_int();
 	install_page(root, virt_to_pte_phys(root, pagebuf), 0);
-	set_prefix_key_1((uint32_t *)2048);
+	set_prefix_key_1(OPAQUE_PTR(2048));
 	install_page(root, 0, 0);
 	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
 	report(get_prefix() == old_prefix, "did not set prefix");

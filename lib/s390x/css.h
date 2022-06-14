@@ -9,8 +9,6 @@
 #ifndef _S390X_CSS_H_
 #define _S390X_CSS_H_
 
-#define lowcore_ptr ((struct lowcore *)0x0)
-
 /* subchannel ID bit 16 must always be one */
 #define SCHID_ONE	0x00010000
 

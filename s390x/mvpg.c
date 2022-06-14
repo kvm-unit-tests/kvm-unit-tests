@@ -33,7 +33,6 @@
 
 static uint8_t source[PAGE_SIZE]  __attribute__((aligned(PAGE_SIZE)));
 static uint8_t buffer[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
-static struct lowcore * const lc;
 
 /* Keep track of fresh memory */
 static uint8_t *fresh;
@@ -87,7 +86,7 @@ static int page_ok(const uint8_t *p)
  */
 static inline bool check_oai(void)
 {
-	return *(uint8_t *)(lc->pgm_old_psw.addr - 1) == lc->op_acc_id;
+	return *(uint8_t *)(lowcore.pgm_old_psw.addr - 1) == lowcore.op_acc_id;
 }
 
 static void test_exceptions(void)
@@ -216,7 +215,7 @@ static void test_mmu_prot(void)
 
 	report_prefix_push("source invalid");
 	protect_page(source, PAGE_ENTRY_I);
-	lc->op_acc_id = 0;
+	lowcore.op_acc_id = 0;
 	expect_pgm_int();
 	mvpg(0, fresh, source);
 	report(clear_pgm_int() == PGM_INT_CODE_PAGE_TRANSLATION, "exception");
@@ -227,7 +226,7 @@ static void test_mmu_prot(void)
 
 	report_prefix_push("destination invalid");
 	protect_page(fresh, PAGE_ENTRY_I);
-	lc->op_acc_id = 0;
+	lowcore.op_acc_id = 0;
 	expect_pgm_int();
 	mvpg(0, fresh, source);
 	report(clear_pgm_int() == PGM_INT_CODE_PAGE_TRANSLATION, "exception");

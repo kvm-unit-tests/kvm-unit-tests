@@ -123,17 +123,15 @@ static void set_flag(int val)
 
 static void ecall_cleanup(void)
 {
-	struct lowcore *lc = (void *)0x0;
-
-	lc->ext_new_psw.mask = PSW_MASK_64;
-	lc->sw_int_crs[0] = BIT_ULL(CTL0_AFP);
+	lowcore.ext_new_psw.mask = PSW_MASK_64;
+	lowcore.sw_int_crs[0] = BIT_ULL(CTL0_AFP);
 
 	/*
 	 * PGM old contains the ext new PSW, we need to clean it up,
 	 * so we don't get a special operation exception on the lpswe
 	 * of pgm old.
 	 */
-	lc->pgm_old_psw.mask = PSW_MASK_64;
+	lowcore.pgm_old_psw.mask = PSW_MASK_64;
 
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
 	set_flag(1);
@@ -142,13 +140,12 @@ static void ecall_cleanup(void)
 /* Set a key into the external new psw mask and open external call masks */
 static void ecall_setup(void)
 {
-	struct lowcore *lc = (void *)0x0;
 	uint64_t mask;
 
 	register_pgm_cleanup_func(ecall_cleanup);
 	expect_pgm_int();
 	/* Put a skey into the ext new psw */
-	lc->ext_new_psw.mask = 0x00F0000000000000UL | PSW_MASK_64;
+	lowcore.ext_new_psw.mask = 0x00F0000000000000UL | PSW_MASK_64;
 	/* Open up ext masks */
 	ctl_set_bit(0, CTL0_EXTERNAL_CALL);
 	mask = extract_psw_mask();

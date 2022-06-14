@@ -23,7 +23,6 @@
 static uint8_t prefix_buf[LC_SIZE] __attribute__((aligned(LC_SIZE)));
 static unsigned int tmp[1024] __attribute__((aligned(PAGE_SIZE)));
 static void *root, *mem, *m;
-static struct lowcore *lc;
 volatile unsigned int *p;
 
 /*
@@ -34,10 +33,10 @@ static bool check_pgm_prot(void *ptr)
 {
 	union teid teid;
 
-	if (lc->pgm_int_code != PGM_INT_CODE_PROTECTION)
+	if (lowcore.pgm_int_code != PGM_INT_CODE_PROTECTION)
 		return false;
 
-	teid.val = lc->trans_exc_id;
+	teid.val = lowcore.trans_exc_id;
 
 	/*
 	 * depending on the presence of the ESOP feature, the rest of the

@@ -13,8 +13,6 @@
 #include <asm/page.h>
 #include <fault.h>
 
-static struct lowcore *lc = (struct lowcore *)0x0;
-
 /* Decodes the protection exceptions we'll most likely see */
 static void print_decode_pgm_prot(uint64_t teid)
 {
@@ -37,7 +35,7 @@ static void print_decode_pgm_prot(uint64_t teid)
 void print_decode_teid(uint64_t teid)
 {
 	int asce_id = teid & 3;
-	bool dat = lc->pgm_old_psw.mask & PSW_MASK_DAT;
+	bool dat = lowcore.pgm_old_psw.mask & PSW_MASK_DAT;
 
 	printf("Memory exception information:\n");
 	printf("DAT: %s\n", dat ? "on" : "off");
@@ -58,15 +56,15 @@ void print_decode_teid(uint64_t teid)
 		break;
 	}
 
-	if (lc->pgm_int_code == PGM_INT_CODE_PROTECTION)
+	if (lowcore.pgm_int_code == PGM_INT_CODE_PROTECTION)
 		print_decode_pgm_prot(teid);
 
 	/*
 	 * If teid bit 61 is off for these two exception the reported
 	 * address is unpredictable.
 	 */
-	if ((lc->pgm_int_code == PGM_INT_CODE_SECURE_STOR_ACCESS ||
-	     lc->pgm_int_code == PGM_INT_CODE_SECURE_STOR_VIOLATION) &&
+	if ((lowcore.pgm_int_code == PGM_INT_CODE_SECURE_STOR_ACCESS ||
+	     lowcore.pgm_int_code == PGM_INT_CODE_SECURE_STOR_VIOLATION) &&
 	    !test_bit_inv(61, &teid)) {
 		printf("Address: %lx, unpredictable\n ", teid & PAGE_MASK);
 		return;

@@ -36,10 +36,8 @@ static inline void stfle(uint64_t *fac, unsigned int nb_doublewords)
 
 static inline void setup_facilities(void)
 {
-	struct lowcore *lc = NULL;
-
 	stfl();
-	memcpy(stfl_doublewords, &lc->stfl, sizeof(lc->stfl));
+	memcpy(stfl_doublewords, &lowcore.stfl, sizeof(lowcore.stfl));
 	if (test_facility(7))
 		stfle(stfl_doublewords, NB_STFL_DOUBLEWORDS);
 }

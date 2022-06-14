@@ -12,18 +12,9 @@
 #include <asm/asm-offsets.h>
 #include <asm/interrupt.h>
 #include <asm/page.h>
+#include <asm/cmm.h>
 
 static uint8_t pagebuf[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
-
-static unsigned long essa(uint8_t state, unsigned long paddr)
-{
-	uint64_t extr_state;
-
-	asm volatile(".insn rrf,0xb9ab0000,%[extr_state],%[addr],%[new_state],0"
-			: [extr_state] "=d" (extr_state)
-			: [addr] "a" (paddr), [new_state] "i" (state));
-	return (unsigned long)extr_state;
-}
 
 static void test_params(void)
 {
@@ -39,24 +30,14 @@ static void test_priv(void)
 	report_prefix_push("privileged");
 	expect_pgm_int();
 	enter_pstate();
-	essa(0, (unsigned long)pagebuf);
+	essa(ESSA_GET_STATE, (unsigned long)pagebuf);
 	check_pgm_int_code(PGM_INT_CODE_PRIVILEGED_OPERATION);
 	report_prefix_pop();
 }
 
-/* Unfortunately the availability is not indicated by stfl bits, but
- * we have to try to execute it and test for an operation exception.
- */
-static bool test_availability(void)
-{
-	expect_pgm_int();
-	essa(0, (unsigned long)pagebuf);
-	return clear_pgm_int() == 0;
-}
-
 int main(void)
 {
-	bool has_essa = test_availability();
+	bool has_essa = check_essa_available();
 
 	report_prefix_push("cmm");
 	if (!has_essa) {

@@ -74,7 +74,7 @@ static void test_sense(void)
 		return;
 	}
 
-	lowcore_ptr->io_int_param = 0;
+	lowcore.io_int_param = 0;
 
 	senseid = alloc_io_mem(sizeof(*senseid), 0);
 	if (!senseid) {
@@ -143,7 +143,7 @@ static void sense_id(void)
 static void css_init(void)
 {
 	assert(register_io_int_func(css_irq_io) == 0);
-	lowcore_ptr->io_int_param = 0;
+	lowcore.io_int_param = 0;
 
 	report(get_chsc_scsc(), "Store Channel Characteristics");
 }
