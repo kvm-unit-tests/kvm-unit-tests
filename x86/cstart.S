@@ -114,7 +114,7 @@ start32:
 	call save_id
 	call mask_pic_interrupts
 	call enable_apic
-	call ap_init
+	call bringup_aps
 	call enable_x2apic
 	call smp_init
         push $__environ

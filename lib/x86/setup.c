@@ -356,7 +356,7 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	setup_page_table();
 	enable_apic();
 	save_id();
-	ap_init();
+	bringup_aps();
 	enable_x2apic();
 	smp_init();
 

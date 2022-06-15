@@ -118,7 +118,7 @@ start64:
 	mov %rax, __args(%rip)
 	call __setup_args
 
-	call ap_init
+	call bringup_aps
 	call enable_x2apic
 	call smp_init
 

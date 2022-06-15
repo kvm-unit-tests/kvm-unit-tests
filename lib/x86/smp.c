@@ -242,7 +242,7 @@ static void setup_rm_gdt(void)
 #endif
 }
 
-void ap_init(void)
+void bringup_aps(void)
 {
 	void *rm_trampoline_dst = RM_TRAMPOLINE_ADDR;
 	size_t rm_trampoline_size = (&rm_trampoline_end - &rm_trampoline) + 1;

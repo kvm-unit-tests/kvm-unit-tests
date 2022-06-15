@@ -84,7 +84,7 @@ void on_cpu(int cpu, void (*function)(void *data), void *data);
 void on_cpu_async(int cpu, void (*function)(void *data), void *data);
 void on_cpus(void (*function)(void *data), void *data);
 void smp_reset_apic(void);
-void ap_init(void);
+void bringup_aps(void);
 
 extern atomic_t cpu_online_count;
 extern unsigned char online_cpus[(MAX_TEST_CPUS + 7) / 8];
