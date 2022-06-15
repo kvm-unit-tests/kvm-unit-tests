@@ -247,8 +247,6 @@ void mask_pic_interrupts(void)
 	outb(0xff, 0xa1);
 }
 
-extern unsigned char online_cpus[(MAX_TEST_CPUS + 7) / 8];
-
 void init_apic_map(void)
 {
 	unsigned int i, j = 0;

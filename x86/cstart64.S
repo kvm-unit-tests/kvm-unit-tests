@@ -1,8 +1,6 @@
 
 #include "apic-defs.h"
 
-.globl online_cpus
-
 ipi_vector = 0x20
 
 max_cpus = MAX_TEST_CPUS
@@ -105,27 +103,6 @@ gdt32:
 gdt32_end:
 
 .code64
-save_id:
-	movl $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
-	movl (%rax), %eax
-	shrl $24, %eax
-	lock btsl %eax, online_cpus
-	retq
-
-ap_start64:
-	call load_idt
-	load_tss
-	call reset_apic
-	call enable_apic
-	call save_id
-	call enable_x2apic
-	sti
-	nop
-	lock incw cpu_online_count
-
-1:	hlt
-	jmp 1b
-
 start64:
 	call load_idt
 	load_tss
@@ -164,6 +141,3 @@ setup_5level_page_table:
 	lretq
 lvl5:
 	retq
-
-online_cpus:
-	.fill (max_cpus + 7) / 8, 1, 0

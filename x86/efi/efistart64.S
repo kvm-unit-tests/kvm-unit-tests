@@ -74,8 +74,3 @@ sipi_end:
 rm_trampoline_end:
 
 #include "../trampolines.S"
-
-.code64:
-
-ap_start64:
-	jmp ap_start64

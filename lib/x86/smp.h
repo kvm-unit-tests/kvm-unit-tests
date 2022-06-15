@@ -5,6 +5,7 @@
 #include <asm/spinlock.h>
 #include "libcflat.h"
 #include "atomic.h"
+#include "apic-defs.h"
 
 /* Address where to store the address of realmode GDT descriptor. */
 #define REALMODE_GDT_LOWMEM (PAGE_SIZE - 2)
@@ -86,5 +87,6 @@ void smp_reset_apic(void);
 void ap_init(void);
 
 extern atomic_t cpu_online_count;
+extern unsigned char online_cpus[(MAX_TEST_CPUS + 7) / 8];
 
 #endif

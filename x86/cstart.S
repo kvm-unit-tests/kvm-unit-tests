@@ -124,7 +124,4 @@ start32:
 	push %eax
 	call exit
 
-online_cpus:
-	.fill (max_cpus + 7) / 8, 1, 0
-
 #include "trampolines.S"
