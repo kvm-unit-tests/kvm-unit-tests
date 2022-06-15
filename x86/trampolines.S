@@ -36,6 +36,23 @@ rm_trampoline_end:
 #ifdef __x86_64__
 .code32
 
+/*
+ * EFI builds with "-shared -fPIC" and so cannot directly reference any absolute
+ * address.  In 64-bit mode, RIP-relative addressing neatly solves the problem,
+ * but 32-bit code doesn't have that luxury.  Make a dummy CALL to get RIP into
+ * a GPR in order to emulate RIP-relative for 32-bit transition code.
+ */
+.macro load_absolute_addr, addr, reg
+#ifdef CONFIG_EFI
+	call 1f
+1:
+	pop \reg
+	add \addr - 1b, \reg
+#else
+	mov \addr, \reg
+#endif
+.endm
+
 MSR_GS_BASE = 0xc0000101
 
 .macro setup_percpu_area
@@ -61,7 +78,9 @@ MSR_GS_BASE = 0xc0000101
 .endm
 
 prepare_64:
-	lgdt gdt_descr
+	load_absolute_addr $gdt_descr, %edx
+	lgdtl (%edx)
+
 	setup_segments
 
 	xor %eax, %eax
@@ -72,7 +91,12 @@ enter_long_mode:
 	bts $5, %eax  // pae
 	mov %eax, %cr4
 
+	/* Note, EFI doesn't yet support 5-level paging. */
+#ifdef CONFIG_EFI
+	load_absolute_addr $ptl4, %eax
+#else
 	mov pt_root, %eax
+#endif
 	mov %eax, %cr3
 
 efer = 0xc0000080
@@ -87,11 +111,19 @@ efer = 0xc0000080
 	mov %eax, %cr0
 	ret
 
+.globl ap_start32
 ap_start32:
 	setup_segments
+
+	load_absolute_addr $smp_stacktop, %edx
 	mov $-4096, %esp
-	lock xaddl %esp, smp_stacktop
+	lock xaddl %esp, (%edx)
+
 	setup_percpu_area
 	call prepare_64
-	ljmpl $8, $ap_start64
+
+	load_absolute_addr $ap_start64, %edx
+	pushl $0x08
+	pushl %edx
+	lretl
 #endif

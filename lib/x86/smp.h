@@ -6,6 +6,9 @@
 #include "libcflat.h"
 #include "atomic.h"
 
+/* Address where to store the address of realmode GDT descriptor. */
+#define REALMODE_GDT_LOWMEM (PAGE_SIZE - 2)
+
 /* Offsets into the per-cpu page. */
 struct percpu_data {
 	uint32_t  smp_id;

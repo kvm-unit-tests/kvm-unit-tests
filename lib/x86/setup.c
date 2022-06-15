@@ -350,11 +350,11 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	setup_idt();
 	load_idt();
 	mask_pic_interrupts();
+	setup_page_table();
 	enable_apic();
 	ap_init();
 	enable_x2apic();
 	smp_init();
-	setup_page_table();
 
 	return EFI_SUCCESS;
 }
