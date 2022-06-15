@@ -82,6 +82,18 @@ static void setup_smp_id(void *data)
 	this_cpu_write_smp_id(apic_id());
 }
 
+void ap_online(void)
+{
+	irq_enable();
+
+	printf("setup: CPU %d online\n", apic_id());
+	atomic_inc(&cpu_online_count);
+
+	/* Only the BSP runs the test's main(), APs are given work via IPIs. */
+	for (;;)
+		asm volatile("hlt");
+}
+
 static void __on_cpu(int cpu, void (*function)(void *data), void *data, int wait)
 {
 	const u32 ipi_icr = APIC_INT_ASSERT | APIC_DEST_PHYSICAL | APIC_DM_FIXED | IPI_VECTOR;

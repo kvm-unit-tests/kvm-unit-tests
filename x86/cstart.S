@@ -101,12 +101,10 @@ ap_start32:
 	call save_id
 	call enable_apic
 	call enable_x2apic
-	sti
-	nop
-	lock incw cpu_online_count
+	call ap_online
 
-1:	hlt
-	jmp 1b
+	/* ap_online() should never return */
+	ud2
 
 start32:
 	setup_tr_and_percpu

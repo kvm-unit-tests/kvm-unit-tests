@@ -392,12 +392,5 @@ void ap_start64(void)
 	save_id();
 	enable_apic();
 	enable_x2apic();
-	sti();
-	asm volatile ("nop");
-	printf("setup: AP %d online\n", apic_id());
-	atomic_inc(&cpu_online_count);
-
-	/* Only the BSP runs the test's main(), APs are given work via IPIs. */
-	for (;;)
-		asm volatile("hlt");
+	ap_online();
 }
