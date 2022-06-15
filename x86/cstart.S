@@ -126,10 +126,10 @@ start32:
 
 ap_init:
 	cld
-	sgdtl ap_gdt_descr // must be close to sipi_entry for real mode access to work
-	lea sipi_entry, %esi
+	sgdtl ap_rm_gdt_descr // must be close to rm_trampoline for real mode access to work
+	lea rm_trampoline, %esi
 	xor %edi, %edi
-	mov $(sipi_end - sipi_entry), %ecx
+	mov $(rm_trampoline_end - rm_trampoline), %ecx
 	rep movsb
 	mov $APIC_DEFAULT_PHYS_BASE, %eax
 	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT), APIC_ICR(%eax)
@@ -146,16 +146,4 @@ online_cpus:
 .align 2
 cpu_online_count:	.word 1
 
-.code16
-sipi_entry:
-	mov %cr0, %eax
-	or $1, %eax
-	mov %eax, %cr0
-	lgdtl ap_gdt_descr - sipi_entry
-	ljmpl $8, $ap_start32
-
-ap_gdt_descr:
-	.word 0
-	.long 0
-
-sipi_end:
+#include "trampolines.S"
