@@ -1,11 +1,16 @@
 
 #include <libcflat.h>
+
+#include <asm/barrier.h>
+
 #include "processor.h"
 #include "atomic.h"
 #include "smp.h"
 #include "apic.h"
 #include "fwcfg.h"
 #include "desc.h"
+#include "alloc_page.h"
+#include "asm/page.h"
 
 #define IPI_VECTOR 0x20
 
@@ -18,6 +23,13 @@ static volatile int ipi_done;
 static volatile bool ipi_wait;
 static int _cpu_count;
 static atomic_t active_cpus;
+extern u8 rm_trampoline, rm_trampoline_end;
+#ifdef __i386__
+extern u8 ap_rm_gdt_descr;
+#endif
+
+/* The BSP is online from time zero. */
+atomic_t cpu_online_count = { .counter = 1 };
 
 static __attribute__((used)) void ipi(void)
 {
@@ -114,8 +126,6 @@ void smp_init(void)
 	int i;
 	void ipi_entry(void);
 
-	_cpu_count = fwcfg_get_nb_cpus();
-
 	setup_idt();
 	init_apic_map();
 	set_idt_entry(IPI_VECTOR, ipi_entry, 0);
@@ -141,4 +151,62 @@ void smp_reset_apic(void)
 		on_cpu(i, do_reset_apic, 0);
 
 	atomic_inc(&active_cpus);
+}
+
+static void setup_rm_gdt(void)
+{
+#ifdef __i386__
+	struct descriptor_table_ptr *rm_gdt =
+		(struct descriptor_table_ptr *) (&ap_rm_gdt_descr - &rm_trampoline);
+	/*
+	 * On i386, place the gdt descriptor to be loaded from SIPI vector right after
+	 * the vector code.
+	 */
+	sgdt(rm_gdt);
+#endif
+}
+
+void ap_init(void)
+{
+	void *rm_trampoline_dst = RM_TRAMPOLINE_ADDR;
+	size_t rm_trampoline_size = (&rm_trampoline_end - &rm_trampoline) + 1;
+	assert(rm_trampoline_size < PAGE_SIZE);
+
+	asm volatile("cld");
+
+	/*
+	 * Fill the trampoline page with with INT3 (0xcc) so that any AP
+	 * that goes astray within the first page gets a fault.
+	 */
+	memset(rm_trampoline_dst, 0xcc /* INT3 */, PAGE_SIZE);
+
+	memcpy(rm_trampoline_dst, &rm_trampoline, rm_trampoline_size);
+
+	setup_rm_gdt();
+
+#ifdef CONFIG_EFI
+	/*
+	 * apic_icr_write() is unusable on CONFIG_EFI until percpu area gets set up.
+	 * Use raw writes to APIC_ICR to send IPIs for time being.
+	 */
+	volatile u32 *apic_icr = (volatile u32 *) (APIC_DEFAULT_PHYS_BASE + APIC_ICR);
+
+	/* INIT */
+	*apic_icr = APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT;
+
+	/* SIPI */
+	*apic_icr = APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_STARTUP;
+#else
+	/* INIT */
+	apic_icr_write(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT, 0);
+
+	/* SIPI */
+	apic_icr_write(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_STARTUP, 0);
+#endif
+
+	_cpu_count = fwcfg_get_nb_cpus();
+
+	printf("smp: waiting for %d APs\n", _cpu_count - 1);
+	while (_cpu_count != atomic_read(&cpu_online_count))
+		cpu_relax();
 }

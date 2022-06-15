@@ -124,26 +124,7 @@ start32:
 	push %eax
 	call exit
 
-ap_init:
-	cld
-	sgdtl ap_rm_gdt_descr // must be close to rm_trampoline for real mode access to work
-	lea rm_trampoline, %esi
-	xor %edi, %edi
-	mov $(rm_trampoline_end - rm_trampoline), %ecx
-	rep movsb
-	mov $APIC_DEFAULT_PHYS_BASE, %eax
-	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT), APIC_ICR(%eax)
-	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_STARTUP), APIC_ICR(%eax)
-	call fwcfg_get_nb_cpus
-1:	pause
-	cmpw %ax, cpu_online_count
-	jne 1b
-	ret
-
 online_cpus:
 	.fill (max_cpus + 7) / 8, 1, 0
-
-.align 2
-cpu_online_count:	.word 1
 
 #include "trampolines.S"

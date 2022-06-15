@@ -15,8 +15,6 @@
 
 #define LATENCY_RUNS 1000000
 
-extern u16 cpu_online_count;
-
 u64 tsc_start;
 u64 tsc_end;
 
@@ -1778,20 +1776,20 @@ static void init_startup_prepare(struct svm_test *test)
 
 	on_cpu(1, get_tss_entry, &tss_entry);
 
-	orig_cpu_count = cpu_online_count;
+	orig_cpu_count = atomic_read(&cpu_online_count);
 
 	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT,
 		       id_map[1]);
 
 	delay(100000000ULL);
 
-	--cpu_online_count;
+	atomic_dec(&cpu_online_count);
 
 	tss_entry->type &= ~DESC_BUSY;
 
 	apic_icr_write(APIC_DEST_PHYSICAL | APIC_DM_STARTUP, id_map[1]);
 
-	for (i = 0; i < 5 && cpu_online_count < orig_cpu_count; i++)
+	for (i = 0; i < 5 && atomic_read(&cpu_online_count) < orig_cpu_count; i++)
 		delay(100000000ULL);
 }
 
@@ -1802,7 +1800,7 @@ static bool init_startup_finished(struct svm_test *test)
 
 static bool init_startup_check(struct svm_test *test)
 {
-	return cpu_online_count == orig_cpu_count;
+	return atomic_read(&cpu_online_count) == orig_cpu_count;
 }
 
 static volatile bool init_intercept;

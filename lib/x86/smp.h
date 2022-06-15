@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 #include <asm/spinlock.h>
+#include "libcflat.h"
+#include "atomic.h"
 
 /* Offsets into the per-cpu page. */
 struct percpu_data {
@@ -78,5 +80,8 @@ void on_cpu(int cpu, void (*function)(void *data), void *data);
 void on_cpu_async(int cpu, void (*function)(void *data), void *data);
 void on_cpus(void (*function)(void *data), void *data);
 void smp_reset_apic(void);
+void ap_init(void);
+
+extern atomic_t cpu_online_count;
 
 #endif

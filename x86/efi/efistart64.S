@@ -57,3 +57,18 @@ load_gdt_tss:
 	pushq $0x08 /* 2nd entry in gdt64: 64-bit code segment */
 	pushq %rdi
 	lretq
+
+.code16
+
+.globl rm_trampoline
+rm_trampoline:
+
+.globl sipi_entry
+sipi_entry:
+	jmp sipi_entry
+
+.globl sipi_end
+sipi_end:
+
+.globl rm_trampoline_end
+rm_trampoline_end:
