@@ -35,7 +35,7 @@ mb_flags = 0x0
 mb_cmdline = 16
 
 .macro setup_tr_and_percpu
-	lidt idt_descr
+	call load_idt
 	push %esp
 	call setup_tss
 	addl $4, %esp
