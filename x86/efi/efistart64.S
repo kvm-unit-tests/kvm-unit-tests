@@ -4,7 +4,13 @@
 #include "asm-generic/page.h"
 #include "crt0-efi-x86_64.S"
 
+
+/* Reserve stack in .data */
 .data
+.align PAGE_SIZE
+	. = . + PAGE_SIZE * MAX_TEST_CPUS
+.globl stacktop
+stacktop:
 
 .align PAGE_SIZE
 .globl ptl2
