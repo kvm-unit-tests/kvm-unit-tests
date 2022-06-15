@@ -169,6 +169,8 @@ void setup_multiboot(struct mbi_bootinfo *bi)
 
 #ifdef CONFIG_EFI
 
+static struct percpu_data __percpu_data[MAX_TEST_CPUS];
+
 static void setup_segments64(void)
 {
 	/* Update data segments */
@@ -177,6 +179,9 @@ static void setup_segments64(void)
 	write_fs(KERNEL_DS);
 	write_gs(KERNEL_DS);
 	write_ss(KERNEL_DS);
+
+	/* Setup percpu base */
+	wrmsr(MSR_GS_BASE, (u64)&__percpu_data[pre_boot_apic_id()]);
 
 	/*
 	 * Update the code segment by putting it on the stack before the return
@@ -335,9 +340,13 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 		return status;
 	}
 
-	reset_apic();
 	setup_gdt_tss();
+	/*
+	 * GS.base, which points at the per-vCPU data, must be configured prior
+	 * to resetting the APIC, which sets the per-vCPU APIC ops.
+	 */
 	setup_segments64();
+	reset_apic();
 	setup_idt();
 	load_idt();
 	mask_pic_interrupts();

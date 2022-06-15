@@ -184,25 +184,11 @@ void ap_init(void)
 
 	setup_rm_gdt();
 
-#ifdef CONFIG_EFI
-	/*
-	 * apic_icr_write() is unusable on CONFIG_EFI until percpu area gets set up.
-	 * Use raw writes to APIC_ICR to send IPIs for time being.
-	 */
-	volatile u32 *apic_icr = (volatile u32 *) (APIC_DEFAULT_PHYS_BASE + APIC_ICR);
-
-	/* INIT */
-	*apic_icr = APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT;
-
-	/* SIPI */
-	*apic_icr = APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_STARTUP;
-#else
 	/* INIT */
 	apic_icr_write(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT, 0);
 
 	/* SIPI */
 	apic_icr_write(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_STARTUP, 0);
-#endif
 
 	_cpu_count = fwcfg_get_nb_cpus();
 
