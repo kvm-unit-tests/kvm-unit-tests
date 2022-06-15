@@ -169,8 +169,27 @@ void setup_multiboot(struct mbi_bootinfo *bi)
 
 #ifdef CONFIG_EFI
 
-/* From x86/efi/efistart64.S */
-extern void load_gdt_tss(size_t tss_offset);
+static void setup_segments64(void)
+{
+	/* Update data segments */
+	write_ds(KERNEL_DS);
+	write_es(KERNEL_DS);
+	write_fs(KERNEL_DS);
+	write_gs(KERNEL_DS);
+	write_ss(KERNEL_DS);
+
+	/*
+	 * Update the code segment by putting it on the stack before the return
+	 * address, then doing a far return: this will use the new code segment
+	 * along with the address.
+	 */
+	asm volatile("pushq %1\n\t"
+		     "lea 1f(%%rip), %0\n\t"
+		     "pushq %0\n\t"
+		     "lretq\n\t"
+		     "1:"
+		     :: "r" ((u64)KERNEL_DS), "i" (KERNEL_CS));
+}
 
 static efi_status_t setup_memory_allocator(efi_bootinfo_t *efi_bootinfo)
 {
@@ -318,6 +337,7 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 
 	reset_apic();
 	setup_gdt_tss();
+	setup_segments64();
 	setup_idt();
 	load_idt();
 	mask_pic_interrupts();
