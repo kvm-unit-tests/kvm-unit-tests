@@ -55,7 +55,7 @@ Maintainers
 -----------
 M: Paolo Bonzini <pbonzini@redhat.com>
 M: Thomas Huth <thuth@redhat.com>
-M: Andrew Jones <drjones@redhat.com>
+M: Andrew Jones <andrew.jones@linux.dev>
 S: Supported
 L: kvm@vger.kernel.org
 T: https://gitlab.com/kvm-unit-tests/kvm-unit-tests.git
@@ -64,14 +64,14 @@ Architecture Specific Code:
 ---------------------------
 
 ARM
-M: Andrew Jones <drjones@redhat.com>
+M: Andrew Jones <andrew.jones@linux.dev>
 S: Supported
 L: kvm@vger.kernel.org
 L: kvmarm@lists.cs.columbia.edu
 F: arm/
 F: lib/arm/
 F: lib/arm64/
-T: https://gitlab.com/rhdrjones/kvm-unit-tests.git
+T: https://gitlab.com/jones-drew/kvm-unit-tests.git
 
 POWERPC
 M: Laurent Vivier <lvivier@redhat.com>
