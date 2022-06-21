@@ -77,7 +77,7 @@ static void fixup_pgm_int(struct stack_frame_int *stack)
 		break;
 	case PGM_INT_CODE_PROTECTION:
 		/* Handling for iep.c test case. */
-		if (prot_is_iep(lowcore.trans_exc_id))
+		if (prot_is_iep((union teid) { .val = lowcore.trans_exc_id }))
 			/*
 			 * We branched to the instruction that caused
 			 * the exception so we can use the return

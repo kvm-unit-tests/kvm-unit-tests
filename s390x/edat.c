@@ -26,8 +26,8 @@ static void *root, *mem, *m;
 volatile unsigned int *p;
 
 /*
- * Check if a non-access-list protection exception happened for the given
- * address, in the primary address space.
+ * Check if the exception is consistent with DAT protection and has the correct
+ * address and primary address space.
  */
 static bool check_pgm_prot(void *ptr)
 {
@@ -37,14 +37,19 @@ static bool check_pgm_prot(void *ptr)
 		return false;
 
 	teid.val = lowcore.trans_exc_id;
-
-	/*
-	 * depending on the presence of the ESOP feature, the rest of the
-	 * field might or might not be meaningful when the m field is 0.
-	 */
-	if (!teid.m)
-		return true;
-	return (!teid.acc_list_prot && !teid.asce_id &&
+	switch (get_supp_on_prot_facility()) {
+	case SOP_NONE:
+	case SOP_BASIC:
+		assert(false); /* let's ignore ancient/irrelevant machines */
+	case SOP_ENHANCED_1:
+		if (!teid.sop_teid_predictable) /* implies key or low addr */
+			return false;
+		break;
+	case SOP_ENHANCED_2:
+		if (teid_esop2_prot_code(teid) != PROT_DAT)
+			return false;
+	}
+	return (!teid.sop_acc_list && !teid.asce_id &&
 		(teid.addr == ((unsigned long)ptr >> PAGE_SHIFT)));
 }
 

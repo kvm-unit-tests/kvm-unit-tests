@@ -13,35 +13,51 @@
 #include <asm/page.h>
 #include <fault.h>
 
-/* Decodes the protection exceptions we'll most likely see */
-static void print_decode_pgm_prot(uint64_t teid)
+
+static void print_decode_pgm_prot(union teid teid)
 {
-	if (prot_is_lap(teid)) {
-		printf("Type: LAP\n");
-		return;
-	}
+	switch (get_supp_on_prot_facility()) {
+	case SOP_NONE:
+	case SOP_BASIC:
+		printf("Type: ?\n"); /* modern/relevant machines have ESOP */
+		break;
+	case SOP_ENHANCED_1:
+		if (teid.sop_teid_predictable) {/* implies access list or DAT */
+			if (teid.sop_acc_list)
+				printf("Type: ACC\n");
+			else
+				printf("Type: DAT\n");
+		} else {
+			printf("Type: KEY or LAP\n");
+		}
+		break;
+	case SOP_ENHANCED_2: {
+		static const char * const prot_str[] = {
+			"KEY or LAP",
+			"DAT",
+			"KEY",
+			"ACC",
+			"LAP",
+			"IEP",
+		};
+		_Static_assert(ARRAY_SIZE(prot_str) == PROT_NUM_CODES);
+		int prot_code = teid_esop2_prot_code(teid);
 
-	if (prot_is_iep(teid)) {
-		printf("Type: IEP\n");
-		return;
-	}
-
-	if (prot_is_datp(teid)) {
-		printf("Type: DAT\n");
-		return;
+		printf("Type: %s\n", prot_str[prot_code]);
+		}
 	}
 }
 
-void print_decode_teid(uint64_t teid)
+void print_decode_teid(uint64_t raw_teid)
 {
-	int asce_id = teid & 3;
+	union teid teid = { .val = raw_teid };
 	bool dat = lowcore.pgm_old_psw.mask & PSW_MASK_DAT;
 
 	printf("Memory exception information:\n");
 	printf("DAT: %s\n", dat ? "on" : "off");
 
 	printf("AS: ");
-	switch (asce_id) {
+	switch (teid.asce_id) {
 	case AS_PRIM:
 		printf("Primary\n");
 		break;
@@ -65,10 +81,10 @@ void print_decode_teid(uint64_t teid)
 	 */
 	if ((lowcore.pgm_int_code == PGM_INT_CODE_SECURE_STOR_ACCESS ||
 	     lowcore.pgm_int_code == PGM_INT_CODE_SECURE_STOR_VIOLATION) &&
-	    !test_bit_inv(61, &teid)) {
-		printf("Address: %lx, unpredictable\n ", teid & PAGE_MASK);
+	    !teid.sop_teid_predictable) {
+		printf("Address: %lx, unpredictable\n ", raw_teid & PAGE_MASK);
 		return;
 	}
-	printf("TEID: %lx\n", teid);
-	printf("Address: %lx\n\n", teid & PAGE_MASK);
+	printf("TEID: %lx\n", raw_teid);
+	printf("Address: %lx\n\n", raw_teid & PAGE_MASK);
 }

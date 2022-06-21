@@ -20,22 +20,56 @@
 
 union teid {
 	unsigned long val;
-	struct {
-		unsigned long addr:52;
-		unsigned long fetch:1;
-		unsigned long store:1;
-		unsigned long reserved:6;
-		unsigned long acc_list_prot:1;
-		/*
-		 * depending on the exception and the installed facilities,
-		 * the m field can indicate several different things,
-		 * including whether the exception was triggered by a MVPG
-		 * instruction, or whether the addr field is meaningful
-		 */
-		unsigned long m:1;
-		unsigned long asce_id:2;
+	union {
+		/* common fields DAT exc & protection exc */
+		struct {
+			uint64_t addr			: 52 -  0;
+			uint64_t acc_exc_fetch_store	: 54 - 52;
+			uint64_t side_effect_acc	: 55 - 54;
+			uint64_t /* reserved */		: 62 - 55;
+			uint64_t asce_id		: 64 - 62;
+		};
+		/* DAT exc */
+		struct {
+			uint64_t /* pad */		: 61 -  0;
+			uint64_t dat_move_page		: 62 - 61;
+		};
+		/* suppression on protection */
+		struct {
+			uint64_t /* pad */		: 60 -  0;
+			uint64_t sop_acc_list		: 61 - 60;
+			uint64_t sop_teid_predictable	: 62 - 61;
+		};
+		/* enhanced suppression on protection 2 */
+		struct {
+			uint64_t /* pad */		: 56 -  0;
+			uint64_t esop2_prot_code_0	: 57 - 56;
+			uint64_t /* pad */		: 60 - 57;
+			uint64_t esop2_prot_code_1	: 61 - 60;
+			uint64_t esop2_prot_code_2	: 62 - 61;
+		};
 	};
 };
+
+enum prot_code {
+	PROT_KEY_OR_LAP,
+	PROT_DAT,
+	PROT_KEY,
+	PROT_ACC_LIST,
+	PROT_LAP,
+	PROT_IEP,
+	PROT_NUM_CODES /* Must always be last */
+};
+
+static inline enum prot_code teid_esop2_prot_code(union teid teid)
+{
+	int code = (teid.esop2_prot_code_0 << 2 |
+		    teid.esop2_prot_code_1 << 1 |
+		    teid.esop2_prot_code_2);
+
+	assert(code < PROT_NUM_CODES);
+	return (enum prot_code)code;
+}
 
 void register_pgm_cleanup_func(void (*f)(void));
 void handle_pgm_int(struct stack_frame_int *stack);
