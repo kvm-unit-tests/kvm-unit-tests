@@ -78,16 +78,14 @@ static void test_priv(void)
 
 static void test_bite(void)
 {
-	uint64_t mask, time;
+	uint64_t time;
 
 	/* If watchdog doesn't bite, the cpu timer does */
 	asm volatile("stck %0" : "=Q" (time) : : "cc");
 	time += (uint64_t)(16000 * 1000) << 12;
 	asm volatile("sckc %0" : : "Q" (time));
 	ctl_set_bit(0, CTL0_CLOCK_COMPARATOR);
-	mask = extract_psw_mask();
-	mask |= PSW_MASK_EXT;
-	load_psw_mask(mask);
+	psw_mask_set_bits(PSW_MASK_EXT);
 
 	/* Arm watchdog */
 	lowcore.restart_new_psw.mask = extract_psw_mask() & ~PSW_MASK_EXT;

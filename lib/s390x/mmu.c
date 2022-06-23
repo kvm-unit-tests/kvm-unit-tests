@@ -29,18 +29,6 @@
 
 static pgd_t *table_root;
 
-void configure_dat(int enable)
-{
-	uint64_t mask;
-
-	if (enable)
-		mask = extract_psw_mask() | PSW_MASK_DAT;
-	else
-		mask = extract_psw_mask() & ~PSW_MASK_DAT;
-
-	load_psw_mask(mask);
-}
-
 static void mmu_enable(pgd_t *pgtable)
 {
 	const uint64_t asce = __pa(pgtable) | ASCE_DT_REGION1 |
@@ -51,7 +39,7 @@ static void mmu_enable(pgd_t *pgtable)
 	assert(stctg(1) == asce);
 
 	/* enable dat (primary == 0 set as default) */
-	configure_dat(1);
+	enable_dat();
 
 	/* we can now also use DAT unconditionally in our PGM handler */
 	lowcore.pgm_new_psw.mask |= PSW_MASK_DAT;

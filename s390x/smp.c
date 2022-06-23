@@ -288,13 +288,9 @@ static void test_set_prefix(void)
 
 static void ecall(void)
 {
-	unsigned long mask;
-
 	expect_ext_int();
 	ctl_set_bit(0, CTL0_EXTERNAL_CALL);
-	mask = extract_psw_mask();
-	mask |= PSW_MASK_EXT;
-	load_psw_mask(mask);
+	psw_mask_set_bits(PSW_MASK_EXT);
 	set_flag(1);
 	while (lowcore.ext_int_code != 0x1202) { mb(); }
 	report_pass("received");
@@ -321,13 +317,9 @@ static void test_ecall(void)
 
 static void emcall(void)
 {
-	unsigned long mask;
-
 	expect_ext_int();
 	ctl_set_bit(0, CTL0_EMERGENCY_SIGNAL);
-	mask = extract_psw_mask();
-	mask |= PSW_MASK_EXT;
-	load_psw_mask(mask);
+	psw_mask_set_bits(PSW_MASK_EXT);
 	set_flag(1);
 	while (lowcore.ext_int_code != 0x1201) { mb(); }
 	report_pass("received");
@@ -466,14 +458,10 @@ static void test_reset_initial(void)
 
 static void test_local_ints(void)
 {
-	unsigned long mask;
-
 	/* Open masks for ecall and emcall */
 	ctl_set_bit(0, CTL0_EXTERNAL_CALL);
 	ctl_set_bit(0, CTL0_EMERGENCY_SIGNAL);
-	mask = extract_psw_mask();
-	mask |= PSW_MASK_EXT;
-	load_psw_mask(mask);
+	psw_mask_set_bits(PSW_MASK_EXT);
 	set_flag(1);
 }
 

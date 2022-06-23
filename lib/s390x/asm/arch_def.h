@@ -46,9 +46,10 @@ struct psw {
 #define AS_SECN				2
 #define AS_HOME				3
 
-#define PSW_MASK_EXT			0x0100000000000000UL
-#define PSW_MASK_IO			0x0200000000000000UL
 #define PSW_MASK_DAT			0x0400000000000000UL
+#define PSW_MASK_IO			0x0200000000000000UL
+#define PSW_MASK_EXT			0x0100000000000000UL
+#define PSW_MASK_KEY			0x00F0000000000000UL
 #define PSW_MASK_WAIT			0x0002000000000000UL
 #define PSW_MASK_PSTATE			0x0001000000000000UL
 #define PSW_MASK_EA			0x0000000100000000UL
@@ -313,6 +314,53 @@ static inline void load_psw_mask(uint64_t mask)
 		: "+r" (tmp) :  "a" (&psw) : "memory", "cc" );
 }
 
+/**
+ * psw_mask_clear_bits - clears bits from the current PSW mask
+ * @clear: bitmask of bits that will be cleared
+ */
+static inline void psw_mask_clear_bits(uint64_t clear)
+{
+	load_psw_mask(extract_psw_mask() & ~clear);
+}
+
+/**
+ * psw_mask_set_bits - sets bits on the current PSW mask
+ * @set: bitmask of bits that will be set
+ */
+static inline void psw_mask_set_bits(uint64_t set)
+{
+	load_psw_mask(extract_psw_mask() | set);
+}
+
+/**
+ * psw_mask_clear_and_set_bits - clears and sets bits on the current PSW mask
+ * @clear: bitmask of bits that will be cleared
+ * @set: bitmask of bits that will be set
+ *
+ * The bits in the @clear mask will be cleared, then the bits in the @set mask
+ * will be set.
+ */
+static inline void psw_mask_clear_and_set_bits(uint64_t clear, uint64_t set)
+{
+	load_psw_mask((extract_psw_mask() & ~clear) | set);
+}
+
+/**
+ * enable_dat - enable the DAT bit in the current PSW
+ */
+static inline void enable_dat(void)
+{
+	psw_mask_set_bits(PSW_MASK_DAT);
+}
+
+/**
+ * disable_dat - disable the DAT bit in the current PSW
+ */
+static inline void disable_dat(void)
+{
+	psw_mask_clear_bits(PSW_MASK_DAT);
+}
+
 static inline void wait_for_interrupt(uint64_t irq_mask)
 {
 	uint64_t psw_mask = extract_psw_mask();
@@ -327,11 +375,7 @@ static inline void wait_for_interrupt(uint64_t irq_mask)
 
 static inline void enter_pstate(void)
 {
-	uint64_t mask;
-
-	mask = extract_psw_mask();
-	mask |= PSW_MASK_PSTATE;
-	load_psw_mask(mask);
+	psw_mask_set_bits(PSW_MASK_PSTATE);
 }
 
 static inline void leave_pstate(void)

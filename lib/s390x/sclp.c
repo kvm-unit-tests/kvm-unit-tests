@@ -48,13 +48,8 @@ static void mem_init(phys_addr_t mem_end)
 
 void sclp_setup_int(void)
 {
-	uint64_t mask;
-
 	ctl_set_bit(0, CTL0_SERVICE_SIGNAL);
-
-	mask = extract_psw_mask();
-	mask |= PSW_MASK_EXT;
-	load_psw_mask(mask);
+	psw_mask_set_bits(PSW_MASK_EXT);
 }
 
 void sclp_handle_ext(void)

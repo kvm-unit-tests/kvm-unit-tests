@@ -63,11 +63,9 @@ static void test_pfmf(void)
 
 static void test_psw_key(void)
 {
-	uint64_t psw_mask = extract_psw_mask() | 0xF0000000000000UL;
-
 	report_prefix_push("psw key");
 	expect_pgm_int();
-	load_psw_mask(psw_mask);
+	psw_mask_set_bits(PSW_MASK_KEY);
 	check_pgm_int_code(PGM_INT_CODE_SPECIAL_OPERATION);
 	report_prefix_pop();
 }
@@ -140,17 +138,13 @@ static void ecall_cleanup(void)
 /* Set a key into the external new psw mask and open external call masks */
 static void ecall_setup(void)
 {
-	uint64_t mask;
-
 	register_pgm_cleanup_func(ecall_cleanup);
 	expect_pgm_int();
 	/* Put a skey into the ext new psw */
-	lowcore.ext_new_psw.mask = 0x00F0000000000000UL | PSW_MASK_64;
+	lowcore.ext_new_psw.mask = PSW_MASK_KEY | PSW_MASK_64;
 	/* Open up ext masks */
 	ctl_set_bit(0, CTL0_EXTERNAL_CALL);
-	mask = extract_psw_mask();
-	mask |= PSW_MASK_EXT;
-	load_psw_mask(mask);
+	psw_mask_set_bits(PSW_MASK_EXT);
 	/* Tell cpu 0 that we're ready */
 	set_flag(1);
 }
