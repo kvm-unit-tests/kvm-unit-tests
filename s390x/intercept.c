@@ -74,6 +74,22 @@ static void test_spx(void)
 	expect_pgm_int();
 	asm volatile(" spx 0(%0) " : : "r"(-8L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
+
+	new_prefix = get_ram_size() & 0x7fffe000;
+	if (get_ram_size() - new_prefix < 2 * PAGE_SIZE) {
+		expect_pgm_int();
+		asm volatile("spx	%0 " : : "Q"(new_prefix));
+		check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
+
+		/*
+		 * Cannot test inaccessibility of the second page the same way.
+		 * If we try to use the last page as first half of the prefix
+		 * area and our ram size is a multiple of 8k, after SPX aligns
+		 * the address to 8k we have a completely accessible area.
+		 */
+	} else {
+		report_skip("inaccessible prefix area");
+	}
 }
 
 /* Test the STORE CPU ADDRESS instruction */
