@@ -10,6 +10,7 @@
 #include "isr.h"
 #include "apic.h"
 #include "delay.h"
+#include "vmalloc.h"
 
 #define SVM_EXIT_MAX_DR_INTERCEPT 0x3f
 
@@ -3634,7 +3635,7 @@ static void svm_intr_intercept_mix_smi(void)
 	svm_intr_intercept_mix_run_guest(NULL, SVM_EXIT_SMI);
 }
 
-struct svm_test svm_tests[] = {
+static struct svm_test svm_tests[] = {
     { "null", default_supported, default_prepare,
       default_prepare_gif_clear, null_test,
       default_finished, null_check },
@@ -3770,3 +3771,11 @@ struct svm_test svm_tests[] = {
     TEST(pause_filter_test),
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
+
+int main(int ac, char **av)
+{
+	pteval_t opt_mask = 0;
+
+	__setup_vm(&opt_mask);
+	return run_svm_tests(ac, av, svm_tests);
+}
