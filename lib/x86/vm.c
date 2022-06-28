@@ -140,16 +140,30 @@ bool any_present_pages(pgd_t *cr3, void *virt, size_t len)
 	return false;
 }
 
-static void setup_mmu_range(pgd_t *cr3, phys_addr_t start, size_t len)
+void __setup_mmu_range(pgd_t *cr3, phys_addr_t start, size_t len,
+		       enum x86_mmu_flags mmu_flags)
 {
+	u64 orig_opt_mask = pte_opt_mask;
 	u64 max = (u64)len + (u64)start;
 	u64 phys = start;
 
-	while (phys + LARGE_PAGE_SIZE <= max) {
-		install_large_page(cr3, phys, (void *)(ulong)phys);
-		phys += LARGE_PAGE_SIZE;
+	if (mmu_flags & X86_MMU_MAP_USER)
+		pte_opt_mask |= PT_USER_MASK;
+
+	if (mmu_flags & X86_MMU_MAP_HUGE) {
+		while (phys + LARGE_PAGE_SIZE <= max) {
+			install_large_page(cr3, phys, (void *)(ulong)phys);
+			phys += LARGE_PAGE_SIZE;
+		}
 	}
 	install_pages(cr3, phys, max - phys, (void *)(ulong)phys);
+
+	pte_opt_mask = orig_opt_mask;
+}
+
+static inline void setup_mmu_range(pgd_t *cr3, phys_addr_t start, size_t len)
+{
+	__setup_mmu_range(cr3, start, len, X86_MMU_MAP_HUGE);
 }
 
 static void set_additional_vcpu_vmregs(struct vm_vcpu_info *info)
