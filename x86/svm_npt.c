@@ -209,7 +209,7 @@ static void __svm_npt_rsvd_bits_test(u64 * pxe, u64 rsvd_bits, u64 efer,
 	       "Wanted #NPF on rsvd bits = 0x%lx, got exit = 0x%x", rsvd_bits,
 	       exit_reason);
 
-	if (pxe == npt_get_pdpe() || pxe == npt_get_pml4e()) {
+	if (pxe == npt_get_pdpe((u64) basic_guest_main) || pxe == npt_get_pml4e()) {
 		/*
 		 * The guest's page tables will blow up on a bad PDPE/PML4E,
 		 * before starting the final walk of the guest page.
@@ -338,7 +338,7 @@ skip_pte_test:
 				get_random_bits(20, 13) | PT_PAGE_SIZE_MASK,
 				host_efer, host_cr4, guest_efer, guest_cr4);
 
-	_svm_npt_rsvd_bits_test(npt_get_pdpe(),
+	_svm_npt_rsvd_bits_test(npt_get_pdpe((u64) basic_guest_main),
 				PT_PAGE_SIZE_MASK |
 				(this_cpu_has(X86_FEATURE_GBPAGES) ?
 				 get_random_bits(29, 13) : 0), host_efer,
