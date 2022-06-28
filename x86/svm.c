@@ -51,7 +51,7 @@ bool smp_supported(void)
 
 bool default_supported(void)
 {
-    return true;
+	return true;
 }
 
 bool vgif_supported(void)
@@ -61,22 +61,22 @@ bool vgif_supported(void)
 
 bool lbrv_supported(void)
 {
-    return this_cpu_has(X86_FEATURE_LBRV);
+	return this_cpu_has(X86_FEATURE_LBRV);
 }
 
 bool tsc_scale_supported(void)
 {
-    return this_cpu_has(X86_FEATURE_TSCRATEMSR);
+	return this_cpu_has(X86_FEATURE_TSCRATEMSR);
 }
 
 bool pause_filter_supported(void)
 {
-    return this_cpu_has(X86_FEATURE_PAUSEFILTER);
+	return this_cpu_has(X86_FEATURE_PAUSEFILTER);
 }
 
 bool pause_threshold_supported(void)
 {
-    return this_cpu_has(X86_FEATURE_PFTHRESHOLD);
+	return this_cpu_has(X86_FEATURE_PFTHRESHOLD);
 }
 
 
@@ -120,7 +120,7 @@ void inc_test_stage(struct svm_test *test)
 }
 
 static void vmcb_set_seg(struct vmcb_seg *seg, u16 selector,
-                         u64 base, u32 limit, u32 attr)
+			 u64 base, u32 limit, u32 attr)
 {
 	seg->selector = selector;
 	seg->attrib = attr;
@@ -158,9 +158,9 @@ void vmcb_ident(struct vmcb *vmcb)
 	struct vmcb_save_area *save = &vmcb->save;
 	struct vmcb_control_area *ctrl = &vmcb->control;
 	u32 data_seg_attr = 3 | SVM_SELECTOR_S_MASK | SVM_SELECTOR_P_MASK
-	    | SVM_SELECTOR_DB_MASK | SVM_SELECTOR_G_MASK;
+		| SVM_SELECTOR_DB_MASK | SVM_SELECTOR_G_MASK;
 	u32 code_seg_attr = 9 | SVM_SELECTOR_S_MASK | SVM_SELECTOR_P_MASK
-	    | SVM_SELECTOR_L_MASK | SVM_SELECTOR_G_MASK;
+		| SVM_SELECTOR_L_MASK | SVM_SELECTOR_G_MASK;
 	struct descriptor_table_ptr desc_table_ptr;
 
 	memset(vmcb, 0, sizeof(*vmcb));
@@ -185,8 +185,8 @@ void vmcb_ident(struct vmcb *vmcb)
 	save->g_pat = rdmsr(MSR_IA32_CR_PAT);
 	save->dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	ctrl->intercept = (1ULL << INTERCEPT_VMRUN) |
-			  (1ULL << INTERCEPT_VMMCALL) |
-			  (1ULL << INTERCEPT_SHUTDOWN);
+		(1ULL << INTERCEPT_VMMCALL) |
+		(1ULL << INTERCEPT_SHUTDOWN);
 	ctrl->iopm_base_pa = virt_to_phys(io_bitmap);
 	ctrl->msrpm_base_pa = virt_to_phys(msr_bitmap);
 
@@ -219,12 +219,12 @@ int __svm_vmrun(u64 rip)
 	regs.rdi = (ulong)v2_test;
 
 	asm volatile (
-		ASM_PRE_VMRUN_CMD
-                "vmrun %%rax\n\t"               \
-		ASM_POST_VMRUN_CMD
-		:
-		: "a" (virt_to_phys(vmcb))
-		: "memory", "r15");
+		      ASM_PRE_VMRUN_CMD
+		      "vmrun %%rax\n\t"               \
+		      ASM_POST_VMRUN_CMD
+		      :
+		      : "a" (virt_to_phys(vmcb))
+		      : "memory", "r15");
 
 	return (vmcb->control.exit_code);
 }
@@ -252,33 +252,33 @@ static noinline void test_run(struct svm_test *test)
 		struct svm_test *the_test = test;
 		u64 the_vmcb = vmcb_phys;
 		asm volatile (
-			"clgi;\n\t" // semi-colon needed for LLVM compatibility
-			"sti \n\t"
-			"call *%c[PREPARE_GIF_CLEAR](%[test]) \n \t"
-			"mov %[vmcb_phys], %%rax \n\t"
-			ASM_PRE_VMRUN_CMD
-			".global vmrun_rip\n\t"		\
-			"vmrun_rip: vmrun %%rax\n\t"    \
-			ASM_POST_VMRUN_CMD
-			"cli \n\t"
-			"stgi"
-			: // inputs clobbered by the guest:
-			"=D" (the_test),            // first argument register
-			"=b" (the_vmcb)             // callee save register!
-			: [test] "0" (the_test),
-			[vmcb_phys] "1"(the_vmcb),
-			[PREPARE_GIF_CLEAR] "i" (offsetof(struct svm_test, prepare_gif_clear))
-			: "rax", "rcx", "rdx", "rsi",
-			"r8", "r9", "r10", "r11" , "r12", "r13", "r14", "r15",
-			"memory");
+			      "clgi;\n\t" // semi-colon needed for LLVM compatibility
+			      "sti \n\t"
+			      "call *%c[PREPARE_GIF_CLEAR](%[test]) \n \t"
+			      "mov %[vmcb_phys], %%rax \n\t"
+			      ASM_PRE_VMRUN_CMD
+			      ".global vmrun_rip\n\t"		\
+			      "vmrun_rip: vmrun %%rax\n\t"    \
+			      ASM_POST_VMRUN_CMD
+			      "cli \n\t"
+			      "stgi"
+			      : // inputs clobbered by the guest:
+				"=D" (the_test),            // first argument register
+				"=b" (the_vmcb)             // callee save register!
+			      : [test] "0" (the_test),
+				[vmcb_phys] "1"(the_vmcb),
+				[PREPARE_GIF_CLEAR] "i" (offsetof(struct svm_test, prepare_gif_clear))
+			      : "rax", "rcx", "rdx", "rsi",
+				"r8", "r9", "r10", "r11" , "r12", "r13", "r14", "r15",
+				"memory");
 		++test->exits;
 	} while (!test->finished(test));
 	irq_enable();
 
 	report(test->succeeded(test), "%s", test->name);
 
-        if (test->on_vcpu)
-	    test->on_vcpu_done = true;
+	if (test->on_vcpu)
+		test->on_vcpu_done = true;
 }
 
 static void set_additional_vcpu_msr(void *msr_efer)
@@ -324,10 +324,10 @@ static void setup_svm(void)
 	printf("NPT detected - running all tests with NPT enabled\n");
 
 	/*
-	* Nested paging supported - Build a nested page table
-	* Build the page-table bottom-up and map everything with 4k
-	* pages to get enough granularity for the NPT unit-tests.
-	*/
+	 * Nested paging supported - Build a nested page table
+	 * Build the page-table bottom-up and map everything with 4k
+	 * pages to get enough granularity for the NPT unit-tests.
+	 */
 
 	setup_npt();
 }
@@ -337,37 +337,37 @@ int matched;
 static bool
 test_wanted(const char *name, char *filters[], int filter_count)
 {
-        int i;
-        bool positive = false;
-        bool match = false;
-        char clean_name[strlen(name) + 1];
-        char *c;
-        const char *n;
+	int i;
+	bool positive = false;
+	bool match = false;
+	char clean_name[strlen(name) + 1];
+	char *c;
+	const char *n;
 
-        /* Replace spaces with underscores. */
-        n = name;
-        c = &clean_name[0];
-        do *c++ = (*n == ' ') ? '_' : *n;
-        while (*n++);
+	/* Replace spaces with underscores. */
+	n = name;
+	c = &clean_name[0];
+	do *c++ = (*n == ' ') ? '_' : *n;
+	while (*n++);
 
-        for (i = 0; i < filter_count; i++) {
-                const char *filter = filters[i];
+	for (i = 0; i < filter_count; i++) {
+		const char *filter = filters[i];
 
-                if (filter[0] == '-') {
-                        if (simple_glob(clean_name, filter + 1))
-                                return false;
-                } else {
-                        positive = true;
-                        match |= simple_glob(clean_name, filter);
-                }
-        }
+		if (filter[0] == '-') {
+			if (simple_glob(clean_name, filter + 1))
+				return false;
+		} else {
+			positive = true;
+			match |= simple_glob(clean_name, filter);
+		}
+	}
 
-        if (!positive || match) {
-                matched++;
-                return true;
-        } else {
-                return false;
-        }
+	if (!positive || match) {
+		matched++;
+		return true;
+	} else {
+		return false;
+	}
 }
 
 int run_svm_tests(int ac, char **av, struct svm_test *svm_tests)
