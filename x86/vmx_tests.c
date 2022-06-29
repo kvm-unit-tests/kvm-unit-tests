@@ -9194,16 +9194,16 @@ static void vmx_preemption_timer_expiry_test(void)
 	reason = (u32)vmcs_read(EXI_REASON);
 	TEST_ASSERT(reason == VMX_PREEMPT);
 
-	vmcs_clear_bits(PIN_CONTROLS, PIN_PREEMPT);
-	vmx_set_test_stage(1);
-	enter_guest();
-
 	tsc_deadline = ((vmx_preemption_timer_expiry_start >> misc.pt_bit) <<
 			misc.pt_bit) + (preemption_timer_value << misc.pt_bit);
 
 	report(vmx_preemption_timer_expiry_finish < tsc_deadline,
 	       "Last stored guest TSC (%lu) < TSC deadline (%lu)",
 	       vmx_preemption_timer_expiry_finish, tsc_deadline);
+
+	vmcs_clear_bits(PIN_CONTROLS, PIN_PREEMPT);
+	vmx_set_test_stage(1);
+	enter_guest();
 }
 
 static void vmx_db_test_guest(void)
