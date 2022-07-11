@@ -738,4 +738,50 @@ static inline void flush_tlb(void)
 	write_cr4(cr4);
 }
 
+static inline u8 pmu_version(void)
+{
+	return cpuid(10).a & 0xff;
+}
+
+static inline u8 pmu_nr_gp_counters(void)
+{
+	return (cpuid(10).a >> 8) & 0xff;
+}
+
+static inline u8 pmu_gp_counter_width(void)
+{
+	return (cpuid(10).a >> 16) & 0xff;
+}
+
+static inline u8 pmu_gp_counter_mask_length(void)
+{
+	return (cpuid(10).a >> 24) & 0xff;
+}
+
+static inline u8 pmu_nr_fixed_counters(void)
+{
+	struct cpuid id = cpuid(10);
+
+	if ((id.a & 0xff) > 1)
+		return id.d & 0x1f;
+	else
+		return 0;
+}
+
+static inline u8 pmu_fixed_counter_width(void)
+{
+	struct cpuid id = cpuid(10);
+
+	if ((id.a & 0xff) > 1)
+		return (id.d >> 5) & 0xff;
+	else
+		return 0;
+}
+
+static inline bool pmu_gp_counter_is_available(int i)
+{
+	/* CPUID.0xA.EBX bit is '1 if they counter is NOT available. */
+	return !(cpuid(10).b & BIT(i));
+}
+
 #endif
