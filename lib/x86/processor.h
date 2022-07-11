@@ -743,6 +743,16 @@ static inline u8 pmu_version(void)
 	return cpuid(10).a & 0xff;
 }
 
+static inline bool this_cpu_has_pmu(void)
+{
+	return !!pmu_version();
+}
+
+static inline bool this_cpu_has_perf_global_ctrl(void)
+{
+	return pmu_version() > 1;
+}
+
 static inline u8 pmu_nr_gp_counters(void)
 {
 	return (cpuid(10).a >> 8) & 0xff;

@@ -879,7 +879,7 @@ static struct insn_table insn_table[] = {
 	{"INVLPG", CPU_INVLPG, insn_invlpg, INSN_CPU0, 14,
 		0x12345678, 0, FIELD_EXIT_QUAL},
 	{"MWAIT", CPU_MWAIT, insn_mwait, INSN_CPU0, 36, 0, 0, 0, this_cpu_has_mwait},
-	{"RDPMC", CPU_RDPMC, insn_rdpmc, INSN_CPU0, 15, 0, 0, 0},
+	{"RDPMC", CPU_RDPMC, insn_rdpmc, INSN_CPU0, 15, 0, 0, 0, this_cpu_has_pmu},
 	{"RDTSC", CPU_RDTSC, insn_rdtsc, INSN_CPU0, 16, 0, 0, 0},
 	{"CR3 load", CPU_CR3_LOAD, insn_cr3_load, INSN_CPU0, 28, 0x3, 0,
 		FIELD_EXIT_QUAL},
@@ -7488,6 +7488,11 @@ static void test_perf_global_ctrl(u32 nr, const char *name, u32 ctrl_nr,
 
 static void test_load_host_perf_global_ctrl(void)
 {
+	if (!this_cpu_has_perf_global_ctrl()) {
+		report_skip("%s : \"IA32_PERF_GLOBAL_CTRL\" MSR not supported", __func__);
+		return;
+	}
+
 	if (!(ctrl_exit_rev.clr & EXI_LOAD_PERF)) {
 		report_skip("%s : \"Load IA32_PERF_GLOBAL_CTRL\" exit control not supported", __func__);
 		return;
@@ -7500,6 +7505,11 @@ static void test_load_host_perf_global_ctrl(void)
 
 static void test_load_guest_perf_global_ctrl(void)
 {
+	if (!this_cpu_has_perf_global_ctrl()) {
+		report_skip("%s : \"IA32_PERF_GLOBAL_CTRL\" MSR not supported", __func__);
+		return;
+	}
+
 	if (!(ctrl_enter_rev.clr & ENT_LOAD_PERF)) {
 		report_skip("%s : \"Load IA32_PERF_GLOBAL_CTRL\" entry control not supported", __func__);
 		return;
