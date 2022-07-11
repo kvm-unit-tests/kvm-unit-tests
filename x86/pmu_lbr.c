@@ -15,6 +15,7 @@
 #define MSR_LBR_SELECT		0x000001c8
 
 volatile int count;
+u32 lbr_from, lbr_to;
 
 static noinline int compute_flag(int i)
 {
@@ -38,18 +39,6 @@ static noinline int lbr_test(void)
 	return 0;
 }
 
-union cpuid10_eax {
-	struct {
-		unsigned int version_id:8;
-		unsigned int num_counters:8;
-		unsigned int bit_width:8;
-		unsigned int mask_length:8;
-	} split;
-	unsigned int full;
-} eax;
-
-u32 lbr_from, lbr_to;
-
 static void init_lbr(void *index)
 {
 	wrmsr(lbr_from + *(int *) index, 0);
@@ -63,7 +52,6 @@ static bool test_init_lbr_from_exception(u64 index)
 
 int main(int ac, char **av)
 {
-	struct cpuid id = cpuid(10);
 	u64 perf_cap;
 	int max, i;
 
@@ -74,19 +62,24 @@ int main(int ac, char **av)
 		return 0;
 	}
 
+	if (!this_cpu_has_pmu()) {
+		report_skip("No pmu is detected!");
+		return report_summary();
+	}
+
+	if (!this_cpu_has(X86_FEATURE_PDCM)) {
+		report_skip("Perfmon/Debug Capabilities MSR isn't supported.");
+		return report_summary();
+	}
+
 	perf_cap = rdmsr(MSR_IA32_PERF_CAPABILITIES);
-	eax.full = id.a;
 
-	if (!eax.split.version_id) {
-		printf("No pmu is detected!\n");
-		return report_summary();
-	}
 	if (!(perf_cap & PMU_CAP_LBR_FMT)) {
-		printf("No LBR is detected!\n");
+		report_skip("(Architectural) LBR is not supported.");
 		return report_summary();
 	}
 
-	printf("PMU version:		 %d\n", eax.split.version_id);
+	printf("PMU version:		 %d\n", pmu_version());
 	printf("LBR version:		 %ld\n", perf_cap & PMU_CAP_LBR_FMT);
 
 	/* Look for LBR from and to MSRs */
@@ -98,7 +91,7 @@ int main(int ac, char **av)
 	}
 
 	if (test_init_lbr_from_exception(0)) {
-		printf("LBR on this platform is not supported!\n");
+		report_skip("LBR on this platform is not supported!");
 		return report_summary();
 	}
 

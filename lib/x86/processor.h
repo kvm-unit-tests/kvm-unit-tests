@@ -165,6 +165,7 @@ static inline bool is_intel(void)
  */
 #define	X86_FEATURE_MWAIT		(CPUID(0x1, 0, ECX, 3))
 #define	X86_FEATURE_VMX			(CPUID(0x1, 0, ECX, 5))
+#define	X86_FEATURE_PDCM		(CPUID(0x1, 0, ECX, 15))
 #define	X86_FEATURE_PCID		(CPUID(0x1, 0, ECX, 17))
 #define	X86_FEATURE_MOVBE		(CPUID(0x1, 0, ECX, 22))
 #define	X86_FEATURE_TSC_DEADLINE_TIMER	(CPUID(0x1, 0, ECX, 24))
