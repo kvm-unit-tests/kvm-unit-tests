@@ -353,31 +353,21 @@ skip_pte_test:
 	vmcb->save.cr4 = sg_cr4;
 }
 
-#define TEST(name) { #name, .v2 = name }
+#define NPT_V1_TEST(name, prepare, guest_code, check)				\
+	{ #name, npt_supported, prepare, default_prepare_gif_clear, guest_code,	\
+	  default_finished, check }
+
+#define NPT_V2_TEST(name) { #name, .v2 = name }
 
 static struct svm_test npt_tests[] = {
-	{ "npt_nx", npt_supported, npt_nx_prepare,
-	 default_prepare_gif_clear, null_test,
-	 default_finished, npt_nx_check },
-	{ "npt_np", npt_supported, npt_np_prepare,
-	 default_prepare_gif_clear, npt_np_test,
-	 default_finished, npt_np_check },
-	{ "npt_us", npt_supported, npt_us_prepare,
-	 default_prepare_gif_clear, npt_us_test,
-	 default_finished, npt_us_check },
-	{ "npt_rw", npt_supported, npt_rw_prepare,
-	 default_prepare_gif_clear, npt_rw_test,
-	 default_finished, npt_rw_check },
-	{ "npt_rw_pfwalk", npt_supported, npt_rw_pfwalk_prepare,
-	 default_prepare_gif_clear, null_test,
-	 default_finished, npt_rw_pfwalk_check },
-	{ "npt_l1mmio", npt_supported, npt_l1mmio_prepare,
-	 default_prepare_gif_clear, npt_l1mmio_test,
-	 default_finished, npt_l1mmio_check },
-	{ "npt_rw_l1mmio", npt_supported, npt_rw_l1mmio_prepare,
-	 default_prepare_gif_clear, npt_rw_l1mmio_test,
-	 default_finished, npt_rw_l1mmio_check },
-	TEST(svm_npt_rsvd_bits_test),
+	NPT_V1_TEST(npt_nx, npt_nx_prepare, null_test, npt_nx_check),
+	NPT_V1_TEST(npt_np, npt_np_prepare, npt_np_test, npt_np_check),
+	NPT_V1_TEST(npt_us, npt_us_prepare, npt_us_test, npt_us_check),
+	NPT_V1_TEST(npt_rw, npt_rw_prepare, npt_rw_test, npt_rw_check),
+	NPT_V1_TEST(npt_rw_pfwalk, npt_rw_pfwalk_prepare, null_test, npt_rw_pfwalk_check),
+	NPT_V1_TEST(npt_l1mmio, npt_l1mmio_prepare, npt_l1mmio_test, npt_l1mmio_check),
+	NPT_V1_TEST(npt_rw_l1mmio, npt_rw_l1mmio_prepare, npt_rw_l1mmio_test, npt_rw_l1mmio_check),
+	NPT_V2_TEST(svm_npt_rsvd_bits_test),
 	{ NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
