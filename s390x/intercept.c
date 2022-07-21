@@ -68,14 +68,19 @@ static void test_spx(void)
 	set_prefix(old_prefix);
 	report(pagebuf[GEN_LC_STFL] != 0, "stfl to new prefix");
 
+	report_prefix_push("operand not word aligned");
 	expect_pgm_int();
 	asm volatile(" spx 0(%0) " : : "r"(1));
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
+	report_prefix_pop();
 
+	report_prefix_push("operand outside memory");
 	expect_pgm_int();
 	asm volatile(" spx 0(%0) " : : "r"(-8L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
+	report_prefix_pop();
 
+	report_prefix_push("new prefix outside memory");
 	new_prefix = get_ram_size() & 0x7fffe000;
 	/* TODO: Remove host_is_tcg() checks once CIs are using QEMU >= 7.1 */
 	if (!host_is_tcg() && (get_ram_size() - new_prefix < 2 * PAGE_SIZE)) {
@@ -95,6 +100,7 @@ static void test_spx(void)
 		else
 			report_skip("inaccessible prefix area");
 	}
+	report_prefix_pop();
 }
 
 /* Test the STORE CPU ADDRESS instruction */
