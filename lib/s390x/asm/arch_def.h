@@ -41,14 +41,27 @@ struct psw {
 	uint64_t	addr;
 };
 
+struct cpu {
+	struct lowcore *lowcore;
+	uint64_t *stack;
+	void (*pgm_cleanup_func)(struct stack_frame_int *);
+	void (*ext_cleanup_func)(struct stack_frame_int *);
+	uint16_t addr;
+	uint16_t idx;
+	bool active;
+	bool pgm_int_expected;
+	bool ext_int_expected;
+};
+
 #define AS_PRIM				0
 #define AS_ACCR				1
 #define AS_SECN				2
 #define AS_HOME				3
 
-#define PSW_MASK_EXT			0x0100000000000000UL
-#define PSW_MASK_IO			0x0200000000000000UL
 #define PSW_MASK_DAT			0x0400000000000000UL
+#define PSW_MASK_IO			0x0200000000000000UL
+#define PSW_MASK_EXT			0x0100000000000000UL
+#define PSW_MASK_KEY			0x00F0000000000000UL
 #define PSW_MASK_WAIT			0x0002000000000000UL
 #define PSW_MASK_PSTATE			0x0001000000000000UL
 #define PSW_MASK_EA			0x0000000100000000UL
@@ -124,7 +137,8 @@ struct lowcore {
 	uint8_t		pad_0x0280[0x0308 - 0x0280];	/* 0x0280 */
 	uint64_t	sw_int_crs[16];			/* 0x0308 */
 	struct psw	sw_int_psw;			/* 0x0388 */
-	uint8_t		pad_0x0310[0x11b0 - 0x0398];	/* 0x0398 */
+	struct cpu	*this_cpu;			/* 0x0398 */
+	uint8_t		pad_0x03a0[0x11b0 - 0x03a0];	/* 0x03a0 */
 	uint64_t	mcck_ext_sa_addr;		/* 0x11b0 */
 	uint8_t		pad_0x11b8[0x1200 - 0x11b8];	/* 0x11b8 */
 	uint64_t	fprs_sa[16];			/* 0x1200 */
@@ -146,6 +160,8 @@ struct lowcore {
 _Static_assert(sizeof(struct lowcore) == 0x1900, "Lowcore size");
 
 extern struct lowcore lowcore;
+
+#define THIS_CPU (lowcore.this_cpu)
 
 #define PGM_INT_CODE_OPERATION			0x01
 #define PGM_INT_CODE_PRIVILEGED_OPERATION	0x02
@@ -313,6 +329,53 @@ static inline void load_psw_mask(uint64_t mask)
 		: "+r" (tmp) :  "a" (&psw) : "memory", "cc" );
 }
 
+/**
+ * psw_mask_clear_bits - clears bits from the current PSW mask
+ * @clear: bitmask of bits that will be cleared
+ */
+static inline void psw_mask_clear_bits(uint64_t clear)
+{
+	load_psw_mask(extract_psw_mask() & ~clear);
+}
+
+/**
+ * psw_mask_set_bits - sets bits on the current PSW mask
+ * @set: bitmask of bits that will be set
+ */
+static inline void psw_mask_set_bits(uint64_t set)
+{
+	load_psw_mask(extract_psw_mask() | set);
+}
+
+/**
+ * psw_mask_clear_and_set_bits - clears and sets bits on the current PSW mask
+ * @clear: bitmask of bits that will be cleared
+ * @set: bitmask of bits that will be set
+ *
+ * The bits in the @clear mask will be cleared, then the bits in the @set mask
+ * will be set.
+ */
+static inline void psw_mask_clear_and_set_bits(uint64_t clear, uint64_t set)
+{
+	load_psw_mask((extract_psw_mask() & ~clear) | set);
+}
+
+/**
+ * enable_dat - enable the DAT bit in the current PSW
+ */
+static inline void enable_dat(void)
+{
+	psw_mask_set_bits(PSW_MASK_DAT);
+}
+
+/**
+ * disable_dat - disable the DAT bit in the current PSW
+ */
+static inline void disable_dat(void)
+{
+	psw_mask_clear_bits(PSW_MASK_DAT);
+}
+
 static inline void wait_for_interrupt(uint64_t irq_mask)
 {
 	uint64_t psw_mask = extract_psw_mask();
@@ -327,11 +390,7 @@ static inline void wait_for_interrupt(uint64_t irq_mask)
 
 static inline void enter_pstate(void)
 {
-	uint64_t mask;
-
-	mask = extract_psw_mask();
-	mask |= PSW_MASK_PSTATE;
-	load_psw_mask(mask);
+	psw_mask_set_bits(PSW_MASK_PSTATE);
 }
 
 static inline void leave_pstate(void)

@@ -64,9 +64,9 @@ static void test_malloc(void)
 	report(tmp != tmp2, "allocated memory addresses differ");
 
 	expect_pgm_int();
-	configure_dat(0);
+	disable_dat();
 	*tmp = 987654321;
-	configure_dat(1);
+	enable_dat();
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 
 	free(tmp);

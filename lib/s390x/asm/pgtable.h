@@ -247,6 +247,4 @@ static inline void idte_pgdp(unsigned long vaddr, pgdval_t *pgdp)
 	idte((unsigned long)(pgdp - pgd_index(vaddr)) | ASCE_DT_REGION1, vaddr);
 }
 
-void configure_dat(int enable);
-
 #endif /* _ASMS390X_PGTABLE_H_ */

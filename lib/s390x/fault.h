@@ -11,32 +11,16 @@
 #define _S390X_FAULT_H_
 
 #include <bitops.h>
+#include <asm/facility.h>
+#include <asm/interrupt.h>
 
 /* Instruction execution prevention, i.e. no-execute, 101 */
-static inline bool prot_is_iep(uint64_t teid)
+static inline bool prot_is_iep(union teid teid)
 {
-	if (test_bit_inv(56, &teid) && !test_bit_inv(60, &teid) && test_bit_inv(61, &teid))
-		return true;
-
-	return false;
-}
-
-/* Standard DAT exception, 001 */
-static inline bool prot_is_datp(uint64_t teid)
-{
-	if (!test_bit_inv(56, &teid) && !test_bit_inv(60, &teid) && test_bit_inv(61, &teid))
-		return true;
-
-	return false;
-}
-
-/* Low-address protection exception, 100 */
-static inline bool prot_is_lap(uint64_t teid)
-{
-	if (test_bit_inv(56, &teid) && !test_bit_inv(60, &teid) && !test_bit_inv(61, &teid))
-		return true;
-
-	return false;
+	if (!test_facility(130))
+		return false;
+	/* IEP installed -> ESOP2 installed */
+	return teid_esop2_prot_code(teid) == PROT_IEP;
 }
 
 void print_decode_teid(uint64_t teid);

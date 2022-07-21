@@ -48,13 +48,8 @@ static void mem_init(phys_addr_t mem_end)
 
 void sclp_setup_int(void)
 {
-	uint64_t mask;
-
 	ctl_set_bit(0, CTL0_SERVICE_SIGNAL);
-
-	mask = extract_psw_mask();
-	mask |= PSW_MASK_EXT;
-	load_psw_mask(mask);
+	psw_mask_set_bits(PSW_MASK_EXT);
 }
 
 void sclp_handle_ext(void)
@@ -152,7 +147,9 @@ void sclp_facilities_setup(void)
 	cpu = sclp_get_cpu_entries();
 	if (read_info->offset_cpu > 134)
 		sclp_facilities.has_diag318 = read_info->byte_134_diag318;
+	sclp_facilities.has_sop = sclp_feat_check(80, SCLP_FEAT_80_BIT_SOP);
 	sclp_facilities.has_gsls = sclp_feat_check(85, SCLP_FEAT_85_BIT_GSLS);
+	sclp_facilities.has_esop = sclp_feat_check(85, SCLP_FEAT_85_BIT_ESOP);
 	sclp_facilities.has_kss = sclp_feat_check(98, SCLP_FEAT_98_BIT_KSS);
 	sclp_facilities.has_cmma = sclp_feat_check(116, SCLP_FEAT_116_BIT_CMMA);
 	sclp_facilities.has_64bscao = sclp_feat_check(116, SCLP_FEAT_116_BIT_64BSCAO);

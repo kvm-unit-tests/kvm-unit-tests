@@ -12,13 +12,6 @@
 
 #include <asm/arch_def.h>
 
-struct cpu {
-	struct lowcore *lowcore;
-	uint64_t *stack;
-	uint16_t addr;
-	bool active;
-};
-
 struct cpu_status {
     uint64_t    fprs[16];                       /* 0x0000 */
     uint64_t    grs[16];                        /* 0x0080 */
@@ -52,5 +45,6 @@ int smp_cpu_setup(uint16_t idx, struct psw psw);
 void smp_teardown(void);
 void smp_setup(void);
 int smp_sigp(uint16_t idx, uint8_t order, unsigned long parm, uint32_t *status);
+struct lowcore *smp_get_lowcore(uint16_t idx);
 
 #endif
