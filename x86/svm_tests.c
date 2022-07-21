@@ -10,7 +10,6 @@
 #include "isr.h"
 #include "apic.h"
 #include "delay.h"
-#include "vmalloc.h"
 
 #define SVM_EXIT_MAX_DR_INTERCEPT 0x3f
 
@@ -3412,8 +3411,6 @@ static struct svm_test svm_tests[] = {
 
 int main(int ac, char **av)
 {
-	pteval_t opt_mask = 0;
-
-	__setup_vm(&opt_mask);
+	setup_vm();
 	return run_svm_tests(ac, av, svm_tests);
 }
