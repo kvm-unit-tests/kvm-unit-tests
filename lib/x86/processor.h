@@ -748,9 +748,4 @@ static inline int cpu_has_efer_nx(void)
 	return !!(this_cpu_has(X86_FEATURE_NX));
 }
 
-static inline bool cpuid_osxsave(void)
-{
-	return cpuid(1).c & (1 << (X86_FEATURE_OSXSAVE % 32));
-}
-
 #endif

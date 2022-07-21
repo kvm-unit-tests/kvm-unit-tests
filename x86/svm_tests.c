@@ -2024,13 +2024,13 @@ static void svm_cr4_osxsave_test(void)
 		vmcb->save.cr4 = cr4;
 	}
 
-	report(cpuid_osxsave(), "CPUID.01H:ECX.XSAVE set before VMRUN");
+	report(this_cpu_has(X86_FEATURE_OSXSAVE), "CPUID.01H:ECX.XSAVE set before VMRUN");
 
 	test_set_guest(svm_cr4_osxsave_test_guest);
 	report(svm_vmrun() == SVM_EXIT_VMMCALL,
 	       "svm_cr4_osxsave_test_guest finished with VMMCALL");
 
-	report(cpuid_osxsave(), "CPUID.01H:ECX.XSAVE set after VMRUN");
+	report(this_cpu_has(X86_FEATURE_OSXSAVE), "CPUID.01H:ECX.XSAVE set after VMRUN");
 }
 
 static void basic_guest_main(struct svm_test *test)

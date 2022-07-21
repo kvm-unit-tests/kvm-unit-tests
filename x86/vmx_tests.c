@@ -8419,12 +8419,12 @@ static void vmx_cr4_osxsave_test(void)
 		vmcs_write(HOST_CR4, cr4);
 	}
 
-	TEST_ASSERT(cpuid_osxsave());
+	TEST_ASSERT(this_cpu_has(X86_FEATURE_OSXSAVE));
 
 	test_set_guest(vmx_cr4_osxsave_test_guest);
 	enter_guest();
 
-	TEST_ASSERT(cpuid_osxsave());
+	TEST_ASSERT(this_cpu_has(X86_FEATURE_OSXSAVE));
 }
 
 static void vmx_nm_test_guest(void)
