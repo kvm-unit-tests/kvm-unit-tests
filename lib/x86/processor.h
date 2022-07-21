@@ -738,14 +738,4 @@ static inline void flush_tlb(void)
 	write_cr4(cr4);
 }
 
-static inline int has_spec_ctrl(void)
-{
-	return !!(this_cpu_has(X86_FEATURE_SPEC_CTRL));
-}
-
-static inline int cpu_has_efer_nx(void)
-{
-	return !!(this_cpu_has(X86_FEATURE_NX));
-}
-
 #endif

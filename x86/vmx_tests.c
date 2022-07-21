@@ -6931,7 +6931,7 @@ static void virt_x2apic_mode_test(void)
 	 * then proceed to manipulate the MSR bitmaps, as if VMCS12 had the
 	 * "Virtualize x2APIC mod" control set, even when it didn't.
 	 */
-	if (has_spec_ctrl())
+	if (this_cpu_has(X86_FEATURE_SPEC_CTRL))
 		wrmsr(MSR_IA32_SPEC_CTRL, 1);
 
 	/*
@@ -7171,7 +7171,7 @@ static void test_efer(u32 fld, const char * fld_name, u32 ctrl_fld,
 	u64 i;
 	u64 efer;
 
-	if (cpu_has_efer_nx())
+	if (this_cpu_has(X86_FEATURE_NX))
 		efer_reserved_bits &= ~EFER_NX;
 
 	if (!ctrl_bit1) {

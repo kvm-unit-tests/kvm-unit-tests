@@ -440,8 +440,8 @@ static void wr_tsx_ctrl_msr(void)
 
 static int has_tsx_ctrl(void)
 {
-    return this_cpu_has(X86_FEATURE_ARCH_CAPABILITIES)
-	    && (rdmsr(MSR_IA32_ARCH_CAPABILITIES) & ARCH_CAP_TSX_CTRL_MSR);
+	return this_cpu_has(X86_FEATURE_ARCH_CAPABILITIES) &&
+	       (rdmsr(MSR_IA32_ARCH_CAPABILITIES) & ARCH_CAP_TSX_CTRL_MSR);
 }
 
 static void wr_ibrs_msr(void)
@@ -452,7 +452,13 @@ static void wr_ibrs_msr(void)
 
 static int has_ibpb(void)
 {
-    return has_spec_ctrl() || !!(this_cpu_has(X86_FEATURE_AMD_IBPB));
+	return this_cpu_has(X86_FEATURE_SPEC_CTRL) ||
+	       this_cpu_has(X86_FEATURE_AMD_IBPB);
+}
+
+static int has_spec_ctrl(void)
+{
+	return this_cpu_has(X86_FEATURE_SPEC_CTRL);
 }
 
 static void wr_ibpb_msr(void)
