@@ -44,6 +44,7 @@ endif
 ifneq ($(CONFIG_EFI),y)
 tests += $(TEST_DIR)/access_test.$(exe)
 tests += $(TEST_DIR)/svm.$(exe)
+tests += $(TEST_DIR)/svm_npt.$(exe)
 tests += $(TEST_DIR)/vmx.$(exe)
 endif
 
@@ -57,3 +58,4 @@ $(TEST_DIR)/hyperv_clock.$(bin): $(TEST_DIR)/hyperv_clock.o
 
 $(TEST_DIR)/vmx.$(bin): $(TEST_DIR)/vmx_tests.o
 $(TEST_DIR)/svm.$(bin): $(TEST_DIR)/svm_tests.o
+$(TEST_DIR)/svm_npt.$(bin): $(TEST_DIR)/svm_npt.o
