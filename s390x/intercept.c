@@ -14,6 +14,7 @@
 #include <asm/page.h>
 #include <asm/facility.h>
 #include <asm/time.h>
+#include <hardware.h>
 
 static uint8_t pagebuf[PAGE_SIZE * 2] __attribute__((aligned(PAGE_SIZE * 2)));
 
@@ -76,7 +77,8 @@ static void test_spx(void)
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 
 	new_prefix = get_ram_size() & 0x7fffe000;
-	if (get_ram_size() - new_prefix < 2 * PAGE_SIZE) {
+	/* TODO: Remove host_is_tcg() checks once CIs are using QEMU >= 7.1 */
+	if (!host_is_tcg() && (get_ram_size() - new_prefix < 2 * PAGE_SIZE)) {
 		expect_pgm_int();
 		asm volatile("spx	%0 " : : "Q"(new_prefix));
 		check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
@@ -88,7 +90,10 @@ static void test_spx(void)
 		 * the address to 8k we have a completely accessible area.
 		 */
 	} else {
-		report_skip("inaccessible prefix area");
+		if (host_is_tcg())
+			report_skip("inaccessible prefix area (workaround for TCG bug)");
+		else
+			report_skip("inaccessible prefix area");
 	}
 }
 
