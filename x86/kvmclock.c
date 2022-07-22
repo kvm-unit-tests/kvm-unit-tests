@@ -222,7 +222,7 @@ static cycle_t pvclock_clocksource_read(struct pvclock_vcpu_time_info *src)
 	return ret;
 }
 
-cycle_t kvm_clock_read()
+cycle_t kvm_clock_read(void)
 {
         struct pvclock_vcpu_time_info *src;
         cycle_t ret;
