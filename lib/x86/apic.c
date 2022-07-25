@@ -56,11 +56,6 @@ static uint32_t xapic_id(void)
 	return xapic_read(APIC_ID) >> 24;
 }
 
-uint32_t pre_boot_apic_id(void)
-{
-	return xapic_id();
-}
-
 static const struct apic_ops xapic_ops = {
 	.reg_read = xapic_read,
 	.reg_write = xapic_write,
@@ -163,6 +158,15 @@ int enable_x2apic(void)
 	} else {
 		return 0;
 	}
+}
+
+uint32_t pre_boot_apic_id(void)
+{
+	u32 msr_lo, msr_hi;
+
+	asm ("rdmsr" : "=a"(msr_lo), "=d"(msr_hi) : "c"(MSR_IA32_APICBASE));
+
+	return (msr_lo & APIC_EXTD) ? x2apic_id() : xapic_id();
 }
 
 void disable_apic(void)
