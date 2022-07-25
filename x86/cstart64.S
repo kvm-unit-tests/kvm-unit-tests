@@ -173,9 +173,9 @@ save_id:
 	retq
 
 ap_start64:
-	call reset_apic
 	call load_idt
 	load_tss
+	call reset_apic
 	call enable_apic
 	call save_id
 	call enable_x2apic
@@ -187,9 +187,9 @@ ap_start64:
 	jmp 1b
 
 start64:
-	call reset_apic
 	call load_idt
 	load_tss
+	call reset_apic
 	call mask_pic_interrupts
 	call enable_apic
 	call save_id
