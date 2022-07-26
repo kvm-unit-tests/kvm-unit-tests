@@ -86,7 +86,7 @@ void ap_online(void)
 {
 	irq_enable();
 
-	printf("setup: CPU %d online\n", apic_id());
+	printf("setup: CPU %" PRId32 " online\n", apic_id());
 	atomic_inc(&cpu_online_count);
 
 	/* Only the BSP runs the test's main(), APs are given work via IPIs. */
