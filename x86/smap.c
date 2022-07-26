@@ -39,7 +39,7 @@ asm ("pf_tss:\n"
 #endif
 	"add $"S", %"R "sp\n"
 #ifdef __x86_64__
-	"orl $" xstr(X86_EFLAGS_AC) ", 2*"S"(%"R "sp)\n"  // set EFLAGS.AC and retry
+	"orl $(1 << " xstr(X86_EFLAGS_AC_BIT) "), 2*"S"(%"R "sp)\n"  // set EFLAGS.AC and retry
 #endif
         "iret"W" \n\t"
         "jmp pf_tss\n\t");
