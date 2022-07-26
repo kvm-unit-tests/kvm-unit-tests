@@ -4,9 +4,10 @@
 #include "libcflat.h"
 #include "desc.h"
 #include "msr.h"
+#include <bitops.h>
 #include <stdint.h>
 
-#define NONCANONICAL            0xaaaaaaaaaaaaaaaaull
+#define NONCANONICAL	0xaaaaaaaaaaaaaaaaull
 
 #ifdef __x86_64__
 #  define R "r"
@@ -30,49 +31,67 @@
 #define AC_VECTOR 17
 #define CP_VECTOR 21
 
-#define X86_CR0_PE	0x00000001
-#define X86_CR0_MP	0x00000002
-#define X86_CR0_EM	0x00000004
-#define X86_CR0_TS	0x00000008
-#define X86_CR0_WP	0x00010000
-#define X86_CR0_AM	0x00040000
-#define X86_CR0_NW	0x20000000
-#define X86_CR0_CD	0x40000000
-#define X86_CR0_PG	0x80000000
-#define X86_CR3_PCID_MASK 0x00000fff
-#define X86_CR4_TSD	0x00000004
-#define X86_CR4_DE	0x00000008
-#define X86_CR4_PSE	0x00000010
-#define X86_CR4_PAE	0x00000020
-#define X86_CR4_MCE	0x00000040
-#define X86_CR4_PGE	0x00000080
-#define X86_CR4_PCE	0x00000100
-#define X86_CR4_UMIP	0x00000800
-#define X86_CR4_LA57	0x00001000
-#define X86_CR4_VMXE	0x00002000
-#define X86_CR4_PCIDE	0x00020000
-#define X86_CR4_OSXSAVE	0x00040000
-#define X86_CR4_SMEP	0x00100000
-#define X86_CR4_SMAP	0x00200000
-#define X86_CR4_PKE	0x00400000
-#define X86_CR4_CET	0x00800000
-#define X86_CR4_PKS	0x01000000
+#define X86_CR0_PE	BIT(0)
+#define X86_CR0_MP	BIT(1)
+#define X86_CR0_EM	BIT(2)
+#define X86_CR0_TS	BIT(3)
+#define X86_CR0_ET	BIT(4)
+#define X86_CR0_NE	BIT(5)
+#define X86_CR0_WP	BIT(16)
+#define X86_CR0_AM	BIT(18)
+#define X86_CR0_NW	BIT(29)
+#define X86_CR0_CD	BIT(30)
+#define X86_CR0_PG	BIT(31)
 
-#define X86_EFLAGS_CF    0x00000001
-#define X86_EFLAGS_FIXED 0x00000002
-#define X86_EFLAGS_PF    0x00000004
-#define X86_EFLAGS_AF    0x00000010
-#define X86_EFLAGS_ZF    0x00000040
-#define X86_EFLAGS_SF    0x00000080
-#define X86_EFLAGS_TF    0x00000100
-#define X86_EFLAGS_IF    0x00000200
-#define X86_EFLAGS_DF    0x00000400
-#define X86_EFLAGS_OF    0x00000800
-#define X86_EFLAGS_IOPL  0x00003000
-#define X86_EFLAGS_NT    0x00004000
-#define X86_EFLAGS_RF    0x00010000
-#define X86_EFLAGS_VM    0x00020000
-#define X86_EFLAGS_AC    0x00040000
+#define X86_CR3_PCID_MASK	GENMASK(11, 0)
+
+#define X86_CR4_VME		BIT(0)
+#define X86_CR4_PVI		BIT(1)
+#define X86_CR4_TSD		BIT(2)
+#define X86_CR4_DE		BIT(3)
+#define X86_CR4_PSE		BIT(4)
+#define X86_CR4_PAE		BIT(5)
+#define X86_CR4_MCE		BIT(6)
+#define X86_CR4_PGE		BIT(7)
+#define X86_CR4_PCE		BIT(8)
+#define X86_CR4_OSFXSR		BIT(9)
+#define X86_CR4_OSXMMEXCPT	BIT(10)
+#define X86_CR4_UMIP		BIT(11)
+#define X86_CR4_LA57		BIT(12)
+#define X86_CR4_VMXE		BIT(13)
+#define X86_CR4_SMXE		BIT(14)
+/* UNUSED			BIT(15) */
+#define X86_CR4_FSGSBASE	BIT(16)
+#define X86_CR4_PCIDE		BIT(17)
+#define X86_CR4_OSXSAVE		BIT(18)
+#define X86_CR4_KL		BIT(19)
+#define X86_CR4_SMEP		BIT(20)
+#define X86_CR4_SMAP		BIT(21)
+#define X86_CR4_PKE		BIT(22)
+#define X86_CR4_CET		BIT(23)
+#define X86_CR4_PKS		BIT(24)
+
+#define X86_EFLAGS_CF		BIT(0)
+#define X86_EFLAGS_FIXED	BIT(1)
+#define X86_EFLAGS_PF		BIT(2)
+/* RESERVED 0			BIT(3) */
+#define X86_EFLAGS_AF		BIT(4)
+/* RESERVED 0			BIT(5) */
+#define X86_EFLAGS_ZF		BIT(6)
+#define X86_EFLAGS_SF		BIT(7)
+#define X86_EFLAGS_TF		BIT(8)
+#define X86_EFLAGS_IF		BIT(9)
+#define X86_EFLAGS_DF		BIT(10)
+#define X86_EFLAGS_OF		BIT(11)
+#define X86_EFLAGS_IOPL		GENMASK(13, 12)
+#define X86_EFLAGS_NT		BIT(14)
+/* RESERVED 0			BIT(15) */
+#define X86_EFLAGS_RF		BIT(16)
+#define X86_EFLAGS_VM		BIT(17)
+#define X86_EFLAGS_AC		BIT(18)
+#define X86_EFLAGS_VIF		BIT(19)
+#define X86_EFLAGS_VIP		BIT(20)
+#define X86_EFLAGS_ID		BIT(21)
 
 #define X86_EFLAGS_ALU (X86_EFLAGS_CF | X86_EFLAGS_PF | X86_EFLAGS_AF | \
 			X86_EFLAGS_ZF | X86_EFLAGS_SF | X86_EFLAGS_OF)
@@ -93,31 +112,31 @@ struct cpuid { u32 a, b, c, d; };
 
 static inline struct cpuid raw_cpuid(u32 function, u32 index)
 {
-    struct cpuid r;
-    asm volatile ("cpuid"
-                  : "=a"(r.a), "=b"(r.b), "=c"(r.c), "=d"(r.d)
-                  : "0"(function), "2"(index));
-    return r;
+	struct cpuid r;
+	asm volatile ("cpuid"
+		      : "=a"(r.a), "=b"(r.b), "=c"(r.c), "=d"(r.d)
+		      : "0"(function), "2"(index));
+	return r;
 }
 
 static inline struct cpuid cpuid_indexed(u32 function, u32 index)
 {
-    u32 level = raw_cpuid(function & 0xf0000000, 0).a;
-    if (level < function)
-        return (struct cpuid) { 0, 0, 0, 0 };
-    return raw_cpuid(function, index);
+	u32 level = raw_cpuid(function & 0xf0000000, 0).a;
+	if (level < function)
+	return (struct cpuid) { 0, 0, 0, 0 };
+	return raw_cpuid(function, index);
 }
 
 static inline struct cpuid cpuid(u32 function)
 {
-    return cpuid_indexed(function, 0);
+	return cpuid_indexed(function, 0);
 }
 
 static inline u8 cpuid_maxphyaddr(void)
 {
-    if (raw_cpuid(0x80000000, 0).a < 0x80000008)
-        return 36;
-    return raw_cpuid(0x80000008, 0).a & 0xff;
+	if (raw_cpuid(0x80000000, 0).a < 0x80000008)
+	return 36;
+	return raw_cpuid(0x80000008, 0).a & 0xff;
 }
 
 static inline bool is_intel(void)
@@ -146,6 +165,7 @@ static inline bool is_intel(void)
  */
 #define	X86_FEATURE_MWAIT		(CPUID(0x1, 0, ECX, 3))
 #define	X86_FEATURE_VMX			(CPUID(0x1, 0, ECX, 5))
+#define	X86_FEATURE_PDCM		(CPUID(0x1, 0, ECX, 15))
 #define	X86_FEATURE_PCID		(CPUID(0x1, 0, ECX, 17))
 #define	X86_FEATURE_MOVBE		(CPUID(0x1, 0, ECX, 22))
 #define	X86_FEATURE_TSC_DEADLINE_TIMER	(CPUID(0x1, 0, ECX, 24))
@@ -159,7 +179,7 @@ static inline bool is_intel(void)
 #define	X86_FEATURE_XMM2		(CPUID(0x1, 0, EDX, 26))
 #define	X86_FEATURE_TSC_ADJUST		(CPUID(0x7, 0, EBX, 1))
 #define	X86_FEATURE_HLE			(CPUID(0x7, 0, EBX, 4))
-#define	X86_FEATURE_SMEP	        (CPUID(0x7, 0, EBX, 7))
+#define	X86_FEATURE_SMEP		(CPUID(0x7, 0, EBX, 7))
 #define	X86_FEATURE_INVPCID		(CPUID(0x7, 0, EBX, 10))
 #define	X86_FEATURE_RTM			(CPUID(0x7, 0, EBX, 11))
 #define	X86_FEATURE_SMAP		(CPUID(0x7, 0, EBX, 20))
@@ -189,9 +209,9 @@ static inline bool is_intel(void)
 #define	X86_FEATURE_NPT			(CPUID(0x8000000A, 0, EDX, 0))
 #define	X86_FEATURE_LBRV		(CPUID(0x8000000A, 0, EDX, 1))
 #define	X86_FEATURE_NRIPS		(CPUID(0x8000000A, 0, EDX, 3))
-#define X86_FEATURE_TSCRATEMSR  (CPUID(0x8000000A, 0, EDX, 4))
-#define X86_FEATURE_PAUSEFILTER     (CPUID(0x8000000A, 0, EDX, 10))
-#define X86_FEATURE_PFTHRESHOLD     (CPUID(0x8000000A, 0, EDX, 12))
+#define X86_FEATURE_TSCRATEMSR		(CPUID(0x8000000A, 0, EDX, 4))
+#define X86_FEATURE_PAUSEFILTER		(CPUID(0x8000000A, 0, EDX, 10))
+#define X86_FEATURE_PFTHRESHOLD		(CPUID(0x8000000A, 0, EDX, 12))
 #define	X86_FEATURE_VGIF		(CPUID(0x8000000A, 0, EDX, 16))
 
 
@@ -216,66 +236,66 @@ struct far_pointer32 {
 } __attribute__((packed));
 
 struct descriptor_table_ptr {
-    u16 limit;
-    ulong base;
+	u16 limit;
+	ulong base;
 } __attribute__((packed));
 
 static inline void clac(void)
 {
-    asm volatile (".byte 0x0f, 0x01, 0xca" : : : "memory");
+	asm volatile (".byte 0x0f, 0x01, 0xca" : : : "memory");
 }
 
 static inline void stac(void)
 {
-    asm volatile (".byte 0x0f, 0x01, 0xcb" : : : "memory");
+	asm volatile (".byte 0x0f, 0x01, 0xcb" : : : "memory");
 }
 
 static inline u16 read_cs(void)
 {
-    unsigned val;
+	unsigned val;
 
-    asm volatile ("mov %%cs, %0" : "=mr"(val));
-    return val;
+	asm volatile ("mov %%cs, %0" : "=mr"(val));
+	return val;
 }
 
 static inline u16 read_ds(void)
 {
-    unsigned val;
+	unsigned val;
 
-    asm volatile ("mov %%ds, %0" : "=mr"(val));
-    return val;
+	asm volatile ("mov %%ds, %0" : "=mr"(val));
+	return val;
 }
 
 static inline u16 read_es(void)
 {
-    unsigned val;
+	unsigned val;
 
-    asm volatile ("mov %%es, %0" : "=mr"(val));
-    return val;
+	asm volatile ("mov %%es, %0" : "=mr"(val));
+	return val;
 }
 
 static inline u16 read_ss(void)
 {
-    unsigned val;
+	unsigned val;
 
-    asm volatile ("mov %%ss, %0" : "=mr"(val));
-    return val;
+	asm volatile ("mov %%ss, %0" : "=mr"(val));
+	return val;
 }
 
 static inline u16 read_fs(void)
 {
-    unsigned val;
+	unsigned val;
 
-    asm volatile ("mov %%fs, %0" : "=mr"(val));
-    return val;
+	asm volatile ("mov %%fs, %0" : "=mr"(val));
+	return val;
 }
 
 static inline u16 read_gs(void)
 {
-    unsigned val;
+	unsigned val;
 
-    asm volatile ("mov %%gs, %0" : "=mr"(val));
-    return val;
+	asm volatile ("mov %%gs, %0" : "=mr"(val));
+	return val;
 }
 
 static inline unsigned long read_rflags(void)
@@ -287,32 +307,32 @@ static inline unsigned long read_rflags(void)
 
 static inline void write_ds(unsigned val)
 {
-    asm volatile ("mov %0, %%ds" : : "rm"(val) : "memory");
+	asm volatile ("mov %0, %%ds" : : "rm"(val) : "memory");
 }
 
 static inline void write_es(unsigned val)
 {
-    asm volatile ("mov %0, %%es" : : "rm"(val) : "memory");
+	asm volatile ("mov %0, %%es" : : "rm"(val) : "memory");
 }
 
 static inline void write_ss(unsigned val)
 {
-    asm volatile ("mov %0, %%ss" : : "rm"(val) : "memory");
+	asm volatile ("mov %0, %%ss" : : "rm"(val) : "memory");
 }
 
 static inline void write_fs(unsigned val)
 {
-    asm volatile ("mov %0, %%fs" : : "rm"(val) : "memory");
+	asm volatile ("mov %0, %%fs" : : "rm"(val) : "memory");
 }
 
 static inline void write_gs(unsigned val)
 {
-    asm volatile ("mov %0, %%gs" : : "rm"(val) : "memory");
+	asm volatile ("mov %0, %%gs" : : "rm"(val) : "memory");
 }
 
 static inline void write_rflags(unsigned long f)
 {
-    asm volatile ("push %0; popf\n\t" : : "rm"(f));
+	asm volatile ("push %0; popf\n\t" : : "rm"(f));
 }
 
 static inline void set_iopl(int iopl)
@@ -322,31 +342,42 @@ static inline void set_iopl(int iopl)
 	write_rflags(flags);
 }
 
+/*
+ * Don't use the safe variants for rdmsr() or wrmsr().  The exception fixup
+ * infrastructure uses per-CPU data and thus consumes GS.base.  Various tests
+ * temporarily modify MSR_GS_BASE and will explode when trying to determine
+ * whether or not RDMSR/WRMSR faulted.
+ */
 static inline u64 rdmsr(u32 index)
 {
-    u32 a, d;
-    asm volatile ("rdmsr" : "=a"(a), "=d"(d) : "c"(index) : "memory");
-    return a | ((u64)d << 32);
+	u32 a, d;
+	asm volatile ("rdmsr" : "=a"(a), "=d"(d) : "c"(index) : "memory");
+	return a | ((u64)d << 32);
 }
 
 static inline void wrmsr(u32 index, u64 val)
 {
-    u32 a = val, d = val >> 32;
-    asm volatile ("wrmsr" : : "a"(a), "d"(d), "c"(index) : "memory");
+	u32 a = val, d = val >> 32;
+	asm volatile ("wrmsr" : : "a"(a), "d"(d), "c"(index) : "memory");
 }
 
-static inline int rdmsr_checking(u32 index)
+static inline int rdmsr_safe(u32 index, uint64_t *val)
 {
+	uint32_t a, d;
+
 	asm volatile (ASM_TRY("1f")
 		      "rdmsr\n\t"
 		      "1:"
-		      : : "c"(index) : "memory", "eax", "edx");
+		      : "=a"(a), "=d"(d)
+		      : "c"(index) : "memory");
+
+	*val = (uint64_t)a | ((uint64_t)d << 32);
 	return exception_vector();
 }
 
-static inline int wrmsr_checking(u32 index, u64 val)
+static inline int wrmsr_safe(u32 index, u64 val)
 {
-        u32 a = val, d = val >> 32;
+	u32 a = val, d = val >> 32;
 
 	asm volatile (ASM_TRY("1f")
 		      "wrmsr\n\t"
@@ -357,177 +388,210 @@ static inline int wrmsr_checking(u32 index, u64 val)
 
 static inline uint64_t rdpmc(uint32_t index)
 {
-    uint32_t a, d;
-    asm volatile ("rdpmc" : "=a"(a), "=d"(d) : "c"(index));
-    return a | ((uint64_t)d << 32);
+	uint32_t a, d;
+	asm volatile ("rdpmc" : "=a"(a), "=d"(d) : "c"(index));
+	return a | ((uint64_t)d << 32);
+}
+
+static inline int write_cr0_safe(ulong val)
+{
+	asm volatile(ASM_TRY("1f")
+		     "mov %0,%%cr0\n\t"
+		     "1:": : "r" (val));
+	return exception_vector();
 }
 
 static inline void write_cr0(ulong val)
 {
-    asm volatile ("mov %0, %%cr0" : : "r"(val) : "memory");
+	int vector = write_cr0_safe(val);
+
+	assert_msg(!vector, "Unexpected fault '%d' writing CR0 = %lx",
+		   vector, val);
 }
 
 static inline ulong read_cr0(void)
 {
-    ulong val;
-    asm volatile ("mov %%cr0, %0" : "=r"(val) : : "memory");
-    return val;
+	ulong val;
+	asm volatile ("mov %%cr0, %0" : "=r"(val) : : "memory");
+	return val;
 }
 
 static inline void write_cr2(ulong val)
 {
-    asm volatile ("mov %0, %%cr2" : : "r"(val) : "memory");
+	asm volatile ("mov %0, %%cr2" : : "r"(val) : "memory");
 }
 
 static inline ulong read_cr2(void)
 {
-    ulong val;
-    asm volatile ("mov %%cr2, %0" : "=r"(val) : : "memory");
-    return val;
+	ulong val;
+	asm volatile ("mov %%cr2, %0" : "=r"(val) : : "memory");
+	return val;
+}
+
+static inline int write_cr3_safe(ulong val)
+{
+	asm volatile(ASM_TRY("1f")
+		     "mov %0,%%cr3\n\t"
+		     "1:": : "r" (val));
+	return exception_vector();
 }
 
 static inline void write_cr3(ulong val)
 {
-    asm volatile ("mov %0, %%cr3" : : "r"(val) : "memory");
+	int vector = write_cr3_safe(val);
+
+	assert_msg(!vector, "Unexpected fault '%d' writing CR3 = %lx",
+		   vector, val);
 }
 
 static inline ulong read_cr3(void)
 {
-    ulong val;
-    asm volatile ("mov %%cr3, %0" : "=r"(val) : : "memory");
-    return val;
+	ulong val;
+	asm volatile ("mov %%cr3, %0" : "=r"(val) : : "memory");
+	return val;
 }
 
 static inline void update_cr3(void *cr3)
 {
-    write_cr3((ulong)cr3);
+	write_cr3((ulong)cr3);
+}
+
+static inline int write_cr4_safe(ulong val)
+{
+	asm volatile(ASM_TRY("1f")
+		     "mov %0,%%cr4\n\t"
+		     "1:": : "r" (val));
+	return exception_vector();
 }
 
 static inline void write_cr4(ulong val)
 {
-    asm volatile ("mov %0, %%cr4" : : "r"(val) : "memory");
+	int vector = write_cr4_safe(val);
+
+	assert_msg(!vector, "Unexpected fault '%d' writing CR4 = %lx",
+		   vector, val);
 }
 
 static inline ulong read_cr4(void)
 {
-    ulong val;
-    asm volatile ("mov %%cr4, %0" : "=r"(val) : : "memory");
-    return val;
+	ulong val;
+	asm volatile ("mov %%cr4, %0" : "=r"(val) : : "memory");
+	return val;
 }
 
 static inline void write_cr8(ulong val)
 {
-    asm volatile ("mov %0, %%cr8" : : "r"(val) : "memory");
+	asm volatile ("mov %0, %%cr8" : : "r"(val) : "memory");
 }
 
 static inline ulong read_cr8(void)
 {
-    ulong val;
-    asm volatile ("mov %%cr8, %0" : "=r"(val) : : "memory");
-    return val;
+	ulong val;
+	asm volatile ("mov %%cr8, %0" : "=r"(val) : : "memory");
+	return val;
 }
 
 static inline void lgdt(const struct descriptor_table_ptr *ptr)
 {
-    asm volatile ("lgdt %0" : : "m"(*ptr));
+	asm volatile ("lgdt %0" : : "m"(*ptr));
 }
 
 static inline void sgdt(struct descriptor_table_ptr *ptr)
 {
-    asm volatile ("sgdt %0" : "=m"(*ptr));
+	asm volatile ("sgdt %0" : "=m"(*ptr));
 }
 
 static inline void lidt(const struct descriptor_table_ptr *ptr)
 {
-    asm volatile ("lidt %0" : : "m"(*ptr));
+	asm volatile ("lidt %0" : : "m"(*ptr));
 }
 
 static inline void sidt(struct descriptor_table_ptr *ptr)
 {
-    asm volatile ("sidt %0" : "=m"(*ptr));
+	asm volatile ("sidt %0" : "=m"(*ptr));
 }
 
 static inline void lldt(u16 val)
 {
-    asm volatile ("lldt %0" : : "rm"(val));
+	asm volatile ("lldt %0" : : "rm"(val));
 }
 
 static inline u16 sldt(void)
 {
-    u16 val;
-    asm volatile ("sldt %0" : "=rm"(val));
-    return val;
+	u16 val;
+	asm volatile ("sldt %0" : "=rm"(val));
+	return val;
 }
 
 static inline void ltr(u16 val)
 {
-    asm volatile ("ltr %0" : : "rm"(val));
+	asm volatile ("ltr %0" : : "rm"(val));
 }
 
 static inline u16 str(void)
 {
-    u16 val;
-    asm volatile ("str %0" : "=rm"(val));
-    return val;
+	u16 val;
+	asm volatile ("str %0" : "=rm"(val));
+	return val;
 }
 
 static inline void write_dr0(void *val)
 {
-    asm volatile ("mov %0, %%dr0" : : "r"(val) : "memory");
+	asm volatile ("mov %0, %%dr0" : : "r"(val) : "memory");
 }
 
 static inline void write_dr1(void *val)
 {
-    asm volatile ("mov %0, %%dr1" : : "r"(val) : "memory");
+	asm volatile ("mov %0, %%dr1" : : "r"(val) : "memory");
 }
 
 static inline void write_dr2(void *val)
 {
-    asm volatile ("mov %0, %%dr2" : : "r"(val) : "memory");
+	asm volatile ("mov %0, %%dr2" : : "r"(val) : "memory");
 }
 
 static inline void write_dr3(void *val)
 {
-    asm volatile ("mov %0, %%dr3" : : "r"(val) : "memory");
+	asm volatile ("mov %0, %%dr3" : : "r"(val) : "memory");
 }
 
 static inline void write_dr6(ulong val)
 {
-    asm volatile ("mov %0, %%dr6" : : "r"(val) : "memory");
+	asm volatile ("mov %0, %%dr6" : : "r"(val) : "memory");
 }
 
 static inline ulong read_dr6(void)
 {
-    ulong val;
-    asm volatile ("mov %%dr6, %0" : "=r"(val));
-    return val;
+	ulong val;
+	asm volatile ("mov %%dr6, %0" : "=r"(val));
+	return val;
 }
 
 static inline void write_dr7(ulong val)
 {
-    asm volatile ("mov %0, %%dr7" : : "r"(val) : "memory");
+	asm volatile ("mov %0, %%dr7" : : "r"(val) : "memory");
 }
 
 static inline ulong read_dr7(void)
 {
-    ulong val;
-    asm volatile ("mov %%dr7, %0" : "=r"(val));
-    return val;
+	ulong val;
+	asm volatile ("mov %%dr7, %0" : "=r"(val));
+	return val;
 }
 
 static inline void pause(void)
 {
-    asm volatile ("pause");
+	asm volatile ("pause");
 }
 
 static inline void cli(void)
 {
-    asm volatile ("cli");
+	asm volatile ("cli");
 }
 
 static inline void sti(void)
 {
-    asm volatile ("sti");
+	asm volatile ("sti");
 }
 
 static inline unsigned long long rdrand(void)
@@ -581,17 +645,17 @@ static inline unsigned long long fenced_rdtsc(void)
 
 static inline unsigned long long rdtscp(u32 *aux)
 {
-       long long r;
+	long long r;
 
 #ifdef __x86_64__
-       unsigned a, d;
+	unsigned a, d;
 
-       asm volatile ("rdtscp" : "=a"(a), "=d"(d), "=c"(*aux));
-       r = a | ((long long)d << 32);
+	asm volatile ("rdtscp" : "=a"(a), "=d"(d), "=c"(*aux));
+	r = a | ((long long)d << 32);
 #else
-       asm volatile ("rdtscp" : "=A"(r), "=c"(*aux));
+	asm volatile ("rdtscp" : "=A"(r), "=c"(*aux));
 #endif
-       return r;
+	return r;
 }
 
 static inline void wrtsc(u64 tsc)
@@ -601,7 +665,7 @@ static inline void wrtsc(u64 tsc)
 
 static inline void irq_disable(void)
 {
-    asm volatile("cli");
+	asm volatile("cli");
 }
 
 /* Note that irq_enable() does not ensure an interrupt shadow due
@@ -610,7 +674,7 @@ static inline void irq_disable(void)
  */
 static inline void irq_enable(void)
 {
-    asm volatile("sti");
+	asm volatile("sti");
 }
 
 static inline void invlpg(volatile void *va)
@@ -625,25 +689,25 @@ static inline void safe_halt(void)
 
 static inline u32 read_pkru(void)
 {
-    unsigned int eax, edx;
-    unsigned int ecx = 0;
-    unsigned int pkru;
+	unsigned int eax, edx;
+	unsigned int ecx = 0;
+	unsigned int pkru;
 
-    asm volatile(".byte 0x0f,0x01,0xee\n\t"
-                 : "=a" (eax), "=d" (edx)
-                 : "c" (ecx));
-    pkru = eax;
-    return pkru;
+	asm volatile(".byte 0x0f,0x01,0xee\n\t"
+		     : "=a" (eax), "=d" (edx)
+		     : "c" (ecx));
+	pkru = eax;
+	return pkru;
 }
 
 static inline void write_pkru(u32 pkru)
 {
-    unsigned int eax = pkru;
-    unsigned int ecx = 0;
-    unsigned int edx = 0;
+	unsigned int eax = pkru;
+	unsigned int ecx = 0;
+	unsigned int edx = 0;
 
-    asm volatile(".byte 0x0f,0x01,0xef\n\t"
-        : : "a" (eax), "c" (ecx), "d" (edx));
+	asm volatile(".byte 0x0f,0x01,0xef\n\t"
+		     : : "a" (eax), "c" (ecx), "d" (edx));
 }
 
 static inline bool is_canonical(u64 addr)
@@ -675,19 +739,60 @@ static inline void flush_tlb(void)
 	write_cr4(cr4);
 }
 
-static inline int has_spec_ctrl(void)
+static inline u8 pmu_version(void)
 {
-    return !!(this_cpu_has(X86_FEATURE_SPEC_CTRL));
+	return cpuid(10).a & 0xff;
 }
 
-static inline int cpu_has_efer_nx(void)
+static inline bool this_cpu_has_pmu(void)
 {
-	return !!(this_cpu_has(X86_FEATURE_NX));
+	return !!pmu_version();
 }
 
-static inline bool cpuid_osxsave(void)
+static inline bool this_cpu_has_perf_global_ctrl(void)
 {
-	return cpuid(1).c & (1 << (X86_FEATURE_OSXSAVE % 32));
+	return pmu_version() > 1;
+}
+
+static inline u8 pmu_nr_gp_counters(void)
+{
+	return (cpuid(10).a >> 8) & 0xff;
+}
+
+static inline u8 pmu_gp_counter_width(void)
+{
+	return (cpuid(10).a >> 16) & 0xff;
+}
+
+static inline u8 pmu_gp_counter_mask_length(void)
+{
+	return (cpuid(10).a >> 24) & 0xff;
+}
+
+static inline u8 pmu_nr_fixed_counters(void)
+{
+	struct cpuid id = cpuid(10);
+
+	if ((id.a & 0xff) > 1)
+		return id.d & 0x1f;
+	else
+		return 0;
+}
+
+static inline u8 pmu_fixed_counter_width(void)
+{
+	struct cpuid id = cpuid(10);
+
+	if ((id.a & 0xff) > 1)
+		return (id.d >> 5) & 0xff;
+	else
+		return 0;
+}
+
+static inline bool pmu_gp_counter_is_available(int i)
+{
+	/* CPUID.0xA.EBX bit is '1 if they counter is NOT available. */
+	return !(cpuid(10).b & BIT(i));
 }
 
 #endif

@@ -843,11 +843,9 @@ extern void insn_rdseed(void);
 u32 cur_insn;
 u64 cr3;
 
-#define X86_FEATURE_MONITOR	(1 << 3)
-
 typedef bool (*supported_fn)(void);
 
-static bool monitor_supported(void)
+static bool this_cpu_has_mwait(void)
 {
 	return this_cpu_has(X86_FEATURE_MWAIT);
 }
@@ -880,8 +878,8 @@ static struct insn_table insn_table[] = {
 	{"HLT",  CPU_HLT, insn_hlt, INSN_CPU0, 12, 0, 0, 0},
 	{"INVLPG", CPU_INVLPG, insn_invlpg, INSN_CPU0, 14,
 		0x12345678, 0, FIELD_EXIT_QUAL},
-	{"MWAIT", CPU_MWAIT, insn_mwait, INSN_CPU0, 36, 0, 0, 0, &monitor_supported},
-	{"RDPMC", CPU_RDPMC, insn_rdpmc, INSN_CPU0, 15, 0, 0, 0},
+	{"MWAIT", CPU_MWAIT, insn_mwait, INSN_CPU0, 36, 0, 0, 0, this_cpu_has_mwait},
+	{"RDPMC", CPU_RDPMC, insn_rdpmc, INSN_CPU0, 15, 0, 0, 0, this_cpu_has_pmu},
 	{"RDTSC", CPU_RDTSC, insn_rdtsc, INSN_CPU0, 16, 0, 0, 0},
 	{"CR3 load", CPU_CR3_LOAD, insn_cr3_load, INSN_CPU0, 28, 0x3, 0,
 		FIELD_EXIT_QUAL},
@@ -891,7 +889,7 @@ static struct insn_table insn_table[] = {
 		FIELD_EXIT_QUAL},
 	{"CR8 store", CPU_CR8_STORE, insn_cr8_store, INSN_CPU0, 28, 0x18, 0,
 		FIELD_EXIT_QUAL},
-	{"MONITOR", CPU_MONITOR, insn_monitor, INSN_CPU0, 39, 0, 0, 0, &monitor_supported},
+	{"MONITOR", CPU_MONITOR, insn_monitor, INSN_CPU0, 39, 0, 0, 0, this_cpu_has_mwait},
 	{"PAUSE", CPU_PAUSE, insn_pause, INSN_CPU0, 40, 0, 0, 0},
 	// Flags for Secondary Processor-Based VM-Execution Controls
 	{"WBINVD", CPU_WBINVD, insn_wbinvd, INSN_CPU1, 54, 0, 0, 0},
@@ -1766,7 +1764,7 @@ static void nmi_hlt_main(void)
     long long start;
 
     if (cpu_count() < 2) {
-        report_skip(__func__);
+        report_skip("%s : CPU count < 2", __func__);
         vmx_set_test_stage(-1);
         return;
     }
@@ -4107,7 +4105,7 @@ static void test_vpid(void)
 	int i;
 
 	if (!is_vpid_supported()) {
-		printf("Secondary controls and/or VPID not supported\n");
+		report_skip("%s : Secondary controls and/or VPID not supported", __func__);
 		return;
 	}
 
@@ -4614,7 +4612,7 @@ static void test_nmi_ctrls(void)
 
 	if ((ctrl_pin_rev.clr & (PIN_NMI | PIN_VIRT_NMI)) !=
 	    (PIN_NMI | PIN_VIRT_NMI)) {
-		printf("NMI exiting and Virtual NMIs are not supported !\n");
+		report_skip("%s : NMI exiting and/or Virtual NMIs not supported", __func__);
 		return;
 	}
 
@@ -4724,7 +4722,7 @@ static void test_ept_eptp(void)
 
 	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
 	    (ctrl_cpu_rev[1].clr & CPU_EPT))) {
-		printf("\"CPU secondary\" and/or \"enable EPT\" execution controls are not supported !\n");
+		report_skip("%s : \"CPU secondary\" and/or \"enable EPT\" exec control not supported", __func__);
 		return;
 	}
 
@@ -4884,7 +4882,7 @@ static void test_pml(void)
 
 	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
 	    (ctrl_cpu_rev[1].clr & CPU_EPT) && (ctrl_cpu_rev[1].clr & CPU_PML))) {
-		printf("\"Secondary execution\" control or \"enable EPT\" control or \"enable PML\" control is not supported !\n");
+		report_skip("%s : \"Secondary execution\" or \"enable EPT\" or \"enable PML\" control not supported", __func__);
 		return;
 	}
 
@@ -4936,7 +4934,7 @@ static void test_vmx_preemption_timer(void)
 
 	if (!((ctrl_exit_rev.clr & EXI_SAVE_PREEMPT) ||
 	    (ctrl_pin_rev.clr & PIN_PREEMPT))) {
-		printf("\"Save-VMX-preemption-timer\" control and/or \"Enable-VMX-preemption-timer\" control is not supported\n");
+		report_skip("%s : \"Save-VMX-preemption-timer\" and/or \"Enable-VMX-preemption-timer\" control not supported", __func__);
 		return;
 	}
 
@@ -5060,7 +5058,7 @@ static void vmx_mtf_test(void)
 	handler old_gp, old_db;
 
 	if (!(ctrl_cpu_rev[0].clr & CPU_MTF)) {
-		printf("CPU does not support the 'monitor trap flag' processor-based VM-execution control.\n");
+		report_skip("%s : \"Monitor trap flag\" exec control not supported", __func__);
 		return;
 	}
 
@@ -5163,12 +5161,12 @@ static void vmx_mtf_pdpte_test(void)
 		return;
 
 	if (!(ctrl_cpu_rev[0].clr & CPU_MTF)) {
-		printf("CPU does not support 'monitor trap flag.'\n");
+		report_skip("%s : \"Monitor trap flag\" exec control not supported", __func__);
 		return;
 	}
 
 	if (!(ctrl_cpu_rev[1].clr & CPU_URG)) {
-		printf("CPU does not support 'unrestricted guest.'\n");
+		report_skip("%s : \"Unrestricted guest\" exec control not supported", __func__);
 		return;
 	}
 
@@ -6142,7 +6140,7 @@ static void apic_reg_virt_test(void)
 	struct apic_reg_virt_guest_args *args = &apic_reg_virt_guest_args;
 
 	if (!cpu_has_apicv()) {
-		report_skip(__func__);
+		report_skip("%s : Not all required APICv bits supported", __func__);
 		return;
 	}
 
@@ -6879,7 +6877,7 @@ static enum Config_type configure_virt_x2apic_mode_test(
 
 	if (virt_x2apic_mode_config->virtual_interrupt_delivery) {
 		if (!(ctrl_cpu_rev[1].clr & CPU_VINTD)) {
-			report_skip("VM-execution control \"virtual-interrupt delivery\" NOT supported.\n");
+			report_skip("%s : \"virtual-interrupt delivery\" exec control not supported", __func__);
 			return CONFIG_TYPE_UNSUPPORTED;
 		}
 		cpu_exec_ctrl1 |= CPU_VINTD;
@@ -6920,7 +6918,7 @@ static void virt_x2apic_mode_test(void)
 	struct virt_x2apic_mode_guest_args *args = &virt_x2apic_mode_guest_args;
 
 	if (!cpu_has_apicv()) {
-		report_skip(__func__);
+		report_skip("%s : Not all required APICv bits supported", __func__);
 		return;
 	}
 
@@ -6931,7 +6929,7 @@ static void virt_x2apic_mode_test(void)
 	 * then proceed to manipulate the MSR bitmaps, as if VMCS12 had the
 	 * "Virtualize x2APIC mod" control set, even when it didn't.
 	 */
-	if (has_spec_ctrl())
+	if (this_cpu_has(X86_FEATURE_SPEC_CTRL))
 		wrmsr(MSR_IA32_SPEC_CTRL, 1);
 
 	/*
@@ -6940,10 +6938,10 @@ static void virt_x2apic_mode_test(void)
 	 *   - "MSR-bitmap address", indicated by "use MSR bitmaps"
 	 */
 	if (!(ctrl_cpu_rev[0].clr & CPU_TPR_SHADOW)) {
-		report_skip("VM-execution control \"use TPR shadow\" NOT supported.\n");
+		report_skip("%s : \"Use TPR shadow\" exec control not supported", __func__);
 		return;
 	} else if (!(ctrl_cpu_rev[0].clr & CPU_MSR_BITMAP)) {
-		report_skip("VM-execution control \"use MSR bitmaps\" NOT supported.\n");
+		report_skip("%s : \"Use MSR bitmaps\" exec control not supported", __func__);
 		return;
 	}
 
@@ -6969,7 +6967,7 @@ static void virt_x2apic_mode_test(void)
 			configure_virt_x2apic_mode_test(virt_x2apic_mode_config,
 							msr_bitmap_page);
 		if (config_type == CONFIG_TYPE_UNSUPPORTED) {
-			report_skip("Skip because of missing features.\n");
+			report_skip("Skip because of missing features.");
 			continue;
 		} else if (config_type == CONFIG_TYPE_VMENTRY_FAILS_EARLY) {
 			enter_guest_with_bad_controls();
@@ -7171,11 +7169,11 @@ static void test_efer(u32 fld, const char * fld_name, u32 ctrl_fld,
 	u64 i;
 	u64 efer;
 
-	if (cpu_has_efer_nx())
+	if (this_cpu_has(X86_FEATURE_NX))
 		efer_reserved_bits &= ~EFER_NX;
 
 	if (!ctrl_bit1) {
-		printf("\"Load-IA32-EFER\" exit control not supported\n");
+		report_skip("%s : \"Load-IA32-EFER\" exit control not supported", __func__);
 		goto test_entry_exit_mode;
 	}
 
@@ -7258,7 +7256,7 @@ static void test_host_efer(void)
 static void test_guest_efer(void)
 {
 	if (!(ctrl_enter_rev.clr & ENT_LOAD_EFER)) {
-		printf("\"Load-IA32-EFER\" entry control not supported\n");
+		report_skip("%s : \"Load-IA32-EFER\" entry control not supported", __func__);
 		return;
 	}
 
@@ -7349,7 +7347,7 @@ static void test_load_host_pat(void)
 	 * "load IA32_PAT" VM-exit control
 	 */
 	if (!(ctrl_exit_rev.clr & EXI_LOAD_PAT)) {
-		printf("\"Load-IA32-PAT\" exit control not supported\n");
+		report_skip("%s : \"Load-IA32-PAT\" exit control not supported", __func__);
 		return;
 	}
 
@@ -7490,8 +7488,13 @@ static void test_perf_global_ctrl(u32 nr, const char *name, u32 ctrl_nr,
 
 static void test_load_host_perf_global_ctrl(void)
 {
+	if (!this_cpu_has_perf_global_ctrl()) {
+		report_skip("%s : \"IA32_PERF_GLOBAL_CTRL\" MSR not supported", __func__);
+		return;
+	}
+
 	if (!(ctrl_exit_rev.clr & EXI_LOAD_PERF)) {
-		printf("\"load IA32_PERF_GLOBAL_CTRL\" exit control not supported\n");
+		report_skip("%s : \"Load IA32_PERF_GLOBAL_CTRL\" exit control not supported", __func__);
 		return;
 	}
 
@@ -7502,8 +7505,13 @@ static void test_load_host_perf_global_ctrl(void)
 
 static void test_load_guest_perf_global_ctrl(void)
 {
+	if (!this_cpu_has_perf_global_ctrl()) {
+		report_skip("%s : \"IA32_PERF_GLOBAL_CTRL\" MSR not supported", __func__);
+		return;
+	}
+
 	if (!(ctrl_enter_rev.clr & ENT_LOAD_PERF)) {
-		printf("\"load IA32_PERF_GLOBAL_CTRL\" entry control not supported\n");
+		report_skip("%s : \"Load IA32_PERF_GLOBAL_CTRL\" entry control not supported", __func__);
 		return;
 	}
 
@@ -7809,7 +7817,7 @@ static void test_load_guest_pat(void)
 	 * "load IA32_PAT" VM-entry control
 	 */
 	if (!(ctrl_enter_rev.clr & ENT_LOAD_PAT)) {
-		printf("\"Load-IA32-PAT\" entry control not supported\n");
+		report_skip("%s : \"Load-IA32-PAT\" entry control not supported", __func__);
 		return;
 	}
 
@@ -7833,7 +7841,7 @@ static void test_load_guest_bndcfgs(void)
 	u64 bndcfgs;
 
 	if (!(ctrl_enter_rev.clr & ENT_LOAD_BNDCFGS)) {
-		printf("\"Load-IA32-BNDCFGS\" entry control not supported\n");
+		report_skip("%s : \"Load-IA32-BNDCFGS\" entry control not supported", __func__);
 		return;
 	}
 
@@ -8134,7 +8142,7 @@ static void unsetup_unrestricted_guest(void)
 static void vmentry_unrestricted_guest_test(void)
 {
 	if (enable_unrestricted_guest(true)) {
-		report_skip("Unrestricted guest not supported");
+		report_skip("%s: \"Unrestricted guest\" exec control not supported", __func__);
 		return;
 	}
 
@@ -8298,11 +8306,11 @@ static void vmx_cr_load_test(void)
 	orig_cr3 = read_cr3();
 
 	if (!this_cpu_has(X86_FEATURE_PCID)) {
-		report_skip("PCID not detected");
+		report_skip("%s : PCID not detected", __func__);
 		return;
 	}
 	if (!this_cpu_has(X86_FEATURE_MCE)) {
-		report_skip("MCE not detected");
+		report_skip("%s : MCE not detected", __func__);
 		return;
 	}
 
@@ -8311,7 +8319,7 @@ static void vmx_cr_load_test(void)
 	/* Enable PCID for L1. */
 	cr4 = orig_cr4 | X86_CR4_PCIDE;
 	cr3 = orig_cr3 | 0x1;
-	TEST_ASSERT(!write_cr4_checking(cr4));
+	TEST_ASSERT(!write_cr4_safe(cr4));
 	write_cr3(cr3);
 
 	test_set_guest(vmx_single_vmcall_guest);
@@ -8328,11 +8336,11 @@ static void vmx_cr_load_test(void)
 	 *     have no side effect because normally no guest MCE (e.g., as the
 	 *     result of bad memory) would happen during this test.
 	 */
-	TEST_ASSERT(!write_cr4_checking(cr4 ^ X86_CR4_MCE));
+	TEST_ASSERT(!write_cr4_safe(cr4 ^ X86_CR4_MCE));
 
 	/* Cleanup L1 state. */
 	write_cr3(orig_cr3);
-	TEST_ASSERT(!write_cr4_checking(orig_cr4));
+	TEST_ASSERT(!write_cr4_safe(orig_cr4));
 
 	if (!this_cpu_has(X86_FEATURE_LA57))
 		goto done;
@@ -8407,7 +8415,7 @@ static void vmx_cr4_osxsave_test_guest(void)
 static void vmx_cr4_osxsave_test(void)
 {
 	if (!this_cpu_has(X86_FEATURE_XSAVE)) {
-		report_skip("XSAVE not detected");
+		report_skip("%s : XSAVE not detected", __func__);
 		return;
 	}
 
@@ -8419,12 +8427,12 @@ static void vmx_cr4_osxsave_test(void)
 		vmcs_write(HOST_CR4, cr4);
 	}
 
-	TEST_ASSERT(cpuid_osxsave());
+	TEST_ASSERT(this_cpu_has(X86_FEATURE_OSXSAVE));
 
 	test_set_guest(vmx_cr4_osxsave_test_guest);
 	enter_guest();
 
-	TEST_ASSERT(cpuid_osxsave());
+	TEST_ASSERT(this_cpu_has(X86_FEATURE_OSXSAVE));
 }
 
 static void vmx_nm_test_guest(void)
@@ -8592,12 +8600,12 @@ static void vmx_nmi_window_test(void)
 	void *db_fault_addr = get_idt_addr(&boot_idt[DB_VECTOR]);
 
 	if (!(ctrl_pin_rev.clr & PIN_VIRT_NMI)) {
-		report_skip("CPU does not support the \"Virtual NMIs\" VM-execution control.");
+		report_skip("%s : \"Virtual NMIs\" exec control not supported", __func__);
 		return;
 	}
 
 	if (!(ctrl_cpu_rev[0].clr & CPU_NMI_WINDOW)) {
-		report_skip("CPU does not support the \"NMI-window exiting\" VM-execution control.");
+		report_skip("%s : \"NMI-window exiting\" exec control not supported", __func__);
 		return;
 	}
 
@@ -8728,7 +8736,7 @@ static void vmx_intr_window_test(void)
 	void *db_fault_addr = get_idt_addr(&boot_idt[DB_VECTOR]);
 
 	if (!(ctrl_cpu_rev[0].clr & CPU_INTR_WINDOW)) {
-		report_skip("CPU does not support the \"interrupt-window exiting\" VM-execution control.");
+		report_skip("%s : \"Interrupt-window exiting\" exec control not supported", __func__);
 		return;
 	}
 
@@ -8880,7 +8888,7 @@ static void vmx_store_tsc_test(void)
 	u64 low, high;
 
 	if (!(ctrl_cpu_rev[0].clr & CPU_USE_TSC_OFFSET)) {
-		report_skip("'Use TSC offsetting' not supported");
+		report_skip("%s : \"Use TSC offsetting\" exec control not supported", __func__);
 		return;
 	}
 
@@ -8967,7 +8975,7 @@ static void vmx_preemption_timer_zero_test(void)
 	u32 reason;
 
 	if (!(ctrl_pin_rev.clr & PIN_PREEMPT)) {
-		report_skip("'Activate VMX-preemption timer' not supported");
+		report_skip("%s : \"Activate VMX-preemption timer\" pin control not supported", __func__);
 		return;
 	}
 
@@ -9082,7 +9090,7 @@ static void vmx_preemption_timer_tf_test(void)
 	int i;
 
 	if (!(ctrl_pin_rev.clr & PIN_PREEMPT)) {
-		report_skip("'Activate VMX-preemption timer' not supported");
+		report_skip("%s : \"Activate VMX-preemption timer\" pin control not supported", __func__);
 		return;
 	}
 
@@ -9173,7 +9181,7 @@ static void vmx_preemption_timer_expiry_test(void)
 	u32 reason;
 
 	if (!(ctrl_pin_rev.clr & PIN_PREEMPT)) {
-		report_skip("'Activate VMX-preemption timer' not supported");
+		report_skip("%s : \"Activate VMX-preemption timer\" pin control not supported", __func__);
 		return;
 	}
 
@@ -9194,16 +9202,16 @@ static void vmx_preemption_timer_expiry_test(void)
 	reason = (u32)vmcs_read(EXI_REASON);
 	TEST_ASSERT(reason == VMX_PREEMPT);
 
-	vmcs_clear_bits(PIN_CONTROLS, PIN_PREEMPT);
-	vmx_set_test_stage(1);
-	enter_guest();
-
 	tsc_deadline = ((vmx_preemption_timer_expiry_start >> misc.pt_bit) <<
 			misc.pt_bit) + (preemption_timer_value << misc.pt_bit);
 
 	report(vmx_preemption_timer_expiry_finish < tsc_deadline,
 	       "Last stored guest TSC (%lu) < TSC deadline (%lu)",
 	       vmx_preemption_timer_expiry_finish, tsc_deadline);
+
+	vmcs_clear_bits(PIN_CONTROLS, PIN_PREEMPT);
+	vmx_set_test_stage(1);
+	enter_guest();
 }
 
 static void vmx_db_test_guest(void)
@@ -9481,7 +9489,7 @@ static void vmx_eoi_bitmap_ioapic_scan_test_guest(void)
 static void vmx_eoi_bitmap_ioapic_scan_test(void)
 {
 	if (!cpu_has_apicv() || (cpu_count() < 2)) {
-		report_skip(__func__);
+		report_skip("%s : Not all required APICv bits supported or CPU count < 2", __func__);
 		return;
 	}
 
@@ -9526,7 +9534,7 @@ static void vmx_hlt_with_rvi_guest(void)
 static void vmx_hlt_with_rvi_test(void)
 {
 	if (!cpu_has_apicv()) {
-		report_skip(__func__);
+		report_skip("%s : Not all required APICv bits supported", __func__);
 		return;
 	}
 
@@ -9584,13 +9592,13 @@ static void vmx_apic_passthrough_guest(void)
 static void vmx_apic_passthrough(bool set_irq_line_from_thread)
 {
 	if (set_irq_line_from_thread && (cpu_count() < 2)) {
-		report_skip(__func__);
+		report_skip("%s : CPU count < 2", __func__);
 		return;
 	}
 
 	/* Test device is required for generating IRQs */
 	if (!test_device_enabled()) {
-		report_skip(__func__);
+		report_skip("%s : No test device enabled", __func__);
 		return;
 	}
 	u64 cpu_ctrl_0 = CPU_SECONDARY;
@@ -9695,7 +9703,7 @@ static void init_signal_test_thread(void *data)
 	u64 *ap_vmxon_region = alloc_page();
 	enable_vmx();
 	init_vmx(ap_vmxon_region);
-	_vmx_on(ap_vmxon_region);
+	TEST_ASSERT(!__vmxon_safe(ap_vmxon_region));
 
 	/* Signal CPU have entered VMX operation */
 	vmx_set_test_stage(1);
@@ -9743,7 +9751,7 @@ static void init_signal_test_thread(void *data)
 	while (vmx_get_test_stage() != 8)
 		;
 	/* Enter VMX operation (i.e. exec VMXON) */
-	_vmx_on(ap_vmxon_region);
+	TEST_ASSERT(!__vmxon_safe(ap_vmxon_region));
 	/* Signal to BSP we are in VMX operation */
 	vmx_set_test_stage(9);
 
@@ -9771,7 +9779,7 @@ static void vmx_init_signal_test(void)
 	struct vmcs *test_vmcs;
 
 	if (cpu_count() < 2) {
-		report_skip(__func__);
+		report_skip("%s : CPU count < 2", __func__);
 		return;
 	}
 
@@ -9920,7 +9928,7 @@ static void sipi_test_ap_thread(void *data)
 	ap_vmxon_region = alloc_page();
 	enable_vmx();
 	init_vmx(ap_vmxon_region);
-	_vmx_on(ap_vmxon_region);
+	TEST_ASSERT(!__vmxon_safe(ap_vmxon_region));
 	init_vmcs(&ap_vmcs);
 	make_vmcs_current(ap_vmcs);
 
@@ -9970,12 +9978,12 @@ static void sipi_test_ap_thread(void *data)
 static void vmx_sipi_signal_test(void)
 {
 	if (!(rdmsr(MSR_IA32_VMX_MISC) & MSR_IA32_VMX_MISC_ACTIVITY_WAIT_SIPI)) {
-		printf("\tACTIVITY_WAIT_SIPI state is not supported.\n");
+		report_skip("%s : \"ACTIVITY_WAIT_SIPI state\" not supported", __func__);
 		return;
 	}
 
 	if (cpu_count() < 2) {
-		report_skip(__func__);
+		report_skip("%s : CPU count < 2", __func__);
 		return;
 	}
 
@@ -10271,18 +10279,18 @@ static void vmx_vmcs_shadow_test(void)
 	struct vmcs *shadow;
 
 	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY)) {
-		printf("\t'Activate secondary controls' not supported.\n");
+		report_skip("%s : \"Activate secondary controls\" not supported", __func__);
 		return;
 	}
 
 	if (!(ctrl_cpu_rev[1].clr & CPU_SHADOW_VMCS)) {
-		printf("\t'VMCS shadowing' not supported.\n");
+		report_skip("%s : \"VMCS shadowing\" not supported", __func__);
 		return;
 	}
 
 	if (!(rdmsr(MSR_IA32_VMX_MISC) &
 	      MSR_IA32_VMX_MISC_VMWRITE_SHADOW_RO_FIELDS)) {
-		printf("\tVMWRITE can't modify VM-exit information fields.\n");
+		report_skip("%s : VMWRITE can't modify VM-exit information fields.", __func__);
 		return;
 	}
 
@@ -10509,7 +10517,7 @@ static void atomic_switch_msrs_test(int count)
 	 * available with the "TSC flag" and used to populate the MSR lists.
 	 */
 	if (!(cpuid(1).d & (1 << 4))) {
-		report_skip(__func__);
+		report_skip("%s : \"Time Stamp Counter\" not supported", __func__);
 		return;
 	}
 

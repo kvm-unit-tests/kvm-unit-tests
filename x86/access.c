@@ -280,7 +280,7 @@ static unsigned set_cr4_smep(ac_test_t *at, int smep)
 
 	if (smep)
 		walk_ptes(at, code_start, code_end, clear_user_mask);
-	r = write_cr4_checking(cr4);
+	r = write_cr4_safe(cr4);
 	if (r || !smep)
 		walk_ptes(at, code_start, code_end, set_user_mask);
 	if (!r)
@@ -1188,7 +1188,7 @@ int ac_test_run(int pt_levels)
 		/* Now PKRU = 0xFFFFFFFF.  */
 	} else {
 		tests++;
-		if (write_cr4_checking(shadow_cr4 | X86_CR4_PKE) == GP_VECTOR) {
+		if (write_cr4_safe(shadow_cr4 | X86_CR4_PKE) == GP_VECTOR) {
 			successes++;
 			invalid_mask |= AC_PKU_AD_MASK;
 			invalid_mask |= AC_PKU_WD_MASK;
@@ -1216,12 +1216,12 @@ int ac_test_run(int pt_levels)
 	/* Toggling LA57 in 64-bit mode (guaranteed for this test) is illegal. */
 	if (this_cpu_has(X86_FEATURE_LA57)) {
 		tests++;
-		if (write_cr4_checking(shadow_cr4 ^ X86_CR4_LA57) == GP_VECTOR)
+		if (write_cr4_safe(shadow_cr4 ^ X86_CR4_LA57) == GP_VECTOR)
 			successes++;
 
 		/* Force a VM-Exit on KVM, which doesn't intercept LA57 itself. */
 		tests++;
-		if (write_cr4_checking(shadow_cr4 ^ (X86_CR4_LA57 | X86_CR4_PSE)) == GP_VECTOR)
+		if (write_cr4_safe(shadow_cr4 ^ (X86_CR4_LA57 | X86_CR4_PSE)) == GP_VECTOR)
 			successes++;
 	}
 

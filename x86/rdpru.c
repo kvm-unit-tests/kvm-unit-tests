@@ -4,7 +4,7 @@
 #include "processor.h"
 #include "desc.h"
 
-static int rdpru_checking(void)
+static int rdpru_safe(void)
 {
 	asm volatile (ASM_TRY("1f")
 		      ".byte 0x0f,0x01,0xfd \n\t" /* rdpru */
@@ -17,7 +17,7 @@ int main(int ac, char **av)
 	if (this_cpu_has(X86_FEATURE_RDPRU))
 		report_skip("RDPRU raises #UD");
 	else
-		report(rdpru_checking() == UD_VECTOR, "RDPRU raises #UD");
+		report(rdpru_safe() == UD_VECTOR, "RDPRU raises #UD");
 
 	return report_summary();
 }

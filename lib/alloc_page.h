@@ -13,6 +13,9 @@
 
 #define AREA_ANY_NUMBER	0xff
 
+/* The realmode trampoline gets relocated here during bootup. */
+#define RM_TRAMPOLINE_ADDR 0
+
 #define AREA_ANY	0x00000
 #define AREA_MASK	0x0ffff
 

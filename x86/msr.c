@@ -51,52 +51,61 @@ struct msr_info msr_info[] =
 //	MSR_VM_HSAVE_PA only AMD host
 };
 
-static void test_msr_rw(struct msr_info *msr, unsigned long long val)
+static void __test_msr_rw(u32 msr, const char *name, unsigned long long val,
+			  unsigned long long keep_mask)
 {
 	unsigned long long r, orig;
 
-	orig = rdmsr(msr->index);
+	orig = rdmsr(msr);
 	/*
 	 * Special case EFER since clearing LME/LMA is not allowed in 64-bit mode,
 	 * and conversely setting those bits on 32-bit CPUs is not allowed.  Treat
 	 * the desired value as extra bits to set.
 	 */
-	if (msr->index == MSR_EFER)
+	if (msr == MSR_EFER)
 		val |= orig;
 	else
-		val = (val & ~msr->keep) | (orig & msr->keep);
-	wrmsr(msr->index, val);
-	r = rdmsr(msr->index);
-	wrmsr(msr->index, orig);
+		val = (val & ~keep_mask) | (orig & keep_mask);
+
+	wrmsr(msr, val);
+	r = rdmsr(msr);
+	wrmsr(msr, orig);
+
 	if (r != val) {
 		printf("testing %s: output = %#" PRIx32 ":%#" PRIx32
-		       " expected = %#" PRIx32 ":%#" PRIx32 "\n", msr->name,
+		       " expected = %#" PRIx32 ":%#" PRIx32 "\n", name,
 		       (u32)(r >> 32), (u32)r, (u32)(val >> 32), (u32)val);
 	}
-	report(val == r, "%s", msr->name);
+	report(val == r, "%s", name);
 }
 
-static void test_wrmsr_fault(struct msr_info *msr, unsigned long long val)
+static void test_msr_rw(u32 msr, const char *name, unsigned long long val)
 {
-	unsigned char vector = wrmsr_checking(msr->index, val);
+	__test_msr_rw(msr, name, val, 0);
+}
+
+static void test_wrmsr_fault(u32 msr, const char *name, unsigned long long val)
+{
+	unsigned char vector = wrmsr_safe(msr, val);
 
 	report(vector == GP_VECTOR,
 	       "Expected #GP on WRSMR(%s, 0x%llx), got vector %d",
-	       msr->name, val, vector);
+	       name, val, vector);
 }
 
-static void test_rdmsr_fault(struct msr_info *msr)
+static void test_rdmsr_fault(u32 msr, const char *name)
 {
-	unsigned char vector = rdmsr_checking(msr->index);
+	uint64_t ignored;
+	unsigned char vector = rdmsr_safe(msr, &ignored);
 
 	report(vector == GP_VECTOR,
-	       "Expected #GP on RDSMR(%s), got vector %d", msr->name, vector);
+	       "Expected #GP on RDSMR(%s), got vector %d", name, vector);
 }
 
 static void test_msr(struct msr_info *msr, bool is_64bit_host)
 {
 	if (is_64bit_host || !msr->is_64bit_only) {
-		test_msr_rw(msr, msr->value);
+		__test_msr_rw(msr->index, msr->name, msr->value, msr->keep);
 
 		/*
 		 * The 64-bit only MSRs that take an address always perform
@@ -104,20 +113,21 @@ static void test_msr(struct msr_info *msr, bool is_64bit_host)
 		 */
 		if (msr->is_64bit_only &&
 		    msr->value == addr_64)
-			test_wrmsr_fault(msr, NONCANONICAL);
+			test_wrmsr_fault(msr->index, msr->name, NONCANONICAL);
 	} else {
-		test_wrmsr_fault(msr, msr->value);
-		test_rdmsr_fault(msr);
+		test_wrmsr_fault(msr->index, msr->name, msr->value);
+		test_rdmsr_fault(msr->index, msr->name);
 	}
 }
 
 int main(int ac, char **av)
 {
 	bool is_64bit_host = this_cpu_has(X86_FEATURE_LM);
+	unsigned int nr_mce_banks;
+	char msr_name[32];
 	int i;
 
 	if (ac == 3) {
-		char msr_name[16];
 		int index = strtoul(av[1], NULL, 0x10);
 		snprintf(msr_name, sizeof(msr_name), "MSR:0x%x", index);
 
@@ -128,8 +138,69 @@ int main(int ac, char **av)
 		};
 		test_msr(&msr, is_64bit_host);
 	} else {
-		for (i = 0 ; i < ARRAY_SIZE(msr_info); i++) {
+		for (i = 0 ; i < ARRAY_SIZE(msr_info); i++)
 			test_msr(&msr_info[i], is_64bit_host);
+
+		nr_mce_banks = rdmsr(MSR_IA32_MCG_CAP) & 0xff;
+		for (i = 0; i < nr_mce_banks; i++) {
+			snprintf(msr_name, sizeof(msr_name), "MSR_IA32_MC%u_CTL", i);
+			test_msr_rw(MSR_IA32_MCx_CTL(i), msr_name, 0);
+			test_msr_rw(MSR_IA32_MCx_CTL(i), msr_name, -1ull);
+			test_wrmsr_fault(MSR_IA32_MCx_CTL(i), msr_name, NONCANONICAL);
+
+			snprintf(msr_name, sizeof(msr_name), "MSR_IA32_MC%u_STATUS", i);
+			test_msr_rw(MSR_IA32_MCx_STATUS(i), msr_name, 0);
+			/*
+			 * STATUS MSRs can only be written with '0' (to clear
+			 * the MSR), except on AMD-based systems with bit 18
+			 * set in MSR_K7_HWCR.  That bit is not architectural
+			 * and should not be set by default by KVM or by the
+			 * VMM (though this might fail if run on bare metal).
+			 */
+			test_wrmsr_fault(MSR_IA32_MCx_STATUS(i), msr_name, 1);
+
+			snprintf(msr_name, sizeof(msr_name), "MSR_IA32_MC%u_ADDR", i);
+			test_msr_rw(MSR_IA32_MCx_ADDR(i), msr_name, 0);
+			test_msr_rw(MSR_IA32_MCx_ADDR(i), msr_name, -1ull);
+			/*
+			 * The ADDR is a physical address, and all bits are
+			 * writable on 64-bit hosts.    Don't test the negative
+			 * case, as KVM doesn't enforce checks on bits 63:36
+			 * for 32-bit hosts.  The behavior depends on the
+			 * underlying hardware, e.g. a 32-bit guest on a 64-bit
+			 * host may observe 64-bit values in the ADDR MSRs.
+			 */
+			if (is_64bit_host)
+				test_msr_rw(MSR_IA32_MCx_ADDR(i), msr_name, NONCANONICAL);
+
+			snprintf(msr_name, sizeof(msr_name), "MSR_IA32_MC%u_MISC", i);
+			test_msr_rw(MSR_IA32_MCx_MISC(i), msr_name, 0);
+			test_msr_rw(MSR_IA32_MCx_MISC(i), msr_name, -1ull);
+			test_msr_rw(MSR_IA32_MCx_MISC(i), msr_name, NONCANONICAL);
+		}
+
+		/*
+		 * The theoretical maximum number of MCE banks is 32 (on Intel
+		 * CPUs, without jumping to a new base address), as the last
+		 * unclaimed MSR is 0x479; 0x480 begins the VMX MSRs.  Verify
+		 * accesses to theoretically legal, unsupported MSRs fault.
+		 */
+		for (i = nr_mce_banks; i < 32; i++) {
+			snprintf(msr_name, sizeof(msr_name), "MSR_IA32_MC%u_CTL", i);
+			test_rdmsr_fault(MSR_IA32_MCx_CTL(i), msr_name);
+			test_wrmsr_fault(MSR_IA32_MCx_CTL(i), msr_name, 0);
+
+			snprintf(msr_name, sizeof(msr_name), "MSR_IA32_MC%u_STATUS", i);
+			test_rdmsr_fault(MSR_IA32_MCx_STATUS(i), msr_name);
+			test_wrmsr_fault(MSR_IA32_MCx_STATUS(i), msr_name, 0);
+
+			snprintf(msr_name, sizeof(msr_name), "MSR_IA32_MC%u_ADDR", i);
+			test_rdmsr_fault(MSR_IA32_MCx_ADDR(i), msr_name);
+			test_wrmsr_fault(MSR_IA32_MCx_ADDR(i), msr_name, 0);
+
+			snprintf(msr_name, sizeof(msr_name), "MSR_IA32_MC%u_MISC", i);
+			test_rdmsr_fault(MSR_IA32_MCx_MISC(i), msr_name);
+			test_wrmsr_fault(MSR_IA32_MCx_MISC(i), msr_name, 0);
 		}
 	}
 

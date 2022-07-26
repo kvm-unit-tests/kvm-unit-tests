@@ -8,46 +8,35 @@
 #include "desc.h"
 #include "msr.h"
 #include "vm.h"
+#include "fwcfg.h"
 #include "smp.h"
 #include "types.h"
 #include "alloc_page.h"
 #include "isr.h"
 #include "apic.h"
-#include "vmalloc.h"
 
 /* for the nested page table*/
-u64 *pte[2048];
-u64 *pde[4];
-u64 *pdpe;
 u64 *pml4e;
 
 struct vmcb *vmcb;
 
 u64 *npt_get_pte(u64 address)
 {
-	int i1, i2;
-
-	address >>= 12;
-	i1 = (address >> 9) & 0x7ff;
-	i2 = address & 0x1ff;
-
-	return &pte[i1][i2];
+	return get_pte(npt_get_pml4e(), (void*)address);
 }
 
 u64 *npt_get_pde(u64 address)
 {
-	int i1, i2;
-
-	address >>= 21;
-	i1 = (address >> 9) & 0x3;
-	i2 = address & 0x1ff;
-
-	return &pde[i1][i2];
+	struct pte_search search;
+	search = find_pte_level(npt_get_pml4e(), (void*)address, 2);
+	return search.pte;
 }
 
-u64 *npt_get_pdpe(void)
+u64 *npt_get_pdpe(u64 address)
 {
-	return pdpe;
+	struct pte_search search;
+	search = find_pte_level(npt_get_pml4e(), (void*)address, 3);
+	return search.pte;
 }
 
 u64 *npt_get_pml4e(void)
@@ -62,7 +51,7 @@ bool smp_supported(void)
 
 bool default_supported(void)
 {
-    return true;
+	return true;
 }
 
 bool vgif_supported(void)
@@ -72,22 +61,22 @@ bool vgif_supported(void)
 
 bool lbrv_supported(void)
 {
-    return this_cpu_has(X86_FEATURE_LBRV);
+	return this_cpu_has(X86_FEATURE_LBRV);
 }
 
 bool tsc_scale_supported(void)
 {
-    return this_cpu_has(X86_FEATURE_TSCRATEMSR);
+	return this_cpu_has(X86_FEATURE_TSCRATEMSR);
 }
 
 bool pause_filter_supported(void)
 {
-    return this_cpu_has(X86_FEATURE_PAUSEFILTER);
+	return this_cpu_has(X86_FEATURE_PAUSEFILTER);
 }
 
 bool pause_threshold_supported(void)
 {
-    return this_cpu_has(X86_FEATURE_PFTHRESHOLD);
+	return this_cpu_has(X86_FEATURE_PFTHRESHOLD);
 }
 
 
@@ -131,7 +120,7 @@ void inc_test_stage(struct svm_test *test)
 }
 
 static void vmcb_set_seg(struct vmcb_seg *seg, u16 selector,
-                         u64 base, u32 limit, u32 attr)
+			 u64 base, u32 limit, u32 attr)
 {
 	seg->selector = selector;
 	seg->attrib = attr;
@@ -169,9 +158,9 @@ void vmcb_ident(struct vmcb *vmcb)
 	struct vmcb_save_area *save = &vmcb->save;
 	struct vmcb_control_area *ctrl = &vmcb->control;
 	u32 data_seg_attr = 3 | SVM_SELECTOR_S_MASK | SVM_SELECTOR_P_MASK
-	    | SVM_SELECTOR_DB_MASK | SVM_SELECTOR_G_MASK;
+		| SVM_SELECTOR_DB_MASK | SVM_SELECTOR_G_MASK;
 	u32 code_seg_attr = 9 | SVM_SELECTOR_S_MASK | SVM_SELECTOR_P_MASK
-	    | SVM_SELECTOR_L_MASK | SVM_SELECTOR_G_MASK;
+		| SVM_SELECTOR_L_MASK | SVM_SELECTOR_G_MASK;
 	struct descriptor_table_ptr desc_table_ptr;
 
 	memset(vmcb, 0, sizeof(*vmcb));
@@ -196,8 +185,8 @@ void vmcb_ident(struct vmcb *vmcb)
 	save->g_pat = rdmsr(MSR_IA32_CR_PAT);
 	save->dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	ctrl->intercept = (1ULL << INTERCEPT_VMRUN) |
-			  (1ULL << INTERCEPT_VMMCALL) |
-			  (1ULL << INTERCEPT_SHUTDOWN);
+		(1ULL << INTERCEPT_VMMCALL) |
+		(1ULL << INTERCEPT_SHUTDOWN);
 	ctrl->iopm_base_pa = virt_to_phys(io_bitmap);
 	ctrl->msrpm_base_pa = virt_to_phys(msr_bitmap);
 
@@ -230,12 +219,12 @@ int __svm_vmrun(u64 rip)
 	regs.rdi = (ulong)v2_test;
 
 	asm volatile (
-		ASM_PRE_VMRUN_CMD
-                "vmrun %%rax\n\t"               \
-		ASM_POST_VMRUN_CMD
-		:
-		: "a" (virt_to_phys(vmcb))
-		: "memory", "r15");
+		      ASM_PRE_VMRUN_CMD
+		      "vmrun %%rax\n\t"               \
+		      ASM_POST_VMRUN_CMD
+		      :
+		      : "a" (virt_to_phys(vmcb))
+		      : "memory", "r15");
 
 	return (vmcb->control.exit_code);
 }
@@ -263,33 +252,33 @@ static noinline void test_run(struct svm_test *test)
 		struct svm_test *the_test = test;
 		u64 the_vmcb = vmcb_phys;
 		asm volatile (
-			"clgi;\n\t" // semi-colon needed for LLVM compatibility
-			"sti \n\t"
-			"call *%c[PREPARE_GIF_CLEAR](%[test]) \n \t"
-			"mov %[vmcb_phys], %%rax \n\t"
-			ASM_PRE_VMRUN_CMD
-			".global vmrun_rip\n\t"		\
-			"vmrun_rip: vmrun %%rax\n\t"    \
-			ASM_POST_VMRUN_CMD
-			"cli \n\t"
-			"stgi"
-			: // inputs clobbered by the guest:
-			"=D" (the_test),            // first argument register
-			"=b" (the_vmcb)             // callee save register!
-			: [test] "0" (the_test),
-			[vmcb_phys] "1"(the_vmcb),
-			[PREPARE_GIF_CLEAR] "i" (offsetof(struct svm_test, prepare_gif_clear))
-			: "rax", "rcx", "rdx", "rsi",
-			"r8", "r9", "r10", "r11" , "r12", "r13", "r14", "r15",
-			"memory");
+			      "clgi;\n\t" // semi-colon needed for LLVM compatibility
+			      "sti \n\t"
+			      "call *%c[PREPARE_GIF_CLEAR](%[test]) \n \t"
+			      "mov %[vmcb_phys], %%rax \n\t"
+			      ASM_PRE_VMRUN_CMD
+			      ".global vmrun_rip\n\t"		\
+			      "vmrun_rip: vmrun %%rax\n\t"    \
+			      ASM_POST_VMRUN_CMD
+			      "cli \n\t"
+			      "stgi"
+			      : // inputs clobbered by the guest:
+				"=D" (the_test),            // first argument register
+				"=b" (the_vmcb)             // callee save register!
+			      : [test] "0" (the_test),
+				[vmcb_phys] "1"(the_vmcb),
+				[PREPARE_GIF_CLEAR] "i" (offsetof(struct svm_test, prepare_gif_clear))
+			      : "rax", "rcx", "rdx", "rsi",
+				"r8", "r9", "r10", "r11" , "r12", "r13", "r14", "r15",
+				"memory");
 		++test->exits;
 	} while (!test->finished(test));
 	irq_enable();
 
 	report(test->succeeded(test), "%s", test->name);
 
-        if (test->on_vcpu)
-	    test->on_vcpu_done = true;
+	if (test->on_vcpu)
+		test->on_vcpu_done = true;
 }
 
 static void set_additional_vcpu_msr(void *msr_efer)
@@ -300,11 +289,24 @@ static void set_additional_vcpu_msr(void *msr_efer)
 	wrmsr(MSR_EFER, (ulong)msr_efer | EFER_SVME);
 }
 
+static void setup_npt(void)
+{
+	u64 size = fwcfg_get_u64(FW_CFG_RAM_SIZE);
+
+	/* Ensure all <4gb is mapped, e.g. if there's no RAM above 4gb. */
+	if (size < BIT_ULL(32))
+		size = BIT_ULL(32);
+
+	pml4e = alloc_page();
+
+	/* NPT accesses are treated as "user" accesses. */
+	__setup_mmu_range(pml4e, 0, size, X86_MMU_MAP_USER);
+}
+
 static void setup_svm(void)
 {
 	void *hsave = alloc_page();
-	u64 *page, address;
-	int i,j;
+	int i;
 
 	wrmsr(MSR_VM_HSAVE_PA, virt_to_phys(hsave));
 	wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_SVME);
@@ -322,41 +324,12 @@ static void setup_svm(void)
 	printf("NPT detected - running all tests with NPT enabled\n");
 
 	/*
-	* Nested paging supported - Build a nested page table
-	* Build the page-table bottom-up and map everything with 4k
-	* pages to get enough granularity for the NPT unit-tests.
-	*/
+	 * Nested paging supported - Build a nested page table
+	 * Build the page-table bottom-up and map everything with 4k
+	 * pages to get enough granularity for the NPT unit-tests.
+	 */
 
-	address = 0;
-
-	/* PTE level */
-	for (i = 0; i < 2048; ++i) {
-		page = alloc_page();
-
-		for (j = 0; j < 512; ++j, address += 4096)
-	    		page[j] = address | 0x067ULL;
-
-		pte[i] = page;
-	}
-
-	/* PDE level */
-	for (i = 0; i < 4; ++i) {
-		page = alloc_page();
-
-	for (j = 0; j < 512; ++j)
-	    page[j] = (u64)pte[(i * 512) + j] | 0x027ULL;
-
-		pde[i] = page;
-	}
-
-	/* PDPe level */
-	pdpe   = alloc_page();
-	for (i = 0; i < 4; ++i)
-		pdpe[i] = ((u64)(pde[i])) | 0x27;
-
-	/* PML4e level */
-	pml4e    = alloc_page();
-	pml4e[0] = ((u64)pdpe) | 0x27;
+	setup_npt();
 }
 
 int matched;
@@ -364,49 +337,45 @@ int matched;
 static bool
 test_wanted(const char *name, char *filters[], int filter_count)
 {
-        int i;
-        bool positive = false;
-        bool match = false;
-        char clean_name[strlen(name) + 1];
-        char *c;
-        const char *n;
+	int i;
+	bool positive = false;
+	bool match = false;
+	char clean_name[strlen(name) + 1];
+	char *c;
+	const char *n;
 
-        /* Replace spaces with underscores. */
-        n = name;
-        c = &clean_name[0];
-        do *c++ = (*n == ' ') ? '_' : *n;
-        while (*n++);
+	/* Replace spaces with underscores. */
+	n = name;
+	c = &clean_name[0];
+	do *c++ = (*n == ' ') ? '_' : *n;
+	while (*n++);
 
-        for (i = 0; i < filter_count; i++) {
-                const char *filter = filters[i];
+	for (i = 0; i < filter_count; i++) {
+		const char *filter = filters[i];
 
-                if (filter[0] == '-') {
-                        if (simple_glob(clean_name, filter + 1))
-                                return false;
-                } else {
-                        positive = true;
-                        match |= simple_glob(clean_name, filter);
-                }
-        }
+		if (filter[0] == '-') {
+			if (simple_glob(clean_name, filter + 1))
+				return false;
+		} else {
+			positive = true;
+			match |= simple_glob(clean_name, filter);
+		}
+	}
 
-        if (!positive || match) {
-                matched++;
-                return true;
-        } else {
-                return false;
-        }
+	if (!positive || match) {
+		matched++;
+		return true;
+	} else {
+		return false;
+	}
 }
 
-int main(int ac, char **av)
+int run_svm_tests(int ac, char **av, struct svm_test *svm_tests)
 {
-	/* Omit PT_USER_MASK to allow tested host.CR4.SMEP=1. */
-	pteval_t opt_mask = 0;
 	int i = 0;
 
 	ac--;
 	av++;
-
-	__setup_vm(&opt_mask);
 
 	if (!this_cpu_has(X86_FEATURE_SVM)) {
 		printf("SVM not available\n");

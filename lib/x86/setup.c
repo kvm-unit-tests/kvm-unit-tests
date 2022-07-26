@@ -14,6 +14,9 @@
 #include "apic.h"
 #include "apic-defs.h"
 #include "asm/setup.h"
+#include "atomic.h"
+#include "processor.h"
+#include "smp.h"
 
 extern char edata;
 
@@ -167,11 +170,43 @@ void setup_multiboot(struct mbi_bootinfo *bi)
 	initrd_size = mods->end - mods->start;
 }
 
+static void setup_gdt_tss(void)
+{
+	size_t tss_offset;
+
+	/* 64-bit setup_tss does not use the stacktop argument.  */
+	tss_offset = setup_tss(NULL);
+	load_gdt_tss(tss_offset);
+}
+
 #ifdef CONFIG_EFI
 
-/* From x86/efi/efistart64.S */
-extern void load_idt(void);
-extern void load_gdt_tss(size_t tss_offset);
+static struct percpu_data __percpu_data[MAX_TEST_CPUS];
+
+static void setup_segments64(void)
+{
+	/* Update data segments */
+	write_ds(KERNEL_DS);
+	write_es(KERNEL_DS);
+	write_fs(KERNEL_DS);
+	write_gs(KERNEL_DS);
+	write_ss(KERNEL_DS);
+
+	/* Setup percpu base */
+	wrmsr(MSR_GS_BASE, (u64)&__percpu_data[pre_boot_apic_id()]);
+
+	/*
+	 * Update the code segment by putting it on the stack before the return
+	 * address, then doing a far return: this will use the new code segment
+	 * along with the address.
+	 */
+	asm volatile("pushq %1\n\t"
+		     "lea 1f(%%rip), %0\n\t"
+		     "pushq %0\n\t"
+		     "lretq\n\t"
+		     "1:"
+		     :: "r" ((u64)KERNEL_DS), "i" (KERNEL_CS));
+}
 
 static efi_status_t setup_memory_allocator(efi_bootinfo_t *efi_bootinfo)
 {
@@ -269,15 +304,6 @@ static void setup_page_table(void)
 	write_cr3((ulong)&ptl4);
 }
 
-static void setup_gdt_tss(void)
-{
-	size_t tss_offset;
-
-	/* 64-bit setup_tss does not use the stacktop argument.  */
-	tss_offset = setup_tss(NULL);
-	load_gdt_tss(tss_offset);
-}
-
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 {
 	efi_status_t status;
@@ -317,15 +343,22 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 		return status;
 	}
 
-	reset_apic();
 	setup_gdt_tss();
+	/*
+	 * GS.base, which points at the per-vCPU data, must be configured prior
+	 * to resetting the APIC, which sets the per-vCPU APIC ops.
+	 */
+	setup_segments64();
+	reset_apic();
 	setup_idt();
 	load_idt();
 	mask_pic_interrupts();
+	setup_page_table();
 	enable_apic();
+	save_id();
+	bringup_aps();
 	enable_x2apic();
 	smp_init();
-	setup_page_table();
 
 	return EFI_SUCCESS;
 }
@@ -344,4 +377,20 @@ void setup_libcflat(void)
 		if ((str = getenv("BOOTLOADER")) && atol(str) != 0)
 			add_setup_arg("bootloader");
 	}
+}
+
+void save_id(void)
+{
+	set_bit(apic_id(), online_cpus);
+}
+
+void ap_start64(void)
+{
+	setup_gdt_tss();
+	reset_apic();
+	load_idt();
+	save_id();
+	enable_apic();
+	enable_x2apic();
+	ap_online();
 }

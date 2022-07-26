@@ -35,7 +35,7 @@ mb_flags = 0x0
 mb_cmdline = 16
 
 .macro setup_tr_and_percpu
-	lidt idt_descr
+	call load_idt
 	push %esp
 	call setup_tss
 	addl $4, %esp
@@ -101,12 +101,10 @@ ap_start32:
 	call save_id
 	call enable_apic
 	call enable_x2apic
-	sti
-	nop
-	lock incw cpu_online_count
+	call ap_online
 
-1:	hlt
-	jmp 1b
+	/* ap_online() should never return */
+	ud2
 
 start32:
 	setup_tr_and_percpu
@@ -114,7 +112,7 @@ start32:
 	call save_id
 	call mask_pic_interrupts
 	call enable_apic
-	call ap_init
+	call bringup_aps
 	call enable_x2apic
 	call smp_init
         push $__environ
@@ -124,38 +122,4 @@ start32:
 	push %eax
 	call exit
 
-ap_init:
-	cld
-	sgdtl ap_gdt_descr // must be close to sipi_entry for real mode access to work
-	lea sipi_entry, %esi
-	xor %edi, %edi
-	mov $(sipi_end - sipi_entry), %ecx
-	rep movsb
-	mov $APIC_DEFAULT_PHYS_BASE, %eax
-	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT), APIC_ICR(%eax)
-	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_STARTUP), APIC_ICR(%eax)
-	call fwcfg_get_nb_cpus
-1:	pause
-	cmpw %ax, cpu_online_count
-	jne 1b
-	ret
-
-online_cpus:
-	.fill (max_cpus + 7) / 8, 1, 0
-
-.align 2
-cpu_online_count:	.word 1
-
-.code16
-sipi_entry:
-	mov %cr0, %eax
-	or $1, %eax
-	mov %eax, %cr0
-	lgdtl ap_gdt_descr - sipi_entry
-	ljmpl $8, $ap_start32
-
-ap_gdt_descr:
-	.word 0
-	.long 0
-
-sipi_end:
+#include "trampolines.S"

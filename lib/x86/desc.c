@@ -57,20 +57,35 @@ __attribute__((regparm(1)))
 #endif
 void do_handle_exception(struct ex_regs *regs);
 
-void set_idt_entry(int vec, void *addr, int dpl)
+/*
+ * Fill an idt_entry_t or call gate entry, clearing e_sz bytes first.
+ *
+ * This can be used for both IDT entries and call gate entries, since the gate
+ * descriptor layout is identical to idt_entry_t, except for the absence of
+ * .offset2 and .reserved fields. To do so, pass in e_sz according to the gate
+ * descriptor size.
+ */
+void set_desc_entry(idt_entry_t *e, size_t e_sz, void *addr,
+		    u16 sel, u16 type, u16 dpl)
 {
-	idt_entry_t *e = &boot_idt[vec];
-	memset(e, 0, sizeof *e);
+	memset(e, 0, e_sz);
 	e->offset0 = (unsigned long)addr;
-	e->selector = read_cs();
+	e->selector = sel;
 	e->ist = 0;
-	e->type = 14;
+	e->type = type;
 	e->dpl = dpl;
 	e->p = 1;
 	e->offset1 = (unsigned long)addr >> 16;
 #ifdef __x86_64__
-	e->offset2 = (unsigned long)addr >> 32;
+	if (e_sz == sizeof(*e))
+		e->offset2 = (unsigned long)addr >> 32;
 #endif
+}
+
+void set_idt_entry(int vec, void *addr, int dpl)
+{
+	idt_entry_t *e = &boot_idt[vec];
+	set_desc_entry(e, sizeof *e, addr, read_cs(), 14, dpl);
 }
 
 void set_idt_dpl(int vec, u16 dpl)
@@ -294,17 +309,14 @@ void setup_idt(void)
 	handle_exception(13, check_exception_table);
 }
 
+void load_idt(void)
+{
+	lidt(&idt_descr);
+}
+
 unsigned exception_vector(void)
 {
 	return this_cpu_read_exception_vector();
-}
-
-int write_cr4_checking(unsigned long val)
-{
-	asm volatile(ASM_TRY("1f")
-		"mov %0,%%cr4\n\t"
-		"1:": : "r" (val));
-	return exception_vector();
 }
 
 unsigned exception_error_code(void)
@@ -339,6 +351,12 @@ void set_gdt_entry(int sel, unsigned long base,  u32 limit, u8 type, u8 flags)
 		entry16->base4 = base >> 32;
 	}
 #endif
+}
+
+void load_gdt_tss(size_t tss_offset)
+{
+	lgdt(&gdt_descr);
+	ltr(tss_offset);
 }
 
 #ifndef __x86_64__

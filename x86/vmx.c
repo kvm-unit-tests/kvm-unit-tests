@@ -292,7 +292,7 @@ static bool check_vmcs_field(struct vmcs_field *f, u8 cookie)
 		return true;
 	}
 
-	ret = vmcs_read_checking(f->encoding, &actual);
+	ret = vmcs_read_safe(f->encoding, &actual);
 	assert(!(ret & X86_EFLAGS_CF));
 	/* Skip VMCS fields that aren't recognized by the CPU */
 	if (ret & X86_EFLAGS_ZF)
@@ -352,7 +352,7 @@ static u32 find_vmcs_max_index(void)
 				      (type << VMCS_FIELD_TYPE_SHIFT) |
 				      (width << VMCS_FIELD_WIDTH_SHIFT);
 
-				ret = vmcs_read_checking(enc, &actual);
+				ret = vmcs_read_safe(enc, &actual);
 				assert(!(ret & X86_EFLAGS_CF));
 				if (!(ret & X86_EFLAGS_ZF))
 					return idx;
@@ -1401,8 +1401,8 @@ static void init_bsp_vmx(void)
 
 static void do_vmxon_off(void *data)
 {
-	vmx_on();
-	vmx_off();
+	TEST_ASSERT(!vmx_on());
+	TEST_ASSERT(!vmx_off());
 }
 
 static void do_write_feature_control(void *data)
@@ -1453,45 +1453,130 @@ static int test_vmx_feature_control(void)
 	return !vmx_enabled;
 }
 
+
+static void write_cr(int cr_number, unsigned long val)
+{
+	if (!cr_number)
+		write_cr0(val);
+	else
+		write_cr4(val);
+}
+
+static int write_cr_safe(int cr_number, unsigned long val)
+{
+	if (!cr_number)
+		return write_cr0_safe(val);
+	else
+		return write_cr4_safe(val);
+}
+
+static int test_vmxon_bad_cr(int cr_number, unsigned long orig_cr,
+			     unsigned long *flexible_bits)
+{
+	unsigned long required1, disallowed1, val, bit;
+	int ret, i;
+
+	if (!cr_number) {
+		required1 =  rdmsr(MSR_IA32_VMX_CR0_FIXED0);
+		disallowed1 = ~rdmsr(MSR_IA32_VMX_CR0_FIXED1);
+	} else {
+		required1 =  rdmsr(MSR_IA32_VMX_CR4_FIXED0);
+		disallowed1 = ~rdmsr(MSR_IA32_VMX_CR4_FIXED1);
+	}
+
+	*flexible_bits = 0;
+
+	for (i = 0; i < BITS_PER_LONG; i++) {
+		bit = BIT(i);
+
+		/*
+		 * Don't touch bits that will affect the current paging mode,
+		 * toggling them will send the test into the weeds before it
+		 * gets to VMXON.  nVMX tests are 64-bit only, so CR4.PAE is
+		 * guaranteed to be '1', i.e. PSE is fair game.  PKU/PKS are
+		 * also fair game as KVM doesn't configure any keys.  SMAP and
+		 * SMEP are off limits because the page tables have the USER
+		 * bit set at all levels.
+		 */
+		if ((cr_number == 0 && (bit == X86_CR0_PE || bit == X86_CR0_PG)) ||
+		    (cr_number == 4 && (bit == X86_CR4_PAE || bit == X86_CR4_SMAP || X86_CR4_SMEP)))
+			continue;
+
+		if (!(bit & required1) && !(bit & disallowed1)) {
+			if (!write_cr_safe(cr_number, orig_cr ^ bit)) {
+				*flexible_bits |= bit;
+				write_cr(cr_number, orig_cr);
+			}
+			continue;
+		}
+
+		assert(!(required1 & disallowed1));
+
+		if (required1 & bit)
+			val = orig_cr & ~bit;
+		else
+			val = orig_cr | bit;
+
+		if (write_cr_safe(cr_number, val))
+			continue;
+
+		ret = vmx_on();
+		report(ret == UD_VECTOR,
+		       "VMXON with CR%d bit %d %s should #UD, got '%d'",
+		       cr_number, i, (required1 & bit) ? "cleared" : "set", ret);
+
+		write_cr(cr_number, orig_cr);
+
+		if (ret <= 0)
+			return 1;
+	}
+	return 0;
+}
+
 static int test_vmxon(void)
 {
-	int ret, ret1;
-	u64 *vmxon_region;
+	unsigned long orig_cr0, flexible_cr0, orig_cr4, flexible_cr4;
 	int width = cpuid_maxphyaddr();
+	u64 *vmxon_region;
+	int ret;
+
+	orig_cr0 = read_cr0();
+	if (test_vmxon_bad_cr(0, orig_cr0, &flexible_cr0))
+		return 1;
+
+	orig_cr4 = read_cr4();
+	if (test_vmxon_bad_cr(4, orig_cr4, &flexible_cr4))
+		return 1;
 
 	/* Unaligned page access */
 	vmxon_region = (u64 *)((intptr_t)bsp_vmxon_region + 1);
-	ret1 = _vmx_on(vmxon_region);
-	report(ret1, "test vmxon with unaligned vmxon region");
-	if (!ret1) {
-		ret = 1;
-		goto out;
-	}
+	ret = __vmxon_safe(vmxon_region);
+	report(ret < 0, "test vmxon with unaligned vmxon region");
+	if (ret >= 0)
+		return 1;
 
 	/* gpa bits beyond physical address width are set*/
 	vmxon_region = (u64 *)((intptr_t)bsp_vmxon_region | ((u64)1 << (width+1)));
-	ret1 = _vmx_on(vmxon_region);
-	report(ret1, "test vmxon with bits set beyond physical address width");
-	if (!ret1) {
-		ret = 1;
-		goto out;
-	}
+	ret = __vmxon_safe(vmxon_region);
+	report(ret < 0, "test vmxon with bits set beyond physical address width");
+	if (ret >= 0)
+		return 1;
 
 	/* invalid revision identifier */
 	*bsp_vmxon_region = 0xba9da9;
-	ret1 = vmx_on();
-	report(ret1, "test vmxon with invalid revision identifier");
-	if (!ret1) {
-		ret = 1;
-		goto out;
-	}
+	ret = vmxon_safe();
+	report(ret < 0, "test vmxon with invalid revision identifier");
+	if (ret >= 0)
+		return 1;
 
-	/* and finally a valid region */
+	/* and finally a valid region, with valid-but-tweaked cr0/cr4 */
+	write_cr0(orig_cr0 ^ flexible_cr0);
+	write_cr4(orig_cr4 ^ flexible_cr4);
 	*bsp_vmxon_region = basic.revision;
-	ret = vmx_on();
+	ret = vmxon_safe();
 	report(!ret, "test vmxon with valid vmxon region");
-
-out:
+	write_cr0(orig_cr0);
+	write_cr4(orig_cr4);
 	return ret;
 }
 

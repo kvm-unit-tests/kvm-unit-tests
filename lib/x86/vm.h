@@ -4,6 +4,7 @@
 #include "processor.h"
 #include "asm/page.h"
 #include "asm/io.h"
+#include "asm/bitops.h"
 
 void setup_5level_page_table(void);
 
@@ -37,6 +38,15 @@ pteval_t *install_pte(pgd_t *cr3,
 pteval_t *install_large_page(pgd_t *cr3, phys_addr_t phys, void *virt);
 void install_pages(pgd_t *cr3, phys_addr_t phys, size_t len, void *virt);
 bool any_present_pages(pgd_t *cr3, void *virt, size_t len);
+void set_pte_opt_mask(void);
+void reset_pte_opt_mask(void);
+
+enum x86_mmu_flags {
+	X86_MMU_MAP_USER	= BIT(0),
+	X86_MMU_MAP_HUGE	= BIT(1),
+};
+void __setup_mmu_range(pgd_t *cr3, phys_addr_t start, size_t len,
+		       enum x86_mmu_flags mmu_flags);
 
 static inline void *current_page_table(void)
 {

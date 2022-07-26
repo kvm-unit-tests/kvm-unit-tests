@@ -1,9 +1,6 @@
 
 #include "apic-defs.h"
 
-.globl online_cpus
-.globl cpu_online_count
-
 ipi_vector = 0x20
 
 max_cpus = MAX_TEST_CPUS
@@ -45,8 +42,9 @@ mb_boot_info:	.quad 0
 
 pt_root:	.quad ptl4
 
-.section .init
+#include "trampolines.S"
 
+.section .init
 .code32
 
 mb_magic = 0x1BADB002
@@ -56,35 +54,10 @@ mb_flags = 0x0
 	.long mb_magic, mb_flags, 0 - (mb_magic + mb_flags)
 mb_cmdline = 16
 
-MSR_GS_BASE = 0xc0000101
-
-.macro setup_percpu_area
-	lea -4096(%esp), %eax
-	mov $0, %edx
-	mov $MSR_GS_BASE, %ecx
-	wrmsr
-.endm
-
 .macro load_tss
-	lidtq idt_descr
 	movq %rsp, %rdi
 	call setup_tss
 	ltr %ax
-.endm
-
-.macro setup_segments
-	mov $MSR_GS_BASE, %ecx
-	rdmsr
-
-	mov $0x10, %bx
-	mov %bx, %ds
-	mov %bx, %es
-	mov %bx, %fs
-	mov %bx, %gs
-	mov %bx, %ss
-
-	/* restore MSR_GS_BASE */
-	wrmsr
 .endm
 
 .globl start
@@ -119,33 +92,6 @@ switch_to_5level:
 	call enter_long_mode
 	jmpl $8, $lvl5
 
-prepare_64:
-	lgdt gdt_descr
-	setup_segments
-
-	xor %eax, %eax
-	mov %eax, %cr4
-
-enter_long_mode:
-	mov %cr4, %eax
-	bts $5, %eax  // pae
-	mov %eax, %cr4
-
-	mov pt_root, %eax
-	mov %eax, %cr3
-
-efer = 0xc0000080
-	mov $efer, %ecx
-	rdmsr
-	bts $8, %eax
-	wrmsr
-
-	mov %cr0, %eax
-	bts $0, %eax
-	bts $31, %eax
-	mov %eax, %cr0
-	ret
-
 smp_stacktop:	.long stacktop - 4096
 
 .align 16
@@ -156,53 +102,11 @@ gdt32:
 	.quad 0x00cf93000000ffff // flat 32-bit data segment
 gdt32_end:
 
-.code16
-sipi_entry:
-	mov %cr0, %eax
-	or $1, %eax
-	mov %eax, %cr0
-	lgdtl gdt32_descr - sipi_entry
-	ljmpl $8, $ap_start32
-
-gdt32_descr:
-	.word gdt32_end - gdt32 - 1
-	.long gdt32
-
-sipi_end:
-
-.code32
-ap_start32:
-	setup_segments
-	mov $-4096, %esp
-	lock xaddl %esp, smp_stacktop
-	setup_percpu_area
-	call prepare_64
-	ljmpl $8, $ap_start64
-
 .code64
-save_id:
-	movl $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
-	movl (%rax), %eax
-	shrl $24, %eax
-	lock btsl %eax, online_cpus
-	retq
-
-ap_start64:
-	call reset_apic
-	load_tss
-	call enable_apic
-	call save_id
-	call enable_x2apic
-	sti
-	nop
-	lock incw cpu_online_count
-
-1:	hlt
-	jmp 1b
-
 start64:
-	call reset_apic
+	call load_idt
 	load_tss
+	call reset_apic
 	call mask_pic_interrupts
 	call enable_apic
 	call save_id
@@ -214,7 +118,7 @@ start64:
 	mov %rax, __args(%rip)
 	call __setup_args
 
-	call ap_init
+	call bringup_aps
 	call enable_x2apic
 	call smp_init
 
@@ -237,24 +141,3 @@ setup_5level_page_table:
 	lretq
 lvl5:
 	retq
-
-online_cpus:
-	.fill (max_cpus + 7) / 8, 1, 0
-
-ap_init:
-	cld
-	lea sipi_entry, %rsi
-	xor %rdi, %rdi
-	mov $(sipi_end - sipi_entry), %rcx
-	rep movsb
-	mov $APIC_DEFAULT_PHYS_BASE, %eax
-	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT), APIC_ICR(%rax)
-	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_STARTUP), APIC_ICR(%rax)
-	call fwcfg_get_nb_cpus
-1:	pause
-	cmpw %ax, cpu_online_count
-	jne 1b
-	ret
-
-.align 2
-cpu_online_count:	.word 1

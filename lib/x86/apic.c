@@ -56,11 +56,6 @@ static uint32_t xapic_id(void)
 	return xapic_read(APIC_ID) >> 24;
 }
 
-uint32_t pre_boot_apic_id(void)
-{
-	return xapic_id();
-}
-
 static const struct apic_ops xapic_ops = {
 	.reg_read = xapic_read,
 	.reg_write = xapic_write,
@@ -165,6 +160,15 @@ int enable_x2apic(void)
 	}
 }
 
+uint32_t pre_boot_apic_id(void)
+{
+	u32 msr_lo, msr_hi;
+
+	asm ("rdmsr" : "=a"(msr_lo), "=d"(msr_hi) : "c"(MSR_IA32_APICBASE));
+
+	return (msr_lo & APIC_EXTD) ? x2apic_id() : xapic_id();
+}
+
 void disable_apic(void)
 {
 	wrmsr(MSR_IA32_APICBASE, rdmsr(MSR_IA32_APICBASE) & ~(APIC_EN | APIC_EXTD));
@@ -242,8 +246,6 @@ void mask_pic_interrupts(void)
 	outb(0xff, 0x21);
 	outb(0xff, 0xa1);
 }
-
-extern unsigned char online_cpus[(MAX_TEST_CPUS + 7) / 8];
 
 void init_apic_map(void)
 {

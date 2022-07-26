@@ -108,6 +108,8 @@ $(TEST_DIR)/access_test.$(bin): $(TEST_DIR)/access.o
 
 $(TEST_DIR)/vmx.$(bin): $(TEST_DIR)/access.o
 
+$(TEST_DIR)/svm_npt.$(bin): $(TEST_DIR)/svm.o
+
 $(TEST_DIR)/kvmclock_test.$(bin): $(TEST_DIR)/kvmclock.o
 
 $(TEST_DIR)/hyperv_synic.$(bin): $(TEST_DIR)/hyperv.o
