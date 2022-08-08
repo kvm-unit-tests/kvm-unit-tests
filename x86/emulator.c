@@ -18,7 +18,6 @@
 static int exceptions;
 
 /* Forced emulation prefix, used to invoke the emulator unconditionally.  */
-#define KVM_FEP "ud2; .byte 'k', 'v', 'm';"
 #define KVM_FEP_LENGTH 5
 static int fep_available = 1;
 

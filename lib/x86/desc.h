@@ -92,12 +92,19 @@ typedef struct  __attribute__((packed)) {
 	u16 iomap_base;
 } tss64_t;
 
-#define ASM_TRY(catch)						\
-	"movl $0, %%gs:4 \n\t"					\
-	".pushsection .data.ex \n\t"				\
+#define __ASM_TRY(prefix, catch)				\
+	"movl $0, %%gs:4\n\t"					\
+	".pushsection .data.ex\n\t"				\
 	__ASM_SEL(.long, .quad) " 1111f,  " catch "\n\t"	\
 	".popsection \n\t"					\
+	prefix "\n\t"						\
 	"1111:"
+
+#define ASM_TRY(catch) __ASM_TRY("", catch)
+
+/* Forced emulation prefix, used to invoke the emulator unconditionally. */
+#define KVM_FEP "ud2; .byte 'k', 'v', 'm';"
+#define ASM_TRY_FEP(catch) __ASM_TRY(KVM_FEP, catch)
 
 /*
  * selector     32-bit                        64-bit

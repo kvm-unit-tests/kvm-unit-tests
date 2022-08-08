@@ -33,7 +33,6 @@
 
 #define N 1000000
 
-#define KVM_FEP "ud2; .byte 'k', 'v', 'm';"
 // These values match the number of instructions and branches in the
 // assembly block in check_emulated_instr().
 #define EXPECTED_INSTR 17
