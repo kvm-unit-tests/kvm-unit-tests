@@ -1094,27 +1094,23 @@ static void test_simplealu(u32 *mem)
     report(*mem == 0x8400, "test");
 }
 
-static void illegal_movbe_handler(struct ex_regs *regs)
-{
-	extern char bad_movbe_cont;
-
-	++exceptions;
-	regs->rip = (ulong)&bad_movbe_cont;
-}
-
 static void test_illegal_movbe(void)
 {
+	unsigned int vector;
+
 	if (!this_cpu_has(X86_FEATURE_MOVBE)) {
-		report_skip("illegal movbe");
+		report_skip("MOVBE unsupported by CPU");
 		return;
 	}
 
-	exceptions = 0;
-	handle_exception(UD_VECTOR, illegal_movbe_handler);
-	asm volatile(".byte 0x0f; .byte 0x38; .byte 0xf0; .byte 0xc0;\n\t"
-		     " bad_movbe_cont:" : : : "rax");
-	report(exceptions == 1, "illegal movbe");
-	handle_exception(UD_VECTOR, 0);
+	asm volatile(ASM_TRY("1f")
+		     ".byte 0x0f; .byte 0x38; .byte 0xf0; .byte 0xc0;\n\t"
+		     "1:"
+		     : : : "memory", "rax");
+
+	vector = exception_vector();
+	report(vector == UD_VECTOR,
+	       "Wanted #UD on MOVBE with /reg, got vector = %u", vector);
 }
 
 int main(void)
