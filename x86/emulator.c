@@ -17,10 +17,6 @@
 
 static int exceptions;
 
-/* Forced emulation prefix, used to invoke the emulator unconditionally.  */
-#define KVM_FEP_LENGTH 5
-static int fep_available = 1;
-
 struct regs {
 	u64 rax, rbx, rcx, rdx;
 	u64 rsi, rdi, rsp, rbp;
@@ -1121,12 +1117,6 @@ static void test_illegal_movbe(void)
 	handle_exception(UD_VECTOR, 0);
 }
 
-static void record_no_fep(struct ex_regs *regs)
-{
-	fep_available = 0;
-	regs->rip += KVM_FEP_LENGTH;
-}
-
 int main(void)
 {
 	void *mem;
@@ -1136,9 +1126,6 @@ int main(void)
 	unsigned long t1, t2;
 
 	setup_vm();
-	handle_exception(UD_VECTOR, record_no_fep);
-	asm(KVM_FEP "nop");
-	handle_exception(UD_VECTOR, 0);
 
 	mem = alloc_vpages(2);
 	install_page((void *)read_cr3(), IORAM_BASE_PHYS, mem);
@@ -1190,7 +1177,7 @@ int main(void)
 	test_ltr(mem);
 	test_cmov(mem);
 
-	if (fep_available) {
+	if (is_fep_available()) {
 		test_mmx_movq_mf(mem);
 		test_movabs(mem);
 		test_smsw_reg(mem);
