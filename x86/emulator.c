@@ -893,6 +893,20 @@ static void test_mov_dr(uint64_t *mem)
 		report(rax == DR6_ACTIVE_LOW, "mov_dr6");
 }
 
+static void test_illegal_lea(void)
+{
+	unsigned int vector;
+
+	asm volatile (ASM_TRY_FEP("1f")
+		      ".byte 0x8d; .byte 0xc0\n\t"
+		      "1:"
+		      : : : "memory", "eax");
+
+	vector = exception_vector();
+	report(vector == UD_VECTOR,
+	       "Wanted #UD on LEA with /reg, got vector = %u", vector);
+}
+
 static void test_push16(uint64_t *mem)
 {
 	uint64_t rsp1, rsp2;
@@ -1179,6 +1193,7 @@ int main(void)
 		test_smsw_reg(mem);
 		test_nop(mem);
 		test_mov_dr(mem);
+		test_illegal_lea();
 	} else {
 		report_skip("skipping register-only tests, "
 			    "use kvm.force_emulation_prefix=1 to enable");
