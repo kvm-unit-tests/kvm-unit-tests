@@ -3,6 +3,18 @@
 
 #include <setjmp.h>
 
+#ifdef __ASSEMBLY__
+#define __ASM_FORM(x, ...)	x,## __VA_ARGS__
+#else
+#define __ASM_FORM(x, ...)	" " xstr(x,##__VA_ARGS__) " "
+#endif
+
+#ifndef __x86_64__
+#define __ASM_SEL(a,b)		__ASM_FORM(a)
+#else
+#define __ASM_SEL(a,b)		__ASM_FORM(b)
+#endif
+
 void setup_idt(void);
 void load_idt(void);
 void setup_alt_stack(void);
@@ -80,21 +92,12 @@ typedef struct  __attribute__((packed)) {
 	u16 iomap_base;
 } tss64_t;
 
-#ifdef __x86_64
-#define ASM_TRY(catch)			\
-	"movl $0, %%gs:4 \n\t"		\
-	".pushsection .data.ex \n\t"	\
-	".quad 1111f, " catch "\n\t"	\
-	".popsection \n\t"		\
+#define ASM_TRY(catch)						\
+	"movl $0, %%gs:4 \n\t"					\
+	".pushsection .data.ex \n\t"				\
+	__ASM_SEL(.long, .quad) " 1111f,  " catch "\n\t"	\
+	".popsection \n\t"					\
 	"1111:"
-#else
-#define ASM_TRY(catch)			\
-	"movl $0, %%gs:4 \n\t"		\
-	".pushsection .data.ex \n\t"	\
-	".long 1111f, " catch "\n\t"	\
-	".popsection \n\t"		\
-	"1111:"
-#endif
 
 /*
  * selector     32-bit                        64-bit
