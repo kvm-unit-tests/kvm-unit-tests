@@ -356,6 +356,102 @@ static void test_calls(void)
 	}
 }
 
+static void call_in_wait_ext_int_fixup(struct stack_frame_int *stack)
+{
+	/* Clear wait bit so we don't immediately wait again after the fixup */
+	lowcore.ext_old_psw.mask &= ~PSW_MASK_WAIT;
+}
+
+static void call_in_wait_setup(void)
+{
+	expect_ext_int();
+	ctl_set_bit(0, current_sigp_call_case->cr0_bit);
+	register_ext_cleanup_func(call_in_wait_ext_int_fixup);
+
+	set_flag(1);
+}
+
+static void call_in_wait_received(void)
+{
+	report(lowcore.ext_int_code == current_sigp_call_case->ext_int_expected_type, "received");
+
+	set_flag(1);
+}
+
+static void call_in_wait_cleanup(void)
+{
+	ctl_clear_bit(0, current_sigp_call_case->cr0_bit);
+	register_ext_cleanup_func(NULL);
+
+	set_flag(1);
+}
+
+static void test_calls_in_wait(void)
+{
+	int i;
+	struct psw psw;
+
+	report_prefix_push("psw wait");
+	for (i = 0; i < ARRAY_SIZE(cases_sigp_call); i++) {
+		current_sigp_call_case = &cases_sigp_call[i];
+
+		report_prefix_push(current_sigp_call_case->name);
+		if (!current_sigp_call_case->supports_pv && uv_os_is_guest()) {
+			report_skip("Not supported under PV");
+			report_prefix_pop();
+			continue;
+		}
+
+		/* Let the secondary CPU setup the external mask and the external interrupt cleanup function */
+		set_flag(0);
+		psw.mask = extract_psw_mask();
+		psw.addr = (unsigned long)call_in_wait_setup;
+		smp_cpu_start(1, psw);
+
+		/* Wait until the receiver has finished setup */
+		wait_for_flag();
+		set_flag(0);
+
+		/*
+		 * To avoid races, we need to know that the secondary CPU has entered wait,
+		 * but the architecture provides no way to check whether the secondary CPU
+		 * is in wait.
+		 *
+		 * But since a waiting CPU is considered operating, simply stop the CPU, set
+		 * up the restart new PSW mask in wait, send the restart interrupt and then
+		 * wait until the CPU becomes operating (done by smp_cpu_start).
+		 */
+		smp_cpu_stop(1);
+		psw.mask = extract_psw_mask() | PSW_MASK_EXT | PSW_MASK_WAIT;
+		psw.addr = (unsigned long)call_in_wait_received;
+		smp_cpu_start(1, psw);
+
+		smp_sigp(1, current_sigp_call_case->call, 0, NULL);
+
+		/* Wait until the receiver has handled the call */
+		wait_for_flag();
+		smp_cpu_stop(1);
+		set_flag(0);
+
+		/*
+		 * Now clean up the mess we have left behind. If the cleanup
+		 * were part of call_in_wait_received we would not get a chance
+		 * to catch an interrupt that is presented twice since we would
+		 * disable the external call on the first interrupt.
+		 */
+		psw.mask = extract_psw_mask();
+		psw.addr = (unsigned long)call_in_wait_cleanup;
+		smp_cpu_start(1, psw);
+
+		/* Wait until the cleanup has been completed */
+		wait_for_flag();
+		smp_cpu_stop(1);
+
+		report_prefix_pop();
+	}
+	report_prefix_pop();
+}
+
 static void test_sense_running(void)
 {
 	report_prefix_push("sense_running");
@@ -474,6 +570,7 @@ int main(void)
 	test_store_status();
 	test_set_prefix();
 	test_calls();
+	test_calls_in_wait();
 	test_sense_running();
 	test_reset();
 	test_reset_initial();
