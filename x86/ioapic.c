@@ -6,6 +6,12 @@
 #include "isr.h"
 #include "delay.h"
 
+static void poll_remote_irr(unsigned line)
+{
+	while (ioapic_read_redir(line).remote_irr)
+		cpu_relax();
+}
+
 static void toggle_irq_line(unsigned line)
 {
 	set_irq_line(line, 1);
@@ -214,6 +220,7 @@ static void test_ioapic_level_tmr_smp(bool expected_tmr_before)
 	report(tmr_before == expected_tmr_before && g_tmr_79,
 	       "TMR for ioapic level interrupts (expected %s)",
 	       expected_tmr_before ? "true" : "false");
+	poll_remote_irr(0xe);
 }
 
 static int g_isr_98;
@@ -402,6 +409,7 @@ static void test_ioapic_self_reconfigure(void)
 	set_irq_line(0x0e, 1);
 	e = ioapic_read_redir(0xe);
 	report(g_isr_84 == 1 && e.remote_irr == 0, "Reconfigure self");
+	poll_remote_irr(0xe);
 }
 
 static volatile int g_isr_85;
@@ -429,6 +437,7 @@ static void test_ioapic_physical_destination_mode(void)
 		pause();
 	} while(g_isr_85 != 1);
 	report(g_isr_85 == 1, "ioapic physical destination mode");
+	poll_remote_irr(0xe);
 }
 
 static volatile int g_isr_86;
@@ -461,6 +470,7 @@ static void test_ioapic_logical_destination_mode(void)
 		pause();
 	} while(g_isr_86 < nr_vcpus);
 	report(g_isr_86 == nr_vcpus, "ioapic logical destination mode");
+	poll_remote_irr(0xe);
 }
 
 int main(void)
