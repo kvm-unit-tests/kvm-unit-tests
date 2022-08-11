@@ -93,7 +93,10 @@ static struct pmu pmu;
 #define PMSELR       __ACCESS_CP15(c9, 0, c12, 5)
 #define PMXEVTYPER   __ACCESS_CP15(c9, 0, c13, 1)
 #define PMCNTENSET   __ACCESS_CP15(c9, 0, c12, 1)
+#define PMCNTENCLR   __ACCESS_CP15(c9, 0, c12, 2)
+#define PMOVSR       __ACCESS_CP15(c9, 0, c12, 3)
 #define PMCCNTR32    __ACCESS_CP15(c9, 0, c13, 0)
+#define PMINTENCLR   __ACCESS_CP15(c9, 0, c14, 2)
 #define PMCCNTR64    __ACCESS_CP15_64(0, c9)
 
 static inline uint32_t get_id_dfr0(void) { return read_sysreg(ID_DFR0); }
@@ -143,6 +146,19 @@ static inline void precise_instrs_loop(int loop, uint32_t pmcr)
 	: [loop] "+r" (loop)
 	: [pmcr] "r" (pmcr), [z] "r" (0)
 	: "cc");
+}
+
+static void pmu_reset(void)
+{
+	/* reset all counters, counting disabled at PMCR level*/
+	set_pmcr(pmu.pmcr_ro | PMU_PMCR_LC | PMU_PMCR_C | PMU_PMCR_P);
+	/* Disable all counters */
+	write_sysreg(ALL_SET, PMCNTENCLR);
+	/* clear overflow reg */
+	write_sysreg(ALL_SET, PMOVSR);
+	/* disable overflow interrupts on all counters */
+	write_sysreg(ALL_SET, PMINTENCLR);
+	isb();
 }
 
 /* event counter tests only implemented for aarch64 */
