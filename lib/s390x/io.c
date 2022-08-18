@@ -33,6 +33,15 @@ void puts(const char *s)
 
 void setup(void)
 {
+	struct cpu this_cpu_tmp = { 0 };
+
+	/*
+	 * Set a temporary empty struct cpu for the boot CPU, needed for
+	 * correct interrupt handling in the setup process.
+	 * smp_setup will allocate and set the permanent one.
+	 */
+	THIS_CPU = &this_cpu_tmp;
+
 	setup_args_progname(ipl_args);
 	setup_facilities();
 	sclp_read_info();

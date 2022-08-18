@@ -353,6 +353,7 @@ void smp_setup(void)
 			cpus[0].stack = stackptr;
 			cpus[0].lowcore = (void *)0;
 			cpus[0].active = true;
+			THIS_CPU = &cpus[0];
 		}
 	}
 	spin_unlock(&lock);
