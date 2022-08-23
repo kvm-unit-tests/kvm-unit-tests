@@ -192,8 +192,6 @@ static void setup_segments64(void)
 	write_gs(KERNEL_DS);
 	write_ss(KERNEL_DS);
 
-	/* Setup percpu base */
-	wrmsr(MSR_GS_BASE, (u64)&__percpu_data[pre_boot_apic_id()]);
 
 	/*
 	 * Update the code segment by putting it on the stack before the return
@@ -322,7 +320,7 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 		}
 		return status;
 	}
-	
+
 	status = setup_rsdp(efi_bootinfo);
 	if (status != EFI_SUCCESS) {
 		printf("Cannot find RSDP in EFI system table\n");
@@ -344,14 +342,20 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	}
 
 	setup_gdt_tss();
-	/*
-	 * GS.base, which points at the per-vCPU data, must be configured prior
-	 * to resetting the APIC, which sets the per-vCPU APIC ops.
-	 */
 	setup_segments64();
-	reset_apic();
 	setup_idt();
 	load_idt();
+	/*
+	 * Load GS.base with the per-vCPU data.  This must be done after
+	 * loading the IDT as reading the APIC ID may #VC when running
+	 * as an SEV-ES guest
+	 */
+	wrmsr(MSR_GS_BASE, (u64)&__percpu_data[pre_boot_apic_id()]);
+	/*
+	 * Resetting the APIC sets the per-vCPU APIC ops and so must be
+	 * done after loading GS.base with the per-vCPU data.
+	 */
+	reset_apic();
 	mask_pic_interrupts();
 	setup_page_table();
 	enable_apic();
