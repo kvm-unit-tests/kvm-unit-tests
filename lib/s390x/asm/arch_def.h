@@ -78,6 +78,7 @@ struct cpu {
 #define CTL0_EMERGENCY_SIGNAL			(63 - 49)
 #define CTL0_EXTERNAL_CALL			(63 - 50)
 #define CTL0_CLOCK_COMPARATOR			(63 - 52)
+#define CTL0_CPU_TIMER				(63 - 53)
 #define CTL0_SERVICE_SIGNAL			(63 - 54)
 #define CR0_EXTM_MASK			0x0000000000006200UL /* Combined external masks */
 
