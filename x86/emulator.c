@@ -17,20 +17,6 @@
 
 static int exceptions;
 
-struct regs {
-	u64 rax, rbx, rcx, rdx;
-	u64 rsi, rdi, rsp, rbp;
-	u64 r8, r9, r10, r11;
-	u64 r12, r13, r14, r15;
-	u64 rip, rflags;
-};
-struct regs inregs, outregs, save;
-
-struct insn_desc {
-	u64 ptr;
-	size_t len;
-};
-
 static char st1[] = "abcdefghijklmnop";
 
 static void test_stringio(void)
