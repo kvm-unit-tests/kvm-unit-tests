@@ -1069,6 +1069,20 @@ static void test_ltr(volatile uint16_t *mem)
     report(str() == tr && (*trp & busy_mask), "ltr");
 }
 
+static void test_mov(void *mem)
+{
+	unsigned long t1, t2;
+
+	// test mov reg, r/m and mov r/m, reg
+	t1 = 0x123456789abcdef;
+	asm volatile("mov %[t1], (%[mem]) \n\t"
+		     "mov (%[mem]), %[t2]"
+		     : [t2]"=r"(t2)
+		     : [t1]"r"(t1), [mem]"r"(mem)
+		     : "memory");
+	report(t2 == 0x123456789abcdef, "mov reg, r/m (1)");
+}
+
 static void test_simplealu(u32 *mem)
 {
     *mem = 0x1234;
@@ -1119,7 +1133,6 @@ int main(void)
 	void *insn_page;
 	void *insn_ram;
 	void *cross_mem;
-	unsigned long t1, t2;
 
 	setup_vm();
 
@@ -1131,15 +1144,7 @@ int main(void)
 	insn_ram = vmap(virt_to_phys(insn_page), 4096);
 	cross_mem = vmap(virt_to_phys(alloc_pages(2)), 2 * PAGE_SIZE);
 
-	// test mov reg, r/m and mov r/m, reg
-	t1 = 0x123456789abcdef;
-	asm volatile("mov %[t1], (%[mem]) \n\t"
-		     "mov (%[mem]), %[t2]"
-		     : [t2]"=r"(t2)
-		     : [t1]"r"(t1), [mem]"r"(mem)
-		     : "memory");
-	report(t2 == 0x123456789abcdef, "mov reg, r/m (1)");
-
+	test_mov(mem);
 	test_simplealu(mem);
 	test_cmps(mem);
 	test_scas(mem);
