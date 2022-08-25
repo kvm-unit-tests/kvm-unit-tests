@@ -21,7 +21,7 @@ cflatobjs += lib/x86/intel-iommu.o
 cflatobjs += lib/x86/usermode.o
 
 tests = $(TEST_DIR)/apic.$(exe) \
-	  $(TEST_DIR)/emulator.$(exe) $(TEST_DIR)/idt_test.$(exe) \
+	  $(TEST_DIR)/idt_test.$(exe) \
 	  $(TEST_DIR)/xsave.$(exe) $(TEST_DIR)/rmap_chain.$(exe) \
 	  $(TEST_DIR)/pcid.$(exe) $(TEST_DIR)/debug.$(exe) \
 	  $(TEST_DIR)/ioapic.$(exe) $(TEST_DIR)/memory.$(exe) \
