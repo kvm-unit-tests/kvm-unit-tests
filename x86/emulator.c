@@ -716,6 +716,79 @@ static void test_illegal_movbe(void)
 	       "Wanted #UD on MOVBE with /reg, got vector = %u", vector);
 }
 
+#ifdef __x86_64__
+#define RIP_RELATIVE "(%%rip)"
+#else
+#define RIP_RELATIVE ""
+#endif
+
+static void handle_db(struct ex_regs *regs)
+{
+	++exceptions;
+	regs->rflags |= X86_EFLAGS_RF;
+}
+
+static void test_mov_pop_ss_code_db(void)
+{
+	handler old_db_handler = handle_exception(DB_VECTOR, handle_db);
+	bool fep_available = is_fep_available();
+	/* On Intel, code #DBs are inhibited when MOV/POP SS blocking is active. */
+	int nr_expected = is_intel() ? 0 : 1;
+
+	write_dr7(DR7_FIXED_1 |
+		  DR7_GLOBAL_ENABLE_DRx(0) |
+		  DR7_EXECUTE_DRx(0) |
+		  DR7_LEN_1_DRx(0));
+
+#define MOV_POP_SS_DB(desc, fep1, fep2, insn, store_ss, load_ss)	\
+({									\
+	unsigned long r;						\
+									\
+	exceptions = 0;							\
+	asm volatile("lea 1f " RIP_RELATIVE ", %0\n\t"			\
+		     "mov %0, %%dr0\n\t"				\
+		     store_ss						\
+		     fep1 load_ss	   				\
+		     fep2 "1: xor %0, %0\n\t"				\
+		     "2:"						\
+		     : "=r" (r)						\
+		     :							\
+		     : "memory");					\
+	report(exceptions == nr_expected && !r,				\
+	       desc ": #DB %s after " insn " SS",			\
+	       nr_expected ? "occurred" : "suppressed");		\
+})
+
+#define MOV_SS_DB(desc, fep1, fep2)					\
+	MOV_POP_SS_DB(desc, fep1, fep2, "MOV",				\
+		      "mov %%ss, %0\n\t", "mov %0, %%ss\n\t")
+
+	MOV_SS_DB("no fep", "", "");
+	if (fep_available) {
+		MOV_SS_DB("fep MOV-SS", KVM_FEP, "");
+		MOV_SS_DB("fep XOR", "", KVM_FEP);
+		MOV_SS_DB("fep MOV-SS/fep XOR", KVM_FEP, KVM_FEP);
+	}
+
+/* PUSH/POP SS are invalid in 64-bit mode. */
+#ifndef __x86_64__
+#define POP_SS_DB(desc, fep1, fep2)					\
+	MOV_POP_SS_DB(desc, fep1, fep2,	"POP",				\
+		      "push %%ss\n\t", "pop %%ss\n\t")
+
+	POP_SS_DB("no fep", "", "");
+	if (fep_available) {
+		POP_SS_DB("fep POP-SS", KVM_FEP, "");
+		POP_SS_DB("fep XOR", "", KVM_FEP);
+		POP_SS_DB("fep POP-SS/fep XOR", KVM_FEP, KVM_FEP);
+	}
+#endif
+
+	write_dr7(DR7_FIXED_1);
+
+	handle_exception(DB_VECTOR, old_db_handler);
+}
+
 int main(void)
 {
 	void *mem;
@@ -762,6 +835,7 @@ int main(void)
 
 	test_string_io_mmio(mem);
 	test_illegal_movbe();
+	test_mov_pop_ss_code_db();
 
 #ifdef __x86_64__
 	test_emulator_64(mem);
