@@ -164,15 +164,33 @@ $(SNIPPET_DIR)/c/%.hdr: $(SNIPPET_DIR)/c/%.gbin $(HOST_KEY_DOCUMENT)
 	$(RM) $(@:.elf=.aux.o)
 	@chmod a-x $@
 
+# Secure Execution Customer Communication Key file
+# 32 bytes of key material, uses existing one if available
+comm-key = $(TEST_DIR)/comm.key
+$(comm-key):
+	dd if=/dev/urandom of=$@ bs=32 count=1 status=none
+
 %.bin: %.elf
 	$(OBJCOPY) -O binary  $< $@
 
-genprotimg_args = --host-key-document $(HOST_KEY_DOCUMENT) --no-verify
+# The genprotimg arguments for the cck changed over time so we need to
+# figure out which argument to use in order to set the cck
+GENPROTIMG_HAS_COMM_KEY = $(shell $(GENPROTIMG) --help | grep -q -- --comm-key && echo yes)
+ifeq ($(GENPROTIMG_HAS_COMM_KEY),yes)
+	GENPROTIMG_COMM_KEY = --comm-key $(comm-key)
+else
+	GENPROTIMG_COMM_KEY = --x-comm-key $(comm-key)
+endif
 
-%selftest.pv.bin: %selftest.bin $(HOST_KEY_DOCUMENT) $(patsubst %.pv.bin,%.parmfile,$@)
+# use x-pcf to be compatible with old genprotimg versions
+# allow dumping + PCKMO
+genprotimg_pcf = 0x200000e0
+genprotimg_args = --host-key-document $(HOST_KEY_DOCUMENT) --no-verify $(GENPROTIMG_COMM_KEY) --x-pcf $(genprotimg_pcf)
+
+%selftest.pv.bin: %selftest.bin $(HOST_KEY_DOCUMENT) $(patsubst %.pv.bin,%.parmfile,$@) $(comm-key)
 	$(GENPROTIMG) $(genprotimg_args) --parmfile $(patsubst %.pv.bin,%.parmfile,$@) --image $< -o $@
 
-%.pv.bin: %.bin $(HOST_KEY_DOCUMENT)
+%.pv.bin: %.bin $(HOST_KEY_DOCUMENT) $(comm-key)
 	$(GENPROTIMG) $(genprotimg_args) --image $< -o $@
 
 $(snippet_asmlib): $$(patsubst %.o,%.S,$$@) $(asm-offsets)
@@ -180,7 +198,7 @@ $(snippet_asmlib): $$(patsubst %.o,%.S,$$@) $(asm-offsets)
 
 
 arch_clean: asm_offsets_clean
-	$(RM) $(TEST_DIR)/*.{o,elf,bin} $(SNIPPET_DIR)/*/*.{o,elf,*bin,*obj,hdr} $(SNIPPET_DIR)/asm/.*.d $(TEST_DIR)/.*.d lib/s390x/.*.d
+	$(RM) $(TEST_DIR)/*.{o,elf,bin} $(SNIPPET_DIR)/*/*.{o,elf,*bin,*obj,hdr} $(SNIPPET_DIR)/asm/.*.d $(TEST_DIR)/.*.d lib/s390x/.*.d $(comm-key)
 
 generated-files = $(asm-offsets)
 $(tests:.elf=.o) $(asmlib) $(cflatobjs): $(generated-files)
