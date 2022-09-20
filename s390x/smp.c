@@ -30,6 +30,9 @@ static const struct sigp_invalid_cases cases_invalid_cpu_addr[] = {
 	{ SIGP_STOP,                  "stop with invalid CPU address" },
 	{ SIGP_START,                 "start with invalid CPU address" },
 	{ SIGP_CPU_RESET,             "reset with invalid CPU address" },
+	{ SIGP_COND_EMERGENCY_SIGNAL, "conditional emcall with invalid CPU address" },
+	{ SIGP_EMERGENCY_SIGNAL,      "emcall with invalid CPU address" },
+	{ SIGP_EXTERNAL_CALL,         "ecall with invalid CPU address" },
 	{ INVALID_ORDER_CODE,         "invalid order code and CPU address" },
 	{ SIGP_SENSE,                 "sense with invalid CPU address" },
 	{ SIGP_STOP_AND_STORE_STATUS, "stop and store status with invalid CPU address" },
@@ -39,6 +42,20 @@ static const struct sigp_invalid_cases cases_valid_cpu_addr[] = {
 };
 
 static uint32_t cpu1_prefix;
+
+struct sigp_call_cases {
+	char name[20];
+	int call;
+	uint16_t ext_int_expected_type;
+	unsigned int cr0_bit;
+	bool supports_pv;
+};
+static const struct sigp_call_cases cases_sigp_call[] = {
+	{ "emcall",      SIGP_EMERGENCY_SIGNAL,      0x1201, CTL0_EMERGENCY_SIGNAL, true },
+	{ "cond emcall", SIGP_COND_EMERGENCY_SIGNAL, 0x1201, CTL0_EMERGENCY_SIGNAL, false },
+	{ "ecall",       SIGP_EXTERNAL_CALL,         0x1202, CTL0_EXTERNAL_CALL,    true },
+};
+static const struct sigp_call_cases *current_sigp_call_case;
 
 static void test_invalid(void)
 {
@@ -286,112 +303,153 @@ static void test_set_prefix(void)
 
 }
 
-static void ecall(void)
+static void call_received(void)
 {
 	expect_ext_int();
-	ctl_set_bit(0, CTL0_EXTERNAL_CALL);
-	psw_mask_set_bits(PSW_MASK_EXT);
+	ctl_set_bit(0, current_sigp_call_case->cr0_bit);
+	/* make sure conditional emergency is accepted by disabling IO interrupts */
+	psw_mask_clear_and_set_bits(PSW_MASK_IO, PSW_MASK_EXT);
+
+	/* Indicate that we're ready to receive the call */
 	set_flag(1);
-	while (lowcore.ext_int_code != 0x1202) { mb(); }
+
+	while (lowcore.ext_int_code != current_sigp_call_case->ext_int_expected_type)
+		mb();
 	report_pass("received");
+
+	ctl_clear_bit(0, current_sigp_call_case->cr0_bit);
+
+	/* Indicate that we're done */
 	set_flag(1);
 }
 
-static void test_ecall(void)
+static void test_calls(void)
 {
+	int i;
 	struct psw psw;
-	psw.mask = extract_psw_mask();
-	psw.addr = (unsigned long)ecall;
 
-	report_prefix_push("ecall");
-	set_flag(0);
+	for (i = 0; i < ARRAY_SIZE(cases_sigp_call); i++) {
+		current_sigp_call_case = &cases_sigp_call[i];
 
-	smp_cpu_start(1, psw);
-	wait_for_flag();
-	set_flag(0);
-	smp_sigp(1, SIGP_EXTERNAL_CALL, 0, NULL);
-	wait_for_flag();
-	smp_cpu_stop(1);
-	report_prefix_pop();
-}
+		report_prefix_push(current_sigp_call_case->name);
+		if (!current_sigp_call_case->supports_pv && uv_os_is_guest()) {
+			report_skip("Not supported under PV");
+			report_prefix_pop();
+			continue;
+		}
 
-static void emcall(void)
-{
-	expect_ext_int();
-	ctl_set_bit(0, CTL0_EMERGENCY_SIGNAL);
-	psw_mask_set_bits(PSW_MASK_EXT);
-	set_flag(1);
-	while (lowcore.ext_int_code != 0x1201) { mb(); }
-	report_pass("received");
-	set_flag(1);
-}
+		set_flag(0);
+		psw.mask = extract_psw_mask();
+		psw.addr = (unsigned long)call_received;
+		smp_cpu_start(1, psw);
 
-static void test_emcall(void)
-{
-	struct psw psw;
-	int cc;
-	psw.mask = extract_psw_mask();
-	psw.addr = (unsigned long)emcall;
+		/* Wait until the receiver has finished setup */
+		wait_for_flag();
+		set_flag(0);
 
-	report_prefix_push("emcall");
-	set_flag(0);
+		smp_sigp(1, current_sigp_call_case->call, 0, NULL);
 
-	smp_cpu_start(1, psw);
-	wait_for_flag();
-	set_flag(0);
-	smp_sigp(1, SIGP_EMERGENCY_SIGNAL, 0, NULL);
-	wait_for_flag();
-	smp_cpu_stop(1);
-
-	report_prefix_push("invalid CPU address");
-
-	cc = sigp(INVALID_CPU_ADDRESS, SIGP_EMERGENCY_SIGNAL, 0, NULL);
-	report(cc == 3, "CC = 3");
-
-	report_prefix_pop();
-
-	report_prefix_pop();
-}
-
-static void test_cond_emcall(void)
-{
-	uint32_t status = 0;
-	struct psw psw;
-	int cc;
-	psw.mask = extract_psw_mask() & ~PSW_MASK_IO;
-	psw.addr = (unsigned long)emcall;
-
-	report_prefix_push("conditional emergency call");
-
-	if (uv_os_is_guest()) {
-		report_skip("unsupported under PV");
-		goto out;
+		/* Wait until the receiver has handled the call */
+		wait_for_flag();
+		smp_cpu_stop(1);
+		report_prefix_pop();
 	}
+}
 
-	report_prefix_push("invalid CPU address");
+static void call_in_wait_ext_int_fixup(struct stack_frame_int *stack)
+{
+	/* Clear wait bit so we don't immediately wait again after the fixup */
+	lowcore.ext_old_psw.mask &= ~PSW_MASK_WAIT;
+}
 
-	cc = sigp(INVALID_CPU_ADDRESS, SIGP_COND_EMERGENCY_SIGNAL, 0, NULL);
-	report(cc == 3, "CC = 3");
+static void call_in_wait_setup(void)
+{
+	expect_ext_int();
+	ctl_set_bit(0, current_sigp_call_case->cr0_bit);
+	register_ext_cleanup_func(call_in_wait_ext_int_fixup);
 
+	set_flag(1);
+}
+
+static void call_in_wait_received(void)
+{
+	report(lowcore.ext_int_code == current_sigp_call_case->ext_int_expected_type, "received");
+
+	set_flag(1);
+}
+
+static void call_in_wait_cleanup(void)
+{
+	ctl_clear_bit(0, current_sigp_call_case->cr0_bit);
+	register_ext_cleanup_func(NULL);
+
+	set_flag(1);
+}
+
+static void test_calls_in_wait(void)
+{
+	int i;
+	struct psw psw;
+
+	report_prefix_push("psw wait");
+	for (i = 0; i < ARRAY_SIZE(cases_sigp_call); i++) {
+		current_sigp_call_case = &cases_sigp_call[i];
+
+		report_prefix_push(current_sigp_call_case->name);
+		if (!current_sigp_call_case->supports_pv && uv_os_is_guest()) {
+			report_skip("Not supported under PV");
+			report_prefix_pop();
+			continue;
+		}
+
+		/* Let the secondary CPU setup the external mask and the external interrupt cleanup function */
+		set_flag(0);
+		psw.mask = extract_psw_mask();
+		psw.addr = (unsigned long)call_in_wait_setup;
+		smp_cpu_start(1, psw);
+
+		/* Wait until the receiver has finished setup */
+		wait_for_flag();
+		set_flag(0);
+
+		/*
+		 * To avoid races, we need to know that the secondary CPU has entered wait,
+		 * but the architecture provides no way to check whether the secondary CPU
+		 * is in wait.
+		 *
+		 * But since a waiting CPU is considered operating, simply stop the CPU, set
+		 * up the restart new PSW mask in wait, send the restart interrupt and then
+		 * wait until the CPU becomes operating (done by smp_cpu_start).
+		 */
+		smp_cpu_stop(1);
+		psw.mask = extract_psw_mask() | PSW_MASK_EXT | PSW_MASK_WAIT;
+		psw.addr = (unsigned long)call_in_wait_received;
+		smp_cpu_start(1, psw);
+
+		smp_sigp(1, current_sigp_call_case->call, 0, NULL);
+
+		/* Wait until the receiver has handled the call */
+		wait_for_flag();
+		smp_cpu_stop(1);
+		set_flag(0);
+
+		/*
+		 * Now clean up the mess we have left behind. If the cleanup
+		 * were part of call_in_wait_received we would not get a chance
+		 * to catch an interrupt that is presented twice since we would
+		 * disable the external call on the first interrupt.
+		 */
+		psw.mask = extract_psw_mask();
+		psw.addr = (unsigned long)call_in_wait_cleanup;
+		smp_cpu_start(1, psw);
+
+		/* Wait until the cleanup has been completed */
+		wait_for_flag();
+		smp_cpu_stop(1);
+
+		report_prefix_pop();
+	}
 	report_prefix_pop();
-
-	report_prefix_push("success");
-	set_flag(0);
-
-	smp_cpu_start(1, psw);
-	wait_for_flag();
-	set_flag(0);
-	cc = smp_sigp(1, SIGP_COND_EMERGENCY_SIGNAL, 0, &status);
-	report(!cc, "CC = 0");
-
-	wait_for_flag();
-	smp_cpu_stop(1);
-
-	report_prefix_pop();
-
-out:
-	report_prefix_pop();
-
 }
 
 static void test_sense_running(void)
@@ -511,9 +569,8 @@ int main(void)
 	test_stop_store_status();
 	test_store_status();
 	test_set_prefix();
-	test_ecall();
-	test_emcall();
-	test_cond_emcall();
+	test_calls();
+	test_calls_in_wait();
 	test_sense_running();
 	test_reset();
 	test_reset_initial();
