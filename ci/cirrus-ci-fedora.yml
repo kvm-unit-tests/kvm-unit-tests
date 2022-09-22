@@ -20,6 +20,7 @@ fedora_task:
     - ./run_tests.sh
         access
         asyncpf
+        debug
         emulator
         ept
         hypercall
@@ -32,7 +33,7 @@ fedora_task:
         ioapic
         ioapic-split
         kvmclock_test
-        msr
+        memory
         pcid-asymmetric
         pcid-disabled
         pcid-enabled
@@ -50,6 +51,8 @@ fedora_task:
         tsx-ctrl
         umip
         vmexit_cpuid
+        vmexit_cr0_wp
+        vmexit_cr4_pge
         vmexit_inl_pmtimer
         vmexit_ipi
         vmexit_ipi_halt
