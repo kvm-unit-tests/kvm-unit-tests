@@ -56,6 +56,7 @@ struct cpu {
 	bool active;
 	bool pgm_int_expected;
 	bool ext_int_expected;
+	bool in_interrupt_handler;
 };
 
 #define AS_PRIM				0
@@ -334,6 +335,16 @@ static inline void load_psw_mask(uint64_t mask)
 		"	lpswe	0(%1)\n"
 		"0:\n"
 		: "+r" (tmp) :  "a" (&psw) : "memory", "cc" );
+}
+
+static inline void disabled_wait(uint64_t message)
+{
+	struct psw psw = {
+		.mask = PSW_MASK_WAIT,  /* Disabled wait */
+		.addr = message,
+	};
+
+	asm volatile("  lpswe 0(%0)\n" : : "a" (&psw) : "memory", "cc");
 }
 
 /**

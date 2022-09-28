@@ -14,6 +14,7 @@
 #include <sie.h>
 #include <fault.h>
 #include <asm/page.h>
+#include "smp.h"
 
 /**
  * expect_pgm_int - Expect a program interrupt on the current CPU.
@@ -226,6 +227,11 @@ static void print_pgm_info(struct stack_frame_int *stack)
 
 void handle_pgm_int(struct stack_frame_int *stack)
 {
+	if (THIS_CPU->in_interrupt_handler) {
+		/* Something went very wrong, stop everything now without printing anything */
+		smp_teardown();
+		disabled_wait(0xfa12edbad21);
+	}
 	if (!THIS_CPU->pgm_int_expected) {
 		/* Force sclp_busy to false, otherwise we will loop forever */
 		sclp_handle_ext();
@@ -233,15 +239,18 @@ void handle_pgm_int(struct stack_frame_int *stack)
 	}
 
 	THIS_CPU->pgm_int_expected = false;
+	THIS_CPU->in_interrupt_handler = true;
 
 	if (THIS_CPU->pgm_cleanup_func)
 		THIS_CPU->pgm_cleanup_func(stack);
 	else
 		fixup_pgm_int(stack);
+	THIS_CPU->in_interrupt_handler = false;
 }
 
 void handle_ext_int(struct stack_frame_int *stack)
 {
+	THIS_CPU->in_interrupt_handler = true;
 	if (!THIS_CPU->ext_int_expected && lowcore.ext_int_code != EXT_IRQ_SERVICE_SIG) {
 		report_abort("Unexpected external call interrupt (code %#x): on cpu %d at %#lx",
 			     lowcore.ext_int_code, stap(), lowcore.ext_old_psw.addr);
@@ -260,6 +269,7 @@ void handle_ext_int(struct stack_frame_int *stack)
 
 	if (THIS_CPU->ext_cleanup_func)
 		THIS_CPU->ext_cleanup_func(stack);
+	THIS_CPU->in_interrupt_handler = false;
 }
 
 void handle_mcck_int(void)
@@ -272,11 +282,13 @@ static void (*io_int_func)(void);
 
 void handle_io_int(void)
 {
+	THIS_CPU->in_interrupt_handler = true;
 	if (io_int_func)
-		return io_int_func();
-
-	report_abort("Unexpected io interrupt: on cpu %d at %#lx",
-		     stap(), lowcore.io_old_psw.addr);
+		io_int_func();
+	else
+		report_abort("Unexpected io interrupt: on cpu %d at %#lx",
+			     stap(), lowcore.io_old_psw.addr);
+	THIS_CPU->in_interrupt_handler = false;
 }
 
 int register_io_int_func(void (*f)(void))
