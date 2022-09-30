@@ -387,25 +387,7 @@ static void test_vmwrite_vmread(void)
 	free_page(vmcs);
 }
 
-ulong finish_fault;
-u8 sentinel;
-bool handler_called;
-
-static void pf_handler(struct ex_regs *regs)
-{
-	/*
-	 * check that RIP was not improperly advanced and that the
-	 * flags value was preserved.
-	 */
-	report(regs->rip < finish_fault, "RIP has not been advanced!");
-	report(((u8)regs->rflags == ((sentinel | 2) & 0xd7)),
-	       "The low byte of RFLAGS was preserved!");
-	regs->rip = finish_fault;
-	handler_called = true;
-
-}
-
-static void prep_flags_test_env(void **vpage, struct vmcs **vmcs, handler *old)
+static void prep_flags_test_env(void **vpage, struct vmcs **vmcs)
 {
 	/*
 	 * get an unbacked address that will cause a #PF
@@ -421,106 +403,87 @@ static void prep_flags_test_env(void **vpage, struct vmcs **vmcs, handler *old)
 	(*vmcs)->hdr.revision_id = basic.revision;
 	assert(!vmcs_clear(*vmcs));
 	assert(!make_vmcs_current(*vmcs));
-
-	*old = handle_exception(PF_VECTOR, &pf_handler);
 }
 
-static noinline void test_read_sentinel(void)
+static void test_read_sentinel(u8 sentinel)
 {
-	void *vpage;
+	unsigned long flags = sentinel;
+	unsigned int vector;
 	struct vmcs *vmcs;
-	handler old;
+	void *vpage;
 
-	prep_flags_test_env(&vpage, &vmcs, &old);
-
-	/*
-	 * set the proper label
-	 */
-	extern char finish_read_fault;
-
-	finish_fault = (ulong)&finish_read_fault;
+	prep_flags_test_env(&vpage, &vmcs);
 
 	/*
-	 * execute the vmread instruction that will cause a #PF
+	 * Execute VMREAD with a not-PRESENT memory operand, and verify a #PF
+	 * occurred and RFLAGS were not modified.
 	 */
-	handler_called = false;
-	asm volatile ("movb %[byte], %%ah\n\t"
-		      "sahf\n\t"
-		      "vmread %[enc], %[val]; finish_read_fault:"
-		      : [val] "=m" (*(u64 *)vpage)
-		      : [byte] "Krm" (sentinel),
-		      [enc] "r" ((u64)GUEST_SEL_SS)
-		      : "cc", "ah");
-	report(handler_called, "The #PF handler was invoked");
+	asm volatile ("sahf\n\t"
+		      ASM_TRY("1f")
+		      "vmread %[enc], %[val]\n\t"
+		      "1: lahf"
+		      : [val] "=m" (*(u64 *)vpage),
+			[flags] "+a" (flags)
+		      : [enc] "r" ((u64)GUEST_SEL_SS)
+		      : "cc");
 
-	/*
-	 * restore the old #PF handler
-	 */
-	handle_exception(PF_VECTOR, old);
+	vector = exception_vector();
+	report(vector == PF_VECTOR,
+	       "Expected #PF on VMREAD, got exception 0x%x", vector);
+
+	report((u8)flags == sentinel,
+	       "Expected RFLAGS 0x%x, got 0x%x", sentinel, (u8)flags);
 }
 
 static void test_vmread_flags_touch(void)
 {
 	/*
-	 * set up the sentinel value in the flags register. we
-	 * choose these two values because they candy-stripe
-	 * the 5 flags that sahf sets.
+	 * Test with two values to candy-stripe the 5 flags stored/loaded by
+	 * SAHF/LAHF.
 	 */
-	sentinel = 0x91;
-	test_read_sentinel();
-
-	sentinel = 0x45;
-	test_read_sentinel();
+	test_read_sentinel(0x91);
+	test_read_sentinel(0x45);
 }
 
-static noinline void test_write_sentinel(void)
+static void test_write_sentinel(u8 sentinel)
 {
-	void *vpage;
+	unsigned long flags = sentinel;
+	unsigned int vector;
 	struct vmcs *vmcs;
-	handler old;
+	void *vpage;
 
-	prep_flags_test_env(&vpage, &vmcs, &old);
-
-	/*
-	 * set the proper label
-	 */
-	extern char finish_write_fault;
-
-	finish_fault = (ulong)&finish_write_fault;
+	prep_flags_test_env(&vpage, &vmcs);
 
 	/*
-	 * execute the vmwrite instruction that will cause a #PF
+	 * Execute VMWRITE with a not-PRESENT memory operand, and verify a #PF
+	 * occurred and RFLAGS were not modified.
 	 */
-	handler_called = false;
-	asm volatile ("movb %[byte], %%ah\n\t"
-		      "sahf\n\t"
-		      "vmwrite %[val], %[enc]; finish_write_fault:"
-		      : [val] "=m" (*(u64 *)vpage)
-		      : [byte] "Krm" (sentinel),
-		      [enc] "r" ((u64)GUEST_SEL_SS)
-		      : "cc", "ah");
-	report(handler_called, "The #PF handler was invoked");
+	asm volatile ("sahf\n\t"
+		      ASM_TRY("1f")
+		      "vmwrite %[val], %[enc]\n\t"
+		      "1: lahf"
+		      : [val] "=m" (*(u64 *)vpage),
+			[flags] "+a" (flags)
+		      : [enc] "r" ((u64)GUEST_SEL_SS)
+		      : "cc");
 
-	/*
-	 * restore the old #PF handler
-	 */
-	handle_exception(PF_VECTOR, old);
+	vector = exception_vector();
+	report(vector == PF_VECTOR,
+	       "Expected #PF on VMWRITE, got exception '0x%x'\n", vector);
+
+	report((u8)flags == sentinel,
+	       "Expected RFLAGS 0x%x, got 0x%x", sentinel, (u8)flags);
 }
 
 static void test_vmwrite_flags_touch(void)
 {
 	/*
-	 * set up the sentinel value in the flags register. we
-	 * choose these two values because they candy-stripe
-	 * the 5 flags that sahf sets.
+	 * Test with two values to candy-stripe the 5 flags stored/loaded by
+	 * SAHF/LAHF.
 	 */
-	sentinel = 0x91;
-	test_write_sentinel();
-
-	sentinel = 0x45;
-	test_write_sentinel();
+	test_write_sentinel(0x91);
+	test_write_sentinel(0x45);
 }
-
 
 static void test_vmcs_high(void)
 {
