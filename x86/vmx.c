@@ -387,102 +387,69 @@ static void test_vmwrite_vmread(void)
 	free_page(vmcs);
 }
 
-static void prep_flags_test_env(void **vpage, struct vmcs **vmcs)
-{
-	/*
-	 * get an unbacked address that will cause a #PF
-	 */
-	*vpage = alloc_vpage();
-
-	/*
-	 * set up VMCS so we have something to read from
-	 */
-	*vmcs = alloc_page();
-
-	memset(*vmcs, 0, PAGE_SIZE);
-	(*vmcs)->hdr.revision_id = basic.revision;
-	assert(!vmcs_clear(*vmcs));
-	assert(!make_vmcs_current(*vmcs));
-}
-
-static void test_read_sentinel(u8 sentinel)
+static void __test_vmread_vmwrite_pf(bool vmread, u64 *val, u8 sentinel)
 {
 	unsigned long flags = sentinel;
 	unsigned int vector;
-	struct vmcs *vmcs;
-	void *vpage;
-
-	prep_flags_test_env(&vpage, &vmcs);
 
 	/*
-	 * Execute VMREAD with a not-PRESENT memory operand, and verify a #PF
-	 * occurred and RFLAGS were not modified.
+	 * Execute VMREAD/VMWRITE with a not-PRESENT memory operand, and verify
+	 * a #PF occurred and RFLAGS were not modified.
 	 */
-	asm volatile ("sahf\n\t"
-		      ASM_TRY("1f")
-		      "vmread %[enc], %[val]\n\t"
-		      "1: lahf"
-		      : [val] "=m" (*(u64 *)vpage),
-			[flags] "+a" (flags)
-		      : [enc] "r" ((u64)GUEST_SEL_SS)
-		      : "cc");
+	if (vmread)
+		asm volatile ("sahf\n\t"
+			      ASM_TRY("1f")
+			      "vmread %[enc], %[val]\n\t"
+			      "1: lahf"
+			      : [val] "=m" (*val),
+			        [flags] "+a" (flags)
+			      : [enc] "r" ((u64)GUEST_SEL_SS)
+			      : "cc");
+	else
+		asm volatile ("sahf\n\t"
+			      ASM_TRY("1f")
+			      "vmwrite %[val], %[enc]\n\t"
+			      "1: lahf"
+			      : [val] "=m" (*val),
+			        [flags] "+a" (flags)
+			      : [enc] "r" ((u64)GUEST_SEL_SS)
+			      : "cc");
 
 	vector = exception_vector();
 	report(vector == PF_VECTOR,
-	       "Expected #PF on VMREAD, got exception 0x%x", vector);
+	       "Expected #PF on %s, got exception '0x%x'\n",
+	       vmread ? "VMREAD" : "VMWRITE", vector);
 
 	report((u8)flags == sentinel,
 	       "Expected RFLAGS 0x%x, got 0x%x", sentinel, (u8)flags);
+}
+
+static void test_vmread_vmwrite_pf(bool vmread)
+{
+	struct vmcs *vmcs = alloc_page();
+	void *vpage = alloc_vpage();
+
+	memset(vmcs, 0, PAGE_SIZE);
+	vmcs->hdr.revision_id = basic.revision;
+	assert(!vmcs_clear(vmcs));
+	assert(!make_vmcs_current(vmcs));
+
+	/*
+	 * Test with two values to candy-stripe the 5 flags stored/loaded by
+	 * SAHF/LAHF.
+	 */
+	__test_vmread_vmwrite_pf(vmread, vpage, 0x91);
+	__test_vmread_vmwrite_pf(vmread, vpage, 0x45);
 }
 
 static void test_vmread_flags_touch(void)
 {
-	/*
-	 * Test with two values to candy-stripe the 5 flags stored/loaded by
-	 * SAHF/LAHF.
-	 */
-	test_read_sentinel(0x91);
-	test_read_sentinel(0x45);
-}
-
-static void test_write_sentinel(u8 sentinel)
-{
-	unsigned long flags = sentinel;
-	unsigned int vector;
-	struct vmcs *vmcs;
-	void *vpage;
-
-	prep_flags_test_env(&vpage, &vmcs);
-
-	/*
-	 * Execute VMWRITE with a not-PRESENT memory operand, and verify a #PF
-	 * occurred and RFLAGS were not modified.
-	 */
-	asm volatile ("sahf\n\t"
-		      ASM_TRY("1f")
-		      "vmwrite %[val], %[enc]\n\t"
-		      "1: lahf"
-		      : [val] "=m" (*(u64 *)vpage),
-			[flags] "+a" (flags)
-		      : [enc] "r" ((u64)GUEST_SEL_SS)
-		      : "cc");
-
-	vector = exception_vector();
-	report(vector == PF_VECTOR,
-	       "Expected #PF on VMWRITE, got exception '0x%x'\n", vector);
-
-	report((u8)flags == sentinel,
-	       "Expected RFLAGS 0x%x, got 0x%x", sentinel, (u8)flags);
+	test_vmread_vmwrite_pf(true);
 }
 
 static void test_vmwrite_flags_touch(void)
 {
-	/*
-	 * Test with two values to candy-stripe the 5 flags stored/loaded by
-	 * SAHF/LAHF.
-	 */
-	test_write_sentinel(0x91);
-	test_write_sentinel(0x45);
+	test_vmread_vmwrite_pf(false);
 }
 
 static void test_vmcs_high(void)
