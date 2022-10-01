@@ -257,11 +257,11 @@ static void test_apic_id(void)
 	on_cpu(1, __test_apic_id, NULL);
 }
 
-static int ipi_count;
+static atomic_t ipi_count;
 
-static void self_ipi_isr(isr_regs_t *regs)
+static void handle_ipi(isr_regs_t *regs)
 {
-	++ipi_count;
+	atomic_inc(&ipi_count);
 	eoi();
 }
 
@@ -270,13 +270,13 @@ static void __test_self_ipi(void)
 	u64 start = rdtsc();
 	int vec = 0xf1;
 
-	handle_irq(vec, self_ipi_isr);
+	handle_irq(vec, handle_ipi);
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED | vec,
 		       id_map[0]);
 
 	do {
 		pause();
-	} while (rdtsc() - start < 1000000000 && ipi_count == 0);
+	} while (rdtsc() - start < 1000000000 && atomic_read(&ipi_count) == 0);
 }
 
 static void test_self_ipi_xapic(void)
@@ -287,9 +287,9 @@ static void test_self_ipi_xapic(void)
 	reset_apic();
 	report(is_xapic_enabled(), "Local apic enabled in xAPIC mode");
 
-	ipi_count = 0;
+	atomic_set(&ipi_count, 0);
 	__test_self_ipi();
-	report(ipi_count == 1, "self ipi");
+	report(atomic_read(&ipi_count) == 1, "self ipi");
 
 	report_prefix_pop();
 }
@@ -301,9 +301,9 @@ static void test_self_ipi_x2apic(void)
 	if (enable_x2apic()) {
 		report(is_x2apic_enabled(), "Local apic enabled in x2APIC mode");
 
-		ipi_count = 0;
+		atomic_set(&ipi_count, 0);
 		__test_self_ipi();
-		report(ipi_count == 1, "self ipi");
+		report(atomic_read(&ipi_count) == 1, "self ipi");
 	} else {
 		report_skip("x2apic not detected");
 	}
@@ -665,6 +665,188 @@ static void test_pv_ipi(void)
 	report(!ret, "PV IPIs testing");
 }
 
+#define APIC_LDR_CLUSTER_FLAG	BIT(31)
+
+static void set_ldr(void *__ldr)
+{
+	u32 ldr = (unsigned long)__ldr;
+
+	if (ldr & APIC_LDR_CLUSTER_FLAG)
+		apic_write(APIC_DFR, APIC_DFR_CLUSTER);
+	else
+		apic_write(APIC_DFR, APIC_DFR_FLAT);
+
+	apic_write(APIC_LDR, ldr << 24);
+}
+
+static int test_fixed_ipi(u32 dest_mode, u8 dest, u8 vector,
+			  int nr_ipis_expected, const char *mode_name)
+{
+	u64 start = rdtsc();
+	int got;
+
+	atomic_set(&ipi_count, 0);
+
+	/*
+	 * Wait for vCPU1 to get back into HLT, i.e. into the host so that
+	 * KVM must handle incomplete AVIC IPIs.
+	 */
+	do {
+		pause();
+	} while (rdtsc() - start < 1000000);
+
+	start = rdtsc();
+
+	apic_icr_write(dest_mode | APIC_DM_FIXED | vector, dest);
+
+	do {
+		pause();
+	} while (rdtsc() - start < 1000000000 &&
+		 atomic_read(&ipi_count) != nr_ipis_expected);
+
+	/* Only report failures to cut down on the spam. */
+	got = atomic_read(&ipi_count);
+	if (got != nr_ipis_expected)
+		report_fail("Want %d IPI(s) using %s mode, dest = %x, got %d IPI(s)",
+			    nr_ipis_expected, mode_name, dest, got);
+	atomic_set(&ipi_count, 0);
+
+	return got == nr_ipis_expected ? 0 : 1;
+}
+
+static int test_logical_ipi_single_target(u8 logical_id, bool cluster, u8 dest,
+					  u8 vector)
+{
+	/* Disallow broadcast, there are at least 2 vCPUs. */
+	if (dest == 0xff)
+		return 0;
+
+	set_ldr((void *)0);
+	on_cpu(1, set_ldr,
+	       (void *)((u32)logical_id | (cluster ? APIC_LDR_CLUSTER_FLAG : 0)));
+	return test_fixed_ipi(APIC_DEST_LOGICAL, dest, vector, 1,
+			      cluster ? "logical cluster" : "logical flat");
+}
+
+static int test_logical_ipi_multi_target(u8 vcpu0_logical_id, u8 vcpu1_logical_id,
+					 bool cluster, u8 dest, u8 vector)
+{
+	/* Allow broadcast unless there are more than 2 vCPUs. */
+	if (dest == 0xff && cpu_count() > 2)
+		return 0;
+
+	set_ldr((void *)((u32)vcpu0_logical_id | (cluster ? APIC_LDR_CLUSTER_FLAG : 0)));
+	on_cpu(1, set_ldr,
+	       (void *)((u32)vcpu1_logical_id | (cluster ? APIC_LDR_CLUSTER_FLAG : 0)));
+	return test_fixed_ipi(APIC_DEST_LOGICAL, dest, vector, 2,
+			      cluster ? "logical cluster" : "logical flat");
+}
+
+static void test_logical_ipi_xapic(void)
+{
+	int c, i, j, k, f;
+	u8 vector = 0xf1;
+
+	if (cpu_count() < 2)
+		return;
+
+	/*
+	 * All vCPUs must be in xAPIC mode, i.e. simply resetting this vCPUs
+	 * APIC is not sufficient.
+	 */
+	if (is_x2apic_enabled())
+		return;
+
+	handle_irq(vector, handle_ipi);
+
+	/* Flat mode.  8 bits for logical IDs (one per bit). */
+	f = 0;
+	for (i = 0; i < 8; i++) {
+		/*
+		 * Test all possible destination values.  Non-existent targets
+		 * should be ignored.  vCPU is always targeted, i.e. should get
+		 * an IPI.
+		 */
+		for (k = 0; k < 0xff; k++) {
+			/*
+			 * Skip values that overlap the actual target the
+			 * resulting combination will be covered by other
+			 * numbers in the sequence.
+			 */
+			if (BIT(i) & k)
+				continue;
+
+			f += test_logical_ipi_single_target(BIT(i), false,
+							    BIT(i) | k, vector);
+		}
+	}
+	report(!f, "IPI to single target using logical flat mode");
+
+	/* Cluster mode.  4 bits for the cluster, 4 bits for logical IDs. */
+	f = 0;
+	for (c = 0; c < 0xf; c++) {
+		for (i = 0; i < 4; i++) {
+			/* Same as above, just fewer bits... */
+			for (k = 0; k < 0x10; k++) {
+				if (BIT(i) & k)
+					continue;
+
+				test_logical_ipi_single_target(c << 4 | BIT(i), true,
+							       c << 4 | BIT(i) | k, vector);
+			}
+		}
+	}
+	report(!f, "IPI to single target using logical cluster mode");
+
+	/* And now do it all over again targeting both vCPU0 and vCPU1. */
+	f = 0;
+	for (i = 0; i < 8 && !f; i++) {
+		for (j = 0; j < 8 && !f; j++) {
+			if (i == j)
+				continue;
+
+			for (k = 0; k < 0x100 && !f; k++) {
+				if ((BIT(i) | BIT(j)) & k)
+					continue;
+
+				f += test_logical_ipi_multi_target(BIT(i), BIT(j), false,
+								   BIT(i) | BIT(j) | k, vector);
+				if (f)
+					break;
+				f += test_logical_ipi_multi_target(BIT(i) | BIT(j),
+								   BIT(i) | BIT(j), false,
+								   BIT(i) | BIT(j) | k, vector);
+			}
+		}
+	}
+	report(!f, "IPI to multiple targets using logical flat mode");
+
+	f = 0;
+	for (c = 0; c < 0xf && !f; c++) {
+		for (i = 0; i < 4 && !f; i++) {
+			for (j = 0; j < 4 && !f; j++) {
+				if (i == j)
+					continue;
+
+				for (k = 0; k < 0x10 && !f; k++) {
+					if ((BIT(i) | BIT(j)) & k)
+						continue;
+
+					f += test_logical_ipi_multi_target(c << 4 | BIT(i),
+									   c << 4 | BIT(j), true,
+									   c << 4 | BIT(i) | BIT(j) | k, vector);
+					if (f)
+						break;
+					f += test_logical_ipi_multi_target(c << 4 | BIT(i) | BIT(j),
+									   c << 4 | BIT(i) | BIT(j), true,
+									   c << 4 | BIT(i) | BIT(j) | k, vector);
+				}
+			}
+		}
+	}
+	report(!f, "IPI to multiple targets using logical cluster mode");
+}
+
 typedef void (*apic_test_fn)(void);
 
 int main(void)
@@ -682,6 +864,7 @@ int main(void)
 		test_self_ipi_xapic,
 		test_self_ipi_x2apic,
 		test_physical_broadcast,
+		test_logical_ipi_xapic,
 
 		test_pv_ipi,
 
