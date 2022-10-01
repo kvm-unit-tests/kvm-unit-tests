@@ -676,10 +676,8 @@ int main(void)
 	const apic_test_fn tests[] = {
 		test_lapic_existence,
 
-		test_apic_id,
 		test_apic_disable,
 		test_enable_x2apic,
-		test_apicbase,
 
 		test_self_ipi_xapic,
 		test_self_ipi_x2apic,
@@ -694,6 +692,14 @@ int main(void)
 		test_apic_timer_one_shot,
 		test_apic_change_mode,
 		test_tsc_deadline_timer,
+
+		/*
+		 * KVM may disable APICv if the APIC ID and/or APIC_BASE is
+		 * modified, keep these tests at the end so that the test as a
+		 * whole provides coverage for APICv (when it's enabled).
+		 */
+		test_apic_id,
+		test_apicbase,
 	};
 
 	assert_msg(is_apic_hw_enabled() && is_apic_sw_enabled(),
