@@ -847,6 +847,72 @@ static void test_logical_ipi_xapic(void)
 	report(!f, "IPI to multiple targets using logical cluster mode");
 }
 
+static void set_xapic_physical_id(void *apic_id)
+{
+	apic_write(APIC_ID, (unsigned long)apic_id << 24);
+}
+
+static void handle_aliased_ipi(isr_regs_t *regs)
+{
+	u32 apic_id = apic_read(APIC_ID) >> 24;
+
+	if (apic_id == 0xff)
+		apic_id = smp_id();
+	else
+		apic_id++;
+	apic_write(APIC_ID, (unsigned long)apic_id << 24);
+
+	/*
+	 * Handle the IPI after updating the APIC ID, as the IPI count acts as
+	 * synchronization barrier before vCPU0 sends the next IPI.
+	 */
+	handle_ipi(regs);
+}
+
+static void test_aliased_xapic_physical_ipi(void)
+{
+	u8 vector = 0xf1;
+	int i, f;
+
+	if (cpu_count() < 2)
+		return;
+
+	/*
+	 * All vCPUs must be in xAPIC mode, i.e. simply resetting this vCPUs
+	 * APIC is not sufficient.
+	 */
+	if (is_x2apic_enabled())
+		return;
+
+	/*
+	 * By default, KVM doesn't follow the x86 APIC architecture for aliased
+	 * APIC IDs if userspace has enabled KVM_X2APIC_API_USE_32BIT_IDS.
+	 * If x2APIC is supported, assume the userspace VMM has enabled 32-bit
+	 * IDs and thus activated KVM's quirk.  Delete this code to run the
+	 * aliasing test on x2APIC CPUs, e.g. to run it on bare metal.
+	 */
+	if (this_cpu_has(X86_FEATURE_X2APIC))
+		return;
+
+	handle_irq(vector, handle_aliased_ipi);
+
+	/*
+	 * Set both vCPU0 and vCPU1's APIC IDs to 0, then start the chain
+	 * reaction of IPIs from APIC ID 0..255.  Each vCPU will increment its
+	 * APIC ID in the handler, and then "reset" to its original ID (using
+	 * smp_id()) after the last IPI.  Using on_cpu() to set vCPU1's ID
+	 * after this point won't work due to on_cpu() using physical mode.
+	 */
+	on_cpu(1, set_xapic_physical_id, (void *)0ul);
+	set_xapic_physical_id((void *)0ul);
+
+	f = 0;
+	for (i = 0; i < 0x100; i++)
+		f += test_fixed_ipi(APIC_DEST_PHYSICAL, i, vector, 2, "physical");
+
+	report(!f, "IPI to aliased xAPIC physical IDs");
+}
+
 typedef void (*apic_test_fn)(void);
 
 int main(void)
@@ -883,6 +949,7 @@ int main(void)
 		 */
 		test_apic_id,
 		test_apicbase,
+		test_aliased_xapic_physical_ipi,
 	};
 
 	assert_msg(is_apic_hw_enabled() && is_apic_sw_enabled(),
