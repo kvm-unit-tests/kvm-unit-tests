@@ -10,6 +10,21 @@
 
 #define MAX_TPR			0xf
 
+static bool is_apic_hw_enabled(void)
+{
+	return rdmsr(MSR_IA32_APICBASE) & APIC_EN;
+}
+
+static bool is_x2apic_enabled(void)
+{
+	return (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == (APIC_EN | APIC_EXTD);
+}
+
+static bool is_xapic_enabled(void)
+{
+	return (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == APIC_EN;
+}
+
 static void test_lapic_existence(void)
 {
 	u8 version;
@@ -143,14 +158,13 @@ static void test_apic_disable(void)
 	assert_msg(orig_apicbase & APIC_EN, "APIC not enabled.");
 
 	disable_apic();
-	report(!(rdmsr(MSR_IA32_APICBASE) & APIC_EN), "Local apic disabled");
+	report(!is_apic_hw_enabled(), "Local apic disabled");
 	report(!this_cpu_has(X86_FEATURE_APIC),
 	       "CPUID.1H:EDX.APIC[bit 9] is clear");
 	verify_disabled_apic_mmio();
 
 	reset_apic();
-	report((rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == APIC_EN,
-	       "Local apic enabled in xAPIC mode");
+	report(is_xapic_enabled(), "Local apic enabled in xAPIC mode");
 	report(this_cpu_has(X86_FEATURE_APIC), "CPUID.1H:EDX.APIC[bit 9] is set");
 	report(*lvr == apic_version, "*0xfee00030: %x", *lvr);
 	report(*tpr == cr8, "*0xfee00080: %x", *tpr);
@@ -160,8 +174,7 @@ static void test_apic_disable(void)
 
 	if (enable_x2apic()) {
 		apic_write(APIC_SPIV, 0x1ff);
-		report((rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == (APIC_EN | APIC_EXTD),
-		       "Local apic enabled in x2APIC mode");
+		report(is_x2apic_enabled(), "Local apic enabled in x2APIC mode");
 		report(this_cpu_has(X86_FEATURE_APIC),
 		       "CPUID.1H:EDX.APIC[bit 9] is set");
 		verify_disabled_apic_mmio();
@@ -211,7 +224,7 @@ static void __test_apic_id(void * unused)
 	u32 id, newid;
 	u8  initial_xapic_id = cpuid(1).b >> 24;
 	u32 initial_x2apic_id = cpuid(0xb).d;
-	bool x2apic_mode = rdmsr(MSR_IA32_APICBASE) & APIC_EXTD;
+	bool x2apic_mode = is_x2apic_enabled();
 
 	if (x2apic_mode)
 		reset_apic();
@@ -282,21 +295,20 @@ static void __test_self_ipi(void)
 
 static void test_self_ipi_xapic(void)
 {
-	u64 orig_apicbase = rdmsr(MSR_IA32_APICBASE);
+	u64 was_x2apic = is_x2apic_enabled();
 
 	report_prefix_push("self_ipi_xapic");
 
 	/* Reset to xAPIC mode. */
 	reset_apic();
-	report((rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == APIC_EN,
-	       "Local apic enabled in xAPIC mode");
+	report(is_xapic_enabled(), "Local apic enabled in xAPIC mode");
 
 	ipi_count = 0;
 	__test_self_ipi();
 	report(ipi_count == 1, "self ipi");
 
 	/* Enable x2APIC mode if it was already enabled. */
-	if (orig_apicbase & APIC_EXTD)
+	if (was_x2apic)
 		enable_x2apic();
 
 	report_prefix_pop();
@@ -304,20 +316,19 @@ static void test_self_ipi_xapic(void)
 
 static void test_self_ipi_x2apic(void)
 {
-	u64 orig_apicbase = rdmsr(MSR_IA32_APICBASE);
+	u64 was_xapic = is_xapic_enabled();
 
 	report_prefix_push("self_ipi_x2apic");
 
 	if (enable_x2apic()) {
-		report((rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == (APIC_EN | APIC_EXTD),
-			"Local apic enabled in x2APIC mode");
+		report(is_x2apic_enabled(), "Local apic enabled in x2APIC mode");
 
 		ipi_count = 0;
 		__test_self_ipi();
 		report(ipi_count == 1, "self ipi");
 
 		/* Reset to xAPIC mode unless x2APIC was already enabled. */
-		if (!(orig_apicbase & APIC_EXTD))
+		if (was_xapic)
 			reset_apic();
 	} else {
 		report_skip("x2apic not detected");
