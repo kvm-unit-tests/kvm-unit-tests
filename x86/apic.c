@@ -94,13 +94,12 @@ static bool test_write_apicbase_exception(u64 data)
 
 static void test_enable_x2apic(void)
 {
-	u64 orig_apicbase = rdmsr(MSR_IA32_APICBASE);
-	u64 apicbase;
+	u64 apicbase = rdmsr(MSR_IA32_APICBASE);
 
 	if (enable_x2apic()) {
 		printf("x2apic enabled\n");
 
-		apicbase = orig_apicbase & ~(APIC_EN | APIC_EXTD);
+		apicbase &= ~(APIC_EN | APIC_EXTD);
 		report(test_write_apicbase_exception(apicbase | APIC_EXTD),
 			"x2apic enabled to invalid state");
 		report(test_write_apicbase_exception(apicbase | APIC_EN),
@@ -117,17 +116,6 @@ static void test_enable_x2apic(void)
 			"apic disabled to apic enabled");
 		report(test_write_apicbase_exception(apicbase | APIC_EXTD),
 			"apic enabled to invalid state");
-
-		if (orig_apicbase & APIC_EXTD)
-			enable_x2apic();
-		else
-			reset_apic();
-
-		/*
-		 * Disabling the APIC resets various APIC registers, restore
-		 * them to their desired values.
-		 */
-		apic_write(APIC_SPIV, 0x1ff);
 	} else {
 		printf("x2apic not detected\n");
 
@@ -155,12 +143,10 @@ static void test_apic_disable(void)
 {
 	volatile u32 *lvr = (volatile u32 *)(APIC_DEFAULT_PHYS_BASE + APIC_LVR);
 	volatile u32 *tpr = (volatile u32 *)(APIC_DEFAULT_PHYS_BASE + APIC_TASKPRI);
-	u64 orig_apicbase = rdmsr(MSR_IA32_APICBASE);
 	u32 apic_version = apic_read(APIC_LVR);
 	u32 cr8 = read_cr8();
 
 	report_prefix_push("apic_disable");
-	assert_msg(orig_apicbase & APIC_EN, "APIC not enabled.");
 
 	disable_apic();
 	report(!is_apic_hw_enabled(), "Local apic disabled");
@@ -178,13 +164,10 @@ static void test_apic_disable(void)
 	write_cr8(cr8);
 
 	if (enable_x2apic()) {
-		apic_write(APIC_SPIV, 0x1ff);
 		report(is_x2apic_enabled(), "Local apic enabled in x2APIC mode");
 		report(this_cpu_has(X86_FEATURE_APIC),
 		       "CPUID.1H:EDX.APIC[bit 9] is set");
 		verify_disabled_apic_mmio();
-		if (!(orig_apicbase & APIC_EXTD))
-			reset_apic();
 	}
 	report_prefix_pop();
 }
@@ -213,8 +196,8 @@ static void test_apicbase(void)
 	report(test_for_exception(GP_VECTOR, do_write_apicbase, &value),
 	       "reserved low bits");
 
+	/* Restore the APIC address, the "reset" helpers leave it as is. */
 	wrmsr(MSR_IA32_APICBASE, orig_apicbase);
-	apic_write(APIC_SPIV, 0x1ff);
 
 	report_prefix_pop();
 }
@@ -300,8 +283,6 @@ static void __test_self_ipi(void)
 
 static void test_self_ipi_xapic(void)
 {
-	u64 was_x2apic = is_x2apic_enabled();
-
 	report_prefix_push("self_ipi_xapic");
 
 	/* Reset to xAPIC mode. */
@@ -312,17 +293,11 @@ static void test_self_ipi_xapic(void)
 	__test_self_ipi();
 	report(ipi_count == 1, "self ipi");
 
-	/* Enable x2APIC mode if it was already enabled. */
-	if (was_x2apic)
-		enable_x2apic();
-
 	report_prefix_pop();
 }
 
 static void test_self_ipi_x2apic(void)
 {
-	u64 was_xapic = is_xapic_enabled();
-
 	report_prefix_push("self_ipi_x2apic");
 
 	if (enable_x2apic()) {
@@ -331,10 +306,6 @@ static void test_self_ipi_x2apic(void)
 		ipi_count = 0;
 		__test_self_ipi();
 		report(ipi_count == 1, "self ipi");
-
-		/* Reset to xAPIC mode unless x2APIC was already enabled. */
-		if (was_xapic)
-			reset_apic();
 	} else {
 		report_skip("x2apic not detected");
 	}
@@ -690,38 +661,61 @@ static void test_pv_ipi(void)
 	int ret;
 	unsigned long a0 = 0xFFFFFFFF, a1 = 0, a2 = 0xFFFFFFFF, a3 = 0x0;
 
+	if (!test_device_enabled())
+		return;
+
 	asm volatile("vmcall" : "=a"(ret) :"a"(KVM_HC_SEND_IPI), "b"(a0), "c"(a1), "d"(a2), "S"(a3));
 	report(!ret, "PV IPIs testing");
 }
 
+typedef void (*apic_test_fn)(void);
+
 int main(void)
 {
+	bool is_x2apic = is_x2apic_enabled();
+	u32 spiv = apic_read(APIC_SPIV);
+	int i;
+
+	const apic_test_fn tests[] = {
+		test_lapic_existence,
+
+		test_apic_id,
+		test_apic_disable,
+		test_enable_x2apic,
+		test_apicbase,
+
+		test_self_ipi_xapic,
+		test_self_ipi_x2apic,
+		test_physical_broadcast,
+
+		test_pv_ipi,
+
+		test_sti_nmi,
+		test_multiple_nmi,
+		test_pending_nmi,
+
+		test_apic_timer_one_shot,
+		test_apic_change_mode,
+		test_tsc_deadline_timer,
+	};
+
 	assert_msg(is_apic_hw_enabled() && is_apic_sw_enabled(),
 		   "APIC should be fully enabled by startup code.");
 
 	setup_vm();
 
-	test_lapic_existence();
-
 	mask_pic_interrupts();
-	test_apic_id();
-	test_apic_disable();
-	test_enable_x2apic();
-	test_apicbase();
 
-	test_self_ipi_xapic();
-	test_self_ipi_x2apic();
-	test_physical_broadcast();
-	if (test_device_enabled())
-		test_pv_ipi();
+	for (i = 0; i < ARRAY_SIZE(tests); i++) {
+		tests[i]();
 
-	test_sti_nmi();
-	test_multiple_nmi();
-	test_pending_nmi();
+		if (is_x2apic)
+			enable_x2apic();
+		else
+			reset_apic();
 
-	test_apic_timer_one_shot();
-	test_apic_change_mode();
-	test_tsc_deadline_timer();
+		apic_write(APIC_SPIV, spiv);
+	}
 
 	return report_summary();
 }
