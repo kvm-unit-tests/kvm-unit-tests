@@ -53,7 +53,6 @@ static void tsc_deadline_timer_isr(isr_regs_t *regs)
 static void __test_tsc_deadline_timer(void)
 {
 	handle_irq(TSC_DEADLINE_TIMER_VECTOR, tsc_deadline_timer_isr);
-	irq_enable();
 
 	wrmsr(MSR_IA32_TSCDEADLINE, rdmsr(MSR_IA32_TSC));
 	asm volatile ("nop");
@@ -272,7 +271,6 @@ static void __test_self_ipi(void)
 	int vec = 0xf1;
 
 	handle_irq(vec, self_ipi_isr);
-	irq_enable();
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED | vec,
 		       id_map[0]);
 
@@ -485,7 +483,6 @@ static void test_apic_timer_one_shot(void)
 #define APIC_LVT_TIMER_VECTOR    (0xee)
 
 	handle_irq(APIC_LVT_TIMER_VECTOR, lvtt_handler);
-	irq_enable();
 
 	/* One shot mode */
 	apic_write(APIC_LVTT, APIC_LVT_TIMER_ONESHOT |
@@ -705,6 +702,7 @@ int main(void)
 	setup_vm();
 
 	mask_pic_interrupts();
+	irq_enable();
 
 	for (i = 0; i < ARRAY_SIZE(tests); i++) {
 		tests[i]();
