@@ -10,6 +10,7 @@
 #include "isr.h"
 #include "apic.h"
 #include "delay.h"
+#include "x86/usermode.h"
 
 #define SVM_EXIT_MAX_DR_INTERCEPT 0x3f
 
@@ -3289,6 +3290,81 @@ static void svm_intr_intercept_mix_smi(void)
 	svm_intr_intercept_mix_run_guest(NULL, SVM_EXIT_SMI);
 }
 
+static void svm_l2_ac_test(void)
+{
+	bool hit_ac = false;
+
+	write_cr0(read_cr0() | X86_CR0_AM);
+	write_rflags(read_rflags() | X86_EFLAGS_AC);
+
+	run_in_user(generate_usermode_ac, AC_VECTOR, 0, 0, 0, 0, &hit_ac);
+	report(hit_ac, "Usermode #AC handled in L2");
+	vmmcall();
+}
+
+struct svm_exception_test {
+	u8 vector;
+	void (*guest_code)(void);
+};
+
+struct svm_exception_test svm_exception_tests[] = {
+	{ GP_VECTOR, generate_non_canonical_gp },
+	{ UD_VECTOR, generate_ud },
+	{ DE_VECTOR, generate_de },
+	{ DB_VECTOR, generate_single_step_db },
+	{ AC_VECTOR, svm_l2_ac_test },
+};
+
+static u8 svm_exception_test_vector;
+
+static void svm_exception_handler(struct ex_regs *regs)
+{
+	report(regs->vector == svm_exception_test_vector,
+		"Handling %s in L2's exception handler",
+		exception_mnemonic(svm_exception_test_vector));
+	vmmcall();
+}
+
+static void handle_exception_in_l2(u8 vector)
+{
+	handler old_handler = handle_exception(vector, svm_exception_handler);
+	svm_exception_test_vector = vector;
+
+	report(svm_vmrun() == SVM_EXIT_VMMCALL,
+		"%s handled by L2", exception_mnemonic(vector));
+
+	handle_exception(vector, old_handler);
+}
+
+static void handle_exception_in_l1(u32 vector)
+{
+	u32 old_ie = vmcb->control.intercept_exceptions;
+
+	vmcb->control.intercept_exceptions |= (1ULL << vector);
+
+	report(svm_vmrun() == (SVM_EXIT_EXCP_BASE + vector),
+		"%s handled by L1",  exception_mnemonic(vector));
+
+	vmcb->control.intercept_exceptions = old_ie;
+}
+
+static void svm_exception_test(void)
+{
+	struct svm_exception_test *t;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(svm_exception_tests); i++) {
+		t = &svm_exception_tests[i];
+		test_set_guest((test_guest_func)t->guest_code);
+
+		handle_exception_in_l2(t->vector);
+		vmcb_ident(vmcb);
+
+		handle_exception_in_l1(t->vector);
+		vmcb_ident(vmcb);
+	}
+}
+
 struct svm_test svm_tests[] = {
 	{ "null", default_supported, default_prepare,
 	  default_prepare_gif_clear, null_test,
@@ -3389,6 +3465,7 @@ struct svm_test svm_tests[] = {
 	TEST(svm_nm_test),
 	TEST(svm_int3_test),
 	TEST(svm_into_test),
+	TEST(svm_exception_test),
 	TEST(svm_lbrv_test0),
 	TEST(svm_lbrv_test1),
 	TEST(svm_lbrv_test2),
