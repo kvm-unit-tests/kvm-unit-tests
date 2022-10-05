@@ -10745,6 +10745,7 @@ static void vmx_l2_bp_test(void)
 static void vmx_l2_db_test(void)
 {
 	write_rflags(read_rflags() | X86_EFLAGS_TF);
+	asm volatile("nop");
 }
 
 static uint64_t usermode_callback(void)
