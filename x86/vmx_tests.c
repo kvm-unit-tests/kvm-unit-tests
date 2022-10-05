@@ -10717,49 +10717,6 @@ static void vmx_pf_vpid_test(void)
 	__vmx_pf_vpid_test(invalidate_tlb_new_vpid, 1);
 }
 
-static void vmx_l2_gp_test(void)
-{
-	*(volatile u64 *)NONCANONICAL = 0;
-}
-
-static void vmx_l2_ud_test(void)
-{
-	asm volatile ("ud2");
-}
-
-static void vmx_l2_de_test(void)
-{
-	asm volatile (
-		"xor %%eax, %%eax\n\t"
-		"xor %%ebx, %%ebx\n\t"
-		"xor %%edx, %%edx\n\t"
-		"idiv %%ebx\n\t"
-		::: "eax", "ebx", "edx");
-}
-
-static void vmx_l2_bp_test(void)
-{
-	asm volatile ("int3");
-}
-
-static void vmx_l2_db_test(void)
-{
-	write_rflags(read_rflags() | X86_EFLAGS_TF);
-	asm volatile("nop");
-}
-
-static uint64_t usermode_callback(void)
-{
-	/*
-	 * Trigger an #AC by writing 8 bytes to a 4-byte aligned address.
-	 * Disclaimer: It is assumed that the stack pointer is aligned
-	 * on a 16-byte boundary as x86_64 stacks should be.
-	 */
-	asm volatile("movq $0, -0x4(%rsp)");
-
-	return 0;
-}
-
 static void vmx_l2_ac_test(void)
 {
 	bool hit_ac = false;
@@ -10767,7 +10724,7 @@ static void vmx_l2_ac_test(void)
 	write_cr0(read_cr0() | X86_CR0_AM);
 	write_rflags(read_rflags() | X86_EFLAGS_AC);
 
-	run_in_user(usermode_callback, AC_VECTOR, 0, 0, 0, 0, &hit_ac);
+	run_in_user(generate_usermode_ac, AC_VECTOR, 0, 0, 0, 0, &hit_ac);
 	report(hit_ac, "Usermode #AC handled in L2");
 	vmcall();
 }
@@ -10778,11 +10735,11 @@ struct vmx_exception_test {
 };
 
 struct vmx_exception_test vmx_exception_tests[] = {
-	{ GP_VECTOR, vmx_l2_gp_test },
-	{ UD_VECTOR, vmx_l2_ud_test },
-	{ DE_VECTOR, vmx_l2_de_test },
-	{ DB_VECTOR, vmx_l2_db_test },
-	{ BP_VECTOR, vmx_l2_bp_test },
+	{ GP_VECTOR, generate_non_canonical_gp },
+	{ UD_VECTOR, generate_ud },
+	{ DE_VECTOR, generate_de },
+	{ DB_VECTOR, generate_single_step_db },
+	{ BP_VECTOR, generate_bp },
 	{ AC_VECTOR, vmx_l2_ac_test },
 };
 

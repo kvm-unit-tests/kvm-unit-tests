@@ -791,6 +791,49 @@ static inline void flush_tlb(void)
 	write_cr4(cr4);
 }
 
+static inline void generate_non_canonical_gp(void)
+{
+	*(volatile u64 *)NONCANONICAL = 0;
+}
+
+static inline void generate_ud(void)
+{
+	asm volatile ("ud2");
+}
+
+static inline void generate_de(void)
+{
+	asm volatile (
+		"xor %%eax, %%eax\n\t"
+		"xor %%ebx, %%ebx\n\t"
+		"xor %%edx, %%edx\n\t"
+		"idiv %%ebx\n\t"
+		::: "eax", "ebx", "edx");
+}
+
+static inline void generate_bp(void)
+{
+	asm volatile ("int3");
+}
+
+static inline void generate_single_step_db(void)
+{
+	write_rflags(read_rflags() | X86_EFLAGS_TF);
+	asm volatile("nop");
+}
+
+static inline uint64_t generate_usermode_ac(void)
+{
+	/*
+	 * Trigger an #AC by writing 8 bytes to a 4-byte aligned address.
+	 * Disclaimer: It is assumed that the stack pointer is aligned
+	 * on a 16-byte boundary as x86_64 stacks should be.
+	 */
+	asm volatile("movq $0, -0x4(%rsp)");
+
+	return 0;
+}
+
 static inline u8 pmu_version(void)
 {
 	return cpuid(10).a & 0xff;
