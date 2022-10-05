@@ -2136,31 +2136,6 @@ static int disable_rdtscp_exit_handler(union exit_reason exit_reason)
 	return VMX_TEST_VMEXIT;
 }
 
-static int int3_init(struct vmcs *vmcs)
-{
-	vmcs_write(EXC_BITMAP, ~0u);
-	return VMX_TEST_START;
-}
-
-static void int3_guest_main(void)
-{
-	asm volatile ("int3");
-}
-
-static int int3_exit_handler(union exit_reason exit_reason)
-{
-	u32 intr_info = vmcs_read(EXI_INTR_INFO);
-
-	report(exit_reason.basic == VMX_EXC_NMI &&
-	       (intr_info & INTR_INFO_VALID_MASK) &&
-	       (intr_info & INTR_INFO_VECTOR_MASK) == BP_VECTOR &&
-	       ((intr_info & INTR_INFO_INTR_TYPE_MASK) >>
-	        INTR_INFO_INTR_TYPE_SHIFT) == VMX_INTR_TYPE_SOFT_EXCEPTION,
-	       "L1 intercepts #BP");
-
-	return VMX_TEST_VMEXIT;
-}
-
 static void exit_monitor_from_l2_main(void)
 {
 	printf("Calling exit(0) from l2...\n");
@@ -10795,7 +10770,6 @@ struct vmx_test vmx_tests[] = {
 	{ "vmmcall", vmmcall_init, vmmcall_main, vmmcall_exit_handler, NULL, {0} },
 	{ "disable RDTSCP", disable_rdtscp_init, disable_rdtscp_main,
 		disable_rdtscp_exit_handler, NULL, {0} },
-	{ "int3", int3_init, int3_guest_main, int3_exit_handler, NULL, {0} },
 	{ "exit_monitor_from_l2_test", NULL, exit_monitor_from_l2_main,
 		exit_monitor_from_l2_handler, NULL, {0} },
 	{ "invalid_msr", invalid_msr_init, invalid_msr_main,
