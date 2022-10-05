@@ -8359,67 +8359,14 @@ static void vmx_cr4_osxsave_test(void)
 	TEST_ASSERT(this_cpu_has(X86_FEATURE_OSXSAVE));
 }
 
-static void vmx_nm_test_guest(void)
-{
-	write_cr0(read_cr0() | X86_CR0_TS);
-	asm volatile("fnop");
-}
-
-static void check_nm_exit(const char *test)
-{
-	u32 reason = vmcs_read(EXI_REASON);
-	u32 intr_info = vmcs_read(EXI_INTR_INFO);
-	const u32 expected = INTR_INFO_VALID_MASK | INTR_TYPE_HARD_EXCEPTION |
-		NM_VECTOR;
-
-	report(reason == VMX_EXC_NMI && intr_info == expected, "%s", test);
-}
-
 /*
- * This test checks that:
- *
- * (a) If L2 launches with CR0.TS clear, but later sets CR0.TS, then
- *     a subsequent #NM VM-exit is reflected to L1.
- *
- * (b) If L2 launches with CR0.TS clear and CR0.EM set, then a
- *     subsequent #NM VM-exit is reflected to L1.
+ * FNOP with both CR0.TS and CR0.EM clear should not generate #NM, and the L2
+ * guest should exit normally.
  */
-static void vmx_nm_test(void)
+static void vmx_no_nm_test(void)
 {
-	unsigned long cr0 = read_cr0();
-
-	test_set_guest(vmx_nm_test_guest);
-
-	/*
-	 * L1 wants to intercept #NM exceptions encountered in L2.
-	 */
-	vmcs_write(EXC_BITMAP, 1 << NM_VECTOR);
-
-	/*
-	 * Launch L2 with CR0.TS clear, but don't claim host ownership of
-	 * any CR0 bits. L2 will set CR0.TS and then try to execute fnop,
-	 * which will raise #NM. L0 should reflect the #NM VM-exit to L1.
-	 */
-	vmcs_write(CR0_MASK, 0);
-	vmcs_write(GUEST_CR0, cr0 & ~X86_CR0_TS);
-	enter_guest();
-	check_nm_exit("fnop with CR0.TS set in L2 triggers #NM VM-exit to L1");
-
-	/*
-	 * Re-enter L2 at the fnop instruction, with CR0.TS clear but
-	 * CR0.EM set. The fnop will still raise #NM, and L0 should
-	 * reflect the #NM VM-exit to L1.
-	 */
-	vmcs_write(GUEST_CR0, (cr0 & ~X86_CR0_TS) | X86_CR0_EM);
-	enter_guest();
-	check_nm_exit("fnop with CR0.EM set in L2 triggers #NM VM-exit to L1");
-
-	/*
-	 * Re-enter L2 at the fnop instruction, with both CR0.TS and
-	 * CR0.EM clear. There will be no #NM, and the L2 guest should
-	 * exit normally.
-	 */
-	vmcs_write(GUEST_CR0, cr0 & ~(X86_CR0_TS | X86_CR0_EM));
+	test_set_guest(fnop);
+	vmcs_write(GUEST_CR0, read_cr0() & ~(X86_CR0_TS | X86_CR0_EM));
 	enter_guest();
 }
 
@@ -10666,6 +10613,8 @@ struct vmx_exception_test vmx_exception_tests[] = {
 	{ BP_VECTOR, generate_bp },
 	{ AC_VECTOR, vmx_l2_ac_test },
 	{ OF_VECTOR, generate_of },
+	{ NM_VECTOR, generate_cr0_ts_nm },
+	{ NM_VECTOR, generate_cr0_em_nm },
 };
 
 static u8 vmx_exception_test_vector;
@@ -10804,7 +10753,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_ldtr_test),
 	TEST(vmx_cr_load_test),
 	TEST(vmx_cr4_osxsave_test),
-	TEST(vmx_nm_test),
+	TEST(vmx_no_nm_test),
 	TEST(vmx_db_test),
 	TEST(vmx_nmi_window_test),
 	TEST(vmx_intr_window_test),
