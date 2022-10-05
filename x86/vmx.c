@@ -1404,7 +1404,7 @@ static int test_vmxon_bad_cr(int cr_number, unsigned long orig_cr,
 			     unsigned long *flexible_bits)
 {
 	unsigned long required1, disallowed1, val, bit;
-	int ret, i;
+	int ret, i, expected;
 
 	if (!cr_number) {
 		required1 =  rdmsr(MSR_IA32_VMX_CR0_FIXED0);
@@ -1451,10 +1451,22 @@ static int test_vmxon_bad_cr(int cr_number, unsigned long orig_cr,
 		if (write_cr_safe(cr_number, val))
 			continue;
 
+		/*
+		 * CR0.PE==0 and CR4.VMXE==0 result in #UD, all other invalid
+		 * CR0/CR4 bits result in #GP.  Include CR0.PE even though it's
+		 * dead code (see above) for completeness.
+		 */
+		if ((cr_number == 0 && bit == X86_CR0_PE) ||
+		    (cr_number == 4 && bit == X86_CR4_VMXE))
+			expected = UD_VECTOR;
+		else
+			expected = GP_VECTOR;
+
 		ret = vmx_on();
-		report(ret == UD_VECTOR,
-		       "VMXON with CR%d bit %d %s should #UD, got '%d'",
-		       cr_number, i, (required1 & bit) ? "cleared" : "set", ret);
+		report(ret == expected,
+		       "VMXON with CR%d bit %d %s should %s, got '%d'",
+		       cr_number, i, (required1 & bit) ? "cleared" : "set",
+		       expected == UD_VECTOR ? "UD" : "#GP", ret);
 
 		write_cr(cr_number, orig_cr);
 
