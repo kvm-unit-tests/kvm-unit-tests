@@ -2804,26 +2804,6 @@ static void svm_into_test(void)
 	       "#OF is generated in L2 exception handler");
 }
 
-static int bp_test_counter;
-
-static void guest_test_bp_handler(struct ex_regs *r)
-{
-	bp_test_counter++;
-}
-
-static void svm_bp_test_guest(struct svm_test *test)
-{
-	asm volatile("int3");
-}
-
-static void svm_int3_test(void)
-{
-	handle_exception(BP_VECTOR, guest_test_bp_handler);
-	test_set_guest(svm_bp_test_guest);
-	report(svm_vmrun() == SVM_EXIT_VMMCALL && bp_test_counter == 1,
-	       "#BP is handled in L2 exception handler");
-}
-
 static int nm_test_counter;
 
 static void guest_test_nm_handler(struct ex_regs *r)
@@ -3312,6 +3292,7 @@ struct svm_exception_test svm_exception_tests[] = {
 	{ UD_VECTOR, generate_ud },
 	{ DE_VECTOR, generate_de },
 	{ DB_VECTOR, generate_single_step_db },
+	{ BP_VECTOR, generate_bp },
 	{ AC_VECTOR, svm_l2_ac_test },
 };
 
@@ -3463,7 +3444,6 @@ struct svm_test svm_tests[] = {
 	TEST(svm_vmload_vmsave),
 	TEST(svm_test_singlestep),
 	TEST(svm_nm_test),
-	TEST(svm_int3_test),
 	TEST(svm_into_test),
 	TEST(svm_exception_test),
 	TEST(svm_lbrv_test0),
