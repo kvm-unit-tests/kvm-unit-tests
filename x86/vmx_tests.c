@@ -2161,57 +2161,6 @@ static int int3_exit_handler(union exit_reason exit_reason)
 	return VMX_TEST_VMEXIT;
 }
 
-static int into_init(struct vmcs *vmcs)
-{
-	vmcs_write(EXC_BITMAP, ~0u);
-	return VMX_TEST_START;
-}
-
-static void into_guest_main(void)
-{
-	struct far_pointer32 fp = {
-		.offset = (uintptr_t)&&into,
-		.selector = KERNEL_CS32,
-	};
-	uintptr_t rsp;
-
-	asm volatile ("mov %%rsp, %0" : "=r"(rsp));
-
-	if (fp.offset != (uintptr_t)&&into) {
-		printf("Code address too high.\n");
-		return;
-	}
-	if ((u32)rsp != rsp) {
-		printf("Stack address too high.\n");
-		return;
-	}
-
-	asm goto ("lcall *%0" : : "m" (fp) : "rax" : into);
-	return;
-into:
-	asm volatile (".code32;"
-		      "movl $0x7fffffff, %eax;"
-		      "addl %eax, %eax;"
-		      "into;"
-		      "lret;"
-		      ".code64");
-	__builtin_unreachable();
-}
-
-static int into_exit_handler(union exit_reason exit_reason)
-{
-	u32 intr_info = vmcs_read(EXI_INTR_INFO);
-
-	report(exit_reason.basic == VMX_EXC_NMI &&
-	       (intr_info & INTR_INFO_VALID_MASK) &&
-	       (intr_info & INTR_INFO_VECTOR_MASK) == OF_VECTOR &&
-	       ((intr_info & INTR_INFO_INTR_TYPE_MASK) >>
-	        INTR_INFO_INTR_TYPE_SHIFT) == VMX_INTR_TYPE_SOFT_EXCEPTION,
-	       "L1 intercepts #OF");
-
-	return VMX_TEST_VMEXIT;
-}
-
 static void exit_monitor_from_l2_main(void)
 {
 	printf("Calling exit(0) from l2...\n");
@@ -10741,6 +10690,7 @@ struct vmx_exception_test vmx_exception_tests[] = {
 	{ DB_VECTOR, generate_single_step_db },
 	{ BP_VECTOR, generate_bp },
 	{ AC_VECTOR, vmx_l2_ac_test },
+	{ OF_VECTOR, generate_of },
 };
 
 static u8 vmx_exception_test_vector;
@@ -10769,14 +10719,24 @@ static void handle_exception_in_l2(u8 vector)
 static void handle_exception_in_l1(u32 vector)
 {
 	u32 old_eb = vmcs_read(EXC_BITMAP);
+	u32 intr_type;
+	u32 intr_info;
 
 	vmcs_write(EXC_BITMAP, old_eb | (1u << vector));
 
 	enter_guest();
 
+	if (vector == BP_VECTOR || vector == OF_VECTOR)
+		intr_type = VMX_INTR_TYPE_SOFT_EXCEPTION;
+	else
+		intr_type = VMX_INTR_TYPE_HARD_EXCEPTION;
+
+	intr_info = vmcs_read(EXI_INTR_INFO);
 	report((vmcs_read(EXI_REASON) == VMX_EXC_NMI) &&
-	       ((vmcs_read(EXI_INTR_INFO) & 0xff) == vector),
-	       "%s handled by L1", exception_mnemonic(vector));
+	       (intr_info & INTR_INFO_VALID_MASK) &&
+	       (intr_info & INTR_INFO_VECTOR_MASK) == vector &&
+	       ((intr_info & INTR_INFO_INTR_TYPE_MASK) >> INTR_INFO_INTR_TYPE_SHIFT) == intr_type,
+	       "%s correctly routed to L1", exception_mnemonic(vector));
 
 	vmcs_write(EXC_BITMAP, old_eb);
 }
@@ -10836,7 +10796,6 @@ struct vmx_test vmx_tests[] = {
 	{ "disable RDTSCP", disable_rdtscp_init, disable_rdtscp_main,
 		disable_rdtscp_exit_handler, NULL, {0} },
 	{ "int3", int3_init, int3_guest_main, int3_exit_handler, NULL, {0} },
-	{ "into", into_init, into_guest_main, into_exit_handler, NULL, {0} },
 	{ "exit_monitor_from_l2_test", NULL, exit_monitor_from_l2_main,
 		exit_monitor_from_l2_handler, NULL, {0} },
 	{ "invalid_msr", invalid_msr_init, invalid_msr_main,

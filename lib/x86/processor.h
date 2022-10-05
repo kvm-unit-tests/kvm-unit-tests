@@ -834,6 +834,41 @@ static inline uint64_t generate_usermode_ac(void)
 	return 0;
 }
 
+/*
+ * Switch from 64-bit to 32-bit mode and generate #OF via INTO.  Note, if RIP
+ * or RSP holds a 64-bit value, this helper will NOT generate #OF.
+ */
+static inline void generate_of(void)
+{
+	struct far_pointer32 fp = {
+		.offset = (uintptr_t)&&into,
+		.selector = KERNEL_CS32,
+	};
+	uintptr_t rsp;
+
+	asm volatile ("mov %%rsp, %0" : "=r"(rsp));
+
+	if (fp.offset != (uintptr_t)&&into) {
+		printf("Code address too high.\n");
+		return;
+	}
+	if ((u32)rsp != rsp) {
+		printf("Stack address too high.\n");
+		return;
+	}
+
+	asm goto ("lcall *%0" : : "m" (fp) : "rax" : into);
+	return;
+into:
+	asm volatile (".code32;"
+		      "movl $0x7fffffff, %eax;"
+		      "addl %eax, %eax;"
+		      "into;"
+		      "lret;"
+		      ".code64");
+	__builtin_unreachable();
+}
+
 static inline u8 pmu_version(void)
 {
 	return cpuid(10).a & 0xff;
