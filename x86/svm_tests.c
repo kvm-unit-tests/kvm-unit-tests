@@ -2756,54 +2756,6 @@ static void pause_filter_test(void)
 	}
 }
 
-
-static int of_test_counter;
-
-static void guest_test_of_handler(struct ex_regs *r)
-{
-	of_test_counter++;
-}
-
-static void svm_of_test_guest(struct svm_test *test)
-{
-	struct far_pointer32 fp = {
-		.offset = (uintptr_t)&&into,
-		.selector = KERNEL_CS32,
-	};
-	uintptr_t rsp;
-
-	asm volatile ("mov %%rsp, %0" : "=r"(rsp));
-
-	if (fp.offset != (uintptr_t)&&into) {
-		printf("Codee address too high.\n");
-		return;
-	}
-
-	if ((u32)rsp != rsp) {
-		printf("Stack address too high.\n");
-	}
-
-	asm goto("lcall *%0" : : "m" (fp) : "rax" : into);
-	return;
-into:
-
-	asm volatile (".code32;"
-		      "movl $0x7fffffff, %eax;"
-		      "addl %eax, %eax;"
-		      "into;"
-		      "lret;"
-		      ".code64");
-	__builtin_unreachable();
-}
-
-static void svm_into_test(void)
-{
-	handle_exception(OF_VECTOR, guest_test_of_handler);
-	test_set_guest(svm_of_test_guest);
-	report(svm_vmrun() == SVM_EXIT_VMMCALL && of_test_counter == 1,
-	       "#OF is generated in L2 exception handler");
-}
-
 static int nm_test_counter;
 
 static void guest_test_nm_handler(struct ex_regs *r)
@@ -3294,6 +3246,7 @@ struct svm_exception_test svm_exception_tests[] = {
 	{ DB_VECTOR, generate_single_step_db },
 	{ BP_VECTOR, generate_bp },
 	{ AC_VECTOR, svm_l2_ac_test },
+	{ OF_VECTOR, generate_of },
 };
 
 static u8 svm_exception_test_vector;
@@ -3444,7 +3397,6 @@ struct svm_test svm_tests[] = {
 	TEST(svm_vmload_vmsave),
 	TEST(svm_test_singlestep),
 	TEST(svm_nm_test),
-	TEST(svm_into_test),
 	TEST(svm_exception_test),
 	TEST(svm_lbrv_test0),
 	TEST(svm_lbrv_test1),
