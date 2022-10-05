@@ -869,6 +869,25 @@ into:
 	__builtin_unreachable();
 }
 
+static inline void fnop(void)
+{
+	asm volatile("fnop");
+}
+
+/* If CR0.TS is set in L2, #NM is generated. */
+static inline void generate_cr0_ts_nm(void)
+{
+	write_cr0((read_cr0() & ~X86_CR0_EM) | X86_CR0_TS);
+	fnop();
+}
+
+/* If CR0.TS is cleared and CR0.EM is set, #NM is generated. */
+static inline void generate_cr0_em_nm(void)
+{
+	write_cr0((read_cr0() & ~X86_CR0_TS) | X86_CR0_EM);
+	fnop();
+}
+
 static inline u8 pmu_version(void)
 {
 	return cpuid(10).a & 0xff;

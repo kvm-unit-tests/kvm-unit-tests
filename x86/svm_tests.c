@@ -2756,48 +2756,14 @@ static void pause_filter_test(void)
 	}
 }
 
-static int nm_test_counter;
-
-static void guest_test_nm_handler(struct ex_regs *r)
+/* If CR0.TS and CR0.EM are cleared in L2, no #NM is generated. */
+static void svm_no_nm_test(void)
 {
-	nm_test_counter++;
 	write_cr0(read_cr0() & ~X86_CR0_TS);
-	write_cr0(read_cr0() & ~X86_CR0_EM);
-}
-
-static void svm_nm_test_guest(struct svm_test *test)
-{
-	asm volatile("fnop");
-}
-
-/* This test checks that:
- *
- * (a) If CR0.TS is set in L2, #NM is handled by L2 when
- *     just an L2 handler is registered.
- *
- * (b) If CR0.TS is cleared and CR0.EM is set, #NM is handled
- *     by L2 when just an l2 handler is registered.
- *
- * (c) If CR0.TS and CR0.EM are cleared in L2, no exception
- *     is generated.
- */
-
-static void svm_nm_test(void)
-{
-	handle_exception(NM_VECTOR, guest_test_nm_handler);
-	write_cr0(read_cr0() & ~X86_CR0_TS);
-	test_set_guest(svm_nm_test_guest);
-
-	vmcb->save.cr0 = vmcb->save.cr0 | X86_CR0_TS;
-	report(svm_vmrun() == SVM_EXIT_VMMCALL && nm_test_counter == 1,
-	       "fnop with CR0.TS set in L2, #NM is triggered");
-
-	vmcb->save.cr0 = (vmcb->save.cr0 & ~X86_CR0_TS) | X86_CR0_EM;
-	report(svm_vmrun() == SVM_EXIT_VMMCALL && nm_test_counter == 2,
-	       "fnop with CR0.EM set in L2, #NM is triggered");
+	test_set_guest((test_guest_func)fnop);
 
 	vmcb->save.cr0 = vmcb->save.cr0 & ~(X86_CR0_TS | X86_CR0_EM);
-	report(svm_vmrun() == SVM_EXIT_VMMCALL && nm_test_counter == 2,
+	report(svm_vmrun() == SVM_EXIT_VMMCALL,
 	       "fnop with CR0.TS and CR0.EM unset no #NM excpetion");
 }
 
@@ -3247,6 +3213,8 @@ struct svm_exception_test svm_exception_tests[] = {
 	{ BP_VECTOR, generate_bp },
 	{ AC_VECTOR, svm_l2_ac_test },
 	{ OF_VECTOR, generate_of },
+	{ NM_VECTOR, generate_cr0_ts_nm },
+	{ NM_VECTOR, generate_cr0_em_nm },
 };
 
 static u8 svm_exception_test_vector;
@@ -3396,7 +3364,7 @@ struct svm_test svm_tests[] = {
 	TEST(svm_vmrun_errata_test),
 	TEST(svm_vmload_vmsave),
 	TEST(svm_test_singlestep),
-	TEST(svm_nm_test),
+	TEST(svm_no_nm_test),
 	TEST(svm_exception_test),
 	TEST(svm_lbrv_test0),
 	TEST(svm_lbrv_test1),
