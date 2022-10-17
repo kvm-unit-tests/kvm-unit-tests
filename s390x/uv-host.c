@@ -256,6 +256,53 @@ static void test_cpu_destroy(void)
 	report_prefix_pop();
 }
 
+static void test_set_se_header(void)
+{
+	struct uv_cb_ssc uvcb = {
+		.header.cmd = UVC_CMD_SET_SEC_CONF_PARAMS,
+		.header.len = sizeof(uvcb),
+		.guest_handle = uvcb_cgc.guest_handle,
+		.sec_header_origin = 0,
+		.sec_header_len = 0x1000,
+	};
+	void *pages =  alloc_pages(1);
+	void *inv;
+	int rc;
+
+	report_prefix_push("sscp");
+
+	uvcb.header.len -= 8;
+	rc = uv_call(0, (uint64_t)&uvcb);
+	report(rc == 1 && uvcb.header.rc == UVC_RC_INV_LEN,
+	       "hdr invalid length");
+	uvcb.header.len += 8;
+
+	uvcb.guest_handle += 1;
+	rc = uv_call(0, (uint64_t)&uvcb);
+	report(rc == 1 && uvcb.header.rc == UVC_RC_INV_GHANDLE, "invalid handle");
+	uvcb.guest_handle -= 1;
+
+	inv = pages + PAGE_SIZE;
+	uvcb.sec_header_origin = (uint64_t)inv;
+	protect_page(inv, PAGE_ENTRY_I);
+	rc = uv_call(0, (uint64_t)&uvcb);
+	report(rc == 1 && uvcb.header.rc == 0x103,
+	       "se hdr access exception");
+
+	/*
+	 * Shift the ptr so the first few DWORDs are accessible but
+	 * the following are on an invalid page.
+	 */
+	uvcb.sec_header_origin -= 0x20;
+	rc = uv_call(0, (uint64_t)&uvcb);
+	report(rc == 1 && uvcb.header.rc == 0x103,
+	       "se hdr access exception crossing");
+	unprotect_page(inv, PAGE_ENTRY_I);
+
+	free_pages(pages);
+	report_prefix_pop();
+}
+
 static void test_cpu_create(void)
 {
 	int rc;
@@ -669,6 +716,7 @@ int main(void)
 
 	test_config_create();
 	test_cpu_create();
+	test_set_se_header();
 	test_cpu_destroy();
 	test_config_destroy();
 	test_clear();
