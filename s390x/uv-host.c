@@ -703,6 +703,10 @@ int main(void)
 		report_skip("Ultravisor call facility is not available");
 		goto done;
 	}
+	if (!uv_os_is_host()) {
+		report_skip("This test needs to be run in a UV host environment");
+		goto done;
+	}
 
 	test_i3();
 	test_priv();
