@@ -524,17 +524,22 @@ static void test_init(void)
 	       "storage invalid length");
 	uvcb_init.stor_len += 8;
 
-	uvcb_init.stor_origin =  get_max_ram_size() + 8;
+	/* Storage origin is 1MB aligned, the length is 4KB aligned */
+	uvcb_init.stor_origin = get_max_ram_size();
 	rc = uv_call(0, (uint64_t)&uvcb_init);
-	report(rc == 1 && uvcb_init.header.rc == 0x104,
+	report(rc == 1 && (uvcb_init.header.rc == 0x104 || uvcb_init.header.rc == 0x105),
 	       "storage origin invalid");
 	uvcb_init.stor_origin = mem;
 
-	uvcb_init.stor_origin = get_max_ram_size() - 8;
-	rc = uv_call(0, (uint64_t)&uvcb_init);
-	report(rc == 1 && uvcb_init.header.rc == 0x105,
-	       "storage + length invalid");
-	uvcb_init.stor_origin = mem;
+	if (uvcb_init.stor_len >= HPAGE_SIZE) {
+		uvcb_init.stor_origin = get_max_ram_size() - HPAGE_SIZE;
+		rc = uv_call(0, (uint64_t)&uvcb_init);
+		report(rc == 1 && uvcb_init.header.rc == 0x105,
+		       "storage + length invalid");
+		uvcb_init.stor_origin = mem;
+	} else {
+		report_skip("storage + length invalid, stor_len < HPAGE_SIZE");
+	}
 
 	uvcb_init.stor_origin = 1UL << 30;
 	rc = uv_call(0, (uint64_t)&uvcb_init);
