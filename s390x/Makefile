@@ -176,18 +176,26 @@ $(comm-key):
 %.bin: %.elf
 	$(OBJCOPY) -O binary  $< $@
 
-# The genprotimg arguments for the cck changed over time so we need to
-# figure out which argument to use in order to set the cck
-GENPROTIMG_HAS_COMM_KEY = $(shell $(GENPROTIMG) --help | grep -q -- --comm-key && echo yes)
-ifeq ($(GENPROTIMG_HAS_COMM_KEY),yes)
-	GENPROTIMG_COMM_KEY = --comm-key $(comm-key)
-else
-	GENPROTIMG_COMM_KEY = --x-comm-key $(comm-key)
+# Will only be filled when dump has been enabled
+GENPROTIMG_COMM_KEY =
+# allow PCKMO
+genprotimg_pcf = 0x000000e0
+
+ifeq ($(CONFIG_DUMP),yes)
+	# The genprotimg arguments for the cck changed over time so we need to
+	# figure out which argument to use in order to set the cck
+	GENPROTIMG_HAS_COMM_KEY = $(shell $(GENPROTIMG) --help | grep -q -- --comm-key && echo yes)
+	ifeq ($(GENPROTIMG_HAS_COMM_KEY),yes)
+		GENPROTIMG_COMM_KEY = --comm-key $(comm-key)
+	else
+		GENPROTIMG_COMM_KEY = --x-comm-key $(comm-key)
+	endif
+
+	# allow dumping + PCKMO
+	genprotimg_pcf = 0x200000e0
 endif
 
 # use x-pcf to be compatible with old genprotimg versions
-# allow dumping + PCKMO
-genprotimg_pcf = 0x200000e0
 genprotimg_args = --host-key-document $(HOST_KEY_DOCUMENT) --no-verify $(GENPROTIMG_COMM_KEY) --x-pcf $(genprotimg_pcf)
 
 %selftest.pv.bin: %selftest.bin $(HOST_KEY_DOCUMENT) $(patsubst %.pv.bin,%.parmfile,$@) $(comm-key)
