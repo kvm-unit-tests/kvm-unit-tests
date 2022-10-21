@@ -28,9 +28,8 @@ static inline void uv_setup_asces(void)
 	/* We need to have a valid primary ASCE to run guests. */
 	setup_vm();
 
-	/* Set P bit in ASCE as it is required for PV guests */
-	asce = stctg(1) | ASCE_P;
-	lctlg(1, asce);
+	/* Grab the ASCE which setup_vm() just set up */
+	asce = stctg(1);
 
 	/* Copy ASCE into home space CR */
 	lctlg(13, asce);

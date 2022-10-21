@@ -76,6 +76,9 @@ sie64a:
 	.endr
 	stfpc	SIE_SAVEAREA_HOST_FPC(%r3)
 
+	stctg	%c1, %c1, SIE_SAVEAREA_HOST_ASCE(%r3)
+	lctlg	%c1, %c1, SIE_SAVEAREA_GUEST_ASCE(%r3)
+
 	# Store scb and save_area pointer into stack frame
 	stg	%r2,__SF_SIE_CONTROL(%r15)	# save control block pointer
 	stg	%r3,__SF_SIE_SAVEAREA(%r15)	# save guest register save area
@@ -101,6 +104,9 @@ sie_entry:
 sie_exit:
 	# Load guest register save area
 	lg	%r14,__SF_SIE_SAVEAREA(%r15)
+
+	# Restore the host asce
+	lctlg	%c1, %c1, SIE_SAVEAREA_HOST_ASCE(%r14)
 
 	# Store guest's gprs, fprs and fpc
 	stmg	%r0,%r13,SIE_SAVEAREA_GUEST_GRS(%r14)	# save guest gprs 0-13
