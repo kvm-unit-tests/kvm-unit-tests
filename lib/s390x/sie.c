@@ -15,19 +15,22 @@
 #include <libcflat.h>
 #include <alloc_page.h>
 
-static bool validity_expected;
-static uint16_t vir;		/* Validity interception reason */
-
-void sie_expect_validity(void)
+void sie_expect_validity(struct vm *vm)
 {
-	validity_expected = true;
-	vir = 0;
+	vm->validity_expected = true;
 }
 
-void sie_check_validity(uint16_t vir_exp)
+uint16_t sie_get_validity(struct vm *vm)
 {
+	assert(vm->sblk->icptcode == ICPT_VALIDITY);
+	return vm->sblk->ipb >> 16;
+}
+
+void sie_check_validity(struct vm *vm, uint16_t vir_exp)
+{
+	uint16_t vir = sie_get_validity(vm);
+
 	report(vir_exp == vir, "VALIDITY: %x", vir);
-	vir = 0;
 }
 
 void sie_handle_validity(struct vm *vm)
@@ -35,11 +38,9 @@ void sie_handle_validity(struct vm *vm)
 	if (vm->sblk->icptcode != ICPT_VALIDITY)
 		return;
 
-	vir = vm->sblk->ipb >> 16;
-
-	if (!validity_expected)
-		report_abort("VALIDITY: %x", vir);
-	validity_expected = false;
+	if (!vm->validity_expected)
+		report_abort("VALIDITY: %x", sie_get_validity(vm));
+	vm->validity_expected = false;
 }
 
 void sie(struct vm *vm)
