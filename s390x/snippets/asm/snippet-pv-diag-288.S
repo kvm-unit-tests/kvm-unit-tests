@@ -8,6 +8,7 @@
  *  Janosch Frank <frankja@linux.ibm.com>
  */
 #include <asm/asm-offsets.h>
+#include "macros.S"
 .section .text
 
 /* Clean and pre-load registers that are used for diag 288 */
@@ -19,8 +20,7 @@ lghi	%r1, 2
 lghi	%r2, 3
 
 /* Let's jump to the pgm exit label on a PGM */
-larl	%r4, exit_pgm
-stg     %r4, GEN_LC_PGM_NEW_PSW + 8
+SET_PSW_NEW_ADDR 4, exit_pgm, GEN_LC_PGM_NEW_PSW
 
 /* Execute the diag288 */
 diag	%r0, %r2, 0x288
