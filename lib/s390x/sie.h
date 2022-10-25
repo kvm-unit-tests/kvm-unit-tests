@@ -202,15 +202,50 @@ union {
 	uint64_t	pv_grregs[16];		/* 0x0380 */
 } __attribute__((packed));
 
+union esca_sigp_ctrl {
+	uint16_t value;
+	struct {
+		uint8_t c : 1;
+		uint8_t reserved: 7;
+		uint8_t scn;
+	};
+};
+
+struct esca_entry {
+	union esca_sigp_ctrl sigp_ctrl;
+	uint16_t   reserved1[3];
+	uint64_t   sda;
+	uint64_t   reserved2[6];
+};
+
+union ipte_control {
+	unsigned long val;
+	struct {
+		unsigned long k  : 1;
+		unsigned long kh : 31;
+		unsigned long kg : 32;
+	};
+};
+
+struct esca_block {
+	union ipte_control ipte_control;
+	uint64_t   reserved1[7];
+	uint64_t   mcn[4];
+	uint64_t   reserved2[20];
+	struct esca_entry cpu[256];
+};
+
 struct vm_uv {
 	uint64_t vm_handle;
 	uint64_t vcpu_handle;
+	uint64_t asce;
 	void *conf_base_stor;
 	void *conf_var_stor;
 	void *cpu_stor;
 };
 
 struct vm_save_regs {
+	uint64_t asce;
 	uint64_t grs[16];
 	uint64_t fprs[16];
 	uint32_t fpc;
@@ -228,19 +263,21 @@ struct vm_save_area {
 struct vm {
 	struct kvm_s390_sie_block *sblk;
 	struct vm_save_area save_area;
-	void *sca;				/* System Control Area */
+	struct esca_block *sca;			/* System Control Area */
 	uint8_t *crycb;				/* Crypto Control Block */
 	struct vm_uv uv;			/* PV UV information */
 	/* Ptr to first guest page */
 	uint8_t *guest_mem;
+	bool validity_expected;
 };
 
 extern void sie_entry(void);
 extern void sie_exit(void);
 extern void sie64a(struct kvm_s390_sie_block *sblk, struct vm_save_area *save_area);
 void sie(struct vm *vm);
-void sie_expect_validity(void);
-void sie_check_validity(uint16_t vir_exp);
+void sie_expect_validity(struct vm *vm);
+uint16_t sie_get_validity(struct vm *vm);
+void sie_check_validity(struct vm *vm, uint16_t vir_exp);
 void sie_handle_validity(struct vm *vm);
 void sie_guest_sca_create(struct vm *vm);
 void sie_guest_create(struct vm *vm, uint64_t guest_mem, uint64_t guest_mem_len);

@@ -18,11 +18,59 @@
 
 #define CPU_TIMER_SHIFT_US	S390_CLOCK_SHIFT_US
 
+static inline int sck(uint64_t *time)
+{
+	int cc;
+
+	asm volatile(
+		"	sck %[time]\n"
+		"	ipm %[cc]\n"
+		"	srl %[cc],28\n"
+		: [cc] "=d"(cc)
+		: [time] "Q"(*time)
+		: "cc"
+	);
+
+	return cc;
+}
+
+static inline int stck(uint64_t *time)
+{
+	int cc;
+
+	asm volatile(
+		"	stck %[time]\n"
+		"	ipm %[cc]\n"
+		"	srl %[cc],28\n"
+		: [cc] "=d" (cc), [time] "=Q" (*time)
+		:
+		: "cc"
+	);
+
+	return cc;
+}
+
+static inline int stckf(uint64_t *time)
+{
+	int cc;
+
+	asm volatile(
+		"	stckf %[time]\n"
+		"	ipm %[cc]\n"
+		"	srl %[cc],28\n"
+		: [cc] "=d" (cc), [time] "=Q" (*time)
+		:
+		: "cc"
+	);
+
+	return cc;
+}
+
 static inline uint64_t get_clock_us(void)
 {
 	uint64_t clk;
 
-	asm volatile(" stck %0 " : : "Q"(clk) : "memory");
+	stck(&clk);
 
 	return clk >> STCK_SHIFT_US;
 }

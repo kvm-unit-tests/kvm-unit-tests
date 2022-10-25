@@ -41,6 +41,11 @@ struct psw {
 	uint64_t	addr;
 };
 
+struct short_psw {
+	uint32_t	mask;
+	uint32_t	addr;
+};
+
 struct cpu {
 	struct lowcore *lowcore;
 	uint64_t *stack;
@@ -51,6 +56,7 @@ struct cpu {
 	bool active;
 	bool pgm_int_expected;
 	bool ext_int_expected;
+	bool in_interrupt_handler;
 };
 
 #define AS_PRIM				0
@@ -68,6 +74,7 @@ struct cpu {
 #define PSW_MASK_BA			0x0000000080000000UL
 #define PSW_MASK_64			(PSW_MASK_BA | PSW_MASK_EA)
 
+#define CTL0_TRANSACT_EX_CTL			(63 -  8)
 #define CTL0_LOW_ADDR_PROT			(63 - 35)
 #define CTL0_EDAT				(63 - 40)
 #define CTL0_FETCH_PROTECTION_OVERRIDE		(63 - 38)
@@ -328,6 +335,16 @@ static inline void load_psw_mask(uint64_t mask)
 		"	lpswe	0(%1)\n"
 		"0:\n"
 		: "+r" (tmp) :  "a" (&psw) : "memory", "cc" );
+}
+
+static inline void disabled_wait(uint64_t message)
+{
+	struct psw psw = {
+		.mask = PSW_MASK_WAIT,  /* Disabled wait */
+		.addr = message,
+	};
+
+	asm volatile("  lpswe 0(%0)\n" : : "a" (&psw) : "memory", "cc");
 }
 
 /**

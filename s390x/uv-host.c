@@ -15,12 +15,14 @@
 #include <sclp.h>
 #include <smp.h>
 #include <uv.h>
+#include <mmu.h>
 #include <asm/page.h>
 #include <asm/sigp.h>
 #include <asm/pgtable.h>
 #include <asm/asm-offsets.h>
 #include <asm/interrupt.h>
 #include <asm/facility.h>
+#include <asm/pgtable.h>
 #include <asm/uv.h>
 #include <asm-generic/barrier.h>
 
@@ -41,6 +43,32 @@ struct cmd_list{
 static void cpu_loop(void)
 {
 	for (;;) {}
+}
+
+/*
+ * Checks if a memory area is protected as secure memory.
+ * Will return true if all pages are protected, false otherwise.
+ */
+static bool access_check_3d(uint8_t *access_ptr, uint64_t len)
+{
+	assert(!(len & ~PAGE_MASK));
+	assert(!((uint64_t)access_ptr & ~PAGE_MASK));
+
+	while (len) {
+		expect_pgm_int();
+		READ_ONCE(*access_ptr);
+		if (clear_pgm_int() != PGM_INT_CODE_SECURE_STOR_ACCESS)
+			return false;
+		expect_pgm_int();
+		WRITE_ONCE(*access_ptr, 42);
+		if (clear_pgm_int() != PGM_INT_CODE_SECURE_STOR_ACCESS)
+			return false;
+
+		access_ptr += PAGE_SIZE;
+		len -= PAGE_SIZE;
+	}
+
+	return true;
 }
 
 static struct cmd_list cmds[] = {
@@ -64,6 +92,28 @@ static struct cmd_list cmds[] = {
 	{ NULL, 0, 0 },
 };
 
+static void test_i3(void)
+{
+	struct uv_cb_header uvcb = {
+		.cmd = UVC_CMD_INIT_UV,
+		.len = sizeof(struct uv_cb_init),
+	};
+	unsigned long r1 = 0;
+	int cc;
+
+	report_prefix_push("i3");
+	expect_pgm_int();
+	asm volatile(
+		"0:	.insn rrf,0xB9A40000,%[r1],%[r2],4,2\n"
+		"		ipm	%[cc]\n"
+		"		srl	%[cc],28\n"
+		: [cc] "=d" (cc)
+		: [r1] "a" (r1), [r2] "a" (&uvcb)
+		: "memory", "cc");
+	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
+	report_prefix_pop();
+}
+
 static void test_priv(void)
 {
 	struct uv_cb_header uvcb = {};
@@ -80,6 +130,73 @@ static void test_priv(void)
 		pgm = clear_pgm_int();
 		report(pgm == PGM_INT_CODE_PRIVILEGED_OPERATION, "%s", cmds[i].name);
 	}
+	report_prefix_pop();
+}
+
+static void test_uv_uninitialized(void)
+{
+	struct uv_cb_header uvcb = {};
+	int i;
+
+	report_prefix_push("uninitialized");
+
+	for (i = 0; cmds[i].name; i++) {
+		if (cmds[i].cmd == UVC_CMD_INIT_UV)
+			continue;
+		expect_pgm_int();
+		uvcb.cmd = cmds[i].cmd;
+		uvcb.len = cmds[i].len;
+		uv_call_once(0, (uint64_t)&uvcb);
+		report(uvcb.rc == UVC_RC_INV_STATE, "%s", cmds[i].name);
+	}
+	report_prefix_pop();
+}
+
+static void test_access(void)
+{
+	struct uv_cb_header *uvcb;
+	void *pages =  alloc_pages(1);
+	uint16_t pgm;
+	int i;
+
+	/* Put UVCB on second page which we will protect later */
+	uvcb = pages + PAGE_SIZE;
+
+	report_prefix_push("access");
+
+	report_prefix_push("non-crossing");
+	protect_page(uvcb, PAGE_ENTRY_I);
+	for (i = 0; cmds[i].name; i++) {
+		expect_pgm_int();
+		mb();
+		uv_call_once(0, (uint64_t)uvcb);
+		pgm = clear_pgm_int();
+		report(pgm == PGM_INT_CODE_PAGE_TRANSLATION, "%s", cmds[i].name);
+	}
+	report_prefix_pop();
+
+	report_prefix_push("crossing");
+	/*
+	 * Put the header into the readable page 1, everything after
+	 * the header will be on the second, invalid page.
+	 */
+	uvcb -= 1;
+	for (i = 0; cmds[i].name; i++) {
+		uvcb->cmd = cmds[i].cmd;
+		uvcb->len = cmds[i].len;
+
+		expect_pgm_int();
+		mb();
+		uv_call_once(0, (uint64_t)uvcb);
+		pgm = clear_pgm_int();
+		report(pgm == PGM_INT_CODE_PAGE_TRANSLATION, "%s", cmds[i].name);
+	}
+	report_prefix_pop();
+
+	uvcb += 1;
+	unprotect_page(uvcb, PAGE_ENTRY_I);
+
+	free_pages(pages);
 	report_prefix_pop();
 }
 
@@ -139,6 +256,53 @@ static void test_cpu_destroy(void)
 	report_prefix_pop();
 }
 
+static void test_set_se_header(void)
+{
+	struct uv_cb_ssc uvcb = {
+		.header.cmd = UVC_CMD_SET_SEC_CONF_PARAMS,
+		.header.len = sizeof(uvcb),
+		.guest_handle = uvcb_cgc.guest_handle,
+		.sec_header_origin = 0,
+		.sec_header_len = 0x1000,
+	};
+	void *pages =  alloc_pages(1);
+	void *inv;
+	int rc;
+
+	report_prefix_push("sscp");
+
+	uvcb.header.len -= 8;
+	rc = uv_call(0, (uint64_t)&uvcb);
+	report(rc == 1 && uvcb.header.rc == UVC_RC_INV_LEN,
+	       "hdr invalid length");
+	uvcb.header.len += 8;
+
+	uvcb.guest_handle += 1;
+	rc = uv_call(0, (uint64_t)&uvcb);
+	report(rc == 1 && uvcb.header.rc == UVC_RC_INV_GHANDLE, "invalid handle");
+	uvcb.guest_handle -= 1;
+
+	inv = pages + PAGE_SIZE;
+	uvcb.sec_header_origin = (uint64_t)inv;
+	protect_page(inv, PAGE_ENTRY_I);
+	rc = uv_call(0, (uint64_t)&uvcb);
+	report(rc == 1 && uvcb.header.rc == 0x103,
+	       "se hdr access exception");
+
+	/*
+	 * Shift the ptr so the first few DWORDs are accessible but
+	 * the following are on an invalid page.
+	 */
+	uvcb.sec_header_origin -= 0x20;
+	rc = uv_call(0, (uint64_t)&uvcb);
+	report(rc == 1 && uvcb.header.rc == 0x103,
+	       "se hdr access exception crossing");
+	unprotect_page(inv, PAGE_ENTRY_I);
+
+	free_pages(pages);
+	report_prefix_pop();
+}
+
 static void test_cpu_create(void)
 {
 	int rc;
@@ -193,6 +357,10 @@ static void test_cpu_create(void)
 	rc = uv_call(0, (uint64_t)&uvcb_csc);
 	report(rc == 0 && uvcb_csc.header.rc == UVC_RC_EXECUTED &&
 	       uvcb_csc.cpu_handle, "success");
+
+	rc = access_check_3d((uint8_t *)uvcb_csc.stor_origin,
+			     uvcb_qui.cpu_stor_len);
+	report(rc, "Storage protection");
 
 	tmp = uvcb_csc.stor_origin;
 	uvcb_csc.stor_origin = (unsigned long)memalign(PAGE_SIZE, uvcb_qui.cpu_stor_len);
@@ -283,7 +451,7 @@ static void test_config_create(void)
 	uvcb_cgc.guest_sca = tmp;
 
 	tmp = uvcb_cgc.guest_sca;
-	uvcb_cgc.guest_sca = get_max_ram_size() + + PAGE_SIZE * 4;
+	uvcb_cgc.guest_sca = get_max_ram_size() + PAGE_SIZE * 4;
 	rc = uv_call(0, (uint64_t)&uvcb_cgc);
 	report(uvcb_cgc.header.rc == 0x10d && rc == 1,
 	       "sca inaccessible");
@@ -291,6 +459,13 @@ static void test_config_create(void)
 
 	rc = uv_call(0, (uint64_t)&uvcb_cgc);
 	report(rc == 0 && uvcb_cgc.header.rc == UVC_RC_EXECUTED, "successful");
+
+	rc = access_check_3d((uint8_t *)uvcb_cgc.conf_base_stor_origin,
+			     uvcb_qui.conf_base_phys_stor_len);
+	report(rc, "Base storage protection");
+
+	rc = access_check_3d((uint8_t *)uvcb_cgc.conf_var_stor_origin, vsize);
+	report(rc, "Variable storage protection");
 
 	uvcb_cgc.header.rc = 0;
 	uvcb_cgc.header.rrc = 0;
@@ -329,7 +504,7 @@ static void test_init(void)
 	struct psw psw;
 
 	/* Donated storage needs to be over 2GB */
-	mem = (uint64_t)memalign(1UL << 31, uvcb_qui.uv_base_stor_len);
+	mem = (uint64_t)memalign_pages_flags(SZ_1M, uvcb_qui.uv_base_stor_len, AREA_NORMAL);
 
 	uvcb_init.header.len = sizeof(uvcb_init);
 	uvcb_init.header.cmd = UVC_CMD_INIT_UV;
@@ -349,17 +524,22 @@ static void test_init(void)
 	       "storage invalid length");
 	uvcb_init.stor_len += 8;
 
-	uvcb_init.stor_origin =  get_max_ram_size() + 8;
+	/* Storage origin is 1MB aligned, the length is 4KB aligned */
+	uvcb_init.stor_origin = get_max_ram_size();
 	rc = uv_call(0, (uint64_t)&uvcb_init);
-	report(rc == 1 && uvcb_init.header.rc == 0x104,
+	report(rc == 1 && (uvcb_init.header.rc == 0x104 || uvcb_init.header.rc == 0x105),
 	       "storage origin invalid");
 	uvcb_init.stor_origin = mem;
 
-	uvcb_init.stor_origin = get_max_ram_size() - 8;
-	rc = uv_call(0, (uint64_t)&uvcb_init);
-	report(rc == 1 && uvcb_init.header.rc == 0x105,
-	       "storage + length invalid");
-	uvcb_init.stor_origin = mem;
+	if (uvcb_init.stor_len >= HPAGE_SIZE) {
+		uvcb_init.stor_origin = get_max_ram_size() - HPAGE_SIZE;
+		rc = uv_call(0, (uint64_t)&uvcb_init);
+		report(rc == 1 && uvcb_init.header.rc == 0x105,
+		       "storage + length invalid");
+		uvcb_init.stor_origin = mem;
+	} else {
+		report_skip("storage + length invalid, stor_len < HPAGE_SIZE");
+	}
 
 	uvcb_init.stor_origin = 1UL << 30;
 	rc = uv_call(0, (uint64_t)&uvcb_init);
@@ -439,13 +619,68 @@ static void test_invalid(void)
 	report_prefix_pop();
 }
 
+static void setup_test_clear(void)
+{
+	unsigned long vsize;
+	int rc;
+
+	uvcb_cgc.header.cmd = UVC_CMD_CREATE_SEC_CONF;
+	uvcb_cgc.header.len = sizeof(uvcb_cgc);
+
+	uvcb_cgc.guest_stor_origin = 0;
+	uvcb_cgc.guest_stor_len = 42 * (1UL << 20);
+	vsize = uvcb_qui.conf_base_virt_stor_len +
+		((uvcb_cgc.guest_stor_len / (1UL << 20)) * uvcb_qui.conf_virt_var_stor_len);
+
+	uvcb_cgc.conf_base_stor_origin = (uint64_t)memalign(PAGE_SIZE * 4, uvcb_qui.conf_base_phys_stor_len);
+	uvcb_cgc.conf_var_stor_origin = (uint64_t)memalign(PAGE_SIZE, vsize);
+	uvcb_cgc.guest_asce = (uint64_t)memalign(PAGE_SIZE, 4 * PAGE_SIZE) | ASCE_DT_SEGMENT | REGION_TABLE_LENGTH | ASCE_P;
+	uvcb_cgc.guest_sca = (uint64_t)memalign(PAGE_SIZE * 4, PAGE_SIZE * 4);
+
+	rc = uv_call(0, (uint64_t)&uvcb_cgc);
+	assert(rc == 0);
+
+	uvcb_csc.header.len = sizeof(uvcb_csc);
+	uvcb_csc.header.cmd = UVC_CMD_CREATE_SEC_CPU;
+	uvcb_csc.guest_handle = uvcb_cgc.guest_handle;
+	uvcb_csc.stor_origin = (unsigned long)memalign(PAGE_SIZE, uvcb_qui.cpu_stor_len);
+	uvcb_csc.state_origin = (unsigned long)memalign(PAGE_SIZE, PAGE_SIZE);
+
+	rc = uv_call(0, (uint64_t)&uvcb_csc);
+	assert(rc == 0);
+}
+
 static void test_clear(void)
 {
-	uint64_t *tmp = (void *)uvcb_init.stor_origin;
+	uint64_t *tmp;
+
+	report_prefix_push("load normal reset");
+
+	/*
+	 * Setup a config and a cpu so we can check if a diag308 reset
+	 * clears the donated memory and makes the pages unsecure.
+	 */
+	setup_test_clear();
 
 	diag308_load_reset(1);
 	sclp_console_setup();
-	report(!*tmp, "memory cleared after reset 1");
+
+	tmp = (void *)uvcb_init.stor_origin;
+	report(!*tmp, "uv init donated memory cleared");
+
+	tmp = (void *)uvcb_cgc.conf_base_stor_origin;
+	report(!*tmp, "config base donated memory cleared");
+
+	tmp = (void *)uvcb_cgc.conf_base_stor_origin;
+	report(!*tmp, "config variable donated memory cleared");
+
+	tmp = (void *)uvcb_csc.stor_origin;
+	report(!*tmp, "cpu donated memory cleared after reset 1");
+
+	/* Check if uninitialized after reset */
+	test_uv_uninitialized();
+
+	report_prefix_pop();
 }
 
 static void setup_vmem(void)
@@ -473,15 +708,24 @@ int main(void)
 		report_skip("Ultravisor call facility is not available");
 		goto done;
 	}
+	if (!uv_os_is_host()) {
+		report_skip("This test needs to be run in a UV host environment");
+		goto done;
+	}
 
+	test_i3();
 	test_priv();
 	test_invalid();
+	test_uv_uninitialized();
 	test_query();
 	test_init();
 
 	setup_vmem();
+	test_access();
+
 	test_config_create();
 	test_cpu_create();
+	test_set_se_header();
 	test_cpu_destroy();
 	test_config_destroy();
 	test_clear();

@@ -75,9 +75,11 @@ int main(void)
 	OFFSET(SIE_SAVEAREA_HOST_GRS, vm_save_area, host.grs[0]);
 	OFFSET(SIE_SAVEAREA_HOST_FPRS, vm_save_area, host.fprs[0]);
 	OFFSET(SIE_SAVEAREA_HOST_FPC, vm_save_area, host.fpc);
+	OFFSET(SIE_SAVEAREA_HOST_ASCE, vm_save_area, host.asce);
 	OFFSET(SIE_SAVEAREA_GUEST_GRS, vm_save_area, guest.grs[0]);
 	OFFSET(SIE_SAVEAREA_GUEST_FPRS, vm_save_area, guest.fprs[0]);
 	OFFSET(SIE_SAVEAREA_GUEST_FPC, vm_save_area, guest.fpc);
+	OFFSET(SIE_SAVEAREA_GUEST_ASCE, vm_save_area, guest.asce);
 	OFFSET(STACK_FRAME_INT_BACKCHAIN, stack_frame_int, back_chain);
 	OFFSET(STACK_FRAME_INT_FPC, stack_frame_int, fpc);
 	OFFSET(STACK_FRAME_INT_FPRS, stack_frame_int, fprs);

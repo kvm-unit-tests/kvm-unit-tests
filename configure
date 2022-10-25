@@ -28,6 +28,7 @@ errata_force=0
 erratatxt="$srcdir/errata.txt"
 host_key_document=
 gen_se_header=
+enable_dump=no
 page_size=
 earlycon=
 efi=
@@ -67,6 +68,9 @@ usage() {
 	    --gen-se-header=GEN_SE_HEADER
 	                           Provide an executable to generate a PV header
 	                           requires --host-key-document. (s390x-snippets only)
+	    --[enable|disable]-dump
+	                           Allow PV guests to be dumped. Requires at least z16.
+	                           (s390x only)
 	    --page-size=PAGE_SIZE
 	                           Specify the page size (translation granule) (4k, 16k or
 	                           64k, default is 64k, arm64 only)
@@ -145,6 +149,12 @@ while [[ "$1" = -* ]]; do
 	    ;;
 	--gen-se-header)
 	    gen_se_header="$arg"
+	    ;;
+	--enable-dump)
+	    enable_dump=yes
+	    ;;
+	--disable-dump)
+	    enable_dump=no
 	    ;;
 	--page-size)
 	    page_size="$arg"
@@ -387,6 +397,7 @@ U32_LONG_FMT=$u32_long
 WA_DIVIDE=$wa_divide
 GENPROTIMG=${GENPROTIMG-genprotimg}
 HOST_KEY_DOCUMENT=$host_key_document
+CONFIG_DUMP=$enable_dump
 CONFIG_EFI=$efi
 CONFIG_WERROR=$werror
 GEN_SE_HEADER=$gen_se_header

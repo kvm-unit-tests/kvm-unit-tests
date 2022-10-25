@@ -9,25 +9,29 @@
  */
 
 #include <asm/barrier.h>
+#include <bitops.h>
 #include <libcflat.h>
 #include <sie.h>
 #include <asm/page.h>
 #include <libcflat.h>
 #include <alloc_page.h>
 
-static bool validity_expected;
-static uint16_t vir;		/* Validity interception reason */
-
-void sie_expect_validity(void)
+void sie_expect_validity(struct vm *vm)
 {
-	validity_expected = true;
-	vir = 0;
+	vm->validity_expected = true;
 }
 
-void sie_check_validity(uint16_t vir_exp)
+uint16_t sie_get_validity(struct vm *vm)
 {
+	assert(vm->sblk->icptcode == ICPT_VALIDITY);
+	return vm->sblk->ipb >> 16;
+}
+
+void sie_check_validity(struct vm *vm, uint16_t vir_exp)
+{
+	uint16_t vir = sie_get_validity(vm);
+
 	report(vir_exp == vir, "VALIDITY: %x", vir);
-	vir = 0;
 }
 
 void sie_handle_validity(struct vm *vm)
@@ -35,11 +39,9 @@ void sie_handle_validity(struct vm *vm)
 	if (vm->sblk->icptcode != ICPT_VALIDITY)
 		return;
 
-	vir = vm->sblk->ipb >> 16;
-
-	if (!validity_expected)
-		report_abort("VALIDITY: %x", vir);
-	validity_expected = false;
+	if (!vm->validity_expected)
+		report_abort("VALIDITY: %x", sie_get_validity(vm));
+	vm->validity_expected = false;
 }
 
 void sie(struct vm *vm)
@@ -71,6 +73,13 @@ void sie_guest_sca_create(struct vm *vm)
 	vm->sblk->scaoh = ((uint64_t)vm->sca >> 32);
 	vm->sblk->scaol = (uint64_t)vm->sca & ~0x3fU;
 	vm->sblk->ecb2 |= ECB2_ESCA;
+
+	/* Enable SIGP sense running interpretation */
+	vm->sblk->ecb |= ECB_SRSI;
+
+	/* We assume that cpu 0 is always part of the vm */
+	vm->sca->mcn[0] = BIT(63);
+	vm->sca->cpu[0].sda = (uint64_t)vm->sblk;
 }
 
 /* Initializes the struct vm members like the SIE control block. */
@@ -84,6 +93,8 @@ void sie_guest_create(struct vm *vm, uint64_t guest_mem, uint64_t guest_mem_len)
 
 	/* Guest memory chunks are always 1MB */
 	assert(!(guest_mem_len & ~HPAGE_MASK));
+	/* For non-PV guests we re-use the host's ASCE for ease of use */
+	vm->save_area.guest.asce = stctg(1);
 	/* Currently MSO/MSL is the easiest option */
 	vm->sblk->mso = (uint64_t)guest_mem;
 	vm->sblk->msl = (uint64_t)guest_mem + ((guest_mem_len - 1) & HPAGE_MASK);

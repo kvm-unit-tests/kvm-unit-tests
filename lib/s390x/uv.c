@@ -76,7 +76,8 @@ void uv_init(void)
 	int cc;
 
 	/* Let's not do this twice */
-	assert(!initialized);
+	if (initialized)
+		return;
 	/* Query is done on initialization but let's check anyway */
 	assert(uvcb_qui.header.rc == 1 || uvcb_qui.header.rc == 0x100);
 
@@ -88,6 +89,25 @@ void uv_init(void)
 	cc = uv_call(0, (uint64_t)&uvcb_init);
 	assert(cc == 0);
 	initialized = true;
+}
+
+/*
+ * Create a new ASCE for the UV config because they can't be shared
+ * for security reasons. We just simply copy the top most table into a
+ * fresh set of allocated pages and use those pages as the asce.
+ */
+static uint64_t create_asce(void)
+{
+	void *pgd_new, *pgd_old;
+	uint64_t asce = stctg(1);
+
+	pgd_new = memalign_pages(PAGE_SIZE, PAGE_SIZE * 4);
+	pgd_old = (void *)(asce & PAGE_MASK);
+
+	memcpy(pgd_new, pgd_old, PAGE_SIZE * 4);
+
+	asce = __pa(pgd_new) | ASCE_P | (asce & (ASCE_DT | ASCE_TL));
+	return asce;
 }
 
 void uv_create_guest(struct vm *vm)
@@ -125,7 +145,8 @@ void uv_create_guest(struct vm *vm)
 	vm->uv.cpu_stor = memalign_pages_flags(PAGE_SIZE, uvcb_qui.cpu_stor_len, 0);
 	uvcb_csc.stor_origin = (uint64_t)vm->uv.cpu_stor;
 
-	uvcb_cgc.guest_asce = (uint64_t)stctg(1);
+	uvcb_cgc.guest_asce = create_asce();
+	vm->save_area.guest.asce = uvcb_cgc.guest_asce;
 	uvcb_cgc.guest_sca = (uint64_t)vm->sca;
 
 	cc = uv_call(0, (uint64_t)&uvcb_cgc);
@@ -166,6 +187,16 @@ void uv_destroy_guest(struct vm *vm)
 	assert(cc == 0);
 	free_pages(vm->uv.conf_base_stor);
 	free_pages(vm->uv.conf_var_stor);
+
+	free_pages((void *)(vm->uv.asce & PAGE_MASK));
+	memset(&vm->uv, 0, sizeof(vm->uv));
+
+	/* Convert the sblk back to non-PV */
+	vm->save_area.guest.asce = stctg(1);
+	vm->sblk->sdf = 0;
+	vm->sblk->sidad = 0;
+	vm->sblk->pv_handle_cpu = 0;
+	vm->sblk->pv_handle_config = 0;
 }
 
 int uv_unpack(struct vm *vm, uint64_t addr, uint64_t len, uint64_t tweak)

@@ -12,38 +12,6 @@
 #include <asm/interrupt.h>
 #include <asm/time.h>
 
-static inline int sck(uint64_t *time)
-{
-	int cc;
-
-	asm volatile(
-		"	sck %[time]\n"
-		"	ipm %[cc]\n"
-		"	srl %[cc],28\n"
-		: [cc] "=d"(cc)
-		: [time] "Q"(*time)
-		: "cc"
-	);
-
-	return cc;
-}
-
-static inline int stck(uint64_t *time)
-{
-	int cc;
-
-	asm volatile(
-		"	stck %[time]\n"
-		"	ipm %[cc]\n"
-		"	srl %[cc],28\n"
-		: [cc] "=d" (cc), [time] "=Q" (*time)
-		:
-		: "cc", "memory"
-	);
-
-	return cc;
-}
-
 static void test_priv(void)
 {
 	uint64_t time_to_set_privileged = 0xfacef00dcafe0000,

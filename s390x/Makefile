@@ -27,6 +27,7 @@ tests += $(TEST_DIR)/uv-host.elf
 tests += $(TEST_DIR)/edat.elf
 tests += $(TEST_DIR)/mvpg-sie.elf
 tests += $(TEST_DIR)/spec_ex-sie.elf
+tests += $(TEST_DIR)/spec_ex.elf
 tests += $(TEST_DIR)/firq.elf
 tests += $(TEST_DIR)/epsw.elf
 tests += $(TEST_DIR)/adtl-status.elf
@@ -36,6 +37,8 @@ tests += $(TEST_DIR)/migration-cmm.elf
 tests += $(TEST_DIR)/migration-skey.elf
 tests += $(TEST_DIR)/panic-loop-extint.elf
 tests += $(TEST_DIR)/panic-loop-pgm.elf
+tests += $(TEST_DIR)/migration-sck.elf
+tests += $(TEST_DIR)/exittime.elf
 
 pv-tests += $(TEST_DIR)/pv-diags.elf
 
@@ -136,7 +139,7 @@ $(SNIPPET_DIR)/asm/%.gbin: $(SNIPPET_DIR)/asm/%.o
 	truncate -s '%4096' $@
 
 $(SNIPPET_DIR)/c/%.gbin: $(SNIPPET_DIR)/c/%.o $(snippet_lib) $(FLATLIBS)
-	$(CC) $(LDFLAGS) -o $@ -T $(SRCDIR)/s390x/snippets/c/flat.lds $(patsubst %.gbin,%.o,$@) $(snippet_lib) $(FLATLIBS)
+	$(CC) $(LDFLAGS) -o $@ -T $(SRCDIR)/s390x/snippets/c/flat.lds $< $(snippet_lib) $(FLATLIBS)
 	$(OBJCOPY) -O binary -j ".rodata" -j ".lowcore" -j ".text" -j ".data" -j ".bss" --set-section-flags .bss=alloc,load,contents $@ $@
 	truncate -s '%4096' $@
 
@@ -173,18 +176,26 @@ $(comm-key):
 %.bin: %.elf
 	$(OBJCOPY) -O binary  $< $@
 
-# The genprotimg arguments for the cck changed over time so we need to
-# figure out which argument to use in order to set the cck
-GENPROTIMG_HAS_COMM_KEY = $(shell $(GENPROTIMG) --help | grep -q -- --comm-key && echo yes)
-ifeq ($(GENPROTIMG_HAS_COMM_KEY),yes)
-	GENPROTIMG_COMM_KEY = --comm-key $(comm-key)
-else
-	GENPROTIMG_COMM_KEY = --x-comm-key $(comm-key)
+# Will only be filled when dump has been enabled
+GENPROTIMG_COMM_KEY =
+# allow PCKMO
+genprotimg_pcf = 0x000000e0
+
+ifeq ($(CONFIG_DUMP),yes)
+	# The genprotimg arguments for the cck changed over time so we need to
+	# figure out which argument to use in order to set the cck
+	GENPROTIMG_HAS_COMM_KEY = $(shell $(GENPROTIMG) --help | grep -q -- --comm-key && echo yes)
+	ifeq ($(GENPROTIMG_HAS_COMM_KEY),yes)
+		GENPROTIMG_COMM_KEY = --comm-key $(comm-key)
+	else
+		GENPROTIMG_COMM_KEY = --x-comm-key $(comm-key)
+	endif
+
+	# allow dumping + PCKMO
+	genprotimg_pcf = 0x200000e0
 endif
 
 # use x-pcf to be compatible with old genprotimg versions
-# allow dumping + PCKMO
-genprotimg_pcf = 0x200000e0
 genprotimg_args = --host-key-document $(HOST_KEY_DOCUMENT) --no-verify $(GENPROTIMG_COMM_KEY) --x-pcf $(genprotimg_pcf)
 
 %selftest.pv.bin: %selftest.bin $(HOST_KEY_DOCUMENT) $(patsubst %.pv.bin,%.parmfile,$@) $(comm-key)

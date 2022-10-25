@@ -8,6 +8,7 @@
  *  Janosch Frank <frankja@linux.ibm.com>
  */
 #include <asm/asm-offsets.h>
+#include "macros.S"
 .section .text
 
 /* Clean and pre-load registers that are used for diag 500 */
@@ -21,10 +22,7 @@ lghi	%r3, 3
 lghi	%r4, 4
 
 /* Let's jump to the next label on a PGM */
-xgr	%r5, %r5
-stg	%r5, GEN_LC_PGM_NEW_PSW
-larl	%r5, next
-stg	%r5, GEN_LC_PGM_NEW_PSW + 8
+SET_PSW_NEW_ADDR 5, next, GEN_LC_PGM_NEW_PSW
 
 /* Execute the diag500 */
 diag	0, 0, 0x500
