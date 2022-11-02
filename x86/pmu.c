@@ -181,7 +181,7 @@ static void stop_event(pmu_counter_t *evt)
 	evt->count = rdmsr(evt->ctr);
 }
 
-static noinline void measure(pmu_counter_t *evt, int count)
+static noinline void measure_many(pmu_counter_t *evt, int count)
 {
 	int i;
 	for (i = 0; i < count; i++)
@@ -189,6 +189,11 @@ static noinline void measure(pmu_counter_t *evt, int count)
 	loop();
 	for (i = 0; i < count; i++)
 		stop_event(&evt[i]);
+}
+
+static void measure_one(pmu_counter_t *evt)
+{
+	measure_many(evt, 1);
 }
 
 static noinline void __measure(pmu_counter_t *evt, uint64_t count)
@@ -220,7 +225,7 @@ static void check_gp_counter(struct pmu_event *evt)
 	int i;
 
 	for (i = 0; i < nr_gp_counters; i++, cnt.ctr++) {
-		measure(&cnt, 1);
+		measure_one(&cnt);
 		report(verify_event(cnt.count, evt), "%s-%d", evt->name, i);
 	}
 }
@@ -247,7 +252,7 @@ static void check_fixed_counters(void)
 
 	for (i = 0; i < nr_fixed_counters; i++) {
 		cnt.ctr = fixed_events[i].unit_sel;
-		measure(&cnt, 1);
+		measure_one(&cnt);
 		report(verify_event(cnt.count, &fixed_events[i]), "fixed-%d", i);
 	}
 }
@@ -274,7 +279,7 @@ static void check_counters_many(void)
 		n++;
 	}
 
-	measure(cnt, n);
+	measure_many(cnt, n);
 
 	for (i = 0; i < n; i++)
 		if (!verify_counter(&cnt[i]))
@@ -338,7 +343,7 @@ static void check_gp_counter_cmask(void)
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel /* instructions */,
 	};
 	cnt.config |= (0x2 << EVNTSEL_CMASK_SHIFT);
-	measure(&cnt, 1);
+	measure_one(&cnt);
 	report(cnt.count < gp_events[1].min, "cmask");
 }
 
