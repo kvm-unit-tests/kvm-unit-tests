@@ -288,17 +288,30 @@ static void check_counters_many(void)
 	report(i == n, "all counters");
 }
 
+static uint64_t measure_for_overflow(pmu_counter_t *cnt)
+{
+	__measure(cnt, 0);
+	/*
+	 * To generate overflow, i.e. roll over to '0', the initial count just
+	 * needs to be preset to the negative expected count.  However, as per
+	 * Intel's SDM, the preset count needs to be incremented by 1 to ensure
+	 * the overflow interrupt is generated immediately instead of possibly
+	 * waiting for the overflow to propagate through the counter.
+	 */
+	assert(cnt->count > 1);
+	return 1 - cnt->count;
+}
+
 static void check_counter_overflow(void)
 {
 	int nr_gp_counters = pmu_nr_gp_counters();
-	uint64_t count;
+	uint64_t overflow_preset;
 	int i;
 	pmu_counter_t cnt = {
 		.ctr = gp_counter_base,
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel /* instructions */,
 	};
-	__measure(&cnt, 0);
-	count = cnt.count;
+	overflow_preset = measure_for_overflow(&cnt);
 
 	/* clear status before test */
 	wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL, rdmsr(MSR_CORE_PERF_GLOBAL_STATUS));
@@ -309,12 +322,13 @@ static void check_counter_overflow(void)
 		uint64_t status;
 		int idx;
 
-		cnt.count = 1 - count;
+		cnt.count = overflow_preset;
 		if (gp_counter_base == MSR_IA32_PMC0)
 			cnt.count &= (1ull << pmu_gp_counter_width()) - 1;
 
 		if (i == nr_gp_counters) {
 			cnt.ctr = fixed_events[0].unit_sel;
+			cnt.count = measure_for_overflow(&cnt);
 			cnt.count &= (1ull << pmu_fixed_counter_width()) - 1;
 		}
 
