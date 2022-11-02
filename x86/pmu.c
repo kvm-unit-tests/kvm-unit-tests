@@ -658,7 +658,7 @@ int main(int ac, char **av)
 	buf = malloc(N*64);
 
 	if (!pmu_version()) {
-		report_skip("No pmu is detected!");
+		report_skip("No Intel Arch PMU is detected!");
 		return report_summary();
 	}
 
