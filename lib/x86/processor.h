@@ -945,4 +945,12 @@ static inline bool pmu_gp_counter_is_available(int i)
 	return !(cpuid(10).b & BIT(i));
 }
 
+static inline u64 this_cpu_perf_capabilities(void)
+{
+	if (!this_cpu_has(X86_FEATURE_PDCM))
+		return 0;
+
+	return rdmsr(MSR_IA32_PERF_CAPABILITIES);
+}
+
 #endif

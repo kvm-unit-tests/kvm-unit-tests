@@ -72,7 +72,7 @@ int main(int ac, char **av)
 		return report_summary();
 	}
 
-	perf_cap = rdmsr(MSR_IA32_PERF_CAPABILITIES);
+	perf_cap = this_cpu_perf_capabilities();
 
 	if (!(perf_cap & PMU_CAP_LBR_FMT)) {
 		report_skip("(Architectural) LBR is not supported.");
