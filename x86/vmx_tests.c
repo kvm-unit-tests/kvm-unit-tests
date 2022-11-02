@@ -9,6 +9,7 @@
 #include "vmx.h"
 #include "msr.h"
 #include "processor.h"
+#include "pmu.h"
 #include "vm.h"
 #include "pci.h"
 #include "fwcfg.h"

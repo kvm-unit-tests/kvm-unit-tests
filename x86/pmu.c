@@ -1,6 +1,7 @@
 
 #include "x86/msr.h"
 #include "x86/processor.h"
+#include "x86/pmu.h"
 #include "x86/apic-defs.h"
 #include "x86/apic.h"
 #include "x86/desc.h"
@@ -9,29 +10,6 @@
 
 #include "libcflat.h"
 #include <stdint.h>
-
-#define FIXED_CNT_INDEX 32
-
-/* Performance Counter Vector for the LVT PC Register */
-#define PMI_VECTOR	32
-
-#define EVNSEL_EVENT_SHIFT	0
-#define EVNTSEL_UMASK_SHIFT	8
-#define EVNTSEL_USR_SHIFT	16
-#define EVNTSEL_OS_SHIFT	17
-#define EVNTSEL_EDGE_SHIFT	18
-#define EVNTSEL_PC_SHIFT	19
-#define EVNTSEL_INT_SHIFT	20
-#define EVNTSEL_EN_SHIF		22
-#define EVNTSEL_INV_SHIF	23
-#define EVNTSEL_CMASK_SHIFT	24
-
-#define EVNTSEL_EN	(1 << EVNTSEL_EN_SHIF)
-#define EVNTSEL_USR	(1 << EVNTSEL_USR_SHIFT)
-#define EVNTSEL_OS	(1 << EVNTSEL_OS_SHIFT)
-#define EVNTSEL_PC	(1 << EVNTSEL_PC_SHIFT)
-#define EVNTSEL_INT	(1 << EVNTSEL_INT_SHIFT)
-#define EVNTSEL_INV	(1 << EVNTSEL_INV_SHIF)
 
 #define N 1000000
 
@@ -66,7 +44,6 @@ struct pmu_event {
 	{"fixed 3", MSR_CORE_PERF_FIXED_CTR0 + 2, 0.1*N, 30*N}
 };
 
-#define PMU_CAP_FW_WRITES	(1ULL << 13)
 static u64 gp_counter_base = MSR_IA32_PERFCTR0;
 
 char *buf;

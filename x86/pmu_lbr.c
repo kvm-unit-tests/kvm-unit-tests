@@ -1,18 +1,9 @@
 #include "x86/msr.h"
 #include "x86/processor.h"
+#include "x86/pmu.h"
 #include "x86/desc.h"
 
 #define N 1000000
-#define MAX_NUM_LBR_ENTRY	  32
-#define DEBUGCTLMSR_LBR	  (1UL <<  0)
-#define PMU_CAP_LBR_FMT	  0x3f
-
-#define MSR_LBR_NHM_FROM	0x00000680
-#define MSR_LBR_NHM_TO		0x000006c0
-#define MSR_LBR_CORE_FROM	0x00000040
-#define MSR_LBR_CORE_TO	0x00000060
-#define MSR_LBR_TOS		0x000001c9
-#define MSR_LBR_SELECT		0x000001c8
 
 volatile int count;
 u32 lbr_from, lbr_to;
