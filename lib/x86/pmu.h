@@ -34,6 +34,13 @@
 #define EVNTSEL_INV	(1 << EVNTSEL_INV_SHIF)
 
 struct pmu_caps {
+	u8 version;
+	u8 nr_fixed_counters;
+	u8 fixed_counter_width;
+	u8 nr_gp_counters;
+	u8 gp_counter_width;
+	u8 gp_counter_mask_length;
+	u32 gp_counter_available;
 	u64 perf_cap;
 };
 
@@ -43,7 +50,7 @@ void pmu_init(void);
 
 static inline u8 pmu_version(void)
 {
-	return cpuid(10).a & 0xff;
+	return pmu.version;
 }
 
 static inline bool this_cpu_has_pmu(void)
@@ -58,43 +65,32 @@ static inline bool this_cpu_has_perf_global_ctrl(void)
 
 static inline u8 pmu_nr_gp_counters(void)
 {
-	return (cpuid(10).a >> 8) & 0xff;
+	return pmu.nr_gp_counters;
 }
 
 static inline u8 pmu_gp_counter_width(void)
 {
-	return (cpuid(10).a >> 16) & 0xff;
+	return pmu.gp_counter_width;
 }
 
 static inline u8 pmu_gp_counter_mask_length(void)
 {
-	return (cpuid(10).a >> 24) & 0xff;
+	return pmu.gp_counter_mask_length;
 }
 
 static inline u8 pmu_nr_fixed_counters(void)
 {
-	struct cpuid id = cpuid(10);
-
-	if ((id.a & 0xff) > 1)
-		return id.d & 0x1f;
-	else
-		return 0;
+	return pmu.nr_fixed_counters;
 }
 
 static inline u8 pmu_fixed_counter_width(void)
 {
-	struct cpuid id = cpuid(10);
-
-	if ((id.a & 0xff) > 1)
-		return (id.d >> 5) & 0xff;
-	else
-		return 0;
+	return pmu.fixed_counter_width;
 }
 
 static inline bool pmu_gp_counter_is_available(int i)
 {
-	/* CPUID.0xA.EBX bit is '1 if they counter is NOT available. */
-	return !(cpuid(10).b & BIT(i));
+	return pmu.gp_counter_available & BIT(i);
 }
 
 static inline u64 this_cpu_perf_capabilities(void)
