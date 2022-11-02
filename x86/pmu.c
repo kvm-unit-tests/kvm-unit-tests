@@ -137,9 +137,9 @@ static void global_disable(pmu_counter_t *cnt)
 			~(1ull << cnt->idx));
 }
 
-
-static void start_event(pmu_counter_t *evt)
+static void __start_event(pmu_counter_t *evt, uint64_t count)
 {
+    evt->count = count;
     wrmsr(evt->ctr, evt->count);
     if (is_gp(evt))
 	    wrmsr(MSR_P6_EVNTSEL0 + event_to_global_idx(evt),
@@ -160,6 +160,11 @@ static void start_event(pmu_counter_t *evt)
     }
     global_enable(evt);
     apic_write(APIC_LVTPC, PC_VECTOR);
+}
+
+static void start_event(pmu_counter_t *evt)
+{
+	__start_event(evt, 0);
 }
 
 static void stop_event(pmu_counter_t *evt)
@@ -186,6 +191,13 @@ static noinline void measure(pmu_counter_t *evt, int count)
 		stop_event(&evt[i]);
 }
 
+static noinline void __measure(pmu_counter_t *evt, uint64_t count)
+{
+	__start_event(evt, count);
+	loop();
+	stop_event(evt);
+}
+
 static bool verify_event(uint64_t count, struct pmu_event *e)
 {
 	// printf("%d <= %ld <= %d\n", e->min, count, e->max);
@@ -208,7 +220,6 @@ static void check_gp_counter(struct pmu_event *evt)
 	int i;
 
 	for (i = 0; i < nr_gp_counters; i++, cnt.ctr++) {
-		cnt.count = 0;
 		measure(&cnt, 1);
 		report(verify_event(cnt.count, evt), "%s-%d", evt->name, i);
 	}
@@ -235,7 +246,6 @@ static void check_fixed_counters(void)
 	int i;
 
 	for (i = 0; i < nr_fixed_counters; i++) {
-		cnt.count = 0;
 		cnt.ctr = fixed_events[i].unit_sel;
 		measure(&cnt, 1);
 		report(verify_event(cnt.count, &fixed_events[i]), "fixed-%d", i);
@@ -253,14 +263,12 @@ static void check_counters_many(void)
 		if (!pmu_gp_counter_is_available(i))
 			continue;
 
-		cnt[n].count = 0;
 		cnt[n].ctr = gp_counter_base + n;
 		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR |
 			gp_events[i % ARRAY_SIZE(gp_events)].unit_sel;
 		n++;
 	}
 	for (i = 0; i < nr_fixed_counters; i++) {
-		cnt[n].count = 0;
 		cnt[n].ctr = fixed_events[i].unit_sel;
 		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR;
 		n++;
@@ -283,9 +291,8 @@ static void check_counter_overflow(void)
 	pmu_counter_t cnt = {
 		.ctr = gp_counter_base,
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel /* instructions */,
-		.count = 0,
 	};
-	measure(&cnt, 1);
+	__measure(&cnt, 0);
 	count = cnt.count;
 
 	/* clear status before test */
@@ -311,7 +318,7 @@ static void check_counter_overflow(void)
 		else
 			cnt.config &= ~EVNTSEL_INT;
 		idx = event_to_global_idx(&cnt);
-		measure(&cnt, 1);
+		__measure(&cnt, cnt.count);
 		report(cnt.count == 1, "cntr-%d", i);
 		status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
 		report(status & (1ull << idx), "status-%d", i);
@@ -329,7 +336,6 @@ static void check_gp_counter_cmask(void)
 	pmu_counter_t cnt = {
 		.ctr = gp_counter_base,
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel /* instructions */,
-		.count = 0,
 	};
 	cnt.config |= (0x2 << EVNTSEL_CMASK_SHIFT);
 	measure(&cnt, 1);
@@ -415,7 +421,6 @@ static void check_running_counter_wrmsr(void)
 	pmu_counter_t evt = {
 		.ctr = gp_counter_base,
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel,
-		.count = 0,
 	};
 
 	report_prefix_push("running counter wrmsr");
@@ -430,7 +435,6 @@ static void check_running_counter_wrmsr(void)
 	wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL,
 	      rdmsr(MSR_CORE_PERF_GLOBAL_STATUS));
 
-	evt.count = 0;
 	start_event(&evt);
 
 	count = -1;
@@ -454,13 +458,11 @@ static void check_emulated_instr(void)
 		.ctr = MSR_IA32_PERFCTR0,
 		/* branch instructions */
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[5].unit_sel,
-		.count = 0,
 	};
 	pmu_counter_t instr_cnt = {
 		.ctr = MSR_IA32_PERFCTR0 + 1,
 		/* instructions */
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel,
-		.count = 0,
 	};
 	report_prefix_push("emulated instruction");
 
@@ -592,7 +594,6 @@ static void set_ref_cycle_expectations(void)
 	pmu_counter_t cnt = {
 		.ctr = MSR_IA32_PERFCTR0,
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[2].unit_sel,
-		.count = 0,
 	};
 	uint64_t tsc_delta;
 	uint64_t t0, t1, t2, t3;
