@@ -14,6 +14,8 @@
 
 #define PMU_CAP_LBR_FMT	  0x3f
 #define PMU_CAP_FW_WRITES	(1ULL << 13)
+#define PMU_CAP_PEBS_BASELINE	(1ULL << 14)
+#define PERF_CAP_PEBS_FORMAT           0xf00
 
 #define EVNSEL_EVENT_SHIFT	0
 #define EVNTSEL_UMASK_SHIFT	8
@@ -32,6 +34,18 @@
 #define EVNTSEL_PC	(1 << EVNTSEL_PC_SHIFT)
 #define EVNTSEL_INT	(1 << EVNTSEL_INT_SHIFT)
 #define EVNTSEL_INV	(1 << EVNTSEL_INV_SHIF)
+
+#define GLOBAL_STATUS_BUFFER_OVF_BIT		62
+#define GLOBAL_STATUS_BUFFER_OVF	BIT_ULL(GLOBAL_STATUS_BUFFER_OVF_BIT)
+
+#define PEBS_DATACFG_MEMINFO	BIT_ULL(0)
+#define PEBS_DATACFG_GP	BIT_ULL(1)
+#define PEBS_DATACFG_XMMS	BIT_ULL(2)
+#define PEBS_DATACFG_LBRS	BIT_ULL(3)
+
+#define ICL_EVENTSEL_ADAPTIVE				(1ULL << 34)
+#define PEBS_DATACFG_LBR_SHIFT	24
+#define MAX_NUM_LBR_ENTRY	32
 
 struct pmu_caps {
 	u8 version;
@@ -90,6 +104,11 @@ static inline bool pmu_has_full_writes(void)
 	return pmu.perf_cap & PMU_CAP_FW_WRITES;
 }
 
+static inline void pmu_activate_full_writes(void)
+{
+	pmu.msr_gp_counter_base = MSR_IA32_PMC0;
+}
+
 static inline bool pmu_use_full_writes(void)
 {
 	return pmu.msr_gp_counter_base == MSR_IA32_PMC0;
@@ -131,6 +150,21 @@ static inline void pmu_reset_all_counters(void)
 static inline void pmu_clear_global_status(void)
 {
 	wrmsr(pmu.msr_global_status_clr, rdmsr(pmu.msr_global_status));
+}
+
+static inline bool pmu_has_pebs(void)
+{
+	return pmu.version > 1;
+}
+
+static inline u8 pmu_pebs_format(void)
+{
+	return (pmu.perf_cap & PERF_CAP_PEBS_FORMAT ) >> 8;
+}
+
+static inline bool pmu_has_pebs_baseline(void)
+{
+	return pmu.perf_cap & PMU_CAP_PEBS_BASELINE;
 }
 
 #endif /* _X86_PMU_H_ */
