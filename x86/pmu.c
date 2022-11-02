@@ -665,6 +665,7 @@ int main(int ac, char **av)
 		report_prefix_push("full-width writes");
 		check_counters();
 		check_gp_counters_write_width();
+		report_prefix_pop();
 	}
 
 	return report_summary();
