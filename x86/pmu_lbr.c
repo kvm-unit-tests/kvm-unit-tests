@@ -59,7 +59,7 @@ int main(int ac, char **av)
 
 	if (!is_intel()) {
 		report_skip("PMU_LBR test is for intel CPU's only");
-		return 0;
+		return report_summary();
 	}
 
 	if (!this_cpu_has_pmu()) {
