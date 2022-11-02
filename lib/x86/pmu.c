@@ -6,6 +6,11 @@ void pmu_init(void)
 {
 	struct cpuid cpuid_10 = cpuid(10);
 
+	pmu.is_intel = is_intel();
+
+	if (!pmu.is_intel)
+		return;
+
 	pmu.version = cpuid_10.a & 0xff;
 
 	if (pmu.version > 1) {

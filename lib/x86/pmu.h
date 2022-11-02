@@ -48,6 +48,7 @@
 #define MAX_NUM_LBR_ENTRY	32
 
 struct pmu_caps {
+	bool is_intel;
 	u8 version;
 	u8 nr_fixed_counters;
 	u8 fixed_counter_width;

@@ -47,7 +47,7 @@ int main(int ac, char **av)
 
 	setup_vm();
 
-	if (!is_intel()) {
+	if (!pmu.is_intel) {
 		report_skip("PMU_LBR test is for intel CPU's only");
 		return report_summary();
 	}

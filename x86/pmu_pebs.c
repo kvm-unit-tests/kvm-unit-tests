@@ -392,7 +392,7 @@ int main(int ac, char **av)
 	if (pmu_has_full_writes())
 		pmu_activate_full_writes();
 
-	if (!is_intel()) {
+	if (!pmu.is_intel) {
 		report_skip("PEBS requires Intel ICX or later, non-Intel detected");
 		return report_summary();
 	} else if (!pmu_has_pebs()) {
