@@ -43,7 +43,6 @@ static bool test_init_lbr_from_exception(u64 index)
 
 int main(int ac, char **av)
 {
-	u64 perf_cap;
 	int max, i;
 
 	setup_vm();
@@ -63,15 +62,13 @@ int main(int ac, char **av)
 		return report_summary();
 	}
 
-	perf_cap = this_cpu_perf_capabilities();
-
-	if (!(perf_cap & PMU_CAP_LBR_FMT)) {
+	if (!pmu_lbr_version()) {
 		report_skip("(Architectural) LBR is not supported.");
 		return report_summary();
 	}
 
 	printf("PMU version:		 %d\n", pmu_version());
-	printf("LBR version:		 %ld\n", perf_cap & PMU_CAP_LBR_FMT);
+	printf("LBR version:		 %ld\n", pmu_lbr_version());
 
 	/* Look for LBR from and to MSRs */
 	lbr_from = MSR_LBR_CORE_FROM;

@@ -15,6 +15,7 @@
 #include "apic-defs.h"
 #include "asm/setup.h"
 #include "atomic.h"
+#include "pmu.h"
 #include "processor.h"
 #include "smp.h"
 
@@ -402,4 +403,5 @@ void bsp_rest_init(void)
 	bringup_aps();
 	enable_x2apic();
 	smp_init();
+	pmu_init();
 }

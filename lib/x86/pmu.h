@@ -33,6 +33,14 @@
 #define EVNTSEL_INT	(1 << EVNTSEL_INT_SHIFT)
 #define EVNTSEL_INV	(1 << EVNTSEL_INV_SHIF)
 
+struct pmu_caps {
+	u64 perf_cap;
+};
+
+extern struct pmu_caps pmu;
+
+void pmu_init(void);
+
 static inline u8 pmu_version(void)
 {
 	return cpuid(10).a & 0xff;
@@ -91,10 +99,17 @@ static inline bool pmu_gp_counter_is_available(int i)
 
 static inline u64 this_cpu_perf_capabilities(void)
 {
-	if (!this_cpu_has(X86_FEATURE_PDCM))
-		return 0;
+	return pmu.perf_cap;
+}
 
-	return rdmsr(MSR_IA32_PERF_CAPABILITIES);
+static inline u64 pmu_lbr_version(void)
+{
+	return this_cpu_perf_capabilities() & PMU_CAP_LBR_FMT;
+}
+
+static inline bool pmu_has_full_writes(void)
+{
+	return this_cpu_perf_capabilities() & PMU_CAP_FW_WRITES;
 }
 
 #endif /* _X86_PMU_H_ */

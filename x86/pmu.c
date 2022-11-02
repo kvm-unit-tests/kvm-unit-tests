@@ -669,7 +669,7 @@ int main(int ac, char **av)
 
 	check_counters();
 
-	if (this_cpu_perf_capabilities() & PMU_CAP_FW_WRITES) {
+	if (pmu_has_full_writes()) {
 		gp_counter_base = MSR_IA32_PMC0;
 		report_prefix_push("full-width writes");
 		check_counters();
