@@ -146,6 +146,23 @@
 #define FAM10H_MMIO_CONF_BASE_SHIFT	20
 #define MSR_FAM10H_NODE_ID		0xc001100c
 
+/* Fam 15h MSRs */
+#define MSR_F15H_PERF_CTL              0xc0010200
+#define MSR_F15H_PERF_CTL0             MSR_F15H_PERF_CTL
+#define MSR_F15H_PERF_CTL1             (MSR_F15H_PERF_CTL + 2)
+#define MSR_F15H_PERF_CTL2             (MSR_F15H_PERF_CTL + 4)
+#define MSR_F15H_PERF_CTL3             (MSR_F15H_PERF_CTL + 6)
+#define MSR_F15H_PERF_CTL4             (MSR_F15H_PERF_CTL + 8)
+#define MSR_F15H_PERF_CTL5             (MSR_F15H_PERF_CTL + 10)
+
+#define MSR_F15H_PERF_CTR              0xc0010201
+#define MSR_F15H_PERF_CTR0             MSR_F15H_PERF_CTR
+#define MSR_F15H_PERF_CTR1             (MSR_F15H_PERF_CTR + 2)
+#define MSR_F15H_PERF_CTR2             (MSR_F15H_PERF_CTR + 4)
+#define MSR_F15H_PERF_CTR3             (MSR_F15H_PERF_CTR + 6)
+#define MSR_F15H_PERF_CTR4             (MSR_F15H_PERF_CTR + 8)
+#define MSR_F15H_PERF_CTR5             (MSR_F15H_PERF_CTR + 10)
+
 /* K8 MSRs */
 #define MSR_K8_TOP_MEM1			0xc001001a
 #define MSR_K8_TOP_MEM2			0xc001001d

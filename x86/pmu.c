@@ -38,6 +38,11 @@ struct pmu_event {
 	{"llc misses", 0x412e, 1, 1*N},
 	{"branches", 0x00c4, 1*N, 1.1*N},
 	{"branch misses", 0x00c5, 0, 0.1*N},
+}, amd_gp_events[] = {
+	{"core cycles", 0x0076, 1*N, 50*N},
+	{"instructions", 0x00c0, 10*N, 10.2*N},
+	{"branches", 0x00c2, 1*N, 1.1*N},
+	{"branch misses", 0x00c3, 0, 0.1*N},
 }, fixed_events[] = {
 	{"fixed 1", MSR_CORE_PERF_FIXED_CTR0, 10*N, 10.2*N},
 	{"fixed 2", MSR_CORE_PERF_FIXED_CTR0 + 1, 1*N, 30*N},
@@ -79,14 +84,23 @@ static bool check_irq(void)
 
 static bool is_gp(pmu_counter_t *evt)
 {
+	if (!pmu.is_intel)
+		return true;
+
 	return evt->ctr < MSR_CORE_PERF_FIXED_CTR0 ||
 		evt->ctr >= MSR_IA32_PMC0;
 }
 
 static int event_to_global_idx(pmu_counter_t *cnt)
 {
-	return cnt->ctr - (is_gp(cnt) ? pmu.msr_gp_counter_base :
-		(MSR_CORE_PERF_FIXED_CTR0 - FIXED_CNT_INDEX));
+	if (pmu.is_intel)
+		return cnt->ctr - (is_gp(cnt) ? pmu.msr_gp_counter_base :
+			(MSR_CORE_PERF_FIXED_CTR0 - FIXED_CNT_INDEX));
+
+	if (pmu.msr_gp_counter_base == MSR_F15H_PERF_CTR0)
+		return (cnt->ctr - pmu.msr_gp_counter_base) / 2;
+	else
+		return cnt->ctr - pmu.msr_gp_counter_base;
 }
 
 static struct pmu_event* get_counter_event(pmu_counter_t *cnt)
@@ -306,6 +320,9 @@ static void check_counter_overflow(void)
 			cnt.count &= (1ull << pmu.gp_counter_width) - 1;
 
 		if (i == pmu.nr_gp_counters) {
+			if (!pmu.is_intel)
+				break;
+
 			cnt.ctr = fixed_events[0].unit_sel;
 			cnt.count = measure_for_overflow(&cnt);
 			cnt.count &= (1ull << pmu.gp_counter_width) - 1;
@@ -319,7 +336,10 @@ static void check_counter_overflow(void)
 			cnt.config &= ~EVNTSEL_INT;
 		idx = event_to_global_idx(&cnt);
 		__measure(&cnt, cnt.count);
-		report(cnt.count == 1, "cntr-%d", i);
+		if (pmu.is_intel)
+			report(cnt.count == 1, "cntr-%d", i);
+		else
+			report(cnt.count == 0xffffffffffff || cnt.count < 7, "cntr-%d", i);
 
 		if (!this_cpu_has_perf_global_status())
 			continue;
@@ -457,10 +477,11 @@ static void check_running_counter_wrmsr(void)
 static void check_emulated_instr(void)
 {
 	uint64_t status, instr_start, brnch_start;
+	unsigned int branch_idx = pmu.is_intel ? 5 : 2;
 	pmu_counter_t brnch_cnt = {
 		.ctr = MSR_GP_COUNTERx(0),
 		/* branch instructions */
-		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[5].unit_sel,
+		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[branch_idx].unit_sel,
 	};
 	pmu_counter_t instr_cnt = {
 		.ctr = MSR_GP_COUNTERx(1),
@@ -654,14 +675,20 @@ int main(int ac, char **av)
 
 	check_invalid_rdpmc_gp();
 
-	if (!pmu.version) {
-		report_skip("No Intel Arch PMU is detected!");
-		return report_summary();
+	if (pmu.is_intel) {
+		if (!pmu.version) {
+			report_skip("No Intel Arch PMU is detected!");
+			return report_summary();
+		}
+		gp_events = (struct pmu_event *)intel_gp_events;
+		gp_events_size = sizeof(intel_gp_events)/sizeof(intel_gp_events[0]);
+		report_prefix_push("Intel");
+		set_ref_cycle_expectations();
+	} else {
+		gp_events_size = sizeof(amd_gp_events)/sizeof(amd_gp_events[0]);
+		gp_events = (struct pmu_event *)amd_gp_events;
+		report_prefix_push("AMD");
 	}
-
-	gp_events = (struct pmu_event *)intel_gp_events;
-	gp_events_size = sizeof(intel_gp_events)/sizeof(intel_gp_events[0]);
-	set_ref_cycle_expectations();
 
 	printf("PMU version:         %d\n", pmu.version);
 	printf("GP counters:         %d\n", pmu.nr_gp_counters);
@@ -680,6 +707,15 @@ int main(int ac, char **av)
 		report_prefix_push("full-width writes");
 		check_counters();
 		check_gp_counters_write_width();
+		report_prefix_pop();
+	}
+
+	if (!pmu.is_intel) {
+		report_prefix_push("K7");
+		pmu.nr_gp_counters = AMD64_NUM_COUNTERS;
+		pmu.msr_gp_counter_base = MSR_K7_PERFCTR0;
+		pmu.msr_gp_event_select_base = MSR_K7_EVNTSEL0;
+		check_counters();
 		report_prefix_pop();
 	}
 

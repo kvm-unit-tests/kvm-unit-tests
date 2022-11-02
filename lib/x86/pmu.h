@@ -10,6 +10,11 @@
 /* Performance Counter Vector for the LVT PC Register */
 #define PMI_VECTOR	32
 
+#define AMD64_NUM_COUNTERS	4
+#define AMD64_NUM_COUNTERS_CORE	6
+
+#define PMC_DEFAULT_WIDTH	48
+
 #define DEBUGCTLMSR_LBR	  (1UL <<  0)
 
 #define PMU_CAP_LBR_FMT	  0x3f
@@ -72,17 +77,23 @@ void pmu_init(void);
 
 static inline u32 MSR_GP_COUNTERx(unsigned int i)
 {
+	if (pmu.msr_gp_counter_base == MSR_F15H_PERF_CTR0)
+		return pmu.msr_gp_counter_base + 2 * i;
+
 	return pmu.msr_gp_counter_base + i;
 }
 
 static inline u32 MSR_GP_EVENT_SELECTx(unsigned int i)
 {
+	if (pmu.msr_gp_event_select_base == MSR_F15H_PERF_CTL0)
+		return pmu.msr_gp_event_select_base + 2 * i;
+
 	return pmu.msr_gp_event_select_base + i;
 }
 
 static inline bool this_cpu_has_pmu(void)
 {
-	return !!pmu.version;
+	return !pmu.is_intel || !!pmu.version;
 }
 
 static inline bool this_cpu_has_perf_global_ctrl(void)
