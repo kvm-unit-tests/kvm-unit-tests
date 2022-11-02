@@ -11,7 +11,9 @@
 #include <stdint.h>
 
 #define FIXED_CNT_INDEX 32
-#define PC_VECTOR	32
+
+/* Performance Counter Vector for the LVT PC Register */
+#define PMI_VECTOR	32
 
 #define EVNSEL_EVENT_SHIFT	0
 #define EVNTSEL_UMASK_SHIFT	8
@@ -159,7 +161,7 @@ static void __start_event(pmu_counter_t *evt, uint64_t count)
 	    wrmsr(MSR_CORE_PERF_FIXED_CTR_CTRL, ctrl);
     }
     global_enable(evt);
-    apic_write(APIC_LVTPC, PC_VECTOR);
+    apic_write(APIC_LVTPC, PMI_VECTOR);
 }
 
 static void start_event(pmu_counter_t *evt)
@@ -662,7 +664,7 @@ static void check_invalid_rdpmc_gp(void)
 int main(int ac, char **av)
 {
 	setup_vm();
-	handle_irq(PC_VECTOR, cnt_overflow);
+	handle_irq(PMI_VECTOR, cnt_overflow);
 	buf = malloc(N*64);
 
 	check_invalid_rdpmc_gp();
@@ -686,7 +688,7 @@ int main(int ac, char **av)
 	printf("Fixed counters:      %d\n", pmu_nr_fixed_counters());
 	printf("Fixed counter width: %d\n", pmu_fixed_counter_width());
 
-	apic_write(APIC_LVTPC, PC_VECTOR);
+	apic_write(APIC_LVTPC, PMI_VECTOR);
 
 	check_counters();
 
