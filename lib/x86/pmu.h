@@ -48,44 +48,14 @@ extern struct pmu_caps pmu;
 
 void pmu_init(void);
 
-static inline u8 pmu_version(void)
-{
-	return pmu.version;
-}
-
 static inline bool this_cpu_has_pmu(void)
 {
-	return !!pmu_version();
+	return !!pmu.version;
 }
 
 static inline bool this_cpu_has_perf_global_ctrl(void)
 {
-	return pmu_version() > 1;
-}
-
-static inline u8 pmu_nr_gp_counters(void)
-{
-	return pmu.nr_gp_counters;
-}
-
-static inline u8 pmu_gp_counter_width(void)
-{
-	return pmu.gp_counter_width;
-}
-
-static inline u8 pmu_gp_counter_mask_length(void)
-{
-	return pmu.gp_counter_mask_length;
-}
-
-static inline u8 pmu_nr_fixed_counters(void)
-{
-	return pmu.nr_fixed_counters;
-}
-
-static inline u8 pmu_fixed_counter_width(void)
-{
-	return pmu.fixed_counter_width;
+	return pmu.version > 1;
 }
 
 static inline bool pmu_gp_counter_is_available(int i)
@@ -93,19 +63,14 @@ static inline bool pmu_gp_counter_is_available(int i)
 	return pmu.gp_counter_available & BIT(i);
 }
 
-static inline u64 this_cpu_perf_capabilities(void)
-{
-	return pmu.perf_cap;
-}
-
 static inline u64 pmu_lbr_version(void)
 {
-	return this_cpu_perf_capabilities() & PMU_CAP_LBR_FMT;
+	return pmu.perf_cap & PMU_CAP_LBR_FMT;
 }
 
 static inline bool pmu_has_full_writes(void)
 {
-	return this_cpu_perf_capabilities() & PMU_CAP_FW_WRITES;
+	return pmu.perf_cap & PMU_CAP_FW_WRITES;
 }
 
 #endif /* _X86_PMU_H_ */

@@ -67,7 +67,7 @@ int main(int ac, char **av)
 		return report_summary();
 	}
 
-	printf("PMU version:		 %d\n", pmu_version());
+	printf("PMU version:		 %d\n", pmu.version);
 	printf("LBR version:		 %ld\n", pmu_lbr_version());
 
 	/* Look for LBR from and to MSRs */

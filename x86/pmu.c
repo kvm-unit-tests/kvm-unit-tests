@@ -196,14 +196,13 @@ static bool verify_counter(pmu_counter_t *cnt)
 
 static void check_gp_counter(struct pmu_event *evt)
 {
-	int nr_gp_counters = pmu_nr_gp_counters();
 	pmu_counter_t cnt = {
 		.ctr = gp_counter_base,
 		.config = EVNTSEL_OS | EVNTSEL_USR | evt->unit_sel,
 	};
 	int i;
 
-	for (i = 0; i < nr_gp_counters; i++, cnt.ctr++) {
+	for (i = 0; i < pmu.nr_gp_counters; i++, cnt.ctr++) {
 		measure_one(&cnt);
 		report(verify_event(cnt.count, evt), "%s-%d", evt->name, i);
 	}
@@ -223,13 +222,12 @@ static void check_gp_counters(void)
 
 static void check_fixed_counters(void)
 {
-	int nr_fixed_counters = pmu_nr_fixed_counters();
 	pmu_counter_t cnt = {
 		.config = EVNTSEL_OS | EVNTSEL_USR,
 	};
 	int i;
 
-	for (i = 0; i < nr_fixed_counters; i++) {
+	for (i = 0; i < pmu.nr_fixed_counters; i++) {
 		cnt.ctr = fixed_events[i].unit_sel;
 		measure_one(&cnt);
 		report(verify_event(cnt.count, &fixed_events[i]), "fixed-%d", i);
@@ -238,12 +236,10 @@ static void check_fixed_counters(void)
 
 static void check_counters_many(void)
 {
-	int nr_fixed_counters = pmu_nr_fixed_counters();
-	int nr_gp_counters = pmu_nr_gp_counters();
 	pmu_counter_t cnt[10];
 	int i, n;
 
-	for (i = 0, n = 0; n < nr_gp_counters; i++) {
+	for (i = 0, n = 0; n < pmu.nr_gp_counters; i++) {
 		if (!pmu_gp_counter_is_available(i))
 			continue;
 
@@ -252,7 +248,7 @@ static void check_counters_many(void)
 			gp_events[i % ARRAY_SIZE(gp_events)].unit_sel;
 		n++;
 	}
-	for (i = 0; i < nr_fixed_counters; i++) {
+	for (i = 0; i < pmu.nr_fixed_counters; i++) {
 		cnt[n].ctr = fixed_events[i].unit_sel;
 		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR;
 		n++;
@@ -283,7 +279,6 @@ static uint64_t measure_for_overflow(pmu_counter_t *cnt)
 
 static void check_counter_overflow(void)
 {
-	int nr_gp_counters = pmu_nr_gp_counters();
 	uint64_t overflow_preset;
 	int i;
 	pmu_counter_t cnt = {
@@ -297,18 +292,18 @@ static void check_counter_overflow(void)
 
 	report_prefix_push("overflow");
 
-	for (i = 0; i < nr_gp_counters + 1; i++, cnt.ctr++) {
+	for (i = 0; i < pmu.nr_gp_counters + 1; i++, cnt.ctr++) {
 		uint64_t status;
 		int idx;
 
 		cnt.count = overflow_preset;
 		if (gp_counter_base == MSR_IA32_PMC0)
-			cnt.count &= (1ull << pmu_gp_counter_width()) - 1;
+			cnt.count &= (1ull << pmu.gp_counter_width) - 1;
 
-		if (i == nr_gp_counters) {
+		if (i == pmu.nr_gp_counters) {
 			cnt.ctr = fixed_events[0].unit_sel;
 			cnt.count = measure_for_overflow(&cnt);
-			cnt.count &= (1ull << pmu_fixed_counter_width()) - 1;
+			cnt.count &= (1ull << pmu.fixed_counter_width) - 1;
 		}
 
 		if (i % 2)
@@ -354,17 +349,13 @@ static void do_rdpmc_fast(void *ptr)
 
 static void check_rdpmc(void)
 {
-	int fixed_counter_width = pmu_fixed_counter_width();
-	int nr_fixed_counters = pmu_nr_fixed_counters();
-	u8 gp_counter_width = pmu_gp_counter_width();
-	int nr_gp_counters = pmu_nr_gp_counters();
 	uint64_t val = 0xff0123456789ull;
 	bool exc;
 	int i;
 
 	report_prefix_push("rdpmc");
 
-	for (i = 0; i < nr_gp_counters; i++) {
+	for (i = 0; i < pmu.nr_gp_counters; i++) {
 		uint64_t x;
 		pmu_counter_t cnt = {
 			.ctr = gp_counter_base + i,
@@ -381,7 +372,7 @@ static void check_rdpmc(void)
 			x = (uint64_t)(int64_t)val;
 
 		/* Mask according to the number of supported bits */
-		x &= (1ull << gp_counter_width) - 1;
+		x &= (1ull << pmu.gp_counter_width) - 1;
 
 		wrmsr(gp_counter_base + i, val);
 		report(rdpmc(i) == x, "cntr-%d", i);
@@ -392,8 +383,8 @@ static void check_rdpmc(void)
 		else
 			report(cnt.count == (u32)val, "fast-%d", i);
 	}
-	for (i = 0; i < nr_fixed_counters; i++) {
-		uint64_t x = val & ((1ull << fixed_counter_width) - 1);
+	for (i = 0; i < pmu.nr_fixed_counters; i++) {
+		uint64_t x = val & ((1ull << pmu.fixed_counter_width) - 1);
 		pmu_counter_t cnt = {
 			.ctr = MSR_CORE_PERF_FIXED_CTR0 + i,
 			.idx = i
@@ -437,7 +428,7 @@ static void check_running_counter_wrmsr(void)
 
 	count = -1;
 	if (gp_counter_base == MSR_IA32_PMC0)
-		count &= (1ull << pmu_gp_counter_width()) - 1;
+		count &= (1ull << pmu.gp_counter_width) - 1;
 
 	wrmsr(gp_counter_base, count);
 
@@ -541,15 +532,14 @@ static void check_gp_counters_write_width(void)
 {
 	u64 val_64 = 0xffffff0123456789ull;
 	u64 val_32 = val_64 & ((1ull << 32) - 1);
-	u64 val_max_width = val_64 & ((1ull << pmu_gp_counter_width()) - 1);
-	int nr_gp_counters = pmu_nr_gp_counters();
+	u64 val_max_width = val_64 & ((1ull << pmu.gp_counter_width) - 1);
 	int i;
 
 	/*
 	 * MSR_IA32_PERFCTRn supports 64-bit writes,
 	 * but only the lowest 32 bits are valid.
 	 */
-	for (i = 0; i < nr_gp_counters; i++) {
+	for (i = 0; i < pmu.nr_gp_counters; i++) {
 		wrmsr(MSR_IA32_PERFCTR0 + i, val_32);
 		assert(rdmsr(MSR_IA32_PERFCTR0 + i) == val_32);
 		assert(rdmsr(MSR_IA32_PMC0 + i) == val_32);
@@ -567,7 +557,7 @@ static void check_gp_counters_write_width(void)
 	 * MSR_IA32_PMCn supports writing values up to GP counter width,
 	 * and only the lowest bits of GP counter width are valid.
 	 */
-	for (i = 0; i < nr_gp_counters; i++) {
+	for (i = 0; i < pmu.nr_gp_counters; i++) {
 		wrmsr(MSR_IA32_PMC0 + i, val_32);
 		assert(rdmsr(MSR_IA32_PMC0 + i) == val_32);
 		assert(rdmsr(MSR_IA32_PERFCTR0 + i) == val_32);
@@ -597,7 +587,7 @@ static void set_ref_cycle_expectations(void)
 	uint64_t t0, t1, t2, t3;
 
 	/* Bit 2 enumerates the availability of reference cycles events. */
-	if (!pmu_nr_gp_counters() || !pmu_gp_counter_is_available(2))
+	if (!pmu.nr_gp_counters || !pmu_gp_counter_is_available(2))
 		return;
 
 	wrmsr(MSR_CORE_PERF_GLOBAL_CTRL, 0);
@@ -646,24 +636,24 @@ int main(int ac, char **av)
 
 	check_invalid_rdpmc_gp();
 
-	if (!pmu_version()) {
+	if (!pmu.version) {
 		report_skip("No Intel Arch PMU is detected!");
 		return report_summary();
 	}
 
-	if (pmu_version() == 1) {
+	if (pmu.version == 1) {
 		report_skip("PMU version 1 is not supported.");
 		return report_summary();
 	}
 
 	set_ref_cycle_expectations();
 
-	printf("PMU version:         %d\n", pmu_version());
-	printf("GP counters:         %d\n", pmu_nr_gp_counters());
-	printf("GP counter width:    %d\n", pmu_gp_counter_width());
-	printf("Mask length:         %d\n", pmu_gp_counter_mask_length());
-	printf("Fixed counters:      %d\n", pmu_nr_fixed_counters());
-	printf("Fixed counter width: %d\n", pmu_fixed_counter_width());
+	printf("PMU version:         %d\n", pmu.version);
+	printf("GP counters:         %d\n", pmu.nr_gp_counters);
+	printf("GP counter width:    %d\n", pmu.gp_counter_width);
+	printf("Mask length:         %d\n", pmu.gp_counter_mask_length);
+	printf("Fixed counters:      %d\n", pmu.nr_fixed_counters);
+	printf("Fixed counter width: %d\n", pmu.fixed_counter_width);
 
 	apic_write(APIC_LVTPC, PMI_VECTOR);
 
