@@ -520,6 +520,9 @@ static void check_emulated_instr(void)
 
 static void check_counters(void)
 {
+	if (is_fep_available())
+		check_emulated_instr();
+
 	check_gp_counters();
 	check_fixed_counters();
 	check_rdpmc();
@@ -654,9 +657,6 @@ int main(int ac, char **av)
 	printf("Fixed counter width: %d\n", pmu_fixed_counter_width());
 
 	apic_write(APIC_LVTPC, PC_VECTOR);
-
-	if (is_fep_available())
-		check_emulated_instr();
 
 	check_counters();
 
