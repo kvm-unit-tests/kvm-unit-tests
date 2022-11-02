@@ -91,4 +91,9 @@ static inline bool pmu_use_full_writes(void)
 	return pmu.msr_gp_counter_base == MSR_IA32_PMC0;
 }
 
+static inline u32 MSR_PERF_FIXED_CTRx(unsigned int i)
+{
+	return MSR_CORE_PERF_FIXED_CTR0 + i;
+}
+
 #endif /* _X86_PMU_H_ */

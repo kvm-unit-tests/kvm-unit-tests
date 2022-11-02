@@ -390,7 +390,7 @@ static void check_rdpmc(void)
 			.idx = i
 		};
 
-		wrmsr(MSR_CORE_PERF_FIXED_CTR0 + i, x);
+		wrmsr(MSR_PERF_FIXED_CTRx(i), x);
 		report(rdpmc(i | (1 << 30)) == x, "fixed cntr-%d", i);
 
 		exc = test_for_exception(GP_VECTOR, do_rdpmc_fast, &cnt);
