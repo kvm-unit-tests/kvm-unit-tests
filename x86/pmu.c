@@ -103,15 +103,12 @@ static struct pmu_event* get_counter_event(pmu_counter_t *cnt)
 static void global_enable(pmu_counter_t *cnt)
 {
 	cnt->idx = event_to_global_idx(cnt);
-
-	wrmsr(MSR_CORE_PERF_GLOBAL_CTRL, rdmsr(MSR_CORE_PERF_GLOBAL_CTRL) |
-			(1ull << cnt->idx));
+	wrmsr(pmu.msr_global_ctl, rdmsr(pmu.msr_global_ctl) | BIT_ULL(cnt->idx));
 }
 
 static void global_disable(pmu_counter_t *cnt)
 {
-	wrmsr(MSR_CORE_PERF_GLOBAL_CTRL, rdmsr(MSR_CORE_PERF_GLOBAL_CTRL) &
-			~(1ull << cnt->idx));
+	wrmsr(pmu.msr_global_ctl, rdmsr(pmu.msr_global_ctl) & ~BIT_ULL(cnt->idx));
 }
 
 static void __start_event(pmu_counter_t *evt, uint64_t count)
@@ -286,7 +283,7 @@ static void check_counter_overflow(void)
 	overflow_preset = measure_for_overflow(&cnt);
 
 	/* clear status before test */
-	wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL, rdmsr(MSR_CORE_PERF_GLOBAL_STATUS));
+	pmu_clear_global_status();
 
 	report_prefix_push("overflow");
 
@@ -313,10 +310,10 @@ static void check_counter_overflow(void)
 		idx = event_to_global_idx(&cnt);
 		__measure(&cnt, cnt.count);
 		report(cnt.count == 1, "cntr-%d", i);
-		status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
+		status = rdmsr(pmu.msr_global_status);
 		report(status & (1ull << idx), "status-%d", i);
-		wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL, status);
-		status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
+		wrmsr(pmu.msr_global_status_clr, status);
+		status = rdmsr(pmu.msr_global_status);
 		report(!(status & (1ull << idx)), "status clear-%d", i);
 		report(check_irq() == (i % 2), "irq-%d", i);
 	}
@@ -421,8 +418,7 @@ static void check_running_counter_wrmsr(void)
 	report(evt.count < gp_events[1].min, "cntr");
 
 	/* clear status before overflow test */
-	wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL,
-	      rdmsr(MSR_CORE_PERF_GLOBAL_STATUS));
+	pmu_clear_global_status();
 
 	start_event(&evt);
 
@@ -434,8 +430,8 @@ static void check_running_counter_wrmsr(void)
 
 	loop();
 	stop_event(&evt);
-	status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
-	report(status & 1, "status");
+	status = rdmsr(pmu.msr_global_status);
+	report(status & 1, "status msr bit");
 
 	report_prefix_pop();
 }
@@ -455,8 +451,7 @@ static void check_emulated_instr(void)
 	};
 	report_prefix_push("emulated instruction");
 
-	wrmsr(MSR_CORE_PERF_GLOBAL_OVF_CTRL,
-	      rdmsr(MSR_CORE_PERF_GLOBAL_STATUS));
+	pmu_clear_global_status();
 
 	start_event(&brnch_cnt);
 	start_event(&instr_cnt);
@@ -490,7 +485,7 @@ static void check_emulated_instr(void)
 		:
 		: "eax", "ebx", "ecx", "edx");
 
-	wrmsr(MSR_CORE_PERF_GLOBAL_CTRL, 0);
+	wrmsr(pmu.msr_global_ctl, 0);
 
 	stop_event(&brnch_cnt);
 	stop_event(&instr_cnt);
@@ -502,7 +497,7 @@ static void check_emulated_instr(void)
 	report(brnch_cnt.count - brnch_start >= EXPECTED_BRNCH,
 	       "branch count");
 	// Additionally check that those counters overflowed properly.
-	status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
+	status = rdmsr(pmu.msr_global_status);
 	report(status & 1, "branch counter overflow");
 	report(status & 2, "instruction counter overflow");
 
@@ -590,7 +585,7 @@ static void set_ref_cycle_expectations(void)
 	if (!pmu.nr_gp_counters || !pmu_gp_counter_is_available(2))
 		return;
 
-	wrmsr(MSR_CORE_PERF_GLOBAL_CTRL, 0);
+	wrmsr(pmu.msr_global_ctl, 0);
 
 	t0 = fenced_rdtsc();
 	start_event(&cnt);

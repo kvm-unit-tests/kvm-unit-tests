@@ -44,6 +44,10 @@ struct pmu_caps {
 	u32 msr_gp_counter_base;
 	u32 msr_gp_event_select_base;
 
+	u32 msr_global_status;
+	u32 msr_global_ctl;
+	u32 msr_global_status_clr;
+
 	u64 perf_cap;
 };
 
@@ -122,6 +126,11 @@ static inline void pmu_reset_all_counters(void)
 {
 	pmu_reset_all_gp_counters();
 	pmu_reset_all_fixed_counters();
+}
+
+static inline void pmu_clear_global_status(void)
+{
+	wrmsr(pmu.msr_global_status_clr, rdmsr(pmu.msr_global_status));
 }
 
 #endif /* _X86_PMU_H_ */
