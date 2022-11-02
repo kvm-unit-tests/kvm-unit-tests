@@ -96,4 +96,32 @@ static inline u32 MSR_PERF_FIXED_CTRx(unsigned int i)
 	return MSR_CORE_PERF_FIXED_CTR0 + i;
 }
 
+static inline void pmu_reset_all_gp_counters(void)
+{
+	unsigned int idx;
+
+	for (idx = 0; idx < pmu.nr_gp_counters; idx++) {
+		wrmsr(MSR_GP_EVENT_SELECTx(idx), 0);
+		wrmsr(MSR_GP_COUNTERx(idx), 0);
+	}
+}
+
+static inline void pmu_reset_all_fixed_counters(void)
+{
+	unsigned int idx;
+
+	if (!pmu.nr_fixed_counters)
+		return;
+
+	wrmsr(MSR_CORE_PERF_FIXED_CTR_CTRL, 0);
+	for (idx = 0; idx < pmu.nr_fixed_counters; idx++)
+		wrmsr(MSR_PERF_FIXED_CTRx(idx), 0);
+}
+
+static inline void pmu_reset_all_counters(void)
+{
+	pmu_reset_all_gp_counters();
+	pmu_reset_all_fixed_counters();
+}
+
 #endif /* _X86_PMU_H_ */

@@ -24,4 +24,6 @@ void pmu_init(void)
 		pmu.perf_cap = rdmsr(MSR_IA32_PERF_CAPABILITIES);
 	pmu.msr_gp_counter_base = MSR_IA32_PERFCTR0;
 	pmu.msr_gp_event_select_base = MSR_P6_EVNTSEL0;
+
+	pmu_reset_all_counters();
 }
