@@ -102,12 +102,18 @@ static struct pmu_event* get_counter_event(pmu_counter_t *cnt)
 
 static void global_enable(pmu_counter_t *cnt)
 {
+	if (!this_cpu_has_perf_global_ctrl())
+		return;
+
 	cnt->idx = event_to_global_idx(cnt);
 	wrmsr(pmu.msr_global_ctl, rdmsr(pmu.msr_global_ctl) | BIT_ULL(cnt->idx));
 }
 
 static void global_disable(pmu_counter_t *cnt)
 {
+	if (!this_cpu_has_perf_global_ctrl())
+		return;
+
 	wrmsr(pmu.msr_global_ctl, rdmsr(pmu.msr_global_ctl) & ~BIT_ULL(cnt->idx));
 }
 
@@ -283,7 +289,8 @@ static void check_counter_overflow(void)
 	overflow_preset = measure_for_overflow(&cnt);
 
 	/* clear status before test */
-	pmu_clear_global_status();
+	if (this_cpu_has_perf_global_status())
+		pmu_clear_global_status();
 
 	report_prefix_push("overflow");
 
@@ -310,6 +317,10 @@ static void check_counter_overflow(void)
 		idx = event_to_global_idx(&cnt);
 		__measure(&cnt, cnt.count);
 		report(cnt.count == 1, "cntr-%d", i);
+
+		if (!this_cpu_has_perf_global_status())
+			continue;
+
 		status = rdmsr(pmu.msr_global_status);
 		report(status & (1ull << idx), "status-%d", i);
 		wrmsr(pmu.msr_global_status_clr, status);
@@ -418,7 +429,8 @@ static void check_running_counter_wrmsr(void)
 	report(evt.count < gp_events[1].min, "cntr");
 
 	/* clear status before overflow test */
-	pmu_clear_global_status();
+	if (this_cpu_has_perf_global_status())
+		pmu_clear_global_status();
 
 	start_event(&evt);
 
@@ -430,8 +442,11 @@ static void check_running_counter_wrmsr(void)
 
 	loop();
 	stop_event(&evt);
-	status = rdmsr(pmu.msr_global_status);
-	report(status & 1, "status msr bit");
+
+	if (this_cpu_has_perf_global_status()) {
+		status = rdmsr(pmu.msr_global_status);
+		report(status & 1, "status msr bit");
+	}
 
 	report_prefix_pop();
 }
@@ -451,7 +466,8 @@ static void check_emulated_instr(void)
 	};
 	report_prefix_push("emulated instruction");
 
-	pmu_clear_global_status();
+	if (this_cpu_has_perf_global_status())
+		pmu_clear_global_status();
 
 	start_event(&brnch_cnt);
 	start_event(&instr_cnt);
@@ -485,7 +501,8 @@ static void check_emulated_instr(void)
 		:
 		: "eax", "ebx", "ecx", "edx");
 
-	wrmsr(pmu.msr_global_ctl, 0);
+	if (this_cpu_has_perf_global_ctrl())
+		wrmsr(pmu.msr_global_ctl, 0);
 
 	stop_event(&brnch_cnt);
 	stop_event(&instr_cnt);
@@ -496,10 +513,12 @@ static void check_emulated_instr(void)
 	       "instruction count");
 	report(brnch_cnt.count - brnch_start >= EXPECTED_BRNCH,
 	       "branch count");
-	// Additionally check that those counters overflowed properly.
-	status = rdmsr(pmu.msr_global_status);
-	report(status & 1, "branch counter overflow");
-	report(status & 2, "instruction counter overflow");
+	if (this_cpu_has_perf_global_status()) {
+		// Additionally check that those counters overflowed properly.
+		status = rdmsr(pmu.msr_global_status);
+		report(status & 1, "branch counter overflow");
+		report(status & 2, "instruction counter overflow");
+	}
 
 	report_prefix_pop();
 }
@@ -585,7 +604,8 @@ static void set_ref_cycle_expectations(void)
 	if (!pmu.nr_gp_counters || !pmu_gp_counter_is_available(2))
 		return;
 
-	wrmsr(pmu.msr_global_ctl, 0);
+	if (this_cpu_has_perf_global_ctrl())
+		wrmsr(pmu.msr_global_ctl, 0);
 
 	t0 = fenced_rdtsc();
 	start_event(&cnt);
@@ -633,11 +653,6 @@ int main(int ac, char **av)
 
 	if (!pmu.version) {
 		report_skip("No Intel Arch PMU is detected!");
-		return report_summary();
-	}
-
-	if (pmu.version == 1) {
-		report_skip("PMU version 1 is not supported.");
 		return report_summary();
 	}
 

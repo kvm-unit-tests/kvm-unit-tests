@@ -89,6 +89,11 @@ static inline bool this_cpu_has_perf_global_ctrl(void)
 	return pmu.version > 1;
 }
 
+static inline bool this_cpu_has_perf_global_status(void)
+{
+	return pmu.version > 1;
+}
+
 static inline bool pmu_gp_counter_is_available(int i)
 {
 	return pmu.gp_counter_available & BIT(i);
