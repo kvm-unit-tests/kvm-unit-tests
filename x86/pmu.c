@@ -30,7 +30,7 @@ struct pmu_event {
 	uint32_t unit_sel;
 	int min;
 	int max;
-} gp_events[] = {
+} intel_gp_events[] = {
 	{"core cycles", 0x003c, 1*N, 50*N},
 	{"instructions", 0x00c0, 10*N, 10.2*N},
 	{"ref cycles", 0x013c, 1*N, 30*N},
@@ -45,6 +45,9 @@ struct pmu_event {
 };
 
 char *buf;
+
+static struct pmu_event *gp_events;
+static unsigned int gp_events_size;
 
 static inline void loop(void)
 {
@@ -91,7 +94,7 @@ static struct pmu_event* get_counter_event(pmu_counter_t *cnt)
 	if (is_gp(cnt)) {
 		int i;
 
-		for (i = 0; i < sizeof(gp_events)/sizeof(gp_events[0]); i++)
+		for (i = 0; i < gp_events_size; i++)
 			if (gp_events[i].unit_sel == (cnt->config & 0xffff))
 				return &gp_events[i];
 	} else
@@ -213,7 +216,7 @@ static void check_gp_counters(void)
 {
 	int i;
 
-	for (i = 0; i < sizeof(gp_events)/sizeof(gp_events[0]); i++)
+	for (i = 0; i < gp_events_size; i++)
 		if (pmu_gp_counter_is_available(i))
 			check_gp_counter(&gp_events[i]);
 		else
@@ -246,7 +249,7 @@ static void check_counters_many(void)
 
 		cnt[n].ctr = MSR_GP_COUNTERx(n);
 		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR |
-			gp_events[i % ARRAY_SIZE(gp_events)].unit_sel;
+			gp_events[i % gp_events_size].unit_sel;
 		n++;
 	}
 	for (i = 0; i < pmu.nr_fixed_counters; i++) {
@@ -595,7 +598,7 @@ static void set_ref_cycle_expectations(void)
 {
 	pmu_counter_t cnt = {
 		.ctr = MSR_IA32_PERFCTR0,
-		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[2].unit_sel,
+		.config = EVNTSEL_OS | EVNTSEL_USR | intel_gp_events[2].unit_sel,
 	};
 	uint64_t tsc_delta;
 	uint64_t t0, t1, t2, t3;
@@ -631,8 +634,8 @@ static void set_ref_cycle_expectations(void)
 	if (!tsc_delta)
 		return;
 
-	gp_events[2].min = (gp_events[2].min * cnt.count) / tsc_delta;
-	gp_events[2].max = (gp_events[2].max * cnt.count) / tsc_delta;
+	intel_gp_events[2].min = (intel_gp_events[2].min * cnt.count) / tsc_delta;
+	intel_gp_events[2].max = (intel_gp_events[2].max * cnt.count) / tsc_delta;
 }
 
 static void check_invalid_rdpmc_gp(void)
@@ -656,6 +659,8 @@ int main(int ac, char **av)
 		return report_summary();
 	}
 
+	gp_events = (struct pmu_event *)intel_gp_events;
+	gp_events_size = sizeof(intel_gp_events)/sizeof(intel_gp_events[0]);
 	set_ref_cycle_expectations();
 
 	printf("PMU version:         %d\n", pmu.version);
