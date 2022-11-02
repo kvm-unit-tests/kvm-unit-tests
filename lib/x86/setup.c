@@ -360,9 +360,7 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	setup_page_table();
 	enable_apic();
 	save_id();
-	bringup_aps();
-	enable_x2apic();
-	smp_init();
+	bsp_rest_init();
 
 	return EFI_SUCCESS;
 }
@@ -397,4 +395,11 @@ void ap_start64(void)
 	enable_apic();
 	enable_x2apic();
 	ap_online();
+}
+
+void bsp_rest_init(void)
+{
+	bringup_aps();
+	enable_x2apic();
+	smp_init();
 }

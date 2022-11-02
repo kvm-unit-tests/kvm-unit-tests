@@ -112,9 +112,7 @@ start32:
 	call save_id
 	call mask_pic_interrupts
 	call enable_apic
-	call bringup_aps
-	call enable_x2apic
-	call smp_init
+	call bsp_rest_init
         push $__environ
         push $__argv
         push __argc
