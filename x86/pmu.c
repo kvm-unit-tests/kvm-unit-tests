@@ -44,8 +44,6 @@ struct pmu_event {
 	{"fixed 3", MSR_CORE_PERF_FIXED_CTR0 + 2, 0.1*N, 30*N}
 };
 
-static u64 gp_counter_base = MSR_IA32_PERFCTR0;
-
 char *buf;
 
 static inline void loop(void)
@@ -84,7 +82,7 @@ static bool is_gp(pmu_counter_t *evt)
 
 static int event_to_global_idx(pmu_counter_t *cnt)
 {
-	return cnt->ctr - (is_gp(cnt) ? gp_counter_base :
+	return cnt->ctr - (is_gp(cnt) ? pmu.msr_gp_counter_base :
 		(MSR_CORE_PERF_FIXED_CTR0 - FIXED_CNT_INDEX));
 }
 
@@ -120,10 +118,10 @@ static void __start_event(pmu_counter_t *evt, uint64_t count)
 {
     evt->count = count;
     wrmsr(evt->ctr, evt->count);
-    if (is_gp(evt))
-	    wrmsr(MSR_P6_EVNTSEL0 + event_to_global_idx(evt),
-			    evt->config | EVNTSEL_EN);
-    else {
+    if (is_gp(evt)) {
+	    wrmsr(MSR_GP_EVENT_SELECTx(event_to_global_idx(evt)),
+		  evt->config | EVNTSEL_EN);
+    } else {
 	    uint32_t ctrl = rdmsr(MSR_CORE_PERF_FIXED_CTR_CTRL);
 	    int shift = (evt->ctr - MSR_CORE_PERF_FIXED_CTR0) * 4;
 	    uint32_t usrospmi = 0;
@@ -149,10 +147,10 @@ static void start_event(pmu_counter_t *evt)
 static void stop_event(pmu_counter_t *evt)
 {
 	global_disable(evt);
-	if (is_gp(evt))
-		wrmsr(MSR_P6_EVNTSEL0 + event_to_global_idx(evt),
-				evt->config & ~EVNTSEL_EN);
-	else {
+	if (is_gp(evt)) {
+		wrmsr(MSR_GP_EVENT_SELECTx(event_to_global_idx(evt)),
+		      evt->config & ~EVNTSEL_EN);
+	} else {
 		uint32_t ctrl = rdmsr(MSR_CORE_PERF_FIXED_CTR_CTRL);
 		int shift = (evt->ctr - MSR_CORE_PERF_FIXED_CTR0) * 4;
 		wrmsr(MSR_CORE_PERF_FIXED_CTR_CTRL, ctrl & ~(0xf << shift));
@@ -197,12 +195,12 @@ static bool verify_counter(pmu_counter_t *cnt)
 static void check_gp_counter(struct pmu_event *evt)
 {
 	pmu_counter_t cnt = {
-		.ctr = gp_counter_base,
 		.config = EVNTSEL_OS | EVNTSEL_USR | evt->unit_sel,
 	};
 	int i;
 
-	for (i = 0; i < pmu.nr_gp_counters; i++, cnt.ctr++) {
+	for (i = 0; i < pmu.nr_gp_counters; i++) {
+		cnt.ctr = MSR_GP_COUNTERx(i);
 		measure_one(&cnt);
 		report(verify_event(cnt.count, evt), "%s-%d", evt->name, i);
 	}
@@ -243,7 +241,7 @@ static void check_counters_many(void)
 		if (!pmu_gp_counter_is_available(i))
 			continue;
 
-		cnt[n].ctr = gp_counter_base + n;
+		cnt[n].ctr = MSR_GP_COUNTERx(n);
 		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR |
 			gp_events[i % ARRAY_SIZE(gp_events)].unit_sel;
 		n++;
@@ -282,7 +280,7 @@ static void check_counter_overflow(void)
 	uint64_t overflow_preset;
 	int i;
 	pmu_counter_t cnt = {
-		.ctr = gp_counter_base,
+		.ctr = MSR_GP_COUNTERx(0),
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel /* instructions */,
 	};
 	overflow_preset = measure_for_overflow(&cnt);
@@ -292,18 +290,20 @@ static void check_counter_overflow(void)
 
 	report_prefix_push("overflow");
 
-	for (i = 0; i < pmu.nr_gp_counters + 1; i++, cnt.ctr++) {
+	for (i = 0; i < pmu.nr_gp_counters + 1; i++) {
 		uint64_t status;
 		int idx;
 
 		cnt.count = overflow_preset;
-		if (gp_counter_base == MSR_IA32_PMC0)
+		if (pmu_use_full_writes())
 			cnt.count &= (1ull << pmu.gp_counter_width) - 1;
 
 		if (i == pmu.nr_gp_counters) {
 			cnt.ctr = fixed_events[0].unit_sel;
 			cnt.count = measure_for_overflow(&cnt);
-			cnt.count &= (1ull << pmu.fixed_counter_width) - 1;
+			cnt.count &= (1ull << pmu.gp_counter_width) - 1;
+		} else {
+			cnt.ctr = MSR_GP_COUNTERx(i);
 		}
 
 		if (i % 2)
@@ -327,7 +327,7 @@ static void check_counter_overflow(void)
 static void check_gp_counter_cmask(void)
 {
 	pmu_counter_t cnt = {
-		.ctr = gp_counter_base,
+		.ctr = MSR_GP_COUNTERx(0),
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel /* instructions */,
 	};
 	cnt.config |= (0x2 << EVNTSEL_CMASK_SHIFT);
@@ -358,7 +358,7 @@ static void check_rdpmc(void)
 	for (i = 0; i < pmu.nr_gp_counters; i++) {
 		uint64_t x;
 		pmu_counter_t cnt = {
-			.ctr = gp_counter_base + i,
+			.ctr = MSR_GP_COUNTERx(i),
 			.idx = i
 		};
 
@@ -366,7 +366,7 @@ static void check_rdpmc(void)
 	         * Without full-width writes, only the low 32 bits are writable,
 	         * and the value is sign-extended.
 	         */
-		if (gp_counter_base == MSR_IA32_PERFCTR0)
+		if (pmu.msr_gp_counter_base == MSR_IA32_PERFCTR0)
 			x = (uint64_t)(int64_t)(int32_t)val;
 		else
 			x = (uint64_t)(int64_t)val;
@@ -374,7 +374,7 @@ static void check_rdpmc(void)
 		/* Mask according to the number of supported bits */
 		x &= (1ull << pmu.gp_counter_width) - 1;
 
-		wrmsr(gp_counter_base + i, val);
+		wrmsr(MSR_GP_COUNTERx(i), val);
 		report(rdpmc(i) == x, "cntr-%d", i);
 
 		exc = test_for_exception(GP_VECTOR, do_rdpmc_fast, &cnt);
@@ -408,7 +408,7 @@ static void check_running_counter_wrmsr(void)
 	uint64_t status;
 	uint64_t count;
 	pmu_counter_t evt = {
-		.ctr = gp_counter_base,
+		.ctr = MSR_GP_COUNTERx(0),
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel,
 	};
 
@@ -416,7 +416,7 @@ static void check_running_counter_wrmsr(void)
 
 	start_event(&evt);
 	loop();
-	wrmsr(gp_counter_base, 0);
+	wrmsr(MSR_GP_COUNTERx(0), 0);
 	stop_event(&evt);
 	report(evt.count < gp_events[1].min, "cntr");
 
@@ -427,10 +427,10 @@ static void check_running_counter_wrmsr(void)
 	start_event(&evt);
 
 	count = -1;
-	if (gp_counter_base == MSR_IA32_PMC0)
+	if (pmu_use_full_writes())
 		count &= (1ull << pmu.gp_counter_width) - 1;
 
-	wrmsr(gp_counter_base, count);
+	wrmsr(MSR_GP_COUNTERx(0), count);
 
 	loop();
 	stop_event(&evt);
@@ -444,12 +444,12 @@ static void check_emulated_instr(void)
 {
 	uint64_t status, instr_start, brnch_start;
 	pmu_counter_t brnch_cnt = {
-		.ctr = MSR_IA32_PERFCTR0,
+		.ctr = MSR_GP_COUNTERx(0),
 		/* branch instructions */
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[5].unit_sel,
 	};
 	pmu_counter_t instr_cnt = {
-		.ctr = MSR_IA32_PERFCTR0 + 1,
+		.ctr = MSR_GP_COUNTERx(1),
 		/* instructions */
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel,
 	};
@@ -463,8 +463,8 @@ static void check_emulated_instr(void)
 
 	brnch_start = -EXPECTED_BRNCH;
 	instr_start = -EXPECTED_INSTR;
-	wrmsr(MSR_IA32_PERFCTR0, brnch_start);
-	wrmsr(MSR_IA32_PERFCTR0 + 1, instr_start);
+	wrmsr(MSR_GP_COUNTERx(0), brnch_start);
+	wrmsr(MSR_GP_COUNTERx(1), instr_start);
 	// KVM_FEP is a magic prefix that forces emulation so
 	// 'KVM_FEP "jne label\n"' just counts as a single instruction.
 	asm volatile(
@@ -660,7 +660,8 @@ int main(int ac, char **av)
 	check_counters();
 
 	if (pmu_has_full_writes()) {
-		gp_counter_base = MSR_IA32_PMC0;
+		pmu.msr_gp_counter_base = MSR_IA32_PMC0;
+
 		report_prefix_push("full-width writes");
 		check_counters();
 		check_gp_counters_write_width();

@@ -41,12 +41,25 @@ struct pmu_caps {
 	u8 gp_counter_width;
 	u8 gp_counter_mask_length;
 	u32 gp_counter_available;
+	u32 msr_gp_counter_base;
+	u32 msr_gp_event_select_base;
+
 	u64 perf_cap;
 };
 
 extern struct pmu_caps pmu;
 
 void pmu_init(void);
+
+static inline u32 MSR_GP_COUNTERx(unsigned int i)
+{
+	return pmu.msr_gp_counter_base + i;
+}
+
+static inline u32 MSR_GP_EVENT_SELECTx(unsigned int i)
+{
+	return pmu.msr_gp_event_select_base + i;
+}
 
 static inline bool this_cpu_has_pmu(void)
 {
@@ -71,6 +84,11 @@ static inline u64 pmu_lbr_version(void)
 static inline bool pmu_has_full_writes(void)
 {
 	return pmu.perf_cap & PMU_CAP_FW_WRITES;
+}
+
+static inline bool pmu_use_full_writes(void)
+{
+	return pmu.msr_gp_counter_base == MSR_IA32_PMC0;
 }
 
 #endif /* _X86_PMU_H_ */

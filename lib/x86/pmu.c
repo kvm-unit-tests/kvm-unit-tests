@@ -22,4 +22,6 @@ void pmu_init(void)
 
 	if (this_cpu_has(X86_FEATURE_PDCM))
 		pmu.perf_cap = rdmsr(MSR_IA32_PERF_CAPABILITIES);
+	pmu.msr_gp_counter_base = MSR_IA32_PERFCTR0;
+	pmu.msr_gp_event_select_base = MSR_P6_EVNTSEL0;
 }
