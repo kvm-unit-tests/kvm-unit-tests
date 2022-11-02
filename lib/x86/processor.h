@@ -439,11 +439,26 @@ static inline int wrmsr_safe(u32 index, u64 val)
 	return exception_vector();
 }
 
-static inline uint64_t rdpmc(uint32_t index)
+static inline int rdpmc_safe(u32 index, uint64_t *val)
 {
 	uint32_t a, d;
-	asm volatile ("rdpmc" : "=a"(a), "=d"(d) : "c"(index));
-	return a | ((uint64_t)d << 32);
+
+	asm volatile (ASM_TRY("1f")
+		      "rdpmc\n\t"
+		      "1:"
+		      : "=a"(a), "=d"(d) : "c"(index) : "memory");
+	*val = (uint64_t)a | ((uint64_t)d << 32);
+	return exception_vector();
+}
+
+static inline uint64_t rdpmc(uint32_t index)
+{
+	uint64_t val;
+	int vector = rdpmc_safe(index, &val);
+
+	assert_msg(!vector, "Unexpected %s on RDPMC(%d)",
+		   exception_mnemonic(vector), index);
+	return val;
 }
 
 static inline int write_cr0_safe(ulong val)

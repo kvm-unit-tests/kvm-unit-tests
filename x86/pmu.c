@@ -651,11 +651,21 @@ static void set_ref_cycle_expectations(void)
 	gp_events[2].max = (gp_events[2].max * cnt.count) / tsc_delta;
 }
 
+static void check_invalid_rdpmc_gp(void)
+{
+	uint64_t val;
+
+	report(rdpmc_safe(64, &val) == GP_VECTOR,
+	       "Expected #GP on RDPMC(64)");
+}
+
 int main(int ac, char **av)
 {
 	setup_vm();
 	handle_irq(PC_VECTOR, cnt_overflow);
 	buf = malloc(N*64);
+
+	check_invalid_rdpmc_gp();
 
 	if (!pmu_version()) {
 		report_skip("No Intel Arch PMU is detected!");
