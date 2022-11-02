@@ -512,8 +512,8 @@ static void check_emulated_instr(void)
 	       "branch count");
 	// Additionally check that those counters overflowed properly.
 	status = rdmsr(MSR_CORE_PERF_GLOBAL_STATUS);
-	report(status & 1, "instruction counter overflow");
-	report(status & 2, "branch counter overflow");
+	report(status & 1, "branch counter overflow");
+	report(status & 2, "instruction counter overflow");
 
 	report_prefix_pop();
 }
