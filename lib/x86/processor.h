@@ -452,7 +452,7 @@ static inline int rdpmc_safe(u32 index, uint64_t *val)
 	return exception_vector();
 }
 
-static inline uint64_t rdpmc(uint32_t index)
+static inline uint64_t rdpmc(unsigned int index)
 {
 	uint64_t val;
 	int vector = rdpmc_safe(index, &val);
