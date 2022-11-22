@@ -59,6 +59,12 @@ void disable_apic(void);
 void reset_apic(void);
 void init_apic_map(void);
 
+void apic_cleanup_timer(void);
+void apic_setup_timer(int vector, u32 mode);
+
+void apic_start_timer(u32 counter);
+void apic_stop_timer(void);
+
 /* Converts byte-addressable APIC register offset to 4-byte offset. */
 static inline u32 apic_reg_index(u32 reg)
 {
