@@ -128,8 +128,7 @@ static void test_ioapic_simultaneous(void)
 	cli();
 	toggle_irq_line(0x0f);
 	toggle_irq_line(0x0e);
-	sti();
-	asm volatile ("nop");
+	sti_nop();
 	report(g_66 && g_78 && g_66_after_78 && g_66_rip == g_78_rip,
 	       "ioapic simultaneous edge interrupts");
 }

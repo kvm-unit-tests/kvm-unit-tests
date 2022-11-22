@@ -1625,8 +1625,7 @@ static void interrupt_main(void)
 	start = rdtsc();
 	apic_write(APIC_TMICT, 1000000);
 
-	sti();
-	asm volatile ("nop");
+	sti_nop();
 	vmcall();
 
 	report(rdtsc() - start > 10000 && timer_fired,
@@ -1639,8 +1638,7 @@ static void interrupt_main(void)
 	start = rdtsc();
 	apic_write(APIC_TMICT, 1000000);
 
-	sti();
-	asm volatile ("nop");
+	sti_nop();
 	vmcall();
 
 	report(rdtsc() - start > 10000 && timer_fired,
@@ -1709,9 +1707,7 @@ static int interrupt_exit_handler(union exit_reason exit_reason)
 			int vector = vmcs_read(EXI_INTR_INFO) & 0xff;
 			handle_external_interrupt(vector);
 		} else {
-			sti();
-			asm volatile ("nop");
-			cli();
+			sti_nop_cli();
 		}
 		if (vmx_get_test_stage() >= 2)
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
@@ -6714,9 +6710,7 @@ static void test_x2apic_wr(
 		assert_exit_reason(exit_reason_want);
 
 		/* Clear the external interrupt. */
-		sti();
-		asm volatile ("nop");
-		cli();
+		sti_nop_cli();
 		report(handle_x2apic_ipi_ran,
 		       "Got pending interrupt after IRQ enabled.");
 
@@ -8412,9 +8406,7 @@ static void vmx_pending_event_test_core(bool guest_hlt)
 	report(!vmx_pending_event_guest_run,
 	       "Guest did not run before host received IPI");
 
-	sti();
-	asm volatile ("nop");
-	cli();
+	sti_nop_cli();
 	report(vmx_pending_event_ipi_fired,
 	       "Got pending interrupt after IRQ enabled");
 
@@ -9395,7 +9387,7 @@ static void vmx_hlt_with_rvi_guest(void)
 {
 	handle_irq(HLT_WITH_RVI_VECTOR, vmx_hlt_with_rvi_guest_isr);
 
-	sti();
+	sti_nop();
 	asm volatile ("nop");
 
 	vmcall();
@@ -9555,8 +9547,7 @@ static void vmx_apic_passthrough_tpr_threshold_test(void)
 	/* Clean pending self-IPI */
 	vmx_apic_passthrough_tpr_threshold_ipi_isr_fired = false;
 	handle_irq(ipi_vector, vmx_apic_passthrough_tpr_threshold_ipi_isr);
-	sti();
-	asm volatile ("nop");
+	sti_nop();
 	report(vmx_apic_passthrough_tpr_threshold_ipi_isr_fired, "self-IPI fired");
 
 	report_pass(__func__);

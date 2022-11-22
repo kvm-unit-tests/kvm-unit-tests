@@ -313,7 +313,7 @@ static void test_self_ipi_x2apic(void)
 
 volatile int nmi_counter_private, nmi_counter, nmi_hlt_counter, sti_loop_active;
 
-static void sti_nop(char *p)
+static void test_sti_nop(char *p)
 {
 	asm volatile (
 		  ".globl post_sti \n\t"
@@ -335,7 +335,7 @@ static void sti_loop(void *ignore)
 	unsigned k = 0;
 
 	while (sti_loop_active)
-		sti_nop((char *)(ulong)((k++ * 4096) % (128 * 1024 * 1024)));
+		test_sti_nop((char *)(ulong)((k++ * 4096) % (128 * 1024 * 1024)));
 }
 
 static void nmi_handler(isr_regs_t *regs)

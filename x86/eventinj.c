@@ -294,9 +294,7 @@ int main(void)
 	apic_self_ipi(32);
 	apic_self_ipi(33);
 	io_delay();
-	sti();
-	asm volatile("nop");
-	cli();
+	sti_nop_cli();
 	printf("After vec 32 and 33 to self\n");
 	report(test_count == 2, "vec 32/33");
 
@@ -353,9 +351,7 @@ int main(void)
 	/* this is needed on VMX without NMI window notification.
 	   Interrupt windows is used instead, so let pending NMI
 	   to be injected */
-	sti();
-	asm volatile ("nop");
-	cli();
+	sti_nop_cli();
 	report(test_count == 2, "NMI");
 
 	/* generate NMI that will fault on IRET */
@@ -367,9 +363,7 @@ int main(void)
 	/* this is needed on VMX without NMI window notification.
 	   Interrupt windows is used instead, so let pending NMI
 	   to be injected */
-	sti();
-	asm volatile ("nop");
-	cli();
+	sti_nop_cli();
 	printf("After NMI to self\n");
 	report(test_count == 2, "NMI");
 	stack_phys = (ulong)virt_to_phys(alloc_page());

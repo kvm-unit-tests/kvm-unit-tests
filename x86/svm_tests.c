@@ -1016,9 +1016,7 @@ static bool pending_event_finished(struct svm_test *test)
 			return true;
 		}
 
-		sti();
-		asm volatile ("nop");
-		cli();
+		sti_nop_cli();
 
 		if (!pending_event_ipi_fired) {
 			report_fail("Pending interrupt not dispatched after IRQ enabled\n");
@@ -1069,9 +1067,7 @@ static void pending_event_cli_test(struct svm_test *test)
 			 "IRQ should NOT be delivered while IRQs disabled");
 
 	/* VINTR_MASKING is zero.  This should cause the IPI to fire.  */
-	sti();
-	asm volatile ("nop");
-	cli();
+	sti_nop_cli();
 
 	report_svm_guest(pending_event_ipi_fired, test,
 			 "IRQ should be delivered after enabling IRQs");
@@ -1082,9 +1078,7 @@ static void pending_event_cli_test(struct svm_test *test)
 	 * the VINTR interception should be clear in VMCB02.  Check
 	 * that L0 did not leave a stale VINTR in the VMCB.
 	 */
-	sti();
-	asm volatile ("nop");
-	cli();
+	sti_nop_cli();
 }
 
 static bool pending_event_cli_finished(struct svm_test *test)
@@ -1113,9 +1107,7 @@ static bool pending_event_cli_finished(struct svm_test *test)
 			return true;
 		}
 
-		sti();
-		asm volatile ("nop");
-		cli();
+		sti_nop_cli();
 
 		if (pending_event_ipi_fired != true) {
 			report_fail("Interrupt not triggered by host");
@@ -1233,9 +1225,7 @@ static bool interrupt_finished(struct svm_test *test)
 			return true;
 		}
 
-		sti();
-		asm volatile ("nop");
-		cli();
+		sti_nop_cli();
 
 		vmcb->control.intercept &= ~(1ULL << INTERCEPT_INTR);
 		vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
@@ -1585,9 +1575,7 @@ static void virq_inject_test(struct svm_test *test)
 {
 	report_svm_guest(!virq_fired, test, "virtual IRQ blocked after L2 cli");
 
-	sti();
-	asm volatile ("nop");
-	cli();
+	sti_nop_cli();
 
 	report_svm_guest(virq_fired, test, "virtual IRQ fired after L2 sti");
 
@@ -1595,17 +1583,13 @@ static void virq_inject_test(struct svm_test *test)
 
 	report_svm_guest(!virq_fired, test, "intercepted VINTR blocked after L2 cli");
 
-	sti();
-	asm volatile ("nop");
-	cli();
+	sti_nop_cli();
 
 	report_svm_guest(virq_fired, test, "intercepted VINTR fired after L2 sti");
 
 	vmmcall();
 
-	sti();
-	asm volatile ("nop");
-	cli();
+	sti_nop_cli();
 
 	report_svm_guest(!virq_fired, test,
 			  "virtual IRQ blocked V_IRQ_PRIO less than V_TPR");
@@ -1772,9 +1756,7 @@ static bool reg_corruption_finished(struct svm_test *test)
 
 		void* guest_rip = (void*)vmcb->save.rip;
 
-		sti();
-		asm volatile ("nop");
-		cli();
+		sti_nop_cli();
 
 		if (guest_rip == insb_instruction_label && io_port_var != 0xAA) {
 			report_fail("RIP corruption detected after %d timer interrupts",
@@ -3067,8 +3049,7 @@ static void svm_intr_intercept_mix_if_guest(struct svm_test *test)
 {
 	asm volatile("nop;nop;nop;nop");
 	report(!dummy_isr_recevied, "No interrupt expected");
-	sti();
-	asm volatile("nop");
+	sti_nop();
 	report(0, "must not reach here");
 }
 
@@ -3098,8 +3079,7 @@ static void svm_intr_intercept_mix_gif_guest(struct svm_test *test)
 	// clear GIF and enable IF
 	// that should still not cause VM exit
 	clgi();
-	sti();
-	asm volatile("nop");
+	sti_nop();
 	report(!dummy_isr_recevied, "No interrupt expected");
 
 	stgi();
@@ -3160,8 +3140,7 @@ static void svm_intr_intercept_mix_nmi_guest(struct svm_test *test)
 	clgi();
 	asm volatile("nop");
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_NMI, 0);
-	sti(); // should have no effect
-	asm volatile("nop");
+	sti_nop(); // should have no effect
 	report(!nmi_recevied, "No NMI expected");
 
 	stgi();
@@ -3191,8 +3170,7 @@ static void svm_intr_intercept_mix_smi_guest(struct svm_test *test)
 	clgi();
 	asm volatile("nop");
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_SMI, 0);
-	sti(); // should have no effect
-	asm volatile("nop");
+	sti_nop(); // should have no effect
 	stgi();
 	asm volatile("nop");
 	report(0, "must not reach here");
