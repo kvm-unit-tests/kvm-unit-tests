@@ -12,6 +12,7 @@
 #include "delay.h"
 #include "util.h"
 #include "x86/usermode.h"
+#include "vmalloc.h"
 
 #define SVM_EXIT_MAX_DR_INTERCEPT 0x3f
 
@@ -3256,6 +3257,22 @@ static void svm_exception_test(void)
 	}
 }
 
+static void shutdown_intercept_test_guest(struct svm_test *test)
+{
+	asm volatile ("ud2");
+	report_fail("should not reach here\n");
+
+}
+
+static void svm_shutdown_intercept_test(void)
+{
+	test_set_guest(shutdown_intercept_test_guest);
+	vmcb->save.idtr.base = (u64)alloc_vpage();
+	vmcb->control.intercept |= (1ULL << INTERCEPT_SHUTDOWN);
+	svm_vmrun();
+	report(vmcb->control.exit_code == SVM_EXIT_SHUTDOWN, "shutdown test passed");
+}
+
 struct svm_test svm_tests[] = {
 	{ "null", default_supported, default_prepare,
 	  default_prepare_gif_clear, null_test,
@@ -3370,6 +3387,7 @@ struct svm_test svm_tests[] = {
 	TEST(svm_intr_intercept_mix_smi),
 	TEST(svm_tsc_scale_test),
 	TEST(pause_filter_test),
+	TEST(svm_shutdown_intercept_test),
 	{ NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
