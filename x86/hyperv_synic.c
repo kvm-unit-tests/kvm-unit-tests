@@ -79,7 +79,7 @@ static void synic_test_prepare(void *ctx)
     int i = 0;
 
     write_cr3((ulong)ctx);
-    irq_enable();
+    sti();
 
     rdmsr(HV_X64_MSR_SVERSION);
     rdmsr(HV_X64_MSR_SIMP);
@@ -121,7 +121,7 @@ static void synic_test(void *ctx)
 {
     int dst_vcpu = (ulong)ctx;
 
-    irq_enable();
+    sti();
     synic_sints_test(dst_vcpu);
 }
 
@@ -129,7 +129,7 @@ static void synic_test_cleanup(void *ctx)
 {
     int i;
 
-    irq_enable();
+    sti();
     for (i = 0; i < HV_SYNIC_SINT_COUNT; i++) {
         synic_sint_destroy(i);
     }

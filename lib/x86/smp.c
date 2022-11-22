@@ -84,7 +84,7 @@ static void setup_smp_id(void *data)
 
 void ap_online(void)
 {
-	irq_enable();
+	sti();
 
 	printf("setup: CPU %" PRId32 " online\n", apic_id());
 	atomic_inc(&cpu_online_count);

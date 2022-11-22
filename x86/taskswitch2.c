@@ -139,10 +139,10 @@ static void test_kernel_mode_int(void)
 	test_count = 0;
 	printf("Trigger IRQ from APIC\n");
 	set_intr_task_gate(0xf0, irq_tss);
-	irq_enable();
+	sti();
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED | APIC_INT_ASSERT | 0xf0, 0);
 	io_delay();
-	irq_disable();
+	cli();
 	printf("Return from APIC IRQ\n");
 	report(test_count == 1, "IRQ external");
 

@@ -125,10 +125,10 @@ static void test_ioapic_simultaneous(void)
 	handle_irq(0x66, ioapic_isr_66);
 	ioapic_set_redir(0x0e, 0x78, TRIGGER_EDGE);
 	ioapic_set_redir(0x0f, 0x66, TRIGGER_EDGE);
-	irq_disable();
+	cli();
 	toggle_irq_line(0x0f);
 	toggle_irq_line(0x0e);
-	irq_enable();
+	sti();
 	asm volatile ("nop");
 	report(g_66 && g_78 && g_66_after_78 && g_66_rip == g_78_rip,
 	       "ioapic simultaneous edge interrupts");
@@ -173,10 +173,10 @@ static void test_ioapic_level_tmr(bool expected_tmr_before)
 
 static void toggle_irq_line_0x0e(void *data)
 {
-	irq_disable();
+	cli();
 	delay(IPI_DELAY);
 	toggle_irq_line(0x0e);
-	irq_enable();
+	sti();
 }
 
 static void test_ioapic_edge_tmr_smp(bool expected_tmr_before)
@@ -199,10 +199,10 @@ static void test_ioapic_edge_tmr_smp(bool expected_tmr_before)
 
 static void set_irq_line_0x0e(void *data)
 {
-	irq_disable();
+	cli();
 	delay(IPI_DELAY);
 	set_irq_line(0x0e, 1);
-	irq_enable();
+	sti();
 }
 
 static void test_ioapic_level_tmr_smp(bool expected_tmr_before)
@@ -485,7 +485,7 @@ int main(void)
 	else
 		printf("x2apic not detected\n");
 
-	irq_enable();
+	sti();
 
 	ioapic_reg_version();
 	ioapic_reg_id();

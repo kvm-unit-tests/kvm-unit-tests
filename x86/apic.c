@@ -958,7 +958,7 @@ int main(void)
 	setup_vm();
 
 	mask_pic_interrupts();
-	irq_enable();
+	sti();
 
 	for (i = 0; i < ARRAY_SIZE(tests); i++) {
 		tests[i]();

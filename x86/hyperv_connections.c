@@ -94,7 +94,7 @@ static void setup_cpu(void *ctx)
 	struct hv_vcpu *hv;
 
 	write_cr3((ulong)ctx);
-	irq_enable();
+	sti();
 
 	vcpu = smp_id();
 	hv = &hv_vcpus[vcpu];

@@ -1577,7 +1577,7 @@ static void interrupt_main(void)
 	vmx_set_test_stage(0);
 
 	apic_write(APIC_LVTT, TIMER_VECTOR);
-	irq_enable();
+	sti();
 
 	apic_write(APIC_TMICT, 1);
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
@@ -1585,7 +1585,7 @@ static void interrupt_main(void)
 	report(timer_fired, "direct interrupt while running guest");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmcall();
 	timer_fired = false;
 	apic_write(APIC_TMICT, 1);
@@ -1593,9 +1593,9 @@ static void interrupt_main(void)
 		asm volatile ("nop");
 	report(timer_fired, "intercepted interrupt while running guest");
 
-	irq_enable();
+	sti();
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmcall();
 	timer_fired = false;
 	start = rdtsc();
@@ -1607,7 +1607,7 @@ static void interrupt_main(void)
 	       "direct interrupt + hlt");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmcall();
 	timer_fired = false;
 	start = rdtsc();
@@ -1619,13 +1619,13 @@ static void interrupt_main(void)
 	       "intercepted interrupt + hlt");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmcall();
 	timer_fired = false;
 	start = rdtsc();
 	apic_write(APIC_TMICT, 1000000);
 
-	irq_enable();
+	sti();
 	asm volatile ("nop");
 	vmcall();
 
@@ -1633,13 +1633,13 @@ static void interrupt_main(void)
 	       "direct interrupt + activity state hlt");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmcall();
 	timer_fired = false;
 	start = rdtsc();
 	apic_write(APIC_TMICT, 1000000);
 
-	irq_enable();
+	sti();
 	asm volatile ("nop");
 	vmcall();
 
@@ -1647,7 +1647,7 @@ static void interrupt_main(void)
 	       "intercepted interrupt + activity state hlt");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmx_set_test_stage(7);
 	vmcall();
 	timer_fired = false;
@@ -1658,7 +1658,7 @@ static void interrupt_main(void)
 	       "running a guest with interrupt acknowledgement set");
 
 	apic_write(APIC_TMICT, 0);
-	irq_enable();
+	sti();
 	timer_fired = false;
 	vmcall();
 	report(timer_fired, "Inject an event to a halted guest");
@@ -1709,9 +1709,9 @@ static int interrupt_exit_handler(union exit_reason exit_reason)
 			int vector = vmcs_read(EXI_INTR_INFO) & 0xff;
 			handle_external_interrupt(vector);
 		} else {
-			irq_enable();
+			sti();
 			asm volatile ("nop");
-			irq_disable();
+			cli();
 		}
 		if (vmx_get_test_stage() >= 2)
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
@@ -6714,9 +6714,9 @@ static void test_x2apic_wr(
 		assert_exit_reason(exit_reason_want);
 
 		/* Clear the external interrupt. */
-		irq_enable();
+		sti();
 		asm volatile ("nop");
-		irq_disable();
+		cli();
 		report(handle_x2apic_ipi_ran,
 		       "Got pending interrupt after IRQ enabled.");
 
@@ -8401,7 +8401,7 @@ static void vmx_pending_event_test_core(bool guest_hlt)
 	if (guest_hlt)
 		vmcs_write(GUEST_ACTV_STATE, ACTV_HLT);
 
-	irq_disable();
+	cli();
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL |
 				   APIC_DM_FIXED | ipi_vector,
 				   0);
@@ -8412,9 +8412,9 @@ static void vmx_pending_event_test_core(bool guest_hlt)
 	report(!vmx_pending_event_guest_run,
 	       "Guest did not run before host received IPI");
 
-	irq_enable();
+	sti();
 	asm volatile ("nop");
-	irq_disable();
+	cli();
 	report(vmx_pending_event_ipi_fired,
 	       "Got pending interrupt after IRQ enabled");
 
@@ -9338,7 +9338,7 @@ static void irq_79_handler_guest(isr_regs_t *regs)
 static void vmx_eoi_bitmap_ioapic_scan_test_guest(void)
 {
 	handle_irq(0x79, irq_79_handler_guest);
-	irq_enable();
+	sti();
 
 	/* Signal to L1 CPU to trigger ioapic scan */
 	vmx_set_test_stage(1);
@@ -9395,7 +9395,7 @@ static void vmx_hlt_with_rvi_guest(void)
 {
 	handle_irq(HLT_WITH_RVI_VECTOR, vmx_hlt_with_rvi_guest_isr);
 
-	irq_enable();
+	sti();
 	asm volatile ("nop");
 
 	vmcall();
@@ -9447,7 +9447,7 @@ static void irq_78_handler_guest(isr_regs_t *regs)
 static void vmx_apic_passthrough_guest(void)
 {
 	handle_irq(0x78, irq_78_handler_guest);
-	irq_enable();
+	sti();
 
 	/* If requested, wait for other CPU to trigger ioapic scan */
 	if (vmx_get_test_stage() < 1) {

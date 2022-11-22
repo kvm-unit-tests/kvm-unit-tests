@@ -75,10 +75,10 @@ static bool check_irq(void)
 {
 	int i;
 	irq_received = 0;
-	irq_enable();
+	sti();
 	for (i = 0; i < 100000 && !irq_received; i++)
 		asm volatile("pause");
-	irq_disable();
+	cli();
 	return irq_received;
 }
 

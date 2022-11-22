@@ -93,7 +93,7 @@ static void apic_self_ipi(int vec)
 static void self_ipi_sti_nop(void)
 {
 	x = 0;
-	irq_disable();
+	cli();
 	apic_self_ipi(IPI_TEST_VECTOR);
 	asm volatile("sti; nop");
 	if (x != 1) printf("%d", x);
@@ -102,7 +102,7 @@ static void self_ipi_sti_nop(void)
 static void self_ipi_sti_hlt(void)
 {
 	x = 0;
-	irq_disable();
+	cli();
 	apic_self_ipi(IPI_TEST_VECTOR);
 	safe_halt();
 	if (x != 1) printf("%d", x);
@@ -121,7 +121,7 @@ static void self_ipi_tpr(void)
 static void self_ipi_tpr_sti_nop(void)
 {
 	x = 0;
-	irq_disable();
+	cli();
 	apic_set_tpr(0x0f);
 	apic_self_ipi(IPI_TEST_VECTOR);
 	apic_set_tpr(0x00);
@@ -132,7 +132,7 @@ static void self_ipi_tpr_sti_nop(void)
 static void self_ipi_tpr_sti_hlt(void)
 {
 	x = 0;
-	irq_disable();
+	cli();
 	apic_set_tpr(0x0f);
 	apic_self_ipi(IPI_TEST_VECTOR);
 	apic_set_tpr(0x00);
@@ -147,14 +147,14 @@ static int is_x2apic(void)
 
 static void x2apic_self_ipi_sti_nop(void)
 {
-	irq_disable();
+	cli();
 	x2apic_self_ipi(IPI_TEST_VECTOR);
 	asm volatile("sti; nop");
 }
 
 static void x2apic_self_ipi_sti_hlt(void)
 {
-	irq_disable();
+	cli();
 	x2apic_self_ipi(IPI_TEST_VECTOR);
 	safe_halt();
 }
@@ -169,7 +169,7 @@ static void x2apic_self_ipi_tpr(void)
 
 static void x2apic_self_ipi_tpr_sti_nop(void)
 {
-	irq_disable();
+	cli();
 	apic_set_tpr(0x0f);
 	x2apic_self_ipi(IPI_TEST_VECTOR);
 	apic_set_tpr(0x00);
@@ -178,7 +178,7 @@ static void x2apic_self_ipi_tpr_sti_nop(void)
 
 static void x2apic_self_ipi_tpr_sti_hlt(void)
 {
-	irq_disable();
+	cli();
 	apic_set_tpr(0x0f);
 	x2apic_self_ipi(IPI_TEST_VECTOR);
 	apic_set_tpr(0x00);
@@ -605,7 +605,7 @@ int main(int ac, char **av)
 	handle_irq(IPI_TEST_VECTOR, self_ipi_isr);
 	nr_cpus = cpu_count();
 
-	irq_enable();
+	sti();
 	on_cpus(enable_nx, NULL);
 
 	ret = pci_find_dev(PCI_VENDOR_ID_REDHAT, PCI_DEVICE_ID_REDHAT_TEST);

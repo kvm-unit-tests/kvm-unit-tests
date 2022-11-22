@@ -1016,9 +1016,9 @@ static bool pending_event_finished(struct svm_test *test)
 			return true;
 		}
 
-		irq_enable();
+		sti();
 		asm volatile ("nop");
-		irq_disable();
+		cli();
 
 		if (!pending_event_ipi_fired) {
 			report_fail("Pending interrupt not dispatched after IRQ enabled\n");
@@ -1069,9 +1069,9 @@ static void pending_event_cli_test(struct svm_test *test)
 			 "IRQ should NOT be delivered while IRQs disabled");
 
 	/* VINTR_MASKING is zero.  This should cause the IPI to fire.  */
-	irq_enable();
+	sti();
 	asm volatile ("nop");
-	irq_disable();
+	cli();
 
 	report_svm_guest(pending_event_ipi_fired, test,
 			 "IRQ should be delivered after enabling IRQs");
@@ -1082,9 +1082,9 @@ static void pending_event_cli_test(struct svm_test *test)
 	 * the VINTR interception should be clear in VMCB02.  Check
 	 * that L0 did not leave a stale VINTR in the VMCB.
 	 */
-	irq_enable();
+	sti();
 	asm volatile ("nop");
-	irq_disable();
+	cli();
 }
 
 static bool pending_event_cli_finished(struct svm_test *test)
@@ -1113,9 +1113,9 @@ static bool pending_event_cli_finished(struct svm_test *test)
 			return true;
 		}
 
-		irq_enable();
+		sti();
 		asm volatile ("nop");
-		irq_disable();
+		cli();
 
 		if (pending_event_ipi_fired != true) {
 			report_fail("Interrupt not triggered by host");
@@ -1161,7 +1161,7 @@ static void interrupt_test(struct svm_test *test)
 	long long start, loops;
 
 	apic_write(APIC_LVTT, TIMER_VECTOR);
-	irq_enable();
+	sti();
 	apic_write(APIC_TMICT, 1); //Timer Initial Count Register 0x380 one-shot
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
@@ -1170,7 +1170,7 @@ static void interrupt_test(struct svm_test *test)
 			 "direct interrupt while running guest");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmmcall();
 
 	timer_fired = false;
@@ -1181,9 +1181,9 @@ static void interrupt_test(struct svm_test *test)
 	report_svm_guest(timer_fired, test,
 			 "intercepted interrupt while running guest");
 
-	irq_enable();
+	sti();
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 
 	timer_fired = false;
 	start = rdtsc();
@@ -1194,7 +1194,7 @@ static void interrupt_test(struct svm_test *test)
 	report(rdtsc() - start > 10000, "IRQ arrived after expected delay");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmmcall();
 
 	timer_fired = false;
@@ -1206,7 +1206,7 @@ static void interrupt_test(struct svm_test *test)
 	report(rdtsc() - start > 10000, "IRQ arrived after expected delay");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 }
 
 static bool interrupt_finished(struct svm_test *test)
@@ -1233,9 +1233,9 @@ static bool interrupt_finished(struct svm_test *test)
 			return true;
 		}
 
-		irq_enable();
+		sti();
 		asm volatile ("nop");
-		irq_disable();
+		cli();
 
 		vmcb->control.intercept &= ~(1ULL << INTERCEPT_INTR);
 		vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
@@ -1585,9 +1585,9 @@ static void virq_inject_test(struct svm_test *test)
 {
 	report_svm_guest(!virq_fired, test, "virtual IRQ blocked after L2 cli");
 
-	irq_enable();
+	sti();
 	asm volatile ("nop");
-	irq_disable();
+	cli();
 
 	report_svm_guest(virq_fired, test, "virtual IRQ fired after L2 sti");
 
@@ -1595,17 +1595,17 @@ static void virq_inject_test(struct svm_test *test)
 
 	report_svm_guest(!virq_fired, test, "intercepted VINTR blocked after L2 cli");
 
-	irq_enable();
+	sti();
 	asm volatile ("nop");
-	irq_disable();
+	cli();
 
 	report_svm_guest(virq_fired, test, "intercepted VINTR fired after L2 sti");
 
 	vmmcall();
 
-	irq_enable();
+	sti();
 	asm volatile ("nop");
-	irq_disable();
+	cli();
 
 	report_svm_guest(!virq_fired, test,
 			  "virtual IRQ blocked V_IRQ_PRIO less than V_TPR");
@@ -1772,9 +1772,9 @@ static bool reg_corruption_finished(struct svm_test *test)
 
 		void* guest_rip = (void*)vmcb->save.rip;
 
-		irq_enable();
+		sti();
 		asm volatile ("nop");
-		irq_disable();
+		cli();
 
 		if (guest_rip == insb_instruction_label && io_port_var != 0xAA) {
 			report_fail("RIP corruption detected after %d timer interrupts",

@@ -661,6 +661,9 @@ static inline void cli(void)
 	asm volatile ("cli");
 }
 
+/*
+ * See also safe_halt().
+ */
 static inline void sti(void)
 {
 	asm volatile ("sti");
@@ -735,19 +738,6 @@ static inline void wrtsc(u64 tsc)
 	wrmsr(MSR_IA32_TSC, tsc);
 }
 
-static inline void irq_disable(void)
-{
-	asm volatile("cli");
-}
-
-/* Note that irq_enable() does not ensure an interrupt shadow due
- * to the vagaries of compiler optimizations.  If you need the
- * shadow, use a single asm with "sti" and the instruction after it.
- */
-static inline void irq_enable(void)
-{
-	asm volatile("sti");
-}
 
 static inline void invlpg(volatile void *va)
 {
@@ -761,6 +751,13 @@ static inline int invpcid_safe(unsigned long type, void *desc)
 	return asm_safe(".byte 0x66,0x0f,0x38,0x82,0x18", "a" (desc), "b" (type));
 }
 
+/*
+ * Execute HLT in an STI interrupt shadow to ensure that a pending IRQ that's
+ * intended to be a wake event arrives *after* HLT is executed.  Modern CPUs,
+ * except for a few oddballs that KVM is unlikely to run on, block IRQs for one
+ * instruction after STI, *if* RFLAGS.IF=0 before STI.  Note, Intel CPUs may
+ * block other events beyond regular IRQs, e.g. may block NMIs and SMIs too.
+ */
 static inline void safe_halt(void)
 {
 	asm volatile("sti; hlt");

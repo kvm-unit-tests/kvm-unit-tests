@@ -270,10 +270,10 @@ int main(void)
 	test_count = 0;
 	flush_idt_page();
 	printf("Sending vec 33 to self\n");
-	irq_enable();
+	sti();
 	apic_self_ipi(33);
 	io_delay();
-	irq_disable();
+	cli();
 	printf("After vec 33 to self\n");
 	report(test_count == 1, "vec 33");
 
@@ -294,9 +294,9 @@ int main(void)
 	apic_self_ipi(32);
 	apic_self_ipi(33);
 	io_delay();
-	irq_enable();
+	sti();
 	asm volatile("nop");
-	irq_disable();
+	cli();
 	printf("After vec 32 and 33 to self\n");
 	report(test_count == 2, "vec 32/33");
 
@@ -311,7 +311,7 @@ int main(void)
 	flush_stack();
 	io_delay();
 	asm volatile ("sti; int $33");
-	irq_disable();
+	cli();
 	printf("After vec 32 and int $33\n");
 	report(test_count == 2, "vec 32/int $33");
 
@@ -321,7 +321,7 @@ int main(void)
 	flush_idt_page();
 	printf("Sending vec 33 and 62 and mask one with TPR\n");
 	apic_write(APIC_TASKPRI, 0xf << 4);
-	irq_enable();
+	sti();
 	apic_self_ipi(32);
 	apic_self_ipi(62);
 	io_delay();
@@ -330,7 +330,7 @@ int main(void)
 	report(test_count == 1, "TPR");
 	apic_write(APIC_TASKPRI, 0x0);
 	while(test_count != 2); /* wait for second irq */
-	irq_disable();
+	cli();
 
 	/* test fault durint NP delivery */
 	printf("Before NP test\n");
@@ -353,9 +353,9 @@ int main(void)
 	/* this is needed on VMX without NMI window notification.
 	   Interrupt windows is used instead, so let pending NMI
 	   to be injected */
-	irq_enable();
+	sti();
 	asm volatile ("nop");
-	irq_disable();
+	cli();
 	report(test_count == 2, "NMI");
 
 	/* generate NMI that will fault on IRET */
@@ -367,9 +367,9 @@ int main(void)
 	/* this is needed on VMX without NMI window notification.
 	   Interrupt windows is used instead, so let pending NMI
 	   to be injected */
-	irq_enable();
+	sti();
 	asm volatile ("nop");
-	irq_disable();
+	cli();
 	printf("After NMI to self\n");
 	report(test_count == 2, "NMI");
 	stack_phys = (ulong)virt_to_phys(alloc_page());

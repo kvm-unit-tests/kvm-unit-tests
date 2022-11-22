@@ -65,7 +65,7 @@ static void pf_isr(struct ex_regs *r)
 				    read_cr2(), virt, phys);
 			while(phys) {
 				safe_halt(); /* enables irq */
-				irq_disable();
+				cli();
 			}
 			break;
 		case KVM_PV_REASON_PAGE_READY:
@@ -97,7 +97,7 @@ int main(int ac, char **av)
 			KVM_ASYNC_PF_SEND_ALWAYS | KVM_ASYNC_PF_ENABLED);
 	printf("alloc memory\n");
 	buf = malloc(MEM);
-	irq_enable();
+	sti();
 	while(loop--) {
 		printf("start loop\n");
 		/* access a lot of memory to make host swap it out */
@@ -105,7 +105,7 @@ int main(int ac, char **av)
 			buf[i] = 1;
 		printf("end loop\n");
 	}
-	irq_disable();
+	cli();
 
 	return report_summary();
 }
