@@ -437,7 +437,6 @@ void svm_setup_vmrun(u64 rip);
 int __svm_vmrun(u64 rip);
 int svm_vmrun(void);
 void test_set_guest(test_guest_func func);
-u64* get_npt_pte(u64 *pml4, u64 guest_addr, int level);
 
 extern struct vmcb *vmcb;
 
