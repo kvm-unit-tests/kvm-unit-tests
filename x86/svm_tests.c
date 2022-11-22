@@ -1152,21 +1152,22 @@ static void interrupt_test(struct svm_test *test)
 {
 	long long start, loops;
 
-	apic_write(APIC_LVTT, TIMER_VECTOR);
+	apic_setup_timer(TIMER_VECTOR, APIC_LVT_TIMER_PERIODIC);
 	sti();
-	apic_write(APIC_TMICT, 1); //Timer Initial Count Register 0x380 one-shot
+	apic_start_timer(1);
+
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
 
 	report_svm_guest(timer_fired, test,
 			 "direct interrupt while running guest");
 
-	apic_write(APIC_TMICT, 0);
+	apic_stop_timer();
 	cli();
 	vmmcall();
 
 	timer_fired = false;
-	apic_write(APIC_TMICT, 1);
+	apic_start_timer(1);
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
 
@@ -1174,31 +1175,30 @@ static void interrupt_test(struct svm_test *test)
 			 "intercepted interrupt while running guest");
 
 	sti();
-	apic_write(APIC_TMICT, 0);
+	apic_stop_timer();
 	cli();
 
 	timer_fired = false;
 	start = rdtsc();
-	apic_write(APIC_TMICT, 1000000);
+	apic_start_timer(1000000);
 	safe_halt();
 
 	report_svm_guest(timer_fired, test, "direct interrupt + hlt");
 	report(rdtsc() - start > 10000, "IRQ arrived after expected delay");
 
-	apic_write(APIC_TMICT, 0);
+	apic_stop_timer();
 	cli();
 	vmmcall();
 
 	timer_fired = false;
 	start = rdtsc();
-	apic_write(APIC_TMICT, 1000000);
+	apic_start_timer(1000000);
 	asm volatile ("hlt");
 
 	report_svm_guest(timer_fired, test, "intercepted interrupt + hlt");
 	report(rdtsc() - start > 10000, "IRQ arrived after expected delay");
 
-	apic_write(APIC_TMICT, 0);
-	cli();
+	apic_cleanup_timer();
 }
 
 static bool interrupt_finished(struct svm_test *test)
@@ -1719,10 +1719,8 @@ static void reg_corruption_prepare(struct svm_test *test)
 	handle_irq(TIMER_VECTOR, reg_corruption_isr);
 
 	/* set local APIC to inject external interrupts */
-	apic_write(APIC_TMICT, 0);
-	apic_write(APIC_TDCR, 0);
-	apic_write(APIC_LVTT, TIMER_VECTOR | APIC_LVT_TIMER_PERIODIC);
-	apic_write(APIC_TMICT, 1000);
+	apic_setup_timer(TIMER_VECTOR, APIC_LVT_TIMER_PERIODIC);
+	apic_start_timer(1000);
 }
 
 static void reg_corruption_test(struct svm_test *test)
@@ -1767,8 +1765,7 @@ static bool reg_corruption_finished(struct svm_test *test)
 	}
 	return false;
 cleanup:
-	apic_write(APIC_LVTT, APIC_LVT_TIMER_MASK);
-	apic_write(APIC_TMICT, 0);
+	apic_cleanup_timer();
 	return true;
 
 }
