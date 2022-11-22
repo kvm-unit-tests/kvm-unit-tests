@@ -3044,7 +3044,7 @@ static void svm_intr_intercept_mix_run_guest(volatile int *counter, int expected
 }
 
 
-// subtest: test that enabling EFLAGS.IF is enought to trigger an interrupt
+// subtest: test that enabling EFLAGS.IF is enough to trigger an interrupt
 static void svm_intr_intercept_mix_if_guest(struct svm_test *test)
 {
 	asm volatile("nop;nop;nop;nop");
@@ -3083,7 +3083,6 @@ static void svm_intr_intercept_mix_gif_guest(struct svm_test *test)
 	report(!dummy_isr_recevied, "No interrupt expected");
 
 	stgi();
-	asm volatile("nop");
 	report(0, "must not reach here");
 }
 
@@ -3113,7 +3112,6 @@ static void svm_intr_intercept_mix_gif_guest2(struct svm_test *test)
 	report(!dummy_isr_recevied, "No interrupt expected");
 
 	stgi();
-	asm volatile("nop");
 	report(0, "must not reach here");
 }
 
@@ -3138,13 +3136,11 @@ static void svm_intr_intercept_mix_nmi_guest(struct svm_test *test)
 	cli(); // should have no effect
 
 	clgi();
-	asm volatile("nop");
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_NMI, 0);
 	sti_nop(); // should have no effect
 	report(!nmi_recevied, "No NMI expected");
 
 	stgi();
-	asm volatile("nop");
 	report(0, "must not reach here");
 }
 
@@ -3168,11 +3164,9 @@ static void svm_intr_intercept_mix_smi_guest(struct svm_test *test)
 	asm volatile("nop;nop;nop;nop");
 
 	clgi();
-	asm volatile("nop");
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_SMI, 0);
 	sti_nop(); // should have no effect
 	stgi();
-	asm volatile("nop");
 	report(0, "must not reach here");
 }
 
