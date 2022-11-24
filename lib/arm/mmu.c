@@ -117,15 +117,12 @@ pteval_t *install_page(pgd_t *pgtable, phys_addr_t phys, void *virt)
  * certain conditions are met (see Arm ARM D5-2669 for AArch64 and
  * B3-1378 for AArch32 for more details).
  */
-pteval_t *mmu_get_pte(pgd_t *pgtable, uintptr_t vaddr)
+pteval_t *follow_pte(pgd_t *pgtable, uintptr_t vaddr)
 {
 	pgd_t *pgd;
 	pud_t *pud;
 	pmd_t *pmd;
 	pte_t *pte;
-
-	if (!mmu_enabled())
-		return NULL;
 
 	pgd = pgd_offset(pgtable, vaddr);
 	if (!pgd_valid(*pgd))
@@ -153,7 +150,7 @@ phys_addr_t virt_to_pte_phys(pgd_t *pgtable, void *virt)
 	phys_addr_t mask;
 	pteval_t *pteval;
 
-	pteval = mmu_get_pte(pgtable, (uintptr_t)virt);
+	pteval = follow_pte(pgtable, (uintptr_t)virt);
 	if (!pteval) {
 		install_page(pgtable, (phys_addr_t)(unsigned long)virt, virt);
 		return (phys_addr_t)(unsigned long)virt;
@@ -284,7 +281,7 @@ unsigned long __phys_to_virt(phys_addr_t addr)
 
 void mmu_clear_user(pgd_t *pgtable, unsigned long vaddr)
 {
-	pteval_t *p_pte = mmu_get_pte(pgtable, vaddr);
+	pteval_t *p_pte = follow_pte(pgtable, vaddr);
 	if (p_pte) {
 		pteval_t entry = *p_pte & ~PTE_USER;
 		WRITE_ONCE(*p_pte, entry);
