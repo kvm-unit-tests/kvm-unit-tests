@@ -457,7 +457,7 @@ static inline uint64_t rdpmc(uint32_t index)
 	uint64_t val;
 	int vector = rdpmc_safe(index, &val);
 
-	assert_msg(!vector, "Unexpected %s on RDPMC(%d)",
+	assert_msg(!vector, "Unexpected %s on RDPMC(%" PRId32 ")",
 		   exception_mnemonic(vector), index);
 	return val;
 }
