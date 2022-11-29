@@ -128,7 +128,7 @@ static void report_singlestep_basic(unsigned long start, const char *usermode)
 	       "%sSingle-step #DB basic test", usermode);
 }
 
-static unsigned long singlestep_basic(void)
+static noinline unsigned long singlestep_basic(void)
 {
 	unsigned long start;
 
@@ -165,7 +165,7 @@ static void report_singlestep_emulated_instructions(unsigned long start,
 	       "%sSingle-step #DB on emulated instructions", usermode);
 }
 
-static unsigned long singlestep_emulated_instructions(void)
+static noinline unsigned long singlestep_emulated_instructions(void)
 {
 	unsigned long start;
 
@@ -204,7 +204,7 @@ static void report_singlestep_with_sti_blocking(unsigned long start,
 }
 
 
-static unsigned long singlestep_with_sti_blocking(void)
+static noinline unsigned long singlestep_with_sti_blocking(void)
 {
 	unsigned long start_rip;
 
@@ -239,7 +239,7 @@ static void report_singlestep_with_movss_blocking(unsigned long start,
 	       "%sSingle-step #DB w/ MOVSS blocking", usermode);
 }
 
-static unsigned long singlestep_with_movss_blocking(void)
+static noinline unsigned long singlestep_with_movss_blocking(void)
 {
 	unsigned long start_rip;
 
@@ -277,7 +277,7 @@ static void report_singlestep_with_movss_blocking_and_icebp(unsigned long start,
 	       "%sSingle-Step + ICEBP #DB w/ MOVSS blocking", usermode);
 }
 
-static unsigned long singlestep_with_movss_blocking_and_icebp(void)
+static noinline unsigned long singlestep_with_movss_blocking_and_icebp(void)
 {
 	unsigned long start;
 
@@ -320,7 +320,7 @@ static void report_singlestep_with_movss_blocking_and_dr7_gd(unsigned long start
 	       "Single-step #DB w/ MOVSS blocking and DR7.GD=1");
 }
 
-static unsigned long singlestep_with_movss_blocking_and_dr7_gd(void)
+static noinline unsigned long singlestep_with_movss_blocking_and_dr7_gd(void)
 {
 	unsigned long start_rip;
 
