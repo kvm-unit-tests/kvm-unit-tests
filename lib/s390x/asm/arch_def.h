@@ -41,6 +41,8 @@ struct psw {
 	uint64_t	addr;
 };
 
+#define PSW(m, a) ((struct psw){ .mask = (m), .addr = (uint64_t)(a) })
+
 struct short_psw {
 	uint32_t	mask;
 	uint32_t	addr;
@@ -320,6 +322,8 @@ static inline uint64_t extract_psw_mask(void)
 
 	return (uint64_t) mask_upper << 32 | mask_lower;
 }
+
+#define PSW_WITH_CUR_MASK(addr) PSW(extract_psw_mask(), (addr))
 
 static inline void load_psw_mask(uint64_t mask)
 {
