@@ -33,7 +33,6 @@ static void wait_for_sclp_int(void)
  */
 static void test_wait_state_delivery(void)
 {
-	struct psw psw;
 	SCCBHeader *h;
 	int ret;
 
@@ -55,9 +54,7 @@ static void test_wait_state_delivery(void)
 	sclp_mark_busy();
 
 	/* Start CPU #1 and let it wait for the interrupt. */
-	psw.mask = extract_psw_mask();
-	psw.addr = (unsigned long)wait_for_sclp_int;
-	ret = smp_cpu_setup(1, psw);
+	ret = smp_cpu_setup(1, PSW_WITH_CUR_MASK(wait_for_sclp_int));
 	/* This must not fail because we have at least 3 CPUs */
 	assert(!ret);
 

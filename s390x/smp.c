@@ -101,12 +101,8 @@ static void test_func(void)
 
 static void test_start(void)
 {
-	struct psw psw;
-	psw.mask = extract_psw_mask();
-	psw.addr = (unsigned long)test_func;
-
 	set_flag(0);
-	smp_cpu_start(1, psw);
+	smp_cpu_start(1, PSW_WITH_CUR_MASK(test_func));
 	wait_for_flag();
 	report_pass("start");
 }
@@ -120,8 +116,7 @@ static void test_restart(void)
 	report_prefix_push("restart");
 	report_prefix_push("stopped");
 
-	lc->restart_new_psw.mask = extract_psw_mask();
-	lc->restart_new_psw.addr = (unsigned long)test_func;
+	lc->restart_new_psw = PSW_WITH_CUR_MASK(test_func);
 
 	/* Make sure cpu is stopped */
 	smp_cpu_stop(1);
@@ -256,7 +251,6 @@ static void test_set_prefix(void)
 	struct lowcore *new_lc = alloc_pages_flags(1, AREA_DMA31);
 	struct cpu *cpu1 = smp_cpu_from_idx(1);
 	uint32_t status = 0;
-	struct psw new_psw;
 	int cc;
 
 	report_prefix_push("set prefix");
@@ -268,9 +262,7 @@ static void test_set_prefix(void)
 
 	report_prefix_push("running");
 	set_flag(0);
-	new_psw.addr = (unsigned long)stpx_and_set_flag;
-	new_psw.mask = extract_psw_mask();
-	smp_cpu_start(1, new_psw);
+	smp_cpu_start(1, PSW_WITH_CUR_MASK(stpx_and_set_flag));
 	wait_for_flag();
 	cpu1_prefix = 0xFFFFFFFF;
 
@@ -326,7 +318,6 @@ static void call_received(void)
 static void test_calls(void)
 {
 	int i;
-	struct psw psw;
 
 	for (i = 0; i < ARRAY_SIZE(cases_sigp_call); i++) {
 		current_sigp_call_case = &cases_sigp_call[i];
@@ -339,9 +330,7 @@ static void test_calls(void)
 		}
 
 		set_flag(0);
-		psw.mask = extract_psw_mask();
-		psw.addr = (unsigned long)call_received;
-		smp_cpu_start(1, psw);
+		smp_cpu_start(1, PSW_WITH_CUR_MASK(call_received));
 
 		/* Wait until the receiver has finished setup */
 		wait_for_flag();
@@ -389,7 +378,6 @@ static void call_in_wait_cleanup(void)
 static void test_calls_in_wait(void)
 {
 	int i;
-	struct psw psw;
 
 	report_prefix_push("psw wait");
 	for (i = 0; i < ARRAY_SIZE(cases_sigp_call); i++) {
@@ -404,9 +392,7 @@ static void test_calls_in_wait(void)
 
 		/* Let the secondary CPU setup the external mask and the external interrupt cleanup function */
 		set_flag(0);
-		psw.mask = extract_psw_mask();
-		psw.addr = (unsigned long)call_in_wait_setup;
-		smp_cpu_start(1, psw);
+		smp_cpu_start(1, PSW_WITH_CUR_MASK(call_in_wait_setup));
 
 		/* Wait until the receiver has finished setup */
 		wait_for_flag();
@@ -422,9 +408,7 @@ static void test_calls_in_wait(void)
 		 * wait until the CPU becomes operating (done by smp_cpu_start).
 		 */
 		smp_cpu_stop(1);
-		psw.mask = extract_psw_mask() | PSW_MASK_EXT | PSW_MASK_WAIT;
-		psw.addr = (unsigned long)call_in_wait_received;
-		smp_cpu_start(1, psw);
+		smp_cpu_start(1, PSW(extract_psw_mask() | PSW_MASK_EXT | PSW_MASK_WAIT, call_in_wait_received));
 
 		smp_sigp(1, current_sigp_call_case->call, 0, NULL);
 
@@ -439,9 +423,7 @@ static void test_calls_in_wait(void)
 		 * to catch an interrupt that is presented twice since we would
 		 * disable the external call on the first interrupt.
 		 */
-		psw.mask = extract_psw_mask();
-		psw.addr = (unsigned long)call_in_wait_cleanup;
-		smp_cpu_start(1, psw);
+		smp_cpu_start(1, PSW_WITH_CUR_MASK(call_in_wait_cleanup));
 
 		/* Wait until the cleanup has been completed */
 		wait_for_flag();
@@ -478,15 +460,11 @@ static void test_func_initial(void)
 static void test_reset_initial(void)
 {
 	struct cpu_status *status = alloc_pages_flags(0, AREA_DMA31);
-	struct psw psw;
 	int i;
-
-	psw.mask = extract_psw_mask();
-	psw.addr = (unsigned long)test_func_initial;
 
 	report_prefix_push("reset initial");
 	set_flag(0);
-	smp_cpu_start(1, psw);
+	smp_cpu_start(1, PSW_WITH_CUR_MASK(test_func_initial));
 	wait_for_flag();
 
 	smp_sigp(1, SIGP_INITIAL_CPU_RESET, 0, NULL);
@@ -525,22 +503,16 @@ static void test_local_ints(void)
 
 static void test_reset(void)
 {
-	struct psw psw;
-
-	psw.mask = extract_psw_mask();
-	psw.addr = (unsigned long)test_func;
-
 	report_prefix_push("cpu reset");
 	smp_sigp(1, SIGP_EMERGENCY_SIGNAL, 0, NULL);
 	smp_sigp(1, SIGP_EXTERNAL_CALL, 0, NULL);
-	smp_cpu_start(1, psw);
+	smp_cpu_start(1, PSW_WITH_CUR_MASK(test_func));
 
 	smp_sigp(1, SIGP_CPU_RESET, 0, NULL);
 	report(smp_cpu_stopped(1), "cpu stopped");
 
 	set_flag(0);
-	psw.addr = (unsigned long)test_local_ints;
-	smp_cpu_start(1, psw);
+	smp_cpu_start(1, PSW_WITH_CUR_MASK(test_local_ints));
 	wait_for_flag();
 	report_pass("local interrupts cleared");
 	report_prefix_pop();
@@ -548,7 +520,6 @@ static void test_reset(void)
 
 int main(void)
 {
-	struct psw psw;
 	report_prefix_push("smp");
 
 	if (smp_query_num_cpus() == 1) {
@@ -557,9 +528,7 @@ int main(void)
 	}
 
 	/* Setting up the cpu to give it a stack and lowcore */
-	psw.mask = extract_psw_mask();
-	psw.addr = (unsigned long)test_func;
-	smp_cpu_setup(1, psw);
+	smp_cpu_setup(1, PSW_WITH_CUR_MASK(test_func));
 	smp_cpu_stop(1);
 
 	test_start();

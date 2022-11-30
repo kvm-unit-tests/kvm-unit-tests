@@ -501,7 +501,6 @@ static void test_init(void)
 {
 	int rc;
 	uint64_t mem;
-	struct psw psw;
 
 	/* Donated storage needs to be over 2GB */
 	mem = (uint64_t)memalign_pages_flags(SZ_1M, uvcb_qui.uv_base_stor_len, AREA_NORMAL);
@@ -547,9 +546,7 @@ static void test_init(void)
 	       "storage below 2GB");
 	uvcb_init.stor_origin = mem;
 
-	psw.mask = extract_psw_mask();
-	psw.addr = (unsigned long)cpu_loop;
-	smp_cpu_setup(1, psw);
+	smp_cpu_setup(1, PSW_WITH_CUR_MASK(cpu_loop));
 	rc = uv_call(0, (uint64_t)&uvcb_init);
 	report(rc == 1 && uvcb_init.header.rc == 0x102,
 	       "too many running cpus");
