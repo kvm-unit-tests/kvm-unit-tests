@@ -23,6 +23,12 @@
 .globl start
 start:
 	FIXUP_ENDIAN
+	/* Switch to 64-bit mode */
+	mfmsr	r1
+	li	r2,1
+	sldi	r2,r2,MSR_SF_BIT
+	or	r1,r1,r2
+	mtmsrd	r1
 	/*
 	 * We were loaded at QEMU's kernel load address, but we're not
 	 * allowed to link there due to how QEMU deals with linker VMAs,

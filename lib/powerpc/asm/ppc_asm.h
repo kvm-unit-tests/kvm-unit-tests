@@ -35,4 +35,7 @@
 
 #endif /* __BYTE_ORDER__ */
 
+/* Machine State Register definitions: */
+#define MSR_SF_BIT	63			/* 64-bit mode */
+
 #endif /* _ASMPOWERPC_PPC_ASM_H */
