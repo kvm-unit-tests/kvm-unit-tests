@@ -1,4 +1,4 @@
-image: fedora:32
+image: fedora:37
 
 before_script:
  - dnf update -y
@@ -10,10 +10,28 @@ build-aarch64:
  - ./configure --arch=aarch64 --cross-prefix=aarch64-linux-gnu-
  - make -j2
  - ACCEL=tcg MAX_SMP=8 ./run_tests.sh
-     selftest-setup selftest-vectors-kernel selftest-vectors-user selftest-smp
-     pci-test pmu-cycle-counter pmu-event-counter-config pmu-sw-incr gicv2-ipi
-     gicv2-mmio gicv3-ipi gicv2-active gicv3-active psci timer cache
-     | tee results.txt
+      cache
+      debug-bp
+      debug-sstep
+      debug-wp
+      gicv2-active
+      gicv2-ipi
+      gicv2-mmio
+      gicv3-active
+      gicv3-ipi
+      its-introspection
+      its-trigger
+      pci-test
+      pmu-cycle-counter
+      pmu-event-counter-config
+      pmu-sw-incr
+      psci
+      selftest-setup
+      selftest-smp
+      selftest-vectors-kernel
+      selftest-vectors-user
+      timer
+      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-arm:
@@ -62,9 +80,32 @@ build-s390x:
  - ../configure --arch=s390x --cross-prefix=s390x-linux-gnu-
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     selftest-setup intercept emulator sieve diag10 diag308 vector diag288
-     stsi sclp-1g sclp-3g
-     | tee results.txt
+      adtl-status-no-vec-no-gs-tcg
+      adtl-status-tcg
+      cpumodel
+      css
+      diag10
+      diag288
+      diag308
+      edat
+      emulator
+      epsw
+      exittime
+      firq-linear-cpu-ids-tcg
+      firq-nonlinear-cpu-ids-tcg
+      iep
+      intercept
+      mvpg
+      sck
+      sclp-1g
+      sclp-3g
+      selftest-setup
+      sieve
+      smp
+      stsi
+      tprot
+      vector
+      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-x86_64:
@@ -73,12 +114,36 @@ build-x86_64:
  - ./configure --arch=x86_64
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     ioapic-split smptest smptest3 vmexit_cpuid vmexit_mov_from_cr8
-     vmexit_mov_to_cr8 vmexit_inl_pmtimer  vmexit_ipi vmexit_ipi_halt
-     vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed
-     eventinj port80 setjmp sieve syscall tsc rmap_chain umip intel_iommu
-     rdpru pku pks smap tsc_adjust xsave
-     | tee results.txt
+      eventinj
+      intel_iommu
+      ioapic-split
+      memory
+      pks
+      pku
+      rdpru
+      realmode
+      rmap_chain
+      setjmp
+      sieve
+      smap
+      smptest
+      smptest3
+      syscall
+      tsc
+      umip
+      vmexit_cpuid
+      vmexit_cr0_wp
+      vmexit_cr4_pge
+      vmexit_inl_pmtimer
+      vmexit_ipi
+      vmexit_ipi_halt
+      vmexit_mov_from_cr8
+      vmexit_mov_to_cr8
+      vmexit_ple_round_robin
+      vmexit_tscdeadline
+      vmexit_tscdeadline_immed
+      xsave
+      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-i386:
@@ -89,11 +154,29 @@ build-i386:
  - ../configure --arch=i386
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     cmpxchg8b vmexit_cpuid vmexit_mov_from_cr8 vmexit_mov_to_cr8
-     vmexit_inl_pmtimer vmexit_ipi vmexit_ipi_halt vmexit_ple_round_robin
-     vmexit_tscdeadline vmexit_tscdeadline_immed eventinj port80 setjmp sieve
-     tsc taskswitch umip rdpru smap tsc_adjust xsave
-     | tee results.txt
+      cmpxchg8b
+      eventinj
+      realmode
+      setjmp
+      sieve
+      smap
+      smptest
+      smptest3
+      taskswitch
+      tsc
+      umip
+      vmexit_cpuid
+      vmexit_cr0_wp
+      vmexit_cr4_pge
+      vmexit_inl_pmtimer
+      vmexit_ipi
+      vmexit_ipi_halt
+      vmexit_mov_from_cr8
+      vmexit_mov_to_cr8
+      vmexit_ple_round_robin
+      vmexit_tscdeadline
+      vmexit_tscdeadline_immed
+      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-clang:
@@ -102,12 +185,36 @@ build-clang:
  - ./configure --arch=x86_64 --cc=clang
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     ioapic-split smptest smptest3 vmexit_cpuid vmexit_mov_from_cr8
-     vmexit_mov_to_cr8 vmexit_inl_pmtimer  vmexit_ipi vmexit_ipi_halt
-     vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed
-     eventinj port80 setjmp syscall tsc rmap_chain umip intel_iommu
-     rdpru pku pks smap tsc_adjust xsave
-     | tee results.txt
+      eventinj
+      intel_iommu
+      ioapic-split
+      memory
+      pks
+      pku
+      rdpru
+      realmode
+      rmap_chain
+      setjmp
+      sieve
+      smap
+      smptest
+      smptest3
+      syscall
+      tsc
+      umip
+      vmexit_cpuid
+      vmexit_cr0_wp
+      vmexit_cr4_pge
+      vmexit_inl_pmtimer
+      vmexit_ipi
+      vmexit_ipi_halt
+      vmexit_mov_from_cr8
+      vmexit_mov_to_cr8
+      vmexit_ple_round_robin
+      vmexit_tscdeadline
+      vmexit_tscdeadline_immed
+      xsave
+      | tee results.txt
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
 
 build-centos7:
