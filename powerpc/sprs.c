@@ -21,6 +21,7 @@
  */
 #include <libcflat.h>
 #include <util.h>
+#include <migrate.h>
 #include <alloc.h>
 #include <asm/handlers.h>
 #include <asm/hcall.h>
@@ -285,8 +286,7 @@ int main(int argc, char **argv)
 	get_sprs(before);
 
 	if (pause) {
-		puts("Now migrate the VM, then press a key to continue...\n");
-		(void) getchar();
+		migrate_once();
 	} else {
 		puts("Sleeping...\n");
 		handle_exception(0x900, &dec_except_handler, &decr);
