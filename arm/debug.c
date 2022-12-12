@@ -1,4 +1,5 @@
 #include <libcflat.h>
+#include <migrate.h>
 #include <errata.h>
 #include <asm/setup.h>
 #include <asm/processor.h>
@@ -257,13 +258,6 @@ static void reset_debug_state(void)
 	isb();
 }
 
-static void do_migrate(void)
-{
-	puts("Now migrate the VM, then press a key to continue...\n");
-	(void)getchar();
-	report_info("Migration complete");
-}
-
 static noinline void test_hw_bp(bool migrate)
 {
 	extern unsigned char hw_bp0;
@@ -291,7 +285,7 @@ static noinline void test_hw_bp(bool migrate)
 	isb();
 
 	if (migrate) {
-		do_migrate();
+		migrate_once();
 		report(num_bp == get_num_hw_bp(), "brps match after migrate");
 	}
 
@@ -335,7 +329,7 @@ static noinline void test_wp(bool migrate)
 	isb();
 
 	if (migrate) {
-		do_migrate();
+		migrate_once();
 		report(num_wp == get_num_wp(), "wrps match after migrate");
 	}
 
@@ -368,9 +362,8 @@ static noinline void test_ss(bool migrate)
 	write_sysreg(mdscr, mdscr_el1);
 	isb();
 
-	if (migrate) {
-		do_migrate();
-	}
+	if (migrate)
+		migrate_once();
 
 	asm volatile("msr daifclr, #8");
 

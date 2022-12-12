@@ -12,6 +12,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <libcflat.h>
+#include <migrate.h>
 #include <errata.h>
 #include <asm/setup.h>
 #include <asm/processor.h>
@@ -779,23 +780,15 @@ static void test_its_trigger(void)
 static void test_its_migration(void)
 {
 	struct its_device *dev2, *dev7;
-	bool test_skipped = false;
 	cpumask_t mask;
 
-	if (its_setup1()) {
-		test_skipped = true;
-		goto do_migrate;
-	}
+	if (its_setup1())
+		return;
 
 	dev2 = its_get_device(2);
 	dev7 = its_get_device(7);
 
-do_migrate:
-	puts("Now migrate the VM, then press a key to continue...\n");
-	(void)getchar();
-	report_info("Migration complete");
-	if (test_skipped)
-		return;
+	migrate_once();
 
 	stats_reset();
 	cpumask_clear(&mask);
@@ -822,21 +815,17 @@ static void test_migrate_unmapped_collection(void)
 {
 	struct its_collection *col = NULL;
 	struct its_device *dev2 = NULL, *dev7 = NULL;
-	bool test_skipped = false;
 	cpumask_t mask;
 	int pe0 = 0;
 	u8 config;
 
-	if (its_setup1()) {
-		test_skipped = true;
-		goto do_migrate;
-	}
+	if (its_setup1())
+		return;
 
 	if (!errata(ERRATA_UNMAPPED_COLLECTIONS)) {
 		report_skip("Skipping test, as this test hangs without the fix. "
 			    "Set %s=y to enable.", ERRATA_UNMAPPED_COLLECTIONS);
-		test_skipped = true;
-		goto do_migrate;
+		return;
 	}
 
 	col = its_create_collection(pe0, pe0);
@@ -847,12 +836,7 @@ static void test_migrate_unmapped_collection(void)
 	its_send_mapti(dev2, 8192, 0, col);
 	gicv3_lpi_set_config(8192, LPI_PROP_DEFAULT);
 
-do_migrate:
-	puts("Now migrate the VM, then press a key to continue...\n");
-	(void)getchar();
-	report_info("Migration complete");
-	if (test_skipped)
-		return;
+	migrate_once();
 
 	/* on the destination, map the collection */
 	its_send_mapc(col, true);
@@ -887,15 +871,12 @@ static void test_its_pending_migration(void)
 	struct its_collection *collection[2];
 	int *expected = calloc(nr_cpus, sizeof(int));
 	int pe0 = nr_cpus - 1, pe1 = nr_cpus - 2;
-	bool test_skipped = false;
 	u64 pendbaser;
 	void *ptr;
 	int i;
 
-	if (its_prerequisites(4)) {
-		test_skipped = true;
-		goto do_migrate;
-	}
+	if (its_prerequisites(4))
+		return;
 
 	dev = its_create_device(2 /* dev id */, 8 /* nb_ites */);
 	its_send_mapd(dev, true);
@@ -942,12 +923,7 @@ static void test_its_pending_migration(void)
 	gicv3_lpi_rdist_enable(pe0);
 	gicv3_lpi_rdist_enable(pe1);
 
-do_migrate:
-	puts("Now migrate the VM, then press a key to continue...\n");
-	(void)getchar();
-	report_info("Migration complete");
-	if (test_skipped)
-		return;
+	migrate_once();
 
 	/* let's wait for the 256 LPIs to be handled */
 	mdelay(1000);
@@ -994,14 +970,17 @@ int main(int argc, char **argv)
 	} else if (!strcmp(argv[1], "its-migration")) {
 		report_prefix_push(argv[1]);
 		test_its_migration();
+		migrate_once();
 		report_prefix_pop();
 	} else if (!strcmp(argv[1], "its-pending-migration")) {
 		report_prefix_push(argv[1]);
 		test_its_pending_migration();
+		migrate_once();
 		report_prefix_pop();
 	} else if (!strcmp(argv[1], "its-migrate-unmapped-collection")) {
 		report_prefix_push(argv[1]);
 		test_migrate_unmapped_collection();
+		migrate_once();
 		report_prefix_pop();
 	} else if (strcmp(argv[1], "its-introspection") == 0) {
 		report_prefix_push(argv[1]);
