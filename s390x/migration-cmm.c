@@ -9,6 +9,7 @@
  */
 
 #include <libcflat.h>
+#include <migrate.h>
 #include <asm/interrupt.h>
 #include <asm/page.h>
 #include <asm/cmm.h>
@@ -39,8 +40,7 @@ static void test_migration(void)
 		essa(ESSA_SET_POT_VOLATILE, (unsigned long)pagebuf[i + 3]);
 	}
 
-	puts("Please migrate me, then press return\n");
-	(void)getchar();
+	migrate_once();
 
 	for (i = 0; i < NUM_PAGES; i++) {
 		actual_state = essa(ESSA_GET_STATE, (unsigned long)pagebuf[i]);
@@ -53,25 +53,15 @@ static void test_migration(void)
 
 int main(void)
 {
-	bool has_essa = check_essa_available();
-
 	report_prefix_push("migration-cmm");
-	if (!has_essa) {
+
+	if (!check_essa_available())
 		report_skip("ESSA is not available");
+	else
+		test_migration();
 
-		/*
-		 * If we just exit and don't ask migrate_cmd to migrate us, it
-		 * will just hang forever. Hence, also ask for migration when we
-		 * skip this test alltogether.
-		 */
-		puts("Please migrate me, then press return\n");
-		(void)getchar();
+	migrate_once();
 
-		goto done;
-	}
-
-	test_migration();
-done:
 	report_prefix_pop();
 	return report_summary();
 }

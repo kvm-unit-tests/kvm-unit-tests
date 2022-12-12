@@ -8,6 +8,7 @@
  *  Nico Boehr <nrb@linux.ibm.com>
  */
 #include <libcflat.h>
+#include <migrate.h>
 #include <asm/arch_def.h>
 #include <asm/vector.h>
 #include <asm/barrier.h>
@@ -178,11 +179,7 @@ int main(void)
 		mb();
 	flag_thread_complete = 0;
 
-	/* ask migrate_cmd to migrate (it listens for 'migrate') */
-	puts("Please migrate me, then press return\n");
-
-	/* wait for migration to finish, we will read a newline */
-	(void)getchar();
+	migrate_once();
 
 	flag_migration_complete = 1;
 

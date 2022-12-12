@@ -9,6 +9,7 @@
  */
 
 #include <libcflat.h>
+#include <migrate.h>
 #include <asm/facility.h>
 #include <asm/page.h>
 #include <asm/mem.h>
@@ -35,8 +36,7 @@ static void test_migration(void)
 		set_storage_key(pagebuf[i], key_to_set, 1);
 	}
 
-	puts("Please migrate me, then press return\n");
-	(void)getchar();
+	migrate_once();
 
 	for (i = 0; i < NUM_PAGES; i++) {
 		actual_key.val = get_storage_key(pagebuf[i]);
@@ -64,19 +64,13 @@ static void test_migration(void)
 int main(void)
 {
 	report_prefix_push("migration-skey");
-	if (test_facility(169)) {
-		report_skip("storage key removal facility is active");
 
-		/*
-		 * If we just exit and don't ask migrate_cmd to migrate us, it
-		 * will just hang forever. Hence, also ask for migration when we
-		 * skip this test altogether.
-		 */
-		puts("Please migrate me, then press return\n");
-		(void)getchar();
-	} else {
+	if (test_facility(169))
+		report_skip("storage key removal facility is active");
+	else
 		test_migration();
-	}
+
+	migrate_once();
 
 	report_prefix_pop();
 	return report_summary();

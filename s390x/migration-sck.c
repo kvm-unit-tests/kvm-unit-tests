@@ -9,6 +9,7 @@
  */
 
 #include <libcflat.h>
+#include <migrate.h>
 #include <asm/time.h>
 
 static void test_sck_migration(void)
@@ -30,8 +31,7 @@ static void test_sck_migration(void)
 	report(!cc, "clock running after set");
 	report(now_after_set >= time_to_set, "TOD clock value is larger than what has been set");
 
-	puts("Please migrate me, then press return\n");
-	(void)getchar();
+	migrate_once();
 
 	cc = stckf(&now_after_migration);
 	report(!cc, "clock still set");
