@@ -477,6 +477,7 @@ static void check_running_counter_wrmsr(void)
 static void check_emulated_instr(void)
 {
 	uint64_t status, instr_start, brnch_start;
+	uint64_t gp_counter_width = (1ull << pmu.gp_counter_width) - 1;
 	unsigned int branch_idx = pmu.is_intel ? 5 : 2;
 	pmu_counter_t brnch_cnt = {
 		.ctr = MSR_GP_COUNTERx(0),
@@ -498,8 +499,8 @@ static void check_emulated_instr(void)
 
 	brnch_start = -EXPECTED_BRNCH;
 	instr_start = -EXPECTED_INSTR;
-	wrmsr(MSR_GP_COUNTERx(0), brnch_start);
-	wrmsr(MSR_GP_COUNTERx(1), instr_start);
+	wrmsr(MSR_GP_COUNTERx(0), brnch_start & gp_counter_width);
+	wrmsr(MSR_GP_COUNTERx(1), instr_start & gp_counter_width);
 	// KVM_FEP is a magic prefix that forces emulation so
 	// 'KVM_FEP "jne label\n"' just counts as a single instruction.
 	asm volatile(
