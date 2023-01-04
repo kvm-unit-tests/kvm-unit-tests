@@ -1,7 +1,7 @@
 
 macos_i386_task:
   osx_instance:
-    image: big-sur-base
+    image: ghcr.io/cirruslabs/macos-ventura-base:latest
   install_script:
     - brew update
     - brew install coreutils bash git gnu-getopt make qemu i686-elf-gcc
@@ -10,7 +10,7 @@ macos_i386_task:
     - git fetch origin "@CI_COMMIT_REF_NAME@"
     - git reset --hard "@CI_COMMIT_SHA@"
   script:
-    - export PATH="/usr/local/opt/gnu-getopt/bin:$PATH"
+    - export PATH="/opt/homebrew/opt/gnu-getopt/bin:$PATH"
     - mkdir build
     - cd build
     - ../configure --arch=i386 --cross-prefix=i686-elf-

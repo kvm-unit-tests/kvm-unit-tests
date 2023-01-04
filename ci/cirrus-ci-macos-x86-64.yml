@@ -1,7 +1,7 @@
 
 macos_task:
   osx_instance:
-    image: big-sur-base
+    image: ghcr.io/cirruslabs/macos-ventura-base:latest
   install_script:
     - brew update
     - brew install coreutils bash git gnu-getopt make qemu x86_64-elf-gcc
@@ -10,10 +10,10 @@ macos_task:
     - git fetch origin "@CI_COMMIT_REF_NAME@"
     - git reset --hard "@CI_COMMIT_SHA@"
   script:
-    - export PATH="/usr/local/opt/gnu-getopt/bin:$PATH"
+    - export PATH="/opt/homebrew/opt/gnu-getopt/bin:$PATH"
     - mkdir build
     - cd build
-    - ../configure --cross-prefix=x86_64-elf-
+    - ../configure --arch=x86_64 --cross-prefix=x86_64-elf-
     - gmake -j$(sysctl -n hw.ncpu)
     - ACCEL=tcg ./run_tests.sh
          eventinj
