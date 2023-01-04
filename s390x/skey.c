@@ -320,7 +320,7 @@ static void test_diag_308(void)
 		"lr	%[response],%%r3\n"
 		: [response] "=d" (response)
 		: [ipib] "d" (ipib),
-		  [code] "d" (5)
+		  [code] "d" (5L)
 		: "%r2", "%r3"
 	);
 	report(response == 0x402, "no exception on fetch, response: invalid IPIB");
