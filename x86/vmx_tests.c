@@ -6191,9 +6191,7 @@ static void virt_x2apic_mode_rd_expectation(
 	bool apic_register_virtualization, bool virtual_interrupt_delivery,
 	struct virt_x2apic_mode_expectation *expectation)
 {
-	bool readable =
-		!x2apic_reg_reserved(reg) &&
-		reg != APIC_EOI;
+	enum x2apic_reg_semantics semantics = get_x2apic_reg_semantics(reg);
 
 	expectation->rd_exit_reason = VMX_VMCALL;
 	expectation->virt_fn = virt_x2apic_mode_identity;
@@ -6209,7 +6207,7 @@ static void virt_x2apic_mode_rd_expectation(
 		expectation->rd_val = MAGIC_VAL_1;
 		expectation->virt_fn = virt_x2apic_mode_nibble1;
 		expectation->rd_behavior = X2APIC_ACCESS_VIRTUALIZED;
-	} else if (!disable_x2apic && readable) {
+	} else if (!disable_x2apic && (semantics & X2APIC_READABLE)) {
 		expectation->rd_val = apic_read(reg);
 		expectation->rd_behavior = X2APIC_ACCESS_PASSED_THROUGH;
 	} else {
