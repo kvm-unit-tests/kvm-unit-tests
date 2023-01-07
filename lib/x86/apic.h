@@ -1,6 +1,7 @@
 #ifndef _X86_APIC_H_
 #define _X86_APIC_H_
 
+#include <bitops.h>
 #include <stdint.h>
 #include "apic-defs.h"
 
@@ -74,24 +75,56 @@ static inline bool apic_lvt_entry_supported(int idx)
 	return GET_APIC_MAXLVT(apic_read(APIC_LVR)) >= idx;
 }
 
-static inline bool x2apic_reg_reserved(u32 reg)
+enum x2apic_reg_semantics {
+	X2APIC_INVALID	= 0,
+	X2APIC_READABLE	= BIT(0),
+	X2APIC_WRITABLE	= BIT(1),
+	X2APIC_RO	= X2APIC_READABLE,
+	X2APIC_WO	= X2APIC_WRITABLE,
+	X2APIC_RW	= X2APIC_READABLE | X2APIC_WRITABLE,
+};
+
+static inline enum x2apic_reg_semantics get_x2apic_reg_semantics(u32 reg)
 {
+	assert(!(reg & 0xf));
+
 	switch (reg) {
-	case 0x000 ... 0x010:
-	case 0x040 ... 0x070:
-	case 0x090:
-	case 0x0c0:
-	case 0x0e0:
-	case 0x290 ... 0x2e0:
-	case 0x310:
-	case 0x3a0 ... 0x3d0:
-	case 0x3f0:
-		return true;
+	case APIC_ID:
+	case APIC_LVR:
+	case APIC_PROCPRI:
+	case APIC_LDR:
+	case APIC_ISR ... APIC_ISR + 0x70:
+	case APIC_TMR ... APIC_TMR + 0x70:
+	case APIC_IRR ... APIC_IRR + 0x70:
+	case APIC_TMCCT:
+		return X2APIC_RO;
+	case APIC_TASKPRI:
+	case APIC_SPIV:
+	case APIC_ESR:
+	case APIC_ICR:
+	case APIC_LVTT:
+	case APIC_LVTTHMR:
+	case APIC_LVTPC:
+	case APIC_LVT0:
+	case APIC_LVT1:
+	case APIC_LVTERR:
+	case APIC_TMICT:
+	case APIC_TDCR:
+		return X2APIC_RW;
+	case APIC_EOI:
+	case APIC_SELF_IPI:
+		return X2APIC_WO;
 	case APIC_CMCI:
-		return !apic_lvt_entry_supported(6);
+		if (apic_lvt_entry_supported(6))
+			return X2APIC_RW;
+		break;
+	case APIC_RRR:
+	case APIC_DFR:
+	case APIC_ICR2:
 	default:
-		return false;
+		break;
 	}
+	return X2APIC_INVALID;
 }
 
 #endif
