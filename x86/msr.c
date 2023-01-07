@@ -1,6 +1,7 @@
 /* msr tests */
 
 #include "libcflat.h"
+#include "apic.h"
 #include "processor.h"
 #include "msr.h"
 #include <stdlib.h>
@@ -213,6 +214,63 @@ static void test_mce_msrs(void)
 	}
 }
 
+static void __test_x2apic_msrs(bool x2apic_enabled)
+{
+	enum x2apic_reg_semantics semantics;
+	unsigned int index, i;
+	char msr_name[32];
+
+	for (i = 0; i < 0x1000; i += 0x10) {
+		index = x2apic_msr(i);
+		snprintf(msr_name, sizeof(msr_name), "x2APIC MSR 0x%x", index);
+
+		if (x2apic_enabled)
+			semantics = get_x2apic_reg_semantics(i);
+		else
+			semantics = X2APIC_INVALID;
+
+		if (!(semantics & X2APIC_WRITABLE))
+			test_wrmsr_fault(index, msr_name, 0);
+
+		if (!(semantics & X2APIC_READABLE))
+			test_rdmsr_fault(index, msr_name);
+
+		/*
+		 * Except for ICR, the only 64-bit x2APIC register, bits 64:32
+		 * are reserved.  ICR is testable if x2APIC is disabled.
+		 */
+		if (!x2apic_enabled || i != APIC_ICR)
+			test_wrmsr_fault(index, msr_name, -1ull);
+
+		/* Bits 31:8 of self-IPI are reserved. */
+		if (i == APIC_SELF_IPI) {
+			test_wrmsr_fault(index, "x2APIC Self-IPI", 0x100);
+			test_wrmsr_fault(index, "x2APIC Self-IPI", 0xff00);
+			test_wrmsr_fault(index, "x2APIC Self-IPI", 0xff000000ull);
+		}
+
+		if (semantics == X2APIC_RW)
+			__test_msr_rw(index, msr_name, 0, -1ull);
+		else if (semantics == X2APIC_WO)
+			wrmsr(index, 0);
+		else if (semantics == X2APIC_RO)
+			report(!(rdmsr(index) >> 32),
+			       "Expected bits 63:32 == 0 for '%s'", msr_name);
+	}
+}
+
+static void test_x2apic_msrs(void)
+{
+	reset_apic();
+
+	__test_x2apic_msrs(false);
+
+	if (!enable_x2apic())
+		return;
+
+	__test_x2apic_msrs(true);
+}
+
 int main(int ac, char **av)
 {
 	/*
@@ -224,6 +282,7 @@ int main(int ac, char **av)
 	} else {
 		test_misc_msrs();
 		test_mce_msrs();
+		test_x2apic_msrs();
 	}
 
 	return report_summary();
