@@ -16,27 +16,22 @@ SECTIONS
 		 QUAD(0x0000000000004000)
 	}
 	. = 0x4000;
+	/*
+	 * The stack grows down from 0x4000 to 0x2000, we pre-allocoate
+	 * a frame via the -160.
+	 */
 	stackptr = . - 160;
 	stacktop = .;
+	/* Start text 0x4000 */
 	.text : {
 		*(.init)
 		*(.text)
 		*(.text.*)
 	}
-	. = ALIGN(64K);
+	. = ALIGN(4K);
 	etext = .;
-	.opd : { *(.opd) }
-	. = ALIGN(16);
-	.dynamic : {
-		dynamic_start = .;
-		*(.dynamic)
-	}
-	.dynsym : {
-		dynsym_start = .;
-		*(.dynsym)
-	}
-	.rela.dyn : { *(.rela*) }
-	. = ALIGN(16);
+	/* End text */
+	/* Start data */
 	.data : {
 		*(.data)
 		*(.data.rel*)
@@ -44,11 +39,6 @@ SECTIONS
 	. = ALIGN(16);
 	.rodata : { *(.rodata) *(.rodata.*) }
 	. = ALIGN(16);
-	__bss_start = .;
 	.bss : { *(.bss) }
-	__bss_end = .;
-	. = ALIGN(64K);
-	edata = .;
-	. += 64K;
-	. = ALIGN(64K);
+	/* End data */
 }
