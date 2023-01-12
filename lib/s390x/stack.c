@@ -22,6 +22,8 @@ int backtrace_frame(const void *frame, const void **return_addrs, int max_depth)
 	for (depth = 0; stack && depth < max_depth; depth++) {
 		return_addrs[depth] = (void *)stack->grs[8];
 		stack = stack->back_chain;
+		if (!stack)
+			break;
 	}
 
 	return depth;
