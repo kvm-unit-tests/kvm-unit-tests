@@ -18,7 +18,7 @@
  */
 .macro SET_PSW_NEW_ADDR reg, psw_new_addr, addr_psw
 larl	\reg, psw_mask_64
-stg	\reg, \addr_psw
+mvc	\addr_psw(8,%r0), 0(\reg)
 larl	\reg, \psw_new_addr
 stg	\reg, \addr_psw + 8
 .endm
