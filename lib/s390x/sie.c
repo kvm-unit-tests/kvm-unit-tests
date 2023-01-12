@@ -93,6 +93,7 @@ void sie_guest_create(struct vm *vm, uint64_t guest_mem, uint64_t guest_mem_len)
 
 	/* Guest memory chunks are always 1MB */
 	assert(!(guest_mem_len & ~HPAGE_MASK));
+	vm->guest_mem = (uint8_t *)guest_mem;
 	/* For non-PV guests we re-use the host's ASCE for ease of use */
 	vm->save_area.guest.asce = stctg(1);
 	/* Currently MSO/MSL is the easiest option */
