@@ -9,6 +9,7 @@
  */
 #include <libcflat.h>
 #include <asm/barrier.h>
+#include <asm/asm-offsets.h>
 #include <sclp.h>
 #include <interrupt.h>
 #include <sie.h>
@@ -188,9 +189,12 @@ static void print_storage_exception_information(void)
 	}
 }
 
-static void print_int_regs(struct stack_frame_int *stack)
+static void print_int_regs(struct stack_frame_int *stack, bool sie)
 {
+	struct kvm_s390_sie_block *sblk;
+
 	printf("\n");
+	printf("%s\n", sie ? "Guest registers:" : "Host registers:");
 	printf("GPRS:\n");
 	printf("%016lx %016lx %016lx %016lx\n",
 	       stack->grs1[0], stack->grs1[1], stack->grs0[0], stack->grs0[1]);
@@ -198,24 +202,56 @@ static void print_int_regs(struct stack_frame_int *stack)
 	       stack->grs0[2], stack->grs0[3], stack->grs0[4], stack->grs0[5]);
 	printf("%016lx %016lx %016lx %016lx\n",
 	       stack->grs0[6], stack->grs0[7], stack->grs0[8], stack->grs0[9]);
-	printf("%016lx %016lx %016lx %016lx\n",
-	       stack->grs0[10], stack->grs0[11], stack->grs0[12], stack->grs0[13]);
+
+	if (sie) {
+		sblk = (struct kvm_s390_sie_block *)stack->grs0[12];
+		printf("%016lx %016lx %016lx %016lx\n",
+		       stack->grs0[10], stack->grs0[11], sblk->gg14, sblk->gg15);
+	} else {
+		printf("%016lx %016lx %016lx %016lx\n",
+		       stack->grs0[10], stack->grs0[11], stack->grs0[12], stack->grs0[13]);
+	}
+
 	printf("\n");
 }
 
 static void print_pgm_info(struct stack_frame_int *stack)
 
 {
-	bool in_sie;
+	bool in_sie, in_sie_gregs;
+	struct vm_save_area *vregs;
 
 	in_sie = (lowcore.pgm_old_psw.addr >= (uintptr_t)sie_entry &&
 		  lowcore.pgm_old_psw.addr <= (uintptr_t)sie_exit);
+	in_sie_gregs = (lowcore.pgm_old_psw.addr >= (uintptr_t)sie_entry_gregs &&
+			lowcore.pgm_old_psw.addr < (uintptr_t)sie_exit_gregs);
 
 	printf("\n");
 	printf("Unexpected program interrupt %s: %#x on cpu %d at %#lx, ilen %d\n",
 	       in_sie ? "in SIE" : "",
 	       lowcore.pgm_int_code, stap(), lowcore.pgm_old_psw.addr, lowcore.pgm_int_id);
-	print_int_regs(stack);
+
+	/*
+	 * If we fall out of SIE before loading the host registers,
+	 * then we need to do it here so we print the host registers
+	 * and not the guest registers.
+	 *
+	 * Back tracing is actually not a problem since SIE restores gr15.
+	 */
+	if (in_sie_gregs) {
+		print_int_regs(stack, true);
+		vregs = *((struct vm_save_area **)(stack->grs0[13] + __SF_SIE_SAVEAREA));
+
+		/*
+		 * The grs are not linear on the interrupt stack frame.
+		 * We copy 0 and 1 here and 2 - 15 with the memcopy below.
+		 */
+		stack->grs1[0] = vregs->host.grs[0];
+		stack->grs1[1] = vregs->host.grs[1];
+		/*  2 - 15 */
+		memcpy(stack->grs0, &vregs->host.grs[2], sizeof(stack->grs0) - 8);
+	}
+	print_int_regs(stack, false);
 	dump_stack();
 
 	/* Dump stack doesn't end with a \n so we add it here instead */

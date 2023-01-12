@@ -82,7 +82,8 @@ sie64a:
 	# Store scb and save_area pointer into stack frame
 	stg	%r2,__SF_SIE_CONTROL(%r15)	# save control block pointer
 	stg	%r3,__SF_SIE_SAVEAREA(%r15)	# save guest register save area
-
+.globl sie_entry_gregs
+sie_entry_gregs:
 	# Load guest's gprs, fprs and fpc
 	.irp i, 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
 	ld	\i, \i * 8 + SIE_SAVEAREA_GUEST_FPRS(%r3)
@@ -121,7 +122,8 @@ sie_exit:
 	.endr
 	lfpc	SIE_SAVEAREA_HOST_FPC(%r14)
 	lmg	%r0,%r14,SIE_SAVEAREA_HOST_GRS(%r14)	# restore kernel registers
-
+.globl sie_exit_gregs
+sie_exit_gregs:
 	br	%r14
 
 	.align	8
