@@ -355,6 +355,21 @@ static void test_movabs(uint64_t *mem)
 	report(rcx == 0x9090909090909090, "64-bit mov imm2");
 }
 
+static void load_dpl0_seg(void)
+{
+	asm volatile(KVM_FEP "mov %0, %%fs" :: "r" (KERNEL_CS)); /* RPL=0 */
+}
+
+static void test_user_load_dpl0_seg(void)
+{
+	bool raised_vector;
+
+	run_in_user((usermode_func)load_dpl0_seg, GP_VECTOR, 0, 0, 0, 0,
+		    &raised_vector);
+
+	report(raised_vector, "Wanted #GP on CPL=3 DPL=0 segment load");
+}
+
 static void test_push16(uint64_t *mem)
 {
 	uint64_t rsp1, rsp2;
@@ -456,6 +471,7 @@ static void test_emulator_64(void *mem)
 	if (is_fep_available()) {
 		test_mmx_movq_mf(mem);
 		test_movabs(mem);
+		test_user_load_dpl0_seg();
 	}
 
 	test_push16(mem);
