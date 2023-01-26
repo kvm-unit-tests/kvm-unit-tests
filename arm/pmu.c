@@ -914,10 +914,15 @@ static void test_overflow_interrupt(bool overflow_at_64bits)
 
 	write_regn_el0(pmevcntr, 0, pre_overflow);
 	write_regn_el0(pmevcntr, 1, pre_overflow);
+	write_sysreg(ALL_SET_32, pmovsclr_el0);
 	write_sysreg(ALL_SET_32, pmintenset_el1);
 	isb();
 
 	mem_access_loop(addr, 200, pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
+
+	set_pmcr(pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
+	isb();
+
 	for (i = 0; i < 100; i++)
 		write_sysreg(0x3, pmswinc_el0);
 
