@@ -7,6 +7,8 @@
 #ifndef _STRING_H_
 #define _STRING_H_
 
+#include <stddef.h>  /* For size_t */
+
 extern size_t strlen(const char *buf);
 extern size_t strnlen(const char *buf, size_t maxlen);
 extern char *strcat(char *dest, const char *src);
