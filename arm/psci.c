@@ -72,8 +72,9 @@ static bool psci_affinity_info_off(void)
 }
 
 static int cpu_on_ret[NR_CPUS];
-static cpumask_t cpu_on_ready, cpu_on_done;
+static cpumask_t cpu_on_ready, cpu_on_done, cpu_off_done;
 static volatile int cpu_on_start;
+static volatile int cpu_off_start;
 
 extern void secondary_entry(void);
 static void cpu_on_do_wake_target(void)
@@ -171,6 +172,67 @@ static bool psci_cpu_on_test(void)
 	return !failed;
 }
 
+static void cpu_off_secondary_entry(void *data)
+{
+	int cpu = smp_processor_id();
+
+	while (!cpu_off_start)
+		cpu_relax();
+	cpumask_set_cpu(cpu, &cpu_off_done);
+	cpu_psci_cpu_die();
+}
+
+static bool psci_cpu_off_test(void)
+{
+	bool failed = false;
+	int i, count, cpu;
+
+	for_each_present_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+		on_cpu_async(cpu, cpu_off_secondary_entry, NULL);
+	}
+
+	cpumask_set_cpu(0, &cpu_off_done);
+
+	cpu_off_start = 1;
+	report_info("waiting for the CPUs to be offlined...");
+	while (!cpumask_full(&cpu_off_done))
+		cpu_relax();
+
+	/* Allow all the other CPUs to complete the operation */
+	for (i = 0; i < 100; i++) {
+		mdelay(10);
+
+		count = 0;
+		for_each_present_cpu(cpu) {
+			if (cpu == 0)
+				continue;
+			if (psci_affinity_info(cpus[cpu], 0) != PSCI_0_2_AFFINITY_LEVEL_OFF)
+				count++;
+		}
+		if (count == 0)
+			break;
+	}
+
+	/* Try to catch CPUs that return from CPU_OFF. */
+	if (count == 0)
+		mdelay(100);
+
+	for_each_present_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+		if (cpu_idle(cpu)) {
+			report_info("CPU%d failed to be offlined", cpu);
+			if (psci_affinity_info(cpus[cpu], 0) == PSCI_0_2_AFFINITY_LEVEL_OFF)
+				report_info("AFFINITY_INFO incorrectly reports CPU%d as offline", cpu);
+			failed = true;
+		}
+	}
+
+	return !failed;
+}
+
 int main(void)
 {
 	int ver = psci_invoke(PSCI_0_2_FN_PSCI_VERSION, 0, 0, 0);
@@ -192,6 +254,13 @@ int main(void)
 		report(psci_cpu_on_test(), "cpu-on");
 	else
 		report_skip("Skipping unsafe cpu-on test. Set ERRATA_6c7a5dce22b3=y to enable.");
+
+	assert(!cpu_idle(0));
+
+	if (!ERRATA(6c7a5dce22b3) || cpumask_weight(&cpu_idle_mask) == nr_cpus - 1)
+		report(psci_cpu_off_test(), "cpu-off");
+	else
+		report_skip("Skipping cpu-off test because the cpu-on test failed");
 
 done:
 #if 0
