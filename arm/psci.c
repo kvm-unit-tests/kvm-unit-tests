@@ -7,11 +7,14 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include <libcflat.h>
 #include <errata.h>
+#include <libcflat.h>
+
+#include <asm/delay.h>
+#include <asm/mmu.h>
 #include <asm/processor.h>
-#include <asm/smp.h>
 #include <asm/psci.h>
+#include <asm/smp.h>
 
 static bool invalid_function_exception;
 
@@ -72,46 +75,84 @@ static int cpu_on_ret[NR_CPUS];
 static cpumask_t cpu_on_ready, cpu_on_done;
 static volatile int cpu_on_start;
 
-static void cpu_on_secondary_entry(void)
+extern void secondary_entry(void);
+static void cpu_on_do_wake_target(void)
 {
 	int cpu = smp_processor_id();
 
 	cpumask_set_cpu(cpu, &cpu_on_ready);
 	while (!cpu_on_start)
 		cpu_relax();
-	cpu_on_ret[cpu] = psci_cpu_on(cpus[1], __pa(halt));
+	cpu_on_ret[cpu] = psci_cpu_on(cpus[1], __pa(secondary_entry));
 	cpumask_set_cpu(cpu, &cpu_on_done);
+}
+
+static void cpu_on_target(void)
+{
+	int cpu = smp_processor_id();
+
+	cpumask_set_cpu(cpu, &cpu_on_done);
+}
+
+extern struct secondary_data secondary_data;
+
+/* Open code the setup part from smp_boot_secondary(). */
+static void psci_cpu_on_prepare_secondary(int cpu, secondary_entry_fn entry)
+{
+	secondary_data.stack = thread_stack_alloc();
+	secondary_data.entry = entry;
+	mmu_mark_disabled(cpu);
 }
 
 static bool psci_cpu_on_test(void)
 {
 	bool failed = false;
 	int ret_success = 0;
-	int cpu;
-
-	cpumask_set_cpu(1, &cpu_on_ready);
-	cpumask_set_cpu(1, &cpu_on_done);
+	int i, cpu;
 
 	for_each_present_cpu(cpu) {
 		if (cpu < 2)
 			continue;
-		smp_boot_secondary(cpu, cpu_on_secondary_entry);
+		smp_boot_secondary(cpu, cpu_on_do_wake_target);
 	}
 
 	cpumask_set_cpu(0, &cpu_on_ready);
+	cpumask_set_cpu(1, &cpu_on_ready);
 	while (!cpumask_full(&cpu_on_ready))
 		cpu_relax();
+
+	/*
+	 * Configure CPU 1 after all secondaries are online to avoid
+	 * secondary_data being overwritten.
+	 */
+	psci_cpu_on_prepare_secondary(1, cpu_on_target);
 
 	cpu_on_start = 1;
 	smp_mb();
 
-	cpu_on_ret[0] = psci_cpu_on(cpus[1], __pa(halt));
+	cpu_on_ret[0] = psci_cpu_on(cpus[1], __pa(secondary_entry));
 	cpumask_set_cpu(0, &cpu_on_done);
 
-	while (!cpumask_full(&cpu_on_done))
-		cpu_relax();
+	report_info("waiting for CPU1 to come online...");
+	for (i = 0; i < 100; i++) {
+		mdelay(10);
+		if (cpumask_full(&cpu_on_done))
+			break;
+	}
 
-	for_each_present_cpu(cpu) {
+	if (!cpumask_full(&cpu_on_done)) {
+		for_each_present_cpu(cpu) {
+			if (!cpumask_test_cpu(cpu, &cpu_on_done)) {
+				if (cpu == 1)
+					report_info("CPU1 failed to come online");
+				else
+					report_info("CPU%d failed to online CPU1", cpu);
+			}
+		}
+		failed = true;
+	}
+
+	for_each_cpu(cpu, &cpu_on_done) {
 		if (cpu == 1)
 			continue;
 		if (cpu_on_ret[cpu] == PSCI_RET_SUCCESS) {

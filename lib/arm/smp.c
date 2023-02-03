@@ -21,10 +21,6 @@ cpumask_t cpu_present_mask;
 cpumask_t cpu_online_mask;
 cpumask_t cpu_idle_mask;
 
-struct secondary_data {
-	void *stack;            /* must be first member of struct */
-	secondary_entry_fn entry;
-};
 struct secondary_data secondary_data;
 static struct spinlock lock;
 
