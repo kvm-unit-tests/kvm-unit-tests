@@ -7,11 +7,14 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
-#include <libcflat.h>
 #include <errata.h>
+#include <libcflat.h>
+
+#include <asm/delay.h>
+#include <asm/mmu.h>
 #include <asm/processor.h>
-#include <asm/smp.h>
 #include <asm/psci.h>
+#include <asm/smp.h>
 
 static bool invalid_function_exception;
 
@@ -69,49 +72,88 @@ static bool psci_affinity_info_off(void)
 }
 
 static int cpu_on_ret[NR_CPUS];
-static cpumask_t cpu_on_ready, cpu_on_done;
+static cpumask_t cpu_on_ready, cpu_on_done, cpu_off_done;
 static volatile int cpu_on_start;
+static volatile int cpu_off_start;
 
-static void cpu_on_secondary_entry(void)
+extern void secondary_entry(void);
+static void cpu_on_do_wake_target(void)
 {
 	int cpu = smp_processor_id();
 
 	cpumask_set_cpu(cpu, &cpu_on_ready);
 	while (!cpu_on_start)
 		cpu_relax();
-	cpu_on_ret[cpu] = psci_cpu_on(cpus[1], __pa(halt));
+	cpu_on_ret[cpu] = psci_cpu_on(cpus[1], __pa(secondary_entry));
 	cpumask_set_cpu(cpu, &cpu_on_done);
+}
+
+static void cpu_on_target(void)
+{
+	int cpu = smp_processor_id();
+
+	cpumask_set_cpu(cpu, &cpu_on_done);
+}
+
+extern struct secondary_data secondary_data;
+
+/* Open code the setup part from smp_boot_secondary(). */
+static void psci_cpu_on_prepare_secondary(int cpu, secondary_entry_fn entry)
+{
+	secondary_data.stack = thread_stack_alloc();
+	secondary_data.entry = entry;
+	mmu_mark_disabled(cpu);
 }
 
 static bool psci_cpu_on_test(void)
 {
 	bool failed = false;
 	int ret_success = 0;
-	int cpu;
-
-	cpumask_set_cpu(1, &cpu_on_ready);
-	cpumask_set_cpu(1, &cpu_on_done);
+	int i, cpu;
 
 	for_each_present_cpu(cpu) {
 		if (cpu < 2)
 			continue;
-		smp_boot_secondary(cpu, cpu_on_secondary_entry);
+		smp_boot_secondary(cpu, cpu_on_do_wake_target);
 	}
 
 	cpumask_set_cpu(0, &cpu_on_ready);
+	cpumask_set_cpu(1, &cpu_on_ready);
 	while (!cpumask_full(&cpu_on_ready))
 		cpu_relax();
+
+	/*
+	 * Configure CPU 1 after all secondaries are online to avoid
+	 * secondary_data being overwritten.
+	 */
+	psci_cpu_on_prepare_secondary(1, cpu_on_target);
 
 	cpu_on_start = 1;
 	smp_mb();
 
-	cpu_on_ret[0] = psci_cpu_on(cpus[1], __pa(halt));
+	cpu_on_ret[0] = psci_cpu_on(cpus[1], __pa(secondary_entry));
 	cpumask_set_cpu(0, &cpu_on_done);
 
-	while (!cpumask_full(&cpu_on_done))
-		cpu_relax();
+	report_info("waiting for CPU1 to come online...");
+	for (i = 0; i < 100; i++) {
+		mdelay(10);
+		if (cpumask_full(&cpu_on_done))
+			break;
+	}
 
-	for_each_present_cpu(cpu) {
+	if (!cpumask_full(&cpu_on_done)) {
+		for_each_present_cpu(cpu) {
+			if (!cpumask_test_cpu(cpu, &cpu_on_done)) {
+				if (cpu == 1)
+					report_info("CPU1 failed to come online");
+				else
+					report_info("CPU%d failed to online CPU1", cpu);
+			}
+		}
+		failed = true;
+	}
+
+	for_each_cpu(cpu, &cpu_on_done) {
 		if (cpu == 1)
 			continue;
 		if (cpu_on_ret[cpu] == PSCI_RET_SUCCESS) {
@@ -125,6 +167,67 @@ static bool psci_cpu_on_test(void)
 	if (ret_success != 1) {
 		report_info("got %d CPU_ON success", ret_success);
 		failed = true;
+	}
+
+	return !failed;
+}
+
+static void cpu_off_secondary_entry(void *data)
+{
+	int cpu = smp_processor_id();
+
+	while (!cpu_off_start)
+		cpu_relax();
+	cpumask_set_cpu(cpu, &cpu_off_done);
+	cpu_psci_cpu_die();
+}
+
+static bool psci_cpu_off_test(void)
+{
+	bool failed = false;
+	int i, count, cpu;
+
+	for_each_present_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+		on_cpu_async(cpu, cpu_off_secondary_entry, NULL);
+	}
+
+	cpumask_set_cpu(0, &cpu_off_done);
+
+	cpu_off_start = 1;
+	report_info("waiting for the CPUs to be offlined...");
+	while (!cpumask_full(&cpu_off_done))
+		cpu_relax();
+
+	/* Allow all the other CPUs to complete the operation */
+	for (i = 0; i < 100; i++) {
+		mdelay(10);
+
+		count = 0;
+		for_each_present_cpu(cpu) {
+			if (cpu == 0)
+				continue;
+			if (psci_affinity_info(cpus[cpu], 0) != PSCI_0_2_AFFINITY_LEVEL_OFF)
+				count++;
+		}
+		if (count == 0)
+			break;
+	}
+
+	/* Try to catch CPUs that return from CPU_OFF. */
+	if (count == 0)
+		mdelay(100);
+
+	for_each_present_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+		if (cpu_idle(cpu)) {
+			report_info("CPU%d failed to be offlined", cpu);
+			if (psci_affinity_info(cpus[cpu], 0) == PSCI_0_2_AFFINITY_LEVEL_OFF)
+				report_info("AFFINITY_INFO incorrectly reports CPU%d as offline", cpu);
+			failed = true;
+		}
 	}
 
 	return !failed;
@@ -151,6 +254,13 @@ int main(void)
 		report(psci_cpu_on_test(), "cpu-on");
 	else
 		report_skip("Skipping unsafe cpu-on test. Set ERRATA_6c7a5dce22b3=y to enable.");
+
+	assert(!cpu_idle(0));
+
+	if (!ERRATA(6c7a5dce22b3) || cpumask_weight(&cpu_idle_mask) == nr_cpus - 1)
+		report(psci_cpu_off_test(), "cpu-off");
+	else
+		report_skip("Skipping cpu-off test because the cpu-on test failed");
 
 done:
 #if 0

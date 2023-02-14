@@ -6,6 +6,8 @@
  */
 #ifndef _ERRATA_H_
 #define _ERRATA_H_
+#include <libcflat.h>
+
 #include "config.h"
 
 #ifndef CONFIG_ERRATA_FORCE
