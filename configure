@@ -313,7 +313,10 @@ if [ ! -d "$srcdir/$testdir" ]; then
     echo "$testdir does not exist!"
     exit 1
 fi
-if [ -f "$srcdir/$testdir/run" ]; then
+
+if [ "$efi" = "y" ] && [ -f "$srcdir/$testdir/efi/run" ]; then
+    ln -fs "$srcdir/$testdir/efi/run" $testdir-run
+elif [ -f "$srcdir/$testdir/run" ]; then
     ln -fs "$srcdir/$testdir/run" $testdir-run
 fi
 
