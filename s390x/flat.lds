@@ -24,20 +24,8 @@ SECTIONS
 		*(.text)
 		*(.text.*)
 	}
-	. = ALIGN(64K);
+	. = ALIGN(4K);
 	etext = .;
-	.opd : { *(.opd) }
-	. = ALIGN(16);
-	.dynamic : {
-		dynamic_start = .;
-		*(.dynamic)
-	}
-	.dynsym : {
-		dynsym_start = .;
-		*(.dynsym)
-	}
-	.rela.dyn : { *(.rela*) }
-	. = ALIGN(16);
 	.data : {
 		*(.data)
 		*(.data.rel*)
@@ -48,10 +36,11 @@ SECTIONS
 	__bss_start = .;
 	.bss : { *(.bss) }
 	__bss_end = .;
-	. = ALIGN(64K);
+	. = ALIGN(4K);
 	edata = .;
+	/* Reserve 64K for the stack */
 	. += 64K;
-	. = ALIGN(64K);
+	. = ALIGN(4K);
 	/*
 	 * stackptr set with initial stack frame preallocated
 	 */

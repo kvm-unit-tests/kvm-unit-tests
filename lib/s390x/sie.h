@@ -273,6 +273,8 @@ struct vm {
 
 extern void sie_entry(void);
 extern void sie_exit(void);
+extern void sie_entry_gregs(void);
+extern void sie_exit_gregs(void);
 extern void sie64a(struct kvm_s390_sie_block *sblk, struct vm_save_area *save_area);
 void sie(struct vm *vm);
 void sie_expect_validity(struct vm *vm);

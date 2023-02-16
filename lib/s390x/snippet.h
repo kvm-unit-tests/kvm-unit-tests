@@ -32,8 +32,7 @@
 
 #define SNIPPET_PV_TWEAK0	0x42UL
 #define SNIPPET_PV_TWEAK1	0UL
-#define SNIPPET_OFF_C		0
-#define SNIPPET_OFF_ASM		0x4000
+#define SNIPPET_UNPACK_OFF	0
 
 
 /*

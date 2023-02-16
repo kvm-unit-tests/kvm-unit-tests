@@ -37,6 +37,8 @@ start:
 	sam64				# Set addressing mode to 64 bit
 	/* setup stack */
 	larl	%r15, stackptr
+	/* Clear first stack frame */
+	xc      0(160,%r15), 0(%r15)
 	/* setup initial PSW mask + control registers*/
 	larl	%r1, initial_psw
 	lpswe	0(%r1)

@@ -28,7 +28,7 @@ static void test_diag_500(void)
 
 	snippet_pv_init(&vm, SNIPPET_NAME_START(asm, snippet_pv_diag_500),
 			SNIPPET_HDR_START(asm, snippet_pv_diag_500),
-			size_gbin, size_hdr, SNIPPET_OFF_ASM);
+			size_gbin, size_hdr, SNIPPET_UNPACK_OFF);
 
 	sie(&vm);
 	report(vm.sblk->icptcode == ICPT_PV_INSTR && vm.sblk->ipa == 0x8302 &&
@@ -83,7 +83,7 @@ static void test_diag_288(void)
 
 	snippet_pv_init(&vm, SNIPPET_NAME_START(asm, snippet_pv_diag_288),
 			SNIPPET_HDR_START(asm, snippet_pv_diag_288),
-			size_gbin, size_hdr, SNIPPET_OFF_ASM);
+			size_gbin, size_hdr, SNIPPET_UNPACK_OFF);
 
 	sie(&vm);
 	report(vm.sblk->icptcode == ICPT_PV_INSTR && vm.sblk->ipa == 0x8302 &&
@@ -124,7 +124,7 @@ static void test_diag_yield(void)
 
 	snippet_pv_init(&vm, SNIPPET_NAME_START(asm, snippet_pv_diag_yield),
 			SNIPPET_HDR_START(asm, snippet_pv_diag_yield),
-			size_gbin, size_hdr, SNIPPET_OFF_ASM);
+			size_gbin, size_hdr, SNIPPET_UNPACK_OFF);
 
 	/* 0x44 */
 	report_prefix_push("0x44");

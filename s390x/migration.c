@@ -159,8 +159,6 @@ static void test_func(void)
 
 int main(void)
 {
-	struct psw psw;
-
 	/* don't say migrate here otherwise we will migrate right away */
 	report_prefix_push("migration");
 
@@ -170,9 +168,7 @@ int main(void)
 	}
 
 	/* Second CPU does the actual tests */
-	psw.mask = extract_psw_mask();
-	psw.addr = (unsigned long)test_func;
-	smp_cpu_setup(1, psw);
+	smp_cpu_setup(1, PSW_WITH_CUR_MASK(test_func));
 
 	/* wait for thread setup */
 	while(!flag_thread_complete)

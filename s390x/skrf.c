@@ -151,11 +151,6 @@ static void ecall_setup(void)
 
 static void test_exception_ext_new(void)
 {
-	struct psw psw = {
-		.mask = extract_psw_mask(),
-		.addr = (unsigned long)ecall_setup
-	};
-
 	report_prefix_push("exception external new");
 	if (smp_query_num_cpus() < 2) {
 		report_skip("Need second cpu for exception external new test.");
@@ -163,7 +158,7 @@ static void test_exception_ext_new(void)
 		return;
 	}
 
-	smp_cpu_setup(1, psw);
+	smp_cpu_setup(1, PSW_WITH_CUR_MASK(ecall_setup));
 	wait_for_flag();
 	set_flag(0);
 

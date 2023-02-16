@@ -87,7 +87,7 @@ static void setup_guest(void)
 
 	snippet_setup_guest(&vm, false);
 	snippet_init(&vm, SNIPPET_NAME_START(c, mvpg_snippet),
-		     SNIPPET_LEN(c, mvpg_snippet), SNIPPET_OFF_C);
+		     SNIPPET_LEN(c, mvpg_snippet), SNIPPET_UNPACK_OFF);
 
 	/* Enable MVPG interpretation as we want to test KVM and not ourselves */
 	vm.sblk->eca = ECA_MVPGI;

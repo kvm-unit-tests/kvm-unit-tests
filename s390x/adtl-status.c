@@ -205,16 +205,11 @@ static void restart_write_vector(void)
 
 static void cpu_write_magic_to_vector_regs(uint16_t cpu_idx)
 {
-	struct psw new_psw;
-
 	smp_cpu_stop(cpu_idx);
-
-	new_psw.mask = extract_psw_mask();
-	new_psw.addr = (unsigned long)restart_write_vector;
 
 	set_flag(0);
 
-	smp_cpu_start(cpu_idx, new_psw);
+	smp_cpu_start(cpu_idx, PSW_WITH_CUR_MASK(restart_write_vector));
 
 	wait_for_flag();
 }
@@ -241,7 +236,6 @@ static int adtl_status_check_unmodified_fields_for_lc(unsigned long lc)
 static void __store_adtl_status_vector_lc(unsigned long lc)
 {
 	uint32_t status = -1;
-	struct psw psw;
 	int cc;
 
 	report_prefix_pushf("LC %lu", lc);
@@ -274,9 +268,7 @@ static void __store_adtl_status_vector_lc(unsigned long lc)
 	 * Destroy and re-initalize the CPU to fix that.
 	 */
 	smp_cpu_destroy(1);
-	psw.mask = extract_psw_mask();
-	psw.addr = (unsigned long)test_func;
-	smp_cpu_setup(1, psw);
+	smp_cpu_setup(1, PSW_WITH_CUR_MASK(test_func));
 
 out:
 	report_prefix_pop();
@@ -325,16 +317,11 @@ static void restart_write_gs_regs(void)
 
 static void cpu_write_to_gs_regs(uint16_t cpu_idx)
 {
-	struct psw new_psw;
-
 	smp_cpu_stop(cpu_idx);
-
-	new_psw.mask = extract_psw_mask();
-	new_psw.addr = (unsigned long)restart_write_gs_regs;
 
 	set_flag(0);
 
-	smp_cpu_start(cpu_idx, new_psw);
+	smp_cpu_start(cpu_idx, PSW_WITH_CUR_MASK(restart_write_gs_regs));
 
 	wait_for_flag();
 }
@@ -382,7 +369,6 @@ out:
 
 int main(void)
 {
-	struct psw psw;
 	report_prefix_push("adtl_status");
 
 	if (smp_query_num_cpus() == 1) {
@@ -391,9 +377,7 @@ int main(void)
 	}
 
 	/* Setting up the cpu to give it a stack and lowcore */
-	psw.mask = extract_psw_mask();
-	psw.addr = (unsigned long)test_func;
-	smp_cpu_setup(1, psw);
+	smp_cpu_setup(1, PSW_WITH_CUR_MASK(test_func));
 	smp_cpu_stop(1);
 
 	test_store_adtl_status_unavail();
