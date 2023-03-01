@@ -201,7 +201,7 @@ static int odd_ex_target(void)
 	return 0;
 }
 
-static int bad_alignment(void)
+static int bad_alignment_lqp(void)
 {
 	uint32_t words[5] __attribute__((aligned(16)));
 	uint32_t (*bad_aligned)[4] = (uint32_t (*)[4])&words[1];
@@ -210,6 +210,22 @@ static int bad_alignment(void)
 	asm volatile ("lpq %%r6,%[bad]"
 		      : : [bad] "T" (*bad_aligned)
 		      : "%r6", "%r7"
+	);
+	return 0;
+}
+
+static int bad_alignment_lrl(void)
+{
+	uint64_t r;
+
+	asm volatile ( ".pushsection .rodata\n"
+		"	.balign	4\n"
+		"	. = . + 2\n"
+		"0:	.fill	4\n"
+		"	.popsection\n"
+
+		"	lrl	%0,0b\n"
+		: "=d" (r)
 	);
 	return 0;
 }
@@ -243,7 +259,8 @@ static const struct spec_ex_trigger spec_ex_triggers[] = {
 	{ "short_psw_bit_12_is_0", &short_psw_bit_12_is_0, false, &fixup_invalid_psw },
 	{ "psw_odd_address", &psw_odd_address, false, &fixup_invalid_psw },
 	{ "odd_ex_target", &odd_ex_target, true, NULL },
-	{ "bad_alignment", &bad_alignment, true, NULL },
+	{ "bad_alignment_lqp", &bad_alignment_lqp, true, NULL },
+	{ "bad_alignment_lrl", &bad_alignment_lrl, true, NULL },
 	{ "not_even", &not_even, true, NULL },
 	{ NULL, NULL, false, NULL },
 };
