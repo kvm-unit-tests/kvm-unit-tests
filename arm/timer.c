@@ -14,9 +14,6 @@
 #include <asm/gic.h>
 #include <asm/io.h>
 
-static void *gic_isenabler;
-static void *gic_icenabler;
-
 static bool ptimer_unsupported;
 
 static void ptimer_unsupported_handler(struct pt_regs *regs, unsigned int esr)
@@ -139,12 +136,12 @@ static struct timer_info ptimer_info = {
 
 static void set_timer_irq_enabled(struct timer_info *info, bool enabled)
 {
-	u32 val = 1 << PPI(info->irq);
+	u32 irq = PPI(info->irq);
 
 	if (enabled)
-		writel(val, gic_isenabler);
+		gic_enable_irq(irq);
 	else
-		writel(val, gic_icenabler);
+		gic_disable_irq(irq);
 }
 
 static void irq_handler(struct pt_regs *regs)
@@ -365,17 +362,6 @@ static void test_init(void)
 	}
 
 	gic_enable_defaults();
-
-	switch (gic_version()) {
-	case 2:
-		gic_isenabler = gicv2_dist_base() + GICD_ISENABLER;
-		gic_icenabler = gicv2_dist_base() + GICD_ICENABLER;
-		break;
-	case 3:
-		gic_isenabler = gicv3_sgi_base() + GICR_ISENABLER0;
-		gic_icenabler = gicv3_sgi_base() + GICR_ICENABLER0;
-		break;
-	}
 
 	install_irq_handler(EL1H_IRQ, irq_handler);
 	set_timer_irq_enabled(&ptimer_info, true);
