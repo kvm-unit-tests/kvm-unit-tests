@@ -9,6 +9,7 @@
  *    Janosch Frank <frankja@linux.ibm.com>
  */
 #include <libcflat.h>
+#include <asm/asm-offsets.h>
 #include <asm/page.h>
 #include <asm/facility.h>
 #include <asm/interrupt.h>
@@ -35,22 +36,27 @@ static inline unsigned long load_guarded(unsigned long *p)
 
 /* guarded-storage event handler and finally it calls gs_handler */
 extern void gs_handler_asm(void);
-	asm(".globl gs_handler_asm\n"
-	    "gs_handler_asm:\n"
-	    "	    lgr	    %r14,%r15\n" 		/* Save current stack address in r14 */
-	    "	    aghi    %r15,-320\n" 		/* Allocate stack frame */
-	    "	    stmg    %r0,%r13,192(%r15)\n" 	/* Store regs to save area */
-	    "	    stg	    %r14,312(%r15)\n"
-	    "	    la	    %r2,160(%r15)\n" 		/* Store gscb address in this_cb */
-	    "	    .insn   rxy,0xe30000000049,0,160(%r15)\n" /* stgsc */
-	    "	    lg	    %r14,24(%r2)\n" 		/* Get GSEPLA from GSCB*/
-	    "	    lg	    %r14,40(%r14)\n" 		/* Get GSERA from GSEPL*/
-	    "	    stg	    %r14,304(%r15)\n" 		/* Store GSERA in r14 of reg save area */
-	    "	    brasl   %r14,gs_handler\n" 		/* Jump to gs_handler */
-	    "	    lmg	    %r0,%r15,192(%r15)\n" 	/* Restore regs */
-	    "	    aghi    %r14, 6\n" 			/* Add lgg instr len to GSERA */
-	    "	    br	    %r14\n" 			/* Jump to next instruction after lgg */
-	    "	    .size gs_handler_asm,.-gs_handler_asm\n");
+	asm (          ".macro	STGSC	args:vararg\n"
+		"	.insn	rxy,0xe30000000049,\\args\n"
+		"	.endm\n"
+		"	.globl	gs_handler_asm\n"
+		"gs_handler_asm:\n"
+		"	lgr	%r14,%r15\n"				/* Save current stack address in r14 */
+		".Lgs_handler_frame = 16*8+32+" xstr(STACK_FRAME_SIZE) "\n"
+		"	aghi	%r15,-(.Lgs_handler_frame)\n"		/* Allocate stack frame */
+		"	stmg	%r0,%r13,192(%r15)\n"			/* Store regs to save area */
+		"	stg	%r14,312(%r15)\n"
+		"	la	%r2," xstr(STACK_FRAME_SIZE) "(%r15)\n"	/* Store gscb address in this_cb */
+		"	STGSC	%r0," xstr(STACK_FRAME_SIZE) "(%r15)\n"
+		"	lg	%r14,24(%r2)\n"				/* Get GSEPLA from GSCB*/
+		"	lg	%r14,40(%r14)\n"			/* Get GSERA from GSEPL*/
+		"	stg	%r14,304(%r15)\n"			/* Store GSERA in r14 of reg save area */
+		"	brasl	%r14,gs_handler\n"			/* Jump to gs_handler */
+		"	lmg	%r0,%r15,192(%r15)\n"			/* Restore regs */
+		"	aghi	%r14, 6\n"				/* Add lgg instr len to GSERA */
+		"	br	%r14\n"					/* Jump to next instruction after lgg */
+		".size gs_handler_asm,.-gs_handler_asm\n"
+	);
 
 void gs_handler(struct gs_cb *this_cb)
 {
