@@ -24,7 +24,7 @@ static void test_rdpid(u64 aux)
        u32 eax;
 
        wrmsr(MSR_TSC_AUX, aux);
-       asm (".byte 0xf3, 0x0f, 0xc7, 0xf8" : "=a" (eax));
+       asm volatile (".byte 0xf3, 0x0f, 0xc7, 0xf8" : "=a" (eax));
        report(eax == aux, "Test rdpid %%eax %" PRId64, aux);
 }
 
