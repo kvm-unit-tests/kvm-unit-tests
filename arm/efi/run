@@ -15,8 +15,14 @@ source config.mak
 source scripts/arch-run.bash
 source scripts/common.bash
 
+if [ -f /usr/share/qemu-efi-aarch64/QEMU_EFI.fd ]; then
+	DEFAULT_UEFI=/usr/share/qemu-efi-aarch64/QEMU_EFI.fd
+elif [ -f /usr/share/edk2/aarch64/QEMU_EFI.silent.fd ]; then
+	DEFAULT_UEFI=/usr/share/edk2/aarch64/QEMU_EFI.silent.fd
+fi
+
 : "${EFI_SRC:=$(realpath "$(dirname "$0")/../")}"
-: "${EFI_UEFI:=/usr/share/qemu-efi-aarch64/QEMU_EFI.fd}"
+: "${EFI_UEFI:=$DEFAULT_UEFI}"
 : "${EFI_TEST:=efi-tests}"
 : "${EFI_CASE:=$(basename $1 .efi)}"
 : "${EFI_VAR_GUID:=97ef3e03-7329-4a6a-b9ba-6c1fdcc5f823}"
@@ -24,9 +30,8 @@ source scripts/common.bash
 [ "$EFI_USE_ACPI" = "y" ] || EFI_USE_DTB=y
 
 if [ ! -f "$EFI_UEFI" ]; then
-	echo "UEFI firmware not found: $EFI_UEFI"
-	echo "Please install the UEFI firmware to this path"
-	echo "Or specify the correct path with the env variable EFI_UEFI"
+	echo "UEFI firmware not found."
+	echo "Please specify the path with the env variable EFI_UEFI"
 	exit 2
 fi
 
