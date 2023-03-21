@@ -28,7 +28,7 @@ fi
 
 ACCEL=$accel
 
-if ! $qemu -machine '?' 2>&1 | grep 'ARM Virtual Machine' > /dev/null; then
+if ! $qemu -machine '?' | grep -q 'ARM Virtual Machine'; then
 	echo "$qemu doesn't support mach-virt ('-machine virt'). Exiting."
 	exit 2
 fi
@@ -36,7 +36,7 @@ fi
 M='-machine virt'
 
 if [ "$ACCEL" = "kvm" ]; then
-	if $qemu $M,\? 2>&1 | grep gic-version > /dev/null; then
+	if $qemu $M,\? | grep -q gic-version; then
 		M+=',gic-version=host'
 	fi
 fi
@@ -54,13 +54,12 @@ if [ "$ARCH" = "arm" ]; then
 	M+=",highmem=off"
 fi
 
-if ! $qemu $M -device '?' 2>&1 | grep virtconsole > /dev/null; then
+if ! $qemu $M -device '?' | grep -q virtconsole; then
 	echo "$qemu doesn't support virtio-console for chr-testdev. Exiting."
 	exit 2
 fi
 
-if $qemu $M -chardev testdev,id=id -initrd . 2>&1 \
-		| grep backend > /dev/null; then
+if ! $qemu $M -chardev '?' | grep -q testdev; then
 	echo "$qemu doesn't support chr-testdev. Exiting."
 	exit 2
 fi
@@ -69,7 +68,7 @@ chr_testdev='-device virtio-serial-device'
 chr_testdev+=' -device virtconsole,chardev=ctd -chardev testdev,id=ctd'
 
 pci_testdev=
-if $qemu $M -device '?' 2>&1 | grep pci-testdev > /dev/null; then
+if $qemu $M -device '?' | grep -q pci-testdev; then
 	pci_testdev="-device pci-testdev"
 fi
 

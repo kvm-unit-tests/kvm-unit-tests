@@ -47,7 +47,6 @@ static u32 cntfrq;
 static struct pl031_regs *pl031;
 static int pl031_irq;
 static void *gic_ispendr;
-static void *gic_isenabler;
 static volatile bool irq_triggered;
 
 static int check_id(void)
@@ -125,13 +124,6 @@ static bool gic_irq_pending(void)
 	return readl(gic_ispendr + offset) & (1 << (pl031_irq & 31));
 }
 
-static void gic_irq_unmask(void)
-{
-	uint32_t offset = (pl031_irq / 32) * 4;
-
-	writel(1 << (pl031_irq & 31), gic_isenabler + offset);
-}
-
 static void irq_handler(struct pt_regs *regs)
 {
 	u32 irqstat = gic_read_iar();
@@ -185,7 +177,7 @@ static int check_rtc_irq(void)
 	report(gic_irq_pending(), "  RTC IRQ pending now");
 
 	/* Enable retrieval of IRQ */
-	gic_irq_unmask();
+	gic_enable_irq(pl031_irq);
 	local_irq_enable();
 
 	report(irq_triggered, "  IRQ triggered");
@@ -208,11 +200,9 @@ static void rtc_irq_init(void)
 	switch (gic_version()) {
 	case 2:
 		gic_ispendr = gicv2_dist_base() + GICD_ISPENDR;
-		gic_isenabler = gicv2_dist_base() + GICD_ISENABLER;
 		break;
 	case 3:
 		gic_ispendr = gicv3_dist_base() + GICD_ISPENDR;
-		gic_isenabler = gicv3_dist_base() + GICD_ISENABLER;
 		break;
 	}
 }
