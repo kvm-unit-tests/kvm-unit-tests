@@ -45,7 +45,14 @@
 
 #define barrier()	asm volatile("" : : : "memory")
 
-#define __always_inline	inline __attribute__((always_inline))
+/*
+ * As glibc's sys/cdefs.h does, this undefines __always_inline because
+ * Linux's stddef.h kernel header also defines it in an incompatible
+ * way.
+ */
+#undef __always_inline
+#define __always_inline __inline __attribute__ ((__always_inline__))
+
 #define noinline __attribute__((noinline))
 #define __unused __attribute__((__unused__))
 
