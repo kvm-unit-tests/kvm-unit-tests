@@ -295,6 +295,17 @@ static void test_cmd_msrs(void)
 	}
 	for (i = 1; i < 64; i++)
 		test_wrmsr_fault(MSR_IA32_PRED_CMD, "PRED_CMD", BIT_ULL(i));
+
+	test_rdmsr_fault(MSR_IA32_FLUSH_CMD, "FLUSH_CMD");
+	if (this_cpu_has(X86_FEATURE_FLUSH_L1D)) {
+		test_wrmsr(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", 0);
+		test_wrmsr(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", L1D_FLUSH);
+	} else {
+		test_wrmsr_fault(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", 0);
+		test_wrmsr_fault(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", L1D_FLUSH);
+	}
+	for (i = 1; i < 64; i++)
+		test_wrmsr_fault(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", BIT_ULL(i));
 }
 
 int main(int ac, char **av)

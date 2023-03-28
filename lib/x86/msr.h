@@ -36,6 +36,9 @@
 #define MSR_IA32_PRED_CMD               0x00000049
 #define PRED_CMD_IBPB			BIT(0)
 
+#define MSR_IA32_FLUSH_CMD		0x0000010b
+#define L1D_FLUSH			BIT(0)
+
 #define MSR_IA32_PMC0                  0x000004c1
 #define MSR_IA32_PERFCTR0		0x000000c1
 #define MSR_IA32_PERFCTR1		0x000000c2
