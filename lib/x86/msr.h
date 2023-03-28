@@ -34,6 +34,7 @@
 /* Intel MSRs. Some also available on other CPUs */
 #define MSR_IA32_SPEC_CTRL              0x00000048
 #define MSR_IA32_PRED_CMD               0x00000049
+#define PRED_CMD_IBPB			BIT(0)
 
 #define MSR_IA32_PMC0                  0x000004c1
 #define MSR_IA32_PERFCTR0		0x000000c1

@@ -463,7 +463,7 @@ static int has_spec_ctrl(void)
 
 static void wr_ibpb_msr(void)
 {
-	wrmsr(MSR_IA32_PRED_CMD, 1);
+	wrmsr(MSR_IA32_PRED_CMD, PRED_CMD_IBPB);
 }
 
 static void toggle_cr0_wp(void)
