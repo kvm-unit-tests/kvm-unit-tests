@@ -85,6 +85,15 @@ static void test_msr_rw(u32 msr, const char *name, unsigned long long val)
 	__test_msr_rw(msr, name, val, 0);
 }
 
+static void test_wrmsr(u32 msr, const char *name, unsigned long long val)
+{
+	unsigned char vector = wrmsr_safe(msr, val);
+
+	report(!vector,
+	       "Expected success on WRSMR(%s, 0x%llx), got vector %d",
+	       name, val, vector);
+}
+
 static void test_wrmsr_fault(u32 msr, const char *name, unsigned long long val)
 {
 	unsigned char vector = wrmsr_safe(msr, val);
@@ -271,6 +280,23 @@ static void test_x2apic_msrs(void)
 	__test_x2apic_msrs(true);
 }
 
+static void test_cmd_msrs(void)
+{
+	int i;
+
+	test_rdmsr_fault(MSR_IA32_PRED_CMD, "PRED_CMD");
+	if (this_cpu_has(X86_FEATURE_SPEC_CTRL) ||
+	    this_cpu_has(X86_FEATURE_AMD_IBPB)) {
+		test_wrmsr(MSR_IA32_PRED_CMD, "PRED_CMD", 0);
+		test_wrmsr(MSR_IA32_PRED_CMD, "PRED_CMD", PRED_CMD_IBPB);
+	} else {
+		test_wrmsr_fault(MSR_IA32_PRED_CMD, "PRED_CMD", 0);
+		test_wrmsr_fault(MSR_IA32_PRED_CMD, "PRED_CMD", PRED_CMD_IBPB);
+	}
+	for (i = 1; i < 64; i++)
+		test_wrmsr_fault(MSR_IA32_PRED_CMD, "PRED_CMD", BIT_ULL(i));
+}
+
 int main(int ac, char **av)
 {
 	/*
@@ -283,6 +309,7 @@ int main(int ac, char **av)
 		test_misc_msrs();
 		test_mce_msrs();
 		test_x2apic_msrs();
+		test_cmd_msrs();
 	}
 
 	return report_summary();
