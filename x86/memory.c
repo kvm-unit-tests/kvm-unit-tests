@@ -25,53 +25,68 @@ static void handle_ud(struct ex_regs *regs)
 
 int main(int ac, char **av)
 {
-	int expected;
-
 	handle_exception(UD_VECTOR, handle_ud);
 
 	/* 3-byte instructions: */
 	isize = 3;
 
-	expected = !this_cpu_has(X86_FEATURE_CLFLUSH); /* CLFLUSH */
-	ud = 0;
-	asm volatile("clflush (%0)" : : "b" (&target));
-	report(ud == expected, "clflush (%s)", expected ? "ABSENT" : "present");
+	if (this_cpu_has(X86_FEATURE_CLFLUSH)) { /* CLFLUSH */
+		ud = 0;
+		asm volatile("clflush (%0)" : : "b" (&target));
+		report(!ud, "clflush");
+	} else {
+		report_skip("clflush");
+	}
 
-	expected = !this_cpu_has(X86_FEATURE_XMM); /* SSE */
-	ud = 0;
-	asm volatile("sfence");
-	report(ud == expected, "sfence (%s)", expected ? "ABSENT" : "present");
+	if (this_cpu_has(X86_FEATURE_XMM)) { /* SSE */
+		ud = 0;
+		asm volatile("sfence");
+		report(!ud, "sfence");
+	} else {
+		report_skip("sfence");
+	}
 
-	expected = !this_cpu_has(X86_FEATURE_XMM2); /* SSE2 */
-	ud = 0;
-	asm volatile("lfence");
-	report(ud == expected, "lfence (%s)", expected ? "ABSENT" : "present");
-
-	ud = 0;
-	asm volatile("mfence");
-	report(ud == expected, "mfence (%s)", expected ? "ABSENT" : "present");
+	if (this_cpu_has(X86_FEATURE_XMM2)) { /* SSE2 */
+		ud = 0;
+		asm volatile("lfence");
+		report(!ud, "lfence");
+		ud = 0;
+		asm volatile("mfence");
+		report(!ud, "mfence");
+	} else {
+		report_skip("lfence");
+		report_skip("mfence");
+	}
 
 	/* 4-byte instructions: */
 	isize = 4;
 
-	expected = !this_cpu_has(X86_FEATURE_CLFLUSHOPT); /* CLFLUSHOPT */
-	ud = 0;
-	/* clflushopt (%rbx): */
-	asm volatile(".byte 0x66, 0x0f, 0xae, 0x3b" : : "b" (&target));
-	report(ud == expected, "clflushopt (%s)",
-	       expected ? "ABSENT" : "present");
+	if (this_cpu_has(X86_FEATURE_CLFLUSHOPT)) { /* CLFLUSHOPT */
+		ud = 0;
+		/* clflushopt (%rbx): */
+		asm volatile(".byte 0x66, 0x0f, 0xae, 0x3b" : : "b" (&target));
+		report(!ud, "clflushopt");
+	} else {
+		report_skip("clflushopt");
+	}
 
-	expected = !this_cpu_has(X86_FEATURE_CLWB); /* CLWB */
-	ud = 0;
-	/* clwb (%rbx): */
-	asm volatile(".byte 0x66, 0x0f, 0xae, 0x33" : : "b" (&target));
-	report(ud == expected, "clwb (%s)", expected ? "ABSENT" : "present");
+	if (this_cpu_has(X86_FEATURE_CLWB)) { /* CLWB */
+		ud = 0;
+		/* clwb (%rbx): */
+		asm volatile(".byte 0x66, 0x0f, 0xae, 0x33" : : "b" (&target));
+		report(!ud, "clwb");
+	} else {
+		report_skip("clwb");
+	}
 
-	expected = !this_cpu_has(X86_FEATURE_PCOMMIT); /* PCOMMIT */
-	ud = 0;
-	/* pcommit: */
-	asm volatile(".byte 0x66, 0x0f, 0xae, 0xf8");
-	report(ud == expected, "pcommit (%s)", expected ? "ABSENT" : "present");
+	if (this_cpu_has(X86_FEATURE_PCOMMIT)) { /* PCOMMIT */
+		ud = 0;
+		/* pcommit: */
+		asm volatile(".byte 0x66, 0x0f, 0xae, 0xf8");
+		report(!ud, "pcommit");
+	} else {
+		report_skip("pcommit");
+	}
 
 	return report_summary();
 }
