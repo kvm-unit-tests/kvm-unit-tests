@@ -13,6 +13,8 @@ fedora_task:
     - git fetch origin "@CI_COMMIT_REF_NAME@"
     - git reset --hard "@CI_COMMIT_SHA@"
   script:
+    - uname -r
+    - sed -n "/processor.*:.0/,/^$/p" /proc/cpuinfo
     - mkdir build
     - cd build
     - ../configure
@@ -70,3 +72,7 @@ fedora_task:
         xsave
         | tee results.txt
     - grep -q PASS results.txt && ! grep -q FAIL results.txt
+  on_failure:
+    log_artifacts:
+      path: build/logs/*.log
+      type: text/plain

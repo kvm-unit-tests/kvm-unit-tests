@@ -39,3 +39,7 @@ macos_task:
          vmexit_tscdeadline_immed
          | tee results.txt
     - grep -q PASS results.txt && ! grep -q FAIL results.txt
+  on_failure:
+    log_artifacts:
+      path: build/logs/*.log
+      type: text/plain

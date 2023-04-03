@@ -4,7 +4,20 @@ before_script:
  - dnf update -y
  - dnf install -y make python
 
+.intree_template:
+ artifacts:
+  expire_in: 2 days
+  paths:
+   - logs
+
+.outoftree_template:
+ artifacts:
+  expire_in: 2 days
+  paths:
+   - build/logs
+
 build-aarch64:
+ extends: .intree_template
  script:
  - dnf install -y qemu-system-aarch64 gcc-aarch64-linux-gnu
  - ./configure --arch=aarch64 --cross-prefix=aarch64-linux-gnu-
@@ -35,6 +48,7 @@ build-aarch64:
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-arm:
+ extends: .outoftree_template
  script:
  - dnf install -y qemu-system-arm gcc-arm-linux-gnu
  - mkdir build
@@ -49,6 +63,7 @@ build-arm:
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-ppc64be:
+ extends: .outoftree_template
  script:
  - dnf install -y qemu-system-ppc gcc-powerpc64-linux-gnu
  - mkdir build
@@ -62,6 +77,7 @@ build-ppc64be:
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-ppc64le:
+ extends: .intree_template
  script:
  - dnf install -y qemu-system-ppc gcc-powerpc64-linux-gnu
  - ./configure --arch=ppc64 --endian=little --cross-prefix=powerpc64-linux-gnu-
@@ -73,6 +89,7 @@ build-ppc64le:
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-s390x:
+ extends: .outoftree_template
  script:
  - dnf install -y qemu-system-s390x gcc-s390x-linux-gnu
  - mkdir build
@@ -109,6 +126,7 @@ build-s390x:
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-x86_64:
+ extends: .intree_template
  script:
  - dnf install -y qemu-system-x86 gcc
  - ./configure --arch=x86_64
@@ -147,6 +165,7 @@ build-x86_64:
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-i386:
+ extends: .outoftree_template
  script:
  - dnf install -y qemu-system-x86 gcc
  - mkdir build
@@ -180,6 +199,7 @@ build-i386:
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-clang:
+ extends: .intree_template
  script:
  - dnf install -y qemu-system-x86 clang
  - ./configure --arch=x86_64 --cc=clang
@@ -218,6 +238,7 @@ build-clang:
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
 
 build-centos7:
+ extends: .outoftree_template
  image: centos:7
  before_script:
  - yum update -y
@@ -266,6 +287,7 @@ cirrus-ci-macos-x86-64:
  <<: *cirrus_build_job_definition
 
 s390x-kvm:
+ extends: .intree_template
  before_script: []
  tags:
   - s390x-z15-vm
