@@ -1108,8 +1108,9 @@ static int do_cr0_wp_access(ac_test_t *at, int flags)
 	set_efer_nx(0);
 
 	if (!ac_test_do_access(at)) {
-		printf("%s: supervisor write with CR0.WP=%d did not %s\n",
-		       __FUNCTION__, cr0_wp, cr0_wp ? "FAULT" : "SUCCEED");
+		printf("%s: %ssupervisor write with CR0.WP=%d did not %s\n",
+		       __FUNCTION__, (flags & AC_FEP_MASK) ? "emulated " : "",
+		       cr0_wp, cr0_wp ? "FAULT" : "SUCCEED");
 		return 1;
 	}
 
@@ -1127,6 +1128,10 @@ static int check_toggle_cr0_wp(ac_pt_env_t *pt_env)
 
 	err += do_cr0_wp_access(&at, 0);
 	err += do_cr0_wp_access(&at, AC_CPU_CR0_WP_MASK);
+	if (!(invalid_mask & AC_FEP_MASK)) {
+		err += do_cr0_wp_access(&at, AC_FEP_MASK);
+		err += do_cr0_wp_access(&at, AC_FEP_MASK | AC_CPU_CR0_WP_MASK);
+	}
 
 	return err == 0;
 }
