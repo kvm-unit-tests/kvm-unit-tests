@@ -51,14 +51,25 @@ Descriptions of section entries:
 	   One regex pattern per line.  Multiple K: lines acceptable.
 
 
-Maintainers
------------
+General Project Administration
+------------------------------
+
+Project administration
 M: Paolo Bonzini <pbonzini@redhat.com>
 M: Thomas Huth <thuth@redhat.com>
 M: Andrew Jones <andrew.jones@linux.dev>
 S: Supported
 L: kvm@vger.kernel.org
 T: https://gitlab.com/kvm-unit-tests/kvm-unit-tests.git
+F: COPYRIGHT
+F: LICENSE
+F: MAINTAINERS
+F: README.md
+
+Default mailing list
+L: kvm@vger.kernel.org
+F: *
+F: */
 
 Architecture Specific Code:
 ---------------------------
@@ -66,7 +77,6 @@ Architecture Specific Code:
 ARM
 M: Andrew Jones <andrew.jones@linux.dev>
 S: Supported
-L: kvm@vger.kernel.org
 L: kvmarm@lists.linux.dev
 L: kvmarm@lists.cs.columbia.edu (deprecated)
 F: arm/
@@ -78,7 +88,6 @@ POWERPC
 M: Laurent Vivier <lvivier@redhat.com>
 M: Thomas Huth <thuth@redhat.com>
 S: Maintained
-L: kvm@vger.kernel.org
 L: linuxppc-dev@lists.ozlabs.org
 F: powerpc/
 F: lib/powerpc/
@@ -91,7 +100,6 @@ M: Nico Böhr <nrb@linux.ibm.com>
 S: Supported
 R: David Hildenbrand <david@redhat.com>
 R: Thomas Huth <thuth@redhat.com>
-L: kvm@vger.kernel.org
 L: linux-s390@vger.kernel.org
 F: s390x/
 F: lib/s390x/
@@ -99,7 +107,6 @@ F: lib/s390x/
 X86
 M: Paolo Bonzini <pbonzini@redhat.com>
 S: Supported
-L: kvm@vger.kernel.org
 F: x86/
 F: lib/x86/
 T: https://gitlab.com/bonzini/kvm-unit-tests.git
