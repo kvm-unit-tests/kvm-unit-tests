@@ -10460,7 +10460,7 @@ static void atomic_switch_overflow_msrs_test(void)
 
 static void vmx_pf_exception_test_guest(void)
 {
-	ac_test_run(PT_LEVEL_PML4);
+	ac_test_run(PT_LEVEL_PML4, false);
 }
 
 typedef void (*invalidate_tlb_t)(void *data);

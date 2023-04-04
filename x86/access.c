@@ -82,7 +82,9 @@ enum {
 	AC_CPU_CR4_SMEP_BIT,
 	AC_CPU_CR4_PKE_BIT,
 
-	NR_AC_FLAGS
+	AC_FEP_BIT,
+
+	NR_AC_FLAGS,
 };
 
 #define AC_PTE_PRESENT_MASK   (1 << AC_PTE_PRESENT_BIT)
@@ -121,6 +123,8 @@ enum {
 #define AC_CPU_CR4_SMEP_MASK  (1 << AC_CPU_CR4_SMEP_BIT)
 #define AC_CPU_CR4_PKE_MASK   (1 << AC_CPU_CR4_PKE_BIT)
 
+#define AC_FEP_MASK           (1 << AC_FEP_BIT)
+
 const char *ac_names[] = {
 	[AC_PTE_PRESENT_BIT] = "pte.p",
 	[AC_PTE_ACCESSED_BIT] = "pte.a",
@@ -152,6 +156,7 @@ const char *ac_names[] = {
 	[AC_CPU_CR0_WP_BIT] = "cr0.wp",
 	[AC_CPU_CR4_SMEP_BIT] = "cr4.smep",
 	[AC_CPU_CR4_PKE_BIT] = "cr4.pke",
+	[AC_FEP_BIT] = "fep",
 };
 
 static inline void *va(pt_element_t phys)
@@ -799,10 +804,13 @@ static int ac_test_do_access(ac_test_t *at)
 
 	if (F(AC_ACCESS_TWICE)) {
 		asm volatile ("mov $fixed2, %%rsi \n\t"
-			      "mov (%[addr]), %[reg] \n\t"
+			      "cmp $0, %[fep] \n\t"
+			      "jz 1f \n\t"
+			      KVM_FEP
+			      "1: mov (%[addr]), %[reg] \n\t"
 			      "fixed2:"
 			      : [reg]"=r"(r), [fault]"=a"(fault), "=b"(e)
-			      : [addr]"r"(at->virt)
+			      : [addr]"r"(at->virt), [fep]"r"(F(AC_FEP))
 			      : "rsi");
 		fault = 0;
 	}
@@ -823,9 +831,15 @@ static int ac_test_do_access(ac_test_t *at)
 		      "jnz 2f \n\t"
 		      "cmp $0, %[write] \n\t"
 		      "jnz 1f \n\t"
-		      "mov (%[addr]), %[reg] \n\t"
+		      "cmp $0, %[fep] \n\t"
+		      "jz 0f \n\t"
+		      KVM_FEP
+		      "0: mov (%[addr]), %[reg] \n\t"
 		      "jmp done \n\t"
-		      "1: mov %[reg], (%[addr]) \n\t"
+		      "1: cmp $0, %[fep] \n\t"
+		      "jz 0f \n\t"
+		      KVM_FEP
+		      "0: mov %[reg], (%[addr]) \n\t"
 		      "jmp done \n\t"
 		      "2: call *%[addr] \n\t"
 		      "done: \n"
@@ -843,6 +857,7 @@ static int ac_test_do_access(ac_test_t *at)
 			[write]"r"(F(AC_ACCESS_WRITE)),
 			[user]"r"(F(AC_ACCESS_USER)),
 			[fetch]"r"(F(AC_ACCESS_FETCH)),
+			[fep]"r"(F(AC_FEP)),
 			[user_ds]"i"(USER_DS),
 			[user_cs]"i"(USER_CS),
 			[user_stack_top]"r"(user_stack + sizeof user_stack),
@@ -1209,11 +1224,16 @@ const ac_test_fn ac_test_cases[] =
 	check_effective_sp_permissions,
 };
 
-void ac_test_run(int pt_levels)
+void ac_test_run(int pt_levels, bool force_emulation)
 {
 	ac_test_t at;
 	ac_pt_env_t pt_env;
 	int i, tests, successes;
+
+	if (force_emulation && !is_fep_available()) {
+		report_skip("Forced emulation prefix (FEP) not available\n");
+		return;
+	}
 
 	printf("run\n");
 	tests = successes = 0;
@@ -1231,6 +1251,9 @@ void ac_test_run(int pt_levels)
 		invalid_mask |= AC_PDE_BIT36_MASK;
 		invalid_mask |= AC_PTE_BIT36_MASK;
 	}
+
+	if (!force_emulation)
+		invalid_mask |= AC_FEP_MASK;
 
 	ac_env_int(&pt_env, pt_levels);
 	ac_test_init(&at, 0xffff923400000000ul, &pt_env);
@@ -1292,5 +1315,6 @@ void ac_test_run(int pt_levels)
 
 	printf("\n%d tests, %d failures\n", tests, tests - successes);
 
-	report(successes == tests, "%d-level paging tests", pt_levels);
+	report(successes == tests, "%d-level paging tests%s", pt_levels,
+	       force_emulation ? " (with forced emulation)" : "");
 }
