@@ -37,23 +37,24 @@ def pretty_print_stack(binary, line):
         return
 
     for line in out.splitlines():
-        m = re.match(b'(.*) at [^ ]*/kvm-unit-tests/([^ ]*):([0-9]+)(.*)', line)
+        m = re.match(b'(.*) at [^ ]*/kvm-unit-tests/([^ ]*):(([0-9]+)|\?)(.*)', line)
         if m is None:
             puts('%s\n' % line)
             return
 
-        head, path, line, tail = m.groups()
-        line = int(line)
-        puts('%s at %s:%d%s\n' % (head.decode(), path.decode(), line, tail.decode()))
-        try:
-            lines = open(path).readlines()
-        except IOError:
-            continue
-        if line > 1:
-            puts('        %s\n' % lines[line - 2].rstrip())
-        puts('      > %s\n' % lines[line - 1].rstrip())
-        if line < len(lines):
-            puts('        %s\n' % lines[line].rstrip())
+        head, path, maybeline, line, tail = m.groups()
+        puts('%s at %s:%s%s\n' % (head.decode(), path.decode(), maybeline.decode(), tail.decode()))
+        if line:
+            line = int(line)
+            try:
+                lines = open(path).readlines()
+            except IOError:
+                continue
+            if line > 1:
+                puts('        %s\n' % lines[line - 2].rstrip())
+            puts('      > %s\n' % lines[line - 1].rstrip())
+            if line < len(lines):
+                puts('        %s\n' % lines[line].rstrip())
 
 def main():
     if len(sys.argv) != 2:
