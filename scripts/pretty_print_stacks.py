@@ -4,6 +4,7 @@ import re
 import subprocess
 import sys
 import traceback
+import os
 
 config = {}
 
@@ -25,8 +26,8 @@ def pretty_print_stack(binary, line):
             addrs[i] = '%lx' % max((int(addrs[i], 16) - 1), 0)
 
     # Output like this:
-    #        0x004002be: start64 at path/to/kvm-unit-tests/x86/cstart64.S:208
-    #         (inlined by) test_ept_violation at path/to/kvm-unit-tests/x86/vmx_tests.c:1719 (discriminator 1)
+    #        0x004002be: start64 at path/to/kvm-unit-tests-repo-worktree/x86/cstart64.S:208
+    #         (inlined by) test_ept_violation at path/to/kvm-unit-tests-repo-worktree/x86/vmx_tests.c:1719 (discriminator 1)
     cmd = [config.get('ADDR2LINE', 'addr2line'), '-e', binary, '-i', '-f', '--pretty', '--address']
     cmd.extend(addrs)
 
@@ -37,12 +38,13 @@ def pretty_print_stack(binary, line):
         return
 
     for line in out.splitlines():
-        m = re.match(b'(.*) at [^ ]*/kvm-unit-tests/([^ ]*):(([0-9]+)|\?)(.*)', line)
+        m = re.match(b'(.*) at (.*):(([0-9]+)|\?)([^:]*)', line)
         if m is None:
             puts('%s\n' % line)
             return
 
         head, path, maybeline, line, tail = m.groups()
+        path = os.path.relpath(os.path.realpath(path), start=os.path.realpath(os.getcwdb()))
         puts('%s at %s:%s%s\n' % (head.decode(), path.decode(), maybeline.decode(), tail.decode()))
         if line:
             line = int(line)
