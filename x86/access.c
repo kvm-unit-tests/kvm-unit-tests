@@ -1209,7 +1209,7 @@ const ac_test_fn ac_test_cases[] =
 	check_effective_sp_permissions,
 };
 
-int ac_test_run(int pt_levels)
+void ac_test_run(int pt_levels)
 {
 	ac_test_t at;
 	ac_pt_env_t pt_env;
@@ -1292,5 +1292,5 @@ int ac_test_run(int pt_levels)
 
 	printf("\n%d tests, %d failures\n", tests, tests - successes);
 
-	return successes == tests;
+	report(successes == tests, "%d-level paging tests", pt_levels);
 }

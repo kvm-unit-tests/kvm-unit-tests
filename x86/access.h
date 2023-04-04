@@ -4,6 +4,6 @@
 #define PT_LEVEL_PML4 4
 #define PT_LEVEL_PML5 5
 
-int ac_test_run(int page_table_levels);
+void ac_test_run(int page_table_levels);
 
 #endif // X86_ACCESS_H
