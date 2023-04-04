@@ -22,7 +22,7 @@ def pretty_print_stack(binary, line):
         if addr.startswith('@'):
             addrs[i] = addr[1:]
         else:
-            addrs[i] = '%lx' % (int(addrs[i], 16) - 1)
+            addrs[i] = '%lx' % max((int(addrs[i], 16) - 1), 0)
 
     # Output like this:
     #        0x004002be: start64 at path/to/kvm-unit-tests/x86/cstart64.S:208
