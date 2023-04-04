@@ -10463,14 +10463,22 @@ static void vmx_pf_exception_test_guest(void)
 	ac_test_run(PT_LEVEL_PML4, false);
 }
 
-typedef void (*invalidate_tlb_t)(void *data);
+static void vmx_pf_exception_forced_emulation_test_guest(void)
+{
+	ac_test_run(PT_LEVEL_PML4, true);
+}
 
-static void __vmx_pf_exception_test(invalidate_tlb_t inv_fn, void *data)
+typedef void (*invalidate_tlb_t)(void *data);
+typedef void (*pf_exception_test_guest_t)(void);
+
+
+static void __vmx_pf_exception_test(invalidate_tlb_t inv_fn, void *data,
+				    pf_exception_test_guest_t guest_fn)
 {
 	u64 efer;
 	struct cpuid cpuid;
 
-	test_set_guest(vmx_pf_exception_test_guest);
+	test_set_guest(guest_fn);
 
 	/* Intercept INVLPG when to perform TLB invalidation from L1 (this). */
 	if (inv_fn)
@@ -10519,7 +10527,12 @@ static void __vmx_pf_exception_test(invalidate_tlb_t inv_fn, void *data)
 
 static void vmx_pf_exception_test(void)
 {
-	__vmx_pf_exception_test(NULL, NULL);
+	__vmx_pf_exception_test(NULL, NULL, vmx_pf_exception_test_guest);
+}
+
+static void vmx_pf_exception_forced_emulation_test(void)
+{
+	__vmx_pf_exception_test(NULL, NULL, vmx_pf_exception_forced_emulation_test_guest);
 }
 
 static void invalidate_tlb_no_vpid(void *data)
@@ -10532,7 +10545,8 @@ static void vmx_pf_no_vpid_test(void)
 	if (is_vpid_supported())
 		vmcs_clear_bits(CPU_EXEC_CTRL1, CPU_VPID);
 
-	__vmx_pf_exception_test(invalidate_tlb_no_vpid, NULL);
+	__vmx_pf_exception_test(invalidate_tlb_no_vpid, NULL,
+				vmx_pf_exception_test_guest);
 }
 
 static void invalidate_tlb_invvpid_addr(void *data)
@@ -10569,7 +10583,7 @@ static void __vmx_pf_vpid_test(invalidate_tlb_t inv_fn, u16 vpid)
 	vmcs_set_bits(CPU_EXEC_CTRL1, CPU_VPID);
 	vmcs_write(VPID, vpid);
 
-	__vmx_pf_exception_test(inv_fn, &vpid);
+	__vmx_pf_exception_test(inv_fn, &vpid, vmx_pf_exception_test_guest);
 }
 
 static void vmx_pf_invvpid_test(void)
@@ -10792,6 +10806,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_mtf_test),
 	TEST(vmx_mtf_pdpte_test),
 	TEST(vmx_pf_exception_test),
+	TEST(vmx_pf_exception_forced_emulation_test),
 	TEST(vmx_pf_no_vpid_test),
 	TEST(vmx_pf_invvpid_test),
 	TEST(vmx_pf_vpid_test),
