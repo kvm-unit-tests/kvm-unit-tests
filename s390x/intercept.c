@@ -36,16 +36,16 @@ static void test_stpx(void)
 
 	expect_pgm_int();
 	low_prot_enable();
-	asm volatile(" stpx 0(%0) " : : "r"(8));
+	asm volatile(" stpx 0(%0) " : : "a"(8));
 	low_prot_disable();
 	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
 
 	expect_pgm_int();
-	asm volatile(" stpx 0(%0) " : : "r"(1));
+	asm volatile(" stpx 0(%0) " : : "a"(1));
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
 
 	expect_pgm_int();
-	asm volatile(" stpx 0(%0) " : : "r"(-8L));
+	asm volatile(" stpx 0(%0) " : : "a"(-8L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 }
 
@@ -70,13 +70,13 @@ static void test_spx(void)
 
 	report_prefix_push("operand not word aligned");
 	expect_pgm_int();
-	asm volatile(" spx 0(%0) " : : "r"(1));
+	asm volatile(" spx 0(%0) " : : "a"(1));
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
 	report_prefix_pop();
 
 	report_prefix_push("operand outside memory");
 	expect_pgm_int();
-	asm volatile(" spx 0(%0) " : : "r"(-8L));
+	asm volatile(" spx 0(%0) " : : "a"(-8L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 	report_prefix_pop();
 
@@ -113,16 +113,16 @@ static void test_stap(void)
 
 	expect_pgm_int();
 	low_prot_enable();
-	asm volatile ("stap 0(%0)\n" : : "r"(8));
+	asm volatile ("stap 0(%0)\n" : : "a"(8));
 	low_prot_disable();
 	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
 
 	expect_pgm_int();
-	asm volatile ("stap 0(%0)\n" : : "r"(1));
+	asm volatile ("stap 0(%0)\n" : : "a"(1));
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
 
 	expect_pgm_int();
-	asm volatile ("stap 0(%0)\n" : : "r"(-8L));
+	asm volatile ("stap 0(%0)\n" : : "a"(-8L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 }
 
@@ -138,16 +138,16 @@ static void test_stidp(void)
 
 	expect_pgm_int();
 	low_prot_enable();
-	asm volatile ("stidp 0(%0)\n" : : "r"(8));
+	asm volatile ("stidp 0(%0)\n" : : "a"(8));
 	low_prot_disable();
 	check_pgm_int_code(PGM_INT_CODE_PROTECTION);
 
 	expect_pgm_int();
-	asm volatile ("stidp 0(%0)\n" : : "r"(1));
+	asm volatile ("stidp 0(%0)\n" : : "a"(1));
 	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
 
 	expect_pgm_int();
-	asm volatile ("stidp 0(%0)\n" : : "r"(-8L));
+	asm volatile ("stidp 0(%0)\n" : : "a"(-8L));
 	check_pgm_int_code(PGM_INT_CODE_ADDRESSING);
 }
 
