@@ -20,9 +20,6 @@ static int invalid_mask;
 #define PT_BASE_ADDR_MASK ((pt_element_t)((((pt_element_t)1 << 36) - 1) & PAGE_MASK))
 #define PT_PSE_BASE_ADDR_MASK (PT_BASE_ADDR_MASK & ~(1ull << 21))
 
-#define CR0_WP_MASK (1UL << 16)
-#define CR4_SMEP_MASK (1UL << 20)
-
 #define PFERR_PRESENT_MASK (1U << 0)
 #define PFERR_WRITE_MASK (1U << 1)
 #define PFERR_USER_MASK (1U << 2)
@@ -239,9 +236,9 @@ static void set_cr0_wp(int wp)
 {
 	unsigned long cr0 = shadow_cr0;
 
-	cr0 &= ~CR0_WP_MASK;
+	cr0 &= ~X86_CR0_WP;
 	if (wp)
-		cr0 |= CR0_WP_MASK;
+		cr0 |= X86_CR0_WP;
 	if (cr0 != shadow_cr0) {
 		write_cr0(cr0);
 		shadow_cr0 = cr0;
@@ -272,9 +269,9 @@ static unsigned set_cr4_smep(ac_test_t *at, int smep)
 	unsigned long cr4 = shadow_cr4;
 	unsigned r;
 
-	cr4 &= ~CR4_SMEP_MASK;
+	cr4 &= ~X86_CR4_SMEP;
 	if (smep)
-		cr4 |= CR4_SMEP_MASK;
+		cr4 |= X86_CR4_SMEP;
 	if (cr4 == shadow_cr4)
 		return 0;
 

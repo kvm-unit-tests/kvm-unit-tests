@@ -5,7 +5,6 @@
 #include "x86/vm.h"
 #include "x86/msr.h"
 
-#define CR0_WP_MASK      (1UL << 16)
 #define PTE_PKEY_BIT     59
 #define SUPER_BASE        (1 << 23)
 #define SUPER_VAR(v)      (*((__typeof__(&(v))) (((unsigned long)&v) + SUPER_BASE)))
@@ -18,9 +17,9 @@ static void set_cr0_wp(int wp)
 {
     unsigned long cr0 = read_cr0();
 
-    cr0 &= ~CR0_WP_MASK;
+    cr0 &= ~X86_CR0_WP;
     if (wp)
-        cr0 |= CR0_WP_MASK;
+        cr0 |= X86_CR0_WP;
     write_cr0(cr0);
 }
 
