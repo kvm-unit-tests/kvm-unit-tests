@@ -268,6 +268,7 @@ static inline bool is_intel(void)
 #define X86_FEATURE_PAUSEFILTER		(CPUID(0x8000000A, 0, EDX, 10))
 #define X86_FEATURE_PFTHRESHOLD		(CPUID(0x8000000A, 0, EDX, 12))
 #define	X86_FEATURE_VGIF		(CPUID(0x8000000A, 0, EDX, 16))
+#define X86_FEATURE_VNMI		(CPUID(0x8000000A, 0, EDX, 25))
 #define	X86_FEATURE_AMD_PMU_V2		(CPUID(0x80000022, 0, EAX, 0))
 
 static inline bool this_cpu_has(u64 feature)

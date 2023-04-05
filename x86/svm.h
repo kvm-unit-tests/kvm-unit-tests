@@ -131,6 +131,13 @@ struct __attribute__ ((__packed__)) vmcb_control_area {
 #define V_INTR_MASKING_SHIFT 24
 #define V_INTR_MASKING_MASK (1 << V_INTR_MASKING_SHIFT)
 
+#define V_NMI_PENDING_SHIFT	11
+#define V_NMI_PENDING_MASK	(1 << V_NMI_PENDING_SHIFT)
+#define V_NMI_BLOCKING_SHIFT	12
+#define V_NMI_BLOCKING_MASK	(1 << V_NMI_BLOCKING_SHIFT)
+#define V_NMI_ENABLE_SHIFT	26
+#define V_NMI_ENABLE_MASK	(1 << V_NMI_ENABLE_SHIFT)
+
 #define SVM_INTERRUPT_SHADOW_MASK 1
 
 #define SVM_IOIO_STR_SHIFT 2
@@ -419,6 +426,7 @@ void default_prepare(struct svm_test *test);
 void default_prepare_gif_clear(struct svm_test *test);
 bool default_finished(struct svm_test *test);
 bool npt_supported(void);
+bool vnmi_supported(void);
 int get_test_stage(struct svm_test *test);
 void set_test_stage(struct svm_test *test, int s);
 void inc_test_stage(struct svm_test *test);

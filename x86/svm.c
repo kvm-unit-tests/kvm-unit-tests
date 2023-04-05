@@ -99,6 +99,11 @@ bool npt_supported(void)
 	return this_cpu_has(X86_FEATURE_NPT);
 }
 
+bool vnmi_supported(void)
+{
+       return this_cpu_has(X86_FEATURE_VNMI);
+}
+
 int get_test_stage(struct svm_test *test)
 {
 	barrier();

@@ -1419,6 +1419,81 @@ static bool nmi_hlt_check(struct svm_test *test)
 	return get_test_stage(test) == 3;
 }
 
+static void vnmi_prepare(struct svm_test *test)
+{
+	nmi_prepare(test);
+
+	/*
+	 * Disable NMI interception to start.  Enabling vNMI without
+	 * intercepting "real" NMIs should result in an ERR VM-Exit.
+	 */
+	vmcb->control.intercept &= ~(1ULL << INTERCEPT_NMI);
+	vmcb->control.int_ctl = V_NMI_ENABLE_MASK;
+	vmcb->control.int_vector = NMI_VECTOR;
+}
+
+static void vnmi_test(struct svm_test *test)
+{
+	report_svm_guest(!nmi_fired, test, "No vNMI before injection");
+	vmmcall();
+
+	report_svm_guest(nmi_fired, test, "vNMI delivered after injection");
+	vmmcall();
+}
+
+static bool vnmi_finished(struct svm_test *test)
+{
+	switch (get_test_stage(test)) {
+	case 0:
+		if (vmcb->control.exit_code != SVM_EXIT_ERR) {
+			report_fail("Wanted ERR VM-Exit, got 0x%x",
+				    vmcb->control.exit_code);
+			return true;
+		}
+		report(!nmi_fired, "vNMI enabled but NMI_INTERCEPT unset!");
+		vmcb->control.intercept |= (1ULL << INTERCEPT_NMI);
+		vmcb->save.rip += 3;
+		break;
+
+	case 1:
+		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+			report_fail("Wanted VMMCALL VM-Exit, got 0x%x",
+				    vmcb->control.exit_code);
+			return true;
+		}
+		report(!nmi_fired, "vNMI with vector 2 not injected");
+		vmcb->control.int_ctl |= V_NMI_PENDING_MASK;
+		vmcb->save.rip += 3;
+		break;
+
+	case 2:
+		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+			report_fail("Wanted VMMCALL VM-Exit, got 0x%x",
+				    vmcb->control.exit_code);
+			return true;
+		}
+		if (vmcb->control.int_ctl & V_NMI_BLOCKING_MASK) {
+			report_fail("V_NMI_BLOCKING_MASK not cleared on VMEXIT");
+			return true;
+		}
+		report_pass("VNMI serviced");
+		vmcb->save.rip += 3;
+		break;
+
+	default:
+		return true;
+	}
+
+	inc_test_stage(test);
+
+	return get_test_stage(test) == 3;
+}
+
+static bool vnmi_check(struct svm_test *test)
+{
+	return get_test_stage(test) == 3;
+}
+
 static volatile int count_exc = 0;
 
 static void my_isr(struct ex_regs *r)
@@ -3298,6 +3373,9 @@ struct svm_test svm_tests[] = {
 	{ "nmi_hlt", smp_supported, nmi_prepare,
 	  default_prepare_gif_clear, nmi_hlt_test,
 	  nmi_hlt_finished, nmi_hlt_check },
+        { "vnmi", vnmi_supported, vnmi_prepare,
+          default_prepare_gif_clear, vnmi_test,
+          vnmi_finished, vnmi_check },
 	{ "virq_inject", default_supported, virq_inject_prepare,
 	  default_prepare_gif_clear, virq_inject_test,
 	  virq_inject_finished, virq_inject_check },
