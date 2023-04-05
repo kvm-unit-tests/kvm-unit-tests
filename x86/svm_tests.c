@@ -947,6 +947,21 @@ static bool lat_svm_insn_check(struct svm_test *test)
 	return true;
 }
 
+/*
+ * Report failures from SVM guest code, and on failure, set the stage to -1 and
+ * do VMMCALL to terminate the test (host side must treat -1 as "finished").
+ * TODO: fix the tests that don't play nice with a straight report, e.g. the
+ * V_TPR test fails if report() is invoked.
+ */
+#define report_svm_guest(cond, test, fmt, args...)	\
+do {							\
+	if (!(cond)) {					\
+		report_fail(fmt, ##args);		\
+		set_test_stage(test, -1);		\
+		vmmcall();				\
+	}						\
+} while (0)
+
 bool pending_event_ipi_fired;
 bool pending_event_guest_run;
 
@@ -1049,22 +1064,16 @@ static void pending_event_cli_prepare_gif_clear(struct svm_test *test)
 
 static void pending_event_cli_test(struct svm_test *test)
 {
-	if (pending_event_ipi_fired == true) {
-		set_test_stage(test, -1);
-		report_fail("Interrupt preceeded guest");
-		vmmcall();
-	}
+	report_svm_guest(!pending_event_ipi_fired, test,
+			 "IRQ should NOT be delivered while IRQs disabled");
 
 	/* VINTR_MASKING is zero.  This should cause the IPI to fire.  */
 	irq_enable();
 	asm volatile ("nop");
 	irq_disable();
 
-	if (pending_event_ipi_fired != true) {
-		set_test_stage(test, -1);
-		report_fail("Interrupt not triggered by guest");
-	}
-
+	report_svm_guest(pending_event_ipi_fired, test,
+			 "IRQ should be delivered after enabling IRQs");
 	vmmcall();
 
 	/*
@@ -1079,11 +1088,9 @@ static void pending_event_cli_test(struct svm_test *test)
 
 static bool pending_event_cli_finished(struct svm_test *test)
 {
-	if ( vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		report_fail("VM_EXIT return to host is not EXIT_VMMCALL exit reason 0x%x",
-			    vmcb->control.exit_code);
-		return true;
-	}
+	report_svm_guest(vmcb->control.exit_code == SVM_EXIT_VMMCALL, test,
+			 "Wanted VMMCALL VM-Exit, got exit reason 0x%x",
+			 vmcb->control.exit_code);
 
 	switch (get_test_stage(test)) {
 	case 0:
@@ -1158,12 +1165,8 @@ static void interrupt_test(struct svm_test *test)
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
 
-	report(timer_fired, "direct interrupt while running guest");
-
-	if (!timer_fired) {
-		set_test_stage(test, -1);
-		vmmcall();
-	}
+	report_svm_guest(timer_fired, test,
+			 "direct interrupt while running guest");
 
 	apic_write(APIC_TMICT, 0);
 	irq_disable();
@@ -1174,12 +1177,8 @@ static void interrupt_test(struct svm_test *test)
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
 
-	report(timer_fired, "intercepted interrupt while running guest");
-
-	if (!timer_fired) {
-		set_test_stage(test, -1);
-		vmmcall();
-	}
+	report_svm_guest(timer_fired, test,
+			 "intercepted interrupt while running guest");
 
 	irq_enable();
 	apic_write(APIC_TMICT, 0);
@@ -1190,13 +1189,8 @@ static void interrupt_test(struct svm_test *test)
 	apic_write(APIC_TMICT, 1000000);
 	safe_halt();
 
-	report(rdtsc() - start > 10000 && timer_fired,
-	       "direct interrupt + hlt");
-
-	if (!timer_fired) {
-		set_test_stage(test, -1);
-		vmmcall();
-	}
+	report_svm_guest(timer_fired, test, "direct interrupt + hlt");
+	report(rdtsc() - start > 10000, "IRQ arrived after expected delay");
 
 	apic_write(APIC_TMICT, 0);
 	irq_disable();
@@ -1207,13 +1201,8 @@ static void interrupt_test(struct svm_test *test)
 	apic_write(APIC_TMICT, 1000000);
 	asm volatile ("hlt");
 
-	report(rdtsc() - start > 10000 && timer_fired,
-	       "intercepted interrupt + hlt");
-
-	if (!timer_fired) {
-		set_test_stage(test, -1);
-		vmmcall();
-	}
+	report_svm_guest(timer_fired, test, "intercepted interrupt + hlt");
+	report(rdtsc() - start > 10000, "IRQ arrived after expected delay");
 
 	apic_write(APIC_TMICT, 0);
 	irq_disable();
@@ -1287,10 +1276,7 @@ static void nmi_test(struct svm_test *test)
 {
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
 
-	report(nmi_fired, "direct NMI while running guest");
-
-	if (!nmi_fired)
-		set_test_stage(test, -1);
+	report_svm_guest(nmi_fired, test, "direct NMI while running guest");
 
 	vmmcall();
 
@@ -1298,11 +1284,7 @@ static void nmi_test(struct svm_test *test)
 
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
 
-	if (!nmi_fired) {
-		report(nmi_fired, "intercepted pending NMI not dispatched");
-		set_test_stage(test, -1);
-	}
-
+	report_svm_guest(nmi_fired, test, "intercepted pending NMI delivered to guest");
 }
 
 static bool nmi_finished(struct svm_test *test)
@@ -1379,11 +1361,8 @@ static void nmi_hlt_test(struct svm_test *test)
 
 	asm volatile ("hlt");
 
-	report((rdtsc() - start > NMI_DELAY) && nmi_fired,
-	       "direct NMI + hlt");
-
-	if (!nmi_fired)
-		set_test_stage(test, -1);
+	report_svm_guest(nmi_fired, test, "direct NMI + hlt");
+	report(rdtsc() - start > NMI_DELAY, "direct NMI after expected delay");
 
 	nmi_fired = false;
 
@@ -1395,14 +1374,8 @@ static void nmi_hlt_test(struct svm_test *test)
 
 	asm volatile ("hlt");
 
-	report((rdtsc() - start > NMI_DELAY) && nmi_fired,
-	       "intercepted NMI + hlt");
-
-	if (!nmi_fired) {
-		report(nmi_fired, "intercepted pending NMI not dispatched");
-		set_test_stage(test, -1);
-		vmmcall();
-	}
+	report_svm_guest(nmi_fired, test, "intercepted NMI + hlt");
+	report(rdtsc() - start > NMI_DELAY, "intercepted NMI after expected delay");
 
 	set_test_stage(test, 3);
 }
@@ -1534,37 +1507,23 @@ static void virq_inject_prepare(struct svm_test *test)
 
 static void virq_inject_test(struct svm_test *test)
 {
-	if (virq_fired) {
-		report_fail("virtual interrupt fired before L2 sti");
-		set_test_stage(test, -1);
-		vmmcall();
-	}
+	report_svm_guest(!virq_fired, test, "virtual IRQ blocked after L2 cli");
 
 	irq_enable();
 	asm volatile ("nop");
 	irq_disable();
 
-	if (!virq_fired) {
-		report_fail("virtual interrupt not fired after L2 sti");
-		set_test_stage(test, -1);
-	}
+	report_svm_guest(virq_fired, test, "virtual IRQ fired after L2 sti");
 
 	vmmcall();
 
-	if (virq_fired) {
-		report_fail("virtual interrupt fired before L2 sti after VINTR intercept");
-		set_test_stage(test, -1);
-		vmmcall();
-	}
+	report_svm_guest(!virq_fired, test, "intercepted VINTR blocked after L2 cli");
 
 	irq_enable();
 	asm volatile ("nop");
 	irq_disable();
 
-	if (!virq_fired) {
-		report_fail("virtual interrupt not fired after return from VINTR intercept");
-		set_test_stage(test, -1);
-	}
+	report_svm_guest(virq_fired, test, "intercepted VINTR fired after L2 sti");
 
 	vmmcall();
 
@@ -1572,10 +1531,8 @@ static void virq_inject_test(struct svm_test *test)
 	asm volatile ("nop");
 	irq_disable();
 
-	if (virq_fired) {
-		report_fail("virtual interrupt fired when V_IRQ_PRIO less than V_TPR");
-		set_test_stage(test, -1);
-	}
+	report_svm_guest(!virq_fired, test,
+			  "virtual IRQ blocked V_IRQ_PRIO less than V_TPR");
 
 	vmmcall();
 	vmmcall();
