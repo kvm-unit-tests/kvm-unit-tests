@@ -738,6 +738,13 @@ static inline void invlpg(volatile void *va)
 	asm volatile("invlpg (%0)" ::"r" (va) : "memory");
 }
 
+
+static inline int invpcid_safe(unsigned long type, void *desc)
+{
+	/* invpcid (%rax), %rbx */
+	return asm_safe(".byte 0x66,0x0f,0x38,0x82,0x18", "a" (desc), "b" (type));
+}
+
 static inline void safe_halt(void)
 {
 	asm volatile("sti; hlt");

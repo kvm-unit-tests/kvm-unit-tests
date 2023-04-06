@@ -10,14 +10,6 @@ struct invpcid_desc {
     u64 addr : 64;
 };
 
-static int invpcid_safe(unsigned long type, void *desc)
-{
-    asm volatile (ASM_TRY("1f")
-                  ".byte 0x66,0x0f,0x38,0x82,0x18 \n\t" /* invpcid (%rax), %rbx */
-                  "1:" : : "a" (desc), "b" (type));
-    return exception_vector();
-}
-
 static void test_pcid_enabled(void)
 {
     int passed = 0;
