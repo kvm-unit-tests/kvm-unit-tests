@@ -431,6 +431,14 @@ static inline void wrmsr(u32 index, u64 val)
 	vector;								\
 })
 
+#define wrreg64_safe(insn, index, val)					\
+({									\
+	uint32_t eax = (val), edx = (val) >> 32;			\
+									\
+	asm_safe(insn, "a" (eax), "d" (edx), "c" (index));		\
+})
+
+
 static inline int rdmsr_safe(u32 index, uint64_t *val)
 {
 	return rdreg64_safe("rdmsr", index, val);
@@ -438,9 +446,7 @@ static inline int rdmsr_safe(u32 index, uint64_t *val)
 
 static inline int wrmsr_safe(u32 index, u64 val)
 {
-	u32 a = val, d = val >> 32;
-
-	return asm_safe("wrmsr", "a"(a), "d"(d), "c"(index));
+	return wrreg64_safe("wrmsr", index, val);
 }
 
 static inline int rdpmc_safe(u32 index, uint64_t *val)
@@ -456,6 +462,16 @@ static inline uint64_t rdpmc(uint32_t index)
 	assert_msg(!vector, "Unexpected %s on RDPMC(%" PRId32 ")",
 		   exception_mnemonic(vector), index);
 	return val;
+}
+
+static inline int xgetbv_safe(u32 index, u64 *result)
+{
+	return rdreg64_safe(".byte 0x0f,0x01,0xd0", index, result);
+}
+
+static inline int xsetbv_safe(u32 index, u64 value)
+{
+	return wrreg64_safe(".byte 0x0f,0x01,0xd1", index, value);
 }
 
 static inline int write_cr0_safe(ulong val)
