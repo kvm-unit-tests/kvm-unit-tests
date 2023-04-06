@@ -435,11 +435,7 @@ static inline int wrmsr_safe(u32 index, u64 val)
 {
 	u32 a = val, d = val >> 32;
 
-	asm volatile (ASM_TRY("1f")
-		      "wrmsr\n\t"
-		      "1:"
-		      : : "a"(a), "d"(d), "c"(index) : "memory");
-	return exception_vector();
+	return asm_safe("wrmsr", "a"(a), "d"(d), "c"(index));
 }
 
 static inline int rdpmc_safe(u32 index, uint64_t *val)
@@ -466,10 +462,7 @@ static inline uint64_t rdpmc(uint32_t index)
 
 static inline int write_cr0_safe(ulong val)
 {
-	asm volatile(ASM_TRY("1f")
-		     "mov %0,%%cr0\n\t"
-		     "1:": : "r" (val));
-	return exception_vector();
+	return asm_safe("mov %0,%%cr0", "r" (val));
 }
 
 static inline void write_cr0(ulong val)
@@ -501,10 +494,7 @@ static inline ulong read_cr2(void)
 
 static inline int write_cr3_safe(ulong val)
 {
-	asm volatile(ASM_TRY("1f")
-		     "mov %0,%%cr3\n\t"
-		     "1:": : "r" (val));
-	return exception_vector();
+	return asm_safe("mov %0,%%cr3", "r" (val));
 }
 
 static inline void write_cr3(ulong val)
@@ -529,10 +519,7 @@ static inline void update_cr3(void *cr3)
 
 static inline int write_cr4_safe(ulong val)
 {
-	asm volatile(ASM_TRY("1f")
-		     "mov %0,%%cr4\n\t"
-		     "1:": : "r" (val));
-	return exception_vector();
+	return asm_safe("mov %0,%%cr4", "r" (val));
 }
 
 static inline void write_cr4(ulong val)
