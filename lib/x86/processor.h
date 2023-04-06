@@ -417,18 +417,23 @@ static inline void wrmsr(u32 index, u64 val)
 	asm volatile ("wrmsr" : : "a"(a), "d"(d), "c"(index) : "memory");
 }
 
+#define rdreg64_safe(insn, index, val)					\
+({									\
+	uint32_t a, d;							\
+	int vector;							\
+									\
+	vector = asm_safe_out2(insn, "=a"(a), "=d"(d), "c"(index));	\
+									\
+	if (vector)							\
+		*(val) = 0;						\
+	else								\
+		*(val) = (uint64_t)a | ((uint64_t)d << 32);		\
+	vector;								\
+})
+
 static inline int rdmsr_safe(u32 index, uint64_t *val)
 {
-	uint32_t a, d;
-
-	asm volatile (ASM_TRY("1f")
-		      "rdmsr\n\t"
-		      "1:"
-		      : "=a"(a), "=d"(d)
-		      : "c"(index) : "memory");
-
-	*val = (uint64_t)a | ((uint64_t)d << 32);
-	return exception_vector();
+	return rdreg64_safe("rdmsr", index, val);
 }
 
 static inline int wrmsr_safe(u32 index, u64 val)
@@ -440,14 +445,7 @@ static inline int wrmsr_safe(u32 index, u64 val)
 
 static inline int rdpmc_safe(u32 index, uint64_t *val)
 {
-	uint32_t a, d;
-
-	asm volatile (ASM_TRY("1f")
-		      "rdpmc\n\t"
-		      "1:"
-		      : "=a"(a), "=d"(d) : "c"(index) : "memory");
-	*val = (uint64_t)a | ((uint64_t)d << 32);
-	return exception_vector();
+	return rdreg64_safe("rdpmc", index, val);
 }
 
 static inline uint64_t rdpmc(uint32_t index)

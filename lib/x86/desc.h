@@ -283,6 +283,28 @@ extern unsigned long get_gdt_entry_limit(gdt_entry_t *entry);
 	exception_vector();						\
 })
 
+#define asm_safe_out1(insn, output, inputs...)				\
+({									\
+	asm volatile(ASM_TRY("1f")					\
+		     insn "\n\t"					\
+		     "1:\n\t"						\
+		     : output						\
+		     : inputs						\
+		     : "memory");					\
+	exception_vector();						\
+})
+
+#define asm_safe_out2(insn, output1, output2, inputs...)		\
+({									\
+	asm volatile(ASM_TRY("1f")					\
+		     insn "\n\t"					\
+		     "1:\n\t"						\
+		     : output1, output2					\
+		     : inputs						\
+		     : "memory");					\
+	exception_vector();						\
+})
+
 #define __asm_safe_report(want, insn, inputs...)			\
 do {									\
 	int vector = asm_safe(insn, inputs);				\
