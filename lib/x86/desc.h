@@ -272,4 +272,30 @@ extern gdt_entry_t *get_tss_descr(void);
 extern unsigned long get_gdt_entry_base(gdt_entry_t *entry);
 extern unsigned long get_gdt_entry_limit(gdt_entry_t *entry);
 
+#define asm_safe(insn, inputs...)					\
+({									\
+	asm volatile(ASM_TRY("1f")					\
+		     insn "\n\t"					\
+		     "1:\n\t"						\
+		     :							\
+		     : inputs						\
+		     : "memory");					\
+	exception_vector();						\
+})
+
+#define __asm_safe_report(want, insn, inputs...)			\
+do {									\
+	int vector = asm_safe(insn, inputs);				\
+									\
+	report(vector == want, "Expected %s on '%s', got %s",		\
+	       want ? exception_mnemonic(want) : "SUCCESS",		\
+	       insn,							\
+	       vector ? exception_mnemonic(vector) : "SUCCESS");	\
+} while (0)
+
+#define asm_safe_report(insn, inputs...)				\
+	__asm_safe_report(0, insn, inputs)
+
+#define asm_safe_report_ex __asm_safe_report
+
 #endif
