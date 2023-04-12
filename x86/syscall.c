@@ -90,7 +90,7 @@ static void test_syscall_tf(void)
     asm volatile("  push %%rbp\n"
                  "  mov %%rsp, (%%rax)\n"  // stack pointer for exception handler
                  "  pushf; pop %%rax\n"   // expected by syscall32_target
-                 "  sysret\n"
+                 "  sysretl\n"
                  "back_to_test:\n"
                  "  pop %%rbp"
                  : [sysret_target] "+c"(rcx), [sp0] "+a" (rax) :
