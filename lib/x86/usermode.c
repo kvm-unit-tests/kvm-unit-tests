@@ -63,21 +63,20 @@ uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
 			"pushq %[user_stack_top]\n\t"
 			"pushfq\n\t"
 			"pushq %[user_cs]\n\t"
-			"lea user_mode(%%rip), %%rdx\n\t"
-			"pushq %%rdx\n\t"
+			"lea user_mode(%%rip), %%rax\n\t"
+			"pushq %%rax\n\t"
 			"iretq\n"
 
 			"user_mode:\n\t"
-			/* Back up registers before invoking func */
-			"push %%rbx\n\t"
+			/* Back up volatile registers before invoking func */
 			"push %%rcx\n\t"
 			"push %%rdx\n\t"
+			"push %%rdi\n\t"
+			"push %%rsi\n\t"
 			"push %%r8\n\t"
 			"push %%r9\n\t"
 			"push %%r10\n\t"
 			"push %%r11\n\t"
-			"push %%rdi\n\t"
-			"push %%rsi\n\t"
 			/* Call user mode function */
 			"mov %[arg1], %%rdi\n\t"
 			"mov %[arg2], %%rsi\n\t"
@@ -85,15 +84,14 @@ uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
 			"mov %[arg4], %%rcx\n\t"
 			"call *%[func]\n\t"
 			/* Restore registers */
-			"pop %%rsi\n\t"
-			"pop %%rdi\n\t"
 			"pop %%r11\n\t"
 			"pop %%r10\n\t"
 			"pop %%r9\n\t"
 			"pop %%r8\n\t"
+			"pop %%rsi\n\t"
+			"pop %%rdi\n\t"
 			"pop %%rdx\n\t"
 			"pop %%rcx\n\t"
-			"pop %%rbx\n\t"
 			/* Return to kernel via system call */
 			"int %[kernel_entry_vector]\n\t"
 			/* Kernel Mode */
@@ -112,9 +110,7 @@ uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
 			[user_cs]"i"(USER_CS),
 			[user_stack_top]"r"(user_stack +
 					sizeof(user_stack)),
-			[kernel_entry_vector]"i"(RET_TO_KERNEL_IRQ)
-			:
-			"rsi", "rdi", "rcx", "rdx");
+			[kernel_entry_vector]"i"(RET_TO_KERNEL_IRQ));
 
 	handle_exception(fault_vector, old_ex);
 
