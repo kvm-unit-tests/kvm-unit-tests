@@ -421,7 +421,7 @@ static uint64_t usr_gs_mov(void)
 	uint64_t ret;
 
 	dummy_ptr -= GS_BASE;
-	asm volatile("mov %%gs:(%%rcx), %%rax" : "=a"(ret): "c"(dummy_ptr) :);
+	asm volatile("mov %%gs:(%1), %0" : "=r"(ret) : "r"(dummy_ptr));
 
 	return ret;
 }
