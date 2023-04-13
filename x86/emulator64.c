@@ -334,17 +334,10 @@ static void test_mmx_movq_mf(uint64_t *mem)
 
 static void test_jmp_noncanonical(uint64_t *mem)
 {
-	extern char nc_jmp_start, nc_jmp_end;
-	handler old;
-
-	*mem = 0x1111111111111111ul;
-
-	exceptions = 0;
-	rip_advance = &nc_jmp_end - &nc_jmp_start;
-	old = handle_exception(GP_VECTOR, advance_rip_and_note_exception);
-	asm volatile ("nc_jmp_start: jmp *%0; nc_jmp_end:" : : "m"(*mem));
-	report(exceptions == 1, "jump to non-canonical address");
-	handle_exception(GP_VECTOR, old);
+	*mem = NONCANONICAL;
+	asm volatile (ASM_TRY("1f") "jmp *%0; 1:" : : "m"(*mem));
+	report(exception_vector() == GP_VECTOR,
+	       "jump to non-canonical address");
 }
 
 static void test_movabs(uint64_t *mem)
