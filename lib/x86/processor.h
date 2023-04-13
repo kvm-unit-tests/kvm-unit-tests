@@ -37,7 +37,12 @@
 #define AC_VECTOR 17
 #define MC_VECTOR 18
 #define XM_VECTOR 19
+#define XF_VECTOR XM_VECTOR /* AMD */
+#define VE_VECTOR 20 /* Intel only */
 #define CP_VECTOR 21
+#define HV_VECTOR 28 /* AMD only */
+#define VC_VECTOR 29 /* AMD only */
+#define SX_VECTOR 30 /* AMD only */
 
 #define X86_CR0_PE_BIT		(0)
 #define X86_CR0_PE		BIT(X86_CR0_PE_BIT)

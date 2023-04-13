@@ -129,7 +129,11 @@ const char* exception_mnemonic(int vector)
 	VEC(AC);
 	VEC(MC);
 	VEC(XM);
+	VEC(VE);
 	VEC(CP);
+	VEC(HV);
+	VEC(VC);
+	VEC(SX);
 	default: return "#??";
 #undef VEC
 	}
