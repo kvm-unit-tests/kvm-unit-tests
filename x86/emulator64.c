@@ -333,6 +333,33 @@ static void test_jmp_noncanonical(uint64_t *mem)
 	       "jump to non-canonical address");
 }
 
+static void test_reg_noncanonical(void)
+{
+	/* RAX based, should #GP(0) */
+	asm volatile(ASM_TRY("1f") "orq $0, (%[noncanonical]); 1:"
+		     : : [noncanonical]"a"(NONCANONICAL));
+	report(exception_vector() == GP_VECTOR && exception_error_code() == 0,
+	       "non-canonical memory access, should %s(0), got %s(%u)",
+	       exception_mnemonic(GP_VECTOR),
+	       exception_mnemonic(exception_vector()), exception_error_code());
+
+	/* RSP based, should #SS(0) */
+	asm volatile(ASM_TRY("1f") "orq $0, (%%rsp,%[noncanonical],1); 1:"
+		     : : [noncanonical]"r"(NONCANONICAL));
+	report(exception_vector() == SS_VECTOR && exception_error_code() == 0,
+	       "non-canonical rsp-based access, should %s(0), got %s(%u)",
+	       exception_mnemonic(SS_VECTOR),
+	       exception_mnemonic(exception_vector()), exception_error_code());
+
+	/* RBP based, should #SS(0) */
+	asm volatile(ASM_TRY("1f") "orq $0, (%%rbp,%[noncanonical],1); 1:"
+		     : : [noncanonical]"r"(NONCANONICAL));
+	report(exception_vector() == SS_VECTOR && exception_error_code() == 0,
+	       "non-canonical rbp-based access, should %s(0), got %s(%u)",
+	       exception_mnemonic(SS_VECTOR),
+	       exception_mnemonic(exception_vector()), exception_error_code());
+}
+
 static void test_movabs(uint64_t *mem)
 {
 	/* mov $0x9090909090909090, %rcx */
@@ -459,5 +486,6 @@ static void test_emulator_64(void *mem)
 
 	test_push16(mem);
 
+	test_reg_noncanonical();
 	test_jmp_noncanonical(mem);
 }
