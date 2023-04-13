@@ -5,10 +5,7 @@
 #include "x86/vm.h"
 #include "access.h"
 
-#define true 1
-#define false 0
-
-static _Bool verbose = false;
+static bool verbose = false;
 
 typedef unsigned long pt_element_t;
 static int invalid_mask;
@@ -406,7 +403,7 @@ static int ac_test_bump_one(ac_test_t *at)
 
 #define F(x)  ((flags & x##_MASK) != 0)
 
-static _Bool ac_test_legal(ac_test_t *at)
+static bool ac_test_legal(ac_test_t *at)
 {
 	int flags = at->flags;
 	unsigned reserved;
@@ -738,7 +735,7 @@ static void dump_mapping(ac_test_t *at)
 	walk_va(at, F(AC_PDE_PSE) ? 2 : 1, virt, __dump_pte, false);
 }
 
-static void ac_test_check(ac_test_t *at, _Bool *success_ret, _Bool cond,
+static void ac_test_check(ac_test_t *at, bool *success_ret, bool cond,
 			  const char *fmt, ...)
 {
 	va_list ap;
@@ -780,7 +777,7 @@ static int ac_test_do_access(ac_test_t *at)
 	unsigned e;
 	static unsigned char user_stack[4096];
 	unsigned long rsp;
-	_Bool success = true;
+	bool success = true;
 	int flags = at->flags;
 
 	++unique;
