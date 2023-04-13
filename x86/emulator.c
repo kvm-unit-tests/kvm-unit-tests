@@ -4,7 +4,6 @@
 #include "vm.h"
 #include "libcflat.h"
 #include "desc.h"
-#include "types.h"
 #include "processor.h"
 #include "vmalloc.h"
 #include "alloc_page.h"

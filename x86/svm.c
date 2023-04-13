@@ -10,7 +10,6 @@
 #include "vm.h"
 #include "fwcfg.h"
 #include "smp.h"
-#include "types.h"
 #include "alloc_page.h"
 #include "isr.h"
 #include "apic.h"

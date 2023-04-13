@@ -16,7 +16,6 @@
 #include "isr.h"
 #include "desc.h"
 #include "apic.h"
-#include "types.h"
 #include "vmalloc.h"
 #include "alloc_page.h"
 #include "smp.h"
