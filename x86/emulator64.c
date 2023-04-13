@@ -1,14 +1,6 @@
 #define MAGIC_NUM 0xdeadbeefdeadbeefUL
 #define GS_BASE 0x400000
 
-static unsigned long rip_advance;
-
-static void advance_rip_and_note_exception(struct ex_regs *regs)
-{
-	++exceptions;
-	regs->rip += rip_advance;
-}
-
 static void test_cr8(void)
 {
 	unsigned long src, dst;
@@ -313,23 +305,24 @@ static void test_cmov(u32 *mem)
 
 static void test_mmx_movq_mf(uint64_t *mem)
 {
-	/* movq %mm0, (%rax) */
-	extern char movq_start, movq_end;
-	handler old;
-
 	uint16_t fcw = 0;  /* all exceptions unmasked */
-	write_cr0(read_cr0() & ~6);  /* TS, EM */
-	exceptions = 0;
-	old = handle_exception(MF_VECTOR, advance_rip_and_note_exception);
-	asm volatile("fninit; fldcw %0" : : "m"(fcw));
-	asm volatile("fldz; fldz; fdivp"); /* generate exception */
+	uint64_t val;
 
-	rip_advance = &movq_end - &movq_start;
-	asm(KVM_FEP "movq_start: movq %mm0, (%rax); movq_end:");
-	/* exit MMX mode */
-	asm volatile("fnclex; emms");
-	report(exceptions == 1, "movq mmx generates #MF");
-	handle_exception(MF_VECTOR, old);
+	write_cr0(read_cr0() & ~(X86_CR0_TS | X86_CR0_EM));
+	asm volatile("fninit\n\t"
+		     "fldcw %[fcw]\n\t"
+		     "fldz\n\t"
+		     "fldz\n\t"
+		     /* generate exception (0.0 / 0.0) */
+		     "fdivp\n\t"
+		     /* trigger #MF */
+		     ASM_TRY_FEP("1f") "movq %%mm0, %[val]\n\t"
+		     /* exit MMX mode */
+		     "1: fnclex\n\t"
+		     "emms\n\t"
+		     : [val]"=m"(val)
+		     : [fcw]"m"(fcw));
+	report(exception_vector() == MF_VECTOR, "movq mmx generates #MF");
 }
 
 static void test_jmp_noncanonical(uint64_t *mem)
