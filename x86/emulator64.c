@@ -401,6 +401,13 @@ static void test_sreg(volatile uint16_t *mem)
 	       exception_error_code() == 0 && read_ss() == 0,
 	       "mov null, %%ss (with ss.rpl != cpl)");
 
+	// check for exception when ss.rpl != cpl on non-null segment load
+	*mem = KERNEL_DS | 3;
+	asm volatile(ASM_TRY("1f") "mov %0, %%ss; 1:" : : "m"(*mem));
+	report(exception_vector() == GP_VECTOR &&
+	       exception_error_code() == KERNEL_DS && read_ss() == 0,
+	       "mov non-null, %%ss (with ss.rpl != cpl)");
+
 	write_ss(ss);
 }
 
