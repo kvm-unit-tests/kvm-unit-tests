@@ -97,6 +97,13 @@ uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
 			/* Kernel Mode */
 			"ret_to_kernel:\n\t"
 			"mov %[rsp0], %%rsp\n\t"
+#ifdef __x86_64__
+			/*
+			 * Restore SS, as the CPU loads SS with a NULL segment
+			 * if handling an interrupt/exception changes the CPL.
+			 */
+			"mov %[kernel_ds], %%ss\n\t"
+#endif
 			:
 			"+a"(rax),
 			[rsp0]"=m"(tss[0].rsp0)
@@ -108,6 +115,7 @@ uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
 			[func]"m"(func),
 			[user_ds]"i"(USER_DS),
 			[user_cs]"i"(USER_CS),
+			[kernel_ds]"rm"(KERNEL_DS),
 			[user_stack_top]"r"(user_stack +
 					sizeof(user_stack)),
 			[kernel_entry_vector]"i"(RET_TO_KERNEL_IRQ));
