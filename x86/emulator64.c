@@ -385,18 +385,9 @@ static void test_push16(uint64_t *mem)
 	report(rsp1 == rsp2, "push16");
 }
 
-static void ss_bad_rpl(struct ex_regs *regs)
-{
-	extern char ss_bad_rpl_cont;
-
-	++exceptions;
-	regs->rip = (ulong)&ss_bad_rpl_cont;
-}
-
 static void test_sreg(volatile uint16_t *mem)
 {
 	u16 ss = read_ss();
-	handler old;
 
 	// check for null segment load
 	*mem = 0;
@@ -404,13 +395,12 @@ static void test_sreg(volatile uint16_t *mem)
 	report(read_ss() == 0, "mov null, %%ss");
 
 	// check for exception when ss.rpl != cpl on null segment load
-	exceptions = 0;
-	old = handle_exception(GP_VECTOR, ss_bad_rpl);
 	*mem = 3;
-	asm volatile("mov %0, %%ss; ss_bad_rpl_cont:" : : "m"(*mem));
-	report(exceptions == 1 && read_ss() == 0,
+	asm volatile(ASM_TRY("1f") "mov %0, %%ss; 1:" : : "m"(*mem));
+	report(exception_vector() == GP_VECTOR &&
+	       exception_error_code() == 0 && read_ss() == 0,
 	       "mov null, %%ss (with ss.rpl != cpl)");
-	handle_exception(GP_VECTOR, old);
+
 	write_ss(ss);
 }
 
