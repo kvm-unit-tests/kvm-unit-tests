@@ -110,25 +110,28 @@ extern struct ex_record exception_table_start, exception_table_end;
 const char* exception_mnemonic(int vector)
 {
 	switch(vector) {
-	case 0: return "#DE";
-	case 1: return "#DB";
-	case 2: return "#NMI";
-	case 3: return "#BP";
-	case 4: return "#OF";
-	case 5: return "#BR";
-	case 6: return "#UD";
-	case 7: return "#NM";
-	case 8: return "#DF";
-	case 10: return "#TS";
-	case 11: return "#NP";
-	case 12: return "#SS";
-	case 13: return "#GP";
-	case 14: return "#PF";
-	case 16: return "#MF";
-	case 17: return "#AC";
-	case 18: return "#MC";
-	case 19: return "#XM";
+#define VEC(v) case v##_VECTOR: return "#" #v
+	VEC(DE);
+	VEC(DB);
+	VEC(NMI);
+	VEC(BP);
+	VEC(OF);
+	VEC(BR);
+	VEC(UD);
+	VEC(NM);
+	VEC(DF);
+	VEC(TS);
+	VEC(NP);
+	VEC(SS);
+	VEC(GP);
+	VEC(PF);
+	VEC(MF);
+	VEC(AC);
+	VEC(MC);
+	VEC(XM);
+	VEC(CP);
 	default: return "#??";
+#undef VEC
 	}
 }
 
