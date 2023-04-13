@@ -36,15 +36,17 @@ uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
 		uint64_t arg4, bool *raised_vector)
 {
 	extern char ret_to_kernel;
-	uint64_t rax = 0;
+	volatile uint64_t rax = 0;
 	static unsigned char user_stack[USERMODE_STACK_SIZE];
+	handler old_ex;
 
 	*raised_vector = 0;
 	set_idt_entry(RET_TO_KERNEL_IRQ, &ret_to_kernel, 3);
-	handle_exception(fault_vector,
-			restore_exec_to_jmpbuf_exception_handler);
+	old_ex = handle_exception(fault_vector,
+				  restore_exec_to_jmpbuf_exception_handler);
 
 	if (setjmp(jmpbuf) != 0) {
+		handle_exception(fault_vector, old_ex);
 		*raised_vector = 1;
 		return 0;
 	}
@@ -113,6 +115,8 @@ uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
 			[kernel_entry_vector]"i"(RET_TO_KERNEL_IRQ)
 			:
 			"rsi", "rdi", "rcx", "rdx");
+
+	handle_exception(fault_vector, old_ex);
 
 	return rax;
 }
