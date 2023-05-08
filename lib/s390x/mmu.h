@@ -93,6 +93,6 @@ static inline void unprotect_page(void *vaddr, unsigned long prot)
 	unprotect_dat_entry(vaddr, prot, pgtable_level_pte);
 }
 
-void *get_dat_entry(pgd_t *pgtable, void *vaddr, unsigned int level);
+void *get_dat_entry(pgd_t *pgtable, void *vaddr, enum pgt_level level);
 
 #endif /* _ASMS390X_MMU_H_ */
