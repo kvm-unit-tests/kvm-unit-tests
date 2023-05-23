@@ -275,8 +275,11 @@ exceptions_init:
 /*
  * Vector stubs
  * Adapted from arch/arm64/kernel/entry.S
+ * Declare as weak to allow external tests to redefine and override a
+ * vector_stub.
  */
 .macro vector_stub, name, vec
+.weak \name
 \name:
 	stp	 x0,  x1, [sp, #-S_FRAME_SIZE]!
 	stp	 x2,  x3, [sp,  #16]
@@ -369,7 +372,13 @@ vector_stub	el0_error_32, 15
 	b	\label
 .endm
 
+
+/*
+ * Declare as weak to allow external tests to redefine and override the
+ * default vector table.
+ */
 .align 11
+.weak vector_table
 vector_table:
 	ventry	el1t_sync			// Synchronous EL1t
 	ventry	el1t_irq			// IRQ EL1t
