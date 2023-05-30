@@ -8,6 +8,9 @@
  */
 
 #include "efi.h"
+#include <argv.h>
+#include <stdlib.h>
+#include <ctype.h>
 #include <libcflat.h>
 #include <asm/setup.h>
 
@@ -96,6 +99,80 @@ static void efi_exit(efi_status_t code)
 	efi_rs_call(reset_system, EFI_RESET_SHUTDOWN, code, 0, NULL);
 }
 
+/* Adapted from drivers/firmware/efi/libstub/efi-stub.c */
+static char *efi_convert_cmdline(struct efi_loaded_image_64 *image, int *cmd_line_len)
+{
+	const u16 *s2;
+	unsigned long cmdline_addr = 0;
+	int options_chars = image->load_options_size;
+	const u16 *options = image->load_options;
+	int options_bytes = 0, safe_options_bytes = 0;  /* UTF-8 bytes */
+	bool in_quote = false;
+	efi_status_t status;
+	const int COMMAND_LINE_SIZE = 2048;
+
+	if (options) {
+		s2 = options;
+		while (options_bytes < COMMAND_LINE_SIZE && options_chars--) {
+			u16 c = *s2++;
+
+			if (c < 0x80) {
+				if (c == L'\0' || c == L'\n')
+					break;
+				if (c == L'"')
+					in_quote = !in_quote;
+				else if (!in_quote && isspace((char)c))
+					safe_options_bytes = options_bytes;
+
+				options_bytes++;
+				continue;
+			}
+
+			/*
+			 * Get the number of UTF-8 bytes corresponding to a
+			 * UTF-16 character.
+			 * The first part handles everything in the BMP.
+			 */
+			options_bytes += 2 + (c >= 0x800);
+			/*
+			 * Add one more byte for valid surrogate pairs. Invalid
+			 * surrogates will be replaced with 0xfffd and take up
+			 * only 3 bytes.
+			 */
+			if ((c & 0xfc00) == 0xd800) {
+				/*
+				 * If the very last word is a high surrogate,
+				 * we must ignore it since we can't access the
+				 * low surrogate.
+				 */
+				if (!options_chars) {
+					options_bytes -= 3;
+				} else if ((*s2 & 0xfc00) == 0xdc00) {
+					options_bytes++;
+					options_chars--;
+					s2++;
+				}
+			}
+		}
+		if (options_bytes >= COMMAND_LINE_SIZE) {
+			options_bytes = safe_options_bytes;
+			printf("Command line is too long: truncated to %d bytes\n",
+			       options_bytes);
+		}
+	}
+
+	options_bytes++;        /* NUL termination */
+
+	status = efi_bs_call(allocate_pool, EFI_LOADER_DATA, options_bytes, (void **)&cmdline_addr);
+	if (status != EFI_SUCCESS)
+		return NULL;
+
+	snprintf((char *)cmdline_addr, options_bytes, "%.*ls", options_bytes - 1, options);
+
+	*cmd_line_len = options_bytes;
+	return (char *)cmdline_addr;
+}
+
 efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 {
 	int ret;
@@ -108,6 +185,31 @@ efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 	efi_memory_desc_t *map = NULL;
 	unsigned long map_size = 0, desc_size = 0, key = 0, buff_size = 0;
 	u32 desc_ver;
+
+	/* Helper variables needed to get the cmdline */
+	struct efi_loaded_image_64 *image;
+	efi_guid_t loaded_image_proto = LOADED_IMAGE_PROTOCOL_GUID;
+	char *cmdline_ptr = NULL;
+	int cmdline_size = 0;
+
+	/*
+	 * Get a handle to the loaded image protocol.  This is used to get
+	 * information about the running image, such as size and the command
+	 * line.
+	 */
+	status = efi_bs_call(handle_protocol, handle, &loaded_image_proto, (void *)&image);
+	if (status != EFI_SUCCESS) {
+		printf("Failed to get loaded image protocol\n");
+		goto efi_main_error;
+	}
+
+	cmdline_ptr = efi_convert_cmdline(image, &cmdline_size);
+	if (!cmdline_ptr) {
+		printf("getting command line via LOADED_IMAGE_PROTOCOL\n");
+		status = EFI_OUT_OF_RESOURCES;
+		goto efi_main_error;
+	}
+	setup_args(cmdline_ptr);
 
 	/* Set up efi_bootinfo */
 	efi_bootinfo.mem_map.map = &map;
