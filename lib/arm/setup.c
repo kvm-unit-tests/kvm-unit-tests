@@ -329,6 +329,8 @@ static efi_status_t efi_mem_init(efi_bootinfo_t *efi_bootinfo)
 	struct mem_region r;
 	uintptr_t text = (uintptr_t)&_text, etext = ALIGN((uintptr_t)&_etext, 4096);
 	uintptr_t data = (uintptr_t)&_data, edata = ALIGN((uintptr_t)&_edata, 4096);
+	const void *fdt = efi_bootinfo->fdt;
+	int fdt_size, ret;
 
 	/*
 	 * Record the largest free EFI_CONVENTIONAL_MEMORY region
@@ -393,6 +395,17 @@ static efi_status_t efi_mem_init(efi_bootinfo_t *efi_bootinfo)
 		}
 		mem_region_add(&r);
 	}
+	if (fdt) {
+		/* Move the FDT to the base of free memory */
+		fdt_size = fdt_totalsize(fdt);
+		ret = fdt_move(fdt, (void *)free_mem_start, fdt_size);
+		assert(ret == 0);
+		ret = dt_init((void *)free_mem_start);
+		assert(ret == 0);
+		free_mem_start += ALIGN(fdt_size, EFI_PAGE_SIZE);
+		free_mem_pages -= ALIGN(fdt_size, EFI_PAGE_SIZE) >> EFI_PAGE_SHIFT;
+	}
+
 	__phys_end &= PHYS_MASK;
 	asm_mmu_disable();
 
@@ -440,10 +453,12 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 		return status;
 	}
 
-	status = setup_rsdp(efi_bootinfo);
-	if (status != EFI_SUCCESS) {
-		printf("Cannot find RSDP in EFI system table\n");
-		return status;
+	if (!dt_available()) {
+		status = setup_rsdp(efi_bootinfo);
+		if (status != EFI_SUCCESS) {
+			printf("Cannot find RSDP in EFI system table\n");
+			return status;
+		}
 	}
 
 	psci_set_conduit();

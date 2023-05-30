@@ -19,6 +19,9 @@ source scripts/common.bash
 : "${EFI_UEFI:=/usr/share/qemu-efi-aarch64/QEMU_EFI.fd}"
 : "${EFI_TEST:=efi-tests}"
 : "${EFI_CASE:=$(basename $1 .efi)}"
+: "${EFI_VAR_GUID:=97ef3e03-7329-4a6a-b9ba-6c1fdcc5f823}"
+
+[ "$EFI_USE_ACPI" = "y" ] || EFI_USE_DTB=y
 
 if [ ! -f "$EFI_UEFI" ]; then
 	echo "UEFI firmware not found: $EFI_UEFI"
@@ -53,6 +56,12 @@ mkdir -p "$EFI_CASE_DIR"
 
 cp "$EFI_SRC/$EFI_CASE.efi" "$EFI_TEST/$EFI_CASE/"
 echo "@echo -off" > "$EFI_TEST/$EFI_CASE/startup.nsh"
+if [ "$EFI_USE_DTB" = "y" ]; then
+	qemu_args+=(-machine acpi=off)
+	FDT_BASENAME="dtb"
+	$(EFI_RUN=y $TEST_DIR/run -machine dumpdtb="$EFI_TEST/$EFI_CASE/$FDT_BASENAME" "${qemu_args[@]}")
+	echo "setvar fdtfile -guid $EFI_VAR_GUID -rt =L\"$FDT_BASENAME\""  >> "$EFI_TEST/$EFI_CASE/startup.nsh"
+fi
 echo "$EFI_CASE.efi" "${cmd_args[@]}" >> "$EFI_TEST/$EFI_CASE/startup.nsh"
 
 EFI_RUN=y $TEST_DIR/run \
