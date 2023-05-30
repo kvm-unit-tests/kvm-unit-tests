@@ -2,14 +2,14 @@
 #include "acpi.h"
 
 #ifdef CONFIG_EFI
-struct rsdp_descriptor *efi_rsdp = NULL;
+struct acpi_table_rsdp *efi_rsdp = NULL;
 
-void set_efi_rsdp(struct rsdp_descriptor *rsdp)
+void set_efi_rsdp(struct acpi_table_rsdp *rsdp)
 {
 	efi_rsdp = rsdp;
 }
 
-static struct rsdp_descriptor *get_rsdp(void)
+static struct acpi_table_rsdp *get_rsdp(void)
 {
 	if (efi_rsdp == NULL)
 		printf("Can't find RSDP from UEFI, maybe set_efi_rsdp() was not called\n");
@@ -17,9 +17,9 @@ static struct rsdp_descriptor *get_rsdp(void)
 	return efi_rsdp;
 }
 #else
-static struct rsdp_descriptor *get_rsdp(void)
+static struct acpi_table_rsdp *get_rsdp(void)
 {
-	struct rsdp_descriptor *rsdp;
+	struct acpi_table_rsdp *rsdp;
 	unsigned long addr;
 
 	for (addr = 0xe0000; addr < 0x100000; addr += 16) {
@@ -37,14 +37,14 @@ static struct rsdp_descriptor *get_rsdp(void)
 
 void *find_acpi_table_addr(u32 sig)
 {
-	struct rsdt_descriptor_rev1 *rsdt;
-	struct rsdp_descriptor *rsdp;
+	struct acpi_table_rsdt_rev1 *rsdt;
+	struct acpi_table_rsdp *rsdp;
 	void *end;
 	int i;
 
 	/* FACS is special... */
 	if (sig == FACS_SIGNATURE) {
-		struct fadt_descriptor_rev1 *fadt;
+		struct acpi_table_fadt_rev1 *fadt;
 
 		fadt = find_acpi_table_addr(FACP_SIGNATURE);
 		if (!fadt)

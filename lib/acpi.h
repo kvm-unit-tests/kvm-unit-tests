@@ -17,7 +17,7 @@
 
 #define RSDP_SIGNATURE_8BYTE (ACPI_SIGNATURE_8BYTE('R', 'S', 'D', ' ', 'P', 'T', 'R', ' '))
 
-struct rsdp_descriptor {	/* Root System Descriptor Pointer */
+struct acpi_table_rsdp {	/* Root System Descriptor Pointer */
 	u64 signature;		/* ACPI signature, contains "RSD PTR " */
 	u8 checksum;		/* To make sum of struct == 0 */
 	u8 oem_id[6];		/* OEM identification */
@@ -45,12 +45,12 @@ struct acpi_table {
 	char data[];
 };
 
-struct rsdt_descriptor_rev1 {
+struct acpi_table_rsdt_rev1 {
 	ACPI_TABLE_HEADER_DEF
 	u32 table_offset_entry[];
 };
 
-struct fadt_descriptor_rev1 {
+struct acpi_table_fadt_rev1 {
 	ACPI_TABLE_HEADER_DEF	/* ACPI common table header */
 	u32 firmware_ctrl;	/* Physical address of FACS */
 	u32 dsdt;		/* Physical address of DSDT */
@@ -92,7 +92,7 @@ struct fadt_descriptor_rev1 {
 	u8 reserved4b;		/* Reserved */
 };
 
-struct facs_descriptor_rev1 {
+struct acpi_table_facs_rev1 {
 	u32 signature;		/* ACPI Signature */
 	u32 length;		/* Length of structure, in bytes */
 	u32 hardware_signature;	/* Hardware configuration signature */
@@ -103,7 +103,7 @@ struct facs_descriptor_rev1 {
 	u8 reserved3[40];	/* Reserved - must be zero */
 };
 
-void set_efi_rsdp(struct rsdp_descriptor *rsdp);
+void set_efi_rsdp(struct acpi_table_rsdp *rsdp);
 void *find_acpi_table_addr(u32 sig);
 
 #endif

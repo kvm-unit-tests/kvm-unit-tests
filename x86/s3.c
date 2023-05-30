@@ -4,7 +4,7 @@
 
 static u32* find_resume_vector_addr(void)
 {
-    struct facs_descriptor_rev1 *facs = find_acpi_table_addr(FACS_SIGNATURE);
+    struct acpi_table_facs_rev1 *facs = find_acpi_table_addr(FACS_SIGNATURE);
     if (!facs)
         return 0;
     printf("FACS is at %p\n", facs);
@@ -39,7 +39,7 @@ extern char resume_start, resume_end;
 
 int main(int argc, char **argv)
 {
-	struct fadt_descriptor_rev1 *fadt = find_acpi_table_addr(FACP_SIGNATURE);
+	struct acpi_table_fadt_rev1 *fadt = find_acpi_table_addr(FACP_SIGNATURE);
 	volatile u32 *resume_vector_ptr = find_resume_vector_addr();
 	char *addr, *resume_vec = (void*)0x1000;
 
