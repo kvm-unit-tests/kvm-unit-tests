@@ -11,9 +11,9 @@ void set_efi_rsdp(struct rsdp_descriptor *rsdp)
 
 static struct rsdp_descriptor *get_rsdp(void)
 {
-	if (efi_rsdp == NULL) {
+	if (efi_rsdp == NULL)
 		printf("Can't find RSDP from UEFI, maybe set_efi_rsdp() was not called\n");
-	}
+
 	return efi_rsdp;
 }
 #else
@@ -28,9 +28,8 @@ static struct rsdp_descriptor *get_rsdp(void)
 			break;
 	}
 
-	if (addr == 0x100000) {
+	if (addr == 0x100000)
 		return NULL;
-	}
 
 	return rsdp;
 }
@@ -38,18 +37,18 @@ static struct rsdp_descriptor *get_rsdp(void)
 
 void *find_acpi_table_addr(u32 sig)
 {
-	struct rsdp_descriptor *rsdp;
 	struct rsdt_descriptor_rev1 *rsdt;
+	struct rsdp_descriptor *rsdp;
 	void *end;
 	int i;
 
 	/* FACS is special... */
 	if (sig == FACS_SIGNATURE) {
 		struct fadt_descriptor_rev1 *fadt;
+
 		fadt = find_acpi_table_addr(FACP_SIGNATURE);
 		if (!fadt)
 			return NULL;
-
 		return (void *)(ulong) fadt->firmware_ctrl;
 	}
 
@@ -72,9 +71,10 @@ void *find_acpi_table_addr(u32 sig)
 	end = (void *)rsdt + rsdt->length;
 	for (i = 0; (void *)&rsdt->table_offset_entry[i] < end; i++) {
 		struct acpi_table *t = (void *)(ulong) rsdt->table_offset_entry[i];
-		if (t && t->signature == sig) {
+
+		if (t && t->signature == sig)
 			return t;
-		}
 	}
+
 	return NULL;
 }
