@@ -2,6 +2,7 @@
 
 all: directories test_cases
 
+cflatobjs += lib/acpi.o
 cflatobjs += lib/pci.o
 cflatobjs += lib/pci-edu.o
 cflatobjs += lib/alloc.o
@@ -18,7 +19,6 @@ cflatobjs += lib/x86/apic.o
 cflatobjs += lib/x86/atomic.o
 cflatobjs += lib/x86/desc.o
 cflatobjs += lib/x86/isr.o
-cflatobjs += lib/x86/acpi.o
 cflatobjs += lib/x86/stack.o
 cflatobjs += lib/x86/fault_test.o
 cflatobjs += lib/x86/delay.o

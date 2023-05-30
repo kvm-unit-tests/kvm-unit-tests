@@ -1,5 +1,5 @@
 #include "libcflat.h"
-#include "x86/acpi.h"
+#include "acpi.h"
 #include "asm/io.h"
 
 static u32* find_resume_vector_addr(void)

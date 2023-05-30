@@ -1,5 +1,5 @@
-#ifndef _X86_ACPI_H_
-#define _X86_ACPI_H_
+#ifndef _ACPI_H_
+#define _ACPI_H_
 
 #include "libcflat.h"
 
