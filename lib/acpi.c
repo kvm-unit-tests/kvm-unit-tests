@@ -36,47 +36,45 @@ static struct rsdp_descriptor *get_rsdp(void)
 }
 #endif /* CONFIG_EFI */
 
-void* find_acpi_table_addr(u32 sig)
+void *find_acpi_table_addr(u32 sig)
 {
-    struct rsdp_descriptor *rsdp;
-    struct rsdt_descriptor_rev1 *rsdt;
-    void *end;
-    int i;
+	struct rsdp_descriptor *rsdp;
+	struct rsdt_descriptor_rev1 *rsdt;
+	void *end;
+	int i;
 
-    /* FACS is special... */
-    if (sig == FACS_SIGNATURE) {
-        struct fadt_descriptor_rev1 *fadt;
-        fadt = find_acpi_table_addr(FACP_SIGNATURE);
-        if (!fadt) {
-            return NULL;
-        }
-        return (void*)(ulong)fadt->firmware_ctrl;
-    }
+	/* FACS is special... */
+	if (sig == FACS_SIGNATURE) {
+		struct fadt_descriptor_rev1 *fadt;
+		fadt = find_acpi_table_addr(FACP_SIGNATURE);
+		if (!fadt)
+			return NULL;
 
-    rsdp = get_rsdp();
-    if (rsdp == NULL) {
-        printf("Can't find RSDP\n");
-        return 0;
-    }
+		return (void *)(ulong) fadt->firmware_ctrl;
+	}
 
-    if (sig == RSDP_SIGNATURE) {
-        return rsdp;
-    }
+	rsdp = get_rsdp();
+	if (rsdp == NULL) {
+		printf("Can't find RSDP\n");
+		return NULL;
+	}
 
-    rsdt = (void*)(ulong)rsdp->rsdt_physical_address;
-    if (!rsdt || rsdt->signature != RSDT_SIGNATURE)
-        return 0;
+	if (sig == RSDP_SIGNATURE)
+		return rsdp;
 
-    if (sig == RSDT_SIGNATURE) {
-        return rsdt;
-    }
+	rsdt = (void *)(ulong) rsdp->rsdt_physical_address;
+	if (!rsdt || rsdt->signature != RSDT_SIGNATURE)
+		return NULL;
 
-    end = (void*)rsdt + rsdt->length;
-    for (i=0; (void*)&rsdt->table_offset_entry[i] < end; i++) {
-        struct acpi_table *t = (void*)(ulong)rsdt->table_offset_entry[i];
-        if (t && t->signature == sig) {
-            return t;
-        }
-    }
-   return NULL;
+	if (sig == RSDT_SIGNATURE)
+		return rsdt;
+
+	end = (void *)rsdt + rsdt->length;
+	for (i = 0; (void *)&rsdt->table_offset_entry[i] < end; i++) {
+		struct acpi_table *t = (void *)(ulong) rsdt->table_offset_entry[i];
+		if (t && t->signature == sig) {
+			return t;
+		}
+	}
+	return NULL;
 }
