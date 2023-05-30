@@ -130,11 +130,18 @@ function run()
         done
     fi
 
-    last_line=$(premature_failure > >(tail -1)) && {
+    log=$(premature_failure) && {
         skip=true
-        if [ "${CONFIG_EFI}" == "y" ] && [[ "${last_line}" =~ "Dummy Hello World!" ]]; then
-            skip=false
+        if [ "${CONFIG_EFI}" == "y" ]; then
+            if [ "$ARCH" == "x86_64" ] &&
+               [[ "$(tail -1 <<<"$log")" =~ "Dummy Hello World!" ]]; then
+                   skip=false
+            elif [ "$ARCH" == "arm64" ] &&
+               [[ "$(tail -2 <<<"$log" | head -1)" =~ "Dummy Hello World!" ]]; then
+                   skip=false
+            fi
         fi
+
         if [ ${skip} == true ]; then
             print_result "SKIP" $testname "" "$last_line"
             return 77

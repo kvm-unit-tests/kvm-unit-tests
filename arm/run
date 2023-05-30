@@ -64,8 +64,10 @@ if ! $qemu $M -chardev '?' | grep -q testdev; then
 	exit 2
 fi
 
-chr_testdev='-device virtio-serial-device'
-chr_testdev+=' -device virtconsole,chardev=ctd -chardev testdev,id=ctd'
+if [ "$EFI_RUN" != "y" ]; then
+	chr_testdev='-device virtio-serial-device'
+	chr_testdev+=' -device virtconsole,chardev=ctd -chardev testdev,id=ctd'
+fi
 
 pci_testdev=
 if $qemu $M -device '?' | grep -q pci-testdev; then
@@ -74,7 +76,11 @@ fi
 
 A="-accel $ACCEL"
 command="$qemu -nodefaults $M $A -cpu $processor $chr_testdev $pci_testdev"
-command+=" -display none -serial stdio -kernel"
+command+=" -display none -serial stdio"
 command="$(migration_cmd) $(timeout_cmd) $command"
 
-run_qemu $command "$@"
+if [ "$EFI_RUN" = "y" ]; then
+	ENVIRON_DEFAULT=n run_qemu_status $command "$@"
+else
+	run_qemu $command -kernel "$@"
+fi
