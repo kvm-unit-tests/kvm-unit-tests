@@ -7,6 +7,10 @@ bits = 32
 ldarch = elf32-littlearm
 machine = -marm -mfpu=vfp
 
+ifeq ($(CONFIG_EFI),y)
+$(error Cannot build arm32 tests as EFI apps)
+endif
+
 # stack.o relies on frame pointers.
 KEEP_FRAME_POINTER := y
 
@@ -31,6 +35,8 @@ cflatobjs += lib/arm/processor.o
 cflatobjs += lib/arm/stack.o
 cflatobjs += lib/ldiv32.o
 cflatobjs += lib/arm/ldivmod.o
+
+exe = flat
 
 # arm specific tests
 tests =

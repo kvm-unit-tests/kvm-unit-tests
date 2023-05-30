@@ -4,14 +4,14 @@
 # Authors: Andrew Jones <drjones@redhat.com>
 #
 
-tests-common  = $(TEST_DIR)/selftest.flat
-tests-common += $(TEST_DIR)/spinlock-test.flat
-tests-common += $(TEST_DIR)/pci-test.flat
-tests-common += $(TEST_DIR)/pmu.flat
-tests-common += $(TEST_DIR)/gic.flat
-tests-common += $(TEST_DIR)/psci.flat
-tests-common += $(TEST_DIR)/sieve.flat
-tests-common += $(TEST_DIR)/pl031.flat
+tests-common  = $(TEST_DIR)/selftest.$(exe)
+tests-common += $(TEST_DIR)/spinlock-test.$(exe)
+tests-common += $(TEST_DIR)/pci-test.$(exe)
+tests-common += $(TEST_DIR)/pmu.$(exe)
+tests-common += $(TEST_DIR)/gic.$(exe)
+tests-common += $(TEST_DIR)/psci.$(exe)
+tests-common += $(TEST_DIR)/sieve.$(exe)
+tests-common += $(TEST_DIR)/pl031.$(exe)
 
 tests-all = $(tests-common) $(tests)
 all: directories $(tests-all)
@@ -54,6 +54,9 @@ cflatobjs += lib/arm/smp.o
 cflatobjs += lib/arm/delay.o
 cflatobjs += lib/arm/gic.o lib/arm/gic-v2.o lib/arm/gic-v3.o
 cflatobjs += lib/arm/timer.o
+ifeq ($(CONFIG_EFI),y)
+cflatobjs += lib/efi.o
+endif
 
 OBJDIRS += lib/arm
 
@@ -61,6 +64,25 @@ libeabi = lib/arm/libeabi.a
 eabiobjs = lib/arm/eabi_compat.o
 
 FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libeabi)
+
+ifeq ($(CONFIG_EFI),y)
+%.so: EFI_LDFLAGS += -defsym=EFI_SUBSYSTEM=0xa --no-undefined
+%.so: %.o $(FLATLIBS) $(SRCDIR)/arm/efi/elf_aarch64_efi.lds $(cstart.o)
+	$(CC) $(CFLAGS) -c -o $(@:.so=.aux.o) $(SRCDIR)/lib/auxinfo.c \
+		-DPROGNAME=\"$(@:.so=.efi)\" -DAUXFLAGS=$(AUXFLAGS)
+	$(LD) $(EFI_LDFLAGS) -o $@ -T $(SRCDIR)/arm/efi/elf_aarch64_efi.lds \
+		$(filter %.o, $^) $(FLATLIBS) $(@:.so=.aux.o) \
+		$(EFI_LIBS)
+	$(RM) $(@:.so=.aux.o)
+
+%.efi: %.so
+	$(call arch_elf_check, $^)
+	$(OBJCOPY) \
+		-j .text -j .sdata -j .data -j .dynamic -j .dynsym \
+		-j .rel -j .rela -j .rel.* -j .rela.* -j .rel* -j .rela* \
+		-j .reloc \
+		-O binary $^ $@
+else
 %.elf: LDFLAGS = -nostdlib $(arch_LDFLAGS)
 %.elf: %.o $(FLATLIBS) $(SRCDIR)/arm/flat.lds $(cstart.o)
 	$(CC) $(CFLAGS) -c -o $(@:.elf=.aux.o) $(SRCDIR)/lib/auxinfo.c \
@@ -74,13 +96,14 @@ FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libeabi)
 	$(call arch_elf_check, $^)
 	$(OBJCOPY) -O binary $^ $@
 	@chmod a-x $@
+endif
 
 $(libeabi): $(eabiobjs)
 	$(AR) rcs $@ $^
 
 arm_clean: asm_offsets_clean
-	$(RM) $(TEST_DIR)/*.{o,flat,elf} $(libeabi) $(eabiobjs) \
-	      $(TEST_DIR)/.*.d lib/arm/.*.d
+	$(RM) $(TEST_DIR)/*.{o,flat,elf,so,efi} $(libeabi) $(eabiobjs) \
+	      $(TEST_DIR)/.*.d $(TEST_DIR)/efi/.*.d lib/arm/.*.d
 
 generated-files = $(asm-offsets)
-$(tests-all:.flat=.o) $(cstart.o) $(cflatobjs): $(generated-files)
+$(tests-all:.$(exe)=.o) $(cstart.o) $(cflatobjs): $(generated-files)
