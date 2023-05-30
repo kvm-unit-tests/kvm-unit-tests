@@ -37,7 +37,8 @@ static struct acpi_table_rsdp *get_rsdp(void)
 
 void *find_acpi_table_addr(u32 sig)
 {
-	struct acpi_table_rsdt_rev1 *rsdt;
+	struct acpi_table_rsdt_rev1 *rsdt = NULL;
+	struct acpi_table_xsdt *xsdt = NULL;
 	struct acpi_table_rsdp *rsdp;
 	void *end;
 	int i;
@@ -62,18 +63,41 @@ void *find_acpi_table_addr(u32 sig)
 		return rsdp;
 
 	rsdt = (void *)(ulong) rsdp->rsdt_physical_address;
-	if (!rsdt || rsdt->signature != RSDT_SIGNATURE)
-		return NULL;
+	if (rsdt && rsdt->signature != RSDT_SIGNATURE)
+		rsdt = NULL;
 
 	if (sig == RSDT_SIGNATURE)
 		return rsdt;
 
-	end = (void *)rsdt + rsdt->length;
-	for (i = 0; (void *)&rsdt->table_offset_entry[i] < end; i++) {
-		struct acpi_table *t = (void *)(ulong) rsdt->table_offset_entry[i];
+	if (rsdp->revision >= 2) {
+		xsdt = (void *)(ulong) rsdp->xsdt_physical_address;
+		if (xsdt && xsdt->signature != XSDT_SIGNATURE)
+			xsdt = NULL;
+	}
 
-		if (t && t->signature == sig)
-			return t;
+	if (sig == XSDT_SIGNATURE)
+		return xsdt;
+
+	/*
+	 * When the system implements APCI 2.0 and above and XSDT is valid we
+	 * have use XSDT to find other ACPI tables, otherwise, we use RSDT.
+	 */
+	if (xsdt) {
+		end = (void *)xsdt + xsdt->length;
+		for (i = 0; (void *)&xsdt->table_offset_entry[i] < end; i++) {
+			struct acpi_table *t = (void *)(ulong) xsdt->table_offset_entry[i];
+
+			if (t && t->signature == sig)
+				return t;
+		}
+	} else if (rsdt) {
+		end = (void *)rsdt + rsdt->length;
+		for (i = 0; (void *)&rsdt->table_offset_entry[i] < end; i++) {
+			struct acpi_table *t = (void *)(ulong) rsdt->table_offset_entry[i];
+
+			if (t && t->signature == sig)
+				return t;
+		}
 	}
 
 	return NULL;
