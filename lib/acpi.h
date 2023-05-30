@@ -17,6 +17,7 @@
 #define XSDT_SIGNATURE ACPI_SIGNATURE('X','S','D','T')
 #define FACP_SIGNATURE ACPI_SIGNATURE('F','A','C','P')
 #define FACS_SIGNATURE ACPI_SIGNATURE('F','A','C','S')
+#define MADT_SIGNATURE ACPI_SIGNATURE('A','P','I','C')
 #define SPCR_SIGNATURE ACPI_SIGNATURE('S','P','C','R')
 #define GTDT_SIGNATURE ACPI_SIGNATURE('G','T','D','T')
 
@@ -147,6 +148,67 @@ struct acpi_table_facs_rev1 {
 	u8 reserved3[40];	/* Reserved - must be zero */
 };
 
+struct acpi_table_madt {
+	ACPI_TABLE_HEADER_DEF	/* ACPI common table header */
+	u32 address;		/* Physical address of local APIC */
+	u32 flags;
+};
+
+struct acpi_subtable_header {
+	u8 type;
+	u8 length;
+};
+
+typedef int (*acpi_table_handler)(struct acpi_subtable_header *header);
+
+/* 11: Generic interrupt - GICC (ACPI 5.0 + ACPI 6.0 + ACPI 6.3 changes) */
+
+struct acpi_madt_generic_interrupt {
+	u8 type;
+	u8 length;
+	u16 reserved;		/* reserved - must be zero */
+	u32 cpu_interface_number;
+	u32 uid;
+	u32 flags;
+	u32 parking_version;
+	u32 performance_interrupt;
+	u64 parked_address;
+	u64 base_address;
+	u64 gicv_base_address;
+	u64 gich_base_address;
+	u32 vgic_interrupt;
+	u64 gicr_base_address;
+	u64 arm_mpidr;
+	u8 efficiency_class;
+	u8 reserved2[1];
+	u16 spe_interrupt;	/* ACPI 6.3 */
+};
+
+/* Values for MADT subtable type in struct acpi_subtable_header */
+
+enum acpi_madt_type {
+	ACPI_MADT_TYPE_LOCAL_APIC = 0,
+	ACPI_MADT_TYPE_IO_APIC = 1,
+	ACPI_MADT_TYPE_INTERRUPT_OVERRIDE = 2,
+	ACPI_MADT_TYPE_NMI_SOURCE = 3,
+	ACPI_MADT_TYPE_LOCAL_APIC_NMI = 4,
+	ACPI_MADT_TYPE_LOCAL_APIC_OVERRIDE = 5,
+	ACPI_MADT_TYPE_IO_SAPIC = 6,
+	ACPI_MADT_TYPE_LOCAL_SAPIC = 7,
+	ACPI_MADT_TYPE_INTERRUPT_SOURCE = 8,
+	ACPI_MADT_TYPE_LOCAL_X2APIC = 9,
+	ACPI_MADT_TYPE_LOCAL_X2APIC_NMI = 10,
+	ACPI_MADT_TYPE_GENERIC_INTERRUPT = 11,
+	ACPI_MADT_TYPE_GENERIC_DISTRIBUTOR = 12,
+	ACPI_MADT_TYPE_GENERIC_MSI_FRAME = 13,
+	ACPI_MADT_TYPE_GENERIC_REDISTRIBUTOR = 14,
+	ACPI_MADT_TYPE_GENERIC_TRANSLATOR = 15,
+	ACPI_MADT_TYPE_RESERVED = 16	/* 16 and greater are reserved */
+};
+
+/* MADT Local APIC flags */
+#define ACPI_MADT_ENABLED		(1)	/* 00: Processor is usable if set */
+
 struct spcr_descriptor {
 	ACPI_TABLE_HEADER_DEF	/* ACPI common table header */
 	u8 interface_type;	/* 0=full 16550, 1=subset of 16550 */
@@ -193,5 +255,6 @@ struct acpi_table_gtdt {
 
 void set_efi_rsdp(struct acpi_table_rsdp *rsdp);
 void *find_acpi_table_addr(u32 sig);
+void acpi_table_parse_madt(enum acpi_madt_type mtype, acpi_table_handler handler);
 
 #endif

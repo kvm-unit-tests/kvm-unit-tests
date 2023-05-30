@@ -55,7 +55,7 @@ int mpidr_to_cpu(uint64_t mpidr)
 	return -1;
 }
 
-static void cpu_set(int fdtnode __unused, u64 regval, void *info __unused)
+static void cpu_set_fdt(int fdtnode __unused, u64 regval, void *info __unused)
 {
 	int cpu = nr_cpus++;
 
@@ -65,13 +65,49 @@ static void cpu_set(int fdtnode __unused, u64 regval, void *info __unused)
 	set_cpu_present(cpu, true);
 }
 
+#ifdef CONFIG_EFI
+
+#include <acpi.h>
+
+static int cpu_set_acpi(struct acpi_subtable_header *header)
+{
+	int cpu = nr_cpus++;
+	struct acpi_madt_generic_interrupt *gicc = (void *)header;
+
+	assert_msg(cpu < NR_CPUS, "Number cpus exceeds maximum supported (%d).", NR_CPUS);
+
+	cpus[cpu] = gicc->arm_mpidr;
+	set_cpu_present(cpu, true);
+
+	return 0;
+}
+
+static void cpu_init_acpi(void)
+{
+	acpi_table_parse_madt(ACPI_MADT_TYPE_GENERIC_INTERRUPT, cpu_set_acpi);
+}
+
+#else
+
+static void cpu_init_acpi(void)
+{
+	assert_msg(false, "ACPI not available");
+}
+
+#endif
+
 static void cpu_init(void)
 {
 	int ret;
 
 	nr_cpus = 0;
-	ret = dt_for_each_cpu_node(cpu_set, NULL);
-	assert(ret == 0);
+	if (dt_available()) {
+		ret = dt_for_each_cpu_node(cpu_set_fdt, NULL);
+		assert(ret == 0);
+	} else {
+		cpu_init_acpi();
+	}
+
 	set_cpu_online(0, true);
 }
 
