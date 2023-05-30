@@ -38,4 +38,12 @@ extern unsigned int mem_region_get_flags(phys_addr_t paddr);
 
 void setup(const void *fdt, phys_addr_t freemem_start);
 
+#ifdef CONFIG_EFI
+
+#include <efi.h>
+
+efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo);
+
+#endif
+
 #endif /* _ASMARM_SETUP_H_ */

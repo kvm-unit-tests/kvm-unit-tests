@@ -265,6 +265,7 @@ asm_mmu_disable:
  * Vectors
  */
 
+.globl exceptions_init
 exceptions_init:
 	adrp	x4, vector_table
 	add	x4, x4, :lo12:vector_table

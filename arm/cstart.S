@@ -242,6 +242,7 @@ asm_mmu_disable:
  *
  * Input r0 is the stack top, which is the exception stacks base
  */
+.globl exceptions_init
 exceptions_init:
 	mrc	p15, 0, r2, c1, c0, 0	@ read SCTLR
 	bic	r2, #CR_V		@ SCTLR.V := 0
