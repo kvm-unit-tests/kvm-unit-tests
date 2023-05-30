@@ -103,11 +103,12 @@ void *find_acpi_table_addr(u32 sig)
 	return NULL;
 }
 
-void acpi_table_parse_madt(enum acpi_madt_type mtype, acpi_table_handler handler)
+int acpi_table_parse_madt(enum acpi_madt_type mtype, acpi_table_handler handler)
 {
 	struct acpi_table_madt *madt;
 	struct acpi_subtable_header *header;
 	void *end;
+	int count = 0;
 
 	madt = find_acpi_table_addr(MADT_SIGNATURE);
 	assert(madt);
@@ -116,9 +117,13 @@ void acpi_table_parse_madt(enum acpi_madt_type mtype, acpi_table_handler handler
 	end = (void *)((ulong) madt + madt->length);
 
 	while ((void *)header < end) {
-		if (header->type == mtype)
+		if (header->type == mtype) {
 			handler(header);
+			count++;
+		}
 
 		header = (void *)(ulong) header + header->length;
 	}
+
+	return count;
 }
