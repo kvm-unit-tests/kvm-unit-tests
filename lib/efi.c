@@ -173,6 +173,128 @@ static char *efi_convert_cmdline(struct efi_loaded_image_64 *image, int *cmd_lin
 	return (char *)cmdline_addr;
 }
 
+/*
+ * Open the file and read it into a buffer.
+ */
+static void efi_load_image(efi_handle_t handle, struct efi_loaded_image_64 *image, void **data,
+			   int *datasize, efi_char16_t *path_name)
+{
+	uint64_t buffer_size = sizeof(efi_file_info_t);
+	efi_file_info_t *file_info;
+	efi_file_io_interface_t *io_if;
+	efi_file_t *root, *file;
+	efi_status_t status;
+	efi_guid_t file_system_proto_guid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
+	efi_guid_t file_info_guid = EFI_FILE_INFO_ID;
+
+	/* Open the device */
+	status = efi_bs_call(handle_protocol, image->device_handle, &file_system_proto_guid,
+			     (void **)&io_if);
+	if (status != EFI_SUCCESS)
+		return;
+
+	status = io_if->open_volume(io_if, &root);
+	if (status != EFI_SUCCESS)
+		return;
+
+	/* And then open the file */
+	status = root->open(root, &file, path_name, EFI_FILE_MODE_READ, 0);
+	if (status != EFI_SUCCESS) {
+		printf("Failed to open %ls - %lx\n", path_name, status);
+		assert(status == EFI_SUCCESS);
+	}
+
+	/* Find the file size in order to allocate the buffer */
+	status = efi_bs_call(allocate_pool, EFI_LOADER_DATA, buffer_size, (void **)&file_info);
+	if (status != EFI_SUCCESS)
+		return;
+
+	status = file->get_info(file, &file_info_guid, &buffer_size, file_info);
+	if (status == EFI_BUFFER_TOO_SMALL) {
+		efi_free_pool(file_info);
+		status = efi_bs_call(allocate_pool, EFI_LOADER_DATA, buffer_size, (void **)&file_info);
+		assert(file_info);
+		status = file->get_info(file, &file_info_guid, &buffer_size, file_info);
+	}
+	assert(status == EFI_SUCCESS);
+
+	buffer_size = file_info->file_size;
+
+	efi_free_pool(file_info);
+
+	status = efi_bs_call(allocate_pool, EFI_LOADER_DATA, buffer_size, (void **)data);
+	assert(*data);
+	/* Perform the actual read */
+	status = file->read(file, &buffer_size, *data);
+	if (status == EFI_BUFFER_TOO_SMALL) {
+		efi_free_pool(*data);
+		status = efi_bs_call(allocate_pool, EFI_LOADER_DATA, buffer_size, (void **)data);
+		status = file->read(file, &buffer_size, *data);
+	}
+	assert(status == EFI_SUCCESS);
+
+	*datasize = buffer_size;
+}
+
+static int efi_grow_buffer(efi_status_t *status, void **buffer, uint64_t buffer_size)
+{
+	int try_again;
+
+	if (!*buffer && buffer_size) {
+		*status = EFI_BUFFER_TOO_SMALL;
+	}
+
+	try_again = 0;
+	if (*status == EFI_BUFFER_TOO_SMALL) {
+		if (*buffer)
+			efi_free_pool(*buffer);
+
+		efi_bs_call(allocate_pool, EFI_LOADER_DATA, buffer_size, buffer);
+		if (*buffer) {
+			try_again = 1;
+		} else {
+			*status = EFI_OUT_OF_RESOURCES;
+		}
+	}
+
+	if (!try_again && EFI_ERROR(*status) && *buffer) {
+		efi_free_pool(*buffer);
+		*buffer = NULL;
+	}
+
+	return try_again;
+}
+
+static void* efi_get_var(efi_handle_t handle, struct efi_loaded_image_64 *image, efi_char16_t *var)
+{
+	efi_status_t status = EFI_SUCCESS;
+	void *val = NULL;
+	uint64_t val_size = 100;
+	efi_guid_t efi_var_guid = EFI_VAR_GUID;
+
+	while (efi_grow_buffer(&status, &val, val_size + sizeof(efi_char16_t)))
+		status = efi_rs_call(get_variable, var, &efi_var_guid, NULL, &val_size, val);
+
+	if (val)
+		((efi_char16_t *)val)[val_size / sizeof(efi_char16_t)] = L'\0';
+
+	return val;
+}
+
+static void *efi_get_fdt(efi_handle_t handle, struct efi_loaded_image_64 *image)
+{
+	efi_char16_t var[] = ENV_VARNAME_DTBFILE;
+	efi_char16_t *val;
+	void *fdt = NULL;
+	int fdtsize;
+
+	val = efi_get_var(handle, image, var);
+	if (val)
+		efi_load_image(handle, image, &fdt, &fdtsize, val);
+
+	return fdt;
+}
+
 efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 {
 	int ret;
@@ -211,6 +333,7 @@ efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 	}
 	setup_args(cmdline_ptr);
 
+	efi_bootinfo.fdt = efi_get_fdt(handle, image);
 	/* Set up efi_bootinfo */
 	efi_bootinfo.mem_map.map = &map;
 	efi_bootinfo.mem_map.map_size = &map_size;

@@ -12,6 +12,7 @@
 
 #define BITS_PER_LONG 64
 
+#define EFI_ERROR(a)		(((int64_t) a) < 0)
 #define EFI_SUCCESS		0
 #define EFI_LOAD_ERROR		( 1 | (1UL << (BITS_PER_LONG-1)))
 #define EFI_INVALID_PARAMETER	( 2 | (1UL << (BITS_PER_LONG-1)))
@@ -435,6 +436,106 @@ struct efi_loaded_image_64 {
 	unsigned int		image_data_type;
 	efi_status_t		(__efiapi * unload)(efi_handle_t image_handle);
 };
+
+
+typedef struct _efi_simple_file_system_protocol efi_simple_file_system_protocol_t;
+typedef struct _efi_file_protocol efi_file_protocol_t;
+typedef efi_simple_file_system_protocol_t efi_file_io_interface_t;
+typedef efi_file_protocol_t efi_file_t;
+
+typedef efi_status_t efi_simple_file_system_protocol_open_volume(
+	efi_simple_file_system_protocol_t *this,
+	efi_file_protocol_t **root);
+
+#define EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID EFI_GUID(0x964e5b22, 0x6459, 0x11d2, 0x8e, 0x39, 0x0, 0xa0, 0xc9, 0x69, 0x72, 0x3b)
+
+struct _efi_simple_file_system_protocol {
+	uint64_t						revision;
+	efi_simple_file_system_protocol_open_volume __efiapi	*open_volume;
+};
+
+/* Open modes */
+#define EFI_FILE_MODE_READ    0x0000000000000001ULL
+#define EFI_FILE_MODE_WRITE   0x0000000000000002ULL
+#define EFI_FILE_MODE_CREATE  0x8000000000000000ULL
+
+typedef efi_status_t efi_file_open(efi_file_protocol_t *this,
+				   efi_file_protocol_t **new_handle,
+				   efi_char16_t *file_name,
+				   uint64_t open_mode,
+				   uint64_t attributes);
+typedef efi_status_t efi_file_close(efi_file_protocol_t *this);
+typedef efi_status_t efi_file_delete(efi_file_protocol_t *this);
+typedef efi_status_t efi_file_read(efi_file_protocol_t *this,
+				   uint64_t *buffer_size,
+				   void *buffer);
+typedef efi_status_t efi_file_write(efi_file_protocol_t *this,
+				    uint64_t *buffer_size,
+				    void *buffer);
+typedef efi_status_t efi_file_set_position(efi_file_protocol_t *this,
+					   uint64_t position);
+typedef efi_status_t efi_file_get_position(efi_file_protocol_t *this,
+					   uint64_t *position);
+typedef efi_status_t efi_file_get_info(efi_file_protocol_t *this,
+				       efi_guid_t *information_type,
+				       uint64_t *buffer_size,
+				       void *buffer);
+typedef efi_status_t efi_file_set_info(efi_file_protocol_t *this,
+				       efi_guid_t *information_type,
+				       uint64_t *buffer_size,
+				       void *buffer);
+typedef efi_status_t efi_file_flush(efi_file_protocol_t *this);
+
+typedef struct {
+	efi_event_t event;
+	efi_status_t status;
+	uint64_t buffer_size;
+	void *buffer;
+} efi_file_io_open_t;
+
+typedef efi_status_t efi_file_open_ex(efi_file_protocol_t *this,
+				      efi_file_protocol_t **new_handle,
+				      efi_char16_t *file_name,
+				      uint64_t open_mode,
+				      uint64_t attributes,
+				      efi_file_io_open_t *token);
+typedef efi_status_t efi_file_read_ex(efi_file_protocol_t *this,
+				      efi_file_io_open_t *token);
+typedef efi_status_t efi_file_write_ex(efi_file_protocol_t *this,
+				       efi_file_io_open_t *token);
+typedef efi_status_t efi_file_flush_ex(efi_file_protocol_t *this,
+				       efi_file_io_open_t *token);
+
+struct _efi_file_protocol {
+	uint64_t			revision;
+	efi_file_open __efiapi		*open;
+	efi_file_close __efiapi		*close;
+	efi_file_delete __efiapi	*delete;
+	efi_file_read __efiapi		*read;
+	efi_file_write __efiapi		*write;
+	efi_file_get_position __efiapi	*get_position;
+	efi_file_set_position __efiapi	*set_position;
+	efi_file_get_info __efiapi	*get_info;
+	efi_file_set_info __efiapi	*set_info;
+	efi_file_flush __efiapi		*flush;
+	efi_file_open_ex __efiapi	*open_ex;
+	efi_file_read_ex __efiapi	*read_ex;
+	efi_file_write_ex __efiapi	*write_ex;
+	efi_file_flush_ex __efiapi	*flush_ex;
+};
+
+#define EFI_FILE_INFO_ID EFI_GUID(0x9576e92, 0x6d3f, 0x11d2, 0x8e, 0x39, 0x0, 0xa0, 0xc9, 0x69, 0x72, 0x3b )
+
+typedef struct {
+	uint64_t	size;
+	uint64_t	file_size;
+	uint64_t	physical_size;
+	efi_time_t	create_time;
+	efi_time_t	last_access_time;
+	efi_time_t	modification_time;
+	uint64_t	attributes;
+	efi_char16_t	file_name[1];
+} efi_file_info_t;
 
 #define efi_bs_call(func, ...) efi_system_table->boottime->func(__VA_ARGS__)
 #define efi_rs_call(func, ...) efi_system_table->runtime->func(__VA_ARGS__)
