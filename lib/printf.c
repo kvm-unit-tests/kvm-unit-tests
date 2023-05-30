@@ -58,6 +58,102 @@ static void print_str(pstream_t *p, const char *s, strprops_t props)
 	}
 }
 
+/*
+ * Adapted from drivers/firmware/efi/libstub/vsprintf.c
+ */
+static u32 utf16_to_utf32(const u16 **s16)
+{
+	u16 c0, c1;
+
+	c0 = *(*s16)++;
+	/* not a surrogate */
+	if ((c0 & 0xf800) != 0xd800)
+		return c0;
+	/* invalid: low surrogate instead of high */
+	if (c0 & 0x0400)
+		return 0xfffd;
+	c1 = **s16;
+	/* invalid: missing low surrogate */
+	if ((c1 & 0xfc00) != 0xdc00)
+		return 0xfffd;
+	/* valid surrogate pair */
+	++(*s16);
+	return (0x10000 - (0xd800 << 10) - 0xdc00) + (c0 << 10) + c1;
+}
+
+/*
+ * Adapted from drivers/firmware/efi/libstub/vsprintf.c
+ */
+static size_t utf16s_utf8nlen(const u16 *s16, size_t maxlen)
+{
+	size_t len, clen;
+
+	for (len = 0; len < maxlen && *s16; len += clen) {
+		u16 c0 = *s16++;
+
+		/* First, get the length for a BMP character */
+		clen = 1 + (c0 >= 0x80) + (c0 >= 0x800);
+		if (len + clen > maxlen)
+			break;
+		/*
+		 * If this is a high surrogate, and we're already at maxlen, we
+		 * can't include the character if it's a valid surrogate pair.
+		 * Avoid accessing one extra word just to check if it's valid
+		 * or not.
+		 */
+		if ((c0 & 0xfc00) == 0xd800) {
+			if (len + clen == maxlen)
+				break;
+			if ((*s16 & 0xfc00) == 0xdc00) {
+				++s16;
+				++clen;
+			}
+		}
+	}
+
+	return len;
+}
+
+/*
+ * Adapted from drivers/firmware/efi/libstub/vsprintf.c
+ */
+static void print_wstring(pstream_t *p, const u16 *s, strprops_t props)
+{
+	const u16 *ws = (const u16 *)s;
+	size_t pos = 0, size = p->remain + 1, len = utf16s_utf8nlen(ws, props.precision);
+
+	while (len-- > 0) {
+		u32 c32 = utf16_to_utf32(&ws);
+		u8 *s8;
+		size_t clen;
+
+		if (c32 < 0x80) {
+			addchar(p, c32);
+			continue;
+		}
+
+		/* Number of trailing octets */
+		clen = 1 + (c32 >= 0x800) + (c32 >= 0x10000);
+
+		len -= clen;
+		s8 = (u8 *)(p->buffer - p->added + pos);
+
+		/* Avoid writing partial character */
+		addchar(p, '\0');
+		pos += clen;
+		if (pos >= size)
+			continue;
+
+		/* Set high bits of leading octet */
+		*s8 = (0xf00 >> 1) >> clen;
+		/* Write trailing octets in reverse order */
+		for (s8 += clen; clen; --clen, c32 >>= 6)
+			*s8-- = 0x80 | (c32 & 0x3f);
+		/* Set low bits of leading octet */
+		*s8 |= c32;
+	}
+}
+
 static char digits[16] = "0123456789abcdef";
 
 static void print_int(pstream_t *ps, long long n, int base, strprops_t props)
@@ -305,7 +401,10 @@ morefmt:
 			print_unsigned(&s, (unsigned long)va_arg(args, void *), 16, props);
 			break;
 		case 's':
-			print_str(&s, va_arg(args, const char *), props);
+			if (nlong)
+				print_wstring(&s, va_arg(args, const u16 *), props);
+			else
+				print_str(&s, va_arg(args, const char *), props);
 			break;
 		default:
 			addchar(&s, f);
