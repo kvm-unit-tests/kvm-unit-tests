@@ -119,8 +119,15 @@ void sclp_read_info(void)
 
 int sclp_get_cpu_num(void)
 {
-	assert(read_info);
-	return read_info->entries_cpu;
+	if (read_info)
+		return read_info->entries_cpu;
+	/*
+	 * Don't abort here if read_info is NULL since abort() calls
+	 * smp_teardown() which eventually calls this function and thus
+	 * causes an infinite abort() chain, causing the test to hang.
+	 * Since we obviously have at least one CPU, just return one.
+	 */
+	return 1;
 }
 
 CPUEntry *sclp_get_cpu_entries(void)
