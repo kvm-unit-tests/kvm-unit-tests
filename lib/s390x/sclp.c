@@ -17,13 +17,14 @@
 #include "sclp.h"
 #include <alloc_phys.h>
 #include <alloc_page.h>
+#include <asm/facility.h>
 
 extern unsigned long stacktop;
 
 static uint64_t storage_increment_size;
 static uint64_t max_ram_size;
 static uint64_t ram_size;
-char _read_info[PAGE_SIZE] __attribute__((__aligned__(PAGE_SIZE)));
+char _read_info[2 * PAGE_SIZE] __attribute__((__aligned__(PAGE_SIZE)));
 static ReadInfo *read_info;
 struct sclp_facilities sclp_facilities;
 
@@ -113,7 +114,8 @@ static void sclp_read_scp_info(ReadInfo *ri, int length)
 
 void sclp_read_info(void)
 {
-	sclp_read_scp_info((void *)_read_info, SCCB_SIZE);
+	sclp_read_scp_info((void *)_read_info,
+		test_facility(140) ? sizeof(_read_info) : SCCB_SIZE);
 	read_info = (ReadInfo *)_read_info;
 }
 
