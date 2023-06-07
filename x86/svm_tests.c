@@ -2823,15 +2823,6 @@ do {										\
 		asm volatile("ud2");						\
 } while (0)
 
-static bool check_dbgctl(u64 dbgctl, u64 dbgctl_expected)
-{
-	if (dbgctl != dbgctl_expected) {
-		report(false, "Unexpected MSR_IA32_DEBUGCTLMSR value 0x%lx", dbgctl);
-		return false;
-	}
-	return true;
-}
-
 #define DO_BRANCH(branch_name)				\
 	asm volatile (					\
 		      # branch_name "_from:"		\
@@ -2909,9 +2900,9 @@ static void svm_lbrv_test0(void)
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
 
-	check_dbgctl(dbgctl, DEBUGCTLMSR_LBR);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
-	check_dbgctl(dbgctl, 0);
+	TEST_EXPECT_EQ(dbgctl, 0);
 
 	HOST_CHECK_LBR(&host_branch0_from, &host_branch0_to);
 }
@@ -2934,7 +2925,7 @@ static void svm_lbrv_test1(void)
 		return;
 	}
 
-	check_dbgctl(dbgctl, 0);
+	TEST_EXPECT_EQ(dbgctl, 0);
 	HOST_CHECK_LBR(&guest_branch0_from, &guest_branch0_to);
 }
 
@@ -2958,7 +2949,7 @@ static void svm_lbrv_test2(void)
 		return;
 	}
 
-	check_dbgctl(dbgctl, 0);
+	TEST_EXPECT_EQ(dbgctl, 0);
 	HOST_CHECK_LBR(&guest_branch2_from, &guest_branch2_to);
 }
 
@@ -2991,7 +2982,7 @@ static void svm_lbrv_nested_test1(void)
 		return;
 	}
 
-	check_dbgctl(dbgctl, DEBUGCTLMSR_LBR);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
 	HOST_CHECK_LBR(&host_branch3_from, &host_branch3_to);
 }
 
@@ -3022,7 +3013,7 @@ static void svm_lbrv_nested_test2(void)
 		return;
 	}
 
-	check_dbgctl(dbgctl, DEBUGCTLMSR_LBR);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
 	HOST_CHECK_LBR(&host_branch4_from, &host_branch4_to);
 }
 
