@@ -217,10 +217,15 @@ struct svm_test *v2_test;
 
 u64 guest_stack[10000];
 
-int __svm_vmrun(u64 rip)
+void svm_setup_vmrun(u64 rip)
 {
 	vmcb->save.rip = (ulong)rip;
 	vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
+}
+
+int __svm_vmrun(u64 rip)
+{
+	svm_setup_vmrun(rip);
 	regs.rdi = (ulong)v2_test;
 
 	asm volatile (

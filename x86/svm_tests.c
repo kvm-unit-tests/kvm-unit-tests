@@ -2927,7 +2927,7 @@ static void svm_lbrv_test1(void)
 {
 	report(true, "Test that without LBRV enabled, guest LBR state does 'leak' to the host(1)");
 
-	vmcb->save.rip = (ulong)svm_lbrv_test_guest1;
+	svm_setup_vmrun((u64)svm_lbrv_test_guest1);
 	vmcb->control.virt_ext = 0;
 
 	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
@@ -2949,7 +2949,7 @@ static void svm_lbrv_test2(void)
 {
 	report(true, "Test that without LBRV enabled, guest LBR state does 'leak' to the host(2)");
 
-	vmcb->save.rip = (ulong)svm_lbrv_test_guest2;
+	svm_setup_vmrun((u64)svm_lbrv_test_guest2);
 	vmcb->control.virt_ext = 0;
 
 	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
@@ -2977,7 +2977,7 @@ static void svm_lbrv_nested_test1(void)
 	}
 
 	report(true, "Test that with LBRV enabled, guest LBR state doesn't leak (1)");
-	vmcb->save.rip = (ulong)svm_lbrv_test_guest1;
+	svm_setup_vmrun((u64)svm_lbrv_test_guest1);
 	vmcb->control.virt_ext = LBR_CTL_ENABLE_MASK;
 	vmcb->save.dbgctl = DEBUGCTLMSR_LBR;
 
@@ -3010,7 +3010,7 @@ static void svm_lbrv_nested_test2(void)
 	}
 
 	report(true, "Test that with LBRV enabled, guest LBR state doesn't leak (2)");
-	vmcb->save.rip = (ulong)svm_lbrv_test_guest2;
+	svm_setup_vmrun((u64)svm_lbrv_test_guest2);
 	vmcb->control.virt_ext = LBR_CTL_ENABLE_MASK;
 
 	vmcb->save.dbgctl = 0;
