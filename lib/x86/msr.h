@@ -81,6 +81,17 @@
 #define MSR_IA32_LASTINTFROMIP		0x000001dd
 #define MSR_IA32_LASTINTTOIP		0x000001de
 
+/* Yes, AMD does indeed record mispredict info in the LBR records themselves. */
+#define AMD_LBR_RECORD_MISPREDICT	BIT_ULL(63)
+
+#define LBR_INFO_MISPRED		BIT_ULL(63)
+#define LBR_INFO_IN_TX			BIT_ULL(62)
+#define LBR_INFO_ABORT			BIT_ULL(61)
+#define LBR_INFO_CYC_CNT_VALID		BIT_ULL(60)
+#define LBR_INFO_CYCLES			0xffff
+#define LBR_INFO_BR_TYPE_OFFSET		56
+#define LBR_INFO_BR_TYPE		(0xfull << LBR_INFO_BR_TYPE_OFFSET)
+
 /* DEBUGCTLMSR bits (others vary by model): */
 #define DEBUGCTLMSR_LBR			(1UL <<  0) /* last branch recording */
 #define DEBUGCTLMSR_BTF			(1UL <<  1) /* single-step on branches */
