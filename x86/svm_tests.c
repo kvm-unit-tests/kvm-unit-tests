@@ -10,6 +10,7 @@
 #include "isr.h"
 #include "apic.h"
 #include "delay.h"
+#include "util.h"
 #include "x86/usermode.h"
 
 #define SVM_EXIT_MAX_DR_INTERCEPT 0x3f
@@ -2799,25 +2800,28 @@ static void svm_no_nm_test(void)
 	       "fnop with CR0.TS and CR0.EM unset no #NM excpetion");
 }
 
-static bool check_lbr(u64 *from_excepted, u64 *to_expected)
+static u64 amd_get_lbr_rip(u32 msr)
 {
-	u64 from = rdmsr(MSR_IA32_LASTBRANCHFROMIP);
-	u64 to = rdmsr(MSR_IA32_LASTBRANCHTOIP);
-
-	if ((u64)from_excepted != from) {
-		report(false, "MSR_IA32_LASTBRANCHFROMIP, expected=0x%lx, actual=0x%lx",
-		       (u64)from_excepted, from);
-		return false;
-	}
-
-	if ((u64)to_expected != to) {
-		report(false, "MSR_IA32_LASTBRANCHFROMIP, expected=0x%lx, actual=0x%lx",
-		       (u64)from_excepted, from);
-		return false;
-	}
-
-	return true;
+	return rdmsr(msr) & ~AMD_LBR_RECORD_MISPREDICT;
 }
+
+#define HOST_CHECK_LBR(from_expected, to_expected)					\
+do {											\
+	TEST_EXPECT_EQ((u64)from_expected, amd_get_lbr_rip(MSR_IA32_LASTBRANCHFROMIP));	\
+	TEST_EXPECT_EQ((u64)to_expected, amd_get_lbr_rip(MSR_IA32_LASTBRANCHTOIP));	\
+} while (0)
+
+/*
+ * FIXME: Do something other than generate an exception to communicate failure.
+ * Debugging without expected vs. actual is an absolute nightmare.
+ */
+#define GUEST_CHECK_LBR(from_expected, to_expected)				\
+do {										\
+	if ((u64)(from_expected) != amd_get_lbr_rip(MSR_IA32_LASTBRANCHFROMIP))	\
+		asm volatile("ud2");						\
+	if ((u64)(to_expected) != amd_get_lbr_rip(MSR_IA32_LASTBRANCHTOIP))	\
+		asm volatile("ud2");						\
+} while (0)
 
 static bool check_dbgctl(u64 dbgctl, u64 dbgctl_expected)
 {
@@ -2827,7 +2831,6 @@ static bool check_dbgctl(u64 dbgctl, u64 dbgctl_expected)
 	}
 	return true;
 }
-
 
 #define DO_BRANCH(branch_name)				\
 	asm volatile (					\
@@ -2866,11 +2869,8 @@ static void svm_lbrv_test_guest1(void)
 		asm volatile("ud2\n");
 	if (rdmsr(MSR_IA32_DEBUGCTLMSR) != 0)
 		asm volatile("ud2\n");
-	if (rdmsr(MSR_IA32_LASTBRANCHFROMIP) != (u64)&guest_branch0_from)
-		asm volatile("ud2\n");
-	if (rdmsr(MSR_IA32_LASTBRANCHTOIP) != (u64)&guest_branch0_to)
-		asm volatile("ud2\n");
 
+	GUEST_CHECK_LBR(&guest_branch0_from, &guest_branch0_to);
 	asm volatile ("vmmcall\n");
 }
 
@@ -2887,11 +2887,7 @@ static void svm_lbrv_test_guest2(void)
 	if (dbgctl != 0)
 		asm volatile("ud2\n");
 
-	if (rdmsr(MSR_IA32_LASTBRANCHFROMIP) != (u64)&host_branch2_from)
-		asm volatile("ud2\n");
-	if (rdmsr(MSR_IA32_LASTBRANCHTOIP) != (u64)&host_branch2_to)
-		asm volatile("ud2\n");
-
+	GUEST_CHECK_LBR(&host_branch2_from, &host_branch2_to);
 
 	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
@@ -2900,10 +2896,7 @@ static void svm_lbrv_test_guest2(void)
 
 	if (dbgctl != DEBUGCTLMSR_LBR)
 		asm volatile("ud2\n");
-	if (rdmsr(MSR_IA32_LASTBRANCHFROMIP) != (u64)&guest_branch2_from)
-		asm volatile("ud2\n");
-	if (rdmsr(MSR_IA32_LASTBRANCHTOIP) != (u64)&guest_branch2_to)
-		asm volatile("ud2\n");
+	GUEST_CHECK_LBR(&guest_branch2_from, &guest_branch2_to);
 
 	asm volatile ("vmmcall\n");
 }
@@ -2920,7 +2913,7 @@ static void svm_lbrv_test0(void)
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	check_dbgctl(dbgctl, 0);
 
-	check_lbr(&host_branch0_from, &host_branch0_to);
+	HOST_CHECK_LBR(&host_branch0_from, &host_branch0_to);
 }
 
 static void svm_lbrv_test1(void)
@@ -2942,7 +2935,7 @@ static void svm_lbrv_test1(void)
 	}
 
 	check_dbgctl(dbgctl, 0);
-	check_lbr(&guest_branch0_from, &guest_branch0_to);
+	HOST_CHECK_LBR(&guest_branch0_from, &guest_branch0_to);
 }
 
 static void svm_lbrv_test2(void)
@@ -2966,7 +2959,7 @@ static void svm_lbrv_test2(void)
 	}
 
 	check_dbgctl(dbgctl, 0);
-	check_lbr(&guest_branch2_from, &guest_branch2_to);
+	HOST_CHECK_LBR(&guest_branch2_from, &guest_branch2_to);
 }
 
 static void svm_lbrv_nested_test1(void)
@@ -2999,7 +2992,7 @@ static void svm_lbrv_nested_test1(void)
 	}
 
 	check_dbgctl(dbgctl, DEBUGCTLMSR_LBR);
-	check_lbr(&host_branch3_from, &host_branch3_to);
+	HOST_CHECK_LBR(&host_branch3_from, &host_branch3_to);
 }
 
 static void svm_lbrv_nested_test2(void)
@@ -3030,7 +3023,7 @@ static void svm_lbrv_nested_test2(void)
 	}
 
 	check_dbgctl(dbgctl, DEBUGCTLMSR_LBR);
-	check_lbr(&host_branch4_from, &host_branch4_to);
+	HOST_CHECK_LBR(&host_branch4_from, &host_branch4_to);
 }
 
 
