@@ -117,6 +117,15 @@ static void set_sprs_book3s_300(uint64_t val)
 	mtspr(823, val);	/* PSSCR */
 }
 
+/* SPRs from Power ISA Version 3.1B */
+static void set_sprs_book3s_31(uint64_t val)
+{
+	set_sprs_book3s_207(val);
+	mtspr(48, val);		/* PIDR */
+	/* 3.1 removes TIDR */
+	mtspr(823, val);	/* PSSCR */
+}
+
 static void set_sprs(uint64_t val)
 {
 	uint32_t pvr = mfspr(287);	/* Processor Version Register */
@@ -136,6 +145,9 @@ static void set_sprs(uint64_t val)
 		break;
 	case 0x4e:			/* POWER9 */
 		set_sprs_book3s_300(val);
+		break;
+	case 0x80:                      /* POWER10 */
+		set_sprs_book3s_31(val);
 		break;
 	default:
 		puts("Warning: Unknown processor version!\n");
@@ -220,6 +232,13 @@ static void get_sprs_book3s_300(uint64_t *v)
 	v[823] = mfspr(823);	/* PSSCR */
 }
 
+static void get_sprs_book3s_31(uint64_t *v)
+{
+	get_sprs_book3s_207(v);
+	v[48] = mfspr(48);	/* PIDR */
+	v[823] = mfspr(823);	/* PSSCR */
+}
+
 static void get_sprs(uint64_t *v)
 {
 	uint32_t pvr = mfspr(287);	/* Processor Version Register */
@@ -239,6 +258,9 @@ static void get_sprs(uint64_t *v)
 		break;
 	case 0x4e:			/* POWER9 */
 		get_sprs_book3s_300(v);
+		break;
+	case 0x80:                      /* POWER10 */
+		get_sprs_book3s_31(v);
 		break;
 	}
 }
