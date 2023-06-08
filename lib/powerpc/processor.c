@@ -19,12 +19,16 @@ static struct {
 void handle_exception(int trap, void (*func)(struct pt_regs *, void *),
 		      void * data)
 {
+	assert(!(trap & ~0xf00));
+
 	trap >>= 8;
 
-	if (trap < 16) {
-		handlers[trap].func = func;
-		handlers[trap].data = data;
+	if (func && handlers[trap].func) {
+		printf("exception handler installed twice %#x\n", trap);
+		abort();
 	}
+	handlers[trap].func = func;
+	handlers[trap].data = data;
 }
 
 void do_handle_exception(struct pt_regs *regs)
