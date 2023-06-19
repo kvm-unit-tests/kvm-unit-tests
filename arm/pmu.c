@@ -55,11 +55,18 @@
 #define EXT_COMMON_EVENTS_LOW	0x4000
 #define EXT_COMMON_EVENTS_HIGH	0x403F
 
-#define ALL_SET_32			0x00000000FFFFFFFFULL
+#define ALL_SET_32		0x00000000FFFFFFFFULL
 #define ALL_CLEAR		0x0000000000000000ULL
 #define PRE_OVERFLOW_32		0x00000000FFFFFFF0ULL
-#define PRE_OVERFLOW2_32	0x00000000FFFFFFDCULL
 #define PRE_OVERFLOW_64		0xFFFFFFFFFFFFFFF0ULL
+#define COUNT 20
+#define MARGIN 15
+/*
+ * PRE_OVERFLOW2 is set so that 1st @COUNT iterations do not
+ * produce 32b overflow and 2nd @COUNT iterations do. To accommodate
+ * for some observed variability we take into account a given @MARGIN
+ */
+#define PRE_OVERFLOW2_32		(ALL_SET_32 - COUNT - MARGIN)
 
 #define PRE_OVERFLOW(__overflow_at_64bits)				\
 	(__overflow_at_64bits ? PRE_OVERFLOW_64 : PRE_OVERFLOW_32)
@@ -737,7 +744,7 @@ static void test_chain_promotion(bool unused)
 	write_sysreg_s(0x2, PMCNTENSET_EL0);
 	isb();
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
 	PRINT_REGS("post");
 	report(!read_regn_el0(pmevcntr, 0),
 		"chain counter not counting if even counter is disabled");
@@ -750,13 +757,13 @@ static void test_chain_promotion(bool unused)
 	write_sysreg_s(0x1, PMCNTENSET_EL0);
 	isb();
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
 	PRINT_REGS("post");
 	report(!read_regn_el0(pmevcntr, 1) && (read_sysreg(pmovsclr_el0) == 0x1),
 		"odd counter did not increment on overflow if disabled");
 	report_prefix_pop();
 
-	/* start at 0xFFFFFFDC, +20 with CHAIN enabled, +20 with CHAIN disabled */
+	/* 1st COUNT with CHAIN enabled, next COUNT with CHAIN disabled */
 	report_prefix_push("subtest3");
 	pmu_reset();
 	write_sysreg_s(0x3, PMCNTENSET_EL0);
@@ -764,12 +771,12 @@ static void test_chain_promotion(bool unused)
 	isb();
 	PRINT_REGS("init");
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
 	PRINT_REGS("After 1st loop");
 
 	/* disable the CHAIN event */
 	write_sysreg_s(0x2, PMCNTENCLR_EL0);
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
 	PRINT_REGS("After 2nd loop");
 	report(read_sysreg(pmovsclr_el0) == 0x1,
 		"should have triggered an overflow on #0");
@@ -777,7 +784,7 @@ static void test_chain_promotion(bool unused)
 		"CHAIN counter #1 shouldn't have incremented");
 	report_prefix_pop();
 
-	/* start at 0xFFFFFFDC, +20 with CHAIN disabled, +20 with CHAIN enabled */
+	/* 1st COUNT with CHAIN disabled, next COUNT with CHAIN enabled */
 
 	report_prefix_push("subtest4");
 	pmu_reset();
@@ -786,13 +793,13 @@ static void test_chain_promotion(bool unused)
 	isb();
 	PRINT_REGS("init");
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
 	PRINT_REGS("After 1st loop");
 
 	/* enable the CHAIN event */
 	write_sysreg_s(0x3, PMCNTENSET_EL0);
 	isb();
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
 
 	PRINT_REGS("After 2nd loop");
 
@@ -811,7 +818,7 @@ static void test_chain_promotion(bool unused)
 	isb();
 	PRINT_REGS("init");
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
 	PRINT_REGS("After 1st loop");
 
 	/* 0 becomes CHAINED */
@@ -820,7 +827,7 @@ static void test_chain_promotion(bool unused)
 	write_sysreg_s(0x3, PMCNTENSET_EL0);
 	write_regn_el0(pmevcntr, 1, 0x0);
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
 	PRINT_REGS("After 2nd loop");
 
 	report((read_regn_el0(pmevcntr, 1) == 1) &&
@@ -837,14 +844,14 @@ static void test_chain_promotion(bool unused)
 	write_sysreg_s(0x3, PMCNTENSET_EL0);
 	PRINT_REGS("init");
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
 	PRINT_REGS("After 1st loop");
 
 	write_sysreg_s(0x0, PMCNTENSET_EL0);
 	write_regn_el0(pmevtyper, 1, CPU_CYCLES | PMEVTYPER_EXCLUDE_EL0);
 	write_sysreg_s(0x3, PMCNTENSET_EL0);
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
 	PRINT_REGS("After 2nd loop");
 	report(read_sysreg(pmovsclr_el0) == 1,
 		"overflow is expected on counter 0");
