@@ -18,6 +18,7 @@
 #include <asm/uv.h>
 #include <uv.h>
 #include <sie.h>
+#include <snippet.h>
 
 static struct uv_cb_qui uvcb_qui = {
 	.header.cmd = UVC_CMD_QUI,
@@ -36,6 +37,25 @@ bool uv_os_is_guest(void)
 bool uv_os_is_host(void)
 {
 	return test_facility(158) && uv_query_test_call(BIT_UVC_CMD_INIT_UV);
+}
+
+bool uv_host_requirement_checks(void)
+{
+	if (!test_facility(158)) {
+		report_skip("UV Call facility unavailable");
+		return false;
+	}
+	if (!sclp_facilities.has_sief2) {
+		report_skip("SIEF2 facility unavailable");
+		return false;
+	}
+	if (get_ram_size() < SNIPPET_PV_MIN_MEM_SIZE) {
+		report_skip("Not enough memory. This test needs about %ld MB of memory",
+			    SNIPPET_PV_MIN_MEM_SIZE / SZ_1M);
+		return false;
+	}
+
+	return true;
 }
 
 bool uv_query_test_call(unsigned int nr)

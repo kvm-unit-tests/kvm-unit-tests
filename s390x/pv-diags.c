@@ -149,14 +149,8 @@ static void test_diag_yield(void)
 int main(void)
 {
 	report_prefix_push("pv-diags");
-	if (!test_facility(158)) {
-		report_skip("UV Call facility unavailable");
+	if (!uv_host_requirement_checks())
 		goto done;
-	}
-	if (!sclp_facilities.has_sief2) {
-		report_skip("SIEF2 facility unavailable");
-		goto done;
-	}
 
 	uv_setup_asces();
 	snippet_setup_guest(&vm, true);
