@@ -23,7 +23,13 @@ void sie_expect_validity(struct vm *vm)
 
 uint16_t sie_get_validity(struct vm *vm)
 {
-	assert(vm->sblk->icptcode == ICPT_VALIDITY);
+	/*
+	 * 0xffff will never be returned by SIE, so we can indicate a
+	 * missing validity via this value.
+	 */
+	if (vm->sblk->icptcode != ICPT_VALIDITY)
+		return 0xffff;
+
 	return vm->sblk->ipb >> 16;
 }
 
