@@ -15,6 +15,7 @@
 #include <sclp.h>
 #include <smp.h>
 #include <uv.h>
+#include <snippet.h>
 #include <mmu.h>
 #include <asm/page.h>
 #include <asm/sigp.h>
@@ -720,6 +721,13 @@ int main(void)
 	test_invalid();
 	test_uv_uninitialized();
 	test_query();
+
+	if (get_ram_size() < SNIPPET_PV_MIN_MEM_SIZE) {
+		report_skip("Not enough memory. This test needs about %ld MB of memory",
+			    SNIPPET_PV_MIN_MEM_SIZE / SZ_1M);
+		goto done;
+	}
+
 	test_init();
 
 	setup_vmem();
