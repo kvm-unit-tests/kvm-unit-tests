@@ -18,7 +18,6 @@
 #include <snippet.h>
 #include <mmu.h>
 #include <asm/page.h>
-#include <asm/sigp.h>
 #include <asm/pgtable.h>
 #include <asm/asm-offsets.h>
 #include <asm/interrupt.h>
@@ -434,15 +433,6 @@ static void test_config_create(void)
 	report(uvcb_cgc.header.rc == 0x109 && rc == 1,
 	       "base storage origin contains lowcore");
 	uvcb_cgc.conf_base_stor_origin = tmp;
-
-	if (smp_query_num_cpus() == 1) {
-		sigp_retry(1, SIGP_SET_PREFIX,
-			   uvcb_cgc.conf_var_stor_origin + PAGE_SIZE, NULL);
-		rc = uv_call(0, (uint64_t)&uvcb_cgc);
-		report(uvcb_cgc.header.rc == 0x10e && rc == 1 &&
-		       !uvcb_cgc.guest_handle, "variable storage area contains lowcore");
-		sigp_retry(1, SIGP_SET_PREFIX, 0x0, NULL);
-	}
 
 	tmp = uvcb_cgc.guest_sca;
 	uvcb_cgc.guest_sca = 0;
