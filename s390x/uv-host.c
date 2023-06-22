@@ -500,14 +500,17 @@ static void test_config_create(void)
 static void test_init(void)
 {
 	int rc;
-	uint64_t mem;
+	uint64_t tmp;
 
-	/* Donated storage needs to be over 2GB */
-	mem = (uint64_t)memalign_pages_flags(SZ_1M, uvcb_qui.uv_base_stor_len, AREA_NORMAL);
+	/*
+	 * Donated storage needs to be over 2GB, AREA_NORMAL does that
+	 * on s390x.
+	 */
+	tmp = (uint64_t)memalign_pages_flags(SZ_1M, uvcb_qui.uv_base_stor_len, AREA_NORMAL);
 
 	uvcb_init.header.len = sizeof(uvcb_init);
 	uvcb_init.header.cmd = UVC_CMD_INIT_UV;
-	uvcb_init.stor_origin = mem;
+	uvcb_init.stor_origin = tmp;
 	uvcb_init.stor_len = uvcb_qui.uv_base_stor_len;
 
 	report_prefix_push("init");
@@ -528,14 +531,14 @@ static void test_init(void)
 	rc = uv_call(0, (uint64_t)&uvcb_init);
 	report(rc == 1 && (uvcb_init.header.rc == 0x104 || uvcb_init.header.rc == 0x105),
 	       "storage origin invalid");
-	uvcb_init.stor_origin = mem;
+	uvcb_init.stor_origin = tmp;
 
 	if (uvcb_init.stor_len >= HPAGE_SIZE) {
 		uvcb_init.stor_origin = get_max_ram_size() - HPAGE_SIZE;
 		rc = uv_call(0, (uint64_t)&uvcb_init);
 		report(rc == 1 && uvcb_init.header.rc == 0x105,
 		       "storage + length invalid");
-		uvcb_init.stor_origin = mem;
+		uvcb_init.stor_origin = tmp;
 	} else {
 		report_skip("storage + length invalid, stor_len < HPAGE_SIZE");
 	}
@@ -544,7 +547,7 @@ static void test_init(void)
 	rc = uv_call(0, (uint64_t)&uvcb_init);
 	report(rc == 1 && uvcb_init.header.rc == 0x108,
 	       "storage below 2GB");
-	uvcb_init.stor_origin = mem;
+	uvcb_init.stor_origin = tmp;
 
 	smp_cpu_setup(1, PSW_WITH_CUR_MASK(cpu_loop));
 	rc = uv_call(0, (uint64_t)&uvcb_init);
@@ -555,10 +558,12 @@ static void test_init(void)
 	rc = uv_call(0, (uint64_t)&uvcb_init);
 	report(rc == 0 && uvcb_init.header.rc == UVC_RC_EXECUTED, "successful");
 
-	mem = (uint64_t)memalign(1UL << 31, uvcb_qui.uv_base_stor_len);
+	tmp = uvcb_init.stor_origin;
+	uvcb_init.stor_origin =	(uint64_t)memalign_pages_flags(HPAGE_SIZE, uvcb_qui.uv_base_stor_len, AREA_NORMAL);
 	rc = uv_call(0, (uint64_t)&uvcb_init);
 	report(rc == 1 && uvcb_init.header.rc == 0x101, "double init");
-	free((void *)mem);
+	free((void *)uvcb_init.stor_origin);
+	uvcb_init.stor_origin = tmp;
 
 	report_prefix_pop();
 }
