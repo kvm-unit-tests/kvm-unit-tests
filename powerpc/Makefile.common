@@ -49,7 +49,7 @@ OBJDIRS += lib/powerpc
 
 FLATLIBS = $(libcflat) $(LIBFDT_archive)
 %.elf: CFLAGS += $(arch_CFLAGS)
-%.elf: LDFLAGS = $(arch_LDFLAGS) -nostdlib -pie -n
+%.elf: LDFLAGS += $(arch_LDFLAGS) -pie -n
 %.elf: %.o $(FLATLIBS) $(SRCDIR)/powerpc/flat.lds $(cstart.o) $(reloc.o)
 	$(CC) $(CFLAGS) -c -o $(@:.elf=.aux.o) $(SRCDIR)/lib/auxinfo.c \
 		-DPROGNAME=\"$@\"

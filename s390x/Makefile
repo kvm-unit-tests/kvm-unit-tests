@@ -79,7 +79,7 @@ CFLAGS += -O2
 CFLAGS += -march=zEC12
 CFLAGS += -mbackchain
 CFLAGS += -fno-delete-null-pointer-checks
-LDFLAGS += -nostdlib -Wl,--build-id=none
+LDFLAGS += -Wl,--build-id=none
 
 # We want to keep intermediate files
 .PRECIOUS: %.o %.lds

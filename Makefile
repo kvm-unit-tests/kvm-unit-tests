@@ -92,7 +92,7 @@ CFLAGS += -Woverride-init -Wmissing-prototypes -Wstrict-prototypes
 
 autodepend-flags = -MMD -MF $(dir $*).$(notdir $*).d
 
-LDFLAGS += $(CFLAGS)
+LDFLAGS += -nostdlib
 
 $(libcflat): $(cflatobjs)
 	$(AR) rcs $@ $^
