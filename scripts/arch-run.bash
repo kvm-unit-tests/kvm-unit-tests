@@ -420,8 +420,11 @@ hvf_available ()
 		( [ "$HOST" = x86_64 ] && [ "$ARCH" = i386 ] )
 }
 
-get_qemu_accelerator ()
+set_qemu_accelerator ()
 {
+	ACCEL_PROPS=${ACCEL#"${ACCEL%%,*}"}
+	ACCEL=${ACCEL%%,*}
+
 	if [ "$ACCEL" = "kvm" ] && ! kvm_available; then
 		echo "KVM is needed, but not available on this host" >&2
 		return 2
@@ -431,13 +434,15 @@ get_qemu_accelerator ()
 		return 2
 	fi
 
-	if [ "$ACCEL" ]; then
-		echo $ACCEL
-	elif kvm_available; then
-		echo kvm
-	elif hvf_available; then
-		echo hvf
-	else
-		echo tcg
+	if [ -z "$ACCEL" ]; then
+		if kvm_available; then
+			ACCEL="kvm"
+		elif hvf_available; then
+			ACCEL="hvf"
+		else
+			ACCEL="tcg"
+		fi
 	fi
+
+	return 0
 }
