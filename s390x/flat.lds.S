@@ -37,6 +37,7 @@ SECTIONS
 	. = ALIGN(16);
 	__bss_start = .;
 	.bss : { *(.bss) }
+	. = ALIGN(2);
 	__bss_end = .;
 	. = ALIGN(4K);
 	edata = .;
