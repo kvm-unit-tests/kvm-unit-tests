@@ -78,7 +78,6 @@ ARM
 M: Andrew Jones <andrew.jones@linux.dev>
 S: Supported
 L: kvmarm@lists.linux.dev
-L: kvmarm@lists.cs.columbia.edu (deprecated)
 F: arm/
 F: lib/arm/
 F: lib/arm64/
