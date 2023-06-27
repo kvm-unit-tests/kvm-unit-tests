@@ -247,3 +247,9 @@ uint64_t get_max_ram_size(void)
 {
 	return max_ram_size;
 }
+
+uint64_t sclp_get_stsi_mnest(void)
+{
+	assert(read_info);
+	return read_info->stsi_parm;
+}
