@@ -317,6 +317,13 @@ exceptions_init:
 	mrs	x2, spsr_el1
 	stp	x1, x2, [sp, #S_PC]
 
+	/*
+	 * Save a frame pointer using the link to allow unwinding of
+	 * exceptions.
+	 */
+	stp	x29, x1, [sp, #S_FP]
+	add 	x29, sp, #S_FP
+
 	mov	x0, \vec
 	mov	x1, sp
 	mrs	x2, esr_el1
@@ -352,6 +359,9 @@ exceptions_init:
 	eret
 .endm
 
+.globl vector_stub_start
+vector_stub_start:
+
 vector_stub	el1t_sync,     0
 vector_stub	el1t_irq,      1
 vector_stub	el1t_fiq,      2
@@ -371,6 +381,9 @@ vector_stub	el0_sync_32,  12
 vector_stub	el0_irq_32,   13
 vector_stub	el0_fiq_32,   14
 vector_stub	el0_error_32, 15
+
+.globl vector_stub_end
+vector_stub_end:
 
 .section .text.ex
 
