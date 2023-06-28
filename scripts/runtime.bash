@@ -83,7 +83,7 @@ function run()
     local timeout="${9:-$TIMEOUT}" # unittests.cfg overrides the default
 
     if [ "${CONFIG_EFI}" == "y" ]; then
-        kernel=$(basename $kernel .flat)
+        kernel=${kernel/%.flat/.efi}
     fi
 
     if [ -z "$testname" ]; then
