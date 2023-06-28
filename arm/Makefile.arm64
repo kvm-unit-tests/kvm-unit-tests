@@ -12,6 +12,7 @@ CFLAGS += -mstrict-align
 
 mno_outline_atomics := $(call cc-option, -mno-outline-atomics, "")
 CFLAGS += $(mno_outline_atomics)
+CFLAGS += -DCONFIG_RELOC
 
 define arch_elf_check =
 	$(if $(shell ! $(READELF) -rW $(1) >&/dev/null && echo "nok"),
