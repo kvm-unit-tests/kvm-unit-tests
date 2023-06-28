@@ -19,6 +19,8 @@ extern int __argc, __envc;
 extern char *__argv[100];
 extern char *__environ[200];
 
+extern char _text;
+
 extern int main(int argc, char **argv, char **envp);
 
 efi_system_table_t *efi_system_table = NULL;
@@ -365,6 +367,8 @@ efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 		printf("Failed to set up arch-specific resources\n");
 		goto efi_main_error;
 	}
+
+	printf("Address of image is: 0x%lx\n", (unsigned long)&_text);
 
 	/* Run the test case */
 	ret = main(__argc, __argv, __environ);
