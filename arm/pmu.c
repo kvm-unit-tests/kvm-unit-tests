@@ -55,11 +55,27 @@
 #define EXT_COMMON_EVENTS_LOW	0x4000
 #define EXT_COMMON_EVENTS_HIGH	0x403F
 
-#define ALL_SET_32			0x00000000FFFFFFFFULL
+#define ALL_SET_32		0x00000000FFFFFFFFULL
+#define ALL_SET_64		0xFFFFFFFFFFFFFFFFULL
+
+#define ALL_SET(__overflow_at_64bits)				\
+	(__overflow_at_64bits ? ALL_SET_64 : ALL_SET_32)
+
 #define ALL_CLEAR		0x0000000000000000ULL
 #define PRE_OVERFLOW_32		0x00000000FFFFFFF0ULL
-#define PRE_OVERFLOW2_32	0x00000000FFFFFFDCULL
 #define PRE_OVERFLOW_64		0xFFFFFFFFFFFFFFF0ULL
+#define COUNT 250
+#define MARGIN 100
+/*
+ * PRE_OVERFLOW2 is set so that 1st @COUNT iterations do not
+ * produce 32b overflow and 2nd @COUNT iterations do. To accommodate
+ * for some observed variability we take into account a given @MARGIN
+ */
+#define PRE_OVERFLOW2_32		(ALL_SET_32 - COUNT - MARGIN)
+#define PRE_OVERFLOW2_64		(ALL_SET_64 - COUNT - MARGIN)
+
+#define PRE_OVERFLOW2(__overflow_at_64bits)				\
+	(__overflow_at_64bits ? PRE_OVERFLOW2_64 : PRE_OVERFLOW2_32)
 
 #define PRE_OVERFLOW(__overflow_at_64bits)				\
 	(__overflow_at_64bits ? PRE_OVERFLOW_64 : PRE_OVERFLOW_32)
@@ -170,6 +186,7 @@ static void pmu_reset(void)
 static void test_event_introspection(void) {}
 static void test_event_counter_config(void) {}
 static void test_basic_event_count(bool overflow_at_64bits) {}
+static void test_mem_access_reliability(bool overflow_at_64bits) {}
 static void test_mem_access(bool overflow_at_64bits) {}
 static void test_sw_incr(bool overflow_at_64bits) {}
 static void test_chained_counters(bool unused) {}
@@ -294,13 +311,16 @@ static void mem_access_loop(void *addr, long loop, uint32_t pmcr)
 {
 	uint64_t pmcr64 = pmcr;
 asm volatile(
+	"       dsb     ish\n"
 	"       msr     pmcr_el0, %[pmcr]\n"
 	"       isb\n"
+	"       dsb     ish\n"
 	"       mov     x10, %[loop]\n"
 	"1:     sub     x10, x10, #1\n"
 	"       ldr	x9, [%[addr]]\n"
 	"       cmp     x10, #0x0\n"
 	"       b.gt    1b\n"
+	"       dsb     ish\n"
 	"       msr     pmcr_el0, xzr\n"
 	"       isb\n"
 	:
@@ -621,6 +641,22 @@ static void test_sw_incr(bool overflow_at_64bits)
 		"overflow on counter #0 after 100 SW_INCR");
 }
 
+static void enable_chain_counter(int even)
+{
+	write_sysreg_s(BIT(even + 1), PMCNTENSET_EL0); /* Enable the high counter first */
+	isb();
+	write_sysreg_s(BIT(even), PMCNTENSET_EL0); /* Enable the low counter */
+	isb();
+}
+
+static void disable_chain_counter(int even)
+{
+	write_sysreg_s(BIT(even), PMCNTENCLR_EL0); /* Disable the low counter first*/
+	isb();
+	write_sysreg_s(BIT(even + 1), PMCNTENCLR_EL0); /* Disable the high counter */
+	isb();
+}
+
 static void test_chained_counters(bool unused)
 {
 	uint32_t events[] = {CPU_CYCLES, CHAIN};
@@ -633,9 +669,8 @@ static void test_chained_counters(bool unused)
 
 	write_regn_el0(pmevtyper, 0, CPU_CYCLES | PMEVTYPER_EXCLUDE_EL0);
 	write_regn_el0(pmevtyper, 1, CHAIN | PMEVTYPER_EXCLUDE_EL0);
-	/* enable counters #0 and #1 */
-	write_sysreg_s(0x3, PMCNTENSET_EL0);
 	write_regn_el0(pmevcntr, 0, PRE_OVERFLOW_32);
+	enable_chain_counter(0);
 
 	precise_instrs_loop(22, pmu.pmcr_ro | PMU_PMCR_E);
 
@@ -645,10 +680,10 @@ static void test_chained_counters(bool unused)
 	/* test 64b overflow */
 
 	pmu_reset();
-	write_sysreg_s(0x3, PMCNTENSET_EL0);
 
 	write_regn_el0(pmevcntr, 0, PRE_OVERFLOW_32);
 	write_regn_el0(pmevcntr, 1, 0x1);
+	enable_chain_counter(0);
 	precise_instrs_loop(22, pmu.pmcr_ro | PMU_PMCR_E);
 	report_info("overflow reg = 0x%lx", read_sysreg(pmovsclr_el0));
 	report(read_regn_el0(pmevcntr, 1) == 2, "CHAIN counter #1 set to 2");
@@ -677,8 +712,7 @@ static void test_chained_sw_incr(bool unused)
 
 	write_regn_el0(pmevtyper, 0, SW_INCR | PMEVTYPER_EXCLUDE_EL0);
 	write_regn_el0(pmevtyper, 1, CHAIN | PMEVTYPER_EXCLUDE_EL0);
-	/* enable counters #0 and #1 */
-	write_sysreg_s(0x3, PMCNTENSET_EL0);
+	enable_chain_counter(0);
 
 	write_regn_el0(pmevcntr, 0, PRE_OVERFLOW_32);
 	set_pmcr(pmu.pmcr_ro | PMU_PMCR_E);
@@ -697,10 +731,9 @@ static void test_chained_sw_incr(bool unused)
 	/* 64b SW_INCR and overflow on CHAIN counter*/
 	pmu_reset();
 
-	write_regn_el0(pmevtyper, 1, events[1] | PMEVTYPER_EXCLUDE_EL0);
 	write_regn_el0(pmevcntr, 0, PRE_OVERFLOW_32);
 	write_regn_el0(pmevcntr, 1, ALL_SET_32);
-	write_sysreg_s(0x3, PMCNTENSET_EL0);
+	enable_chain_counter(0);
 	set_pmcr(pmu.pmcr_ro | PMU_PMCR_E);
 	isb();
 
@@ -715,6 +748,58 @@ static void test_chained_sw_incr(bool unused)
 	report_info("overflow=0x%lx, #0=0x%lx #1=0x%lx", read_sysreg(pmovsclr_el0),
 		    read_regn_el0(pmevcntr, 0), read_regn_el0(pmevcntr, 1));
 }
+#define PRINT_REGS(__s) \
+	report_info("%s #1=0x%lx #0=0x%lx overflow=0x%lx", __s, \
+		    read_regn_el0(pmevcntr, 1), \
+		    read_regn_el0(pmevcntr, 0), \
+		    read_sysreg(pmovsclr_el0))
+
+/*
+ * This test checks that a mem access loop featuring COUNT accesses
+ * does not overflow with an init value of PRE_OVERFLOW2. It also
+ * records the min/max access count to see how much the counting
+ * is (un)reliable
+ */
+static void test_mem_access_reliability(bool overflow_at_64bits)
+{
+	uint32_t events[] = {MEM_ACCESS};
+	void *addr = malloc(PAGE_SIZE);
+	uint64_t cntr_val, num_events, max = 0, min = pmevcntr_mask();
+	uint64_t pre_overflow2 = PRE_OVERFLOW2(overflow_at_64bits);
+	uint64_t all_set = ALL_SET(overflow_at_64bits);
+	uint64_t pmcr_lp = overflow_at_64bits ? PMU_PMCR_LP : 0;
+	bool overflow = false;
+
+	if (!satisfy_prerequisites(events, ARRAY_SIZE(events)) ||
+	    !check_overflow_prerequisites(overflow_at_64bits))
+		return;
+
+	pmu_reset();
+	write_regn_el0(pmevtyper, 0, MEM_ACCESS | PMEVTYPER_EXCLUDE_EL0);
+	for (int i = 0; i < 100; i++) {
+		pmu_reset();
+		write_regn_el0(pmevcntr, 0, pre_overflow2);
+		write_sysreg_s(0x1, PMCNTENSET_EL0);
+		isb();
+		mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
+		cntr_val = read_regn_el0(pmevcntr, 0);
+		if (cntr_val >= pre_overflow2) {
+			num_events = cntr_val - pre_overflow2;
+		} else {
+			/* unexpected counter overflow */
+			num_events = cntr_val + all_set - pre_overflow2;
+			overflow = true;
+			report_info("iter=%d num_events=%ld min=%ld max=%ld overflow!!!",
+				    i, num_events, min, max);
+		}
+		/* record extreme value */
+		max = MAX(num_events, max);
+		min = MIN(num_events, min);
+	}
+	report_info("overflow=%d min=%ld max=%ld expected=%d acceptable margin=%d",
+		    overflow, min, max, COUNT, MARGIN);
+	report(!overflow, "mem_access count is reliable");
+}
 
 static void test_chain_promotion(bool unused)
 {
@@ -725,129 +810,128 @@ static void test_chain_promotion(bool unused)
 		return;
 
 	/* Only enable CHAIN counter */
+	report_prefix_push("subtest1");
 	pmu_reset();
 	write_regn_el0(pmevtyper, 0, MEM_ACCESS | PMEVTYPER_EXCLUDE_EL0);
 	write_regn_el0(pmevtyper, 1, CHAIN | PMEVTYPER_EXCLUDE_EL0);
 	write_sysreg_s(0x2, PMCNTENSET_EL0);
 	isb();
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
+	PRINT_REGS("post");
 	report(!read_regn_el0(pmevcntr, 0),
 		"chain counter not counting if even counter is disabled");
+	report_prefix_pop();
 
 	/* Only enable even counter */
+	report_prefix_push("subtest2");
 	pmu_reset();
 	write_regn_el0(pmevcntr, 0, PRE_OVERFLOW_32);
 	write_sysreg_s(0x1, PMCNTENSET_EL0);
 	isb();
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
+	PRINT_REGS("post");
 	report(!read_regn_el0(pmevcntr, 1) && (read_sysreg(pmovsclr_el0) == 0x1),
 		"odd counter did not increment on overflow if disabled");
-	report_info("MEM_ACCESS counter #0 has value 0x%lx",
-		    read_regn_el0(pmevcntr, 0));
-	report_info("CHAIN counter #1 has value 0x%lx",
-		    read_regn_el0(pmevcntr, 1));
-	report_info("overflow counter 0x%lx", read_sysreg(pmovsclr_el0));
+	report_prefix_pop();
 
-	/* start at 0xFFFFFFDC, +20 with CHAIN enabled, +20 with CHAIN disabled */
+	/* 1st COUNT with CHAIN enabled, next COUNT with CHAIN disabled */
+	report_prefix_push("subtest3");
 	pmu_reset();
-	write_sysreg_s(0x3, PMCNTENSET_EL0);
 	write_regn_el0(pmevcntr, 0, PRE_OVERFLOW2_32);
-	isb();
+	enable_chain_counter(0);
+	PRINT_REGS("init");
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
-	report_info("MEM_ACCESS counter #0 has value 0x%lx",
-		    read_regn_el0(pmevcntr, 0));
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
+	PRINT_REGS("After 1st loop");
 
 	/* disable the CHAIN event */
-	write_sysreg_s(0x2, PMCNTENCLR_EL0);
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
-	report_info("MEM_ACCESS counter #0 has value 0x%lx",
-		    read_regn_el0(pmevcntr, 0));
+	disable_chain_counter(0);
+	write_sysreg_s(0x1, PMCNTENSET_EL0); /* Enable the low counter */
+	isb();
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
+	PRINT_REGS("After 2nd loop");
 	report(read_sysreg(pmovsclr_el0) == 0x1,
 		"should have triggered an overflow on #0");
 	report(!read_regn_el0(pmevcntr, 1),
 		"CHAIN counter #1 shouldn't have incremented");
+	report_prefix_pop();
 
-	/* start at 0xFFFFFFDC, +20 with CHAIN disabled, +20 with CHAIN enabled */
+	/* 1st COUNT with CHAIN disabled, next COUNT with CHAIN enabled */
 
+	report_prefix_push("subtest4");
 	pmu_reset();
 	write_sysreg_s(0x1, PMCNTENSET_EL0);
 	write_regn_el0(pmevcntr, 0, PRE_OVERFLOW2_32);
 	isb();
-	report_info("counter #0 = 0x%lx, counter #1 = 0x%lx overflow=0x%lx",
-		    read_regn_el0(pmevcntr, 0), read_regn_el0(pmevcntr, 1),
-		    read_sysreg(pmovsclr_el0));
+	PRINT_REGS("init");
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
-	report_info("MEM_ACCESS counter #0 has value 0x%lx",
-		    read_regn_el0(pmevcntr, 0));
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
+	PRINT_REGS("After 1st loop");
 
-	/* enable the CHAIN event */
-	write_sysreg_s(0x3, PMCNTENSET_EL0);
+	/* Disable the low counter first and enable the chain counter */
+	write_sysreg_s(0x1, PMCNTENCLR_EL0);
 	isb();
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
-	report_info("MEM_ACCESS counter #0 has value 0x%lx",
-		    read_regn_el0(pmevcntr, 0));
+	enable_chain_counter(0);
+
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
+
+	PRINT_REGS("After 2nd loop");
 
 	report((read_regn_el0(pmevcntr, 1) == 1) &&
 		(read_sysreg(pmovsclr_el0) == 0x1),
 		"CHAIN counter enabled: CHAIN counter was incremented and overflow");
-
-	report_info("CHAIN counter #1 = 0x%lx, overflow=0x%lx",
-		read_regn_el0(pmevcntr, 1), read_sysreg(pmovsclr_el0));
+	report_prefix_pop();
 
 	/* start as MEM_ACCESS/CPU_CYCLES and move to CHAIN/MEM_ACCESS */
+	report_prefix_push("subtest5");
 	pmu_reset();
 	write_regn_el0(pmevtyper, 0, MEM_ACCESS | PMEVTYPER_EXCLUDE_EL0);
 	write_regn_el0(pmevtyper, 1, CPU_CYCLES | PMEVTYPER_EXCLUDE_EL0);
 	write_sysreg_s(0x3, PMCNTENSET_EL0);
 	write_regn_el0(pmevcntr, 0, PRE_OVERFLOW2_32);
 	isb();
+	PRINT_REGS("init");
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
-	report_info("MEM_ACCESS counter #0 has value 0x%lx",
-		    read_regn_el0(pmevcntr, 0));
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
+	PRINT_REGS("After 1st loop");
 
 	/* 0 becomes CHAINED */
-	write_sysreg_s(0x0, PMCNTENSET_EL0);
+	write_sysreg_s(0x3, PMCNTENCLR_EL0);
 	write_regn_el0(pmevtyper, 1, CHAIN | PMEVTYPER_EXCLUDE_EL0);
-	write_sysreg_s(0x3, PMCNTENSET_EL0);
 	write_regn_el0(pmevcntr, 1, 0x0);
+	enable_chain_counter(0);
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
-	report_info("MEM_ACCESS counter #0 has value 0x%lx",
-		    read_regn_el0(pmevcntr, 0));
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
+	PRINT_REGS("After 2nd loop");
 
 	report((read_regn_el0(pmevcntr, 1) == 1) &&
 		(read_sysreg(pmovsclr_el0) == 0x1),
 		"32b->64b: CHAIN counter incremented and overflow");
-
-	report_info("CHAIN counter #1 = 0x%lx, overflow=0x%lx",
-		read_regn_el0(pmevcntr, 1), read_sysreg(pmovsclr_el0));
+	report_prefix_pop();
 
 	/* start as CHAIN/MEM_ACCESS and move to MEM_ACCESS/CPU_CYCLES */
+	report_prefix_push("subtest6");
 	pmu_reset();
 	write_regn_el0(pmevtyper, 0, MEM_ACCESS | PMEVTYPER_EXCLUDE_EL0);
 	write_regn_el0(pmevtyper, 1, CHAIN | PMEVTYPER_EXCLUDE_EL0);
 	write_regn_el0(pmevcntr, 0, PRE_OVERFLOW2_32);
-	write_sysreg_s(0x3, PMCNTENSET_EL0);
+	enable_chain_counter(0);
+	PRINT_REGS("init");
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
-	report_info("counter #0=0x%lx, counter #1=0x%lx",
-			read_regn_el0(pmevcntr, 0), read_regn_el0(pmevcntr, 1));
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
+	PRINT_REGS("After 1st loop");
 
-	write_sysreg_s(0x0, PMCNTENSET_EL0);
+	disable_chain_counter(0);
 	write_regn_el0(pmevtyper, 1, CPU_CYCLES | PMEVTYPER_EXCLUDE_EL0);
 	write_sysreg_s(0x3, PMCNTENSET_EL0);
 
-	mem_access_loop(addr, 20, pmu.pmcr_ro | PMU_PMCR_E);
+	mem_access_loop(addr, COUNT, pmu.pmcr_ro | PMU_PMCR_E);
+	PRINT_REGS("After 2nd loop");
 	report(read_sysreg(pmovsclr_el0) == 1,
 		"overflow is expected on counter 0");
-	report_info("counter #0=0x%lx, counter #1=0x%lx overflow=0x%lx",
-			read_regn_el0(pmevcntr, 0), read_regn_el0(pmevcntr, 1),
-			read_sysreg(pmovsclr_el0));
+	report_prefix_pop();
 }
 
 static bool expect_interrupts(uint32_t bitmap)
@@ -1174,6 +1258,9 @@ int main(int argc, char *argv[])
 	} else if (strcmp(argv[1], "pmu-basic-event-count") == 0) {
 		run_event_test(argv[1], test_basic_event_count, false);
 		run_event_test(argv[1], test_basic_event_count, true);
+	} else if (strcmp(argv[1], "pmu-mem-access-reliability") == 0) {
+		run_event_test(argv[1], test_mem_access_reliability, false);
+		run_event_test(argv[1], test_mem_access_reliability, true);
 	} else if (strcmp(argv[1], "pmu-mem-access") == 0) {
 		run_event_test(argv[1], test_mem_access, false);
 		run_event_test(argv[1], test_mem_access, true);

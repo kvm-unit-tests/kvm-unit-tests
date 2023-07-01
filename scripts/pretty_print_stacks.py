@@ -63,7 +63,11 @@ def main():
         sys.stderr.write('usage: %s <kernel>\n' % sys.argv[0])
         sys.exit(1)
 
-    binary = sys.argv[1].replace(".flat", ".elf")
+    binary = sys.argv[1]
+    if binary.endswith('.flat'):
+        binary = binary.replace('.flat', '.elf')
+    elif binary.endswith('.efi'):
+        binary += '.debug'
 
     with open("config.mak") as config_file:
         for line in config_file:

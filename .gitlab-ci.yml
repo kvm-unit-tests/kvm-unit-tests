@@ -38,7 +38,6 @@ build-aarch64:
       pmu-cycle-counter
       pmu-event-counter-config
       pmu-sw-incr
-      psci
       selftest-setup
       selftest-smp
       selftest-vectors-kernel
@@ -58,7 +57,7 @@ build-arm:
  - ACCEL=tcg MAX_SMP=8 ./run_tests.sh
      selftest-setup selftest-vectors-kernel selftest-vectors-user selftest-smp
      pci-test pmu-cycle-counter gicv2-ipi gicv2-mmio gicv3-ipi gicv2-active
-     gicv3-active psci
+     gicv3-active
      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 

@@ -9,8 +9,7 @@ if [ -z "$KUT_STANDALONE" ]; then
 	source scripts/arch-run.bash
 fi
 
-ACCEL=$(get_qemu_accelerator) ||
-	exit $?
+set_qemu_accelerator || exit $?
 
 qemu=$(search_qemu_binary) ||
 	exit $?
@@ -21,7 +20,7 @@ if ! $qemu -machine '?' 2>&1 | grep 'pseries' > /dev/null; then
 fi
 
 M='-machine pseries'
-M+=",accel=$ACCEL"
+M+=",accel=$ACCEL$ACCEL_PROPS"
 command="$qemu -nodefaults $M -bios $FIRMWARE"
 command+=" -display none -serial stdio -kernel"
 command="$(migration_cmd) $(timeout_cmd) $command"

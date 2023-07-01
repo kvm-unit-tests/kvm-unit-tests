@@ -136,7 +136,7 @@ static struct timer_info ptimer_info = {
 
 static void set_timer_irq_enabled(struct timer_info *info, bool enabled)
 {
-	u32 irq = PPI(info->irq);
+	u32 irq = info->irq;
 
 	if (enabled)
 		gic_enable_irq(irq);
@@ -150,9 +150,9 @@ static void irq_handler(struct pt_regs *regs)
 	u32 irqstat = gic_read_iar();
 	u32 irqnr = gic_iar_irqnr(irqstat);
 
-	if (irqnr == PPI(vtimer_info.irq)) {
+	if (irqnr == vtimer_info.irq) {
 		info = &vtimer_info;
-	} else if (irqnr == PPI(ptimer_info.irq)) {
+	} else if (irqnr == ptimer_info.irq) {
 		info = &ptimer_info;
 	} else {
 		if (irqnr != GICC_INT_SPURIOUS)
@@ -182,9 +182,9 @@ static bool gic_timer_check_state(struct timer_info *info,
 	/* Wait for up to 1s for the GIC to sample the interrupt. */
 	for (i = 0; i < 10; i++) {
 		mdelay(100);
-		if (gic_irq_state(PPI(info->irq)) == expected_state) {
+		if (gic_irq_state(info->irq) == expected_state) {
 			mdelay(100);
-			if (gic_irq_state(PPI(info->irq)) == expected_state)
+			if (gic_irq_state(info->irq) == expected_state)
 				return true;
 		}
 	}

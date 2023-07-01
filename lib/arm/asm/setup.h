@@ -15,6 +15,7 @@ extern int nr_cpus;
 
 #define MR_F_IO			(1U << 0)
 #define MR_F_CODE		(1U << 1)
+#define MR_F_RESERVED		(1U << 2)
 #define MR_F_UNKNOWN		(1U << 31)
 
 struct mem_region {
@@ -36,5 +37,13 @@ extern unsigned int mem_region_get_flags(phys_addr_t paddr);
 #define SMP_CACHE_BYTES		L1_CACHE_BYTES
 
 void setup(const void *fdt, phys_addr_t freemem_start);
+
+#ifdef CONFIG_EFI
+
+#include <efi.h>
+
+efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo);
+
+#endif
 
 #endif /* _ASMARM_SETUP_H_ */

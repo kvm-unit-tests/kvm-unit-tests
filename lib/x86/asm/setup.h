@@ -4,7 +4,7 @@
 unsigned long setup_tss(u8 *stacktop);
 
 #ifdef CONFIG_EFI
-#include "x86/acpi.h"
+#include "acpi.h"
 #include "x86/apic.h"
 #include "x86/processor.h"
 #include "x86/smp.h"

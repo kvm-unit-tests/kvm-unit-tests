@@ -10,23 +10,19 @@ if [ -z "$KUT_STANDALONE" ]; then
 fi
 processor="$PROCESSOR"
 
-accel=$(get_qemu_accelerator) ||
-	exit $?
+if [ "$QEMU" ] && [ -z "$ACCEL" ] &&
+   [ "$HOST" = "aarch64" ] && [ "$ARCH" = "arm" ] &&
+   [ "$(basename $QEMU)" = "qemu-system-arm" ]; then
+	ACCEL="tcg"
+fi
 
-if [ "$accel" = "kvm" ]; then
+set_qemu_accelerator || exit $?
+if [ "$ACCEL" = "kvm" ]; then
 	QEMU_ARCH=$HOST
 fi
 
 qemu=$(search_qemu_binary) ||
 	exit $?
-
-if [ "$QEMU" ] && [ -z "$ACCEL" ] &&
-   [ "$HOST" = "aarch64" ] && [ "$ARCH" = "arm" ] &&
-   [ "$(basename $QEMU)" = "qemu-system-arm" ]; then
-	accel=tcg
-fi
-
-ACCEL=$accel
 
 if ! $qemu -machine '?' | grep -q 'ARM Virtual Machine'; then
 	echo "$qemu doesn't support mach-virt ('-machine virt'). Exiting."
@@ -64,17 +60,23 @@ if ! $qemu $M -chardev '?' | grep -q testdev; then
 	exit 2
 fi
 
-chr_testdev='-device virtio-serial-device'
-chr_testdev+=' -device virtconsole,chardev=ctd -chardev testdev,id=ctd'
+if [ "$EFI_RUN" != "y" ]; then
+	chr_testdev='-device virtio-serial-device'
+	chr_testdev+=' -device virtconsole,chardev=ctd -chardev testdev,id=ctd'
+fi
 
 pci_testdev=
 if $qemu $M -device '?' | grep -q pci-testdev; then
 	pci_testdev="-device pci-testdev"
 fi
 
-A="-accel $ACCEL"
+A="-accel $ACCEL$ACCEL_PROPS"
 command="$qemu -nodefaults $M $A -cpu $processor $chr_testdev $pci_testdev"
-command+=" -display none -serial stdio -kernel"
+command+=" -display none -serial stdio"
 command="$(migration_cmd) $(timeout_cmd) $command"
 
-run_qemu $command "$@"
+if [ "$EFI_RUN" = "y" ]; then
+	ENVIRON_DEFAULT=n run_qemu_status $command "$@"
+else
+	run_qemu $command -kernel "$@"
+fi

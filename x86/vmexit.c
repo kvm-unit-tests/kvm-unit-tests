@@ -1,9 +1,9 @@
 #include "libcflat.h"
+#include "acpi.h"
 #include "smp.h"
 #include "pci.h"
 #include "x86/vm.h"
 #include "x86/desc.h"
-#include "x86/acpi.h"
 #include "x86/apic.h"
 #include "x86/isr.h"
 
@@ -206,7 +206,7 @@ int pm_tmr_blk;
 static void inl_pmtimer(void)
 {
     if (!pm_tmr_blk) {
-	struct fadt_descriptor_rev1 *fadt;
+	struct acpi_table_fadt *fadt;
 
 	fadt = find_acpi_table_addr(FACP_SIGNATURE);
 	pm_tmr_blk = fadt->pm_tmr_blk;

@@ -13,7 +13,7 @@ if [ ! -f config.mak ]; then
 fi
 source config.mak
 
-: "${EFI_SRC:=$(realpath "$(dirname "$0")/../")}"
+: "${EFI_SRC:=$TEST_DIR}"
 : "${EFI_UEFI:=/usr/share/ovmf/OVMF.fd}"
 : "${EFI_TEST:=efi-tests}"
 : "${EFI_SMP:=1}"

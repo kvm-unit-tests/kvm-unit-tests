@@ -9,8 +9,7 @@ if [ -z "$KUT_STANDALONE" ]; then
 	source scripts/arch-run.bash
 fi
 
-ACCEL=$(get_qemu_accelerator) ||
-	exit $?
+set_qemu_accelerator || exit $?
 
 qemu=$(search_qemu_binary) ||
 	exit $?
@@ -38,7 +37,7 @@ else
 fi
 
 command="${qemu} --no-reboot -nodefaults $pc_testdev -vnc none -serial stdio $pci_testdev"
-command+=" -machine accel=$ACCEL"
+command+=" -machine accel=$ACCEL$ACCEL_PROPS"
 if [ "${CONFIG_EFI}" != y ]; then
 	command+=" -kernel"
 fi

@@ -22,12 +22,18 @@
  *    +----------------------+   <-- physical address 0x0
  */
 
+PHDRS
+{
+    text PT_LOAD FLAGS(5);
+    data PT_LOAD FLAGS(6);
+}
+
 SECTIONS
 {
     PROVIDE(_text = .);
-    .text : { *(.init) *(.text) *(.text.*) }
+    .text : { *(.init) *(.text) *(.text.*) } :text
     . = ALIGN(64K);
-    PROVIDE(etext = .);
+    PROVIDE(_etext = .);
 
     PROVIDE(reloc_start = .);
     .rela.dyn : { *(.rela.dyn) }
@@ -39,8 +45,8 @@ SECTIONS
     .got      : { *(.got) *(.got.plt) }
     .eh_frame : { *(.eh_frame) }
 
-    .rodata   : { *(.rodata*) }
-    .data     : { *(.data) }
+    .rodata   : { *(.rodata*) } :data
+    .data     : { *(.data) } :data
     . = ALIGN(16);
     PROVIDE(bss = .);
     .bss      : { *(.bss) }

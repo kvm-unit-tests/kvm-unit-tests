@@ -245,7 +245,7 @@ static efi_status_t setup_memory_allocator(efi_bootinfo_t *efi_bootinfo)
 static efi_status_t setup_rsdp(efi_bootinfo_t *efi_bootinfo)
 {
 	efi_status_t status;
-	struct rsdp_descriptor *rsdp;
+	struct acpi_table_rsdp *rsdp;
 
 	/*
 	 * RSDP resides in an EFI_ACPI_RECLAIM_MEMORY region, which is not used

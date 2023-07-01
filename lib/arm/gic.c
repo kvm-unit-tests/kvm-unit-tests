@@ -3,6 +3,7 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
+#include <acpi.h>
 #include <devicetree.h>
 #include <asm/gic.h>
 #include <asm/io.h>
@@ -120,7 +121,7 @@ int gic_version(void)
 	return 0;
 }
 
-int gic_init(void)
+static int gic_init_fdt(void)
 {
 	if (gicv2_init()) {
 		gic_common_ops = &gicv2_common_ops;
@@ -131,6 +132,142 @@ int gic_init(void)
 #endif
 	}
 	return gic_version();
+}
+
+#ifdef CONFIG_EFI
+
+#define ACPI_GICV2_DIST_MEM_SIZE	(SZ_4K)
+#define ACPI_GIC_CPU_IF_MEM_SIZE	(SZ_8K)
+#define ACPI_GICV3_DIST_MEM_SIZE	(SZ_64K)
+#define ACPI_GICV3_ITS_MEM_SIZE		(SZ_128K)
+
+static int gic_acpi_version(struct acpi_subtable_header *header)
+{
+	struct acpi_madt_generic_distributor *dist = (void *)header;
+	int version = dist->version;
+
+	if (version == 2)
+		gic_common_ops = &gicv2_common_ops;
+	else if (version == 3)
+		gic_common_ops = &gicv3_common_ops;
+
+	return version;
+}
+
+static int gicv2_acpi_parse_madt_cpu(struct acpi_subtable_header *header)
+{
+	struct acpi_madt_generic_interrupt *gicc = (void *)header;
+	static phys_addr_t gicc_base_address;
+
+	if (!(gicc->flags & ACPI_MADT_ENABLED))
+		return 0;
+
+	if (!gicc_base_address) {
+		gicc_base_address = gicc->base_address;
+		gicv2_data.cpu_base = ioremap(gicc_base_address, ACPI_GIC_CPU_IF_MEM_SIZE);
+	}
+	assert(gicc_base_address == gicc->base_address);
+
+	return 0;
+}
+
+static int gicv2_acpi_parse_madt_dist(struct acpi_subtable_header *header)
+{
+	struct acpi_madt_generic_distributor *dist = (void *)header;
+
+	gicv2_data.dist_base = ioremap(dist->base_address, ACPI_GICV2_DIST_MEM_SIZE);
+
+	return 0;
+}
+
+static int gicv3_acpi_parse_madt_gicc(struct acpi_subtable_header *header)
+{
+	struct acpi_madt_generic_interrupt *gicc = (void *)header;
+	static phys_addr_t gicr_base_address;
+
+	if (!(gicc->flags & ACPI_MADT_ENABLED))
+		return 0;
+
+	if (!gicr_base_address) {
+		gicr_base_address = gicc->gicr_base_address;
+		gicv3_data.redist_bases[0] = ioremap(gicr_base_address, SZ_64K * 2);
+	}
+	assert(gicr_base_address == gicc->gicr_base_address);
+
+	return 0;
+}
+
+static int gicv3_acpi_parse_madt_dist(struct acpi_subtable_header *header)
+{
+	struct acpi_madt_generic_distributor *dist = (void *)header;
+
+	gicv3_data.dist_base = ioremap(dist->base_address, ACPI_GICV3_DIST_MEM_SIZE);
+
+	return 0;
+}
+
+static int gicv3_acpi_parse_madt_redist(struct acpi_subtable_header *header)
+{
+	static int i;
+	struct acpi_madt_generic_redistributor *redist = (void *)header;
+
+	gicv3_data.redist_bases[i++] = ioremap(redist->base_address, redist->length);
+
+	return 0;
+}
+
+static int gicv3_acpi_parse_madt_its(struct acpi_subtable_header *header)
+{
+	struct acpi_madt_generic_translator *its_entry = (void *)header;
+
+	its_data.base = ioremap(its_entry->base_address, ACPI_GICV3_ITS_MEM_SIZE - 1);
+
+	return 0;
+}
+
+static int gic_init_acpi(void)
+{
+	int count;
+
+	acpi_table_parse_madt(ACPI_MADT_TYPE_GENERIC_DISTRIBUTOR, gic_acpi_version);
+	if (gic_version() == 2) {
+		acpi_table_parse_madt(ACPI_MADT_TYPE_GENERIC_INTERRUPT,
+				     gicv2_acpi_parse_madt_cpu);
+		acpi_table_parse_madt(ACPI_MADT_TYPE_GENERIC_DISTRIBUTOR,
+				      gicv2_acpi_parse_madt_dist);
+	} else if (gic_version() == 3) {
+		acpi_table_parse_madt(ACPI_MADT_TYPE_GENERIC_DISTRIBUTOR,
+				      gicv3_acpi_parse_madt_dist);
+		count = acpi_table_parse_madt(ACPI_MADT_TYPE_GENERIC_REDISTRIBUTOR,
+					      gicv3_acpi_parse_madt_redist);
+		if (!count)
+			acpi_table_parse_madt(ACPI_MADT_TYPE_GENERIC_INTERRUPT,
+					      gicv3_acpi_parse_madt_gicc);
+		acpi_table_parse_madt(ACPI_MADT_TYPE_GENERIC_TRANSLATOR,
+				      gicv3_acpi_parse_madt_its);
+#ifdef __aarch64__
+		its_init();
+#endif
+	}
+
+	return gic_version();
+}
+
+#else
+
+static int gic_init_acpi(void)
+{
+	assert_msg(false, "ACPI not available");
+}
+
+#endif /* CONFIG_EFI */
+
+int gic_init(void)
+{
+	if (dt_available())
+		return gic_init_fdt();
+	else
+		return gic_init_acpi();
 }
 
 void gic_enable_defaults(void)

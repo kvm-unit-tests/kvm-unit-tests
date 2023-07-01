@@ -41,7 +41,7 @@ void __setup_args(void)
 	__argc = argv - __argv;
 }
 
-static void setup_args(const char *args)
+void setup_args(const char *args)
 {
 	if (!args)
 		return;

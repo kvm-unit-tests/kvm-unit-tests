@@ -292,11 +292,14 @@ static noinline void test_hw_bp(bool migrate)
 	hw_bp_idx = 0;
 
 	/* Trap on up to 16 debug exception unmask instructions. */
-	asm volatile("hw_bp0:\n"
-	     "msr daifclr, #8; msr daifclr, #8; msr daifclr, #8; msr daifclr, #8\n"
-	     "msr daifclr, #8; msr daifclr, #8; msr daifclr, #8; msr daifclr, #8\n"
-	     "msr daifclr, #8; msr daifclr, #8; msr daifclr, #8; msr daifclr, #8\n"
-	     "msr daifclr, #8; msr daifclr, #8; msr daifclr, #8; msr daifclr, #8\n");
+	asm volatile(
+		".globl hw_bp0\n"
+		"hw_bp0:\n"
+			"msr daifclr, #8; msr daifclr, #8; msr daifclr, #8; msr daifclr, #8\n"
+			"msr daifclr, #8; msr daifclr, #8; msr daifclr, #8; msr daifclr, #8\n"
+			"msr daifclr, #8; msr daifclr, #8; msr daifclr, #8; msr daifclr, #8\n"
+			"msr daifclr, #8; msr daifclr, #8; msr daifclr, #8; msr daifclr, #8\n"
+		);
 
 	for (i = 0, addr = (uint64_t)&hw_bp0; i < num_bp; i++, addr += 4)
 		report(hw_bp_addr[i] == addr, "hw breakpoint: %d", i);
@@ -367,11 +370,14 @@ static noinline void test_ss(bool migrate)
 
 	asm volatile("msr daifclr, #8");
 
-	asm volatile("ss_start:\n"
+	asm volatile(
+		".globl ss_start\n"
+		"ss_start:\n"
 			"mrs x0, esr_el1\n"
 			"add x0, x0, #1\n"
 			"msr daifset, #8\n"
-			: : : "x0");
+			: : : "x0"
+		);
 
 	report(ss_addr[0] == (uint64_t)&ss_start, "single step");
 }
