@@ -15,7 +15,7 @@ function usage()
 {
 cat <<EOF
 
-Usage: $0 [-h] [-v] [-a] [-g group] [-j NUM-TASKS] [-t]
+Usage: $0 [-h] [-v] [-a] [-g group] [-j NUM-TASKS] [-t] [-l]
 
     -h, --help      Output this help text
     -v, --verbose   Enables verbose mode
@@ -24,6 +24,7 @@ Usage: $0 [-h] [-v] [-a] [-g group] [-j NUM-TASKS] [-t]
     -g, --group     Only execute tests in the given group
     -j, --parallel  Execute tests in parallel
     -t, --tap13     Output test results in TAP format
+    -l, --list      Only output all tests list
 
 Set the environment variable QEMU=/path/to/qemu-system-ARCH to
 specify the appropriate qemu binary for ARCH-run.
@@ -42,7 +43,8 @@ if [ $? -ne 4 ]; then
 fi
 
 only_tests=""
-args=$(getopt -u -o ag:htj:v -l all,group:,help,tap13,parallel:,verbose -- $*)
+list_tests=""
+args=$(getopt -u -o ag:htj:v:l -l all,group:,help,tap13,parallel:,verbose:,list -- $*)
 [ $? -ne 0 ] && exit 2;
 set -- $args;
 while [ $# -gt 0 ]; do
@@ -72,6 +74,9 @@ while [ $# -gt 0 ]; do
             ;;
         -t | --tap13)
             tap_output="yes"
+            ;;
+        -l | --list)
+            list_tests="yes"
             ;;
         --)
             ;;
@@ -153,6 +158,20 @@ function run_task()
 : ${unittest_log_dir:=logs}
 : ${unittest_run_queues:=1}
 config=$TEST_DIR/unittests.cfg
+
+print_testname()
+{
+    local testname=$1
+    local groups=$2
+    if [ -n "$only_group" ] && ! find_word "$only_group" "$groups"; then
+        return
+    fi
+    echo "$testname"
+}
+if [[ $list_tests == "yes" ]]; then
+    for_each_unittest $config print_testname
+    exit
+fi
 
 rm -rf $unittest_log_dir.old
 [ -d $unittest_log_dir ] && mv $unittest_log_dir $unittest_log_dir.old
