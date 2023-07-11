@@ -9,6 +9,7 @@
  */
 #include <libcflat.h>
 #include <snippet.h>
+#include <pv_icptdata.h>
 #include <sie.h>
 #include <sclp.h>
 #include <asm/facility.h>
@@ -17,22 +18,21 @@ static struct vm vm;
 
 static void test_diag_500(void)
 {
-	extern const char SNIPPET_NAME_START(asm, snippet_pv_diag_500)[];
-	extern const char SNIPPET_NAME_END(asm, snippet_pv_diag_500)[];
-	extern const char SNIPPET_HDR_START(asm, snippet_pv_diag_500)[];
-	extern const char SNIPPET_HDR_END(asm, snippet_pv_diag_500)[];
-	int size_hdr = SNIPPET_HDR_LEN(asm, snippet_pv_diag_500);
-	int size_gbin = SNIPPET_LEN(asm, snippet_pv_diag_500);
+	extern const char SNIPPET_NAME_START(asm, pv_diag_500)[];
+	extern const char SNIPPET_NAME_END(asm, pv_diag_500)[];
+	extern const char SNIPPET_HDR_START(asm, pv_diag_500)[];
+	extern const char SNIPPET_HDR_END(asm, pv_diag_500)[];
+	int size_hdr = SNIPPET_HDR_LEN(asm, pv_diag_500);
+	int size_gbin = SNIPPET_LEN(asm, pv_diag_500);
 
 	report_prefix_push("diag 0x500");
 
-	snippet_pv_init(&vm, SNIPPET_NAME_START(asm, snippet_pv_diag_500),
-			SNIPPET_HDR_START(asm, snippet_pv_diag_500),
+	snippet_pv_init(&vm, SNIPPET_NAME_START(asm, pv_diag_500),
+			SNIPPET_HDR_START(asm, pv_diag_500),
 			size_gbin, size_hdr, SNIPPET_UNPACK_OFF);
 
 	sie(&vm);
-	report(vm.sblk->icptcode == ICPT_PV_INSTR && vm.sblk->ipa == 0x8302 &&
-	       vm.sblk->ipb == 0x50000000 && vm.save_area.guest.grs[5] == 0x500,
+	report(pv_icptdata_check_diag(&vm, 0x500),
 	       "intercept values");
 	report(vm.save_area.guest.grs[1] == 1 &&
 	       vm.save_area.guest.grs[2] == 2 &&
@@ -45,9 +45,8 @@ static void test_diag_500(void)
 	 */
 	vm.sblk->iictl = IICTL_CODE_OPERAND;
 	sie(&vm);
-	report(vm.sblk->icptcode == ICPT_PV_NOTIFY && vm.sblk->ipa == 0x8302 &&
-	       vm.sblk->ipb == 0x50000000 && vm.save_area.guest.grs[5] == 0x9c
-	       && vm.save_area.guest.grs[0] == PGM_INT_CODE_OPERAND,
+	report(pv_icptdata_check_diag(&vm, 0x9c) &&
+	       vm.save_area.guest.grs[0] == PGM_INT_CODE_OPERAND,
 	       "operand exception");
 
 	/*
@@ -58,9 +57,8 @@ static void test_diag_500(void)
 	vm.sblk->iictl = IICTL_CODE_SPECIFICATION;
 	/* Inject PGM, next exit should be 9c */
 	sie(&vm);
-	report(vm.sblk->icptcode == ICPT_PV_NOTIFY && vm.sblk->ipa == 0x8302 &&
-	       vm.sblk->ipb == 0x50000000 && vm.save_area.guest.grs[5] == 0x9c
-	       && vm.save_area.guest.grs[0] == PGM_INT_CODE_SPECIFICATION,
+	report(pv_icptdata_check_diag(&vm, 0x9c) &&
+	       vm.save_area.guest.grs[0] == PGM_INT_CODE_SPECIFICATION,
 	       "specification exception");
 
 	/* No need for cleanup, just tear down the VM */
@@ -72,17 +70,17 @@ static void test_diag_500(void)
 
 static void test_diag_288(void)
 {
-	extern const char SNIPPET_NAME_START(asm, snippet_pv_diag_288)[];
-	extern const char SNIPPET_NAME_END(asm, snippet_pv_diag_288)[];
-	extern const char SNIPPET_HDR_START(asm, snippet_pv_diag_288)[];
-	extern const char SNIPPET_HDR_END(asm, snippet_pv_diag_288)[];
-	int size_hdr = SNIPPET_HDR_LEN(asm, snippet_pv_diag_288);
-	int size_gbin = SNIPPET_LEN(asm, snippet_pv_diag_288);
+	extern const char SNIPPET_NAME_START(asm, pv_diag_288)[];
+	extern const char SNIPPET_NAME_END(asm, pv_diag_288)[];
+	extern const char SNIPPET_HDR_START(asm, pv_diag_288)[];
+	extern const char SNIPPET_HDR_END(asm, pv_diag_288)[];
+	int size_hdr = SNIPPET_HDR_LEN(asm, pv_diag_288);
+	int size_gbin = SNIPPET_LEN(asm, pv_diag_288);
 
 	report_prefix_push("diag 0x288");
 
-	snippet_pv_init(&vm, SNIPPET_NAME_START(asm, snippet_pv_diag_288),
-			SNIPPET_HDR_START(asm, snippet_pv_diag_288),
+	snippet_pv_init(&vm, SNIPPET_NAME_START(asm, pv_diag_288),
+			SNIPPET_HDR_START(asm, pv_diag_288),
 			size_gbin, size_hdr, SNIPPET_UNPACK_OFF);
 
 	sie(&vm);
@@ -113,17 +111,17 @@ static void test_diag_288(void)
 
 static void test_diag_yield(void)
 {
-	extern const char SNIPPET_NAME_START(asm, snippet_pv_diag_yield)[];
-	extern const char SNIPPET_NAME_END(asm, snippet_pv_diag_yield)[];
-	extern const char SNIPPET_HDR_START(asm, snippet_pv_diag_yield)[];
-	extern const char SNIPPET_HDR_END(asm, snippet_pv_diag_yield)[];
-	int size_hdr = SNIPPET_HDR_LEN(asm, snippet_pv_diag_yield);
-	int size_gbin = SNIPPET_LEN(asm, snippet_pv_diag_yield);
+	extern const char SNIPPET_NAME_START(asm, pv_diag_yield)[];
+	extern const char SNIPPET_NAME_END(asm, pv_diag_yield)[];
+	extern const char SNIPPET_HDR_START(asm, pv_diag_yield)[];
+	extern const char SNIPPET_HDR_END(asm, pv_diag_yield)[];
+	int size_hdr = SNIPPET_HDR_LEN(asm, pv_diag_yield);
+	int size_gbin = SNIPPET_LEN(asm, pv_diag_yield);
 
 	report_prefix_push("diag yield");
 
-	snippet_pv_init(&vm, SNIPPET_NAME_START(asm, snippet_pv_diag_yield),
-			SNIPPET_HDR_START(asm, snippet_pv_diag_yield),
+	snippet_pv_init(&vm, SNIPPET_NAME_START(asm, pv_diag_yield),
+			SNIPPET_HDR_START(asm, pv_diag_yield),
 			size_gbin, size_hdr, SNIPPET_UNPACK_OFF);
 
 	/* 0x44 */
@@ -151,14 +149,8 @@ static void test_diag_yield(void)
 int main(void)
 {
 	report_prefix_push("pv-diags");
-	if (!test_facility(158)) {
-		report_skip("UV Call facility unavailable");
+	if (!uv_host_requirement_checks())
 		goto done;
-	}
-	if (!sclp_facilities.has_sief2) {
-		report_skip("SIEF2 facility unavailable");
-		goto done;
-	}
 
 	uv_setup_asces();
 	snippet_setup_guest(&vm, true);

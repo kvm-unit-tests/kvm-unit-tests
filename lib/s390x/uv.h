@@ -7,6 +7,7 @@
 
 bool uv_os_is_guest(void);
 bool uv_os_is_host(void);
+bool uv_host_requirement_checks(void);
 bool uv_query_test_call(unsigned int nr);
 const struct uv_cb_qui *uv_get_query_data(void);
 void uv_init(void);
@@ -33,6 +34,13 @@ static inline void uv_setup_asces(void)
 
 	/* Copy ASCE into home space CR */
 	lctlg(13, asce);
+}
+
+static inline bool uv_validity_check(struct vm *vm)
+{
+	uint16_t vir = sie_get_validity(vm);
+
+	return vm->sblk->icptcode == ICPT_VALIDITY && (vir & 0xff00) == 0x2000;
 }
 
 #endif /* UV_H */

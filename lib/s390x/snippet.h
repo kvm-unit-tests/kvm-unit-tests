@@ -30,6 +30,13 @@
 #define SNIPPET_HDR_LEN(type, file) \
 	((uintptr_t)SNIPPET_HDR_END(type, file) - (uintptr_t)SNIPPET_HDR_START(type, file))
 
+/*
+ * Some of the UV memory needs to be allocated with >31 bit
+ * addresses which means we need a lot more memory than other
+ * tests.
+ */
+#define SNIPPET_PV_MIN_MEM_SIZE	(SZ_1M * 2200UL)
+
 #define SNIPPET_PV_TWEAK0	0x42UL
 #define SNIPPET_PV_TWEAK1	0UL
 #define SNIPPET_UNPACK_OFF	0

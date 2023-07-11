@@ -98,6 +98,11 @@ function run()
         return
     fi
 
+    if [ -z "$GEN_SE_HEADER" ] && find_word "pv-host" "$groups"; then
+        print_result "SKIP" $testname "" "no gen-se-header available for pv-host test"
+        return
+    fi
+
     if [ -z "$only_group" ] && find_word nodefault "$groups" &&
             skip_nodefault; then
         print_result "SKIP" $testname "" "test marked as manual run only"
