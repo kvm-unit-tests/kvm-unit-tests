@@ -76,6 +76,8 @@ Architecture Specific Code:
 
 ARM
 M: Andrew Jones <andrew.jones@linux.dev>
+R: Alexandru Elisei <alexandru.elisei@arm.com>
+R: Eric Auger <eric.auger@redhat.com>
 S: Supported
 L: kvmarm@lists.linux.dev
 F: arm/
