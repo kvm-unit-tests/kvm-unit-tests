@@ -80,17 +80,17 @@ asm(
 #define ICC_GRPEN1_EL1			sys_reg(3, 0, 12, 12, 7)
 
 /* System Control Register (SCTLR_EL1) bits */
-#define SCTLR_EL1_EE	(1 << 25)
-#define SCTLR_EL1_WXN	(1 << 19)
-#define SCTLR_EL1_I	(1 << 12)
-#define SCTLR_EL1_SA0	(1 << 4)
-#define SCTLR_EL1_SA	(1 << 3)
-#define SCTLR_EL1_C	(1 << 2)
-#define SCTLR_EL1_A	(1 << 1)
-#define SCTLR_EL1_M	(1 << 0)
+#define SCTLR_EL1_EE		_BITULL(25)
+#define SCTLR_EL1_WXN		_BITULL(19)
+#define SCTLR_EL1_I		_BITULL(12)
+#define SCTLR_EL1_SA0		_BITULL(4)
+#define SCTLR_EL1_SA		_BITULL(3)
+#define SCTLR_EL1_C		_BITULL(2)
+#define SCTLR_EL1_A		_BITULL(1)
+#define SCTLR_EL1_M		_BITULL(0)
 
-#define SCTLR_EL1_RES1	(_BITUL(7) | _BITUL(8) | _BITUL(11) | _BITUL(20) | \
-			 _BITUL(22) | _BITUL(23) | _BITUL(28) | _BITUL(29))
+#define SCTLR_EL1_RES1	(_BITULL(7) | _BITULL(8) | _BITULL(11) | _BITULL(20) | \
+			 _BITULL(22) | _BITULL(23) | _BITULL(28) | _BITULL(29))
 #define INIT_SCTLR_EL1_MMU_OFF	\
 			SCTLR_EL1_RES1
 
