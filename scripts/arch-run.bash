@@ -142,6 +142,7 @@ run_migration ()
 
 	eval "$@" -chardev socket,id=mon1,path=${qmp1},server=on,wait=off \
 		-mon chardev=mon1,mode=control | tee ${migout1} &
+	live_pid=`jobs -l %+ | grep "eval" | awk '{print$2}'`
 
 	# We have to use cat to open the named FIFO, because named FIFO's, unlike
 	# pipes, will block on open() until the other end is also opened, and that
@@ -152,7 +153,14 @@ run_migration ()
 	incoming_pid=`jobs -l %+ | awk '{print$2}'`
 
 	# The test must prompt the user to migrate, so wait for the "migrate" keyword
-	while ! grep -q -i "migrate" < ${migout1} ; do
+	while ! grep -q -i "Now migrate the VM" < ${migout1} ; do
+		if ! ps -p ${live_pid} > /dev/null ; then
+			echo "ERROR: Test exit before migration point." >&2
+			echo > ${fifo}
+			qmp ${qmp1} '"quit"'> ${qmpout1} 2>/dev/null
+			qmp ${qmp2} '"quit"'> ${qmpout2} 2>/dev/null
+			return 3
+		fi
 		sleep 1
 	done
 
