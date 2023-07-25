@@ -165,6 +165,7 @@ run_migration ()
 		migstatus=`qmp ${qmp1} '"query-migrate"' | grep return`
 		if grep -q '"failed"' <<<"$migstatus" ; then
 			echo "ERROR: Migration failed." >&2
+			echo > ${fifo}
 			qmp ${qmp1} '"quit"'> ${qmpout1} 2>/dev/null
 			qmp ${qmp2} '"quit"'> ${qmpout2} 2>/dev/null
 			return 2
