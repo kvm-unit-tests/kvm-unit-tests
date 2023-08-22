@@ -80,7 +80,7 @@ COMMON_CFLAGS += $(if $(U32_LONG_FMT),-D__U32_LONG_FMT__,)
 ifeq ($(CONFIG_EFI),y)
 COMMON_CFLAGS += $(EFI_CFLAGS)
 else
-COMMON_CFLAGS += $(fno_pic) $(no_pie)
+COMMON_CFLAGS += $(fno_pic)
 endif
 COMMON_CFLAGS += $(wclobbered)
 COMMON_CFLAGS += $(wunused_but_set_parameter)
@@ -92,7 +92,7 @@ CFLAGS += -Woverride-init -Wmissing-prototypes -Wstrict-prototypes
 
 autodepend-flags = -MMD -MF $(dir $*).$(notdir $*).d
 
-LDFLAGS += -nostdlib -z noexecstack
+LDFLAGS += -nostdlib $(no_pie) -z noexecstack
 
 $(libcflat): $(cflatobjs)
 	$(AR) rcs $@ $^
