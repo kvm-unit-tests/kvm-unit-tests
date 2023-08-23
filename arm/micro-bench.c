@@ -348,10 +348,10 @@ static void loop_test(struct exit_test *test)
 
 	while (ntimes < test->times && total_ns.ns < NS_5_SECONDS) {
 		isb();
-		start = read_sysreg(cntpct_el0);
+		start = read_sysreg(cntvct_el0);
 		test->exec();
 		isb();
-		end = read_sysreg(cntpct_el0);
+		end = read_sysreg(cntvct_el0);
 
 		ntimes++;
 		total_ticks += (end - start);
