@@ -7627,6 +7627,12 @@ static void test_host_addr_size(void)
 		report_prefix_pop();
 	}
 
+	vmcs_write(HOST_CR4, cr4_saved  & ~X86_CR4_PAE);
+	report_prefix_pushf("\"CR4.PAE\" unset");
+	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	vmcs_write(HOST_CR4, cr4_saved);
+	report_prefix_pop();
+
 	for (i = 32; i <= 63; i = i + 4) {
 		tmp = rip_saved | 1ull << i;
 		vmcs_write(HOST_RIP, tmp);
@@ -7634,12 +7640,6 @@ static void test_host_addr_size(void)
 		test_vmx_vmlaunch(0);
 		report_prefix_pop();
 	}
-
-	vmcs_write(HOST_CR4, cr4_saved  & ~X86_CR4_PAE);
-	report_prefix_pushf("\"CR4.PAE\" unset");
-	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-	vmcs_write(HOST_CR4, cr4_saved);
-	report_prefix_pop();
 
 	vmcs_write(HOST_RIP, NONCANONICAL);
 	report_prefix_pushf("HOST_RIP %llx", NONCANONICAL);
@@ -7650,7 +7650,17 @@ static void test_host_addr_size(void)
 	vmcs_write(HOST_RIP, rip_saved);
 	vmcs_write(HOST_CR4, cr4_saved);
 
-	/* Restore host's active RIP and CR4 values. */
+	/*
+	 * Restore host's active CR4 and RIP values by triggering a VM-Exit.
+	 * The original CR4 and RIP values in the VMCS are restored between
+	 * testcases as needed, but don't guarantee a VM-Exit and so the active
+	 * CR4 and RIP may still hold a test value.  Running with the test CR4
+	 * and RIP values at some point is unavoidable, and the active values
+	 * are unlikely to affect VM-Enter, so the above doen't force a VM-Exit
+	 * between testcases.  Note, if VM-Enter is surrounded by CALL+RET then
+	 * the active RIP will already be restored, but that's also not
+	 * guaranteed, and CR4 needs to be restored regardless.
+	 */
 	report_prefix_pushf("restore host state");
 	test_vmx_vmlaunch(0);
 	report_prefix_pop();
