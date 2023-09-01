@@ -3279,6 +3279,32 @@ static void invvpid_test(void)
 	invvpid_test_not_in_vmx_operation();
 }
 
+static void test_assert_vmlaunch_inst_error(u32 expected_error)
+{
+	u32 vmx_inst_err = vmcs_read(VMX_INST_ERROR);
+
+	report(vmx_inst_err == expected_error,
+	       "VMX inst error is %d (actual %d)", expected_error, vmx_inst_err);
+}
+
+/*
+ * This version is wildly unsafe and should _only_ be used to test VM-Fail
+ * scenarios involving HOST_RIP.
+ */
+static void test_vmx_vmlaunch_must_fail(u32 expected_error)
+{
+	/* Read the function name. */
+	TEST_ASSERT(expected_error);
+
+	/*
+	 * Don't bother with any prep work, if VMLAUNCH passes the VM-Fail
+	 * consistency checks and generates a VM-Exit, then the test is doomed
+	 * no matter what as it will jump to a garbage RIP.
+	 */
+	__asm__ __volatile__ ("vmlaunch");
+	test_assert_vmlaunch_inst_error(expected_error);
+}
+
 /*
  * Test for early VMLAUNCH failure. Returns true if VMLAUNCH makes it
  * at least as far as the guest-state checks. Returns false if the
@@ -3316,16 +3342,11 @@ success:
 static void test_vmx_vmlaunch(u32 xerror)
 {
 	bool success = vmlaunch();
-	u32 vmx_inst_err;
 
 	report(success == !xerror, "vmlaunch %s",
 	       !xerror ? "succeeds" : "fails");
-	if (!success && xerror) {
-		vmx_inst_err = vmcs_read(VMX_INST_ERROR);
-		report(vmx_inst_err == xerror,
-		       "VMX inst error is %d (actual %d)", xerror,
-		       vmx_inst_err);
-	}
+	if (!success && xerror)
+		test_assert_vmlaunch_inst_error(xerror);
 }
 
 /*
@@ -7633,7 +7654,7 @@ static void test_host_addr_size(void)
 
 	vmcs_write(HOST_RIP, NONCANONICAL);
 	report_prefix_pushf("HOST_RIP %llx", NONCANONICAL);
-	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	test_vmx_vmlaunch_must_fail(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
 	report_prefix_pop();
 
 	vmcs_write(ENT_CONTROLS, entry_ctrl_saved | ENT_GUEST_64);
