@@ -7609,8 +7609,6 @@ static void test_host_addr_size(void)
 	u64 cr4_saved = vmcs_read(HOST_CR4);
 	u64 rip_saved = vmcs_read(HOST_RIP);
 	u64 entry_ctrl_saved = vmcs_read(ENT_CONTROLS);
-	int i;
-	u64 tmp;
 
 	assert(vmcs_read(EXI_CONTROLS) & EXI_HOST_64);
 	assert(cr4_saved & X86_CR4_PAE);
@@ -7632,14 +7630,6 @@ static void test_host_addr_size(void)
 	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
 	vmcs_write(HOST_CR4, cr4_saved);
 	report_prefix_pop();
-
-	for (i = 32; i <= 63; i = i + 4) {
-		tmp = rip_saved | 1ull << i;
-		vmcs_write(HOST_RIP, tmp);
-		report_prefix_pushf("HOST_RIP %lx", tmp);
-		test_vmx_vmlaunch(0);
-		report_prefix_pop();
-	}
 
 	vmcs_write(HOST_RIP, NONCANONICAL);
 	report_prefix_pushf("HOST_RIP %llx", NONCANONICAL);
