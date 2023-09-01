@@ -7613,6 +7613,8 @@ static void test_host_addr_size(void)
 	u64 tmp;
 
 	if (vmcs_read(EXI_CONTROLS) & EXI_HOST_64) {
+		assert(cr4_saved & X86_CR4_PAE);
+
 		vmcs_write(ENT_CONTROLS, entry_ctrl_saved | ENT_GUEST_64);
 		report_prefix_pushf("\"IA-32e mode guest\" enabled");
 		test_vmx_vmlaunch(0);
@@ -7633,14 +7635,10 @@ static void test_host_addr_size(void)
 			report_prefix_pop();
 		}
 
-		if (cr4_saved & X86_CR4_PAE) {
-			vmcs_write(HOST_CR4, cr4_saved  & ~X86_CR4_PAE);
-			report_prefix_pushf("\"CR4.PAE\" unset");
-			test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-		} else {
-			report_prefix_pushf("\"CR4.PAE\" set");
-			test_vmx_vmlaunch(0);
-		}
+		vmcs_write(HOST_CR4, cr4_saved  & ~X86_CR4_PAE);
+		report_prefix_pushf("\"CR4.PAE\" unset");
+		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+		vmcs_write(HOST_CR4, cr4_saved);
 		report_prefix_pop();
 
 		vmcs_write(HOST_RIP, NONCANONICAL);
