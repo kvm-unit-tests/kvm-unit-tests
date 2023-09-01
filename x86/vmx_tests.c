@@ -7618,10 +7618,12 @@ static void test_host_addr_size(void)
 		test_vmx_vmlaunch(0);
 		report_prefix_pop();
 
-		vmcs_write(HOST_CR4, cr4_saved | X86_CR4_PCIDE);
-		report_prefix_pushf("\"CR4.PCIDE\" set");
-		test_vmx_vmlaunch(0);
-		report_prefix_pop();
+		if (this_cpu_has(X86_FEATURE_PCID)) {
+			vmcs_write(HOST_CR4, cr4_saved | X86_CR4_PCIDE);
+			report_prefix_pushf("\"CR4.PCIDE\" set");
+			test_vmx_vmlaunch(0);
+			report_prefix_pop();
+		}
 
 		for (i = 32; i <= 63; i = i + 4) {
 			tmp = rip_saved | 1ull << i;
