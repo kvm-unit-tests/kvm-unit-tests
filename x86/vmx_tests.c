@@ -7612,49 +7612,48 @@ static void test_host_addr_size(void)
 	int i;
 	u64 tmp;
 
-	if (vmcs_read(EXI_CONTROLS) & EXI_HOST_64) {
-		assert(cr4_saved & X86_CR4_PAE);
+	assert(vmcs_read(EXI_CONTROLS) & EXI_HOST_64);
+	assert(cr4_saved & X86_CR4_PAE);
 
-		vmcs_write(ENT_CONTROLS, entry_ctrl_saved | ENT_GUEST_64);
-		report_prefix_pushf("\"IA-32e mode guest\" enabled");
-		test_vmx_vmlaunch(0);
-		report_prefix_pop();
+	vmcs_write(ENT_CONTROLS, entry_ctrl_saved | ENT_GUEST_64);
+	report_prefix_pushf("\"IA-32e mode guest\" enabled");
+	test_vmx_vmlaunch(0);
+	report_prefix_pop();
 
-		if (this_cpu_has(X86_FEATURE_PCID)) {
-			vmcs_write(HOST_CR4, cr4_saved | X86_CR4_PCIDE);
-			report_prefix_pushf("\"CR4.PCIDE\" set");
-			test_vmx_vmlaunch(0);
-			report_prefix_pop();
-		}
-
-		for (i = 32; i <= 63; i = i + 4) {
-			tmp = rip_saved | 1ull << i;
-			vmcs_write(HOST_RIP, tmp);
-			report_prefix_pushf("HOST_RIP %lx", tmp);
-			test_vmx_vmlaunch(0);
-			report_prefix_pop();
-		}
-
-		vmcs_write(HOST_CR4, cr4_saved  & ~X86_CR4_PAE);
-		report_prefix_pushf("\"CR4.PAE\" unset");
-		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-		vmcs_write(HOST_CR4, cr4_saved);
-		report_prefix_pop();
-
-		vmcs_write(HOST_RIP, NONCANONICAL);
-		report_prefix_pushf("HOST_RIP %llx", NONCANONICAL);
-		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-		report_prefix_pop();
-
-		vmcs_write(ENT_CONTROLS, entry_ctrl_saved | ENT_GUEST_64);
-		vmcs_write(HOST_RIP, rip_saved);
-		vmcs_write(HOST_CR4, cr4_saved);
-
-		/* Restore host's active RIP and CR4 values. */
-		report_prefix_pushf("restore host state");
+	if (this_cpu_has(X86_FEATURE_PCID)) {
+		vmcs_write(HOST_CR4, cr4_saved | X86_CR4_PCIDE);
+		report_prefix_pushf("\"CR4.PCIDE\" set");
 		test_vmx_vmlaunch(0);
 		report_prefix_pop();
 	}
+
+	for (i = 32; i <= 63; i = i + 4) {
+		tmp = rip_saved | 1ull << i;
+		vmcs_write(HOST_RIP, tmp);
+		report_prefix_pushf("HOST_RIP %lx", tmp);
+		test_vmx_vmlaunch(0);
+		report_prefix_pop();
+	}
+
+	vmcs_write(HOST_CR4, cr4_saved  & ~X86_CR4_PAE);
+	report_prefix_pushf("\"CR4.PAE\" unset");
+	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	vmcs_write(HOST_CR4, cr4_saved);
+	report_prefix_pop();
+
+	vmcs_write(HOST_RIP, NONCANONICAL);
+	report_prefix_pushf("HOST_RIP %llx", NONCANONICAL);
+	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	report_prefix_pop();
+
+	vmcs_write(ENT_CONTROLS, entry_ctrl_saved | ENT_GUEST_64);
+	vmcs_write(HOST_RIP, rip_saved);
+	vmcs_write(HOST_CR4, cr4_saved);
+
+	/* Restore host's active RIP and CR4 values. */
+	report_prefix_pushf("restore host state");
+	test_vmx_vmlaunch(0);
+	report_prefix_pop();
 }
 
 /*
