@@ -3285,7 +3285,7 @@ static void invvpid_test(void)
  * VMLAUNCH fails early and execution falls through to the next
  * instruction.
  */
-static bool vmlaunch_succeeds(void)
+static bool vmlaunch(void)
 {
 	u32 exit_reason;
 
@@ -3315,7 +3315,7 @@ success:
  */
 static void test_vmx_vmlaunch(u32 xerror)
 {
-	bool success = vmlaunch_succeeds();
+	bool success = vmlaunch();
 	u32 vmx_inst_err;
 
 	report(success == !xerror, "vmlaunch %s",
@@ -3334,7 +3334,7 @@ static void test_vmx_vmlaunch(u32 xerror)
  */
 static void test_vmx_vmlaunch2(u32 xerror1, u32 xerror2)
 {
-	bool success = vmlaunch_succeeds();
+	bool success = vmlaunch();
 	u32 vmx_inst_err;
 
 	if (!xerror1 == !xerror2)
@@ -3482,7 +3482,7 @@ static void test_secondary_processor_based_ctls(void)
 	 */
 	vmcs_write(CPU_EXEC_CTRL0, primary & ~CPU_SECONDARY);
 	vmcs_write(CPU_EXEC_CTRL1, ~0);
-	report(vmlaunch_succeeds(),
+	report(vmlaunch(),
 	       "Secondary processor-based controls ignored");
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	vmcs_write(CPU_EXEC_CTRL0, primary);
@@ -7313,7 +7313,7 @@ static void test_pgc_vmlaunch(u32 xerror, u32 xreason, bool xfail, bool host)
 	struct vmx_state_area_test_data *data = &vmx_state_area_test_data;
 
 	if (host) {
-		success = vmlaunch_succeeds();
+		success = vmlaunch();
 		obs = rdmsr(data->msr);
 		if (!success) {
 			inst_err = vmcs_read(VMX_INST_ERROR);
