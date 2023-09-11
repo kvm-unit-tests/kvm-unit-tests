@@ -4663,7 +4663,12 @@ static void test_ept_eptp(void)
 	u32 i, maxphysaddr;
 	u64 j, resv_bits_mask = 0;
 
-	report(is_4_level_ept_supported(), "4-level EPT support check");
+	if (__setup_ept(0xfed40000, false)) {
+		report_skip("%s : EPT not supported", __func__);
+		return;
+	}
+
+	test_vmx_valid_controls();
 
 	setup_dummy_ept();
 
