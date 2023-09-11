@@ -1039,11 +1039,14 @@ static int __setup_ept(u64 hpa, bool enable_ad)
 		printf("\tEPT is not supported\n");
 		return 1;
 	}
-	if (!(ept_vpid.val & EPT_CAP_WB)) {
+	if (!is_ept_memtype_supported(EPT_MEM_TYPE_WB)) {
 		printf("\tWB memtype for EPT walks not supported\n");
 		return 1;
 	}
-	if (!(ept_vpid.val & EPT_CAP_PWL4)) {
+
+	if (!is_4_level_ept_supported()) {
+		/* Support for 4-level EPT is mandatory. */
+		report(false, "4-level EPT support check");
 		printf("\tPWL4 is not supported\n");
 		return 1;
 	}
