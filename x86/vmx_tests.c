@@ -4658,28 +4658,17 @@ static void test_ept_eptp(void)
 	u32 primary_saved = vmcs_read(CPU_EXEC_CTRL0);
 	u32 secondary_saved = vmcs_read(CPU_EXEC_CTRL1);
 	u64 eptp_saved = vmcs_read(EPTP);
-	u32 primary = primary_saved;
-	u32 secondary = secondary_saved;
-	u64 eptp = eptp_saved;
+	u32 secondary;
+	u64 eptp;
 	u32 i, maxphysaddr;
 	u64 j, resv_bits_mask = 0;
 
-	if (!((ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
-	    (ctrl_cpu_rev[1].clr & CPU_EPT))) {
-		report_skip("%s : \"CPU secondary\" and/or \"enable EPT\" exec control not supported", __func__);
-		return;
-	}
-
-	/* Support for 4-level EPT is mandatory. */
 	report(is_4_level_ept_supported(), "4-level EPT support check");
 
-	primary |= CPU_SECONDARY;
-	vmcs_write(CPU_EXEC_CTRL0, primary);
-	secondary |= CPU_EPT;
-	vmcs_write(CPU_EXEC_CTRL1, secondary);
-	eptp = (eptp & ~EPTP_PG_WALK_LEN_MASK) |
-	    (3ul << EPTP_PG_WALK_LEN_SHIFT);
-	vmcs_write(EPTP, eptp);
+	setup_dummy_ept();
+
+	secondary = vmcs_read(CPU_EXEC_CTRL1);
+	eptp = vmcs_read(EPTP);
 
 	for (i = 0; i < 8; i++) {
 		eptp = (eptp & ~EPT_MEM_TYPE_MASK) | i;
