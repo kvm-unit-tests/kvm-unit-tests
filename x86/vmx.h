@@ -141,7 +141,8 @@ union vmx_basic_msr {
 			type:4,
 			insouts:1,
 			ctrl:1,
-			reserved2:8;
+			no_hw_errcode_cc:1,
+			reserved2:7;
 	};
 };
 

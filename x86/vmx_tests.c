@@ -4192,7 +4192,10 @@ static void test_invalid_event_injection(void)
 			    ent_intr_info);
 	vmcs_write(GUEST_CR0, guest_cr0_save & ~X86_CR0_PE & ~X86_CR0_PG);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	test_vmx_invalid_controls();
+	if (basic_msr.no_hw_errcode_cc)
+		test_vmx_valid_controls();
+	else
+		test_vmx_invalid_controls();
 	report_prefix_pop();
 
 	ent_intr_info = ent_intr_info_base | INTR_INFO_DELIVER_CODE_MASK |
@@ -4225,7 +4228,10 @@ static void test_invalid_event_injection(void)
 			    ent_intr_info);
 	vmcs_write(GUEST_CR0, guest_cr0_save | X86_CR0_PE);
 	vmcs_write(ENT_INTR_INFO, ent_intr_info);
-	test_vmx_invalid_controls();
+	if (basic_msr.no_hw_errcode_cc)
+		test_vmx_valid_controls();
+	else
+		test_vmx_invalid_controls();
 	report_prefix_pop();
 
 	vmcs_write(CPU_EXEC_CTRL1, secondary_save);
@@ -4247,7 +4253,11 @@ skip_unrestricted_guest:
 		report_prefix_pushf("VM-entry intr info=0x%x [-]",
 				    ent_intr_info);
 		vmcs_write(ENT_INTR_INFO, ent_intr_info);
-		test_vmx_invalid_controls();
+		if (exception_type_mask == INTR_TYPE_HARD_EXCEPTION &&
+		    basic_msr.no_hw_errcode_cc)
+			test_vmx_valid_controls();
+		else
+			test_vmx_invalid_controls();
 		report_prefix_pop();
 	}
 	report_prefix_pop();
@@ -4284,7 +4294,10 @@ skip_unrestricted_guest:
 		report_prefix_pushf("VM-entry intr info=0x%x [-]",
 				    ent_intr_info);
 		vmcs_write(ENT_INTR_INFO, ent_intr_info);
-		test_vmx_invalid_controls();
+		if (basic_msr.no_hw_errcode_cc)
+			test_vmx_valid_controls();
+		else
+			test_vmx_invalid_controls();
 		report_prefix_pop();
 
 		/* Positive case */
