@@ -130,7 +130,7 @@ struct vmx_test {
 	void (*v2)(void);
 };
 
-union vmx_basic {
+union vmx_basic_msr {
 	u64 val;
 	struct {
 		u32 revision;
@@ -752,7 +752,7 @@ enum vm_entry_failure_code {
 
 extern struct regs regs;
 
-extern union vmx_basic basic;
+extern union vmx_basic_msr basic_msr;
 extern union vmx_ctrl_msr ctrl_pin_rev;
 extern union vmx_ctrl_msr ctrl_cpu_rev[2];
 extern union vmx_ctrl_msr ctrl_exit_rev;

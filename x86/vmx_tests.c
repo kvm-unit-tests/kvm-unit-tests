@@ -3446,7 +3446,7 @@ static void test_pin_based_ctls(void)
 {
 	unsigned bit;
 
-	printf("%s: %lx\n", basic.ctrl ? "MSR_IA32_VMX_TRUE_PIN" :
+	printf("%s: %lx\n", basic_msr.ctrl ? "MSR_IA32_VMX_TRUE_PIN" :
 	       "MSR_IA32_VMX_PINBASED_CTLS", ctrl_pin_rev.val);
 	for (bit = 0; bit < 32; bit++)
 		test_rsvd_ctl_bit("pin-based controls",
@@ -3463,7 +3463,7 @@ static void test_primary_processor_based_ctls(void)
 {
 	unsigned bit;
 
-	printf("\n%s: %lx\n", basic.ctrl ? "MSR_IA32_VMX_TRUE_PROC" :
+	printf("\n%s: %lx\n", basic_msr.ctrl ? "MSR_IA32_VMX_TRUE_PROC" :
 	       "MSR_IA32_VMX_PROCBASED_CTLS", ctrl_cpu_rev[0].val);
 	for (bit = 0; bit < 32; bit++)
 		test_rsvd_ctl_bit("primary processor-based controls",
@@ -5300,7 +5300,7 @@ static void test_entry_msr_load(void)
 		report_prefix_pop();
 	}
 
-	if (basic.val & (1ul << 48))
+	if (basic_msr.val & (1ul << 48))
 		addr_len = 32;
 
 	test_vmcs_addr_values("VM-entry-MSR-load address",
@@ -5428,7 +5428,7 @@ static void test_exit_msr_store(void)
 		report_prefix_pop();
 	}
 
-	if (basic.val & (1ul << 48))
+	if (basic_msr.val & (1ul << 48))
 		addr_len = 32;
 
 	test_vmcs_addr_values("VM-exit-MSR-store address",
@@ -10180,7 +10180,7 @@ static void vmx_vmcs_shadow_test(void)
 	vmcs_write(VMWRITE_BITMAP, virt_to_phys(bitmap[ACCESS_VMWRITE]));
 
 	shadow = alloc_page();
-	shadow->hdr.revision_id = basic.revision;
+	shadow->hdr.revision_id = basic_msr.revision;
 	shadow->hdr.shadow_vmcs = 1;
 	TEST_ASSERT(!vmcs_clear(shadow));
 
