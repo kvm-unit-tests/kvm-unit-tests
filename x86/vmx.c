@@ -1430,7 +1430,7 @@ static int test_vmxon_bad_cr(int cr_number, unsigned long orig_cr,
 		 */
 		if ((cr_number == 0 && (bit == X86_CR0_PE || bit == X86_CR0_PG)) ||
 		    (cr_number == 4 && (bit == X86_CR4_PAE || bit == X86_CR4_SMAP ||
-					bit == X86_CR4_SMEP)))
+					bit == X86_CR4_SMEP || bit == X86_CR4_CET)))
 			continue;
 
 		if (!(bit & required1) && !(bit & disallowed1)) {
