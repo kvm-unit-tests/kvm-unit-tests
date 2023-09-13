@@ -90,7 +90,7 @@ CFLAGS += $(wmissing_parameter_type)
 CFLAGS += $(wold_style_declaration)
 CFLAGS += -Woverride-init -Wmissing-prototypes -Wstrict-prototypes
 
-autodepend-flags = -MMD -MF $(dir $*).$(notdir $*).d
+autodepend-flags = -MMD -MP -MF $(dir $*).$(notdir $*).d
 
 LDFLAGS += -nostdlib $(no_pie) -z noexecstack
 
