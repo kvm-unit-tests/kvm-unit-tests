@@ -19,18 +19,20 @@ static bool fault_test(struct fault_test_arg *arg)
 	test_fault_func func = (test_fault_func) arg->func;
 	/* Init as success in case there isn't callback */
 	bool callback_success = true;
+	handler old;
 
 	if (arg->usermode) {
 		val = run_in_user((usermode_func) func, arg->fault_vector,
 				arg->arg[0], arg->arg[1], arg->arg[2],
 				arg->arg[3], &raised_vector);
 	} else {
-		handle_exception(arg->fault_vector, fault_test_fault);
+		old = handle_exception(arg->fault_vector, fault_test_fault);
 		if (setjmp(jmpbuf) == 0)
 			val = func(arg->arg[0], arg->arg[1], arg->arg[2],
 					arg->arg[3]);
 		else
 			raised_vector = true;
+		handle_exception(arg->fault_vector, old);
 	}
 
 	if (!raised_vector) {

@@ -5,12 +5,13 @@
 #include "msr.h"
 #include "vm.h"
 #include "smp.h"
-#include "types.h"
 #include "alloc_page.h"
 #include "isr.h"
 #include "apic.h"
 #include "delay.h"
+#include "util.h"
 #include "x86/usermode.h"
+#include "vmalloc.h"
 
 #define SVM_EXIT_MAX_DR_INTERCEPT 0x3f
 
@@ -947,6 +948,21 @@ static bool lat_svm_insn_check(struct svm_test *test)
 	return true;
 }
 
+/*
+ * Report failures from SVM guest code, and on failure, set the stage to -1 and
+ * do VMMCALL to terminate the test (host side must treat -1 as "finished").
+ * TODO: fix the tests that don't play nice with a straight report, e.g. the
+ * V_TPR test fails if report() is invoked.
+ */
+#define report_svm_guest(cond, test, fmt, args...)	\
+do {							\
+	if (!(cond)) {					\
+		report_fail(fmt, ##args);		\
+		set_test_stage(test, -1);		\
+		vmmcall();				\
+	}						\
+} while (0)
+
 bool pending_event_ipi_fired;
 bool pending_event_guest_run;
 
@@ -1000,9 +1016,7 @@ static bool pending_event_finished(struct svm_test *test)
 			return true;
 		}
 
-		irq_enable();
-		asm volatile ("nop");
-		irq_disable();
+		sti_nop_cli();
 
 		if (!pending_event_ipi_fired) {
 			report_fail("Pending interrupt not dispatched after IRQ enabled\n");
@@ -1049,22 +1063,14 @@ static void pending_event_cli_prepare_gif_clear(struct svm_test *test)
 
 static void pending_event_cli_test(struct svm_test *test)
 {
-	if (pending_event_ipi_fired == true) {
-		set_test_stage(test, -1);
-		report_fail("Interrupt preceeded guest");
-		vmmcall();
-	}
+	report_svm_guest(!pending_event_ipi_fired, test,
+			 "IRQ should NOT be delivered while IRQs disabled");
 
 	/* VINTR_MASKING is zero.  This should cause the IPI to fire.  */
-	irq_enable();
-	asm volatile ("nop");
-	irq_disable();
+	sti_nop_cli();
 
-	if (pending_event_ipi_fired != true) {
-		set_test_stage(test, -1);
-		report_fail("Interrupt not triggered by guest");
-	}
-
+	report_svm_guest(pending_event_ipi_fired, test,
+			 "IRQ should be delivered after enabling IRQs");
 	vmmcall();
 
 	/*
@@ -1072,18 +1078,14 @@ static void pending_event_cli_test(struct svm_test *test)
 	 * the VINTR interception should be clear in VMCB02.  Check
 	 * that L0 did not leave a stale VINTR in the VMCB.
 	 */
-	irq_enable();
-	asm volatile ("nop");
-	irq_disable();
+	sti_nop_cli();
 }
 
 static bool pending_event_cli_finished(struct svm_test *test)
 {
-	if ( vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		report_fail("VM_EXIT return to host is not EXIT_VMMCALL exit reason 0x%x",
-			    vmcb->control.exit_code);
-		return true;
-	}
+	report_svm_guest(vmcb->control.exit_code == SVM_EXIT_VMMCALL, test,
+			 "Wanted VMMCALL VM-Exit, got exit reason 0x%x",
+			 vmcb->control.exit_code);
 
 	switch (get_test_stage(test)) {
 	case 0:
@@ -1105,9 +1107,7 @@ static bool pending_event_cli_finished(struct svm_test *test)
 			return true;
 		}
 
-		irq_enable();
-		asm volatile ("nop");
-		irq_disable();
+		sti_nop_cli();
 
 		if (pending_event_ipi_fired != true) {
 			report_fail("Interrupt not triggered by host");
@@ -1152,71 +1152,53 @@ static void interrupt_test(struct svm_test *test)
 {
 	long long start, loops;
 
-	apic_write(APIC_LVTT, TIMER_VECTOR);
-	irq_enable();
-	apic_write(APIC_TMICT, 1); //Timer Initial Count Register 0x380 one-shot
+	apic_setup_timer(TIMER_VECTOR, APIC_LVT_TIMER_PERIODIC);
+	sti();
+	apic_start_timer(1);
+
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
 
-	report(timer_fired, "direct interrupt while running guest");
+	report_svm_guest(timer_fired, test,
+			 "direct interrupt while running guest");
 
-	if (!timer_fired) {
-		set_test_stage(test, -1);
-		vmmcall();
-	}
-
-	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	apic_stop_timer();
+	cli();
 	vmmcall();
 
 	timer_fired = false;
-	apic_write(APIC_TMICT, 1);
+	apic_start_timer(1);
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
 
-	report(timer_fired, "intercepted interrupt while running guest");
+	report_svm_guest(timer_fired, test,
+			 "intercepted interrupt while running guest");
 
-	if (!timer_fired) {
-		set_test_stage(test, -1);
-		vmmcall();
-	}
-
-	irq_enable();
-	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	sti();
+	apic_stop_timer();
+	cli();
 
 	timer_fired = false;
 	start = rdtsc();
-	apic_write(APIC_TMICT, 1000000);
+	apic_start_timer(1000000);
 	safe_halt();
 
-	report(rdtsc() - start > 10000 && timer_fired,
-	       "direct interrupt + hlt");
+	report_svm_guest(timer_fired, test, "direct interrupt + hlt");
+	report(rdtsc() - start > 10000, "IRQ arrived after expected delay");
 
-	if (!timer_fired) {
-		set_test_stage(test, -1);
-		vmmcall();
-	}
-
-	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	apic_stop_timer();
+	cli();
 	vmmcall();
 
 	timer_fired = false;
 	start = rdtsc();
-	apic_write(APIC_TMICT, 1000000);
+	apic_start_timer(1000000);
 	asm volatile ("hlt");
 
-	report(rdtsc() - start > 10000 && timer_fired,
-	       "intercepted interrupt + hlt");
+	report_svm_guest(timer_fired, test, "intercepted interrupt + hlt");
+	report(rdtsc() - start > 10000, "IRQ arrived after expected delay");
 
-	if (!timer_fired) {
-		set_test_stage(test, -1);
-		vmmcall();
-	}
-
-	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	apic_cleanup_timer();
 }
 
 static bool interrupt_finished(struct svm_test *test)
@@ -1243,9 +1225,7 @@ static bool interrupt_finished(struct svm_test *test)
 			return true;
 		}
 
-		irq_enable();
-		asm volatile ("nop");
-		irq_disable();
+		sti_nop_cli();
 
 		vmcb->control.intercept &= ~(1ULL << INTERCEPT_INTR);
 		vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
@@ -1287,10 +1267,7 @@ static void nmi_test(struct svm_test *test)
 {
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
 
-	report(nmi_fired, "direct NMI while running guest");
-
-	if (!nmi_fired)
-		set_test_stage(test, -1);
+	report_svm_guest(nmi_fired, test, "direct NMI while running guest");
 
 	vmmcall();
 
@@ -1298,11 +1275,7 @@ static void nmi_test(struct svm_test *test)
 
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_NMI | APIC_INT_ASSERT, 0);
 
-	if (!nmi_fired) {
-		report(nmi_fired, "intercepted pending NMI not dispatched");
-		set_test_stage(test, -1);
-	}
-
+	report_svm_guest(nmi_fired, test, "intercepted pending NMI delivered to guest");
 }
 
 static bool nmi_finished(struct svm_test *test)
@@ -1379,11 +1352,8 @@ static void nmi_hlt_test(struct svm_test *test)
 
 	asm volatile ("hlt");
 
-	report((rdtsc() - start > NMI_DELAY) && nmi_fired,
-	       "direct NMI + hlt");
-
-	if (!nmi_fired)
-		set_test_stage(test, -1);
+	report_svm_guest(nmi_fired, test, "direct NMI + hlt");
+	report(rdtsc() - start > NMI_DELAY, "direct NMI after expected delay");
 
 	nmi_fired = false;
 
@@ -1395,14 +1365,8 @@ static void nmi_hlt_test(struct svm_test *test)
 
 	asm volatile ("hlt");
 
-	report((rdtsc() - start > NMI_DELAY) && nmi_fired,
-	       "intercepted NMI + hlt");
-
-	if (!nmi_fired) {
-		report(nmi_fired, "intercepted pending NMI not dispatched");
-		set_test_stage(test, -1);
-		vmmcall();
-	}
+	report_svm_guest(nmi_fired, test, "intercepted NMI + hlt");
+	report(rdtsc() - start > NMI_DELAY, "intercepted NMI after expected delay");
 
 	set_test_stage(test, 3);
 }
@@ -1442,6 +1406,81 @@ static bool nmi_hlt_finished(struct svm_test *test)
 }
 
 static bool nmi_hlt_check(struct svm_test *test)
+{
+	return get_test_stage(test) == 3;
+}
+
+static void vnmi_prepare(struct svm_test *test)
+{
+	nmi_prepare(test);
+
+	/*
+	 * Disable NMI interception to start.  Enabling vNMI without
+	 * intercepting "real" NMIs should result in an ERR VM-Exit.
+	 */
+	vmcb->control.intercept &= ~(1ULL << INTERCEPT_NMI);
+	vmcb->control.int_ctl = V_NMI_ENABLE_MASK;
+	vmcb->control.int_vector = NMI_VECTOR;
+}
+
+static void vnmi_test(struct svm_test *test)
+{
+	report_svm_guest(!nmi_fired, test, "No vNMI before injection");
+	vmmcall();
+
+	report_svm_guest(nmi_fired, test, "vNMI delivered after injection");
+	vmmcall();
+}
+
+static bool vnmi_finished(struct svm_test *test)
+{
+	switch (get_test_stage(test)) {
+	case 0:
+		if (vmcb->control.exit_code != SVM_EXIT_ERR) {
+			report_fail("Wanted ERR VM-Exit, got 0x%x",
+				    vmcb->control.exit_code);
+			return true;
+		}
+		report(!nmi_fired, "vNMI enabled but NMI_INTERCEPT unset!");
+		vmcb->control.intercept |= (1ULL << INTERCEPT_NMI);
+		vmcb->save.rip += 3;
+		break;
+
+	case 1:
+		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+			report_fail("Wanted VMMCALL VM-Exit, got 0x%x",
+				    vmcb->control.exit_code);
+			return true;
+		}
+		report(!nmi_fired, "vNMI with vector 2 not injected");
+		vmcb->control.int_ctl |= V_NMI_PENDING_MASK;
+		vmcb->save.rip += 3;
+		break;
+
+	case 2:
+		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
+			report_fail("Wanted VMMCALL VM-Exit, got 0x%x",
+				    vmcb->control.exit_code);
+			return true;
+		}
+		if (vmcb->control.int_ctl & V_NMI_BLOCKING_MASK) {
+			report_fail("V_NMI_BLOCKING_MASK not cleared on VMEXIT");
+			return true;
+		}
+		report_pass("VNMI serviced");
+		vmcb->save.rip += 3;
+		break;
+
+	default:
+		return true;
+	}
+
+	inc_test_stage(test);
+
+	return get_test_stage(test) == 3;
+}
+
+static bool vnmi_check(struct svm_test *test)
 {
 	return get_test_stage(test) == 3;
 }
@@ -1534,48 +1573,26 @@ static void virq_inject_prepare(struct svm_test *test)
 
 static void virq_inject_test(struct svm_test *test)
 {
-	if (virq_fired) {
-		report_fail("virtual interrupt fired before L2 sti");
-		set_test_stage(test, -1);
-		vmmcall();
-	}
+	report_svm_guest(!virq_fired, test, "virtual IRQ blocked after L2 cli");
 
-	irq_enable();
-	asm volatile ("nop");
-	irq_disable();
+	sti_nop_cli();
 
-	if (!virq_fired) {
-		report_fail("virtual interrupt not fired after L2 sti");
-		set_test_stage(test, -1);
-	}
+	report_svm_guest(virq_fired, test, "virtual IRQ fired after L2 sti");
 
 	vmmcall();
 
-	if (virq_fired) {
-		report_fail("virtual interrupt fired before L2 sti after VINTR intercept");
-		set_test_stage(test, -1);
-		vmmcall();
-	}
+	report_svm_guest(!virq_fired, test, "intercepted VINTR blocked after L2 cli");
 
-	irq_enable();
-	asm volatile ("nop");
-	irq_disable();
+	sti_nop_cli();
 
-	if (!virq_fired) {
-		report_fail("virtual interrupt not fired after return from VINTR intercept");
-		set_test_stage(test, -1);
-	}
+	report_svm_guest(virq_fired, test, "intercepted VINTR fired after L2 sti");
 
 	vmmcall();
 
-	irq_enable();
-	asm volatile ("nop");
-	irq_disable();
+	sti_nop_cli();
 
-	if (virq_fired) {
-		report_fail("virtual interrupt fired when V_IRQ_PRIO less than V_TPR");
-		set_test_stage(test, -1);
-	}
+	report_svm_guest(!virq_fired, test,
+			  "virtual IRQ blocked V_IRQ_PRIO less than V_TPR");
 
 	vmmcall();
 	vmmcall();
@@ -1702,10 +1719,8 @@ static void reg_corruption_prepare(struct svm_test *test)
 	handle_irq(TIMER_VECTOR, reg_corruption_isr);
 
 	/* set local APIC to inject external interrupts */
-	apic_write(APIC_TMICT, 0);
-	apic_write(APIC_TDCR, 0);
-	apic_write(APIC_LVTT, TIMER_VECTOR | APIC_LVT_TIMER_PERIODIC);
-	apic_write(APIC_TMICT, 1000);
+	apic_setup_timer(TIMER_VECTOR, APIC_LVT_TIMER_PERIODIC);
+	apic_start_timer(1000);
 }
 
 static void reg_corruption_test(struct svm_test *test)
@@ -1739,9 +1754,7 @@ static bool reg_corruption_finished(struct svm_test *test)
 
 		void* guest_rip = (void*)vmcb->save.rip;
 
-		irq_enable();
-		asm volatile ("nop");
-		irq_disable();
+		sti_nop_cli();
 
 		if (guest_rip == insb_instruction_label && io_port_var != 0xAA) {
 			report_fail("RIP corruption detected after %d timer interrupts",
@@ -1752,8 +1765,7 @@ static bool reg_corruption_finished(struct svm_test *test)
 	}
 	return false;
 cleanup:
-	apic_write(APIC_LVTT, APIC_LVT_TIMER_MASK);
-	apic_write(APIC_TMICT, 0);
+	apic_cleanup_timer();
 	return true;
 
 }
@@ -2767,35 +2779,34 @@ static void svm_no_nm_test(void)
 	       "fnop with CR0.TS and CR0.EM unset no #NM excpetion");
 }
 
-static bool check_lbr(u64 *from_excepted, u64 *to_expected)
+static u64 amd_get_lbr_rip(u32 msr)
 {
-	u64 from = rdmsr(MSR_IA32_LASTBRANCHFROMIP);
-	u64 to = rdmsr(MSR_IA32_LASTBRANCHTOIP);
-
-	if ((u64)from_excepted != from) {
-		report(false, "MSR_IA32_LASTBRANCHFROMIP, expected=0x%lx, actual=0x%lx",
-		       (u64)from_excepted, from);
-		return false;
-	}
-
-	if ((u64)to_expected != to) {
-		report(false, "MSR_IA32_LASTBRANCHFROMIP, expected=0x%lx, actual=0x%lx",
-		       (u64)from_excepted, from);
-		return false;
-	}
-
-	return true;
+	return rdmsr(msr) & ~AMD_LBR_RECORD_MISPREDICT;
 }
 
-static bool check_dbgctl(u64 dbgctl, u64 dbgctl_expected)
-{
-	if (dbgctl != dbgctl_expected) {
-		report(false, "Unexpected MSR_IA32_DEBUGCTLMSR value 0x%lx", dbgctl);
-		return false;
-	}
-	return true;
-}
+#define HOST_CHECK_LBR(from_expected, to_expected)					\
+do {											\
+	TEST_EXPECT_EQ((u64)from_expected, amd_get_lbr_rip(MSR_IA32_LASTBRANCHFROMIP));	\
+	TEST_EXPECT_EQ((u64)to_expected, amd_get_lbr_rip(MSR_IA32_LASTBRANCHTOIP));	\
+} while (0)
 
+/*
+ * FIXME: Do something other than generate an exception to communicate failure.
+ * Debugging without expected vs. actual is an absolute nightmare.
+ */
+#define GUEST_CHECK_LBR(from_expected, to_expected)				\
+do {										\
+	if ((u64)(from_expected) != amd_get_lbr_rip(MSR_IA32_LASTBRANCHFROMIP))	\
+		asm volatile("ud2");						\
+	if ((u64)(to_expected) != amd_get_lbr_rip(MSR_IA32_LASTBRANCHTOIP))	\
+		asm volatile("ud2");						\
+} while (0)
+
+#define REPORT_GUEST_LBR_ERROR(vmcb)						\
+	report(false, "LBR guest test failed.  Exit reason 0x%x, RIP = %lx, from = %lx, to = %lx, ex from = %lx, ex to = %lx", \
+		       vmcb->control.exit_code, vmcb->save.rip,			\
+		       vmcb->save.br_from, vmcb->save.br_to,			\
+		       vmcb->save.last_excp_from, vmcb->save.last_excp_to)
 
 #define DO_BRANCH(branch_name)				\
 	asm volatile (					\
@@ -2834,11 +2845,8 @@ static void svm_lbrv_test_guest1(void)
 		asm volatile("ud2\n");
 	if (rdmsr(MSR_IA32_DEBUGCTLMSR) != 0)
 		asm volatile("ud2\n");
-	if (rdmsr(MSR_IA32_LASTBRANCHFROMIP) != (u64)&guest_branch0_from)
-		asm volatile("ud2\n");
-	if (rdmsr(MSR_IA32_LASTBRANCHTOIP) != (u64)&guest_branch0_to)
-		asm volatile("ud2\n");
 
+	GUEST_CHECK_LBR(&guest_branch0_from, &guest_branch0_to);
 	asm volatile ("vmmcall\n");
 }
 
@@ -2855,11 +2863,7 @@ static void svm_lbrv_test_guest2(void)
 	if (dbgctl != 0)
 		asm volatile("ud2\n");
 
-	if (rdmsr(MSR_IA32_LASTBRANCHFROMIP) != (u64)&host_branch2_from)
-		asm volatile("ud2\n");
-	if (rdmsr(MSR_IA32_LASTBRANCHTOIP) != (u64)&host_branch2_to)
-		asm volatile("ud2\n");
-
+	GUEST_CHECK_LBR(&host_branch2_from, &host_branch2_to);
 
 	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
@@ -2868,10 +2872,7 @@ static void svm_lbrv_test_guest2(void)
 
 	if (dbgctl != DEBUGCTLMSR_LBR)
 		asm volatile("ud2\n");
-	if (rdmsr(MSR_IA32_LASTBRANCHFROMIP) != (u64)&guest_branch2_from)
-		asm volatile("ud2\n");
-	if (rdmsr(MSR_IA32_LASTBRANCHTOIP) != (u64)&guest_branch2_to)
-		asm volatile("ud2\n");
+	GUEST_CHECK_LBR(&guest_branch2_from, &guest_branch2_to);
 
 	asm volatile ("vmmcall\n");
 }
@@ -2884,18 +2885,18 @@ static void svm_lbrv_test0(void)
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
 
-	check_dbgctl(dbgctl, DEBUGCTLMSR_LBR);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
-	check_dbgctl(dbgctl, 0);
+	TEST_EXPECT_EQ(dbgctl, 0);
 
-	check_lbr(&host_branch0_from, &host_branch0_to);
+	HOST_CHECK_LBR(&host_branch0_from, &host_branch0_to);
 }
 
 static void svm_lbrv_test1(void)
 {
 	report(true, "Test that without LBRV enabled, guest LBR state does 'leak' to the host(1)");
 
-	vmcb->save.rip = (ulong)svm_lbrv_test_guest1;
+	svm_setup_vmrun((u64)svm_lbrv_test_guest1);
 	vmcb->control.virt_ext = 0;
 
 	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
@@ -2904,20 +2905,19 @@ static void svm_lbrv_test1(void)
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 
 	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
-		       vmcb->control.exit_code);
+		REPORT_GUEST_LBR_ERROR(vmcb);
 		return;
 	}
 
-	check_dbgctl(dbgctl, 0);
-	check_lbr(&guest_branch0_from, &guest_branch0_to);
+	TEST_EXPECT_EQ(dbgctl, 0);
+	HOST_CHECK_LBR(&guest_branch0_from, &guest_branch0_to);
 }
 
 static void svm_lbrv_test2(void)
 {
 	report(true, "Test that without LBRV enabled, guest LBR state does 'leak' to the host(2)");
 
-	vmcb->save.rip = (ulong)svm_lbrv_test_guest2;
+	svm_setup_vmrun((u64)svm_lbrv_test_guest2);
 	vmcb->control.virt_ext = 0;
 
 	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
@@ -2928,13 +2928,12 @@ static void svm_lbrv_test2(void)
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
 
 	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
-		       vmcb->control.exit_code);
+		REPORT_GUEST_LBR_ERROR(vmcb);
 		return;
 	}
 
-	check_dbgctl(dbgctl, 0);
-	check_lbr(&guest_branch2_from, &guest_branch2_to);
+	TEST_EXPECT_EQ(dbgctl, 0);
+	HOST_CHECK_LBR(&guest_branch2_from, &guest_branch2_to);
 }
 
 static void svm_lbrv_nested_test1(void)
@@ -2945,7 +2944,7 @@ static void svm_lbrv_nested_test1(void)
 	}
 
 	report(true, "Test that with LBRV enabled, guest LBR state doesn't leak (1)");
-	vmcb->save.rip = (ulong)svm_lbrv_test_guest1;
+	svm_setup_vmrun((u64)svm_lbrv_test_guest1);
 	vmcb->control.virt_ext = LBR_CTL_ENABLE_MASK;
 	vmcb->save.dbgctl = DEBUGCTLMSR_LBR;
 
@@ -2956,8 +2955,7 @@ static void svm_lbrv_nested_test1(void)
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
 
 	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
-		       vmcb->control.exit_code);
+		REPORT_GUEST_LBR_ERROR(vmcb);
 		return;
 	}
 
@@ -2966,8 +2964,8 @@ static void svm_lbrv_nested_test1(void)
 		return;
 	}
 
-	check_dbgctl(dbgctl, DEBUGCTLMSR_LBR);
-	check_lbr(&host_branch3_from, &host_branch3_to);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
+	HOST_CHECK_LBR(&host_branch3_from, &host_branch3_to);
 }
 
 static void svm_lbrv_nested_test2(void)
@@ -2978,7 +2976,7 @@ static void svm_lbrv_nested_test2(void)
 	}
 
 	report(true, "Test that with LBRV enabled, guest LBR state doesn't leak (2)");
-	vmcb->save.rip = (ulong)svm_lbrv_test_guest2;
+	svm_setup_vmrun((u64)svm_lbrv_test_guest2);
 	vmcb->control.virt_ext = LBR_CTL_ENABLE_MASK;
 
 	vmcb->save.dbgctl = 0;
@@ -2992,13 +2990,12 @@ static void svm_lbrv_nested_test2(void)
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
 
 	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		report(false, "VMEXIT not due to vmmcall. Exit reason 0x%x",
-		       vmcb->control.exit_code);
+		REPORT_GUEST_LBR_ERROR(vmcb);
 		return;
 	}
 
-	check_dbgctl(dbgctl, DEBUGCTLMSR_LBR);
-	check_lbr(&host_branch4_from, &host_branch4_to);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
+	HOST_CHECK_LBR(&host_branch4_from, &host_branch4_to);
 }
 
 
@@ -3044,13 +3041,12 @@ static void svm_intr_intercept_mix_run_guest(volatile int *counter, int expected
 }
 
 
-// subtest: test that enabling EFLAGS.IF is enought to trigger an interrupt
+// subtest: test that enabling EFLAGS.IF is enough to trigger an interrupt
 static void svm_intr_intercept_mix_if_guest(struct svm_test *test)
 {
 	asm volatile("nop;nop;nop;nop");
 	report(!dummy_isr_recevied, "No interrupt expected");
-	sti();
-	asm volatile("nop");
+	sti_nop();
 	report(0, "must not reach here");
 }
 
@@ -3064,6 +3060,7 @@ static void svm_intr_intercept_mix_if(void)
 	vmcb->save.rflags &= ~X86_EFLAGS_IF;
 
 	test_set_guest(svm_intr_intercept_mix_if_guest);
+	cli();
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED | 0x55, 0);
 	svm_intr_intercept_mix_run_guest(&dummy_isr_recevied, SVM_EXIT_INTR);
 }
@@ -3080,12 +3077,10 @@ static void svm_intr_intercept_mix_gif_guest(struct svm_test *test)
 	// clear GIF and enable IF
 	// that should still not cause VM exit
 	clgi();
-	sti();
-	asm volatile("nop");
+	sti_nop();
 	report(!dummy_isr_recevied, "No interrupt expected");
 
 	stgi();
-	asm volatile("nop");
 	report(0, "must not reach here");
 }
 
@@ -3098,6 +3093,7 @@ static void svm_intr_intercept_mix_gif(void)
 	vmcb->save.rflags &= ~X86_EFLAGS_IF;
 
 	test_set_guest(svm_intr_intercept_mix_gif_guest);
+	cli();
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED | 0x55, 0);
 	svm_intr_intercept_mix_run_guest(&dummy_isr_recevied, SVM_EXIT_INTR);
 }
@@ -3115,7 +3111,6 @@ static void svm_intr_intercept_mix_gif_guest2(struct svm_test *test)
 	report(!dummy_isr_recevied, "No interrupt expected");
 
 	stgi();
-	asm volatile("nop");
 	report(0, "must not reach here");
 }
 
@@ -3140,14 +3135,11 @@ static void svm_intr_intercept_mix_nmi_guest(struct svm_test *test)
 	cli(); // should have no effect
 
 	clgi();
-	asm volatile("nop");
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_NMI, 0);
-	sti(); // should have no effect
-	asm volatile("nop");
+	sti_nop(); // should have no effect
 	report(!nmi_recevied, "No NMI expected");
 
 	stgi();
-	asm volatile("nop");
 	report(0, "must not reach here");
 }
 
@@ -3171,12 +3163,9 @@ static void svm_intr_intercept_mix_smi_guest(struct svm_test *test)
 	asm volatile("nop;nop;nop;nop");
 
 	clgi();
-	asm volatile("nop");
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_SMI, 0);
-	sti(); // should have no effect
-	asm volatile("nop");
+	sti_nop(); // should have no effect
 	stgi();
-	asm volatile("nop");
 	report(0, "must not reach here");
 }
 
@@ -3267,6 +3256,22 @@ static void svm_exception_test(void)
 	}
 }
 
+static void shutdown_intercept_test_guest(struct svm_test *test)
+{
+	asm volatile ("ud2");
+	report_fail("should not reach here\n");
+
+}
+
+static void svm_shutdown_intercept_test(void)
+{
+	test_set_guest(shutdown_intercept_test_guest);
+	vmcb->save.idtr.base = (u64)alloc_vpage();
+	vmcb->control.intercept |= (1ULL << INTERCEPT_SHUTDOWN);
+	svm_vmrun();
+	report(vmcb->control.exit_code == SVM_EXIT_SHUTDOWN, "shutdown test passed");
+}
+
 struct svm_test svm_tests[] = {
 	{ "null", default_supported, default_prepare,
 	  default_prepare_gif_clear, null_test,
@@ -3341,6 +3346,9 @@ struct svm_test svm_tests[] = {
 	{ "nmi_hlt", smp_supported, nmi_prepare,
 	  default_prepare_gif_clear, nmi_hlt_test,
 	  nmi_hlt_finished, nmi_hlt_check },
+        { "vnmi", vnmi_supported, vnmi_prepare,
+          default_prepare_gif_clear, vnmi_test,
+          vnmi_finished, vnmi_check },
 	{ "virq_inject", default_supported, virq_inject_prepare,
 	  default_prepare_gif_clear, virq_inject_test,
 	  virq_inject_finished, virq_inject_check },
@@ -3378,6 +3386,7 @@ struct svm_test svm_tests[] = {
 	TEST(svm_intr_intercept_mix_smi),
 	TEST(svm_tsc_scale_test),
 	TEST(pause_filter_test),
+	TEST(svm_shutdown_intercept_test),
 	{ NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 

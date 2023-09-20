@@ -20,7 +20,7 @@
 
 typedef struct {
 	uint32_t ctr;
-	uint32_t config;
+	uint64_t config;
 	uint64_t count;
 	int idx;
 } pmu_counter_t;
@@ -75,10 +75,10 @@ static bool check_irq(void)
 {
 	int i;
 	irq_received = 0;
-	irq_enable();
+	sti();
 	for (i = 0; i < 100000 && !irq_received; i++)
 		asm volatile("pause");
-	irq_disable();
+	cli();
 	return irq_received;
 }
 
@@ -477,6 +477,7 @@ static void check_running_counter_wrmsr(void)
 static void check_emulated_instr(void)
 {
 	uint64_t status, instr_start, brnch_start;
+	uint64_t gp_counter_width = (1ull << pmu.gp_counter_width) - 1;
 	unsigned int branch_idx = pmu.is_intel ? 5 : 2;
 	pmu_counter_t brnch_cnt = {
 		.ctr = MSR_GP_COUNTERx(0),
@@ -498,8 +499,8 @@ static void check_emulated_instr(void)
 
 	brnch_start = -EXPECTED_BRNCH;
 	instr_start = -EXPECTED_INSTR;
-	wrmsr(MSR_GP_COUNTERx(0), brnch_start);
-	wrmsr(MSR_GP_COUNTERx(1), instr_start);
+	wrmsr(MSR_GP_COUNTERx(0), brnch_start & gp_counter_width);
+	wrmsr(MSR_GP_COUNTERx(1), instr_start & gp_counter_width);
 	// KVM_FEP is a magic prefix that forces emulation so
 	// 'KVM_FEP "jne label\n"' just counts as a single instruction.
 	asm volatile(
@@ -547,6 +548,46 @@ static void check_emulated_instr(void)
 	report_prefix_pop();
 }
 
+#define XBEGIN_STARTED (~0u)
+static void check_tsx_cycles(void)
+{
+	pmu_counter_t cnt;
+	unsigned int i, ret = 0;
+
+	if (!this_cpu_has(X86_FEATURE_RTM))
+		return;
+
+	report_prefix_push("TSX cycles");
+
+	for (i = 0; i < pmu.nr_gp_counters; i++) {
+		cnt.ctr = MSR_GP_COUNTERx(i);
+
+		if (i == 2) {
+			/* Transactional cycles commited only on gp counter 2 */
+			cnt.config = EVNTSEL_OS | EVNTSEL_USR | 0x30000003c;
+		} else {
+			/* Transactional cycles */
+			cnt.config = EVNTSEL_OS | EVNTSEL_USR | 0x10000003c;
+		}
+
+		start_event(&cnt);
+
+		asm volatile("xbegin 1f\n\t"
+				"1:\n\t"
+				: "+a" (ret) :: "memory");
+
+		/* Generate a non-canonical #GP to trigger ABORT. */
+		if (ret == XBEGIN_STARTED)
+			*(int *)NONCANONICAL = 0;
+
+		stop_event(&cnt);
+
+		report(cnt.count > 0, "gp cntr-%d with a value of %" PRId64 "", i, cnt.count);
+	}
+
+	report_prefix_pop();
+}
+
 static void check_counters(void)
 {
 	if (is_fep_available())
@@ -559,6 +600,7 @@ static void check_counters(void)
 	check_counter_overflow();
 	check_gp_counter_cmask();
 	check_running_counter_wrmsr();
+	check_tsx_cycles();
 }
 
 static void do_unsupported_width_counter_write(void *index)

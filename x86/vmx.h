@@ -4,6 +4,7 @@
 #include "libcflat.h"
 #include "processor.h"
 #include "bitops.h"
+#include "util.h"
 #include "asm/page.h"
 #include "asm/io.h"
 
@@ -36,36 +37,9 @@ do {								\
 	report_passed();					\
 } while (0)
 
-#define __TEST_EQ(a, b, a_str, b_str, assertion, fmt, args...)	\
-do {								\
-	typeof(a) _a = a;					\
-	typeof(b) _b = b;					\
-	if (_a != _b) {						\
-		char _bin_a[BINSTR_SZ];				\
-		char _bin_b[BINSTR_SZ];				\
-		binstr(_a, _bin_a);				\
-		binstr(_b, _bin_b);				\
-		report_fail("%s:%d: %s failed: (%s) == (%s)\n"	\
-			    "\tLHS: %#018lx - %s - %lu\n"	\
-			    "\tRHS: %#018lx - %s - %lu%s" fmt,	\
-			    __FILE__, __LINE__,			\
-			    assertion ? "Assertion" : "Expectation", a_str, b_str,	\
-			    (unsigned long) _a, _bin_a, (unsigned long) _a,		\
-			    (unsigned long) _b, _bin_b, (unsigned long) _b,		\
-			    fmt[0] == '\0' ? "" : "\n", ## args);			\
-		dump_stack();					\
-		if (assertion)					\
-			__abort_test();				\
-	}							\
-	report_passed();					\
-} while (0)
-
-#define TEST_ASSERT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 1, "")
+#define TEST_ASSERT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 1, __abort_test, "")
 #define TEST_ASSERT_EQ_MSG(a, b, fmt, args...) \
-	__TEST_EQ(a, b, #a, #b, 1, fmt, ## args)
-#define TEST_EXPECT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 0, "")
-#define TEST_EXPECT_EQ_MSG(a, b, fmt, args...) \
-	__TEST_EQ(a, b, #a, #b, 0, fmt, ## args)
+	__TEST_EQ(a, b, #a, #b, 1, __abort_test, fmt, ## args)
 
 struct vmcs_hdr {
 	u32 revision_id:31;

@@ -14,76 +14,44 @@
 #include "processor.h"
 
 static long target;
-static volatile int ud;
-static volatile int isize;
-
-static void handle_ud(struct ex_regs *regs)
-{
-	ud = 1;
-	regs->rip += isize;
-}
 
 int main(int ac, char **av)
 {
-	handle_exception(UD_VECTOR, handle_ud);
-
-	/* 3-byte instructions: */
-	isize = 3;
-
-	if (this_cpu_has(X86_FEATURE_CLFLUSH)) { /* CLFLUSH */
-		ud = 0;
-		asm volatile("clflush (%0)" : : "b" (&target));
-		report(!ud, "clflush");
-	} else {
+	if (this_cpu_has(X86_FEATURE_CLFLUSH))
+		asm_safe_report("clflush (%0)", "b" (&target));
+	else
 		report_skip("clflush");
-	}
 
-	if (this_cpu_has(X86_FEATURE_XMM)) { /* SSE */
-		ud = 0;
-		asm volatile("sfence");
-		report(!ud, "sfence");
-	} else {
+	if (this_cpu_has(X86_FEATURE_XMM))
+		asm_safe_report("sfence");
+	else
 		report_skip("sfence");
-	}
 
-	if (this_cpu_has(X86_FEATURE_XMM2)) { /* SSE2 */
-		ud = 0;
-		asm volatile("lfence");
-		report(!ud, "lfence");
-		ud = 0;
-		asm volatile("mfence");
-		report(!ud, "mfence");
+	if (this_cpu_has(X86_FEATURE_XMM2)) {
+		asm_safe_report("lfence");
+		asm_safe_report("mfence");
 	} else {
 		report_skip("lfence");
 		report_skip("mfence");
 	}
 
-	/* 4-byte instructions: */
-	isize = 4;
-
-	if (this_cpu_has(X86_FEATURE_CLFLUSHOPT)) { /* CLFLUSHOPT */
-		ud = 0;
+	if (this_cpu_has(X86_FEATURE_CLFLUSHOPT)) {
 		/* clflushopt (%rbx): */
-		asm volatile(".byte 0x66, 0x0f, 0xae, 0x3b" : : "b" (&target));
-		report(!ud, "clflushopt");
+		asm_safe_report(".byte 0x66, 0x0f, 0xae, 0x3b", "b" (&target));
 	} else {
 		report_skip("clflushopt");
 	}
 
-	if (this_cpu_has(X86_FEATURE_CLWB)) { /* CLWB */
-		ud = 0;
+	if (this_cpu_has(X86_FEATURE_CLWB)) {
 		/* clwb (%rbx): */
-		asm volatile(".byte 0x66, 0x0f, 0xae, 0x33" : : "b" (&target));
-		report(!ud, "clwb");
+		asm_safe_report(".byte 0x66, 0x0f, 0xae, 0x33", "b" (&target));
 	} else {
 		report_skip("clwb");
 	}
 
 	if (this_cpu_has(X86_FEATURE_PCOMMIT)) { /* PCOMMIT */
-		ud = 0;
 		/* pcommit: */
-		asm volatile(".byte 0x66, 0x0f, 0xae, 0xf8");
-		report(!ud, "pcommit");
+		asm_safe_report(".byte 0x66, 0x0f, 0xae, 0xf8");
 	} else {
 		report_skip("pcommit");
 	}

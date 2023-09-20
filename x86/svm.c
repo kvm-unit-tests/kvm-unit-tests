@@ -10,7 +10,6 @@
 #include "vm.h"
 #include "fwcfg.h"
 #include "smp.h"
-#include "types.h"
 #include "alloc_page.h"
 #include "isr.h"
 #include "apic.h"
@@ -97,6 +96,11 @@ bool default_finished(struct svm_test *test)
 bool npt_supported(void)
 {
 	return this_cpu_has(X86_FEATURE_NPT);
+}
+
+bool vnmi_supported(void)
+{
+       return this_cpu_has(X86_FEATURE_VNMI);
 }
 
 int get_test_stage(struct svm_test *test)
@@ -212,10 +216,15 @@ struct svm_test *v2_test;
 
 u64 guest_stack[10000];
 
-int __svm_vmrun(u64 rip)
+void svm_setup_vmrun(u64 rip)
 {
 	vmcb->save.rip = (ulong)rip;
 	vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
+}
+
+int __svm_vmrun(u64 rip)
+{
+	svm_setup_vmrun(rip);
 	regs.rdi = (ulong)v2_test;
 
 	asm volatile (
@@ -240,7 +249,7 @@ static noinline void test_run(struct svm_test *test)
 {
 	u64 vmcb_phys = virt_to_phys(vmcb);
 
-	irq_disable();
+	cli();
 	vmcb_ident(vmcb);
 
 	test->prepare(test);
@@ -273,7 +282,7 @@ static noinline void test_run(struct svm_test *test)
 				"memory");
 		++test->exits;
 	} while (!test->finished(test));
-	irq_enable();
+	sti();
 
 	report(test->succeeded(test), "%s", test->name);
 

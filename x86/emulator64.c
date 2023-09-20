@@ -1,14 +1,6 @@
 #define MAGIC_NUM 0xdeadbeefdeadbeefUL
 #define GS_BASE 0x400000
 
-static unsigned long rip_advance;
-
-static void advance_rip_and_note_exception(struct ex_regs *regs)
-{
-	++exceptions;
-	regs->rip += rip_advance;
-}
-
 static void test_cr8(void)
 {
 	unsigned long src, dst;
@@ -313,38 +305,59 @@ static void test_cmov(u32 *mem)
 
 static void test_mmx_movq_mf(uint64_t *mem)
 {
-	/* movq %mm0, (%rax) */
-	extern char movq_start, movq_end;
-	handler old;
-
 	uint16_t fcw = 0;  /* all exceptions unmasked */
-	write_cr0(read_cr0() & ~6);  /* TS, EM */
-	exceptions = 0;
-	old = handle_exception(MF_VECTOR, advance_rip_and_note_exception);
-	asm volatile("fninit; fldcw %0" : : "m"(fcw));
-	asm volatile("fldz; fldz; fdivp"); /* generate exception */
+	uint64_t val;
 
-	rip_advance = &movq_end - &movq_start;
-	asm(KVM_FEP "movq_start: movq %mm0, (%rax); movq_end:");
-	/* exit MMX mode */
-	asm volatile("fnclex; emms");
-	report(exceptions == 1, "movq mmx generates #MF");
-	handle_exception(MF_VECTOR, old);
+	write_cr0(read_cr0() & ~(X86_CR0_TS | X86_CR0_EM));
+	asm volatile("fninit\n\t"
+		     "fldcw %[fcw]\n\t"
+		     "fldz\n\t"
+		     "fldz\n\t"
+		     /* generate exception (0.0 / 0.0) */
+		     "fdivp\n\t"
+		     /* trigger #MF */
+		     ASM_TRY_FEP("1f") "movq %%mm0, %[val]\n\t"
+		     /* exit MMX mode */
+		     "1: fnclex\n\t"
+		     "emms\n\t"
+		     : [val]"=m"(val)
+		     : [fcw]"m"(fcw));
+	report(exception_vector() == MF_VECTOR, "movq mmx generates #MF");
 }
 
 static void test_jmp_noncanonical(uint64_t *mem)
 {
-	extern char nc_jmp_start, nc_jmp_end;
-	handler old;
+	*mem = NONCANONICAL;
+	asm volatile (ASM_TRY("1f") "jmp *%0; 1:" : : "m"(*mem));
+	report(exception_vector() == GP_VECTOR,
+	       "jump to non-canonical address");
+}
 
-	*mem = 0x1111111111111111ul;
+static void test_reg_noncanonical(void)
+{
+	/* RAX based, should #GP(0) */
+	asm volatile(ASM_TRY("1f") "orq $0, (%[noncanonical]); 1:"
+		     : : [noncanonical]"a"(NONCANONICAL));
+	report(exception_vector() == GP_VECTOR && exception_error_code() == 0,
+	       "non-canonical memory access, should %s(0), got %s(%u)",
+	       exception_mnemonic(GP_VECTOR),
+	       exception_mnemonic(exception_vector()), exception_error_code());
 
-	exceptions = 0;
-	rip_advance = &nc_jmp_end - &nc_jmp_start;
-	old = handle_exception(GP_VECTOR, advance_rip_and_note_exception);
-	asm volatile ("nc_jmp_start: jmp *%0; nc_jmp_end:" : : "m"(*mem));
-	report(exceptions == 1, "jump to non-canonical address");
-	handle_exception(GP_VECTOR, old);
+	/* RSP based, should #SS(0) */
+	asm volatile(ASM_TRY("1f") "orq $0, (%%rsp,%[noncanonical],1); 1:"
+		     : : [noncanonical]"r"(NONCANONICAL));
+	report(exception_vector() == SS_VECTOR && exception_error_code() == 0,
+	       "non-canonical rsp-based access, should %s(0), got %s(%u)",
+	       exception_mnemonic(SS_VECTOR),
+	       exception_mnemonic(exception_vector()), exception_error_code());
+
+	/* RBP based, should #SS(0) */
+	asm volatile(ASM_TRY("1f") "orq $0, (%%rbp,%[noncanonical],1); 1:"
+		     : : [noncanonical]"r"(NONCANONICAL));
+	report(exception_vector() == SS_VECTOR && exception_error_code() == 0,
+	       "non-canonical rbp-based access, should %s(0), got %s(%u)",
+	       exception_mnemonic(SS_VECTOR),
+	       exception_mnemonic(exception_vector()), exception_error_code());
 }
 
 static void test_movabs(uint64_t *mem)
@@ -385,18 +398,9 @@ static void test_push16(uint64_t *mem)
 	report(rsp1 == rsp2, "push16");
 }
 
-static void ss_bad_rpl(struct ex_regs *regs)
-{
-	extern char ss_bad_rpl_cont;
-
-	++exceptions;
-	regs->rip = (ulong)&ss_bad_rpl_cont;
-}
-
 static void test_sreg(volatile uint16_t *mem)
 {
 	u16 ss = read_ss();
-	handler old;
 
 	// check for null segment load
 	*mem = 0;
@@ -404,13 +408,19 @@ static void test_sreg(volatile uint16_t *mem)
 	report(read_ss() == 0, "mov null, %%ss");
 
 	// check for exception when ss.rpl != cpl on null segment load
-	exceptions = 0;
-	old = handle_exception(GP_VECTOR, ss_bad_rpl);
 	*mem = 3;
-	asm volatile("mov %0, %%ss; ss_bad_rpl_cont:" : : "m"(*mem));
-	report(exceptions == 1 && read_ss() == 0,
+	asm volatile(ASM_TRY("1f") "mov %0, %%ss; 1:" : : "m"(*mem));
+	report(exception_vector() == GP_VECTOR &&
+	       exception_error_code() == 0 && read_ss() == 0,
 	       "mov null, %%ss (with ss.rpl != cpl)");
-	handle_exception(GP_VECTOR, old);
+
+	// check for exception when ss.rpl != cpl on non-null segment load
+	*mem = KERNEL_DS | 3;
+	asm volatile(ASM_TRY("1f") "mov %0, %%ss; 1:" : : "m"(*mem));
+	report(exception_vector() == GP_VECTOR &&
+	       exception_error_code() == KERNEL_DS && read_ss() == 0,
+	       "mov non-null, %%ss (with ss.rpl != cpl)");
+
 	write_ss(ss);
 }
 
@@ -421,7 +431,7 @@ static uint64_t usr_gs_mov(void)
 	uint64_t ret;
 
 	dummy_ptr -= GS_BASE;
-	asm volatile("mov %%gs:(%%rcx), %%rax" : "=a"(ret): "c"(dummy_ptr) :);
+	asm volatile("mov %%gs:(%1), %0" : "=r"(ret) : "r"(dummy_ptr));
 
 	return ret;
 }
@@ -476,5 +486,6 @@ static void test_emulator_64(void *mem)
 
 	test_push16(mem);
 
+	test_reg_noncanonical();
 	test_jmp_noncanonical(mem);
 }

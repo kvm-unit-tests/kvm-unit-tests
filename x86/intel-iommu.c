@@ -82,7 +82,7 @@ static void vtd_test_ir(void)
 
 	report_prefix_push("vtd_ir");
 
-	irq_enable();
+	sti();
 
 	/* This will enable INTx */
 	pci_msi_set_enable(pci_dev, false);

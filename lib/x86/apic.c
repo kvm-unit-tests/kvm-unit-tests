@@ -256,3 +256,41 @@ void init_apic_map(void)
 			id_map[j++] = i;
 	}
 }
+
+void apic_setup_timer(int vector, u32 mode)
+{
+	apic_cleanup_timer();
+
+	assert((mode & APIC_LVT_TIMER_MASK) == mode);
+
+	apic_write(APIC_TDCR, APIC_TDR_DIV_1);
+	apic_write(APIC_LVTT, vector | mode);
+}
+
+void apic_start_timer(u32 value)
+{
+	/*
+	 * APIC timer runs at the 'core crystal clock', divided by the value in
+	 * APIC_TDCR.
+	 */
+	apic_write(APIC_TMICT, value);
+}
+
+void apic_stop_timer(void)
+{
+	apic_write(APIC_TMICT, 0);
+}
+
+void apic_cleanup_timer(void)
+{
+	u32 lvtt = apic_read(APIC_LVTT);
+
+	/* Stop the timer/counter. */
+	apic_stop_timer();
+
+	/* Mask the timer interrupt in the local vector table. */
+	apic_write(APIC_LVTT, lvtt | APIC_LVT_MASKED);
+
+	/* Enable interrupts to ensure any pending timer IRQs are serviced. */
+	sti_nop_cli();
+}

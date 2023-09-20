@@ -2,7 +2,6 @@
 #include "vm.h"
 #include "libcflat.h"
 #include "desc.h"
-#include "types.h"
 #include "processor.h"
 
 static void test_cmpxchg8b(u32 *mem)

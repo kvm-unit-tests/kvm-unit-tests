@@ -307,7 +307,7 @@ static void stimer_test(void *ctx)
     struct svcpu *svcpu = &g_synic_vcpu[vcpu];
     struct stimer *timer1, *timer2;
 
-    irq_enable();
+    sti();
 
     timer1 = &svcpu->timer[0];
     timer2 = &svcpu->timer[1];
@@ -318,7 +318,7 @@ static void stimer_test(void *ctx)
     stimer_test_auto_enable_periodic(vcpu, timer1);
     stimer_test_one_shot_busy(vcpu, timer1);
 
-    irq_disable();
+    cli();
 }
 
 static void stimer_test_cleanup(void *ctx)

@@ -8,31 +8,6 @@
 #define uint64_t unsigned long long
 #endif
 
-static int xgetbv_checking(u32 index, u64 *result)
-{
-    u32 eax, edx;
-
-    asm volatile(ASM_TRY("1f")
-            ".byte 0x0f,0x01,0xd0\n\t" /* xgetbv */
-            "1:"
-            : "=a" (eax), "=d" (edx)
-            : "c" (index));
-    *result = eax + ((u64)edx << 32);
-    return exception_vector();
-}
-
-static int xsetbv_safe(u32 index, u64 value)
-{
-    u32 eax = value;
-    u32 edx = value >> 32;
-
-    asm volatile(ASM_TRY("1f")
-            ".byte 0x0f,0x01,0xd1\n\t" /* xsetbv */
-            "1:"
-            : : "a" (eax), "d" (edx), "c" (index));
-    return exception_vector();
-}
-
 static uint64_t get_supported_xcr0(void)
 {
     struct cpuid r;
@@ -78,7 +53,7 @@ static void test_xsave(void)
     test_bits = XSTATE_FP | XSTATE_SSE;
     report(xsetbv_safe(XCR_XFEATURE_ENABLED_MASK, test_bits) == 0,
            "\t\txsetbv(XCR_XFEATURE_ENABLED_MASK, XSTATE_FP | XSTATE_SSE)");
-    report(xgetbv_checking(XCR_XFEATURE_ENABLED_MASK, &xcr0) == 0,
+    report(xgetbv_safe(XCR_XFEATURE_ENABLED_MASK, &xcr0) == 0,
            "        xgetbv(XCR_XFEATURE_ENABLED_MASK)");
 
     printf("\tIllegal tests\n");
@@ -123,7 +98,7 @@ static void test_xsave(void)
            "\t\txsetbv(XCR_XFEATURE_ENABLED_MASK, XSTATE_FP | XSTATE_SSE) - expect #UD");
 
     printf("\tIllegal tests:\n");
-    report(xgetbv_checking(XCR_XFEATURE_ENABLED_MASK, &xcr0) == UD_VECTOR,
+    report(xgetbv_safe(XCR_XFEATURE_ENABLED_MASK, &xcr0) == UD_VECTOR,
            "\txgetbv(XCR_XFEATURE_ENABLED_MASK) - expect #UD");
 }
 
@@ -141,7 +116,7 @@ static void test_no_xsave(void)
     report(write_cr4_safe(cr4 | X86_CR4_OSXSAVE) == GP_VECTOR,
            "Set OSXSAVE in CR4 - expect #GP");
 
-    report(xgetbv_checking(XCR_XFEATURE_ENABLED_MASK, &xcr0) == UD_VECTOR,
+    report(xgetbv_safe(XCR_XFEATURE_ENABLED_MASK, &xcr0) == UD_VECTOR,
            "Execute xgetbv - expect #UD");
 
     report(xsetbv_safe(XCR_XFEATURE_ENABLED_MASK, 0x3) == UD_VECTOR,

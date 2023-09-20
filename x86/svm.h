@@ -131,6 +131,13 @@ struct __attribute__ ((__packed__)) vmcb_control_area {
 #define V_INTR_MASKING_SHIFT 24
 #define V_INTR_MASKING_MASK (1 << V_INTR_MASKING_SHIFT)
 
+#define V_NMI_PENDING_SHIFT	11
+#define V_NMI_PENDING_MASK	(1 << V_NMI_PENDING_SHIFT)
+#define V_NMI_BLOCKING_SHIFT	12
+#define V_NMI_BLOCKING_MASK	(1 << V_NMI_BLOCKING_SHIFT)
+#define V_NMI_ENABLE_SHIFT	26
+#define V_NMI_ENABLE_MASK	(1 << V_NMI_ENABLE_SHIFT)
+
 #define SVM_INTERRUPT_SHADOW_MASK 1
 
 #define SVM_IOIO_STR_SHIFT 2
@@ -419,17 +426,17 @@ void default_prepare(struct svm_test *test);
 void default_prepare_gif_clear(struct svm_test *test);
 bool default_finished(struct svm_test *test);
 bool npt_supported(void);
+bool vnmi_supported(void);
 int get_test_stage(struct svm_test *test);
 void set_test_stage(struct svm_test *test, int s);
 void inc_test_stage(struct svm_test *test);
 void vmcb_ident(struct vmcb *vmcb);
 struct regs get_regs(void);
 void vmmcall(void);
+void svm_setup_vmrun(u64 rip);
 int __svm_vmrun(u64 rip);
-void __svm_bare_vmrun(void);
 int svm_vmrun(void);
 void test_set_guest(test_guest_func func);
-u64* get_npt_pte(u64 *pml4, u64 guest_addr, int level);
 
 extern struct vmcb *vmcb;
 

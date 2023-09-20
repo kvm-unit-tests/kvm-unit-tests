@@ -83,7 +83,7 @@ int main(int ac, char **av)
 	}
 
 	setup_vm();
-	handle_exception(21, handle_cp);
+	handle_exception(CP_VECTOR, handle_cp);
 
 	/* Allocate one page for shadow-stack. */
 	shstk_virt = alloc_vpage();

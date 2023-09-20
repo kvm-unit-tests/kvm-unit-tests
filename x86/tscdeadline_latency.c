@@ -70,7 +70,7 @@ static void tsc_deadline_timer_isr(isr_regs_t *regs)
 static void start_tsc_deadline_timer(void)
 {
     handle_irq(TSC_DEADLINE_TIMER_VECTOR, tsc_deadline_timer_isr);
-    irq_enable();
+    sti();
 
     wrmsr(MSR_IA32_TSCDEADLINE, rdmsr(MSR_IA32_TSC)+delta);
     asm volatile ("nop");
@@ -115,7 +115,7 @@ int main(int argc, char **argv)
     breakmax = argc <= 3 ? 0 : atol(argv[3]);
     printf("breakmax=%d\n", breakmax);
     test_tsc_deadline_timer();
-    irq_enable();
+    sti();
 
     /* The condition might have triggered already, so check before HLT. */
     while (!hitmax && table_idx < size)

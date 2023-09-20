@@ -16,7 +16,6 @@
 #include "isr.h"
 #include "desc.h"
 #include "apic.h"
-#include "types.h"
 #include "vmalloc.h"
 #include "alloc_page.h"
 #include "smp.h"
@@ -1577,7 +1576,7 @@ static void interrupt_main(void)
 	vmx_set_test_stage(0);
 
 	apic_write(APIC_LVTT, TIMER_VECTOR);
-	irq_enable();
+	sti();
 
 	apic_write(APIC_TMICT, 1);
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
@@ -1585,7 +1584,7 @@ static void interrupt_main(void)
 	report(timer_fired, "direct interrupt while running guest");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmcall();
 	timer_fired = false;
 	apic_write(APIC_TMICT, 1);
@@ -1593,9 +1592,9 @@ static void interrupt_main(void)
 		asm volatile ("nop");
 	report(timer_fired, "intercepted interrupt while running guest");
 
-	irq_enable();
+	sti();
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmcall();
 	timer_fired = false;
 	start = rdtsc();
@@ -1607,7 +1606,7 @@ static void interrupt_main(void)
 	       "direct interrupt + hlt");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmcall();
 	timer_fired = false;
 	start = rdtsc();
@@ -1619,35 +1618,33 @@ static void interrupt_main(void)
 	       "intercepted interrupt + hlt");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmcall();
 	timer_fired = false;
 	start = rdtsc();
 	apic_write(APIC_TMICT, 1000000);
 
-	irq_enable();
-	asm volatile ("nop");
+	sti_nop();
 	vmcall();
 
 	report(rdtsc() - start > 10000 && timer_fired,
 	       "direct interrupt + activity state hlt");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmcall();
 	timer_fired = false;
 	start = rdtsc();
 	apic_write(APIC_TMICT, 1000000);
 
-	irq_enable();
-	asm volatile ("nop");
+	sti_nop();
 	vmcall();
 
 	report(rdtsc() - start > 10000 && timer_fired,
 	       "intercepted interrupt + activity state hlt");
 
 	apic_write(APIC_TMICT, 0);
-	irq_disable();
+	cli();
 	vmx_set_test_stage(7);
 	vmcall();
 	timer_fired = false;
@@ -1658,7 +1655,7 @@ static void interrupt_main(void)
 	       "running a guest with interrupt acknowledgement set");
 
 	apic_write(APIC_TMICT, 0);
-	irq_enable();
+	sti();
 	timer_fired = false;
 	vmcall();
 	report(timer_fired, "Inject an event to a halted guest");
@@ -1709,9 +1706,7 @@ static int interrupt_exit_handler(union exit_reason exit_reason)
 			int vector = vmcs_read(EXI_INTR_INFO) & 0xff;
 			handle_external_interrupt(vector);
 		} else {
-			irq_enable();
-			asm volatile ("nop");
-			irq_disable();
+			sti_nop_cli();
 		}
 		if (vmx_get_test_stage() >= 2)
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
@@ -3284,13 +3279,39 @@ static void invvpid_test(void)
 	invvpid_test_not_in_vmx_operation();
 }
 
+static void test_assert_vmlaunch_inst_error(u32 expected_error)
+{
+	u32 vmx_inst_err = vmcs_read(VMX_INST_ERROR);
+
+	report(vmx_inst_err == expected_error,
+	       "VMX inst error is %d (actual %d)", expected_error, vmx_inst_err);
+}
+
+/*
+ * This version is wildly unsafe and should _only_ be used to test VM-Fail
+ * scenarios involving HOST_RIP.
+ */
+static void test_vmx_vmlaunch_must_fail(u32 expected_error)
+{
+	/* Read the function name. */
+	TEST_ASSERT(expected_error);
+
+	/*
+	 * Don't bother with any prep work, if VMLAUNCH passes the VM-Fail
+	 * consistency checks and generates a VM-Exit, then the test is doomed
+	 * no matter what as it will jump to a garbage RIP.
+	 */
+	__asm__ __volatile__ ("vmlaunch");
+	test_assert_vmlaunch_inst_error(expected_error);
+}
+
 /*
  * Test for early VMLAUNCH failure. Returns true if VMLAUNCH makes it
  * at least as far as the guest-state checks. Returns false if the
  * VMLAUNCH fails early and execution falls through to the next
  * instruction.
  */
-static bool vmlaunch_succeeds(void)
+static bool vmlaunch(void)
 {
 	u32 exit_reason;
 
@@ -3320,17 +3341,12 @@ success:
  */
 static void test_vmx_vmlaunch(u32 xerror)
 {
-	bool success = vmlaunch_succeeds();
-	u32 vmx_inst_err;
+	bool success = vmlaunch();
 
 	report(success == !xerror, "vmlaunch %s",
 	       !xerror ? "succeeds" : "fails");
-	if (!success && xerror) {
-		vmx_inst_err = vmcs_read(VMX_INST_ERROR);
-		report(vmx_inst_err == xerror,
-		       "VMX inst error is %d (actual %d)", xerror,
-		       vmx_inst_err);
-	}
+	if (!success && xerror)
+		test_assert_vmlaunch_inst_error(xerror);
 }
 
 /*
@@ -3339,7 +3355,7 @@ static void test_vmx_vmlaunch(u32 xerror)
  */
 static void test_vmx_vmlaunch2(u32 xerror1, u32 xerror2)
 {
-	bool success = vmlaunch_succeeds();
+	bool success = vmlaunch();
 	u32 vmx_inst_err;
 
 	if (!xerror1 == !xerror2)
@@ -3487,7 +3503,7 @@ static void test_secondary_processor_based_ctls(void)
 	 */
 	vmcs_write(CPU_EXEC_CTRL0, primary & ~CPU_SECONDARY);
 	vmcs_write(CPU_EXEC_CTRL1, ~0);
-	report(vmlaunch_succeeds(),
+	report(vmlaunch(),
 	       "Secondary processor-based controls ignored");
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	vmcs_write(CPU_EXEC_CTRL0, primary);
@@ -6714,9 +6730,7 @@ static void test_x2apic_wr(
 		assert_exit_reason(exit_reason_want);
 
 		/* Clear the external interrupt. */
-		irq_enable();
-		asm volatile ("nop");
-		irq_disable();
+		sti_nop_cli();
 		report(handle_x2apic_ipi_ran,
 		       "Got pending interrupt after IRQ enabled.");
 
@@ -7320,7 +7334,7 @@ static void test_pgc_vmlaunch(u32 xerror, u32 xreason, bool xfail, bool host)
 	struct vmx_state_area_test_data *data = &vmx_state_area_test_data;
 
 	if (host) {
-		success = vmlaunch_succeeds();
+		success = vmlaunch();
 		obs = rdmsr(data->msr);
 		if (!success) {
 			inst_err = vmcs_read(VMX_INST_ERROR);
@@ -7616,52 +7630,51 @@ static void test_host_addr_size(void)
 	u64 cr4_saved = vmcs_read(HOST_CR4);
 	u64 rip_saved = vmcs_read(HOST_RIP);
 	u64 entry_ctrl_saved = vmcs_read(ENT_CONTROLS);
-	int i;
-	u64 tmp;
 
-	if (vmcs_read(EXI_CONTROLS) & EXI_HOST_64) {
-		vmcs_write(ENT_CONTROLS, entry_ctrl_saved | ENT_GUEST_64);
-		report_prefix_pushf("\"IA-32e mode guest\" enabled");
-		test_vmx_vmlaunch(0);
-		report_prefix_pop();
+	assert(vmcs_read(EXI_CONTROLS) & EXI_HOST_64);
+	assert(cr4_saved & X86_CR4_PAE);
 
+	vmcs_write(ENT_CONTROLS, entry_ctrl_saved | ENT_GUEST_64);
+	report_prefix_pushf("\"IA-32e mode guest\" enabled");
+	test_vmx_vmlaunch(0);
+	report_prefix_pop();
+
+	if (this_cpu_has(X86_FEATURE_PCID)) {
 		vmcs_write(HOST_CR4, cr4_saved | X86_CR4_PCIDE);
 		report_prefix_pushf("\"CR4.PCIDE\" set");
 		test_vmx_vmlaunch(0);
 		report_prefix_pop();
-
-		for (i = 32; i <= 63; i = i + 4) {
-			tmp = rip_saved | 1ull << i;
-			vmcs_write(HOST_RIP, tmp);
-			report_prefix_pushf("HOST_RIP %lx", tmp);
-			test_vmx_vmlaunch(0);
-			report_prefix_pop();
-		}
-
-		if (cr4_saved & X86_CR4_PAE) {
-			vmcs_write(HOST_CR4, cr4_saved  & ~X86_CR4_PAE);
-			report_prefix_pushf("\"CR4.PAE\" unset");
-			test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-		} else {
-			report_prefix_pushf("\"CR4.PAE\" set");
-			test_vmx_vmlaunch(0);
-		}
-		report_prefix_pop();
-
-		vmcs_write(HOST_RIP, NONCANONICAL);
-		report_prefix_pushf("HOST_RIP %llx", NONCANONICAL);
-		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
-		report_prefix_pop();
-
-		vmcs_write(ENT_CONTROLS, entry_ctrl_saved | ENT_GUEST_64);
-		vmcs_write(HOST_RIP, rip_saved);
-		vmcs_write(HOST_CR4, cr4_saved);
-
-		/* Restore host's active RIP and CR4 values. */
-		report_prefix_pushf("restore host state");
-		test_vmx_vmlaunch(0);
-		report_prefix_pop();
 	}
+
+	vmcs_write(HOST_CR4, cr4_saved  & ~X86_CR4_PAE);
+	report_prefix_pushf("\"CR4.PAE\" unset");
+	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	vmcs_write(HOST_CR4, cr4_saved);
+	report_prefix_pop();
+
+	vmcs_write(HOST_RIP, NONCANONICAL);
+	report_prefix_pushf("HOST_RIP %llx", NONCANONICAL);
+	test_vmx_vmlaunch_must_fail(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+	report_prefix_pop();
+
+	vmcs_write(ENT_CONTROLS, entry_ctrl_saved | ENT_GUEST_64);
+	vmcs_write(HOST_RIP, rip_saved);
+	vmcs_write(HOST_CR4, cr4_saved);
+
+	/*
+	 * Restore host's active CR4 and RIP values by triggering a VM-Exit.
+	 * The original CR4 and RIP values in the VMCS are restored between
+	 * testcases as needed, but don't guarantee a VM-Exit and so the active
+	 * CR4 and RIP may still hold a test value.  Running with the test CR4
+	 * and RIP values at some point is unavoidable, and the active values
+	 * are unlikely to affect VM-Enter, so the above doen't force a VM-Exit
+	 * between testcases.  Note, if VM-Enter is surrounded by CALL+RET then
+	 * the active RIP will already be restored, but that's also not
+	 * guaranteed, and CR4 needs to be restored regardless.
+	 */
+	report_prefix_pushf("restore host state");
+	test_vmx_vmlaunch(0);
+	report_prefix_pop();
 }
 
 /*
@@ -8401,7 +8414,7 @@ static void vmx_pending_event_test_core(bool guest_hlt)
 	if (guest_hlt)
 		vmcs_write(GUEST_ACTV_STATE, ACTV_HLT);
 
-	irq_disable();
+	cli();
 	apic_icr_write(APIC_DEST_SELF | APIC_DEST_PHYSICAL |
 				   APIC_DM_FIXED | ipi_vector,
 				   0);
@@ -8412,9 +8425,7 @@ static void vmx_pending_event_test_core(bool guest_hlt)
 	report(!vmx_pending_event_guest_run,
 	       "Guest did not run before host received IPI");
 
-	irq_enable();
-	asm volatile ("nop");
-	irq_disable();
+	sti_nop_cli();
 	report(vmx_pending_event_ipi_fired,
 	       "Got pending interrupt after IRQ enabled");
 
@@ -9338,7 +9349,7 @@ static void irq_79_handler_guest(isr_regs_t *regs)
 static void vmx_eoi_bitmap_ioapic_scan_test_guest(void)
 {
 	handle_irq(0x79, irq_79_handler_guest);
-	irq_enable();
+	sti();
 
 	/* Signal to L1 CPU to trigger ioapic scan */
 	vmx_set_test_stage(1);
@@ -9395,7 +9406,7 @@ static void vmx_hlt_with_rvi_guest(void)
 {
 	handle_irq(HLT_WITH_RVI_VECTOR, vmx_hlt_with_rvi_guest_isr);
 
-	irq_enable();
+	sti_nop();
 	asm volatile ("nop");
 
 	vmcall();
@@ -9447,7 +9458,7 @@ static void irq_78_handler_guest(isr_regs_t *regs)
 static void vmx_apic_passthrough_guest(void)
 {
 	handle_irq(0x78, irq_78_handler_guest);
-	irq_enable();
+	sti();
 
 	/* If requested, wait for other CPU to trigger ioapic scan */
 	if (vmx_get_test_stage() < 1) {
@@ -9555,8 +9566,7 @@ static void vmx_apic_passthrough_tpr_threshold_test(void)
 	/* Clean pending self-IPI */
 	vmx_apic_passthrough_tpr_threshold_ipi_isr_fired = false;
 	handle_irq(ipi_vector, vmx_apic_passthrough_tpr_threshold_ipi_isr);
-	sti();
-	asm volatile ("nop");
+	sti_nop();
 	report(vmx_apic_passthrough_tpr_threshold_ipi_isr_fired, "self-IPI fired");
 
 	report_pass(__func__);

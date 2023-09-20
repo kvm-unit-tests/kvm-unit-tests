@@ -19,17 +19,30 @@
 #  define S "4"
 #endif
 
+#define DE_VECTOR 0
 #define DB_VECTOR 1
+#define NMI_VECTOR 2
 #define BP_VECTOR 3
+#define OF_VECTOR 4
+#define BR_VECTOR 5
 #define UD_VECTOR 6
+#define NM_VECTOR 7
 #define DF_VECTOR 8
 #define TS_VECTOR 10
 #define NP_VECTOR 11
 #define SS_VECTOR 12
 #define GP_VECTOR 13
 #define PF_VECTOR 14
+#define MF_VECTOR 16
 #define AC_VECTOR 17
+#define MC_VECTOR 18
+#define XM_VECTOR 19
+#define XF_VECTOR XM_VECTOR /* AMD */
+#define VE_VECTOR 20 /* Intel only */
 #define CP_VECTOR 21
+#define HV_VECTOR 28 /* AMD only */
+#define VC_VECTOR 29 /* AMD only */
+#define SX_VECTOR 30 /* AMD only */
 
 #define X86_CR0_PE_BIT		(0)
 #define X86_CR0_PE		BIT(X86_CR0_PE_BIT)
@@ -268,6 +281,7 @@ static inline bool is_intel(void)
 #define X86_FEATURE_PAUSEFILTER		(CPUID(0x8000000A, 0, EDX, 10))
 #define X86_FEATURE_PFTHRESHOLD		(CPUID(0x8000000A, 0, EDX, 12))
 #define	X86_FEATURE_VGIF		(CPUID(0x8000000A, 0, EDX, 16))
+#define X86_FEATURE_VNMI		(CPUID(0x8000000A, 0, EDX, 25))
 #define	X86_FEATURE_AMD_PMU_V2		(CPUID(0x80000022, 0, EAX, 0))
 
 static inline bool this_cpu_has(u64 feature)
@@ -416,41 +430,41 @@ static inline void wrmsr(u32 index, u64 val)
 	asm volatile ("wrmsr" : : "a"(a), "d"(d), "c"(index) : "memory");
 }
 
+#define rdreg64_safe(insn, index, val)					\
+({									\
+	uint32_t a, d;							\
+	int vector;							\
+									\
+	vector = asm_safe_out2(insn, "=a"(a), "=d"(d), "c"(index));	\
+									\
+	if (vector)							\
+		*(val) = 0;						\
+	else								\
+		*(val) = (uint64_t)a | ((uint64_t)d << 32);		\
+	vector;								\
+})
+
+#define wrreg64_safe(insn, index, val)					\
+({									\
+	uint32_t eax = (val), edx = (val) >> 32;			\
+									\
+	asm_safe(insn, "a" (eax), "d" (edx), "c" (index));		\
+})
+
+
 static inline int rdmsr_safe(u32 index, uint64_t *val)
 {
-	uint32_t a, d;
-
-	asm volatile (ASM_TRY("1f")
-		      "rdmsr\n\t"
-		      "1:"
-		      : "=a"(a), "=d"(d)
-		      : "c"(index) : "memory");
-
-	*val = (uint64_t)a | ((uint64_t)d << 32);
-	return exception_vector();
+	return rdreg64_safe("rdmsr", index, val);
 }
 
 static inline int wrmsr_safe(u32 index, u64 val)
 {
-	u32 a = val, d = val >> 32;
-
-	asm volatile (ASM_TRY("1f")
-		      "wrmsr\n\t"
-		      "1:"
-		      : : "a"(a), "d"(d), "c"(index) : "memory");
-	return exception_vector();
+	return wrreg64_safe("wrmsr", index, val);
 }
 
 static inline int rdpmc_safe(u32 index, uint64_t *val)
 {
-	uint32_t a, d;
-
-	asm volatile (ASM_TRY("1f")
-		      "rdpmc\n\t"
-		      "1:"
-		      : "=a"(a), "=d"(d) : "c"(index) : "memory");
-	*val = (uint64_t)a | ((uint64_t)d << 32);
-	return exception_vector();
+	return rdreg64_safe("rdpmc", index, val);
 }
 
 static inline uint64_t rdpmc(uint32_t index)
@@ -463,12 +477,19 @@ static inline uint64_t rdpmc(uint32_t index)
 	return val;
 }
 
+static inline int xgetbv_safe(u32 index, u64 *result)
+{
+	return rdreg64_safe(".byte 0x0f,0x01,0xd0", index, result);
+}
+
+static inline int xsetbv_safe(u32 index, u64 value)
+{
+	return wrreg64_safe(".byte 0x0f,0x01,0xd1", index, value);
+}
+
 static inline int write_cr0_safe(ulong val)
 {
-	asm volatile(ASM_TRY("1f")
-		     "mov %0,%%cr0\n\t"
-		     "1:": : "r" (val));
-	return exception_vector();
+	return asm_safe("mov %0,%%cr0", "r" (val));
 }
 
 static inline void write_cr0(ulong val)
@@ -500,10 +521,7 @@ static inline ulong read_cr2(void)
 
 static inline int write_cr3_safe(ulong val)
 {
-	asm volatile(ASM_TRY("1f")
-		     "mov %0,%%cr3\n\t"
-		     "1:": : "r" (val));
-	return exception_vector();
+	return asm_safe("mov %0,%%cr3", "r" (val));
 }
 
 static inline void write_cr3(ulong val)
@@ -528,10 +546,7 @@ static inline void update_cr3(void *cr3)
 
 static inline int write_cr4_safe(ulong val)
 {
-	asm volatile(ASM_TRY("1f")
-		     "mov %0,%%cr4\n\t"
-		     "1:": : "r" (val));
-	return exception_vector();
+	return asm_safe("mov %0,%%cr4", "r" (val));
 }
 
 static inline void write_cr4(ulong val)
@@ -659,9 +674,30 @@ static inline void cli(void)
 	asm volatile ("cli");
 }
 
+/*
+ * See also safe_halt().
+ */
 static inline void sti(void)
 {
 	asm volatile ("sti");
+}
+
+/*
+ * Enable interrupts and ensure that interrupts are evaluated upon return from
+ * this function, i.e. execute a nop to consume the STi interrupt shadow.
+ */
+static inline void sti_nop(void)
+{
+	asm volatile ("sti; nop");
+}
+
+/*
+ * Enable interrupts for one instruction (nop), to allow the CPU to process all
+ * interrupts that are already pending.
+ */
+static inline void sti_nop_cli(void)
+{
+	asm volatile ("sti; nop; cli");
 }
 
 static inline unsigned long long rdrand(void)
@@ -733,25 +769,26 @@ static inline void wrtsc(u64 tsc)
 	wrmsr(MSR_IA32_TSC, tsc);
 }
 
-static inline void irq_disable(void)
-{
-	asm volatile("cli");
-}
-
-/* Note that irq_enable() does not ensure an interrupt shadow due
- * to the vagaries of compiler optimizations.  If you need the
- * shadow, use a single asm with "sti" and the instruction after it.
- */
-static inline void irq_enable(void)
-{
-	asm volatile("sti");
-}
 
 static inline void invlpg(volatile void *va)
 {
 	asm volatile("invlpg (%0)" ::"r" (va) : "memory");
 }
 
+
+static inline int invpcid_safe(unsigned long type, void *desc)
+{
+	/* invpcid (%rax), %rbx */
+	return asm_safe(".byte 0x66,0x0f,0x38,0x82,0x18", "a" (desc), "b" (type));
+}
+
+/*
+ * Execute HLT in an STI interrupt shadow to ensure that a pending IRQ that's
+ * intended to be a wake event arrives *after* HLT is executed.  Modern CPUs,
+ * except for a few oddballs that KVM is unlikely to run on, block IRQs for one
+ * instruction after STI, *if* RFLAGS.IF=0 before STI.  Note, Intel CPUs may
+ * block other events beyond regular IRQs, e.g. may block NMIs and SMIs too.
+ */
 static inline void safe_halt(void)
 {
 	asm volatile("sti; hlt");
