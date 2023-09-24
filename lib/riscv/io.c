@@ -9,6 +9,7 @@
 #include <config.h>
 #include <devicetree.h>
 #include <asm/io.h>
+#include <asm/sbi.h>
 #include <asm/setup.h>
 #include <asm/spinlock.h>
 
@@ -90,6 +91,7 @@ void halt(int code);
 void exit(int code)
 {
 	printf("\nEXIT: STATUS=%d\n", ((code) << 1) | 1);
+	sbi_shutdown();
 	halt(code);
 	__builtin_unreachable();
 }
