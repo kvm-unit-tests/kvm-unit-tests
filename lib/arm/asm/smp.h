@@ -5,8 +5,8 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
+#include <cpumask.h>
 #include <asm/thread_info.h>
-#include <asm/cpumask.h>
 
 #define smp_processor_id()		(current_thread_info()->cpu)
 

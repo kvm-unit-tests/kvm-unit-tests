@@ -1,12 +1,11 @@
-#ifndef _ASMARM_CPUMASK_H_
-#define _ASMARM_CPUMASK_H_
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Simple cpumask implementation
  *
  * Copyright (C) 2015, Red Hat Inc, Andrew Jones <drjones@redhat.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.
  */
+#ifndef _CPUMASK_H_
+#define _CPUMASK_H_
 #include <asm/setup.h>
 #include <bitops.h>
 
@@ -120,4 +119,4 @@ static inline int cpumask_next(int cpu, const cpumask_t *mask)
 			(cpu) < nr_cpus; 			\
 			(cpu) = cpumask_next(cpu, mask))
 
-#endif /* _ASMARM_CPUMASK_H_ */
+#endif /* _CPUMASK_H_ */

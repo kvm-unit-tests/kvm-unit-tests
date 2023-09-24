@@ -7,9 +7,9 @@
  */
 #include <libcflat.h>
 #include <auxinfo.h>
+#include <cpumask.h>
 #include <asm/thread_info.h>
 #include <asm/spinlock.h>
-#include <asm/cpumask.h>
 #include <asm/barrier.h>
 #include <asm/mmu.h>
 #include <asm/psci.h>

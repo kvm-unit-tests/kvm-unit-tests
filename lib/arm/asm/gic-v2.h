@@ -18,7 +18,7 @@
 #define GICC_IAR_INT_ID_MASK		0x3ff
 
 #ifndef __ASSEMBLY__
-#include <asm/cpumask.h>
+#include <cpumask.h>
 
 struct gicv2_data {
 	void *dist_base;

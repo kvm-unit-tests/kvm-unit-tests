@@ -5,9 +5,9 @@
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
+#include <cpumask.h>
 #include <asm/setup.h>
 #include <asm/thread_info.h>
-#include <asm/cpumask.h>
 #include <asm/mmu.h>
 #include <asm/setup.h>
 #include <asm/page.h>

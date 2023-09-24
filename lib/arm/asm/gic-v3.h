@@ -67,10 +67,10 @@
 #include <asm/arch_gicv3.h>
 
 #ifndef __ASSEMBLY__
+#include <cpumask.h>
 #include <asm/setup.h>
 #include <asm/processor.h>
 #include <asm/delay.h>
-#include <asm/cpumask.h>
 #include <asm/smp.h>
 #include <asm/io.h>
 
