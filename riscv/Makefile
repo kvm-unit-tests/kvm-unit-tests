@@ -20,8 +20,13 @@ $(TEST_DIR)/sieve.elf: AUXFLAGS = 0x1
 
 cstart.o = $(TEST_DIR)/cstart.o
 
+cflatobjs += lib/alloc.o
+cflatobjs += lib/alloc_phys.o
+cflatobjs += lib/devicetree.o
+cflatobjs += lib/riscv/bitops.o
 cflatobjs += lib/riscv/io.o
 cflatobjs += lib/riscv/setup.o
+cflatobjs += lib/riscv/smp.o
 
 ########################################
 

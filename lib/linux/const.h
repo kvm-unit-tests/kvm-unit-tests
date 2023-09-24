@@ -15,10 +15,12 @@
 #if defined(__ASSEMBLY__) || defined(__ASSEMBLER__)
 #define _AC(X,Y)	X
 #define _AT(T,X)	X
+#define __ASM_STR(X)	X
 #else
 #define __AC(X,Y)	(X##Y)
 #define _AC(X,Y)	__AC(X,Y)
 #define _AT(T,X)	((T)(X))
+#define __ASM_STR(X)	#X
 #endif
 
 #define _BITUL(x)	(_AC(1,UL) << (x))
