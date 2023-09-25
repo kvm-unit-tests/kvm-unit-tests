@@ -8,6 +8,11 @@
 
 #include <libcflat.h>
 
+/* 32-bit ELF base types. */
+typedef u32	Elf32_Addr;
+typedef u32	Elf32_Xword;
+typedef s32	Elf32_Sxword;
+
 /* 64-bit ELF base types. */
 typedef u64	Elf64_Addr;
 typedef u64	Elf64_Xword;
@@ -25,6 +30,12 @@ typedef struct elf64_rel {
 	Elf64_Addr r_offset;    /* Location at which to apply the action */
 	Elf64_Xword r_info;     /* index and type of relocation */
 } Elf64_Rel;
+
+typedef struct elf32_rela {
+	Elf32_Addr r_offset;    /* Location at which to apply the action */
+	Elf32_Xword r_info;     /* index and type of relocation */
+	Elf32_Sxword r_addend;  /* Constant addend used to compute value */
+} Elf32_Rela;
 
 typedef struct elf64_rela {
 	Elf64_Addr r_offset;    /* Location at which to apply the action */

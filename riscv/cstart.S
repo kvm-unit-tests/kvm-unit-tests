@@ -4,11 +4,23 @@
  *
  * Copyright (C) 2023, Ventana Micro Systems Inc., Andrew Jones <ajones@ventanamicro.com>
  */
+#include <asm/asm-offsets.h>
 #include <asm/csr.h>
+
+#if __riscv_xlen == 64
+#define __REG_SEL(a, b) a
+#elif __riscv_xlen == 32
+#define __REG_SEL(a, b) b
+#else
+#error "Unexpected __riscv_xlen"
+#endif
+
+#define REG_L	__REG_SEL(ld, lw)
+#define REG_S	__REG_SEL(sd, sw)
 
 .macro zero_range, tmp1, tmp2
 9998:	beq	\tmp1, \tmp2, 9997f
-	sd	zero, 0(\tmp1)
+	REG_S	zero, 0(\tmp1)
 	addi	\tmp1, \tmp1, 8
 	j	9998b
 9997:
@@ -33,26 +45,20 @@ start:
 
 	/*
 	 * Update all R_RISCV_RELATIVE relocations using the table
-	 * of Elf64_Rela entries between reloc_start/end. The build
-	 * will not emit other relocation types.
-	 *
-	 * struct Elf64_Rela {
-	 * 	uint64_t r_offset;
-	 * 	uint64_t r_info;
-	 * 	int64_t  r_addend;
-	 * }
+	 * of Elf32_Rela/Elf64_Rela entries between reloc_start/end.
+	 * The build will not emit other relocation types.
 	 */
 	la	a1, reloc_start
 	la	a2, reloc_end
 	la	a3, start			// base
 1:
 	bge	a1, a2, 1f
-	ld	a4, 0(a1)			// r_offset
-	ld	a5, 16(a1)			// r_addend
+	REG_L	a4, ELF_RELA_OFFSET(a1)		// r_offset
+	REG_L	a5, ELF_RELA_ADDEND(a1)		// r_addend
 	add	a4, a3, a4			// addr = base + r_offset
 	add	a5, a3, a5			// val = base + r_addend
-	sd	a5, 0(a4)			// *addr = val
-	addi	a1, a1, 24
+	REG_S	a5, 0(a4)			// *addr = val
+	addi	a1, a1, ELF_RELA_SIZE
 	j	1b
 
 1:
@@ -72,11 +78,12 @@ start:
 
 	/* complete setup */
 	la	a1, stacktop			// a1 is the base of free memory
+	mv	a2, zero			// clear a2 for xlen=32
 	call	setup				// a0 is the addr of the dtb
 
 	/* run the test */
 	la	a0, __argc
-	ld	a0, 0(a0)
+	REG_L	a0, 0(a0)
 	la	a1, __argv
 	la	a2, __environ
 	call	main
