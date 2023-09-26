@@ -549,7 +549,7 @@ static void test_basic_event_count(bool overflow_at_64bits)
 		    read_regn_el0(pmevcntr, 1));
 
 	report_info("overflow reg = 0x%lx", read_sysreg(pmovsclr_el0));
-	report(read_sysreg(pmovsclr_el0) & 0x1,
+	report(read_sysreg(pmovsclr_el0) == 0x1,
 		"check overflow happened on #0 only");
 }
 
