@@ -162,8 +162,14 @@ run_migration ()
 	migstatus=`qmp ${qmp1} '"query-migrate"' | grep return`
 	while ! grep -q '"completed"' <<<"$migstatus" ; do
 		sleep 1
-		migstatus=`qmp ${qmp1} '"query-migrate"' | grep return`
-		if grep -q '"failed"' <<<"$migstatus" ; then
+		if ! migstatus=`qmp ${qmp1} '"query-migrate"'`; then
+			echo "ERROR: Querying migration state failed." >&2
+			echo > ${fifo}
+			qmp ${qmp2} '"quit"'> ${qmpout2} 2>/dev/null
+			return 2
+		fi
+		migstatus=`grep return <<<"$migstatus"`
+		if grep -q '"failed"' <<<"$migstatus"; then
 			echo "ERROR: Migration failed." >&2
 			echo > ${fifo}
 			qmp ${qmp1} '"quit"'> ${qmpout1} 2>/dev/null
