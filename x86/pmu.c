@@ -69,6 +69,7 @@ volatile uint64_t irq_received;
 static void cnt_overflow(isr_regs_t *regs)
 {
 	irq_received++;
+	apic_write(APIC_LVTPC, apic_read(APIC_LVTPC) & ~APIC_LVT_MASKED);
 	apic_write(APIC_EOI, 0);
 }
 
