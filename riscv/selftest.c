@@ -6,6 +6,7 @@
  */
 #include <libcflat.h>
 #include <cpumask.h>
+#include <asm/processor.h>
 #include <asm/setup.h>
 
 static void check_cpus(void)
@@ -13,7 +14,23 @@ static void check_cpus(void)
 	int cpu;
 
 	for_each_present_cpu(cpu)
-		report_info("CPU%3d: hartid=%08lx", cpu, cpus[cpu]);
+		report_info("CPU%3d: hartid=%08lx", cpu, cpus[cpu].hartid);
+}
+
+static bool exceptions_work;
+
+static void handler(struct pt_regs *regs)
+{
+	exceptions_work = true;
+	regs->epc += 2;
+}
+
+static void check_exceptions(void)
+{
+	install_exception_handler(EXC_INST_ILLEGAL, handler);
+	asm volatile(".4byte 0");
+	install_exception_handler(EXC_INST_ILLEGAL, NULL);
+	report(exceptions_work, "exceptions");
 }
 
 int main(int argc, char **argv)
@@ -45,6 +62,7 @@ int main(int argc, char **argv)
 		report_skip("environ parsing");
 	}
 
+	check_exceptions();
 	check_cpus();
 
 	return report_summary();

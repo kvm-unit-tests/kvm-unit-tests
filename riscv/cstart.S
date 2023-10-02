@@ -37,8 +37,9 @@
 .global start
 start:
 	/*
-	 * Stash the hartid in scratch and shift the dtb
-	 * address into a0
+	 * Stash the hartid in scratch and shift the dtb address into a0.
+	 * thread_info_init() will later promote scratch to point at thread
+	 * local storage.
 	 */
 	csrw	CSR_SSCRATCH, a0
 	mv	a0, a1
@@ -74,7 +75,8 @@ start:
 	zero_range a1, sp
 
 	/* set up exception handling */
-	//TODO
+	la	a1, exception_vectors
+	csrw	CSR_STVEC, a1
 
 	/* complete setup */
 	la	a1, stacktop			// a1 is the base of free memory
@@ -97,3 +99,112 @@ start:
 halt:
 1:	wfi
 	j	1b
+
+/*
+ * Save context to address in a0.
+ * For a0, sets PT_A0(a0) to the contents of PT_ORIG_A0(a0).
+ * Clobbers a1.
+ */
+.macro save_context
+	REG_S	ra, PT_RA(a0)			// x1
+	REG_S	sp, PT_SP(a0)			// x2
+	REG_S	gp, PT_GP(a0)			// x3
+	REG_S	tp, PT_TP(a0)			// x4
+	REG_S	t0, PT_T0(a0)			// x5
+	REG_S	t1, PT_T1(a0)			// x6
+	REG_S	t2, PT_T2(a0)			// x7
+	REG_S	s0, PT_S0(a0)			// x8 / fp
+	REG_S	s1, PT_S1(a0)			// x9
+	/* a0 */				// x10
+	REG_S   a1, PT_A1(a0)			// x11
+	REG_S	a2, PT_A2(a0)			// x12
+	REG_S	a3, PT_A3(a0)			// x13
+	REG_S	a4, PT_A4(a0)			// x14
+	REG_S	a5, PT_A5(a0)			// x15
+	REG_S	a6, PT_A6(a0)			// x16
+	REG_S	a7, PT_A7(a0)			// x17
+	REG_S	s2, PT_S2(a0)			// x18
+	REG_S	s3, PT_S3(a0)			// x19
+	REG_S	s4, PT_S4(a0)			// x20
+	REG_S	s5, PT_S5(a0)			// x21
+	REG_S	s6, PT_S6(a0)			// x22
+	REG_S	s7, PT_S7(a0)			// x23
+	REG_S	s8, PT_S8(a0)			// x24
+	REG_S	s9, PT_S9(a0)			// x25
+	REG_S	s10, PT_S10(a0)			// x26
+	REG_S	s11, PT_S11(a0)			// x27
+	REG_S	t3, PT_T3(a0)			// x28
+	REG_S	t4, PT_T4(a0)			// x29
+	REG_S	t5, PT_T5(a0)			// x30
+	REG_S	t6, PT_T6(a0)			// x31
+	csrr	a1, CSR_SEPC
+	REG_S	a1, PT_EPC(a0)
+	csrr	a1, CSR_SSTATUS
+	REG_S	a1, PT_STATUS(a0)
+	csrr	a1, CSR_STVAL
+	REG_S	a1, PT_BADADDR(a0)
+	csrr	a1, CSR_SCAUSE
+	REG_S	a1, PT_CAUSE(a0)
+	REG_L	a1, PT_ORIG_A0(a0)
+	REG_S	a1, PT_A0(a0)
+.endm
+
+/*
+ * Restore context from address in a0.
+ * Also restores a0.
+ */
+.macro restore_context
+	REG_L	ra, PT_RA(a0)			// x1
+	REG_L	sp, PT_SP(a0)			// x2
+	REG_L	gp, PT_GP(a0)			// x3
+	REG_L	tp, PT_TP(a0)			// x4
+	REG_L	t0, PT_T0(a0)			// x5
+	REG_L	t1, PT_T1(a0)			// x6
+	REG_L	t2, PT_T2(a0)			// x7
+	REG_L	s0, PT_S0(a0)			// x8 / fp
+	REG_L	s1, PT_S1(a0)			// x9
+	/* a0 */				// x10
+	/* a1 */				// x11
+	REG_L	a2, PT_A2(a0)			// x12
+	REG_L	a3, PT_A3(a0)			// x13
+	REG_L	a4, PT_A4(a0)			// x14
+	REG_L	a5, PT_A5(a0)			// x15
+	REG_L	a6, PT_A6(a0)			// x16
+	REG_L	a7, PT_A7(a0)			// x17
+	REG_L	s2, PT_S2(a0)			// x18
+	REG_L	s3, PT_S3(a0)			// x19
+	REG_L	s4, PT_S4(a0)			// x20
+	REG_L	s5, PT_S5(a0)			// x21
+	REG_L	s6, PT_S6(a0)			// x22
+	REG_L	s7, PT_S7(a0)			// x23
+	REG_L	s8, PT_S8(a0)			// x24
+	REG_L	s9, PT_S9(a0)			// x25
+	REG_L	s10, PT_S10(a0)			// x26
+	REG_L	s11, PT_S11(a0)			// x27
+	REG_L	t3, PT_T3(a0)			// x28
+	REG_L	t4, PT_T4(a0)			// x29
+	REG_L	t5, PT_T5(a0)			// x30
+	REG_L	t6, PT_T6(a0)			// x31
+	REG_L	a1, PT_EPC(a0)
+	csrw	CSR_SEPC, a1
+	REG_L	a1, PT_STATUS(a0)
+	csrw	CSR_SSTATUS, a1
+	REG_L	a1, PT_BADADDR(a0)
+	csrw	CSR_STVAL, a1
+	REG_L	a1, PT_CAUSE(a0)
+	csrw	CSR_SCAUSE, a1
+	REG_L	a1, PT_A1(a0)
+	REG_L	a0, PT_A0(a0)
+.endm
+
+.balign 4
+.global exception_vectors
+exception_vectors:
+	REG_S	a0, (-PT_SIZE + PT_ORIG_A0)(sp)
+	addi	a0, sp, -PT_SIZE
+	save_context
+	mv	sp, a0
+	call	do_handle_exception
+	mv	a0, sp
+	restore_context
+	sret

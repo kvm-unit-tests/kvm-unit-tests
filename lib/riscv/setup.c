@@ -12,12 +12,13 @@
 #include <devicetree.h>
 #include <asm/csr.h>
 #include <asm/page.h>
+#include <asm/processor.h>
 #include <asm/setup.h>
 
 char *initrd;
 u32 initrd_size;
 
-unsigned long cpus[NR_CPUS] = { [0 ... NR_CPUS - 1] = ~0UL };
+struct thread_info cpus[NR_CPUS];
 int nr_cpus;
 
 int hartid_to_cpu(unsigned long hartid)
@@ -25,7 +26,7 @@ int hartid_to_cpu(unsigned long hartid)
 	int cpu;
 
 	for_each_present_cpu(cpu)
-		if (cpus[cpu] == hartid)
+		if (cpus[cpu].hartid == hartid)
 			return cpu;
 	return -1;
 }
@@ -36,7 +37,8 @@ static void cpu_set_fdt(int fdtnode __unused, u64 regval, void *info __unused)
 
 	assert_msg(cpu < NR_CPUS, "Number cpus exceeds maximum supported (%d).", NR_CPUS);
 
-	cpus[cpu] = regval;
+	cpus[cpu].cpu = cpu;
+	cpus[cpu].hartid = regval;
 	set_cpu_present(cpu, true);
 }
 
@@ -104,6 +106,7 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 
 	mem_init(PAGE_ALIGN((unsigned long)freemem));
 	cpu_init();
+	thread_info_init();
 	io_init();
 
 	ret = dt_get_bootargs(&bootargs);

@@ -2,9 +2,10 @@
 #ifndef _ASMRISCV_SETUP_H_
 #define _ASMRISCV_SETUP_H_
 #include <libcflat.h>
+#include <asm/processor.h>
 
 #define NR_CPUS 16
-extern unsigned long cpus[NR_CPUS];       /* per-cpu IDs (hartids) */
+extern struct thread_info cpus[NR_CPUS];
 extern int nr_cpus;
 int hartid_to_cpu(unsigned long hartid);
 
