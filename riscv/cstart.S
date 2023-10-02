@@ -17,6 +17,22 @@
 
 #define REG_L	__REG_SEL(ld, lw)
 #define REG_S	__REG_SEL(sd, sw)
+#define SZREG	__REG_SEL(8, 4)
+
+#define FP_SIZE 16
+
+.macro push_fp, ra=ra
+	addi	sp, sp, -FP_SIZE
+	REG_S	\ra, (FP_SIZE - SZREG)(sp)
+	REG_S	fp, (FP_SIZE - 2*SZREG)(sp)
+	addi	fp, sp, FP_SIZE
+.endm
+
+.macro pop_fp
+	REG_L	ra, (FP_SIZE - SZREG)(sp)
+	REG_L	fp, (FP_SIZE - 2*SZREG)(sp)
+	addi	sp, sp, FP_SIZE
+.endm
 
 .macro zero_range, tmp1, tmp2
 9998:	beq	\tmp1, \tmp2, 9997f
@@ -73,6 +89,7 @@ start:
 	li	a1, -8192
 	add	a1, sp, a1
 	zero_range a1, sp
+	mv	fp, zero			// Ensure fp starts out as zero
 
 	/* set up exception handling */
 	la	a1, exception_vectors
@@ -200,9 +217,16 @@ halt:
 .balign 4
 .global exception_vectors
 exception_vectors:
-	REG_S	a0, (-PT_SIZE + PT_ORIG_A0)(sp)
-	addi	a0, sp, -PT_SIZE
+	REG_S	a0, (-PT_SIZE - FP_SIZE + PT_ORIG_A0)(sp)
+	addi	a0, sp, -PT_SIZE - FP_SIZE
 	save_context
+	/*
+	 * Set a frame pointer "ra" which points to the last instruction.
+	 * Add 1 to it, because pretty_print_stacks.py subtracts 1.
+	 */
+	REG_L	a1, PT_EPC(a0)
+	addi	a1, a1, 1
+	push_fp	a1
 	mv	sp, a0
 	call	do_handle_exception
 	mv	a0, sp
