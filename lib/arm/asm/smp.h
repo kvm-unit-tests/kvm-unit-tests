@@ -6,6 +6,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <cpumask.h>
+#include <asm/barrier.h>
 #include <asm/thread_info.h>
 
 #define smp_processor_id()		(current_thread_info()->cpu)
@@ -17,6 +18,9 @@ struct secondary_data {
 	secondary_entry_fn entry;
 };
 extern struct secondary_data secondary_data;
+
+#define smp_wait_for_event()	wfe()
+#define smp_send_event()	sev()
 
 extern bool cpu0_calls_idle;
 

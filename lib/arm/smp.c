@@ -45,7 +45,7 @@ secondary_entry_fn secondary_cinit(void)
 	 */
 	entry = secondary_data.entry;
 	set_cpu_online(ti->cpu, true);
-	sev();
+	smp_send_event();
 
 	/*
 	 * Return to the assembly stub, allowing entry to be called
@@ -65,7 +65,7 @@ static void __smp_boot_secondary(int cpu, secondary_entry_fn entry)
 	assert(ret == 0);
 
 	while (!cpu_online(cpu))
-		wfe();
+		smp_wait_for_event();
 }
 
 void smp_boot_secondary(int cpu, secondary_entry_fn entry)
@@ -122,7 +122,7 @@ static void cpu_wait(int cpu)
 	cpumask_set_cpu(me, &on_cpu_info[cpu].waiters);
 	deadlock_check(me, cpu);
 	while (!cpu_idle(cpu))
-		wfe();
+		smp_wait_for_event();
 	cpumask_clear_cpu(me, &on_cpu_info[cpu].waiters);
 }
 
@@ -134,17 +134,17 @@ void do_idle(void)
 		cpu0_calls_idle = true;
 
 	set_cpu_idle(cpu, true);
-	sev();
+	smp_send_event();
 
 	for (;;) {
 		while (cpu_idle(cpu))
-			wfe();
+			smp_wait_for_event();
 		smp_rmb();
 		on_cpu_info[cpu].func(on_cpu_info[cpu].data);
 		on_cpu_info[cpu].func = NULL;
 		smp_wmb();
 		set_cpu_idle(cpu, true);
-		sev();
+		smp_send_event();
 	}
 }
 
@@ -174,7 +174,7 @@ void on_cpu_async(int cpu, void (*func)(void *data), void *data)
 	on_cpu_info[cpu].data = data;
 	spin_unlock(&lock);
 	set_cpu_idle(cpu, false);
-	sev();
+	smp_send_event();
 }
 
 void on_cpu(int cpu, void (*func)(void *data), void *data)
@@ -201,7 +201,7 @@ void on_cpus(void (*func)(void *data), void *data)
 		deadlock_check(me, cpu);
 	}
 	while (cpumask_weight(&cpu_idle_mask) < nr_cpus - 1)
-		wfe();
+		smp_wait_for_event();
 	for_each_present_cpu(cpu)
 		cpumask_clear_cpu(me, &on_cpu_info[cpu].waiters);
 }
