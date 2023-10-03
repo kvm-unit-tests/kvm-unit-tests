@@ -27,9 +27,11 @@ extern bool cpu0_calls_idle;
 extern void halt(void);
 extern void do_idle(void);
 
-extern void smp_boot_secondary(int cpu, secondary_entry_fn entry);
 extern void on_cpu_async(int cpu, void (*func)(void *data), void *data);
 extern void on_cpu(int cpu, void (*func)(void *data), void *data);
 extern void on_cpus(void (*func)(void *data), void *data);
+
+extern void smp_boot_secondary(int cpu, secondary_entry_fn entry);
+extern void smp_boot_secondary_nofail(int cpu, secondary_entry_fn entry);
 
 #endif /* _ASMARM_SMP_H_ */

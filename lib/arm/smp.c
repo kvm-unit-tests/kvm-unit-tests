@@ -76,12 +76,32 @@ void smp_boot_secondary(int cpu, secondary_entry_fn entry)
 	spin_unlock(&lock);
 }
 
+void smp_boot_secondary_nofail(int cpu, secondary_entry_fn entry)
+{
+	spin_lock(&lock);
+	if (!cpu_online(cpu))
+		__smp_boot_secondary(cpu, entry);
+	spin_unlock(&lock);
+}
+
 struct on_cpu_info {
 	void (*func)(void *data);
 	void *data;
 	cpumask_t waiters;
 };
 static struct on_cpu_info on_cpu_info[NR_CPUS];
+static cpumask_t on_cpu_info_lock;
+
+static bool get_on_cpu_info(int cpu)
+{
+	return !cpumask_test_and_set_cpu(cpu, &on_cpu_info_lock);
+}
+
+static void put_on_cpu_info(int cpu)
+{
+	int ret = cpumask_test_and_clear_cpu(cpu, &on_cpu_info_lock);
+	assert(ret);
+}
 
 static void __deadlock_check(int cpu, const cpumask_t *waiters, bool *found)
 {
@@ -158,22 +178,21 @@ void on_cpu_async(int cpu, void (*func)(void *data), void *data)
 	assert_msg(cpu != 0 || cpu0_calls_idle, "Waiting on CPU0, which is unlikely to idle. "
 						"If this is intended set cpu0_calls_idle=1");
 
-	spin_lock(&lock);
-	if (!cpu_online(cpu))
-		__smp_boot_secondary(cpu, do_idle);
-	spin_unlock(&lock);
+	smp_boot_secondary_nofail(cpu, do_idle);
 
 	for (;;) {
 		cpu_wait(cpu);
-		spin_lock(&lock);
-		if ((volatile void *)on_cpu_info[cpu].func == NULL)
-			break;
-		spin_unlock(&lock);
+		if (get_on_cpu_info(cpu)) {
+			if ((volatile void *)on_cpu_info[cpu].func == NULL)
+				break;
+			put_on_cpu_info(cpu);
+		}
 	}
+
 	on_cpu_info[cpu].func = func;
 	on_cpu_info[cpu].data = data;
-	spin_unlock(&lock);
 	set_cpu_idle(cpu, false);
+	put_on_cpu_info(cpu);
 	smp_send_event();
 }
 
