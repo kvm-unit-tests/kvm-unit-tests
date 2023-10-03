@@ -6,6 +6,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 #include <cpumask.h>
+#include <on-cpus.h>
 #include <asm/barrier.h>
 #include <asm/thread_info.h>
 
@@ -22,14 +23,7 @@ extern struct secondary_data secondary_data;
 #define smp_wait_for_event()	wfe()
 #define smp_send_event()	sev()
 
-extern bool cpu0_calls_idle;
-
 extern void halt(void);
-extern void do_idle(void);
-
-extern void on_cpu_async(int cpu, void (*func)(void *data), void *data);
-extern void on_cpu(int cpu, void (*func)(void *data), void *data);
-extern void on_cpus(void (*func)(void *data), void *data);
 
 extern void smp_boot_secondary(int cpu, secondary_entry_fn entry);
 extern void smp_boot_secondary_nofail(int cpu, secondary_entry_fn entry);
