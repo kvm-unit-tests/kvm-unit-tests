@@ -117,6 +117,31 @@ halt:
 1:	wfi
 	j	1b
 
+.balign 4
+.global secondary_entry
+secondary_entry:
+	/*
+	 * From the "HSM Hart Start Register State" table of the SBI spec:
+	 *	satp		0
+	 *	sstatus.SIE	0
+	 *	a0		hartid
+	 *	a1		opaque parameter
+	 *
+	 * __smp_boot_secondary() sets the opaque parameter (a1) to the physical
+	 * address of the stack and the stack contains the secondary data.
+	 */
+	csrw	CSR_SSCRATCH, a0
+	mv	sp, a1
+	mv	fp, zero
+	REG_L	a0, SECONDARY_STVEC(sp)
+	csrw	CSR_STVEC, a0
+	mv	a0, sp
+	call	secondary_cinit
+	addi	sp, sp, SECONDARY_DATA_SIZE
+	jr	a0
+	la	a0, do_idle
+	jr	a0
+
 /*
  * Save context to address in a0.
  * For a0, sets PT_A0(a0) to the contents of PT_ORIG_A0(a0).

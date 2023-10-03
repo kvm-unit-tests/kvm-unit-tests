@@ -33,3 +33,8 @@ void sbi_shutdown(void)
 	sbi_ecall(SBI_EXT_SRST, 0, 0, 0, 0, 0, 0, 0);
 	puts("SBI shutdown failed!\n");
 }
+
+struct sbiret sbi_hart_start(unsigned long hartid, unsigned long entry, unsigned long sp)
+{
+	return sbi_ecall(SBI_EXT_HSM, SBI_EXT_HSM_HART_START, hartid, entry, sp, 0, 0, 0);
+}

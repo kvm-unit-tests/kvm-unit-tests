@@ -11,10 +11,12 @@ extern unsigned long _text;
 
 void show_regs(struct pt_regs *regs)
 {
+	struct thread_info *info = current_thread_info();
 	uintptr_t text = (uintptr_t)&_text;
 	unsigned int w = __riscv_xlen / 4;
 
 	printf("Load address: %" PRIxPTR "\n", text);
+	printf("CPU%3d : hartid=%lx\n", info->cpu, info->hartid);
 	printf("status : %.*lx\n", w, regs->status);
 	printf("cause  : %.*lx\n", w, regs->cause);
 	printf("badaddr: %.*lx\n", w, regs->badaddr);

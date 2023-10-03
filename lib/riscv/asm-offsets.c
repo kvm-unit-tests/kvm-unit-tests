@@ -2,6 +2,7 @@
 #include <kbuild.h>
 #include <elf.h>
 #include <asm/ptrace.h>
+#include <asm/smp.h>
 
 int main(void)
 {
@@ -51,5 +52,10 @@ int main(void)
 	OFFSET(PT_CAUSE, pt_regs, cause);
 	OFFSET(PT_ORIG_A0, pt_regs, orig_a0);
 	DEFINE(PT_SIZE, sizeof(struct pt_regs));
+
+	OFFSET(SECONDARY_STVEC, secondary_data, stvec);
+	OFFSET(SECONDARY_FUNC, secondary_data, func);
+	DEFINE(SECONDARY_DATA_SIZE, sizeof(struct secondary_data));
+
 	return 0;
 }

@@ -6,8 +6,10 @@
  */
 #include <libcflat.h>
 #include <cpumask.h>
+#include <on-cpus.h>
 #include <asm/processor.h>
 #include <asm/setup.h>
+#include <asm/smp.h>
 
 static void check_cpus(void)
 {
@@ -31,6 +33,34 @@ static void check_exceptions(void)
 	asm volatile(".4byte 0");
 	install_exception_handler(EXC_INST_ILLEGAL, NULL);
 	report(exceptions_work, "exceptions");
+}
+
+static cpumask_t cpus_alive;
+
+static void check_secondary(void *data)
+{
+	cpumask_set_cpu(smp_processor_id(), &cpus_alive);
+}
+
+static void check_smp(void)
+{
+	int cpu, me = smp_processor_id();
+	bool fail = false;
+
+	on_cpus(check_secondary, NULL);
+
+	report(cpumask_full(&cpu_online_mask), "Brought up all cpus");
+	report(cpumask_full(&cpus_alive), "check_secondary");
+
+	for_each_present_cpu(cpu) {
+		if (cpu == me)
+			continue;
+		if (!cpu_idle(cpu)) {
+			fail = true;
+			break;
+		}
+	}
+	report(!fail, "All secondaries are idle");
 }
 
 int main(int argc, char **argv)
@@ -64,6 +94,7 @@ int main(int argc, char **argv)
 
 	check_exceptions();
 	check_cpus();
+	check_smp();
 
 	return report_summary();
 }

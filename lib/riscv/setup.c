@@ -10,6 +10,7 @@
 #include <argv.h>
 #include <cpumask.h>
 #include <devicetree.h>
+#include <on-cpus.h>
 #include <asm/csr.h>
 #include <asm/page.h>
 #include <asm/processor.h>
@@ -60,6 +61,7 @@ static void cpu_init(void)
 	}
 
 	set_cpu_online(hartid_to_cpu(csr_read(CSR_SSCRATCH)), true);
+	cpu0_calls_idle = true;
 }
 
 static void mem_init(phys_addr_t freemem_start)

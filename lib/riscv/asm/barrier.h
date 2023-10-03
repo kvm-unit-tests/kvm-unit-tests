@@ -15,4 +15,6 @@
 #define smp_rmb()	RISCV_FENCE(r,r)
 #define smp_wmb()	RISCV_FENCE(w,w)
 
+#define cpu_relax()	__asm__ __volatile__ ("pause")
+
 #endif /* _ASMRISCV_BARRIER_H_ */

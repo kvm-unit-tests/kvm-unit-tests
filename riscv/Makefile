@@ -24,6 +24,7 @@ cstart.o = $(TEST_DIR)/cstart.o
 cflatobjs += lib/alloc.o
 cflatobjs += lib/alloc_phys.o
 cflatobjs += lib/devicetree.o
+cflatobjs += lib/on-cpus.o
 cflatobjs += lib/riscv/bitops.o
 cflatobjs += lib/riscv/io.o
 cflatobjs += lib/riscv/processor.o
