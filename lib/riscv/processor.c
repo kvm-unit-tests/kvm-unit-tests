@@ -4,6 +4,7 @@
  */
 #include <libcflat.h>
 #include <asm/csr.h>
+#include <asm/isa.h>
 #include <asm/processor.h>
 #include <asm/setup.h>
 
@@ -58,5 +59,6 @@ void thread_info_init(void)
 	unsigned long hartid = csr_read(CSR_SSCRATCH);
 	int cpu = hartid_to_cpu(hartid);
 
+	isa_init(&cpus[cpu]);
 	csr_write(CSR_SSCRATCH, &cpus[cpu]);
 }
