@@ -141,45 +141,46 @@ static void synic_test_cleanup(void *ctx)
 
 int main(int ac, char **av)
 {
+    int ncpus, i;
+    bool ok;
 
-    if (hv_synic_supported()) {
-        int ncpus, i;
-        bool ok;
-
-        setup_vm();
-        enable_apic();
-
-        ncpus = cpu_count();
-        if (ncpus > MAX_CPUS)
-            report_abort("number cpus exceeds %d", MAX_CPUS);
-        printf("ncpus = %d\n", ncpus);
-
-        synic_prepare_sint_vecs();
-
-        printf("prepare\n");
-        on_cpus(synic_test_prepare, (void *)read_cr3());
-
-        for (i = 0; i < ncpus; i++) {
-            printf("test %d -> %d\n", i, ncpus - 1 - i);
-            on_cpu_async(i, synic_test, (void *)(ulong)(ncpus - 1 - i));
-        }
-        while (cpus_active() > 1)
-            pause();
-
-        printf("cleanup\n");
-        on_cpus(synic_test_cleanup, NULL);
-
-        ok = true;
-        for (i = 0; i < ncpus; ++i) {
-            printf("isr_enter_count[%d] = %d\n",
-                   i, atomic_read(&isr_enter_count[i]));
-            ok &= atomic_read(&isr_enter_count[i]) == 16;
-        }
-
-        report(ok, "Hyper-V SynIC test");
-    } else {
-        printf("Hyper-V SynIC is not supported");
+    if (!hv_synic_supported()) {
+	report_skip("Hyper-V SynIC is not supported");
+	goto done;
     }
 
+    setup_vm();
+    enable_apic();
+
+    ncpus = cpu_count();
+    if (ncpus > MAX_CPUS)
+	report_abort("number cpus exceeds %d", MAX_CPUS);
+    printf("ncpus = %d\n", ncpus);
+
+    synic_prepare_sint_vecs();
+
+    printf("prepare\n");
+    on_cpus(synic_test_prepare, (void *)read_cr3());
+
+    for (i = 0; i < ncpus; i++) {
+	printf("test %d -> %d\n", i, ncpus - 1 - i);
+	on_cpu_async(i, synic_test, (void *)(ulong)(ncpus - 1 - i));
+    }
+    while (cpus_active() > 1)
+	pause();
+
+    printf("cleanup\n");
+    on_cpus(synic_test_cleanup, NULL);
+
+    ok = true;
+    for (i = 0; i < ncpus; ++i) {
+	printf("isr_enter_count[%d] = %d\n",
+	       i, atomic_read(&isr_enter_count[i]));
+	ok &= atomic_read(&isr_enter_count[i]) == 16;
+    }
+
+    report(ok, "Hyper-V SynIC test");
+
+done:
     return report_summary();
 }
