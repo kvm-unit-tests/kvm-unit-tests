@@ -353,17 +353,17 @@ int main(int ac, char **av)
 {
 
     if (!hv_synic_supported()) {
-        report_pass("Hyper-V SynIC is not supported");
+        report_skip("Hyper-V SynIC is not supported");
         goto done;
     }
 
     if (!hv_stimer_supported()) {
-        report_pass("Hyper-V SynIC timers are not supported");
+        report_skip("Hyper-V SynIC timers are not supported");
         goto done;
     }
 
     if (!hv_time_ref_counter_supported()) {
-        report_pass("Hyper-V time reference counter is not supported");
+        report_skip("Hyper-V time reference counter is not supported");
         goto done;
     }
 
