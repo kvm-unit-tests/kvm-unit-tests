@@ -153,7 +153,6 @@ static void perf_test(int ncpus)
 
 int main(int ac, char **av)
 {
-	int nerr = 0;
 	int ncpus;
 	struct hv_reference_tsc_page shadow;
 	uint64_t tsc1, t1, tsc2, t2;
@@ -161,7 +160,7 @@ int main(int ac, char **av)
 
 	if (!hv_time_ref_counter_supported()) {
 		report_skip("time reference counter is unsupported");
-		return report_summary();
+		goto done;
 	}
 
 	setup_vm();
@@ -176,10 +175,8 @@ int main(int ac, char **av)
 	       "MSR value after enabling");
 
 	hvclock_get_time_values(&shadow, hv_clock);
-	if (shadow.tsc_sequence == 0 || shadow.tsc_sequence == 0xFFFFFFFF) {
-		printf("Reference TSC page not available\n");
-		exit(1);
-	}
+	if (shadow.tsc_sequence == 0 || shadow.tsc_sequence == 0xFFFFFFFF)
+		report_abort("Reference TSC page not available\n");
 
 	printf("sequence: %u. scale: %" PRIx64" offset: %" PRId64"\n",
 	       shadow.tsc_sequence, shadow.tsc_scale, shadow.tsc_offset);
@@ -206,5 +203,6 @@ int main(int ac, char **av)
 	report(rdmsr(HV_X64_MSR_REFERENCE_TSC) == 0,
 	       "MSR value after disabling");
 
-	return nerr > 0 ? 1 : 0;
+done:
+	return report_summary();
 }
