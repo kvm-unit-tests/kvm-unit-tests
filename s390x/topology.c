@@ -247,7 +247,7 @@ done:
 static uint8_t *check_tle(void *tc)
 {
 	struct topology_container *container = tc;
-	struct topology_core *cpus;
+	struct topology_cpu *cpus;
 	int n;
 
 	if (container->nl) {

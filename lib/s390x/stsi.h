@@ -30,7 +30,7 @@ struct sysinfo_3_2_2 {
 };
 
 #define CPUS_TLE_RES_BITS 0x00fffffff8000000UL
-struct topology_core {
+struct topology_cpu {
 	uint8_t nl;
 	uint8_t reserved1[3];
 	uint8_t reserved4:5;
@@ -61,7 +61,7 @@ struct topology_container {
 
 union topology_entry {
 	uint8_t nl;
-	struct topology_core cpu;
+	struct topology_cpu cpu;
 	struct topology_container container;
 };
 
