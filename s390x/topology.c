@@ -2,7 +2,7 @@
 /*
  * CPU Topology
  *
- * Copyright IBM Corp. 2022
+ * Copyright IBM Corp. 2022, 2023
  *
  * Authors:
  *  Pierre Morel <pmorel@linux.ibm.com>
@@ -23,7 +23,6 @@ static uint8_t pagebuf[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
 
 static int max_nested_lvl;
 static int number_of_cpus;
-static int cpus_in_masks;
 static int max_cpus;
 
 /*
@@ -238,82 +237,6 @@ done:
 }
 
 /**
- * check_tle:
- * @tc: pointer to first TLE
- *
- * Recursively check the containers TLEs until we
- * find a CPU TLE.
- */
-static uint8_t *check_tle(void *tc)
-{
-	struct topology_container *container = tc;
-	struct topology_cpu *cpus;
-	int n;
-
-	if (container->nl) {
-		report_info("NL: %d id: %d", container->nl, container->id);
-
-		report(!(*(uint64_t *)tc & CONTAINER_TLE_RES_BITS),
-		       "reserved bits %016lx",
-		       *(uint64_t *)tc & CONTAINER_TLE_RES_BITS);
-
-		return check_tle(tc + sizeof(*container));
-	}
-
-	report_info("NL: %d", container->nl);
-	cpus = tc;
-
-	report(!(*(uint64_t *)tc & CPUS_TLE_RES_BITS), "reserved bits %016lx",
-	       *(uint64_t *)tc & CPUS_TLE_RES_BITS);
-
-	report(cpus->type == CPU_TYPE_IFL, "type IFL");
-
-	report_info("origin: %d", cpus->origin);
-	report_info("mask: %016lx", cpus->mask);
-	report_info("dedicated: %d entitlement: %d", cpus->d, cpus->pp);
-
-	n = __builtin_popcountl(cpus->mask);
-	report(n <= expected_topo_lvl[0], "CPUs per mask: %d out of max %d",
-	       n, expected_topo_lvl[0]);
-	cpus_in_masks += n;
-
-	if (!cpus->d)
-		report_skip("Not dedicated");
-	else
-		report(cpus->pp == POLARIZATION_VERTICAL_HIGH ||
-		       cpus->pp == POLARIZATION_HORIZONTAL,
-		       "Dedicated CPUs are either horizontally polarized or have high entitlement");
-
-	return tc + sizeof(*cpus);
-}
-
-/**
- * stsi_check_tle_coherency:
- * @info: Pointer to the stsi information
- *
- * We verify that we get the expected number of Topology List Entry
- * containers for a specific level.
- */
-static void stsi_check_tle_coherency(struct sysinfo_15_1_x *info)
-{
-	void *tc, *end;
-
-	report_prefix_push("TLE");
-	cpus_in_masks = 0;
-
-	tc = info->tle;
-	end = (void *)info + info->length;
-
-	while (tc < end)
-		tc = check_tle(tc);
-
-	report(cpus_in_masks == number_of_cpus, "CPUs in mask %d",
-	       cpus_in_masks);
-
-	report_prefix_pop();
-}
-
-/**
  * stsi_get_sysib:
  * @info: pointer to the STSI info structure
  * @sel2: the selector giving the topology level to check
@@ -340,6 +263,137 @@ static int stsi_get_sysib(struct sysinfo_15_1_x *info, int sel2)
 	report_prefix_pop();
 
 	return ret;
+}
+
+static int check_cpu(union topology_cpu *cpu,
+		     union topology_container *parent)
+{
+	report_prefix_pushf("%d:%d:%d:%d", cpu->d, cpu->pp, cpu->type, cpu->origin);
+
+	report(!(cpu->raw[0] & CPUS_TLE_RES_BITS), "reserved bits %016lx",
+	       cpu->raw[0] & CPUS_TLE_RES_BITS);
+
+	report(cpu->type == CPU_TYPE_IFL, "type IFL");
+
+	if (cpu->d)
+		report(cpu->pp == POLARIZATION_VERTICAL_HIGH ||
+		       cpu->pp == POLARIZATION_HORIZONTAL,
+		       "Dedicated CPUs are either horizontally polarized or have high entitlement");
+	else
+		report_skip("Not dedicated");
+
+	report_prefix_pop();
+
+	return __builtin_popcountl(cpu->mask);
+}
+
+static union topology_container *check_child_cpus(struct sysinfo_15_1_x *info,
+						  union topology_container *cont,
+						  union topology_cpu *child,
+						  unsigned int *cpus_in_masks)
+{
+	void *last = ((void *)info) + info->length;
+	union topology_cpu *prev_cpu = NULL;
+	bool correct_ordering = true;
+	unsigned int cpus = 0;
+	int i;
+
+	for (i = 0; (void *)&child[i] < last && child[i].nl == 0; prev_cpu = &child[i++]) {
+		cpus += check_cpu(&child[i], cont);
+		if (prev_cpu) {
+			if (prev_cpu->type > child[i].type) {
+				report_info("Incorrect ordering wrt type for child %d", i);
+				correct_ordering = false;
+			}
+			if (prev_cpu->type < child[i].type)
+				continue;
+			if (prev_cpu->pp < child[i].pp) {
+				report_info("Incorrect ordering wrt polarization for child %d", i);
+				correct_ordering = false;
+			}
+			if (prev_cpu->pp > child[i].pp)
+				continue;
+			if (!prev_cpu->d && child[i].d) {
+				report_info("Incorrect ordering wrt dedication for child %d", i);
+				correct_ordering = false;
+			}
+			if (prev_cpu->d && !child[i].d)
+				continue;
+			if (prev_cpu->origin > child[i].origin) {
+				report_info("Incorrect ordering wrt origin for child %d", i);
+				correct_ordering = false;
+			}
+		}
+	}
+	report(correct_ordering, "children correctly ordered");
+	report(cpus <= expected_topo_lvl[0], "%d children <= max of %d",
+	       cpus, expected_topo_lvl[0]);
+	*cpus_in_masks += cpus;
+
+	return (union topology_container *)&child[i];
+}
+
+static union topology_container *check_container(struct sysinfo_15_1_x *info,
+						 union topology_container *cont,
+						 union topology_entry *child,
+						 unsigned int *cpus_in_masks);
+
+static union topology_container *check_child_containers(struct sysinfo_15_1_x *info,
+							union topology_container *cont,
+							union topology_container *child,
+							unsigned int *cpus_in_masks)
+{
+	void *last = ((void *)info) + info->length;
+	union topology_container *entry;
+	int i;
+
+	for (i = 0, entry = child; (void *)entry < last && entry->nl == cont->nl - 1; i++) {
+		entry = check_container(info, entry, (union topology_entry *)(entry + 1),
+					cpus_in_masks);
+	}
+	if (max_nested_lvl == info->mnest)
+		report(i <= expected_topo_lvl[cont->nl - 1], "%d children <= max of %d",
+		       i, expected_topo_lvl[cont->nl - 1]);
+
+	return entry;
+}
+
+static union topology_container *check_container(struct sysinfo_15_1_x *info,
+						 union topology_container *cont,
+						 union topology_entry *child,
+						 unsigned int *cpus_in_masks)
+{
+	union topology_container *entry;
+
+	report_prefix_pushf("%d", cont->id);
+
+	report(cont->nl - 1 == child->nl, "Level %d one above child level %d",
+	       cont->nl, child->nl);
+	report(!(cont->raw & CONTAINER_TLE_RES_BITS), "reserved bits %016lx",
+	       cont->raw & CONTAINER_TLE_RES_BITS);
+
+	if (cont->nl > 1)
+		entry = check_child_containers(info, cont, &child->container, cpus_in_masks);
+	else
+		entry = check_child_cpus(info, cont, &child->cpu, cpus_in_masks);
+
+	report_prefix_pop();
+	return entry;
+}
+
+static void check_topology_list(struct sysinfo_15_1_x *info, int sel2)
+{
+	union topology_container dummy = { .nl = sel2, .id = 0 };
+	unsigned int cpus_in_masks = 0;
+
+	report_prefix_push("TLE");
+
+	check_container(info, &dummy, info->tle, &cpus_in_masks);
+	report(cpus_in_masks == number_of_cpus,
+	       "Number of CPUs %d equals  %d CPUs in masks",
+	       number_of_cpus, cpus_in_masks);
+
+	report_prefix_pop();
 }
 
 /**
@@ -372,7 +426,7 @@ static void check_sysinfo_15_1_x(struct sysinfo_15_1_x *info, int sel2)
 	}
 
 	stsi_check_header(info, sel2);
-	stsi_check_tle_coherency(info);
+	check_topology_list(info, sel2);
 
 vertical:
 	report_prefix_pop();
@@ -385,7 +439,7 @@ vertical:
 	}
 
 	stsi_check_header(info, sel2);
-	stsi_check_tle_coherency(info);
+	check_topology_list(info, sel2);
 	report_prefix_pop();
 
 end:
