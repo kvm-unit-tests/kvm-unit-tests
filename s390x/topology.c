@@ -277,7 +277,7 @@ static uint8_t *check_tle(void *tc)
 	else
 		report(cpus->pp == POLARIZATION_VERTICAL_HIGH ||
 		       cpus->pp == POLARIZATION_HORIZONTAL,
-		       "Dedicated CPUs are either vertically polarized or have high entitlement");
+		       "Dedicated CPUs are either horizontally polarized or have high entitlement");
 
 	return tc + sizeof(*cpus);
 }
