@@ -261,7 +261,7 @@ static uint8_t *check_tle(void *tc)
 	report(!(*(uint64_t *)tc & CPUS_TLE_RES_BITS), "reserved bits %016lx",
 	       *(uint64_t *)tc & CPUS_TLE_RES_BITS);
 
-	report(cpus->type == 0x03, "type IFL");
+	report(cpus->type == CPU_TYPE_IFL, "type IFL");
 
 	report_info("origin: %d", cpus->origin);
 	report_info("mask: %016lx", cpus->mask);
@@ -275,7 +275,9 @@ static uint8_t *check_tle(void *tc)
 	if (!cpus->d)
 		report_skip("Not dedicated");
 	else
-		report(cpus->pp == 3 || cpus->pp == 0, "Dedicated CPUs are either vertically polarized or have high entitlement");
+		report(cpus->pp == POLARIZATION_VERTICAL_HIGH ||
+		       cpus->pp == POLARIZATION_HORIZONTAL,
+		       "Dedicated CPUs are either vertically polarized or have high entitlement");
 
 	return tc + sizeof(*cpus);
 }

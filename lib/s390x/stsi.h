@@ -41,6 +41,17 @@ struct topology_core {
 	uint64_t mask;
 };
 
+enum topology_polarization {
+	POLARIZATION_HORIZONTAL = 0,
+	POLARIZATION_VERTICAL_LOW = 1,
+	POLARIZATION_VERTICAL_MEDIUM = 2,
+	POLARIZATION_VERTICAL_HIGH = 3,
+};
+
+enum cpu_type {
+	CPU_TYPE_IFL = 3,
+};
+
 #define CONTAINER_TLE_RES_BITS 0x00ffffffffffff00UL
 struct topology_container {
 	uint8_t nl;
