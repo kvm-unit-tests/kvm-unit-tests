@@ -114,7 +114,7 @@ static void check_polarization_change(void)
 	report_prefix_push("Polarization change");
 
 	/* We expect a clean state through reset */
-	report(diag308_load_reset(1), "load normal reset done");
+	assert(diag308_load_reset(1));
 
 	/*
 	 * Set vertical polarization to verify that RESET sets
@@ -123,7 +123,7 @@ static void check_polarization_change(void)
 	cc = ptf(PTF_REQ_VERTICAL, &rc);
 	report(cc == 0, "Set vertical polarization.");
 
-	report(diag308_load_reset(1), "load normal reset done");
+	assert(diag308_load_reset(1));
 
 	cc = ptf(PTF_CHECK, &rc);
 	report(cc == 0, "Reset should clear topology report");
@@ -137,25 +137,25 @@ static void check_polarization_change(void)
 	report(cc == 0, "Change to vertical");
 
 	cc = ptf(PTF_CHECK, &rc);
-	report(cc == 1, "Should report");
+	report(cc == 1, "Should report change after horizontal -> vertical");
 
 	cc = ptf(PTF_REQ_VERTICAL, &rc);
 	report(cc == 2 && rc == PTF_ERR_ALRDY_POLARIZED, "Double change to vertical");
 
 	cc = ptf(PTF_CHECK, &rc);
-	report(cc == 0, "Should not report");
+	report(cc == 0, "Should not report change after vertical -> vertical");
 
 	cc = ptf(PTF_REQ_HORIZONTAL, &rc);
 	report(cc == 0, "Change to horizontal");
 
 	cc = ptf(PTF_CHECK, &rc);
-	report(cc == 1, "Should Report");
+	report(cc == 1, "Should report change after vertical -> horizontal");
 
 	cc = ptf(PTF_REQ_HORIZONTAL, &rc);
 	report(cc == 2 && rc == PTF_ERR_ALRDY_POLARIZED, "Double change to horizontal");
 
 	cc = ptf(PTF_CHECK, &rc);
-	report(cc == 0, "Should not report");
+	report(cc == 0, "Should not report change after horizontal -> horizontal");
 
 	report_prefix_pop();
 }
