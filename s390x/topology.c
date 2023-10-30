@@ -468,7 +468,7 @@ static void parse_topology_args(int argc, char **argv)
 		if (flag[0] != '-')
 			report_abort("Argument is expected to begin with '-'");
 		flag++;
-		for (level = 0; ARRAY_SIZE(levels); level++) {
+		for (level = 0; level < ARRAY_SIZE(levels); level++) {
 			if (!strcmp(levels[level], flag))
 				break;
 		}
