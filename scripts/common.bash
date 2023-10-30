@@ -36,6 +36,22 @@ function for_each_unittest()
 			kernel=$TEST_DIR/${BASH_REMATCH[1]}
 		elif [[ $line =~ ^smp\ *=\ *(.*)$ ]]; then
 			smp=${BASH_REMATCH[1]}
+		elif [[ $line =~ ^extra_params\ *=\ *'"""'(.*)$ ]]; then
+			opts=${BASH_REMATCH[1]}$'\n'
+			while read -r -u $fd; do
+				#escape backslash newline, but not double backslash
+				if [[ $opts =~ [^\\]*(\\*)$'\n'$ ]]; then
+					if (( ${#BASH_REMATCH[1]} % 2 == 1 )); then
+						opts=${opts%\\$'\n'}
+					fi
+				fi
+				if [[ "$REPLY" =~ ^(.*)'"""'[:blank:]*$ ]]; then
+					opts+=${BASH_REMATCH[1]}
+					break
+				else
+					opts+=$REPLY$'\n'
+				fi
+			done
 		elif [[ $line =~ ^extra_params\ *=\ *(.*)$ ]]; then
 			opts=${BASH_REMATCH[1]}
 		elif [[ $line =~ ^groups\ *=\ *(.*)$ ]]; then
