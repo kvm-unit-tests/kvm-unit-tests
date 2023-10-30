@@ -187,18 +187,23 @@ static void stsi_check_maxcpus(struct sysinfo_15_1_x *info)
 }
 
 /*
- * stsi_check_mag
+ * stsi_check_header
  * @info: Pointer to the stsi information
+ * @sel2: stsi selector 2 value
  *
  * MAG field should match the architecture defined containers
  * when MNEST as returned by SCLP matches MNEST of the SYSIB.
  */
-static void stsi_check_mag(struct sysinfo_15_1_x *info)
+static void stsi_check_header(struct sysinfo_15_1_x *info, int sel2)
 {
 	int i;
 
-	report_prefix_push("MAG");
+	report_prefix_push("Header");
 
+	/* Header is 16 bytes, each TLE 8 or 16, therefore alignment must be 8 at least */
+	report(IS_ALIGNED(info->length, 8), "Length %d multiple of 8", info->length);
+	report(info->length < PAGE_SIZE, "Length %d in bounds", info->length);
+	report(sel2 == info->mnest, "Valid mnest");
 	stsi_check_maxcpus(info);
 
 	/*
@@ -328,7 +333,6 @@ static int stsi_get_sysib(struct sysinfo_15_1_x *info, int sel2)
 
 	if (max_nested_lvl >= sel2) {
 		report(!ret, "Valid instruction");
-		report(sel2 == info->mnest, "Valid mnest");
 	} else {
 		report(ret, "Invalid instruction");
 	}
@@ -367,7 +371,7 @@ static void check_sysinfo_15_1_x(struct sysinfo_15_1_x *info, int sel2)
 		goto vertical;
 	}
 
-	stsi_check_mag(info);
+	stsi_check_header(info, sel2);
 	stsi_check_tle_coherency(info);
 
 vertical:
@@ -380,7 +384,7 @@ vertical:
 		goto end;
 	}
 
-	stsi_check_mag(info);
+	stsi_check_header(info, sel2);
 	stsi_check_tle_coherency(info);
 	report_prefix_pop();
 
