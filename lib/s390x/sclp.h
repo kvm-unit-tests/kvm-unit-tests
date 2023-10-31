@@ -226,6 +226,7 @@ typedef struct SCCB {
 } __attribute__((packed)) SCCB;
 
 /* SCLP event types */
+#define SCLP_EVENT_OP_CMD			0x01
 #define SCLP_EVENT_ASCII_CONSOLE_DATA           0x1a
 #define SCLP_EVENT_SIGNAL_QUIESCE               0x1d
 
@@ -233,6 +234,7 @@ typedef struct SCCB {
 #define SCLP_EVENT_MASK_SIGNAL_QUIESCE          0x00000008
 #define SCLP_EVENT_MASK_MSG_ASCII               0x00000040
 #define SCLP_EVENT_MASK_MSG          		0x40000000
+#define SCLP_EVENT_MASK_OPCMD			0x80000000
 
 #define SCLP_UNCONDITIONAL_READ                 0x00
 #define SCLP_SELECTIVE_READ                     0x01
@@ -296,6 +298,23 @@ struct mdb {
 	struct mto mto;
 } __attribute__((packed));
 
+/* vector keys and ids */
+#define GDS_ID_MDSMU		0x1310
+#define GDS_ID_CPMSU		0x1212
+#define GDS_ID_TEXTCMD		0x1320
+#define GDS_KEY_SELFDEFTEXTMSG	0x31
+#define EBC_MDB                 0xd4c4c240
+
+struct gds_vector {
+	uint16_t     length;
+	uint16_t     gds_id;
+} __attribute__((packed));
+
+struct gds_subvector {
+	uint8_t      length;
+	uint8_t      key;
+} __attribute__((packed));
+
 typedef struct EventBufferHeader {
 	uint16_t length;
 	uint8_t  type;
@@ -320,11 +339,16 @@ typedef struct ReadEventData {
 
 #define SCLP_EVENT_ASCII_TYPE_DATA_STREAM_FOLLOWS 0
 typedef struct ReadEventDataAsciiConsole {
-	SCCBHeader h;
 	EventBufferHeader ebh;
 	uint8_t type;
 	char data[];
 } __attribute__((packed)) ReadEventDataAsciiConsole;
+
+struct ReadEventDataLMConsole {
+	SCCBHeader h;
+	EventBufferHeader ebh;
+	struct gds_vector v[];
+};
 
 extern char _sccb[];
 void sclp_setup_int(void);
