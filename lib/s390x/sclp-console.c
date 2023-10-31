@@ -11,6 +11,7 @@
 #include <asm/arch_def.h>
 #include <asm/io.h>
 #include <asm/spinlock.h>
+#include "hardware.h"
 #include "sclp.h"
 
 /*
@@ -85,6 +86,8 @@ static uint8_t _ascebc[256] = {
      0x90, 0x3F, 0x3F, 0x3F, 0x3F, 0xEA, 0x3F, 0xFF
 };
 
+static bool lpar_ascii_compat;
+
 static char lm_buff[120];
 static unsigned char lm_buff_off;
 static struct spinlock lm_buff_lock;
@@ -97,14 +100,29 @@ static void sclp_print_ascii(const char *str)
 {
 	int len = strlen(str);
 	WriteEventData *sccb = (void *)_sccb;
+	char *str_dest = (char *)&sccb->msg;
+	int src_ind, dst_ind;
 
 	sclp_mark_busy();
 	memset(sccb, 0, sizeof(*sccb));
+
+	for (src_ind = 0, dst_ind = 0;
+	     src_ind < len && dst_ind < (PAGE_SIZE / 2);
+	     src_ind++, dst_ind++) {
+		str_dest[dst_ind] = str[src_ind];
+		/* Add a \r to the \n for HMC ASCII console */
+		if (str[src_ind] == '\n' && lpar_ascii_compat) {
+			dst_ind++;
+			str_dest[dst_ind] = '\r';
+		}
+	}
+
+	/* Len might have changed because of the compat behavior */
+	len = dst_ind;
 	sccb->h.length = offsetof(WriteEventData, msg) + len;
 	sccb->h.function_code = SCLP_FC_NORMAL_WRITE;
 	sccb->ebh.length = sizeof(EventBufferHeader) + len;
 	sccb->ebh.type = SCLP_EVENT_ASCII_CONSOLE_DATA;
-	memcpy(&sccb->msg, str, len);
 
 	sclp_service_call(SCLP_CMD_WRITE_EVENT_DATA, sccb);
 }
@@ -218,8 +236,13 @@ static void sclp_console_disable_read(void)
 
 void sclp_console_setup(void)
 {
+	lpar_ascii_compat = detect_host() == HOST_IS_LPAR;
+
 	/* We send ASCII and line mode. */
 	sclp_write_event_mask(0, SCLP_EVENT_MASK_MSG_ASCII | SCLP_EVENT_MASK_MSG);
+	/* Hard terminal reset to clear screen for HMC ASCII console */
+	if (lpar_ascii_compat)
+		sclp_print_ascii("\ec");
 }
 
 void sclp_print(const char *str)
