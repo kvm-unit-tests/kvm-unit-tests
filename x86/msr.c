@@ -6,7 +6,7 @@
 #include "msr.h"
 #include <stdlib.h>
 
-/**
+/*
  * This test allows two modes:
  * 1. Default: the `msr_info' array contains the default test configurations
  * 2. Custom: by providing command line arguments it is possible to test any MSR and value
