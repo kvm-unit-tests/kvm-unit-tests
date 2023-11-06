@@ -144,3 +144,6 @@ cscope:
 .PHONY: tags
 tags:
 	ctags -R
+
+check-kerneldoc:
+	find . -name '*.[ch]' -exec scripts/kernel-doc -none {} +
