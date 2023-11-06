@@ -32,7 +32,7 @@ static union {
 } sccb_template;
 static uint32_t valid_code;						/* valid command code for READ SCP INFO */
 
-/**
+/*
  * Perform one service call, handling exceptions and interrupts.
  */
 static int sclp_service_call_test(unsigned int command, void *sccb)
@@ -51,7 +51,7 @@ static int sclp_service_call_test(unsigned int command, void *sccb)
 	return cc;
 }
 
-/**
+/*
  * Perform one test at the given address, optionally using the SCCB template,
  * checking for the expected program interrupts and return codes.
  *
@@ -96,7 +96,7 @@ static bool test_one_sccb(uint32_t cmd, uint8_t *addr, uint16_t buf_len, uint64_
 	return true;
 }
 
-/**
+/*
  * Wrapper for test_one_sccb to be used when the template should not be
  * copied and the memory address should not be touched.
  */
@@ -105,7 +105,7 @@ static bool test_one_ro(uint32_t cmd, uint8_t *addr, uint64_t exp_pgm, uint16_t 
 	return test_one_sccb(cmd, addr, 0, exp_pgm, exp_rc);
 }
 
-/**
+/*
  * Wrapper for test_one_sccb to set up a simple SCCB template.
  *
  * The parameter sccb_len indicates the value that will be saved in the SCCB
@@ -124,7 +124,7 @@ static bool test_one_simple(uint32_t cmd, uint8_t *addr, uint16_t sccb_len,
 	return test_one_sccb(cmd, addr, buf_len, exp_pgm, exp_rc);
 }
 
-/**
+/*
  * Test SCCB lengths < 8.
  */
 static void test_sccb_too_short(void)
@@ -138,7 +138,7 @@ static void test_sccb_too_short(void)
 	report(len == 8, "SCCB too short");
 }
 
-/**
+/*
  * Test SCCBs that are not 64-bit aligned.
  */
 static void test_sccb_unaligned(void)
@@ -151,7 +151,7 @@ static void test_sccb_unaligned(void)
 	report(offset == 8, "SCCB unaligned");
 }
 
-/**
+/*
  * Test SCCBs whose address is in the lowcore or prefix area.
  */
 static void test_sccb_prefix(void)
@@ -202,7 +202,7 @@ static void test_sccb_prefix(void)
 	set_prefix(prefix);
 }
 
-/**
+/*
  * Test SCCBs that are above 2GB. If outside of memory, an addressing
  * exception is also allowed.
  */
@@ -245,7 +245,7 @@ static void test_sccb_high(void)
 	report(i == len, "SCCB high addresses");
 }
 
-/**
+/*
  * Test invalid commands, both invalid command detail codes and valid
  * ones with invalid command class code.
  */
@@ -275,7 +275,7 @@ static void test_inval(void)
 }
 
 
-/**
+/*
  * Test short SCCBs (but larger than 8).
  */
 static void test_short(void)
@@ -294,7 +294,7 @@ static void test_short(void)
 	report(len == 40, "Insufficient SCCB length (Read CPU info)");
 }
 
-/**
+/*
  * Test SCCB page boundary violations.
  */
 static void test_boundary(void)
@@ -318,7 +318,7 @@ out:
 	report(len > 4096 && offset == 4096, "SCCB page boundary violation");
 }
 
-/**
+/*
  * Test excessively long SCCBs.
  */
 static void test_toolong(void)
@@ -338,7 +338,7 @@ static void test_toolong(void)
 	report(len == 8192, "SCCB bigger than 4k");
 }
 
-/**
+/*
  * Test privileged operation.
  */
 static void test_priv(void)
@@ -354,7 +354,7 @@ static void test_priv(void)
 	report_prefix_pop();
 }
 
-/**
+/*
  * Test addressing exceptions. We need to test SCCB addresses between the
  * end of available memory and 2GB, because after 2GB a specification
  * exception is also allowed.
@@ -393,7 +393,7 @@ out:
 	report(i + maxram >= 0x80000000, "Invalid SCCB address");
 }
 
-/**
+/*
  * Test some bits in the instruction format that are specified to be ignored.
  */
 static void test_instbits(void)
@@ -422,7 +422,7 @@ static void test_instbits(void)
 	report(cc == 0, "Instruction format ignored bits");
 }
 
-/**
+/*
  * Find a valid READ INFO command code; not all codes are always allowed, and
  * probing should be performed in the right order.
  */
