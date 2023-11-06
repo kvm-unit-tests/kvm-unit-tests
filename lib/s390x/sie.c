@@ -15,6 +15,8 @@
 #include <asm/page.h>
 #include <libcflat.h>
 #include <alloc_page.h>
+#include <vmalloc.h>
+#include <sclp.h>
 
 void sie_expect_validity(struct vm *vm)
 {
@@ -109,6 +111,46 @@ void sie_guest_create(struct vm *vm, uint64_t guest_mem, uint64_t guest_mem_len)
 	/* CRYCB needs to be in the first 2GB */
 	vm->crycb = alloc_pages_flags(0, AREA_DMA31);
 	vm->sblk->crycbd = (uint32_t)(uintptr_t)vm->crycb;
+}
+
+/**
+ * sie_guest_alloc() - Allocate memory for a guest and map it in virtual address
+ * space such that it is properly aligned.
+ * @guest_size: the desired size of the guest in bytes.
+ */
+uint8_t *sie_guest_alloc(uint64_t guest_size)
+{
+	static unsigned long guest_counter = 1;
+	u8 *guest_phys, *guest_virt;
+	unsigned long i;
+	pgd_t *root;
+
+	setup_vm();
+	root = (pgd_t *)(stctg(1) & PAGE_MASK);
+
+	/*
+	 * Start of guest memory in host virtual space needs to be aligned to
+	 * 2GB for some environments. It also can't be at 2GB since the memory
+	 * allocator stores its page_states metadata there.
+	 * Thus we use the next multiple of 4GB after the end of physical
+	 * mapping. This also leaves space after end of physical memory so the
+	 * page immediately after physical memory is guaranteed not to be
+	 * present.
+	 */
+	guest_virt = (uint8_t *)ALIGN(get_ram_size() + guest_counter * 4UL * SZ_1G, SZ_2G);
+	guest_counter++;
+
+	guest_phys = alloc_pages(get_order(guest_size) - 12);
+	/*
+	 * Establish a new mapping of the guest memory so it can be 2GB aligned
+	 * without actually requiring 2GB physical memory.
+	 */
+	for (i = 0; i < guest_size; i += PAGE_SIZE) {
+		install_page(root, __pa(guest_phys + i), guest_virt + i);
+	}
+	memset(guest_virt, 0, guest_size);
+
+	return guest_virt;
 }
 
 /* Frees the memory that was gathered on initialization */

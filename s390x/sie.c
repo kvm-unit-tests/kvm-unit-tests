@@ -89,8 +89,8 @@ static void setup_guest(void)
 {
 	setup_vm();
 
-	/* Allocate 1MB as guest memory */
-	guest = alloc_pages(8);
+	guest = sie_guest_alloc(SZ_1M);
+
 	/* The first two pages are the lowcore */
 	guest_instr = guest + PAGE_SIZE * 2;
 
