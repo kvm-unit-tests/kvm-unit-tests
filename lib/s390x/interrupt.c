@@ -62,7 +62,7 @@ uint16_t clear_pgm_int(void)
 
 /**
  * check_pgm_int_code - Check the program interrupt code on the current CPU.
- * @code the expected program interrupt code on the current CPU
+ * @code: the expected program interrupt code on the current CPU
  *
  * Check and report if the program interrupt on the current CPU matches the
  * expected one.
@@ -78,7 +78,7 @@ void check_pgm_int_code(uint16_t code)
 /**
  * register_pgm_cleanup_func - Register a cleanup function for progam
  * interrupts for the current CPU.
- * @f the cleanup function to be registered on the current CPU
+ * @f: the cleanup function to be registered on the current CPU
  *
  * Register a cleanup function to be called at the end of the normal
  * interrupt handling for program interrupts for this CPU.
@@ -93,7 +93,7 @@ void register_pgm_cleanup_func(void (*f)(struct stack_frame_int *))
 /**
  * register_ext_cleanup_func - Register a cleanup function for external
  * interrupts for the current CPU.
- * @f the cleanup function to be registered on the current CPU
+ * @f: the cleanup function to be registered on the current CPU
  *
  * Register a cleanup function to be called at the end of the normal
  * interrupt handling for external interrupts for this CPU.
