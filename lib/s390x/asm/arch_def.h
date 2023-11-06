@@ -37,9 +37,32 @@ struct stack_frame_int {
 };
 
 struct psw {
-	uint64_t	mask;
+	union {
+		uint64_t	mask;
+		struct {
+			uint64_t reserved00:1;
+			uint64_t per:1;
+			uint64_t reserved02:3;
+			uint64_t dat:1;
+			uint64_t io:1;
+			uint64_t ext:1;
+			uint64_t key:4;
+			uint64_t reserved12:1;
+			uint64_t mchk:1;
+			uint64_t wait:1;
+			uint64_t pstate:1;
+			uint64_t as:2;
+			uint64_t cc:2;
+			uint64_t prg_mask:4;
+			uint64_t reserved24:7;
+			uint64_t ea:1;
+			uint64_t ba:1;
+			uint64_t reserved33:31;
+		};
+	};
 	uint64_t	addr;
 };
+_Static_assert(sizeof(struct psw) == 16, "PSW size");
 
 #define PSW(m, a) ((struct psw){ .mask = (m), .addr = (uint64_t)(a) })
 
