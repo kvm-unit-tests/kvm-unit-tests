@@ -16,7 +16,7 @@
 #define H_ZERO_PAGE	(1UL << (63-48))
 #define H_COPY_PAGE	(1UL << (63-49))
 
-/**
+/*
  * Test the H_SET_SPRG0 h-call by setting some values and checking whether
  * the SPRG0 register contains the correct values afterwards
  */
@@ -46,7 +46,7 @@ static void test_h_set_sprg0(int argc, char **argv)
 	       sprg0_orig);
 }
 
-/**
+/*
  * Test the H_PAGE_INIT h-call by using it to clear and to copy a page, and
  * by checking for the correct values in the destination page afterwards
  */
@@ -97,7 +97,7 @@ static int h_random(uint64_t *val)
 	return r3;
 }
 
-/**
+/*
  * Test H_RANDOM by calling it a couple of times to check whether all bit
  * positions really toggle (there should be no "stuck" bits in the output)
  */

@@ -53,7 +53,7 @@ static void print_vpa(struct vpa *vpa)
 #define SUBFUNC_REGISTER	(1ULL << 45)
 #define SUBFUNC_DEREGISTER	(5ULL << 45)
 
-/**
+/*
  * Test the H_REGISTER_VPA h-call register/deregister calls.
  */
 static void test_register_vpa(void)
@@ -111,7 +111,7 @@ static void test_register_vpa(void)
 	report_prefix_pop();
 }
 
-/**
+/*
  * Test some VPA fields.
  */
 static void test_vpa(void)

@@ -71,7 +71,7 @@ static void test_64bit(void)
 	report_prefix_pop();
 }
 
-/**
+/*
  * Test 'Load String Word Immediate' instruction
  */
 static void test_lswi(void)
