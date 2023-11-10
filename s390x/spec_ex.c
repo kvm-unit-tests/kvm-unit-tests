@@ -142,7 +142,7 @@ static int psw_odd_address(void)
 		"	larl	%%r1,0f\n"
 		"	stg	%%r1,%[fixup_addr]\n"
 		"	lpswe	%[odd_psw]\n"
-		"0:	lr	%[executed_addr],%%r0\n"
+		"0:	lgr	%[executed_addr],%%r0\n"
 	: [fixup_addr] "=&T" (fixup_psw.addr),
 	  [executed_addr] "=d" (executed_addr)
 	: [odd_psw] "Q" (odd)

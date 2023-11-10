@@ -12,6 +12,7 @@
 #include <asm-generic/barrier.h>
 #include <asm/pgtable.h>
 #include <mmu.h>
+#include <vmalloc.h>
 #include <asm/page.h>
 #include <asm/facility.h>
 #include <asm/mem.h>
@@ -23,7 +24,9 @@
 static struct vm vm;
 
 static uint8_t *src;
+static phys_addr_t src_phys;
 static uint8_t *dst;
+static phys_addr_t dst_phys;
 static uint8_t *cmp;
 
 static void test_mvpg_pei(void)
@@ -38,8 +41,8 @@ static void test_mvpg_pei(void)
 	protect_page(src, PAGE_ENTRY_I);
 	sie(&vm);
 	report(vm.sblk->icptcode == ICPT_PARTEXEC, "Partial execution");
-	report((uintptr_t)**pei_src == (uintptr_t)src + PAGE_ENTRY_I, "PEI_SRC correct");
-	report((uintptr_t)**pei_dst == (uintptr_t)dst, "PEI_DST correct");
+	report((uintptr_t)**pei_src == (uintptr_t)src_phys + PAGE_ENTRY_I, "PEI_SRC correct");
+	report((uintptr_t)**pei_dst == (uintptr_t)dst_phys, "PEI_DST correct");
 	unprotect_page(src, PAGE_ENTRY_I);
 	report(!memcmp(cmp, dst, PAGE_SIZE), "Destination intact");
 	/*
@@ -60,8 +63,8 @@ static void test_mvpg_pei(void)
 	protect_page(dst, PAGE_ENTRY_I);
 	sie(&vm);
 	report(vm.sblk->icptcode == ICPT_PARTEXEC, "Partial execution");
-	report((uintptr_t)**pei_src == (uintptr_t)src, "PEI_SRC correct");
-	report((uintptr_t)**pei_dst == (uintptr_t)dst + PAGE_ENTRY_I, "PEI_DST correct");
+	report((uintptr_t)**pei_src == (uintptr_t)src_phys, "PEI_SRC correct");
+	report((uintptr_t)**pei_dst == (uintptr_t)dst_phys + PAGE_ENTRY_I, "PEI_DST correct");
 	/* Needed for the memcmp and general cleanup */
 	unprotect_page(dst, PAGE_ENTRY_I);
 	report(!memcmp(cmp, dst, PAGE_SIZE), "Destination intact");
@@ -82,8 +85,10 @@ static void setup_guest(void)
 {
 	extern const char SNIPPET_NAME_START(c, mvpg_snippet)[];
 	extern const char SNIPPET_NAME_END(c, mvpg_snippet)[];
+	pgd_t *root;
 
 	setup_vm();
+	root = (pgd_t *)(stctg(1) & PAGE_MASK);
 
 	snippet_setup_guest(&vm, false);
 	snippet_init(&vm, SNIPPET_NAME_START(c, mvpg_snippet),
@@ -94,6 +99,9 @@ static void setup_guest(void)
 
 	src = (uint8_t *) vm.sblk->mso + PAGE_SIZE * 6;
 	dst = (uint8_t *) vm.sblk->mso + PAGE_SIZE * 5;
+	src_phys = virt_to_pte_phys(root, src);
+	dst_phys = virt_to_pte_phys(root, dst);
+
 	cmp = alloc_page();
 	memset(cmp, 0, PAGE_SIZE);
 }

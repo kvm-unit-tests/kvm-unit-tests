@@ -285,4 +285,6 @@ void sie_guest_sca_create(struct vm *vm);
 void sie_guest_create(struct vm *vm, uint64_t guest_mem, uint64_t guest_mem_len);
 void sie_guest_destroy(struct vm *vm);
 
+uint8_t *sie_guest_alloc(uint64_t guest_size);
+
 #endif /* _S390X_SIE_H_ */

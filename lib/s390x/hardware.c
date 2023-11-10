@@ -13,6 +13,7 @@
 #include <libcflat.h>
 #include <alloc_page.h>
 #include <asm/arch_def.h>
+#include <asm/page.h>
 #include "hardware.h"
 #include "stsi.h"
 
@@ -21,9 +22,10 @@ static const uint8_t qemu_ebcdic[] = { 0xd8, 0xc5, 0xd4, 0xe4 };
 /* The string "KVM/" in EBCDIC */
 static const uint8_t kvm_ebcdic[] = { 0xd2, 0xe5, 0xd4, 0x61 };
 
-static enum s390_host do_detect_host(void *buf)
+static enum s390_host do_detect_host(void)
 {
-	struct sysinfo_3_2_2 *stsi_322 = buf;
+	uint8_t buf[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+	struct sysinfo_3_2_2 *stsi_322 = (struct sysinfo_3_2_2 *)buf;
 
 	if (stsi_get_fc() == 2)
 		return HOST_IS_LPAR;
@@ -56,14 +58,11 @@ enum s390_host detect_host(void)
 {
 	static enum s390_host host = HOST_IS_UNKNOWN;
 	static bool initialized = false;
-	void *buf;
 
 	if (initialized)
 		return host;
 
-	buf = alloc_page();
-	host = do_detect_host(buf);
-	free_page(buf);
+	host = do_detect_host();
 	initialized = true;
 	return host;
 }

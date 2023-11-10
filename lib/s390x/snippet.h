@@ -125,14 +125,11 @@ static inline void snippet_pv_init(struct vm *vm, const char *gbin,
 /* Allocates and sets up a snippet based guest */
 static inline void snippet_setup_guest(struct vm *vm, bool is_pv)
 {
-	u8 *guest;
-
-	/* Allocate 1MB as guest memory */
-	guest = alloc_pages(8);
-	memset(guest, 0, HPAGE_SIZE);
+	const unsigned long guest_size = SZ_1M;
+	uint8_t *guest_start = sie_guest_alloc(guest_size);
 
 	/* Initialize the vm struct and allocate control blocks */
-	sie_guest_create(vm, (uint64_t)guest, HPAGE_SIZE);
+	sie_guest_create(vm, (uint64_t)guest_start, guest_size);
 
 	if (is_pv) {
 		/* FMT4 needs a ESCA */

@@ -30,28 +30,45 @@ struct sysinfo_3_2_2 {
 };
 
 #define CPUS_TLE_RES_BITS 0x00fffffff8000000UL
-struct topology_core {
-	uint8_t nl;
-	uint8_t reserved1[3];
-	uint8_t reserved4:5;
-	uint8_t d:1;
-	uint8_t pp:2;
-	uint8_t type;
-	uint16_t origin;
-	uint64_t mask;
+union topology_cpu {
+	uint64_t raw[2];
+	struct {
+		uint8_t nl;
+		uint8_t reserved1[3];
+		uint8_t reserved4:5;
+		uint8_t d:1;
+		uint8_t pp:2;
+		uint8_t type;
+		uint16_t origin;
+		uint64_t mask;
+	};
+};
+
+enum topology_polarization {
+	POLARIZATION_HORIZONTAL = 0,
+	POLARIZATION_VERTICAL_LOW = 1,
+	POLARIZATION_VERTICAL_MEDIUM = 2,
+	POLARIZATION_VERTICAL_HIGH = 3,
+};
+
+enum cpu_type {
+	CPU_TYPE_IFL = 3,
 };
 
 #define CONTAINER_TLE_RES_BITS 0x00ffffffffffff00UL
-struct topology_container {
-	uint8_t nl;
-	uint8_t reserved[6];
-	uint8_t id;
+union topology_container {
+	uint64_t raw;
+	struct {
+		uint8_t nl;
+		uint8_t reserved[6];
+		uint8_t id;
+	};
 };
 
 union topology_entry {
 	uint8_t nl;
-	struct topology_core cpu;
-	struct topology_container container;
+	union topology_cpu cpu;
+	union topology_container container;
 };
 
 #define CPU_TOPOLOGY_MAX_LEVEL 6
