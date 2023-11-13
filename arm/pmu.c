@@ -66,6 +66,7 @@
 #define PRE_OVERFLOW_64		0xFFFFFFFFFFFFFFF0ULL
 #define COUNT 250
 #define MARGIN 100
+#define COUNT_INT 1000
 /*
  * PRE_OVERFLOW2 is set so that 1st @COUNT iterations do not
  * produce 32b overflow and 2nd @COUNT iterations do. To accommodate
@@ -978,7 +979,7 @@ static void test_overflow_interrupt(bool overflow_at_64bits)
 
 	/* interrupts are disabled (PMINTENSET_EL1 == 0) */
 
-	mem_access_loop(addr, 200, pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
+	mem_access_loop(addr, COUNT_INT, pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
 	report(expect_interrupts(0), "no overflow interrupt after preset");
 
 	set_pmcr(pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
@@ -1002,7 +1003,7 @@ static void test_overflow_interrupt(bool overflow_at_64bits)
 	write_sysreg(ALL_SET_32, pmintenset_el1);
 	isb();
 
-	mem_access_loop(addr, 200, pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
+	mem_access_loop(addr, COUNT_INT, pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
 
 	set_pmcr(pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
 	isb();
@@ -1010,7 +1011,7 @@ static void test_overflow_interrupt(bool overflow_at_64bits)
 	for (i = 0; i < 100; i++)
 		write_sysreg(0x3, pmswinc_el0);
 
-	mem_access_loop(addr, 200, pmu.pmcr_ro);
+	mem_access_loop(addr, COUNT_INT, pmu.pmcr_ro);
 	report_info("overflow=0x%lx", read_sysreg(pmovsclr_el0));
 	report(expect_interrupts(0x3),
 		"overflow interrupts expected on #0 and #1");
@@ -1029,7 +1030,7 @@ static void test_overflow_interrupt(bool overflow_at_64bits)
 	write_regn_el0(pmevtyper, 1, CHAIN | PMEVTYPER_EXCLUDE_EL0);
 	write_regn_el0(pmevcntr, 0, pre_overflow);
 	isb();
-	mem_access_loop(addr, 200, pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
+	mem_access_loop(addr, COUNT_INT, pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
 	report(expect_interrupts(0x1), "expect overflow interrupt");
 
 	/* overflow on odd counter */
@@ -1037,7 +1038,7 @@ static void test_overflow_interrupt(bool overflow_at_64bits)
 	write_regn_el0(pmevcntr, 0, pre_overflow);
 	write_regn_el0(pmevcntr, 1, all_set);
 	isb();
-	mem_access_loop(addr, 400, pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
+	mem_access_loop(addr, COUNT_INT, pmu.pmcr_ro | PMU_PMCR_E | pmcr_lp);
 	if (overflow_at_64bits) {
 		report(expect_interrupts(0x1),
 		       "expect overflow interrupt on even counter");
