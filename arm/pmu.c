@@ -328,7 +328,7 @@ asm volatile(
 	: "x9", "x10", "cc");
 }
 
-static struct pmu_stats pmu_stats;
+static volatile struct pmu_stats pmu_stats;
 
 static void irq_handler(struct pt_regs *regs)
 {
