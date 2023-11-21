@@ -24,7 +24,6 @@
 #include <asm/gic-v3-its.h>
 #include <asm/timer.h>
 
-#define NS_5_SECONDS		(5 * 1000 * 1000 * 1000UL)
 #define QEMU_MMIO_ADDR		0x0a000008
 
 static u32 cntfrq;
@@ -346,17 +345,21 @@ static void loop_test(struct exit_test *test)
 		}
 	}
 
-	while (ntimes < test->times && total_ns.ns < NS_5_SECONDS) {
-		isb();
-		start = read_sysreg(cntvct_el0);
+	dsb(ish);
+	isb();
+	start = read_sysreg(cntvct_el0);
+	isb();
+	while (ntimes < test->times) {
 		test->exec();
-		isb();
-		end = read_sysreg(cntvct_el0);
 
 		ntimes++;
-		total_ticks += (end - start);
-		ticks_to_ns_time(total_ticks, &total_ns);
 	}
+	dsb(ish);
+	isb();
+	end = read_sysreg(cntvct_el0);
+
+	total_ticks = end - start;
+	ticks_to_ns_time(total_ticks, &total_ns);
 
 	if (test->post) {
 		test->post(ntimes, &total_ticks);
