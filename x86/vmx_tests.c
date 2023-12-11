@@ -9315,6 +9315,7 @@ static void enable_vid(void)
 
 	assert(cpu_has_apicv());
 
+	enable_x2apic();
 	disable_intercept_for_x2apic_msrs();
 
 	virtual_apic_page = alloc_page();
