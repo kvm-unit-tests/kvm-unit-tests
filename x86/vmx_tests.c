@@ -10730,6 +10730,7 @@ enum Vid_op {
 	VID_OP_SET_ISR,
 	VID_OP_NOP,
 	VID_OP_SET_CR8,
+	VID_OP_SELF_IPI,
 	VID_OP_TERMINATE,
 };
 
@@ -10789,6 +10790,9 @@ static void vmx_basic_vid_test_guest(void)
 		case VID_OP_SET_CR8:
 			write_cr8(nr);
 			break;
+		case VID_OP_SELF_IPI:
+			vmx_x2apic_write(APIC_SELF_IPI, nr);
+			break;
 		default:
 			break;
 		}
@@ -10827,7 +10831,7 @@ static void set_isrs_for_vmx_basic_vid_test(void)
  *   tpr_virt: If true, then test VID during TPR virtualization. Otherwise,
  *       test VID during VM-entry.
  */
-static void test_basic_vid(u8 nr, u8 tpr, bool tpr_virt, u32 isr_exec_cnt_want,
+static void test_basic_vid(u8 nr, u8 tpr, enum Vid_op op, u32 isr_exec_cnt_want,
 			   bool eoi_exit_induced)
 {
 	volatile struct vmx_basic_vid_test_guest_args *args =
@@ -10848,15 +10852,23 @@ static void test_basic_vid(u8 nr, u8 tpr, bool tpr_virt, u32 isr_exec_cnt_want,
 	 * However, PPR virtualization, which occurs before virtual interrupt
 	 * delivery, sets VPPR to VTPR, when SVI is 0.
 	 */
-	vmcs_write(GUEST_INT_STATUS, nr);
 	args->isr_exec_cnt = 0;
-	if (tpr_virt) {
-		args->op = VID_OP_SET_CR8;
+	args->op = op;
+	switch (op) {
+	case VID_OP_SELF_IPI:
+		vmcs_write(GUEST_INT_STATUS, 0);
+		args->nr = nr;
+		set_vtpr(0);
+		break;
+	case VID_OP_SET_CR8:
+		vmcs_write(GUEST_INT_STATUS, nr);
 		args->nr = task_priority_class(tpr);
 		set_vtpr(0xff);
-	} else {
-		args->op = VID_OP_NOP;
+		break;
+	default:
+		vmcs_write(GUEST_INT_STATUS, nr);
 		set_vtpr(tpr);
+		break;
 	}
 
 	enter_guest();
@@ -10913,15 +10925,18 @@ static void vmx_basic_vid_test(void)
 			if (nr == 0x20)
 				continue;
 
+			test_basic_vid(nr, /*tpr=*/0, VID_OP_SELF_IPI,
+				       /*isr_exec_cnt_want=*/1,
+				       /*eoi_exit_induced=*/false);
 			for (tpr = 0; tpr < 256; tpr++) {
 				u32 isr_exec_cnt_want =
 					task_priority_class(nr) >
 					task_priority_class(tpr) ? 1 : 0;
 
-				test_basic_vid(nr, tpr, /*tpr_virt=*/false,
+				test_basic_vid(nr, tpr, VID_OP_NOP,
 					       isr_exec_cnt_want,
 					       /*eoi_exit_induced=*/false);
-				test_basic_vid(nr, tpr, /*tpr_virt=*/true,
+				test_basic_vid(nr, tpr, VID_OP_SET_CR8,
 					       isr_exec_cnt_want,
 					       /*eoi_exit_induced=*/false);
 			}
@@ -10940,8 +10955,8 @@ static void test_eoi_virt(u8 nr, u8 lo_pri_nr, bool eoi_exit_induced)
 	u32 *virtual_apic_page = get_vapic_page();
 
 	set_virr_bit(virtual_apic_page, lo_pri_nr);
-	test_basic_vid(nr, /*tpr=*/0, /*tpr_virt=*/false,
-		       /*isr_exec_cnt_want=*/2, eoi_exit_induced);
+	test_basic_vid(nr, /*tpr=*/0, VID_OP_NOP, /*isr_exec_cnt_want=*/2,
+		       eoi_exit_induced);
 	TEST_ASSERT(!get_virr_bit(virtual_apic_page, lo_pri_nr));
 	TEST_ASSERT(!get_virr_bit(virtual_apic_page, nr));
 }
