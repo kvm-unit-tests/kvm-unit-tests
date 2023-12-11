@@ -60,6 +60,11 @@ static inline void vmcall(void)
 	asm volatile("vmcall");
 }
 
+static u32 *get_vapic_page(void)
+{
+	return (u32 *)phys_to_virt(vmcs_read(APIC_VIRT_ADDR));
+}
+
 static void basic_guest_main(void)
 {
 	report_pass("Basic VMX test");
@@ -10731,15 +10736,36 @@ enum Vid_op {
 struct vmx_basic_vid_test_guest_args {
 	enum Vid_op op;
 	u8 nr;
-	bool isr_fired;
+	u32 isr_exec_cnt;
 } vmx_basic_vid_test_guest_args;
+
+/*
+ * From the SDM, Bit x of the VIRR is
+ *     at bit position (x & 1FH)
+ *     at offset (200H | ((x & E0H) >> 1)).
+ */
+static void set_virr_bit(volatile u32 *virtual_apic_page, u8 nr)
+{
+	u32 page_offset = (0x200 | ((nr & 0xE0) >> 1)) / sizeof(u32);
+	u32 mask = 1 << (nr & 0x1f);
+
+	virtual_apic_page[page_offset] |= mask;
+}
+
+static bool get_virr_bit(volatile u32 *virtual_apic_page, u8 nr)
+{
+	u32 page_offset = (0x200 | ((nr & 0xE0) >> 1)) / sizeof(u32);
+	u32 mask = 1 << (nr & 0x1f);
+
+	return virtual_apic_page[page_offset] & mask;
+}
 
 static void vmx_vid_test_isr(isr_regs_t *regs)
 {
 	volatile struct vmx_basic_vid_test_guest_args *args =
 		&vmx_basic_vid_test_guest_args;
 
-	args->isr_fired = true;
+	args->isr_exec_cnt++;
 	barrier();
 	eoi();
 }
@@ -10771,6 +10797,27 @@ static void vmx_basic_vid_test_guest(void)
 	}
 }
 
+static void set_isrs_for_vmx_basic_vid_test(void)
+{
+	volatile struct vmx_basic_vid_test_guest_args *args =
+		&vmx_basic_vid_test_guest_args;
+	u16 nr;
+
+	/*
+	 * kvm-unit-tests uses vector 32 for IPIs, so don't install a test ISR
+	 * for that vector.
+	 */
+	for (nr = 0x21; nr < 0x100; nr++) {
+		vmcs_write(GUEST_INT_STATUS, 0);
+		args->op = VID_OP_SET_ISR;
+		args->nr = nr;
+		args->isr_exec_cnt = 0;
+		enter_guest();
+		skip_exit_vmcall();
+	}
+	report(true, "Set ISR for vectors 33-255.");
+}
+
 /*
  * Test virtual interrupt delivery (VID) at VM-entry or TPR virtualization
  *
@@ -10780,13 +10827,12 @@ static void vmx_basic_vid_test_guest(void)
  *   tpr_virt: If true, then test VID during TPR virtualization. Otherwise,
  *       test VID during VM-entry.
  */
-static void test_basic_vid(u8 nr, u8 tpr, bool tpr_virt)
+static void test_basic_vid(u8 nr, u8 tpr, bool tpr_virt, u32 isr_exec_cnt_want,
+			   bool eoi_exit_induced)
 {
 	volatile struct vmx_basic_vid_test_guest_args *args =
 		&vmx_basic_vid_test_guest_args;
-	bool isr_fired_want =
-		task_priority_class(nr) > task_priority_class(tpr);
-	u16 rvi_want = isr_fired_want ? 0 : nr;
+	u16 rvi_want = isr_exec_cnt_want ? 0 : nr;
 	u16 int_status;
 
 	/*
@@ -10803,7 +10849,7 @@ static void test_basic_vid(u8 nr, u8 tpr, bool tpr_virt)
 	 * delivery, sets VPPR to VTPR, when SVI is 0.
 	 */
 	vmcs_write(GUEST_INT_STATUS, nr);
-	args->isr_fired = false;
+	args->isr_exec_cnt = 0;
 	if (tpr_virt) {
 		args->op = VID_OP_SET_CR8;
 		args->nr = task_priority_class(tpr);
@@ -10814,8 +10860,18 @@ static void test_basic_vid(u8 nr, u8 tpr, bool tpr_virt)
 	}
 
 	enter_guest();
+	if (eoi_exit_induced) {
+		u32 exit_cnt;
+
+		assert_exit_reason(VMX_EOI_INDUCED);
+		for (exit_cnt = 1; exit_cnt < isr_exec_cnt_want; exit_cnt++) {
+			enter_guest();
+			assert_exit_reason(VMX_EOI_INDUCED);
+		}
+		enter_guest();
+	}
 	skip_exit_vmcall();
-	TEST_ASSERT_EQ(args->isr_fired, isr_fired_want);
+	TEST_ASSERT_EQ(args->isr_exec_cnt, isr_exec_cnt_want);
 	int_status = vmcs_read(GUEST_INT_STATUS);
 	TEST_ASSERT_EQ(int_status, rvi_want);
 }
@@ -10831,7 +10887,6 @@ static void vmx_basic_vid_test(void)
 	volatile struct vmx_basic_vid_test_guest_args *args =
 		&vmx_basic_vid_test_guest_args;
 	u8 nr_class;
-	u16 nr;
 
 	if (!cpu_has_apicv()) {
 		report_skip("%s : Not all required APICv bits supported", __func__);
@@ -10840,23 +10895,10 @@ static void vmx_basic_vid_test(void)
 
 	enable_vid();
 	test_set_guest(vmx_basic_vid_test_guest);
-
-	/*
-	 * kvm-unit-tests uses vector 32 for IPIs, so don't install a test ISR
-	 * for that vector.
-	 */
-	for (nr = 0x21; nr < 0x100; nr++) {
-		vmcs_write(GUEST_INT_STATUS, 0);
-		args->op = VID_OP_SET_ISR;
-		args->nr = nr;
-		args->isr_fired = false;
-		enter_guest();
-		skip_exit_vmcall();
-		TEST_ASSERT(!args->isr_fired);
-	}
-	report(true, "Set ISR for vectors 33-255.");
+	set_isrs_for_vmx_basic_vid_test();
 
 	for (nr_class = 2; nr_class < 16; nr_class++) {
+		u16 nr;
 		u8 nr_sub_class;
 
 		for (nr_sub_class = 0; nr_sub_class < 16; nr_sub_class++) {
@@ -10872,11 +10914,77 @@ static void vmx_basic_vid_test(void)
 				continue;
 
 			for (tpr = 0; tpr < 256; tpr++) {
-				test_basic_vid(nr, tpr, /*tpr_virt=*/false);
-				test_basic_vid(nr, tpr, /*tpr_virt=*/true);
+				u32 isr_exec_cnt_want =
+					task_priority_class(nr) >
+					task_priority_class(tpr) ? 1 : 0;
+
+				test_basic_vid(nr, tpr, /*tpr_virt=*/false,
+					       isr_exec_cnt_want,
+					       /*eoi_exit_induced=*/false);
+				test_basic_vid(nr, tpr, /*tpr_virt=*/true,
+					       isr_exec_cnt_want,
+					       /*eoi_exit_induced=*/false);
 			}
 			report(true, "TPR 0-255 for vector 0x%x.", nr);
 		}
+	}
+
+	/* Terminate the guest */
+	args->op = VID_OP_TERMINATE;
+	enter_guest();
+	assert_exit_reason(VMX_VMCALL);
+}
+
+static void test_eoi_virt(u8 nr, u8 lo_pri_nr, bool eoi_exit_induced)
+{
+	u32 *virtual_apic_page = get_vapic_page();
+
+	set_virr_bit(virtual_apic_page, lo_pri_nr);
+	test_basic_vid(nr, /*tpr=*/0, /*tpr_virt=*/false,
+		       /*isr_exec_cnt_want=*/2, eoi_exit_induced);
+	TEST_ASSERT(!get_virr_bit(virtual_apic_page, lo_pri_nr));
+	TEST_ASSERT(!get_virr_bit(virtual_apic_page, nr));
+}
+
+static void vmx_eoi_virt_test(void)
+{
+	volatile struct vmx_basic_vid_test_guest_args *args =
+		&vmx_basic_vid_test_guest_args;
+	u16 nr;
+	u16 lo_pri_nr;
+
+	if (!cpu_has_apicv()) {
+		report_skip("%s : Not all required APICv bits supported", __func__);
+		return;
+	}
+
+	enable_vid();  /* Note, enable_vid sets APIC_VIRT_ADDR field in VMCS. */
+	test_set_guest(vmx_basic_vid_test_guest);
+	set_isrs_for_vmx_basic_vid_test();
+
+	/* Now test EOI virtualization without induced EOI exits. */
+	for (nr = 0x22; nr < 0x100; nr++) {
+		for (lo_pri_nr = 0x21; lo_pri_nr < nr; lo_pri_nr++)
+			test_eoi_virt(nr, lo_pri_nr,
+				      /*eoi_exit_induced=*/false);
+
+		report(true, "Low priority nrs 0x21-0x%x for nr 0x%x.",
+		       nr - 1, nr);
+	}
+
+	/* Finally, test EOI virtualization with induced EOI exits. */
+	vmcs_write(EOI_EXIT_BITMAP0, GENMASK_ULL(63, 0));
+	vmcs_write(EOI_EXIT_BITMAP1, GENMASK_ULL(63, 0));
+	vmcs_write(EOI_EXIT_BITMAP2, GENMASK_ULL(63, 0));
+	vmcs_write(EOI_EXIT_BITMAP3, GENMASK_ULL(63, 0));
+	for (nr = 0x22; nr < 0x100; nr++) {
+		for (lo_pri_nr = 0x21; lo_pri_nr < nr; lo_pri_nr++)
+			test_eoi_virt(nr, lo_pri_nr,
+				      /*eoi_exit_induced=*/true);
+
+		report(true,
+		       "Low priority nrs 0x21-0x%x for nr 0x%x, with induced EOI exits.",
+		       nr - 1, nr);
 	}
 
 	/* Terminate the guest */
@@ -10940,6 +11048,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(apic_reg_virt_test),
 	TEST(virt_x2apic_mode_test),
 	TEST(vmx_basic_vid_test),
+	TEST(vmx_eoi_virt_test),
 	/* APIC pass-through tests */
 	TEST(vmx_apic_passthrough_test),
 	TEST(vmx_apic_passthrough_thread_test),
