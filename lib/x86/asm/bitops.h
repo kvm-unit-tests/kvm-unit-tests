@@ -13,4 +13,12 @@
 
 #define HAVE_BUILTIN_FLS 1
 
+static inline void test_and_set_bit(long nr, unsigned long *addr)
+{
+	asm volatile("lock; bts %1,%0"
+		     : "+m" (*addr)
+		     : "Ir" (nr)
+		     : "memory");
+}
+
 #endif
