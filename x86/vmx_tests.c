@@ -10721,6 +10721,170 @@ static void vmx_exception_test(void)
 	test_set_guest_finished();
 }
 
+enum Vid_op {
+	VID_OP_SET_ISR,
+	VID_OP_NOP,
+	VID_OP_SET_CR8,
+	VID_OP_TERMINATE,
+};
+
+struct vmx_basic_vid_test_guest_args {
+	enum Vid_op op;
+	u8 nr;
+	bool isr_fired;
+} vmx_basic_vid_test_guest_args;
+
+static void vmx_vid_test_isr(isr_regs_t *regs)
+{
+	volatile struct vmx_basic_vid_test_guest_args *args =
+		&vmx_basic_vid_test_guest_args;
+
+	args->isr_fired = true;
+	barrier();
+	eoi();
+}
+
+static void vmx_basic_vid_test_guest(void)
+{
+	volatile struct vmx_basic_vid_test_guest_args *args =
+		&vmx_basic_vid_test_guest_args;
+
+	sti_nop();
+	for (;;) {
+		enum Vid_op op = args->op;
+		u8 nr = args->nr;
+
+		switch (op) {
+		case VID_OP_TERMINATE:
+			return;
+		case VID_OP_SET_ISR:
+			handle_irq(nr, vmx_vid_test_isr);
+			break;
+		case VID_OP_SET_CR8:
+			write_cr8(nr);
+			break;
+		default:
+			break;
+		}
+
+		vmcall();
+	}
+}
+
+/*
+ * Test virtual interrupt delivery (VID) at VM-entry or TPR virtualization
+ *
+ * Args:
+ *   nr: vector under test
+ *   tpr: task priority under test
+ *   tpr_virt: If true, then test VID during TPR virtualization. Otherwise,
+ *       test VID during VM-entry.
+ */
+static void test_basic_vid(u8 nr, u8 tpr, bool tpr_virt)
+{
+	volatile struct vmx_basic_vid_test_guest_args *args =
+		&vmx_basic_vid_test_guest_args;
+	bool isr_fired_want =
+		task_priority_class(nr) > task_priority_class(tpr);
+	u16 rvi_want = isr_fired_want ? 0 : nr;
+	u16 int_status;
+
+	/*
+	 * From the SDM:
+	 *     IF "interrupt-window exiting" is 0 AND
+	 *     RVI[7:4] > VPPR[7:4] (see Section 29.1.1 for definition of VPPR)
+	 *             THEN recognize a pending virtual interrupt;
+	 *         ELSE
+	 *             do not recognize a pending virtual interrupt;
+	 *     FI;
+	 *
+	 * Thus, VPPR dictates whether a virtual interrupt is recognized.
+	 * However, PPR virtualization, which occurs before virtual interrupt
+	 * delivery, sets VPPR to VTPR, when SVI is 0.
+	 */
+	vmcs_write(GUEST_INT_STATUS, nr);
+	args->isr_fired = false;
+	if (tpr_virt) {
+		args->op = VID_OP_SET_CR8;
+		args->nr = task_priority_class(tpr);
+		set_vtpr(0xff);
+	} else {
+		args->op = VID_OP_NOP;
+		set_vtpr(tpr);
+	}
+
+	enter_guest();
+	skip_exit_vmcall();
+	TEST_ASSERT_EQ(args->isr_fired, isr_fired_want);
+	int_status = vmcs_read(GUEST_INT_STATUS);
+	TEST_ASSERT_EQ(int_status, rvi_want);
+}
+
+/*
+ * Test recognizing and delivering virtual interrupts via "Virtual-interrupt
+ * delivery" for two scenarios:
+ *   1. When there is a pending interrupt at VM-entry.
+ *   2. When there is a pending interrupt during TPR virtualization.
+ */
+static void vmx_basic_vid_test(void)
+{
+	volatile struct vmx_basic_vid_test_guest_args *args =
+		&vmx_basic_vid_test_guest_args;
+	u8 nr_class;
+	u16 nr;
+
+	if (!cpu_has_apicv()) {
+		report_skip("%s : Not all required APICv bits supported", __func__);
+		return;
+	}
+
+	enable_vid();
+	test_set_guest(vmx_basic_vid_test_guest);
+
+	/*
+	 * kvm-unit-tests uses vector 32 for IPIs, so don't install a test ISR
+	 * for that vector.
+	 */
+	for (nr = 0x21; nr < 0x100; nr++) {
+		vmcs_write(GUEST_INT_STATUS, 0);
+		args->op = VID_OP_SET_ISR;
+		args->nr = nr;
+		args->isr_fired = false;
+		enter_guest();
+		skip_exit_vmcall();
+		TEST_ASSERT(!args->isr_fired);
+	}
+	report(true, "Set ISR for vectors 33-255.");
+
+	for (nr_class = 2; nr_class < 16; nr_class++) {
+		u8 nr_sub_class;
+
+		for (nr_sub_class = 0; nr_sub_class < 16; nr_sub_class++) {
+			u16 tpr;
+
+			nr = (nr_class << 4) | nr_sub_class;
+
+			/*
+			 * Don't test the reserved IPI vector, as the test ISR
+			 * was not installed.
+			 */
+			if (nr == 0x20)
+				continue;
+
+			for (tpr = 0; tpr < 256; tpr++) {
+				test_basic_vid(nr, tpr, /*tpr_virt=*/false);
+				test_basic_vid(nr, tpr, /*tpr_virt=*/true);
+			}
+			report(true, "TPR 0-255 for vector 0x%x.", nr);
+		}
+	}
+
+	/* Terminate the guest */
+	args->op = VID_OP_TERMINATE;
+	enter_guest();
+	assert_exit_reason(VMX_VMCALL);
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -10775,6 +10939,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_hlt_with_rvi_test),
 	TEST(apic_reg_virt_test),
 	TEST(virt_x2apic_mode_test),
+	TEST(vmx_basic_vid_test),
 	/* APIC pass-through tests */
 	TEST(vmx_apic_passthrough_test),
 	TEST(vmx_apic_passthrough_thread_test),
