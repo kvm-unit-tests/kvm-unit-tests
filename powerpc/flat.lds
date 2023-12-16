@@ -41,8 +41,7 @@ SECTIONS
     /*
      * tocptr is tocbase + 32K, allowing toc offsets to be +-32K
      */
-    tocptr = . + 32K;
-    .got : { *(.toc) *(.got) }
+    .got : ALIGN(256) { tocptr = . + 32K; *(.toc .got) }
     . = ALIGN(64K);
     edata = .;
     . += 64K;
