@@ -16,19 +16,25 @@
 static struct {
 	void (*func)(struct pt_regs *, void *data);
 	void *data;
-} handlers[16];
+} handlers[128];
 
+/*
+ * Exception handlers span from 0x100 to 0x1000 and can have a granularity
+ * of 0x20 bytes in some cases. Indexing spans 0-0x1000 with 0x20 increments
+ * resulting in 128 slots.
+ */
 void handle_exception(int trap, void (*func)(struct pt_regs *, void *),
 		      void * data)
 {
-	assert(!(trap & ~0xf00));
+	assert(!(trap & ~0xfe0));
 
-	trap >>= 8;
+	trap >>= 5;
 
 	if (func && handlers[trap].func) {
 		printf("exception handler installed twice %#x\n", trap);
 		abort();
 	}
+
 	handlers[trap].func = func;
 	handlers[trap].data = data;
 }
@@ -37,9 +43,9 @@ void do_handle_exception(struct pt_regs *regs)
 {
 	unsigned char v;
 
-	v = regs->trap >> 8;
+	v = regs->trap >> 5;
 
-	if (v < 16 && handlers[v].func) {
+	if (v < 128 && handlers[v].func) {
 		handlers[v].func(regs, handlers[v].data);
 		return;
 	}
