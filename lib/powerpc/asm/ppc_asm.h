@@ -35,6 +35,9 @@
 
 #endif /* __BYTE_ORDER__ */
 
+#define SPR_HSRR0	0x13A
+#define SPR_HSRR1	0x13B
+
 /* Machine State Register definitions: */
 #define MSR_EE_BIT	15			/* External Interrupts Enable */
 #define MSR_SF_BIT	63			/* 64-bit mode */
