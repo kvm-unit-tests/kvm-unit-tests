@@ -18,6 +18,7 @@
 #include <argv.h>
 #include <asm/setup.h>
 #include <asm/page.h>
+#include <asm/ptrace.h>
 #include <asm/hcall.h>
 #include "io.h"
 
@@ -194,6 +195,8 @@ void setup(const void *fdt)
 		memmove(initrd, tmp, initrd_size);
 		freemem += initrd_size;
 	}
+
+	assert(STACK_INT_FRAME_SIZE % 16 == 0);
 
 	/* call init functions */
 	cpu_init();

@@ -14,6 +14,7 @@ struct pt_regs {
 	unsigned long xer;
 	unsigned long ccr;
 	unsigned long trap;
+	unsigned long _pad; /* stack must be 16-byte aligned */
 };
 
 #define STACK_INT_FRAME_SIZE    (sizeof(struct pt_regs) + \
