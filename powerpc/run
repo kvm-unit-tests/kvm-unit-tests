@@ -21,6 +21,11 @@ fi
 
 M='-machine pseries'
 M+=",accel=$ACCEL$ACCEL_PROPS"
+
+if [[ "$ACCEL" == "tcg" ]] ; then
+	M+=",cap-cfpc=broken,cap-sbbc=broken,cap-ibs=broken,cap-ccf-assist=off"
+fi
+
 command="$qemu -nodefaults $M -bios $FIRMWARE"
 command+=" -display none -serial stdio -kernel"
 command="$(migration_cmd) $(timeout_cmd) $command"
