@@ -31,7 +31,7 @@ void handle_exception(int trap, void (*func)(struct pt_regs *, void *),
 	trap >>= 5;
 
 	if (func && handlers[trap].func) {
-		printf("exception handler installed twice %#x\n", trap);
+		printf("exception handler installed twice %#x\n", trap << 5);
 		abort();
 	}
 
