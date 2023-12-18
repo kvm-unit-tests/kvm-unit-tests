@@ -90,7 +90,7 @@ static void test_wrmsr(u32 msr, const char *name, unsigned long long val)
 	unsigned char vector = wrmsr_safe(msr, val);
 
 	report(!vector,
-	       "Expected success on WRSMR(%s, 0x%llx), got vector %d",
+	       "Expected success on WRMSR(%s, 0x%llx), got vector %d",
 	       name, val, vector);
 }
 
@@ -99,7 +99,7 @@ static void test_wrmsr_fault(u32 msr, const char *name, unsigned long long val)
 	unsigned char vector = wrmsr_safe(msr, val);
 
 	report(vector == GP_VECTOR,
-	       "Expected #GP on WRSMR(%s, 0x%llx), got vector %d",
+	       "Expected #GP on WRMSR(%s, 0x%llx), got vector %d",
 	       name, val, vector);
 }
 
@@ -109,7 +109,7 @@ static void test_rdmsr_fault(u32 msr, const char *name)
 	unsigned char vector = rdmsr_safe(msr, &ignored);
 
 	report(vector == GP_VECTOR,
-	       "Expected #GP on RDSMR(%s), got vector %d", name, vector);
+	       "Expected #GP on RDMSR(%s), got vector %d", name, vector);
 }
 
 static void test_msr(struct msr_info *msr, bool is_64bit_host)
