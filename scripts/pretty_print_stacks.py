@@ -38,7 +38,7 @@ def pretty_print_stack(binary, line):
         return
 
     for line in out.splitlines():
-        m = re.match(b'(.*) at (.*):(([0-9]+)|\?)([^:]*)', line)
+        m = re.match(rb'(.*) at (.*):(([0-9]+)|\?)([^:]*)', line)
         if m is None:
             puts('%s\n' % line)
             return
