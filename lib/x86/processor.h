@@ -264,6 +264,12 @@ static inline bool is_intel(void)
 #define	X86_FEATURE_PKS			(CPUID(0x7, 0, ECX, 31))
 
 /*
+ * KVM defined leafs
+ */
+#define	KVM_FEATURE_ASYNC_PF		(CPUID(0x40000001, 0, EAX, 4))
+#define	KVM_FEATURE_ASYNC_PF_INT	(CPUID(0x40000001, 0, EAX, 14))
+
+/*
  * Extended Leafs, a.k.a. AMD defined
  */
 #define	X86_FEATURE_SVM			(CPUID(0x80000001, 0, ECX, 2))
