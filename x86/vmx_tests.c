@@ -7667,7 +7667,7 @@ static void test_host_addr_size(void)
 	 * testcases as needed, but don't guarantee a VM-Exit and so the active
 	 * CR4 and RIP may still hold a test value.  Running with the test CR4
 	 * and RIP values at some point is unavoidable, and the active values
-	 * are unlikely to affect VM-Enter, so the above doen't force a VM-Exit
+	 * are unlikely to affect VM-Enter, so the above doesn't force a VM-exit
 	 * between testcases.  Note, if VM-Enter is surrounded by CALL+RET then
 	 * the active RIP will already be restored, but that's also not
 	 * guaranteed, and CR4 needs to be restored regardless.
@@ -9382,7 +9382,7 @@ static void vmx_eoi_bitmap_ioapic_scan_test(void)
 	/*
 	 * Launch L2.
 	 * We expect the exit reason to be VMX_VMCALL (and not EOI INDUCED).
-	 * In case the reason isn't VMX_VMCALL, the asserion inside
+	 * In case the reason isn't VMX_VMCALL, the assertion inside
 	 * skip_exit_vmcall() will fail.
 	 */
 	enter_guest();
@@ -9698,7 +9698,7 @@ static void vmx_init_signal_test(void)
 	init_signal_test_exit_reason = -1ull;
 	vmx_set_test_stage(4);
 	/*
-	 * Wait reasonable amont of time for other CPU
+	 * Wait reasonable amount of time for other CPU
 	 * to exit to VMX root mode
 	 */
 	delay(INIT_SIGNAL_TEST_DELAY);

@@ -563,7 +563,7 @@ static void check_tsx_cycles(void)
 		cnt.ctr = MSR_GP_COUNTERx(i);
 
 		if (i == 2) {
-			/* Transactional cycles commited only on gp counter 2 */
+			/* Transactional cycles committed only on gp counter 2 */
 			cnt.config = EVNTSEL_OS | EVNTSEL_USR | 0x30000003c;
 		} else {
 			/* Transactional cycles */

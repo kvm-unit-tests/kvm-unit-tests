@@ -395,7 +395,7 @@ static bool msr_intercept_finished(struct svm_test *test)
 		}
 
 		/*
-		 * Warn that #GP exception occured instead.
+		 * Warn that #GP exception occurred instead.
 		 * RCX holds the MSR index.
 		 */
 		printf("%s 0x%lx #GP exception\n",
@@ -2776,7 +2776,7 @@ static void svm_no_nm_test(void)
 
 	vmcb->save.cr0 = vmcb->save.cr0 & ~(X86_CR0_TS | X86_CR0_EM);
 	report(svm_vmrun() == SVM_EXIT_VMMCALL,
-	       "fnop with CR0.TS and CR0.EM unset no #NM excpetion");
+	       "fnop with CR0.TS and CR0.EM unset no #NM exception");
 }
 
 static u64 amd_get_lbr_rip(u32 msr)

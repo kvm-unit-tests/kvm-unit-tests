@@ -308,7 +308,7 @@ static void check_pebs_records(u64 bitmask, u64 pebs_data_cfg)
 			(pebs_rec->format_size & GENMASK_ULL(47, 0)) == pebs_data_cfg;
 		expected = pebs_idx_match && pebs_size_match && data_cfg_match;
 		report(expected,
-		       "PEBS record (written seq %d) is verified (inclduing size, counters and cfg).", count);
+		       "PEBS record (written seq %d) is verified (including size, counters and cfg).", count);
 		cur_record = cur_record + pebs_record_size;
 		count++;
 	} while (expected && (void *)cur_record < (void *)ds->pebs_index);
