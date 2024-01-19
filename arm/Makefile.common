@@ -42,6 +42,7 @@ cflatobjs += lib/alloc_page.o
 cflatobjs += lib/vmalloc.o
 cflatobjs += lib/alloc.o
 cflatobjs += lib/devicetree.o
+cflatobjs += lib/memregions.o
 cflatobjs += lib/migrate.o
 cflatobjs += lib/on-cpus.o
 cflatobjs += lib/pci.o
