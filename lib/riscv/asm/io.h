@@ -73,6 +73,9 @@ static inline u64 __raw_readq(const volatile void __iomem *addr)
 }
 #endif
 
+#define ioremap ioremap
+void __iomem *ioremap(phys_addr_t phys_addr, size_t size);
+
 #include <asm-generic/io.h>
 
 #endif /* _ASMRISCV_IO_H_ */

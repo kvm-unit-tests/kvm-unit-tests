@@ -14,6 +14,7 @@
 #include <memregions.h>
 #include <on-cpus.h>
 #include <asm/csr.h>
+#include <asm/mmu.h>
 #include <asm/page.h>
 #include <asm/processor.h>
 #include <asm/setup.h>
@@ -170,6 +171,8 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 		memcpy(env, initrd, initrd_size);
 		setup_env(env, initrd_size);
 	}
+
+	setup_mmu();
 
 	banner();
 }
