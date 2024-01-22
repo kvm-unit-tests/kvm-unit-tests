@@ -9,10 +9,12 @@
 #include <alloc_page.h>
 #include <alloc_phys.h>
 #include <argv.h>
+#include <auxinfo.h>
 #include <cpumask.h>
 #include <devicetree.h>
 #include <memregions.h>
 #include <on-cpus.h>
+#include <vmalloc.h>
 #include <asm/csr.h>
 #include <asm/mmu.h>
 #include <asm/page.h>
@@ -20,6 +22,11 @@
 #include <asm/setup.h>
 
 #define VA_BASE			((phys_addr_t)3 * SZ_1G)
+#if __riscv_xlen == 64
+#define VA_TOP			((phys_addr_t)4 * SZ_1G)
+#else
+#define VA_TOP			((phys_addr_t)0)
+#endif
 
 #define MAX_DT_MEM_REGIONS	16
 #define NR_MEM_REGIONS		(MAX_DT_MEM_REGIONS + 16)
@@ -106,6 +113,8 @@ static void mem_init(phys_addr_t freemem_start)
 		freemem_end = VA_BASE;
 	assert(freemem_end - freemem_start >= SZ_1M * 16);
 
+	init_alloc_vpage(__va(VA_TOP));
+
 	/*
 	 * TODO: Remove the need for this phys allocator dance, since, as we
 	 * can see with the assert, we could have gone straight to the page
@@ -137,7 +146,7 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 	int ret;
 
 	assert(sizeof(long) == 8 || freemem_start < VA_BASE);
-	freemem = (void *)(unsigned long)freemem_start;
+	freemem = __va(freemem_start);
 
 	/* Move the FDT to the base of free memory */
 	fdt_size = fdt_totalsize(fdt);
@@ -156,7 +165,7 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 		freemem += initrd_size;
 	}
 
-	mem_init(PAGE_ALIGN((unsigned long)freemem));
+	mem_init(PAGE_ALIGN(__pa(freemem)));
 	cpu_init();
 	thread_info_init();
 	io_init();
@@ -172,7 +181,8 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 		setup_env(env, initrd_size);
 	}
 
-	setup_mmu();
+	if (!(auxinfo.flags & AUXINFO_MMU_OFF))
+		setup_vm();
 
 	banner();
 }

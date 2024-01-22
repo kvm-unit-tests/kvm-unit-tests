@@ -5,6 +5,7 @@
 #include <libcflat.h>
 #include <alloc_page.h>
 #include <memregions.h>
+#include <vmalloc.h>
 #include <asm/csr.h>
 #include <asm/io.h>
 #include <asm/mmu.h>
@@ -64,6 +65,15 @@ static pteval_t *__install_page(pgd_t *pgtable, phys_addr_t paddr,
 	return (pteval_t *)ptep;
 }
 
+pteval_t *install_page(pgd_t *pgtable, phys_addr_t phys, void *virt)
+{
+	phys_addr_t paddr = phys & PAGE_MASK;
+	uintptr_t vaddr = (uintptr_t)virt & PAGE_MASK;
+
+	return __install_page(pgtable, paddr, vaddr,
+			      __pgprot(_PAGE_READ | _PAGE_WRITE), true);
+}
+
 void mmu_set_range_ptes(pgd_t *pgtable, uintptr_t virt_offset,
 			phys_addr_t phys_start, phys_addr_t phys_end,
 			pgprot_t prot, bool flush)
@@ -103,7 +113,7 @@ void mmu_enable(unsigned long mode, pgd_t *pgtable)
 	__mmu_enable(satp);
 }
 
-void setup_mmu(void)
+void *setup_mmu(phys_addr_t top, void *opaque)
 {
 	struct mem_region *r;
 	pgd_t *pgtable;
@@ -125,6 +135,8 @@ void setup_mmu(void)
 	}
 
 	mmu_enable(SATP_MODE_DEFAULT, pgtable);
+
+	return pgtable;
 }
 
 void __iomem *ioremap(phys_addr_t phys_addr, size_t size)
@@ -147,4 +159,47 @@ void __iomem *ioremap(phys_addr_t phys_addr, size_t size)
 			   __pgprot(_PAGE_READ | _PAGE_WRITE), flush);
 
 	return (void __iomem *)(unsigned long)phys_addr;
+}
+
+phys_addr_t virt_to_pte_phys(pgd_t *pgtable, void *virt)
+{
+	uintptr_t vaddr = (uintptr_t)virt;
+	pte_t *ptep = (pte_t *)pgtable;
+
+	assert(pgtable && !((uintptr_t)pgtable & ~PAGE_MASK));
+
+	for (int level = NR_LEVELS - 1; level > 0; --level) {
+		pte_t *next = &ptep[pte_index(vaddr, level)];
+		if (!pte_val(*next))
+			return 0;
+		ptep = pteval_to_ptep(pte_val(*next));
+	}
+	ptep = &ptep[pte_index(vaddr, 0)];
+
+	if (!pte_val(*ptep))
+		return 0;
+
+	return __pa(pteval_to_ptep(pte_val(*ptep)));
+}
+
+unsigned long virt_to_phys(volatile void *address)
+{
+	unsigned long satp = csr_read(CSR_SATP);
+	pgd_t *pgtable = (pgd_t *)((satp & SATP_PPN) << PAGE_SHIFT);
+	phys_addr_t paddr;
+
+	if ((satp >> SATP_MODE_SHIFT) == 0)
+		return __pa(address);
+
+	paddr = virt_to_pte_phys(pgtable, (void *)address);
+	assert(sizeof(long) == 8 || !(paddr >> 32));
+
+	return (unsigned long)paddr;
+}
+
+void *phys_to_virt(unsigned long address)
+{
+	/* @address must have an identity mapping for this to work. */
+	assert(virt_to_phys(__va(address)) == address);
+	return __va(address);
 }

@@ -13,7 +13,7 @@ endif
 tests =
 tests += $(TEST_DIR)/sbi.$(exe)
 tests += $(TEST_DIR)/selftest.$(exe)
-#tests += $(TEST_DIR)/sieve.$(exe)
+tests += $(TEST_DIR)/sieve.$(exe)
 
 all: $(tests)
 
@@ -27,6 +27,7 @@ cflatobjs += lib/alloc_phys.o
 cflatobjs += lib/devicetree.o
 cflatobjs += lib/memregions.o
 cflatobjs += lib/on-cpus.o
+cflatobjs += lib/vmalloc.o
 cflatobjs += lib/riscv/bitops.o
 cflatobjs += lib/riscv/io.o
 cflatobjs += lib/riscv/mmu.o

@@ -18,8 +18,6 @@ void __mmu_enable(unsigned long satp);
 void mmu_enable(unsigned long mode, pgd_t *pgtable);
 void mmu_disable(void);
 
-void setup_mmu(void);
-
 static inline void local_flush_tlb_page(unsigned long addr)
 {
 	asm volatile("sfence.vma %0" : : "r" (addr) : "memory");
