@@ -15,6 +15,7 @@ static inline int smp_processor_id(void)
 typedef void (*secondary_func_t)(void);
 
 struct secondary_data {
+	unsigned long satp;
 	unsigned long stvec;
 	secondary_func_t func;
 } __attribute__((aligned(16)));

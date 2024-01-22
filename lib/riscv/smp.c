@@ -5,9 +5,10 @@
  * Copyright (C) 2023, Ventana Micro Systems Inc., Andrew Jones <ajones@ventanamicro.com>
  */
 #include <libcflat.h>
-#include <alloc.h>
+#include <alloc_page.h>
 #include <cpumask.h>
 #include <asm/csr.h>
+#include <asm/mmu.h>
 #include <asm/page.h>
 #include <asm/processor.h>
 #include <asm/sbi.h>
@@ -23,6 +24,7 @@ secondary_func_t secondary_cinit(struct secondary_data *data)
 {
 	struct thread_info *info;
 
+	__mmu_enable(data->satp);
 	thread_info_init();
 	info = current_thread_info();
 	set_cpu_online(info->cpu, true);
@@ -33,10 +35,11 @@ secondary_func_t secondary_cinit(struct secondary_data *data)
 
 static void __smp_boot_secondary(int cpu, secondary_func_t func)
 {
-	struct secondary_data *sp = memalign(16, SZ_8K) + SZ_8K - 16;
+	struct secondary_data *sp = alloc_pages(1) + SZ_8K - 16;
 	struct sbiret ret;
 
 	sp -= sizeof(struct secondary_data);
+	sp->satp = csr_read(CSR_SATP);
 	sp->stvec = csr_read(CSR_STVEC);
 	sp->func = func;
 
