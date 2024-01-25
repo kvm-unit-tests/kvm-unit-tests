@@ -70,14 +70,14 @@ eabiobjs = lib/arm/eabi_compat.o
 FLATLIBS = $(libcflat) $(LIBFDT_archive) $(libeabi)
 
 ifeq ($(CONFIG_EFI),y)
+%.aux.o: $(SRCDIR)/lib/auxinfo.c
+	$(CC) $(CFLAGS) -c -o $@ $^ \
+		-DPROGNAME=\"$(@:.aux.o=.efi)\" -DAUXFLAGS=$(AUXFLAGS)
+
 %.so: EFI_LDFLAGS += -defsym=EFI_SUBSYSTEM=0xa --no-undefined
-%.so: %.o $(FLATLIBS) $(SRCDIR)/arm/efi/elf_aarch64_efi.lds $(cstart.o)
-	$(CC) $(CFLAGS) -c -o $(@:.so=.aux.o) $(SRCDIR)/lib/auxinfo.c \
-		-DPROGNAME=\"$(@:.so=.efi)\" -DAUXFLAGS=$(AUXFLAGS)
+%.so: %.o $(FLATLIBS) $(SRCDIR)/arm/efi/elf_aarch64_efi.lds $(cstart.o) %.aux.o
 	$(LD) $(EFI_LDFLAGS) -o $@ -T $(SRCDIR)/arm/efi/elf_aarch64_efi.lds \
-		$(filter %.o, $^) $(FLATLIBS) $(@:.so=.aux.o) \
-		$(EFI_LIBS)
-	$(RM) $(@:.so=.aux.o)
+		$(filter %.o, $^) $(FLATLIBS) $(EFI_LIBS)
 
 %.efi: %.so
 	$(call arch_elf_check, $^)
@@ -90,13 +90,14 @@ ifeq ($(CONFIG_EFI),y)
 		-j .reloc \
 		-O binary $^ $@
 else
+%.aux.o: $(SRCDIR)/lib/auxinfo.c
+	$(CC) $(CFLAGS) -c -o $@ $^ \
+		-DPROGNAME=\"$(@:.aux.o=.flat)\" -DAUXFLAGS=$(AUXFLAGS)
+
 %.elf: LDFLAGS += $(arch_LDFLAGS)
-%.elf: %.o $(FLATLIBS) $(SRCDIR)/arm/flat.lds $(cstart.o)
-	$(CC) $(CFLAGS) -c -o $(@:.elf=.aux.o) $(SRCDIR)/lib/auxinfo.c \
-		-DPROGNAME=\"$(@:.elf=.flat)\" -DAUXFLAGS=$(AUXFLAGS)
+%.elf: %.o $(FLATLIBS) $(SRCDIR)/arm/flat.lds $(cstart.o) %.aux.o
 	$(LD) $(LDFLAGS) -o $@ -T $(SRCDIR)/arm/flat.lds \
-		$(filter %.o, $^) $(FLATLIBS) $(@:.elf=.aux.o)
-	$(RM) $(@:.elf=.aux.o)
+		$(filter %.o, $^) $(FLATLIBS)
 	@chmod a-x $@
 
 %.flat: %.elf
