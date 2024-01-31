@@ -399,6 +399,7 @@ out:
 static void test_instbits(void)
 {
 	SCCBHeader *h = (SCCBHeader *)pagebuf;
+	uint64_t bogus_cc = 1;
 	int cc;
 
 	sclp_mark_busy();
@@ -406,10 +407,12 @@ static void test_instbits(void)
 	sclp_setup_int();
 
 	asm volatile(
+		"	tmll	%[bogus_cc],3\n"
 		"       .insn   rre,0xb2204200,%1,%2\n"  /* servc %1,%2 */
 		"       ipm     %0\n"
 		"       srl     %0,28"
-		: "=&d" (cc) : "d" (valid_code), "a" (__pa(pagebuf))
+		: "=&d" (cc)
+		: "d" (valid_code), "a" (__pa(pagebuf)), [bogus_cc] "d" (bogus_cc)
 		: "cc", "memory");
 	/* No exception, but also no command accepted, so no interrupt is
 	 * expected. We need to clear the flag manually otherwise we will
