@@ -216,14 +216,16 @@ struct uv_cb_ssc {
 
 static inline int uv_call_once(unsigned long r1, unsigned long r2)
 {
+	uint64_t bogus_cc = 1;
 	int cc;
 
 	asm volatile(
+		"	tmll    %[bogus_cc],3\n"
 		"0:	.insn rrf,0xB9A40000,%[r1],%[r2],0,0\n"
 		"		ipm	%[cc]\n"
 		"		srl	%[cc],28\n"
 		: [cc] "=d" (cc)
-		: [r1] "a" (r1), [r2] "a" (r2)
+		: [r1] "a" (r1), [r2] "a" (r2), [bogus_cc] "d" (bogus_cc)
 		: "memory", "cc");
 
 	if (UVC_ERR_DEBUG && cc == 1)
