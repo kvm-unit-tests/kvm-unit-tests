@@ -49,13 +49,17 @@ static inline int sigp(uint16_t addr, uint8_t order, unsigned long parm,
 		       uint32_t *status)
 {
 	register unsigned long reg1 asm ("1") = parm;
+	uint64_t bogus_cc = SIGP_CC_NOT_OPERATIONAL;
 	int cc;
 
 	asm volatile(
+		"	tmll	%[bogus_cc],3\n"
 		"	sigp	%1,%2,0(%3)\n"
 		"	ipm	%0\n"
 		"	srl	%0,28\n"
-		: "=d" (cc), "+d" (reg1) : "d" (addr), "a" (order) : "cc");
+		: "=d" (cc), "+d" (reg1)
+		: "d" (addr), "a" (order), [bogus_cc] "d" (bogus_cc)
+		: "cc");
 	if (status)
 		*status = reg1;
 	return cc;
