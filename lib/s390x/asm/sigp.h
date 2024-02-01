@@ -54,11 +54,11 @@ static inline int sigp(uint16_t addr, uint8_t order, unsigned long parm,
 
 	asm volatile(
 		"	tmll	%[bogus_cc],3\n"
-		"	sigp	%1,%2,0(%3)\n"
-		"	ipm	%0\n"
-		"	srl	%0,28\n"
-		: "=d" (cc), "+d" (reg1)
-		: "d" (addr), "a" (order), [bogus_cc] "d" (bogus_cc)
+		"	sigp	%[reg1],%[addr],0(%[order])\n"
+		"	ipm	%[cc]\n"
+		"	srl	%[cc],28\n"
+		: [cc] "=d" (cc), [reg1] "+d" (reg1)
+		: [addr] "d" (addr), [order] "a" (order), [bogus_cc] "d" (bogus_cc)
 		: "cc");
 	if (status)
 		*status = reg1;
