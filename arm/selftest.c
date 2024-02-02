@@ -8,6 +8,7 @@
 #include <libcflat.h>
 #include <util.h>
 #include <devicetree.h>
+#include <memregions.h>
 #include <vmalloc.h>
 #include <asm/setup.h>
 #include <asm/ptrace.h>
@@ -90,7 +91,7 @@ static bool check_pabt_init(void)
 			highest_end = PAGE_ALIGN(r->end);
 	}
 
-	if (mem_region_get_flags(highest_end) != MR_F_UNKNOWN)
+	if (memregions_get_flags(highest_end) != MR_F_UNKNOWN)
 		return false;
 
 	vaddr = (unsigned long)vmap(highest_end, PAGE_SIZE);

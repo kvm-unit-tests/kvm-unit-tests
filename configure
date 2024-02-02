@@ -198,6 +198,12 @@ fi
 arch_name=$arch
 [ "$arch" = "aarch64" ] && arch="arm64"
 [ "$arch_name" = "arm64" ] && arch_name="aarch64"
+arch_libdir=$arch
+
+if [ "$arch" = "riscv" ]; then
+    echo "riscv32 or riscv64 must be specified"
+    exit 1
+fi
 
 if [ -z "$target" ]; then
     target="qemu"
@@ -306,6 +312,9 @@ elif [ "$arch" = "ppc64" ]; then
         echo "You must provide endianness (big or little)!"
         usage
     fi
+elif [ "$arch" = "riscv32" ] || [ "$arch" = "riscv64" ]; then
+    testdir=riscv
+    arch_libdir=riscv
 else
     testdir=$arch
 fi
@@ -391,6 +400,7 @@ PREFIX=$prefix
 HOST=$host
 ARCH=$arch
 ARCH_NAME=$arch_name
+ARCH_LIBDIR=$arch_libdir
 PROCESSOR=$processor
 CC=$cross_prefix$cc
 CFLAGS=$cflags
@@ -435,6 +445,12 @@ cat <<EOF >> lib/config.h
 #define CONFIG_UART_EARLY_BASE ${arm_uart_early_addr}
 #define CONFIG_ERRATA_FORCE ${errata_force}
 #define CONFIG_PAGE_SIZE _AC(${page_size}, UL)
+
+EOF
+elif [ "$arch" = "riscv32" ] || [ "$arch" = "riscv64" ]; then
+cat <<EOF >> lib/config.h
+
+#define CONFIG_UART_EARLY_BASE 0x10000000
 
 EOF
 fi

@@ -47,7 +47,7 @@
 #define SPI(irq)			((irq) + GIC_FIRST_SPI)
 
 #ifndef __ASSEMBLY__
-#include <asm/cpumask.h>
+#include <cpumask.h>
 
 enum gic_irq_state {
 	GIC_IRQ_STATE_INACTIVE,

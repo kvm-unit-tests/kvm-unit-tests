@@ -1,12 +1,11 @@
-#ifndef _ASMARM_CPUMASK_H_
-#define _ASMARM_CPUMASK_H_
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Simple cpumask implementation
  *
  * Copyright (C) 2015, Red Hat Inc, Andrew Jones <drjones@redhat.com>
- *
- * This work is licensed under the terms of the GNU LGPL, version 2.
  */
+#ifndef _CPUMASK_H_
+#define _CPUMASK_H_
 #include <asm/setup.h>
 #include <bitops.h>
 
@@ -120,4 +119,37 @@ static inline int cpumask_next(int cpu, const cpumask_t *mask)
 			(cpu) < nr_cpus; 			\
 			(cpu) = cpumask_next(cpu, mask))
 
-#endif /* _ASMARM_CPUMASK_H_ */
+extern cpumask_t cpu_present_mask;
+extern cpumask_t cpu_online_mask;
+extern cpumask_t cpu_idle_mask;
+#define cpu_present(cpu)		cpumask_test_cpu(cpu, &cpu_present_mask)
+#define cpu_online(cpu)			cpumask_test_cpu(cpu, &cpu_online_mask)
+#define cpu_idle(cpu)			cpumask_test_cpu(cpu, &cpu_idle_mask)
+#define for_each_present_cpu(cpu)	for_each_cpu(cpu, &cpu_present_mask)
+#define for_each_online_cpu(cpu)	for_each_cpu(cpu, &cpu_online_mask)
+
+static inline void set_cpu_present(int cpu, bool present)
+{
+	if (present)
+		cpumask_set_cpu(cpu, &cpu_present_mask);
+	else
+		cpumask_clear_cpu(cpu, &cpu_present_mask);
+}
+
+static inline void set_cpu_online(int cpu, bool online)
+{
+	if (online)
+		cpumask_set_cpu(cpu, &cpu_online_mask);
+	else
+		cpumask_clear_cpu(cpu, &cpu_online_mask);
+}
+
+static inline void set_cpu_idle(int cpu, bool idle)
+{
+	if (idle)
+		cpumask_set_cpu(cpu, &cpu_idle_mask);
+	else
+		cpumask_clear_cpu(cpu, &cpu_idle_mask);
+}
+
+#endif /* _CPUMASK_H_ */

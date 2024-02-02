@@ -6,6 +6,27 @@ extern int64_t __moddi3(int64_t num, int64_t den);
 extern int64_t __divdi3(int64_t num, int64_t den);
 extern uint64_t __udivdi3(uint64_t num, uint64_t den);
 extern uint64_t __umoddi3(uint64_t num, uint64_t den);
+#if __riscv
+extern int __clzsi2(uint32_t num);
+extern int __clzdi2(uint64_t num);
+
+int __clzsi2(uint32_t num)
+{
+	int n = 0;
+
+	while (num) {
+		++n;
+		num >>= 1;
+	}
+
+	return 32 - n;
+}
+
+int __clzdi2(uint64_t num)
+{
+	return num >> 32 ? __clzsi2(num >> 32) : __clzsi2(num) + 32;
+}
+#endif
 
 uint64_t __udivmoddi4(uint64_t num, uint64_t den, uint64_t *p_rem)
 {
