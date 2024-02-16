@@ -28,6 +28,7 @@ static struct spinlock uart_lock;
  */
 #define UART_EARLY_BASE (u8 *)(unsigned long)CONFIG_UART_EARLY_BASE
 static volatile u8 *uart0_base = UART_EARLY_BASE;
+bool is_pl011_uart;
 
 static void uart0_init_fdt(void)
 {
@@ -59,7 +60,10 @@ static void uart0_init_fdt(void)
 			abort();
 		}
 
+		is_pl011_uart = (i == 0);
 	} else {
+		is_pl011_uart = !fdt_node_check_compatible(dt_fdt(), ret,
+		                                           "arm,pl011");
 		ret = dt_pbus_translate_node(ret, 0, &base);
 		assert(ret == 0);
 	}
@@ -111,31 +115,21 @@ void puts(const char *s)
 	spin_unlock(&uart_lock);
 }
 
-static int do_getchar(void)
-{
-	int c;
-
-	spin_lock(&uart_lock);
-	c = readb(uart0_base);
-	spin_unlock(&uart_lock);
-
-	return c ?: -1;
-}
-
-/*
- * Minimalist implementation for migration completion detection.
- * Without FIFOs enabled on the QEMU UART device we just read
- * the data register: we cannot read more than 16 characters.
- */
 int __getchar(void)
 {
-	int c = do_getchar();
-	static int count;
+	int c = -1;
 
-	if (c != -1)
-		++count;
+	spin_lock(&uart_lock);
 
-	assert(count < 16);
+	if (is_pl011_uart) {
+		if (!(readb(uart0_base + 6 * 4) & 0x10))  /* RX not empty? */
+			c = readb(uart0_base);
+	} else {
+		if (readb(uart0_base + 5) & 0x01)         /* RX data ready? */
+			c = readb(uart0_base);
+	}
+
+	spin_unlock(&uart_lock);
 
 	return c;
 }
