@@ -9,6 +9,7 @@
  */
 #include <libcflat.h>
 #include <asm-generic/page.h>
+#include <asm/mem.h>
 #include "sie-dat.h"
 
 static uint8_t test_pages[GUEST_TEST_PAGE_COUNT * PAGE_SIZE] __attribute__((__aligned__(PAGE_SIZE)));
@@ -47,7 +48,7 @@ int main(void)
 	force_exit();
 
 	/* the first unmapped address */
-	invalid_ptr = (uint8_t *)(GUEST_TOTAL_PAGE_COUNT * PAGE_SIZE);
+	invalid_ptr = OPAQUE_PTR(GUEST_TOTAL_PAGE_COUNT * PAGE_SIZE);
 	*invalid_ptr = 42;
 
 	/* indicate we've written the non-allowed page (should never get here) */
