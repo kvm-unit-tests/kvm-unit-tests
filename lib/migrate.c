@@ -19,6 +19,17 @@ void migrate(void)
 }
 
 /*
+ * Like migrate() but suppress output and logs, useful for intensive
+ * migration stress testing without polluting logs. Test cases should
+ * provide relevant information about migration in failure reports.
+ */
+void migrate_quiet(void)
+{
+	puts("Now migrate the VM (quiet)\n");
+	(void)getchar();
+}
+
+/*
  * Initiate migration and wait for it to complete.
  * If this function is called more than once, it is a no-op.
  */
