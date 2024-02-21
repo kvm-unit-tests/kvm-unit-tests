@@ -1,1 +1,1 @@
-../x86/sieve.c
+../common/sieve.c
