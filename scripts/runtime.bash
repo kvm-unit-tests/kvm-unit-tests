@@ -149,7 +149,7 @@ function run()
         fi
 
         if [ ${skip} == true ]; then
-            print_result "SKIP" $testname "" "$last_line"
+            print_result "SKIP" $testname "" "$(tail -1 <<<"$log")"
             return 77
         fi
     }
