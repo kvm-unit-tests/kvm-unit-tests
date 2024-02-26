@@ -23,6 +23,7 @@
 #include <util.h>
 #include <migrate.h>
 #include <alloc.h>
+#include <asm/ppc_asm.h>
 #include <asm/handlers.h>
 #include <asm/hcall.h>
 #include <asm/processor.h>
@@ -120,25 +121,23 @@ static void set_sprs_book3s_31(uint64_t val)
 
 static void set_sprs(uint64_t val)
 {
-	uint32_t pvr = mfspr(287);	/* Processor Version Register */
-
 	set_sprs_common(val);
 
-	switch (pvr >> 16) {
-	case 0x39:			/* PPC970 */
-	case 0x3C:			/* PPC970FX */
-	case 0x44:			/* PPC970MP */
+	switch (mfspr(SPR_PVR) & PVR_VERSION_MASK) {
+	case PVR_VER_970:
+	case PVR_VER_970FX:
+	case PVR_VER_970MP:
 		set_sprs_book3s_201(val);
 		break;
-	case 0x4b:			/* POWER8E */
-	case 0x4c:			/* POWER8NVL */
-	case 0x4d:			/* POWER8 */
+	case PVR_VER_POWER8E:
+	case PVR_VER_POWER8NVL:
+	case PVR_VER_POWER8:
 		set_sprs_book3s_207(val);
 		break;
-	case 0x4e:			/* POWER9 */
+	case PVR_VER_POWER9:
 		set_sprs_book3s_300(val);
 		break;
-	case 0x80:                      /* POWER10 */
+	case PVR_VER_POWER10:
 		set_sprs_book3s_31(val);
 		break;
 	default:

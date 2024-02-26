@@ -3,17 +3,12 @@
 
 #include <libcflat.h>
 #include <asm/ptrace.h>
+#include <asm/reg.h>
 
 #ifndef __ASSEMBLY__
 void handle_exception(int trap, void (*func)(struct pt_regs *, void *), void *);
 void do_handle_exception(struct pt_regs *regs);
 #endif /* __ASSEMBLY__ */
-
-#define SPR_TB		0x10c
-#define SPR_SPRG0	0x110
-#define SPR_SPRG1	0x111
-#define SPR_SPRG2	0x112
-#define SPR_SPRG3	0x113
 
 static inline uint64_t mfspr(int nr)
 {

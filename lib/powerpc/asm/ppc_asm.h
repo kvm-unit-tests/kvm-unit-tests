@@ -2,6 +2,7 @@
 #define _ASMPOWERPC_PPC_ASM_H
 
 #include <asm/asm-offsets.h>
+#include <asm/reg.h>
 
 #define SAVE_GPR(n, base)	std	n,GPR0+8*(n)(base)
 #define REST_GPR(n, base)	ld	n,GPR0+8*(n)(base)
@@ -34,12 +35,5 @@
 	.long 0x00000048; /* b .             */ \
 
 #endif /* __BYTE_ORDER__ */
-
-#define SPR_HSRR0	0x13A
-#define SPR_HSRR1	0x13B
-
-/* Machine State Register definitions: */
-#define MSR_EE_BIT	15			/* External Interrupts Enable */
-#define MSR_SF_BIT	63			/* 64-bit mode */
 
 #endif /* _ASMPOWERPC_PPC_ASM_H */

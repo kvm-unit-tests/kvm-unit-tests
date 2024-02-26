@@ -3,6 +3,7 @@
 
 #include <libcflat.h>
 #include <asm/processor.h>
+#include <asm/reg.h>
 
 static inline uint64_t get_tb(void)
 {
