@@ -43,25 +43,4 @@ static inline void mtmsr(uint64_t msr)
 	asm volatile ("mtmsrd %[msr]" :: [msr] "r" (msr) : "memory");
 }
 
-static inline uint64_t get_tb(void)
-{
-	return mfspr(SPR_TB);
-}
-
-extern void delay(uint64_t cycles);
-extern void udelay(uint64_t us);
-extern void sleep_tb(uint64_t cycles);
-extern void usleep(uint64_t us);
-
-static inline void mdelay(uint64_t ms)
-{
-	while (ms--)
-		udelay(1000);
-}
-
-static inline void msleep(uint64_t ms)
-{
-	usleep(ms * 1000);
-}
-
 #endif /* _ASMPOWERPC_PROCESSOR_H_ */

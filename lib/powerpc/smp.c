@@ -7,6 +7,7 @@
  */
 
 #include <devicetree.h>
+#include <asm/time.h>
 #include <asm/setup.h>
 #include <asm/rtas.h>
 #include <asm/smp.h>

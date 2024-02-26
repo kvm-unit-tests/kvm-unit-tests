@@ -10,6 +10,7 @@
 #include <util.h>
 #include <alloc.h>
 #include <asm/processor.h>
+#include <asm/time.h>
 #include <asm/setup.h>
 #include <asm/hcall.h>
 #include <asm/vpa.h>

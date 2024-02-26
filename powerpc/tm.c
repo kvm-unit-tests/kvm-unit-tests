@@ -8,6 +8,7 @@
 #include <libcflat.h>
 #include <asm/hcall.h>
 #include <asm/processor.h>
+#include <asm/time.h>
 #include <asm/handlers.h>
 #include <asm/smp.h>
 #include <asm/setup.h>

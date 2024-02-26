@@ -7,6 +7,7 @@
 
 #include <libcflat.h>
 #include <asm/processor.h>
+#include <asm/time.h>
 #include <asm/ptrace.h>
 #include <asm/setup.h>
 #include <asm/barrier.h>
@@ -52,6 +53,16 @@ void do_handle_exception(struct pt_regs *regs)
 
 	printf("unhandled cpu exception %#lx at NIA:0x%016lx MSR:0x%016lx\n", regs->trap, regs->nip, regs->msr);
 	abort();
+}
+
+uint64_t get_clock_us(void)
+{
+	return get_tb() * 1000000 / tb_hz;
+}
+
+uint64_t get_clock_ms(void)
+{
+	return get_tb() * 1000 / tb_hz;
 }
 
 void delay(uint64_t cycles)

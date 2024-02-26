@@ -26,6 +26,7 @@
 #include <asm/handlers.h>
 #include <asm/hcall.h>
 #include <asm/processor.h>
+#include <asm/time.h>
 #include <asm/barrier.h>
 
 uint64_t before[1024], after[1024];
