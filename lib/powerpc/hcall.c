@@ -43,5 +43,5 @@ int __getchar(void)
 	asm volatile (" sc 1 "  : "+r"(r3), "+r"(r4), "=r"(r5)
 				: "r"(r3),  "r"(r4));
 
-	return r3 == H_SUCCESS && r4 > 0 ? r5 >> 48 : -1;
+	return r3 == H_SUCCESS && r4 > 0 ? r5 >> 56 : -1;
 }
