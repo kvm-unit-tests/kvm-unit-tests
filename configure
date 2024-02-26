@@ -45,7 +45,8 @@ usage() {
 	Usage: $0 [options]
 
 	Options include:
-	    --arch=ARCH            architecture to compile for ($arch)
+	    --arch=ARCH            architecture to compile for ($arch). ARCH can be one of:
+	                           arm, arm64, i386, ppc64, riscv32, riscv64, s390x, x86_64
 	    --processor=PROCESSOR  processor to compile for ($arch)
 	    --target=TARGET        target platform that the tests will be running on (qemu or
 	                           kvmtool, default is qemu) (arm/arm64 only)
@@ -315,11 +316,15 @@ elif [ "$arch" = "ppc64" ]; then
 elif [ "$arch" = "riscv32" ] || [ "$arch" = "riscv64" ]; then
     testdir=riscv
     arch_libdir=riscv
+elif [ "$arch" = "s390x" ]; then
+    testdir=s390x
 else
-    testdir=$arch
+    echo "arch $arch is not supported!"
+    arch=
+    usage
 fi
 if [ ! -d "$srcdir/$testdir" ]; then
-    echo "$testdir does not exist!"
+    echo "$srcdir/$testdir does not exist!"
     exit 1
 fi
 
