@@ -79,7 +79,7 @@ run_qemu_status ()
 	exec {stdout}>&-
 
 	if [ $ret -eq 1 ]; then
-		testret=$(grep '^EXIT: ' <<<"$lines" | sed 's/.*STATUS=\([0-9][0-9]*\).*/\1/')
+		testret=$(grep '^EXIT: ' <<<"$lines" | head -n1 | sed 's/.*STATUS=\([0-9][0-9]*\).*/\1/')
 		if [ "$testret" ]; then
 			if [ $testret -eq 1 ]; then
 				ret=0
