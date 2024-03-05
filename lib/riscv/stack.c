@@ -2,11 +2,15 @@
 #include <libcflat.h>
 #include <stack.h>
 
-int backtrace_frame(const void *frame, const void **return_addrs, int max_depth)
+int arch_backtrace_frame(const void *frame, const void **return_addrs,
+			 int max_depth, bool current_frame)
 {
 	static bool walking;
 	const unsigned long *fp = (unsigned long *)frame;
 	int depth;
+
+	if (current_frame)
+		fp = __builtin_frame_address(0);
 
 	if (walking) {
 		printf("RECURSIVE STACK WALK!!!\n");
@@ -23,10 +27,4 @@ int backtrace_frame(const void *frame, const void **return_addrs, int max_depth)
 
 	walking = false;
 	return depth;
-}
-
-int backtrace(const void **return_addrs, int max_depth)
-{
-	return backtrace_frame(__builtin_frame_address(0),
-			       return_addrs, max_depth);
 }

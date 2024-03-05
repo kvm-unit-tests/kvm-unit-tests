@@ -11,17 +11,27 @@
 #include <asm/stack.h>
 
 #ifdef HAVE_ARCH_BACKTRACE_FRAME
-extern int backtrace_frame(const void *frame, const void **return_addrs,
-			   int max_depth);
+extern int arch_backtrace_frame(const void *frame, const void **return_addrs,
+				int max_depth, bool current_frame);
+
+static inline int backtrace_frame(const void *frame, const void **return_addrs,
+				  int max_depth)
+{
+	return arch_backtrace_frame(frame, return_addrs, max_depth, false);
+}
+
+static inline int backtrace(const void **return_addrs, int max_depth)
+{
+	return arch_backtrace_frame(NULL, return_addrs, max_depth, true);
+}
 #else
-static inline int
-backtrace_frame(const void *frame __unused, const void **return_addrs __unused,
-		int max_depth __unused)
+extern int backtrace(const void **return_addrs, int max_depth);
+
+static inline int backtrace_frame(const void *frame, const void **return_addrs,
+				  int max_depth)
 {
 	return 0;
 }
 #endif
-
-extern int backtrace(const void **return_addrs, int max_depth);
 
 #endif
