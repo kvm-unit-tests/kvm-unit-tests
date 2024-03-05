@@ -221,12 +221,8 @@ void *setup_mmu(phys_addr_t phys_end, void *unused)
 		mmu_idmap = alloc_page();
 
 	for (r = mem_regions; r->end; ++r) {
-		if (r->flags & MR_F_IO) {
+		if (r->flags & (MR_F_IO | MR_F_RESERVED)) {
 			continue;
-		} else if (r->flags & MR_F_RESERVED) {
-			/* Reserved pages need to be writable for whatever reserved them */
-			mmu_set_range_ptes(mmu_idmap, r->start, r->start, r->end,
-					   __pgprot(PTE_WBWA));
 		} else if (r->flags & MR_F_CODE) {
 			/* armv8 requires code shared between EL1 and EL0 to be read-only */
 			mmu_set_range_ptes(mmu_idmap, r->start, r->start, r->end,

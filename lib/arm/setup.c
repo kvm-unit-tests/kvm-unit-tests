@@ -309,8 +309,8 @@ static efi_status_t efi_mem_init(efi_bootinfo_t *efi_bootinfo)
 		data->flags &= ~MR_F_CODE;
 
 	for (struct mem_region *m = mem_regions; m->end; ++m) {
-		if (m != code && (m->flags & MR_F_CODE))
-			m->flags = MR_F_RESERVED;
+		if (m != code)
+			assert(!(m->flags & MR_F_CODE));
 
 		if (!(m->flags & MR_F_IO)) {
 			if (m->start < __phys_offset)
