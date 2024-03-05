@@ -164,7 +164,20 @@ _start:
 	bne		a0, zero, 0f
 	ld		a1, 8(sp)
 	ld		a0, 0(sp)
+
+	/* Switch to our own stack */
+	mv		a2, sp
+	la		sp, stacktop
+	mv		fp, zero
+	push_fp zero
+	addi		sp, sp, -16
+	sd		a2, 0(sp)
+
 	call		efi_main
+
+	/* Restore sp */
+	ld		sp, 0(sp)
+
 	ld		ra, 16(sp)
 0:	addi		sp, sp, 24
 	ret
@@ -172,6 +185,11 @@ _start:
 // hand-craft a dummy .reloc section so EFI knows it's a relocatable executable:
  
  	.data
+
+.balign 16384
+.space 16384
+stacktop:
+
 dummy:	.4byte	0
 
 #define IMAGE_REL_ABSOLUTE	0
