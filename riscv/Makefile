@@ -17,7 +17,8 @@ tests += $(TEST_DIR)/sieve.$(exe)
 
 all: $(tests)
 
-$(TEST_DIR)/sieve.elf: AUXFLAGS = 0x1
+# When built for EFI sieve needs extra memory, run with e.g. '-m 256' on QEMU
+$(TEST_DIR)/sieve.$(exe): AUXFLAGS = 0x1
 
 cstart.o = $(TEST_DIR)/cstart.o
 
@@ -85,7 +86,29 @@ include $(SRCDIR)/scripts/asm-offsets.mak
 		-DPROGNAME=\"$(notdir $(@:.aux.o=.$(exe)))\" -DAUXFLAGS=$(AUXFLAGS)
 
 ifeq ($(CONFIG_EFI),y)
-	# TODO
+# avoid jump tables before all relocations have been processed
+riscv/efi/reloc_riscv64.o: CFLAGS += -fno-jump-tables
+cflatobjs += riscv/efi/reloc_riscv64.o
+cflatobjs += lib/acpi.o
+cflatobjs += lib/efi.o
+
+.PRECIOUS: %.so
+
+%.so: EFI_LDFLAGS += -defsym=EFI_SUBSYSTEM=0xa --no-undefined
+%.so: %.o $(FLATLIBS) $(SRCDIR)/riscv/efi/elf_riscv64_efi.lds $(cstart.o) %.aux.o
+	$(LD) $(EFI_LDFLAGS) -o $@ -T $(SRCDIR)/riscv/efi/elf_riscv64_efi.lds \
+		$(filter %.o, $^) $(FLATLIBS) $(EFI_LIBS)
+
+%.efi: %.so
+	$(call arch_elf_check, $^)
+	$(OBJCOPY) --only-keep-debug $^ $@.debug
+	$(OBJCOPY) --strip-debug $^
+	$(OBJCOPY) --add-gnu-debuglink=$@.debug $^
+	$(OBJCOPY) \
+		-j .text -j .sdata -j .data -j .rodata -j .dynamic -j .dynsym \
+		-j .rel -j .rela -j .rel.* -j .rela.* -j .rel* -j .rela* \
+		-j .reloc \
+		-O binary $^ $@
 else
 %.elf: LDFLAGS += -pie -n -z notext
 %.elf: %.o $(FLATLIBS) $(SRCDIR)/riscv/flat.lds $(cstart.o) %.aux.o

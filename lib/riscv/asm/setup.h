@@ -12,4 +12,9 @@ int hartid_to_cpu(unsigned long hartid);
 void io_init(void);
 void setup(const void *fdt, phys_addr_t freemem_start);
 
+#ifdef CONFIG_EFI
+#include <efi.h>
+static inline efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo) { return 0; }
+#endif
+
 #endif /* _ASMRISCV_SETUP_H_ */
