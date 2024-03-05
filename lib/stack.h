@@ -34,4 +34,6 @@ static inline int backtrace_frame(const void *frame, const void **return_addrs,
 }
 #endif
 
+bool __attribute__((weak)) arch_base_address(const void *rebased_addr, unsigned long *addr);
+
 #endif
