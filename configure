@@ -95,7 +95,7 @@ usage() {
 	                           Select whether to run EFI tests directly with QEMU's -kernel
 	                           option. When not enabled, tests will be placed in an EFI file
 	                           system and run from the UEFI shell. Ignored when efi isn't enabled.
-	                           (arm64 only)
+	                           (arm64 and riscv64 only)
 EOF
     exit 1
 }
