@@ -295,58 +295,13 @@ static efi_status_t setup_rsdp(efi_bootinfo_t *efi_bootinfo)
 
 static efi_status_t efi_mem_init(efi_bootinfo_t *efi_bootinfo)
 {
-	int i;
-	unsigned long free_mem_pages = 0;
-	unsigned long free_mem_start = 0;
-	struct efi_boot_memmap *map = &(efi_bootinfo->mem_map);
-	efi_memory_desc_t *buffer = *map->map;
-	efi_memory_desc_t *d = NULL;
-	struct mem_region r, *code, *data;
-	const void *fdt = efi_bootinfo->fdt;
+	struct mem_region *freemem_mr = NULL, *code, *data;
+	phys_addr_t freemem_start;
+	void *freemem;
 
-	/*
-	 * Record the largest free EFI_CONVENTIONAL_MEMORY region
-	 * which will be used to set up the memory allocator, so that
-	 * the memory allocator can work in the largest free
-	 * continuous memory region.
-	 */
-	for (i = 0; i < *(map->map_size); i += *(map->desc_size)) {
-		d = (efi_memory_desc_t *)(&((u8 *)buffer)[i]);
-
-		r.start = d->phys_addr;
-		r.end = d->phys_addr + d->num_pages * EFI_PAGE_SIZE;
-		r.flags = 0;
-
-		switch (d->type) {
-		case EFI_RESERVED_TYPE:
-		case EFI_LOADER_DATA:
-		case EFI_BOOT_SERVICES_CODE:
-		case EFI_BOOT_SERVICES_DATA:
-		case EFI_RUNTIME_SERVICES_CODE:
-		case EFI_RUNTIME_SERVICES_DATA:
-		case EFI_UNUSABLE_MEMORY:
-		case EFI_ACPI_RECLAIM_MEMORY:
-		case EFI_ACPI_MEMORY_NVS:
-		case EFI_PAL_CODE:
-			r.flags = MR_F_RESERVED;
-			break;
-		case EFI_MEMORY_MAPPED_IO:
-		case EFI_MEMORY_MAPPED_IO_PORT_SPACE:
-			r.flags = MR_F_IO;
-			break;
-		case EFI_LOADER_CODE:
-			r.flags = MR_F_CODE;
-			break;
-		case EFI_CONVENTIONAL_MEMORY:
-			if (free_mem_pages < d->num_pages) {
-				free_mem_pages = d->num_pages;
-				free_mem_start = d->phys_addr;
-			}
-			break;
-		}
-
-		memregions_add(&r);
-	}
+	memregions_efi_init(&efi_bootinfo->mem_map, &freemem_mr);
+	if (!freemem_mr)
+		return EFI_OUT_OF_RESOURCES;
 
 	memregions_split((unsigned long)&_etext, &code, &data);
 	assert(code && (code->flags & MR_F_CODE));
@@ -366,24 +321,17 @@ static efi_status_t efi_mem_init(efi_bootinfo_t *efi_bootinfo)
 	}
 	__phys_end &= PHYS_MASK;
 
-	if (fdt) {
-		unsigned long old_start = free_mem_start;
-		void *freemem = (void *)free_mem_start;
+	freemem = (void *)PAGE_ALIGN(freemem_mr->start);
 
-		freemem_push_fdt(&freemem, fdt);
+	if (efi_bootinfo->fdt)
+		freemem_push_fdt(&freemem, efi_bootinfo->fdt);
 
-		free_mem_start = ALIGN((unsigned long)freemem, EFI_PAGE_SIZE);
-		free_mem_pages = (free_mem_start - old_start) >> EFI_PAGE_SHIFT;
-	}
+	freemem_start = PAGE_ALIGN((unsigned long)freemem);
+	assert(sizeof(long) == 8 || freemem_start < (3ul << 30));
 
 	asm_mmu_disable();
 
-	if (free_mem_pages == 0)
-		return EFI_OUT_OF_RESOURCES;
-
-	assert(sizeof(long) == 8 || free_mem_start < (3ul << 30));
-
-	mem_allocator_init(free_mem_start, free_mem_start + (free_mem_pages << EFI_PAGE_SHIFT));
+	mem_allocator_init(freemem_start, freemem_mr->end);
 
 	return EFI_SUCCESS;
 }
