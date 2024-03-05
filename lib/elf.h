@@ -65,4 +65,9 @@ typedef struct elf64_rela {
 /* The following are used with relocations */
 #define ELF64_R_TYPE(i)		((i) & 0xffffffff)
 
+/*
+ * riscv static relocation types.
+ */
+#define R_RISCV_RELATIVE	3
+
 #endif /* _ELF_H_ */

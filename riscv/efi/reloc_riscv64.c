@@ -44,7 +44,8 @@
 #define Elf_Rela	Elf64_Rela
 #define ELF_R_TYPE	ELF64_R_TYPE
 
-EFI_STATUS EFIAPI _relocate(long ldbase, Elf_Dyn *dyn)
+efi_status_t _relocate(long ldbase, Elf64_Dyn *dyn, efi_handle_t handle,
+		       efi_system_table_t *sys_tab)
 {
 	long relsz = 0, relent = 0;
 	Elf_Rela *rel = NULL;
