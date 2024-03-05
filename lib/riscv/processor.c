@@ -8,20 +8,20 @@
 #include <asm/processor.h>
 #include <asm/setup.h>
 
-extern unsigned long _text;
+extern unsigned long ImageBase;
 
 void show_regs(struct pt_regs *regs)
 {
 	struct thread_info *info = current_thread_info();
-	uintptr_t text = (uintptr_t)&_text;
+	uintptr_t loadaddr = (uintptr_t)&ImageBase;
 	unsigned int w = __riscv_xlen / 4;
 
-	printf("Load address: %" PRIxPTR "\n", text);
+	printf("Load address: %" PRIxPTR "\n", loadaddr);
 	printf("CPU%3d : hartid=%lx\n", info->cpu, info->hartid);
 	printf("status : %.*lx\n", w, regs->status);
 	printf("cause  : %.*lx\n", w, regs->cause);
 	printf("badaddr: %.*lx\n", w, regs->badaddr);
-	printf("pc: %.*lx ra: %.*lx\n", w, regs->epc, w, regs->ra);
+	printf("pc: %.*lx (%lx) ra: %.*lx (%lx)\n", w, regs->epc, regs->epc - loadaddr, w, regs->ra, regs->ra - loadaddr);
 	printf("sp: %.*lx gp: %.*lx tp : %.*lx\n", w, regs->sp, w, regs->gp, w, regs->tp);
 	printf("a0: %.*lx a1: %.*lx a2 : %.*lx a3 : %.*lx\n", w, regs->a0, w, regs->a1, w, regs->a2, w, regs->a3);
 	printf("a4: %.*lx a5: %.*lx a6 : %.*lx a7 : %.*lx\n", w, regs->a4, w, regs->a5, w, regs->a6, w, regs->a7);
