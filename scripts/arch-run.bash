@@ -237,12 +237,8 @@ do_migration ()
 	echo > ${dst_infifo}
 	rm ${dst_infifo}
 
-	# Ensure the incoming socket is removed, ready for next destination
-	if [ -S ${dst_incoming} ] ; then
-		echo "ERROR: Incoming migration socket not removed after migration." >& 2
-		qmp ${dst_qmp} '"quit"'> ${dst_qmpout} 2>/dev/null
-		return 2
-	fi
+	# Wait for the incoming socket being removed, ready for next destination
+	while [ -S ${dst_incoming} ] ; do sleep 0.1 ; done
 
 	wait ${live_pid}
 	ret=$?
