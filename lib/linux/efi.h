@@ -70,6 +70,9 @@ typedef guid_t efi_guid_t;
 
 #define LOADED_IMAGE_PROTOCOL_GUID EFI_GUID(0x5b1b31a1, 0x9562, 0x11d2,  0x8e, 0x3f, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b)
 
+#define EFI_LOAD_FILE2_PROTOCOL_GUID EFI_GUID(0x4006c0c1, 0xfcb3, 0x403e,  0x99, 0x6d, 0x4a, 0x6c, 0x87, 0x24, 0xe0, 0x6d)
+#define LINUX_EFI_INITRD_MEDIA_GUID EFI_GUID(0x5568e427, 0x68fc, 0x4f3d,  0xac, 0x74, 0xca, 0x55, 0x52, 0x31, 0xcc, 0x68)
+
 typedef struct {
 	efi_guid_t guid;
 	void *table;
@@ -246,6 +249,12 @@ struct efi_generic_dev_path {
 	u8				type;
 	u8				sub_type;
 	u16				length;
+} __packed;
+
+struct efi_vendor_dev_path {
+	struct efi_generic_dev_path	header;
+	efi_guid_t			vendorguid;
+	u8				vendordata[];
 } __packed;
 
 typedef struct efi_generic_dev_path efi_device_path_protocol_t;
@@ -449,6 +458,19 @@ typedef struct _efi_simple_file_system_protocol efi_simple_file_system_protocol_
 typedef struct _efi_file_protocol efi_file_protocol_t;
 typedef efi_simple_file_system_protocol_t efi_file_io_interface_t;
 typedef efi_file_protocol_t efi_file_t;
+typedef union efi_load_file_protocol efi_load_file_protocol_t;
+typedef union efi_load_file_protocol efi_load_file2_protocol_t;
+
+union efi_load_file_protocol {
+	struct {
+		efi_status_t (__efiapi *load_file)(efi_load_file_protocol_t *,
+						   efi_device_path_protocol_t *,
+						   bool, unsigned long *, void *);
+	};
+	struct {
+		u32 load_file;
+	} mixed_mode;
+};
 
 typedef efi_status_t efi_simple_file_system_protocol_open_volume(
 	efi_simple_file_system_protocol_t *this,
@@ -544,7 +566,12 @@ typedef struct {
 	efi_char16_t	file_name[1];
 } efi_file_info_t;
 
+#define efi_fn_call(inst, func, ...) (inst)->func(__VA_ARGS__)
 #define efi_bs_call(func, ...) efi_system_table->boottime->func(__VA_ARGS__)
 #define efi_rs_call(func, ...) efi_system_table->runtime->func(__VA_ARGS__)
+#define efi_call_proto(inst, func, ...) ({				\
+		__typeof__(inst) __inst = (inst);			\
+		efi_fn_call(__inst, func, __inst, ##__VA_ARGS__);	\
+})
 
 #endif /* __LINUX_UEFI_H */
