@@ -213,3 +213,66 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 
 	banner();
 }
+
+#ifdef CONFIG_EFI
+#include <efi.h>
+
+extern unsigned long exception_vectors;
+extern unsigned long boot_hartid;
+
+static efi_status_t efi_mem_init(efi_bootinfo_t *efi_bootinfo)
+{
+	struct mem_region *freemem_mr = NULL, *code, *data;
+	void *freemem;
+
+	memregions_init(riscv_mem_regions, NR_MEM_REGIONS);
+
+	memregions_efi_init(&efi_bootinfo->mem_map, &freemem_mr);
+	if (!freemem_mr)
+		return EFI_OUT_OF_RESOURCES;
+
+	memregions_split((unsigned long)&_etext, &code, &data);
+	assert(code && (code->flags & MR_F_CODE));
+	if (data)
+		data->flags &= ~MR_F_CODE;
+
+	for (struct mem_region *m = mem_regions; m->end; ++m)
+		assert(m == code || !(m->flags & MR_F_CODE));
+
+	freemem = (void *)PAGE_ALIGN(freemem_mr->start);
+
+	if (efi_bootinfo->fdt)
+		freemem_push_fdt(&freemem, efi_bootinfo->fdt);
+
+	mmu_disable();
+	mem_allocator_init((unsigned long)freemem, freemem_mr->end);
+
+	return EFI_SUCCESS;
+}
+
+efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
+{
+	efi_status_t status;
+
+	csr_write(CSR_STVEC, (unsigned long)&exception_vectors);
+	csr_write(CSR_SSCRATCH, boot_hartid);
+
+	status = efi_mem_init(efi_bootinfo);
+	if (status != EFI_SUCCESS) {
+		printf("Failed to initialize memory\n");
+		return status;
+	}
+
+	cpu_init();
+	thread_info_init();
+	io_init();
+	initrd_setup();
+
+	if (!(auxinfo.flags & AUXINFO_MMU_OFF))
+		setup_vm();
+
+	banner();
+
+	return EFI_SUCCESS;
+}
+#endif /* CONFIG_EFI */

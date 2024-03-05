@@ -14,7 +14,7 @@ void setup(const void *fdt, phys_addr_t freemem_start);
 
 #ifdef CONFIG_EFI
 #include <efi.h>
-static inline efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo) { return 0; }
+efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo);
 #endif
 
 #endif /* _ASMRISCV_SETUP_H_ */
