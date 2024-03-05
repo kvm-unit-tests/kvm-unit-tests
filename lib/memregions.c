@@ -115,12 +115,6 @@ void memregions_efi_init(struct efi_boot_memmap *mem_map,
 		case EFI_LOADER_DATA:
 		case EFI_ACPI_RECLAIM_MEMORY:
 			break;
-		case EFI_BOOT_SERVICES_DATA:
-			/*
-			 * FIXME: This would ideally be MR_F_RESERVED, but the
-			 * primary stack is in a region of this EFI type.
-			 */
-			break;
 		case EFI_PERSISTENT_MEMORY:
 			r.flags = MR_F_PERSISTENT;
 			break;

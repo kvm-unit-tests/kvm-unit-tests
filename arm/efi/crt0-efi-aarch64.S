@@ -125,12 +125,18 @@ _start:
 
 	ldp		x0, x1, [sp, #16]
 
-	/* Align sp; this is necessary due to way we store cpu0's thread_info */
+	/*
+	 * Switch to our own stack and align sp; this is necessary due
+	 * to way we store cpu0's thread_info
+	 */
+	adrp		x2, stacktop
+	add		x2, x2, :lo12:stacktop
+	and		x2, x2, #THREAD_MASK
+	mov		x3, sp
+	mov		sp, x2
+	stp		xzr, xzr, [sp, #-16]!
 	mov		x29, sp
-	mov		x30, sp
-	and		x30, x30, #THREAD_MASK
-	mov		sp, x30
-	str		x29, [sp, #-16]!
+	str		x3, [sp, #-16]!
 
 	bl		efi_main
 
@@ -140,3 +146,9 @@ _start:
 
 0:	ldp		x29, x30, [sp], #32
 	ret
+
+	.section	.data
+
+.balign 65536
+.space 65536
+stacktop:

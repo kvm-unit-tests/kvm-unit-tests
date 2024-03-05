@@ -340,10 +340,6 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 {
 	efi_status_t status;
 
-	struct thread_info *ti = current_thread_info();
-
-	memset(ti, 0, sizeof(*ti));
-
 	exceptions_init();
 
 	memregions_init(arm_mem_regions, NR_MEM_REGIONS);
