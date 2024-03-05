@@ -43,7 +43,8 @@ void do_handle_exception(struct pt_regs *regs)
 	}
 
 	show_regs(regs);
-	assert(0);
+	dump_frame_stack((void *)regs->epc, (void *)regs->s0);
+	abort();
 }
 
 void install_exception_handler(unsigned long cause, void (*handler)(struct pt_regs *))
