@@ -6,13 +6,13 @@
  *
  * SPDX-License-Identifier: LGPL-2.0-or-later
  */
-
-#include "efi.h"
-#include <argv.h>
-#include <stdlib.h>
-#include <ctype.h>
 #include <libcflat.h>
+#include <argv.h>
+#include <ctype.h>
+#include <stdlib.h>
 #include <asm/setup.h>
+#include "efi.h"
+#include "libfdt/libfdt.h"
 
 /* From lib/argv.c */
 extern int __argc, __envc;
@@ -288,13 +288,18 @@ static void *efi_get_fdt(efi_handle_t handle, struct efi_loaded_image_64 *image)
 	efi_char16_t var[] = ENV_VARNAME_DTBFILE;
 	efi_char16_t *val;
 	void *fdt = NULL;
-	int fdtsize;
+	int fdtsize = 0;
 
 	val = efi_get_var(handle, image, var);
-	if (val)
+	if (val) {
 		efi_load_image(handle, image, &fdt, &fdtsize, val);
+		if (fdtsize == 0)
+			return NULL;
+	} else if (efi_get_system_config_table(DEVICE_TREE_GUID, &fdt) != EFI_SUCCESS) {
+		return NULL;
+	}
 
-	return fdt;
+	return fdt_check_header(fdt) == 0 ? fdt : NULL;
 }
 
 efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
