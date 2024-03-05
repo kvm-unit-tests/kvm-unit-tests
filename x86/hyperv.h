@@ -10,6 +10,8 @@
 #define HV_X64_MSR_SYNIC_AVAILABLE              (1 << 2)
 #define HV_X64_MSR_SYNTIMER_AVAILABLE           (1 << 3)
 
+#define HV_STIMER_DIRECT_MODE_AVAILABLE		(1 << 19)
+
 #define HV_X64_MSR_GUEST_OS_ID                  0x40000000
 #define HV_X64_MSR_HYPERCALL                    0x40000001
 
@@ -203,6 +205,11 @@ static inline bool hv_synic_supported(void)
 static inline bool hv_stimer_supported(void)
 {
     return cpuid(HYPERV_CPUID_FEATURES).a & HV_X64_MSR_SYNTIMER_AVAILABLE;
+}
+
+static inline bool stimer_direct_supported(void)
+{
+    return cpuid(HYPERV_CPUID_FEATURES).d & HV_STIMER_DIRECT_MODE_AVAILABLE;
 }
 
 static inline bool hv_time_ref_counter_supported(void)

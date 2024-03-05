@@ -16,6 +16,9 @@
 #define SINT1_VEC 0xF1
 #define SINT2_VEC 0xF2
 
+#define APIC_VEC1 0xF3
+#define APIC_VEC2 0xF4
+
 #define SINT1_NUM 2
 #define SINT2_NUM 3
 #define ONE_MS_IN_100NS 10000
@@ -25,6 +28,8 @@ static struct spinlock g_synic_alloc_lock;
 struct stimer {
     int sint;
     int index;
+    bool direct;
+    int apic_vec;
     atomic_t fire_count;
 };
 
@@ -81,8 +86,7 @@ static void stimer_shutdown(struct stimer *timer)
     wrmsr(HV_X64_MSR_STIMER0_CONFIG + 2*timer->index, 0);
 }
 
-static void process_stimer_expired(struct svcpu *svcpu, struct stimer *timer,
-                                   u64 expiration_time, u64 delivery_time)
+static void process_stimer_expired(struct stimer *timer)
 {
     atomic_inc(&timer->fire_count);
 }
@@ -119,8 +123,14 @@ static void process_stimer_msg(struct svcpu *svcpu,
         abort();
     }
     timer = &svcpu->timer[payload->timer_index];
-    process_stimer_expired(svcpu, timer, payload->expiration_time,
-                          payload->delivery_time);
+
+    if (timer->direct) {
+        report(false, "VMBus message in direct mode received");
+        report_summary();
+        abort();
+    }
+
+    process_stimer_expired(timer);
 
     msg->header.message_type = HVMSG_NONE;
     mb();
@@ -159,6 +169,32 @@ static void stimer_isr_auto_eoi(isr_regs_t *regs)
     __stimer_isr(vcpu);
 }
 
+static void __stimer_isr_direct(int vcpu, int timer_index)
+{
+    struct svcpu *svcpu = &g_synic_vcpu[vcpu];
+    struct stimer *timer = &svcpu->timer[timer_index];
+
+    process_stimer_expired(timer);
+}
+
+static void stimer_isr_direct1(isr_regs_t *regs)
+{
+    int vcpu = smp_id();
+
+    __stimer_isr_direct(vcpu, 0);
+
+    eoi();
+}
+
+static void stimer_isr_direct2(isr_regs_t *regs)
+{
+    int vcpu = smp_id();
+
+    __stimer_isr_direct(vcpu, 1);
+
+    eoi();
+}
+
 static void stimer_start(struct stimer *timer,
                          bool auto_enable, bool periodic,
                          u64 tick_100ns)
@@ -171,7 +207,12 @@ static void stimer_start(struct stimer *timer,
     config.periodic = periodic;
     config.enable = 1;
     config.auto_enable = auto_enable;
-    config.sintx = timer->sint;
+    if (!timer->direct) {
+        config.sintx = timer->sint;
+    } else {
+        config.direct_mode = 1;
+        config.apic_vector = timer->apic_vec;
+    }
 
     if (periodic) {
         count = tick_100ns;
@@ -229,6 +270,28 @@ static void stimer_test_prepare(void *ctx)
     timer2->sint = SINT2_NUM;
 }
 
+static void stimer_test_prepare_direct(void *ctx)
+{
+    int vcpu = smp_id();
+    struct svcpu *svcpu = &g_synic_vcpu[vcpu];
+    struct stimer *timer1, *timer2;
+
+    write_cr3((ulong)ctx);
+
+    timer1 = &svcpu->timer[0];
+    timer2 = &svcpu->timer[1];
+
+    stimer_init(timer1, 0);
+    stimer_init(timer2, 1);
+
+    timer1->apic_vec = APIC_VEC1;
+    timer2->apic_vec = APIC_VEC2;
+
+    timer1->direct = true;
+    timer2->direct = true;
+}
+
+
 static void stimer_test_periodic(int vcpu, struct stimer *timer1,
                                  struct stimer *timer2)
 {
@@ -279,8 +342,15 @@ static void stimer_test_auto_enable_periodic(int vcpu, struct stimer *timer)
 
 static void stimer_test_one_shot_busy(int vcpu, struct stimer *timer)
 {
-    struct hv_message_page *msg_page = g_synic_vcpu[vcpu].msg_page;
-    struct hv_message *msg = &msg_page->sint_message[timer->sint];
+    struct hv_message_page *msg_page;
+    struct hv_message *msg;
+
+    /* Skipping msg slot busy test in direct mode */
+    if (timer->direct)
+        return;
+
+    msg_page = g_synic_vcpu[vcpu].msg_page;
+    msg = &msg_page->sint_message[timer->sint];
 
     msg->header.message_type = HVMSG_TIMER_EXPIRED;
     wmb();
@@ -334,7 +404,12 @@ static void stimer_test_cleanup(void *ctx)
     synic_disable();
 }
 
-static void stimer_test_all(void)
+static void stimer_test_cleanup_direct(void *ctx)
+{
+    stimers_shutdown();
+}
+
+static void stimer_test_all(bool direct)
 {
     int ncpus;
 
@@ -346,16 +421,30 @@ static void stimer_test_all(void)
         report_abort("number cpus exceeds %d", MAX_CPUS);
     printf("cpus = %d\n", ncpus);
 
-    handle_irq(SINT1_VEC, stimer_isr);
-    handle_irq(SINT2_VEC, stimer_isr_auto_eoi);
+    if (!direct) {
+        printf("Starting Hyper-V SynIC timers tests: message mode\n");
 
-    on_cpus(stimer_test_prepare, (void *)read_cr3());
-    on_cpus(stimer_test, NULL);
-    on_cpus(stimer_test_cleanup, NULL);
+        handle_irq(SINT1_VEC, stimer_isr);
+        handle_irq(SINT2_VEC, stimer_isr_auto_eoi);
+
+	on_cpus(stimer_test_prepare, (void *)read_cr3());
+	on_cpus(stimer_test, NULL);
+	on_cpus(stimer_test_cleanup, NULL);
+    } else {
+        printf("Starting Hyper-V SynIC timers tests: direct mode\n");
+
+        handle_irq(APIC_VEC1, stimer_isr_direct1);
+        handle_irq(APIC_VEC2, stimer_isr_direct2);
+
+        on_cpus(stimer_test_prepare_direct, (void *)read_cr3());
+        on_cpus(stimer_test, NULL);
+        on_cpus(stimer_test_cleanup_direct, NULL);
+    }
 }
 
-int main(int ac, char **av)
+int main(int argc, char **argv)
 {
+    bool direct = argc >= 2 && !strcmp(argv[1], "direct");
 
     if (!hv_synic_supported()) {
         report_skip("Hyper-V SynIC is not supported");
@@ -372,7 +461,11 @@ int main(int ac, char **av)
         goto done;
     }
 
-    stimer_test_all();
+    if (direct && !stimer_direct_supported()) {
+	report_skip("Hyper-V SinIC timer direct mode is not supported");
+    }
+
+    stimer_test_all(direct);
 done:
     return report_summary();
 }
