@@ -356,13 +356,13 @@ static void check_pebs_counters(u64 pebs_data_cfg)
 	unsigned int idx;
 	u64 bitmask = 0;
 
-	for (idx = 0; idx < pmu.nr_fixed_counters; idx++)
+	for (idx = 0; has_baseline && idx < pmu.nr_fixed_counters; idx++)
 		check_one_counter(FIXED, idx, pebs_data_cfg);
 
 	for (idx = 0; idx < max_nr_gp_events; idx++)
 		check_one_counter(GP, idx, pebs_data_cfg);
 
-	for (idx = 0; idx < pmu.nr_fixed_counters; idx++)
+	for (idx = 0; has_baseline && idx < pmu.nr_fixed_counters; idx++)
 		bitmask |= BIT_ULL(FIXED_CNT_INDEX + idx);
 	for (idx = 0; idx < max_nr_gp_events; idx += 2)
 		bitmask |= BIT_ULL(idx);
