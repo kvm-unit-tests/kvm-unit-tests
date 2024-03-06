@@ -299,6 +299,19 @@ static void check_pebs_records(u64 bitmask, u64 pebs_data_cfg, bool use_adaptive
 		expected = pebs_idx_match && pebs_size_match && data_cfg_match;
 		report(expected,
 		       "PEBS record (written seq %d) is verified (including size, counters and cfg).", count);
+		if (use_adaptive && (pebs_data_cfg & PEBS_DATACFG_LBRS)) {
+			unsigned int lbrs_offset = get_pebs_record_size(pebs_data_cfg & ~PEBS_DATACFG_LBRS, true);
+			struct lbr_entry *pebs_lbrs = cur_record + lbrs_offset;
+			int i;
+
+			for (i = 0; i < MAX_NUM_LBR_ENTRY; i++) {
+				if (!pebs_lbrs[i].from && !pebs_lbrs[i].to)
+					continue;
+
+				report_fail("PEBS LBR record %u isn't empty, got from = '%lx', to = '%lx', info = '%lx'",
+					    i, pebs_lbrs[i].from, pebs_lbrs[i].to, pebs_lbrs[i].info);
+			}
+		}
 		cur_record = cur_record + pebs_record_size;
 		count++;
 	} while (expected && (void *)cur_record < (void *)ds->pebs_index);
