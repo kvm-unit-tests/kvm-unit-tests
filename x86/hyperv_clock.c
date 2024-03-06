@@ -64,40 +64,51 @@ uint64_t loops[MAX_CPU];
 static void hv_clock_test(void *data)
 {
 	int i = (long)data;
-	uint64_t t = rdmsr(HV_X64_MSR_TIME_REF_COUNT);
-	uint64_t end = t + 3 * TICKS_PER_SEC;
-	uint64_t msr_sample = t + TICKS_PER_SEC;
-	int min_delta = 123456, max_delta = -123456;
+	uint64_t t_msr_prev = rdmsr(HV_X64_MSR_TIME_REF_COUNT);
+	uint64_t t_page_prev = hv_clock_read();
+	uint64_t end = t_page_prev + TICKS_PER_SEC;
 	bool got_drift = false;
-	bool got_warp = false;
+	bool got_warp_msr = false;
+	bool got_warp_page = false;
 
 	ok[i] = true;
 	do {
-		uint64_t now = hv_clock_read();
-		int delta = rdmsr(HV_X64_MSR_TIME_REF_COUNT) - now;
+		uint64_t t_page_1, t_page_2, t_msr;
 
-		min_delta = delta < min_delta ? delta : min_delta;
-		if (t < msr_sample) {
-			max_delta = delta > max_delta ? delta: max_delta;
-		} else if (delta < 0 || delta > max_delta * 3 / 2) {
-			printf("suspecting drift on CPU %d? delta = %d, acceptable [0, %d)\n", i,
-			       delta, max_delta);
+		t_page_1 = hv_clock_read();
+		barrier();
+		t_msr = rdmsr(HV_X64_MSR_TIME_REF_COUNT);
+		barrier();
+		t_page_2 = hv_clock_read();
+
+		if (!got_drift && (t_msr < t_page_1 || t_msr > t_page_2)) {
+			printf("drift on CPU %d, MSR value = %ld, acceptable [%ld, %ld]\n", i,
+			       t_msr, t_page_1, t_page_2);
 			ok[i] = false;
 			got_drift = true;
-			max_delta *= 2;
 		}
 
-		if (now < t && !got_warp) {
-			printf("warp on CPU %d!\n", i);
+		if (!got_warp_msr && t_msr < t_msr_prev) {
+			printf("warp on CPU %d, MSR value = %ld prev MSR value = %ld!\n", i,
+			       t_msr, t_msr_prev);
 			ok[i] = false;
-			got_warp = true;
+			got_warp_msr = true;
 			break;
 		}
-		t = now;
-	} while(t < end);
 
-	if (!got_drift)
-		printf("delta on CPU %d was %d...%d\n", i, min_delta, max_delta);
+		if (!got_warp_page && t_page_1 < t_page_prev) {
+			printf("warp on CPU %d, TSC page value = %ld prev TSC page value = %ld!\n", i,
+			       t_page_1, t_page_prev);
+			ok[i] = false;
+			got_warp_page = true;
+			break;
+		}
+
+		t_page_prev = t_page_1;
+		t_msr_prev = t_msr;
+
+	} while(t_page_prev < end);
+
 	barrier();
 }
 
