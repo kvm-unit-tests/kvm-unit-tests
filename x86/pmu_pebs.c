@@ -78,13 +78,6 @@ static uint32_t intel_arch_events[] = {
 	0x412e, /* PERF_COUNT_HW_CACHE_MISSES */
 };
 
-static u64 pebs_data_cfgs[] = {
-	PEBS_DATACFG_MEMINFO,
-	PEBS_DATACFG_GP,
-	PEBS_DATACFG_XMMS,
-	PEBS_DATACFG_LBRS | ((MAX_NUM_LBR_ENTRY -1) << PEBS_DATACFG_LBR_SHIFT),
-};
-
 /* Iterating each counter value is a waste of time, pick a few typical values. */
 static u64 counter_start_values[] = {
 	/* if PEBS counter doesn't overflow at all */
@@ -105,7 +98,7 @@ static unsigned int get_adaptive_pebs_record_size(u64 pebs_data_cfg)
 
 	if (pebs_data_cfg & PEBS_DATACFG_MEMINFO)
 		sz += sizeof(struct pebs_meminfo);
-	if (pebs_data_cfg & PEBS_DATACFG_GP)
+	if (pebs_data_cfg & PEBS_DATACFG_GPRS)
 		sz += sizeof(struct pebs_gprs);
 	if (pebs_data_cfg & PEBS_DATACFG_XMMS)
 		sz += sizeof(struct pebs_xmm);
@@ -419,9 +412,14 @@ int main(int ac, char **av)
 		if (!has_baseline)
 			continue;
 
-		for (j = 0; j < ARRAY_SIZE(pebs_data_cfgs); j++) {
-			report_prefix_pushf("Adaptive (0x%lx)", pebs_data_cfgs[j]);
-			check_pebs_counters(pebs_data_cfgs[j]);
+		for (j = 0; j <= PEBS_DATACFG_MASK; j++) {
+			u64 pebs_data_cfg = j;
+
+			if (pebs_data_cfg & PEBS_DATACFG_LBRS)
+				pebs_data_cfg |= ((MAX_NUM_LBR_ENTRY -1) << PEBS_DATACFG_LBR_SHIFT);
+
+			report_prefix_pushf("Adaptive (0x%lx)", pebs_data_cfg);
+			check_pebs_counters(pebs_data_cfg);
 			report_prefix_pop();
 		}
 	}
