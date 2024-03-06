@@ -89,11 +89,11 @@ static u64 counter_start_values[] = {
 	0xffffffffffff,
 };
 
-static unsigned int get_adaptive_pebs_record_size(u64 pebs_data_cfg)
+static unsigned int get_pebs_record_size(u64 pebs_data_cfg, bool use_adaptive)
 {
 	unsigned int sz = sizeof(struct pebs_basic);
 
-	if (!has_baseline)
+	if (!use_adaptive)
 		return sz;
 
 	if (pebs_data_cfg & PEBS_DATACFG_MEMINFO)
@@ -199,10 +199,10 @@ static void free_buffers(void)
 		free_page(pebs_buffer);
 }
 
-static void pebs_enable(u64 bitmask, u64 pebs_data_cfg)
+static void pebs_enable(u64 bitmask, u64 pebs_data_cfg, bool use_adaptive)
 {
 	static struct debug_store *ds;
-	u64 baseline_extra_ctrl = 0, fixed_ctr_ctrl = 0;
+	u64 adaptive_ctrl = 0, fixed_ctr_ctrl = 0;
 	unsigned int idx;
 
 	if (has_baseline)
@@ -212,15 +212,15 @@ static void pebs_enable(u64 bitmask, u64 pebs_data_cfg)
 	ds->pebs_index = ds->pebs_buffer_base = (unsigned long)pebs_buffer;
 	ds->pebs_absolute_maximum = (unsigned long)pebs_buffer + PAGE_SIZE;
 	ds->pebs_interrupt_threshold = ds->pebs_buffer_base +
-		get_adaptive_pebs_record_size(pebs_data_cfg);
+		get_pebs_record_size(pebs_data_cfg, use_adaptive);
 
 	for (idx = 0; idx < pmu.nr_fixed_counters; idx++) {
 		if (!(BIT_ULL(FIXED_CNT_INDEX + idx) & bitmask))
 			continue;
-		if (has_baseline)
-			baseline_extra_ctrl = BIT(FIXED_CNT_INDEX + idx * 4);
+		if (use_adaptive)
+			adaptive_ctrl = BIT(FIXED_CNT_INDEX + idx * 4);
 		wrmsr(MSR_PERF_FIXED_CTRx(idx), ctr_start_val);
-		fixed_ctr_ctrl |= (0xbULL << (idx * 4) | baseline_extra_ctrl);
+		fixed_ctr_ctrl |= (0xbULL << (idx * 4) | adaptive_ctrl);
 	}
 	if (fixed_ctr_ctrl)
 		wrmsr(MSR_CORE_PERF_FIXED_CTR_CTRL, fixed_ctr_ctrl);
@@ -228,10 +228,10 @@ static void pebs_enable(u64 bitmask, u64 pebs_data_cfg)
 	for (idx = 0; idx < max_nr_gp_events; idx++) {
 		if (!(BIT_ULL(idx) & bitmask))
 			continue;
-		if (has_baseline)
-			baseline_extra_ctrl = ICL_EVENTSEL_ADAPTIVE;
+		if (use_adaptive)
+			adaptive_ctrl = ICL_EVENTSEL_ADAPTIVE;
 		wrmsr(MSR_GP_EVENT_SELECTx(idx), EVNTSEL_EN | EVNTSEL_OS | EVNTSEL_USR |
-						 intel_arch_events[idx] | baseline_extra_ctrl);
+						 intel_arch_events[idx] | adaptive_ctrl);
 		wrmsr(MSR_GP_COUNTERx(idx), ctr_start_val);
 	}
 
@@ -268,11 +268,11 @@ static void pebs_disable(unsigned int idx)
 	wrmsr(MSR_CORE_PERF_GLOBAL_CTRL, 0);
 }
 
-static void check_pebs_records(u64 bitmask, u64 pebs_data_cfg)
+static void check_pebs_records(u64 bitmask, u64 pebs_data_cfg, bool use_adaptive)
 {
 	struct pebs_basic *pebs_rec = (struct pebs_basic *)pebs_buffer;
 	struct debug_store *ds = (struct debug_store *)ds_bufer;
-	unsigned int pebs_record_size = get_adaptive_pebs_record_size(pebs_data_cfg);
+	unsigned int pebs_record_size;
 	unsigned int count = 0;
 	bool expected, pebs_idx_match, pebs_size_match, data_cfg_match;
 	void *cur_record;
@@ -293,12 +293,9 @@ static void check_pebs_records(u64 bitmask, u64 pebs_data_cfg)
 	do {
 		pebs_rec = (struct pebs_basic *)cur_record;
 		pebs_record_size = pebs_rec->format_size >> RECORD_SIZE_OFFSET;
-		pebs_idx_match =
-			pebs_rec->applicable_counters & bitmask;
-		pebs_size_match =
-			pebs_record_size == get_adaptive_pebs_record_size(pebs_data_cfg);
-		data_cfg_match =
-			(pebs_rec->format_size & GENMASK_ULL(47, 0)) == pebs_data_cfg;
+		pebs_idx_match = pebs_rec->applicable_counters & bitmask;
+		pebs_size_match = pebs_record_size == get_pebs_record_size(pebs_data_cfg, use_adaptive);
+		data_cfg_match = (pebs_rec->format_size & GENMASK_ULL(47, 0)) == pebs_data_cfg;
 		expected = pebs_idx_match && pebs_size_match && data_cfg_match;
 		report(expected,
 		       "PEBS record (written seq %d) is verified (including size, counters and cfg).", count);
@@ -311,56 +308,57 @@ static void check_pebs_records(u64 bitmask, u64 pebs_data_cfg)
 			printf("FAIL: The applicable_counters (0x%lx) doesn't match with pmc_bitmask (0x%lx).\n",
 			       pebs_rec->applicable_counters, bitmask);
 		if (!pebs_size_match)
-			printf("FAIL: The pebs_record_size (%d) doesn't match with MSR_PEBS_DATA_CFG (%d).\n",
-			       pebs_record_size, get_adaptive_pebs_record_size(pebs_data_cfg));
+			printf("FAIL: The pebs_record_size (%d) doesn't match with expected record size (%d).\n",
+			       pebs_record_size, get_pebs_record_size(pebs_data_cfg, use_adaptive));
 		if (!data_cfg_match)
-			printf("FAIL: The pebs_data_cfg (0x%lx) doesn't match with MSR_PEBS_DATA_CFG (0x%lx).\n",
-			       pebs_rec->format_size & 0xffffffffffff, pebs_data_cfg);
+			printf("FAIL: The pebs_data_cfg (0x%lx) doesn't match with the effective MSR_PEBS_DATA_CFG (0x%lx).\n",
+			       pebs_rec->format_size & 0xffffffffffff, use_adaptive ? pebs_data_cfg : 0);
 	}
 }
 
-static void check_one_counter(enum pmc_type type,
-			      unsigned int idx, u64 pebs_data_cfg)
+static void check_one_counter(enum pmc_type type, unsigned int idx,
+			      u64 pebs_data_cfg, bool use_adaptive)
 {
 	int pebs_bit = BIT_ULL(type == FIXED ? FIXED_CNT_INDEX + idx : idx);
 
 	report_prefix_pushf("%s counter %d (0x%lx)",
 			    type == FIXED ? "Extended Fixed" : "GP", idx, ctr_start_val);
 	reset_pebs();
-	pebs_enable(pebs_bit, pebs_data_cfg);
+	pebs_enable(pebs_bit, pebs_data_cfg, use_adaptive);
 	workload();
 	pebs_disable(idx);
-	check_pebs_records(pebs_bit, pebs_data_cfg);
+	check_pebs_records(pebs_bit, pebs_data_cfg, use_adaptive);
 	report_prefix_pop();
 }
 
 /* more than one PEBS records will be generated. */
-static void check_multiple_counters(u64 bitmask, u64 pebs_data_cfg)
+static void check_multiple_counters(u64 bitmask, u64 pebs_data_cfg,
+				    bool use_adaptive)
 {
 	reset_pebs();
-	pebs_enable(bitmask, pebs_data_cfg);
+	pebs_enable(bitmask, pebs_data_cfg, use_adaptive);
 	workload2();
 	pebs_disable(0);
-	check_pebs_records(bitmask, pebs_data_cfg);
+	check_pebs_records(bitmask, pebs_data_cfg, use_adaptive);
 }
 
-static void check_pebs_counters(u64 pebs_data_cfg)
+static void check_pebs_counters(u64 pebs_data_cfg, bool use_adaptive)
 {
 	unsigned int idx;
 	u64 bitmask = 0;
 
 	for (idx = 0; has_baseline && idx < pmu.nr_fixed_counters; idx++)
-		check_one_counter(FIXED, idx, pebs_data_cfg);
+		check_one_counter(FIXED, idx, pebs_data_cfg, use_adaptive);
 
 	for (idx = 0; idx < max_nr_gp_events; idx++)
-		check_one_counter(GP, idx, pebs_data_cfg);
+		check_one_counter(GP, idx, pebs_data_cfg, use_adaptive);
 
 	for (idx = 0; has_baseline && idx < pmu.nr_fixed_counters; idx++)
 		bitmask |= BIT_ULL(FIXED_CNT_INDEX + idx);
 	for (idx = 0; idx < max_nr_gp_events; idx += 2)
 		bitmask |= BIT_ULL(idx);
 	report_prefix_pushf("Multiple (0x%lx)", bitmask);
-	check_multiple_counters(bitmask, pebs_data_cfg);
+	check_multiple_counters(bitmask, pebs_data_cfg, use_adaptive);
 	report_prefix_pop();
 }
 
@@ -408,7 +406,7 @@ int main(int ac, char **av)
 
 	for (i = 0; i < ARRAY_SIZE(counter_start_values); i++) {
 		ctr_start_val = counter_start_values[i];
-		check_pebs_counters(0);
+		check_pebs_counters(0, false);
 		if (!has_baseline)
 			continue;
 
@@ -419,7 +417,11 @@ int main(int ac, char **av)
 				pebs_data_cfg |= ((MAX_NUM_LBR_ENTRY -1) << PEBS_DATACFG_LBR_SHIFT);
 
 			report_prefix_pushf("Adaptive (0x%lx)", pebs_data_cfg);
-			check_pebs_counters(pebs_data_cfg);
+			check_pebs_counters(pebs_data_cfg, true);
+			report_prefix_pop();
+
+			report_prefix_pushf("Ignored Adaptive (0x%lx)", pebs_data_cfg);
+			check_pebs_counters(pebs_data_cfg, false);
 			report_prefix_pop();
 		}
 	}
