@@ -14,6 +14,11 @@ static void help(void)
 	puts("An environ must be provided where expected values are given.\n");
 }
 
+static struct sbiret __base_sbi_ecall(int fid, unsigned long arg0)
+{
+	return sbi_ecall(SBI_EXT_BASE, fid, arg0, 0, 0, 0, 0, 0);
+}
+
 int main(int argc, char **argv)
 {
 	struct sbiret ret;
@@ -32,7 +37,7 @@ int main(int argc, char **argv)
 	}
 	expected = strtol(getenv("MVENDORID"), NULL, 0);
 
-	ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_MVENDORID, 0, 0, 0, 0, 0, 0);
+	ret = __base_sbi_ecall(SBI_EXT_BASE_GET_MVENDORID, 0);
 	report(!ret.error, "mvendorid: no error");
 	report(ret.value == expected, "mvendorid");
 
