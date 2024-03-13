@@ -29,10 +29,18 @@ static bool env_or_skip(const char *env)
 	return true;
 }
 
-static void gen_report(struct sbiret *ret, long expected)
+static void gen_report(struct sbiret *ret,
+		       long expected_error, long expected_value)
 {
-	report(!ret->error, "no sbi.error");
-	report(ret->value == expected, "expected sbi.value");
+	bool check_error = ret->error == expected_error;
+	bool check_value = ret->value == expected_value;
+
+	if (!check_error || !check_value)
+		report_info("expected (error: %ld, value: %ld), received: (error: %ld, value %ld)",
+			    expected_error, expected_value, ret->error, ret->value);
+
+	report(check_error, "expected sbi.error");
+	report(check_value, "expected sbi.value");
 }
 
 static void check_base(void)
@@ -46,21 +54,21 @@ static void check_base(void)
 	if (env_or_skip("MVENDORID")) {
 		expected = strtol(getenv("MVENDORID"), NULL, 0);
 		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_MVENDORID, 0);
-		gen_report(&ret, expected);
+		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
 	report_prefix_push("probe_ext");
 	expected = getenv("PROBE_EXT") ? strtol(getenv("PROBE_EXT"), NULL, 0) : 1;
 	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, SBI_EXT_BASE);
-	gen_report(&ret, expected);
+	gen_report(&ret, 0, expected);
 	report_prefix_pop();
 
 	report_prefix_push("marchid");
 	if (env_or_skip("MARCHID")) {
 		expected = strtol(getenv("MARCHID"), NULL, 0);
 		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_MARCHID, 0);
-		gen_report(&ret, expected);
+		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
