@@ -56,6 +56,14 @@ static void check_base(void)
 	gen_report(&ret, expected);
 	report_prefix_pop();
 
+	report_prefix_push("marchid");
+	if (env_or_skip("MARCHID")) {
+		expected = strtol(getenv("MARCHID"), NULL, 0);
+		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_MARCHID, 0);
+		gen_report(&ret, expected);
+	}
+	report_prefix_pop();
+
 	report_prefix_pop();
 }
 
