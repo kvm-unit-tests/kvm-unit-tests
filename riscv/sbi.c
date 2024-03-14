@@ -71,6 +71,14 @@ static void check_base(void)
 	}
 	report_prefix_pop();
 
+	report_prefix_push("impl_version");
+	if (env_or_skip("IMPL_VERSION")) {
+		expected = strtol(getenv("IMPL_VERSION"), NULL, 0);
+		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_IMP_VERSION, 0);
+		gen_report(&ret, 0, expected);
+	}
+	report_prefix_pop();
+
 	report_prefix_push("probe_ext");
 	expected = getenv("PROBE_EXT") ? strtol(getenv("PROBE_EXT"), NULL, 0) : 1;
 	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, SBI_EXT_BASE);
@@ -89,6 +97,14 @@ static void check_base(void)
 	if (env_or_skip("MARCHID")) {
 		expected = strtol(getenv("MARCHID"), NULL, 0);
 		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_MARCHID, 0);
+		gen_report(&ret, 0, expected);
+	}
+	report_prefix_pop();
+
+	report_prefix_push("mimpid");
+	if (env_or_skip("MIMPID")) {
+		expected = strtol(getenv("MIMPID"), NULL, 0);
+		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_MIMPID, 0);
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
