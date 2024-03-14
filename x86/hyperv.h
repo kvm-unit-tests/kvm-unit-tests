@@ -10,6 +10,8 @@
 #define HV_X64_MSR_SYNIC_AVAILABLE              (1 << 2)
 #define HV_X64_MSR_SYNTIMER_AVAILABLE           (1 << 3)
 
+#define HV_STIMER_DIRECT_MODE_AVAILABLE		(1 << 19)
+
 #define HV_X64_MSR_GUEST_OS_ID                  0x40000000
 #define HV_X64_MSR_HYPERCALL                    0x40000001
 
@@ -60,11 +62,23 @@
 #define HV_SYNIC_SINT_VECTOR_MASK               (0xFF)
 #define HV_SYNIC_SINT_COUNT                     16
 
-#define HV_STIMER_ENABLE                (1ULL << 0)
-#define HV_STIMER_PERIODIC              (1ULL << 1)
-#define HV_STIMER_LAZY                  (1ULL << 2)
-#define HV_STIMER_AUTOENABLE            (1ULL << 3)
-#define HV_STIMER_SINT(config)          (__u8)(((config) >> 16) & 0x0F)
+/*
+ * Synthetic timer configuration.
+ */
+union hv_stimer_config {
+	u64 as_uint64;
+	struct {
+		u64 enable:1;
+		u64 periodic:1;
+		u64 lazy:1;
+		u64 auto_enable:1;
+		u64 apic_vector:8;
+		u64 direct_mode:1;
+		u64 reserved_z0:3;
+		u64 sintx:4;
+		u64 reserved_z1:44;
+	};
+};
 
 #define HV_SYNIC_STIMER_COUNT           (4)
 
@@ -183,14 +197,19 @@ struct hv_input_post_message {
 	u64 payload[HV_MESSAGE_PAYLOAD_QWORD_COUNT];
 };
 
-static inline bool synic_supported(void)
+static inline bool hv_synic_supported(void)
 {
    return cpuid(HYPERV_CPUID_FEATURES).a & HV_X64_MSR_SYNIC_AVAILABLE;
 }
 
-static inline bool stimer_supported(void)
+static inline bool hv_stimer_supported(void)
 {
-    return cpuid(HYPERV_CPUID_FEATURES).a & HV_X64_MSR_SYNIC_AVAILABLE;
+    return cpuid(HYPERV_CPUID_FEATURES).a & HV_X64_MSR_SYNTIMER_AVAILABLE;
+}
+
+static inline bool stimer_direct_supported(void)
+{
+    return cpuid(HYPERV_CPUID_FEATURES).d & HV_STIMER_DIRECT_MODE_AVAILABLE;
 }
 
 static inline bool hv_time_ref_counter_supported(void)

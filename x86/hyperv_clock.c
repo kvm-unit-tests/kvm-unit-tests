@@ -63,41 +63,52 @@ uint64_t loops[MAX_CPU];
 
 static void hv_clock_test(void *data)
 {
-	int i = smp_id();
-	uint64_t t = rdmsr(HV_X64_MSR_TIME_REF_COUNT);
-	uint64_t end = t + 3 * TICKS_PER_SEC;
-	uint64_t msr_sample = t + TICKS_PER_SEC;
-	int min_delta = 123456, max_delta = -123456;
+	int i = (long)data;
+	uint64_t t_msr_prev = rdmsr(HV_X64_MSR_TIME_REF_COUNT);
+	uint64_t t_page_prev = hv_clock_read();
+	uint64_t end = t_page_prev + TICKS_PER_SEC;
 	bool got_drift = false;
-	bool got_warp = false;
+	bool got_warp_msr = false;
+	bool got_warp_page = false;
 
 	ok[i] = true;
 	do {
-		uint64_t now = hv_clock_read();
-		int delta = rdmsr(HV_X64_MSR_TIME_REF_COUNT) - now;
+		uint64_t t_page_1, t_page_2, t_msr;
 
-		min_delta = delta < min_delta ? delta : min_delta;
-		if (t < msr_sample) {
-			max_delta = delta > max_delta ? delta: max_delta;
-		} else if (delta < 0 || delta > max_delta * 3 / 2) {
-			printf("suspecting drift on CPU %d? delta = %d, acceptable [0, %d)\n", smp_id(),
-			       delta, max_delta);
+		t_page_1 = hv_clock_read();
+		barrier();
+		t_msr = rdmsr(HV_X64_MSR_TIME_REF_COUNT);
+		barrier();
+		t_page_2 = hv_clock_read();
+
+		if (!got_drift && (t_msr < t_page_1 || t_msr > t_page_2)) {
+			printf("drift on CPU %d, MSR value = %ld, acceptable [%ld, %ld]\n", i,
+			       t_msr, t_page_1, t_page_2);
 			ok[i] = false;
 			got_drift = true;
-			max_delta *= 2;
 		}
 
-		if (now < t && !got_warp) {
-			printf("warp on CPU %d!\n", smp_id());
+		if (!got_warp_msr && t_msr < t_msr_prev) {
+			printf("warp on CPU %d, MSR value = %ld prev MSR value = %ld!\n", i,
+			       t_msr, t_msr_prev);
 			ok[i] = false;
-			got_warp = true;
+			got_warp_msr = true;
 			break;
 		}
-		t = now;
-	} while(t < end);
 
-	if (!got_drift)
-		printf("delta on CPU %d was %d...%d\n", smp_id(), min_delta, max_delta);
+		if (!got_warp_page && t_page_1 < t_page_prev) {
+			printf("warp on CPU %d, TSC page value = %ld prev TSC page value = %ld!\n", i,
+			       t_page_1, t_page_prev);
+			ok[i] = false;
+			got_warp_page = true;
+			break;
+		}
+
+		t_page_prev = t_page_1;
+		t_msr_prev = t_msr;
+
+	} while(t_page_prev < end);
+
 	barrier();
 }
 
@@ -106,7 +117,11 @@ static void check_test(int ncpus)
 	int i;
 	bool pass;
 
-	on_cpus(hv_clock_test, NULL);
+	for (i = ncpus - 1; i >= 0; i--)
+		on_cpu_async(i, hv_clock_test, (void *)(long)i);
+
+	while (cpus_active() > 1)
+		pause();
 
 	pass = true;
 	for (i = ncpus - 1; i >= 0; i--)
@@ -117,6 +132,7 @@ static void check_test(int ncpus)
 
 static void hv_perf_test(void *data)
 {
+	int i = (long)data;
 	uint64_t t = hv_clock_read();
 	uint64_t end = t + 1000000000 / 100;
 	uint64_t local_loops = 0;
@@ -126,7 +142,7 @@ static void hv_perf_test(void *data)
 		local_loops++;
 	} while(t < end);
 
-	loops[smp_id()] = local_loops;
+	loops[i] = local_loops;
 }
 
 static void perf_test(int ncpus)
@@ -134,7 +150,11 @@ static void perf_test(int ncpus)
 	int i;
 	uint64_t total_loops;
 
-	on_cpus(hv_perf_test, NULL);
+	for (i = ncpus - 1; i >= 0; i--)
+		on_cpu_async(i, hv_perf_test, (void *)(long)i);
+
+	while (cpus_active() > 1)
+		pause();
 
 	total_loops = 0;
 	for (i = ncpus - 1; i >= 0; i--)
@@ -144,7 +164,6 @@ static void perf_test(int ncpus)
 
 int main(int ac, char **av)
 {
-	int nerr = 0;
 	int ncpus;
 	struct hv_reference_tsc_page shadow;
 	uint64_t tsc1, t1, tsc2, t2;
@@ -152,7 +171,7 @@ int main(int ac, char **av)
 
 	if (!hv_time_ref_counter_supported()) {
 		report_skip("time reference counter is unsupported");
-		return report_summary();
+		goto done;
 	}
 
 	setup_vm();
@@ -167,12 +186,11 @@ int main(int ac, char **av)
 	       "MSR value after enabling");
 
 	hvclock_get_time_values(&shadow, hv_clock);
-	if (shadow.tsc_sequence == 0 || shadow.tsc_sequence == 0xFFFFFFFF) {
-		printf("Reference TSC page not available\n");
-		exit(1);
-	}
+	if (shadow.tsc_sequence == 0 || shadow.tsc_sequence == 0xFFFFFFFF)
+		report_abort("Reference TSC page not available\n");
 
-	printf("scale: %" PRIx64" offset: %" PRId64"\n", shadow.tsc_scale, shadow.tsc_offset);
+	printf("sequence: %u. scale: %" PRIx64" offset: %" PRId64"\n",
+	       shadow.tsc_sequence, shadow.tsc_scale, shadow.tsc_offset);
 	ref1 = rdmsr(HV_X64_MSR_TIME_REF_COUNT);
 	tsc1 = rdtsc();
 	t1 = hvclock_tsc_to_ticks(&shadow, tsc1);
@@ -196,5 +214,6 @@ int main(int ac, char **av)
 	report(rdmsr(HV_X64_MSR_REFERENCE_TSC) == 0,
 	       "MSR value after disabling");
 
-	return nerr > 0 ? 1 : 0;
+done:
+	return report_summary();
 }
