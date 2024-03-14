@@ -50,6 +50,19 @@ static void check_base(void)
 
 	report_prefix_push("base");
 
+	ret = __base_sbi_ecall(SBI_EXT_BASE_GET_SPEC_VERSION, 0);
+	if (ret.error || ret.value < 2) {
+		report_skip("SBI spec version 0.2 or higher required");
+		return;
+	}
+
+	report_prefix_push("spec_version");
+	if (env_or_skip("SPEC_VERSION")) {
+		expected = strtol(getenv("SPEC_VERSION"), NULL, 0);
+		gen_report(&ret, 0, expected);
+	}
+	report_prefix_pop();
+
 	report_prefix_push("impl_id");
 	if (env_or_skip("IMPL_ID")) {
 		expected = strtol(getenv("IMPL_ID"), NULL, 0);
