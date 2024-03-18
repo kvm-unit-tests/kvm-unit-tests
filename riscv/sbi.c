@@ -83,6 +83,10 @@ static void check_base(void)
 	expected = getenv("PROBE_EXT") ? strtol(getenv("PROBE_EXT"), NULL, 0) : 1;
 	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, SBI_EXT_BASE);
 	gen_report(&ret, 0, expected);
+	report_prefix_push("unavailable");
+	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, 0xb000000);
+	gen_report(&ret, 0, 0);
+	report_prefix_pop();
 	report_prefix_pop();
 
 	report_prefix_push("mvendorid");
