@@ -8,7 +8,8 @@
 
 extern char vector_stub_start, vector_stub_end;
 
-int backtrace_frame(const void *frame, const void **return_addrs, int max_depth)
+int arch_backtrace_frame(const void *frame, const void **return_addrs,
+			 int max_depth, bool current_frame)
 {
 	const void *fp = frame;
 	static bool walking;
@@ -16,6 +17,9 @@ int backtrace_frame(const void *frame, const void **return_addrs, int max_depth)
 	int depth;
 	bool is_exception = false;
 	unsigned long addr;
+
+	if (current_frame)
+		fp = __builtin_frame_address(0);
 
 	if (walking) {
 		printf("RECURSIVE STACK WALK!!!\n");
@@ -53,10 +57,4 @@ int backtrace_frame(const void *frame, const void **return_addrs, int max_depth)
 
 	walking = false;
 	return depth;
-}
-
-int backtrace(const void **return_addrs, int max_depth)
-{
-	return backtrace_frame(__builtin_frame_address(0),
-			       return_addrs, max_depth);
 }

@@ -14,7 +14,7 @@
 #ifdef CONFIG_RELOC
 extern char _text, _etext;
 
-static bool base_address(const void *rebased_addr, unsigned long *addr)
+bool __attribute__((weak)) arch_base_address(const void *rebased_addr, unsigned long *addr)
 {
 	unsigned long ra = (unsigned long)rebased_addr;
 	unsigned long start = (unsigned long)&_text;
@@ -27,7 +27,7 @@ static bool base_address(const void *rebased_addr, unsigned long *addr)
 	return true;
 }
 #else
-static bool base_address(const void *rebased_addr, unsigned long *addr)
+bool __attribute__((weak)) arch_base_address(const void *rebased_addr, unsigned long *addr)
 {
 	*addr = (unsigned long)rebased_addr;
 	return true;
@@ -45,13 +45,13 @@ static void print_stack(const void **return_addrs, int depth,
 	/* @addr indicates a non-return address, as expected by the stack
 	 * pretty printer script. */
 	if (depth > 0 && !top_is_return_address) {
-		if (base_address(return_addrs[0], &addr))
+		if (arch_base_address(return_addrs[0], &addr))
 			printf(" @%lx", addr);
 		i++;
 	}
 
 	for (; i < depth; i++) {
-		if (base_address(return_addrs[i], &addr))
+		if (arch_base_address(return_addrs[i], &addr))
 			printf(" %lx", addr);
 	}
 	printf("\n");

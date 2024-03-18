@@ -30,6 +30,7 @@ PHDRS
 
 SECTIONS
 {
+    PROVIDE(ImageBase = .);
     PROVIDE(_text = .);
     .text : { *(.init) *(.text) *(.text.*) } :text
     . = ALIGN(4K);

@@ -14,10 +14,14 @@
 #include <stack.h>
 #include <asm/arch_def.h>
 
-int backtrace_frame(const void *frame, const void **return_addrs, int max_depth)
+int arch_backtrace_frame(const void *frame, const void **return_addrs,
+			 int max_depth, bool current_frame)
 {
 	int depth = 0;
 	struct stack_frame *stack = (struct stack_frame *)frame;
+
+	if (current_frame)
+		stack = __builtin_frame_address(0);
 
 	for (depth = 0; stack && depth < max_depth; depth++) {
 		return_addrs[depth] = (void *)stack->grs[8];
@@ -27,10 +31,4 @@ int backtrace_frame(const void *frame, const void **return_addrs, int max_depth)
 	}
 
 	return depth;
-}
-
-int backtrace(const void **return_addrs, int max_depth)
-{
-	return backtrace_frame(__builtin_frame_address(0),
-			       return_addrs, max_depth);
 }

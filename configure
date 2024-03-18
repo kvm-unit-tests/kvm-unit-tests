@@ -94,8 +94,9 @@ usage() {
 	    --[enable|disable]-efi-direct
 	                           Select whether to run EFI tests directly with QEMU's -kernel
 	                           option. When not enabled, tests will be placed in an EFI file
-	                           system and run from the UEFI shell. Ignored when efi isn't enabled.
-	                           (arm64 only)
+	                           system and run from the UEFI shell. Ignored when efi isn't enabled
+	                           and defaults to enabled when efi is enabled for riscv64.
+	                           (arm64 and riscv64 only)
 EOF
     exit 1
 }
@@ -231,9 +232,14 @@ else
     fi
 fi
 
-if [ "$efi" ] && [ "$arch" != "x86_64" ] && [ "$arch" != "arm64" ]; then
+if [ "$efi" ] && [ "$arch" != "x86_64" ] &&
+   [ "$arch" != "arm64" ] && [ "$arch" != "riscv64" ]; then
     echo "--[enable|disable]-efi is not supported for $arch"
     usage
+fi
+
+if [ "$efi" ] && [ "$arch" = "riscv64" ] && [ -z "$efi_direct" ]; then
+    efi_direct=y
 fi
 
 if [ -z "$page_size" ]; then

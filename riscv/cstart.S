@@ -42,6 +42,9 @@
 9997:
 .endm
 
+#ifdef CONFIG_EFI
+#include "efi/crt0-efi-riscv64.S"
+#else
 	.section .init
 
 /*
@@ -109,6 +112,7 @@ start:
 	call	exit
 	j	halt
 
+#endif /* !CONFIG_EFI */
 	.text
 
 .balign 4
