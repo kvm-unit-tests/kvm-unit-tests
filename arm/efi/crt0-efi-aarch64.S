@@ -111,17 +111,10 @@ section_table:
 
 	.align		12
 _start:
-	stp		x29, x30, [sp, #-16]!
-
-	/* Align sp; this is necessary due to way we store cpu0's thread_info */
+	stp		x29, x30, [sp, #-32]!
 	mov		x29, sp
-	mov		x30, sp
-	and		x30, x30, #THREAD_MASK
-	mov		sp, x30
-	str		x29, [sp, #-16]!
 
-	stp		x0, x1, [sp, #-16]!
-
+	stp		x0, x1, [sp, #16]
 	mov		x2, x0
 	mov		x3, x1
 	adr		x0, ImageBase
@@ -130,12 +123,32 @@ _start:
 	bl		_relocate
 	cbnz		x0, 0f
 
-	ldp		x0, x1, [sp], #16
+	ldp		x0, x1, [sp, #16]
+
+	/*
+	 * Switch to our own stack and align sp; this is necessary due
+	 * to way we store cpu0's thread_info
+	 */
+	adrp		x2, stacktop
+	add		x2, x2, :lo12:stacktop
+	and		x2, x2, #THREAD_MASK
+	mov		x3, sp
+	mov		sp, x2
+	stp		xzr, xzr, [sp, #-16]!
+	mov		x29, sp
+	str		x3, [sp, #-16]!
+
 	bl		efi_main
 
 	/* Restore sp */
 	ldr		x30, [sp], #16
-	mov             sp, x30
+	mov		sp, x30
 
-0:	ldp		x29, x30, [sp], #16
+0:	ldp		x29, x30, [sp], #32
 	ret
+
+	.section	.data
+
+.balign 65536
+.space 65536
+stacktop:

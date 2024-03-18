@@ -13,6 +13,7 @@ SECTIONS
     *(.rodata*)
     . = ALIGN(16);
   }
+  . = ALIGN(4096);
   _etext = .;
   _text_size = . - _text;
   .dynamic  : { *(.dynamic) }

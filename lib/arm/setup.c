@@ -136,9 +136,28 @@ static void arm_memregions_add_assumed(void)
 #endif
 }
 
-static void mem_init(phys_addr_t freemem_start)
+static void mem_allocator_init(phys_addr_t freemem_start, phys_addr_t freemem_end)
 {
 	phys_addr_t base, top;
+
+	freemem_start = PAGE_ALIGN(freemem_start);
+	freemem_end &= PAGE_MASK;
+
+	phys_alloc_init(freemem_start, freemem_end - freemem_start);
+	phys_alloc_set_minimum_alignment(SMP_CACHE_BYTES);
+
+	phys_alloc_get_unused(&base, &top);
+	base = PAGE_ALIGN(base);
+	top &= PAGE_MASK;
+	assert(sizeof(long) == 8 || !(base >> 32));
+	if (sizeof(long) != 8 && (top >> 32) != 0)
+		top = ((uint64_t)1 << 32);
+	page_alloc_init_area(0, base >> PAGE_SHIFT, top >> PAGE_SHIFT);
+	page_alloc_ops_enable();
+}
+
+static void mem_init(phys_addr_t freemem_start)
+{
 	struct mem_region *freemem, *r, mem = {
 		.start = (phys_addr_t)-1,
 	};
@@ -169,45 +188,60 @@ static void mem_init(phys_addr_t freemem_start)
 	__phys_offset = mem.start;	/* PHYS_OFFSET */
 	__phys_end = mem.end;		/* PHYS_END */
 
-	phys_alloc_init(freemem_start, freemem->end - freemem_start);
-	phys_alloc_set_minimum_alignment(SMP_CACHE_BYTES);
+	mem_allocator_init(freemem_start, freemem->end);
+}
 
-	phys_alloc_get_unused(&base, &top);
-	base = PAGE_ALIGN(base);
-	top = top & PAGE_MASK;
-	assert(sizeof(long) == 8 || !(base >> 32));
-	if (sizeof(long) != 8 && (top >> 32) != 0)
-		top = ((uint64_t)1 << 32);
-	page_alloc_init_area(0, base >> PAGE_SHIFT, top >> PAGE_SHIFT);
-	page_alloc_ops_enable();
+static void freemem_push_fdt(void **freemem, const void *fdt)
+{
+	u32 fdt_size;
+	int ret;
+
+	fdt_size = fdt_totalsize(fdt);
+	ret = fdt_move(fdt, *freemem, fdt_size);
+	assert(ret == 0);
+	ret = dt_init(*freemem);
+	assert(ret == 0);
+	*freemem += fdt_size;
+}
+
+static void freemem_push_dt_initrd(void **freemem)
+{
+	const char *tmp;
+	int ret;
+
+	ret = dt_get_initrd(&tmp, &initrd_size);
+	assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
+	if (ret == 0) {
+		initrd = *freemem;
+		memmove(initrd, tmp, initrd_size);
+		*freemem += initrd_size;
+	}
+}
+
+static void initrd_setup(void)
+{
+	char *env;
+
+	if (!initrd)
+		return;
+
+	/* environ is currently the only file in the initrd */
+	env = malloc(initrd_size);
+	memcpy(env, initrd, initrd_size);
+	setup_env(env, initrd_size);
 }
 
 void setup(const void *fdt, phys_addr_t freemem_start)
 {
 	void *freemem;
-	const char *bootargs, *tmp;
-	u32 fdt_size;
+	const char *bootargs;
 	int ret;
 
 	assert(sizeof(long) == 8 || freemem_start < (3ul << 30));
 	freemem = (void *)(unsigned long)freemem_start;
 
-	/* Move the FDT to the base of free memory */
-	fdt_size = fdt_totalsize(fdt);
-	ret = fdt_move(fdt, freemem, fdt_size);
-	assert(ret == 0);
-	ret = dt_init(freemem);
-	assert(ret == 0);
-	freemem += fdt_size;
-
-	/* Move the initrd to the top of the FDT */
-	ret = dt_get_initrd(&tmp, &initrd_size);
-	assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
-	if (ret == 0) {
-		initrd = freemem;
-		memmove(initrd, tmp, initrd_size);
-		freemem += initrd_size;
-	}
+	freemem_push_fdt(&freemem, fdt);
+	freemem_push_dt_initrd(&freemem);
 
 	memregions_init(arm_mem_regions, NR_MEM_REGIONS);
 	memregions_add_dt_regions(MAX_DT_MEM_REGIONS);
@@ -229,12 +263,7 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 	assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
 	setup_args_progname(bootargs);
 
-	if (initrd) {
-		/* environ is currently the only file in the initrd */
-		char *env = malloc(initrd_size);
-		memcpy(env, initrd, initrd_size);
-		setup_env(env, initrd_size);
-	}
+	initrd_setup();
 
 	if (!(auxinfo.flags & AUXINFO_MMU_OFF))
 		setup_vm();
@@ -266,112 +295,43 @@ static efi_status_t setup_rsdp(efi_bootinfo_t *efi_bootinfo)
 
 static efi_status_t efi_mem_init(efi_bootinfo_t *efi_bootinfo)
 {
-	int i;
-	unsigned long free_mem_pages = 0;
-	unsigned long free_mem_start = 0;
-	struct efi_boot_memmap *map = &(efi_bootinfo->mem_map);
-	efi_memory_desc_t *buffer = *map->map;
-	efi_memory_desc_t *d = NULL;
-	phys_addr_t base, top;
-	struct mem_region r;
-	uintptr_t text = (uintptr_t)&_text, etext = ALIGN((uintptr_t)&_etext, 4096);
-	uintptr_t data = (uintptr_t)&_data, edata = ALIGN((uintptr_t)&_edata, 4096);
-	const void *fdt = efi_bootinfo->fdt;
-	int fdt_size, ret;
+	struct mem_region *freemem_mr = NULL, *code, *data;
+	phys_addr_t freemem_start;
+	void *freemem;
 
-	/*
-	 * Record the largest free EFI_CONVENTIONAL_MEMORY region
-	 * which will be used to set up the memory allocator, so that
-	 * the memory allocator can work in the largest free
-	 * continuous memory region.
-	 */
-	for (i = 0; i < *(map->map_size); i += *(map->desc_size)) {
-		d = (efi_memory_desc_t *)(&((u8 *)buffer)[i]);
-
-		r.start = d->phys_addr;
-		r.end = d->phys_addr + d->num_pages * EFI_PAGE_SIZE;
-		r.flags = 0;
-
-		switch (d->type) {
-		case EFI_RESERVED_TYPE:
-		case EFI_LOADER_DATA:
-		case EFI_BOOT_SERVICES_CODE:
-		case EFI_BOOT_SERVICES_DATA:
-		case EFI_RUNTIME_SERVICES_CODE:
-		case EFI_RUNTIME_SERVICES_DATA:
-		case EFI_UNUSABLE_MEMORY:
-		case EFI_ACPI_RECLAIM_MEMORY:
-		case EFI_ACPI_MEMORY_NVS:
-		case EFI_PAL_CODE:
-			r.flags = MR_F_RESERVED;
-			break;
-		case EFI_MEMORY_MAPPED_IO:
-		case EFI_MEMORY_MAPPED_IO_PORT_SPACE:
-			r.flags = MR_F_IO;
-			break;
-		case EFI_LOADER_CODE:
-			if (r.start <= text && r.end > text) {
-				/* This is the unit test region. Flag the code separately. */
-				phys_addr_t tmp = r.end;
-
-				assert(etext <= data);
-				assert(edata <= r.end);
-				r.flags = MR_F_CODE;
-				r.end = data;
-				memregions_add(&r);
-				r.start = data;
-				r.end = tmp;
-				r.flags = 0;
-			} else {
-				r.flags = MR_F_RESERVED;
-			}
-			break;
-		case EFI_CONVENTIONAL_MEMORY:
-			if (free_mem_pages < d->num_pages) {
-				free_mem_pages = d->num_pages;
-				free_mem_start = d->phys_addr;
-			}
-			break;
-		}
-
-		if (!(r.flags & MR_F_IO)) {
-			if (r.start < __phys_offset)
-				__phys_offset = r.start;
-			if (r.end > __phys_end)
-				__phys_end = r.end;
-		}
-		memregions_add(&r);
-	}
-	if (fdt) {
-		/* Move the FDT to the base of free memory */
-		fdt_size = fdt_totalsize(fdt);
-		ret = fdt_move(fdt, (void *)free_mem_start, fdt_size);
-		assert(ret == 0);
-		ret = dt_init((void *)free_mem_start);
-		assert(ret == 0);
-		free_mem_start += ALIGN(fdt_size, EFI_PAGE_SIZE);
-		free_mem_pages -= ALIGN(fdt_size, EFI_PAGE_SIZE) >> EFI_PAGE_SHIFT;
-	}
-
-	__phys_end &= PHYS_MASK;
-	asm_mmu_disable();
-
-	if (free_mem_pages == 0)
+	memregions_efi_init(&efi_bootinfo->mem_map, &freemem_mr);
+	if (!freemem_mr)
 		return EFI_OUT_OF_RESOURCES;
 
-	assert(sizeof(long) == 8 || free_mem_start < (3ul << 30));
+	memregions_split((unsigned long)&_etext, &code, &data);
+	assert(code && (code->flags & MR_F_CODE));
+	if (data)
+		data->flags &= ~MR_F_CODE;
 
-	phys_alloc_init(free_mem_start, free_mem_pages << EFI_PAGE_SHIFT);
-	phys_alloc_set_minimum_alignment(SMP_CACHE_BYTES);
+	for (struct mem_region *m = mem_regions; m->end; ++m) {
+		if (m != code)
+			assert(!(m->flags & MR_F_CODE));
 
-	phys_alloc_get_unused(&base, &top);
-	base = PAGE_ALIGN(base);
-	top = top & PAGE_MASK;
-	assert(sizeof(long) == 8 || !(base >> 32));
-	if (sizeof(long) != 8 && (top >> 32) != 0)
-		top = ((uint64_t)1 << 32);
-	page_alloc_init_area(0, base >> PAGE_SHIFT, top >> PAGE_SHIFT);
-	page_alloc_ops_enable();
+		if (!(m->flags & MR_F_IO)) {
+			if (m->start < __phys_offset)
+				__phys_offset = m->start;
+			if (m->end > __phys_end)
+				__phys_end = m->end;
+		}
+	}
+	__phys_end &= PHYS_MASK;
+
+	freemem = (void *)PAGE_ALIGN(freemem_mr->start);
+
+	if (efi_bootinfo->fdt)
+		freemem_push_fdt(&freemem, efi_bootinfo->fdt);
+
+	freemem_start = PAGE_ALIGN((unsigned long)freemem);
+	assert(sizeof(long) == 8 || freemem_start < (3ul << 30));
+
+	asm_mmu_disable();
+
+	mem_allocator_init(freemem_start, freemem_mr->end);
 
 	return EFI_SUCCESS;
 }
@@ -379,10 +339,6 @@ static efi_status_t efi_mem_init(efi_bootinfo_t *efi_bootinfo)
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 {
 	efi_status_t status;
-
-	struct thread_info *ti = current_thread_info();
-
-	memset(ti, 0, sizeof(*ti));
 
 	exceptions_init();
 
@@ -418,13 +374,8 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	io_init();
 
 	timer_save_state();
-	if (initrd) {
-		/* environ is currently the only file in the initrd */
-		char *env = malloc(initrd_size);
 
-		memcpy(env, initrd, initrd_size);
-		setup_env(env, initrd_size);
-	}
+	initrd_setup();
 
 	if (!(auxinfo.flags & AUXINFO_MMU_OFF))
 		setup_vm();

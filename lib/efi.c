@@ -6,13 +6,17 @@
  *
  * SPDX-License-Identifier: LGPL-2.0-or-later
  */
-
-#include "efi.h"
-#include <argv.h>
-#include <stdlib.h>
-#include <ctype.h>
 #include <libcflat.h>
+#include <argv.h>
+#include <ctype.h>
+#include <stdlib.h>
 #include <asm/setup.h>
+#include "efi.h"
+#include "libfdt/libfdt.h"
+
+/* From each arch */
+extern char *initrd;
+extern u32 initrd_size;
 
 /* From lib/argv.c */
 extern int __argc, __envc;
@@ -288,13 +292,77 @@ static void *efi_get_fdt(efi_handle_t handle, struct efi_loaded_image_64 *image)
 	efi_char16_t var[] = ENV_VARNAME_DTBFILE;
 	efi_char16_t *val;
 	void *fdt = NULL;
-	int fdtsize;
+	int fdtsize = 0;
 
 	val = efi_get_var(handle, image, var);
-	if (val)
+	if (val) {
 		efi_load_image(handle, image, &fdt, &fdtsize, val);
+		if (fdtsize == 0)
+			return NULL;
+	} else if (efi_get_system_config_table(DEVICE_TREE_GUID, &fdt) != EFI_SUCCESS) {
+		return NULL;
+	}
 
-	return fdt;
+	return fdt_check_header(fdt) == 0 ? fdt : NULL;
+}
+
+static const struct {
+	struct efi_vendor_dev_path	vendor;
+	struct efi_generic_dev_path	end;
+} __packed initrd_dev_path = {
+	{
+		{
+			EFI_DEV_MEDIA,
+			EFI_DEV_MEDIA_VENDOR,
+			sizeof(struct efi_vendor_dev_path),
+		},
+		LINUX_EFI_INITRD_MEDIA_GUID
+	}, {
+		EFI_DEV_END_PATH,
+		EFI_DEV_END_ENTIRE,
+		sizeof(struct efi_generic_dev_path)
+	}
+};
+
+static void efi_load_initrd(void)
+{
+	efi_guid_t lf2_proto_guid = EFI_LOAD_FILE2_PROTOCOL_GUID;
+	efi_device_path_protocol_t *dp;
+	efi_load_file2_protocol_t *lf2;
+	efi_handle_t handle;
+	efi_status_t status;
+	unsigned long file_size = 0;
+
+	initrd = NULL;
+	initrd_size = 0;
+
+	dp = (efi_device_path_protocol_t *)&initrd_dev_path;
+	status = efi_bs_call(locate_device_path, &lf2_proto_guid, &dp, &handle);
+	if (status != EFI_SUCCESS)
+		return;
+
+	status = efi_bs_call(handle_protocol, handle, &lf2_proto_guid, (void **)&lf2);
+	assert(status == EFI_SUCCESS);
+
+	status = efi_call_proto(lf2, load_file, dp, false, &file_size, NULL);
+	assert(status == EFI_BUFFER_TOO_SMALL);
+
+	status = efi_bs_call(allocate_pool, EFI_LOADER_DATA, file_size, (void **)&initrd);
+	assert(status == EFI_SUCCESS);
+
+	status = efi_call_proto(lf2, load_file, dp, false, &file_size, (void *)initrd);
+	assert(status == EFI_SUCCESS);
+
+	initrd_size = (u32)file_size;
+
+	/*
+	 * UEFI appends initrd=initrd to the command line when an initrd is present.
+	 * Remove it in order to avoid confusing unit tests.
+	 */
+	if (!strcmp(__argv[__argc - 1], "initrd=initrd")) {
+		__argv[__argc - 1] = NULL;
+		__argc -= 1;
+	}
 }
 
 efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
@@ -334,6 +402,8 @@ efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 		goto efi_main_error;
 	}
 	setup_args(cmdline_ptr);
+
+	efi_load_initrd();
 
 	efi_bootinfo.fdt = efi_get_fdt(handle, image);
 	/* Set up efi_bootinfo */

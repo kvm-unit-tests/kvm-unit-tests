@@ -80,3 +80,57 @@ void memregions_add_dt_regions(size_t max_nr)
 		});
 	}
 }
+
+#ifdef CONFIG_EFI
+/*
+ * Add memory regions based on the EFI memory map. Also set a pointer to the
+ * memory region which corresponds to the largest EFI_CONVENTIONAL_MEMORY
+ * region, as that region is the largest free, continuous region, making it
+ * a good choice for the memory allocator.
+ */
+void memregions_efi_init(struct efi_boot_memmap *mem_map,
+			 struct mem_region **freemem)
+{
+	u8 *buffer = (u8 *)*mem_map->map;
+	u64 freemem_pages = 0;
+
+	*freemem = NULL;
+
+	for (int i = 0; i < *mem_map->map_size; i += *mem_map->desc_size) {
+		efi_memory_desc_t *d = (efi_memory_desc_t *)&buffer[i];
+		struct mem_region r = {
+			.start = d->phys_addr,
+			.end = d->phys_addr + d->num_pages * EFI_PAGE_SIZE,
+			.flags = 0,
+		};
+
+		switch (d->type) {
+		case EFI_MEMORY_MAPPED_IO:
+		case EFI_MEMORY_MAPPED_IO_PORT_SPACE:
+			r.flags = MR_F_IO;
+			break;
+		case EFI_LOADER_CODE:
+			r.flags = MR_F_CODE;
+			break;
+		case EFI_LOADER_DATA:
+		case EFI_ACPI_RECLAIM_MEMORY:
+			break;
+		case EFI_PERSISTENT_MEMORY:
+			r.flags = MR_F_PERSISTENT;
+			break;
+		case EFI_CONVENTIONAL_MEMORY:
+			if (freemem_pages < d->num_pages) {
+				freemem_pages = d->num_pages;
+				*freemem = memregions_add(&r);
+				continue;
+			}
+			break;
+		default:
+			r.flags = MR_F_RESERVED;
+			break;
+		}
+
+		memregions_add(&r);
+	}
+}
+#endif /* CONFIG_EFI */

@@ -18,7 +18,7 @@ premature_failure()
     local log="$(eval "$(get_cmdline _NO_FILE_4Uhere_)" 2>&1)"
 
     echo "$log" | grep "_NO_FILE_4Uhere_" |
-        grep -q -e "could not \(load\|open\) kernel" -e "error loading" &&
+        grep -q -e "could not \(load\|open\) kernel" -e "error loading" -e "failed to load" &&
         return 1
 
     RUNTIME_log_stderr <<< "$log"
@@ -200,12 +200,13 @@ function run()
 #
 # Probe for MAX_SMP, in case it's less than the number of host cpus.
 #
-# This probing currently only works for ARM, as x86 bails on another
-# error first, so this check is only run for ARM and ARM64. The
-# parameter expansion takes the last number from the QEMU error
-# message, which gives the allowable MAX_SMP.
-if [[ $ARCH == 'arm' || $ARCH == 'arm64' ]] &&
-   smp=$($RUNTIME_arch_run _NO_FILE_4Uhere_ -smp $MAX_SMP |& grep 'exceeds max CPUs'); then
-	smp=${smp##*(}
-	MAX_SMP=${smp:0:-1}
-fi
+function probe_maxsmp()
+{
+	local smp
+
+	if smp=$($RUNTIME_arch_run _NO_FILE_4Uhere_ -smp $MAX_SMP |& grep 'Invalid SMP CPUs'); then
+		smp=${smp##* }
+		echo "Restricting MAX_SMP from ($MAX_SMP) to the max supported ($smp)" >&2
+		MAX_SMP=$smp
+	fi
+}
