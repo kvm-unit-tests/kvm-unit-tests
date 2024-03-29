@@ -204,6 +204,7 @@ static char *efi_convert_cmdline(struct efi_loaded_image_64 *image, int *cmd_lin
 	return (char *)cmdline_addr;
 }
 
+#if defined(__aarch64__) || defined(__riscv)
 /*
  * Open the file and read it into a buffer.
  */
@@ -330,6 +331,12 @@ static void *efi_get_fdt(efi_handle_t handle, struct efi_loaded_image_64 *image)
 
 	return fdt_check_header(fdt) == 0 ? fdt : NULL;
 }
+#else
+static void *efi_get_fdt(efi_handle_t handle, struct efi_loaded_image_64 *image)
+{
+	return NULL;
+}
+#endif
 
 static const struct {
 	struct efi_vendor_dev_path	vendor;
