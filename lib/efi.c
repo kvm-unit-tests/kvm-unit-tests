@@ -406,8 +406,8 @@ efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 	efi_system_table = sys_tab;
 
 	/* Memory map struct values */
-	efi_memory_desc_t *map = NULL;
-	unsigned long map_size = 0, desc_size = 0, key = 0, buff_size = 0;
+	efi_memory_desc_t *map;
+	unsigned long map_size, desc_size, key, buff_size;
 	u32 desc_ver;
 
 	/* Helper variables needed to get the cmdline */
@@ -446,13 +446,6 @@ efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 	efi_bootinfo.mem_map.key_ptr = &key;
 	efi_bootinfo.mem_map.buff_size = &buff_size;
 
-	/* Get EFI memory map */
-	status = efi_get_memory_map(&efi_bootinfo.mem_map);
-	if (status != EFI_SUCCESS) {
-		printf("Failed to get memory map\n");
-		goto efi_main_error;
-	}
-
 #ifdef __riscv
 	status = efi_get_boot_hartid();
 	if (status != EFI_SUCCESS) {
@@ -461,11 +454,22 @@ efi_status_t efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 	}
 #endif
 
-	/* 
-	 * Exit EFI boot services, let kvm-unit-tests take full control of the
-	 * guest
-	 */
-	status = efi_exit_boot_services(handle, &efi_bootinfo.mem_map);
+	status = EFI_INVALID_PARAMETER;
+	while (status == EFI_INVALID_PARAMETER) {
+		status = efi_get_memory_map(&efi_bootinfo.mem_map);
+		if (status != EFI_SUCCESS) {
+			printf("Failed to get memory map\n");
+			goto efi_main_error;
+		}
+		/*
+		 * Exit EFI boot services, let kvm-unit-tests take full
+		 * control of the guest.
+		 */
+		status = efi_exit_boot_services(handle, &efi_bootinfo.mem_map);
+		if (status == EFI_INVALID_PARAMETER)
+			efi_free_pool(*efi_bootinfo.mem_map.map);
+	}
+
 	if (status != EFI_SUCCESS) {
 		printf("Failed to exit boot services\n");
 		goto efi_main_error;
