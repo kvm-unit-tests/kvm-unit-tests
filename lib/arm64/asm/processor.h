@@ -110,31 +110,36 @@ static inline unsigned long get_id_aa64mmfr0_el1(void)
 #define ID_AA64MMFR0_TGRAN64_SHIFT	24
 #define ID_AA64MMFR0_TGRAN16_SHIFT	20
 
-#define ID_AA64MMFR0_TGRAN4_SUPPORTED	0x0
-#define ID_AA64MMFR0_TGRAN64_SUPPORTED	0x0
-#define ID_AA64MMFR0_TGRAN16_SUPPORTED	0x1
+#define ID_AA64MMFR0_TGRAN4_SUPPORTED(r)			\
+({								\
+	u64 __v = ((r) >> ID_AA64MMFR0_TGRAN4_SHIFT) & 0xf;	\
+	(__v) == 0 || (__v) == 1;				\
+})
+
+#define ID_AA64MMFR0_TGRAN64_SUPPORTED(r)			\
+({								\
+	u64 __v = ((r) >> ID_AA64MMFR0_TGRAN64_SHIFT) & 0xf;	\
+	(__v) == 0;						\
+})
+
+#define ID_AA64MMFR0_TGRAN16_SUPPORTED(r)			\
+({								\
+	u64 __v = ((r) >> ID_AA64MMFR0_TGRAN16_SHIFT) & 0xf;	\
+	(__v) == 1 || (__v) == 2;				\
+})
 
 static inline bool system_supports_granule(size_t granule)
 {
-	u32 shift;
-	u32 val;
-	u64 mmfr0;
+	u64 mmfr0 = get_id_aa64mmfr0_el1();
 
-	if (granule == SZ_4K) {
-		shift = ID_AA64MMFR0_TGRAN4_SHIFT;
-		val = ID_AA64MMFR0_TGRAN4_SUPPORTED;
-	} else if (granule == SZ_16K) {
-		shift = ID_AA64MMFR0_TGRAN16_SHIFT;
-		val = ID_AA64MMFR0_TGRAN16_SUPPORTED;
-	} else {
-		assert(granule == SZ_64K);
-		shift = ID_AA64MMFR0_TGRAN64_SHIFT;
-		val = ID_AA64MMFR0_TGRAN64_SUPPORTED;
-	}
+	if (granule == SZ_4K)
+		return ID_AA64MMFR0_TGRAN4_SUPPORTED(mmfr0);
 
-	mmfr0 = get_id_aa64mmfr0_el1();
+	if (granule == SZ_16K)
+		return ID_AA64MMFR0_TGRAN16_SUPPORTED(mmfr0);
 
-	return ((mmfr0 >> shift) & 0xf) == val;
+	assert(granule == SZ_64K);
+	return ID_AA64MMFR0_TGRAN64_SUPPORTED(mmfr0);
 }
 
 #endif /* !__ASSEMBLY__ */
