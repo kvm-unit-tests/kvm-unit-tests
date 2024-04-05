@@ -1,0 +1,89 @@
+unittests
+*********
+
+run_tests.sh is driven by the <arch>/unittests.cfg file. That file defines
+test cases by specifying an executable (target image) under the <arch>/
+directory, and how to run it. This way, for example, a single file can
+provide multiple test cases by being run with different host configurations
+and/or different parameters passed to it.
+
+Detailed output from run_tests.sh unit tests are stored in files under
+the logs/ directory.
+
+unittests.cfg format
+====================
+
+# is the comment symbol, all following contents of the line is ignored.
+
+Each unit test is defined with a [unit-test-name] line, followed by
+a set of parameters that control how the test case is run. The name is
+arbitrary and appears in the status reporting output.
+
+Parameters appear on their own lines under the test name, and have a
+param = value format.
+
+Available parameters
+====================
+Note! Some parameters like smp and extra_params modify how a test is run,
+while others like arch and accel restrict the configurations in which the
+test is run.
+
+file
+----
+file = <filename>
+
+This parameter is mandatory and specifies which binary under the <arch>/
+directory to run. Typically this is <name>.flat or <name>.elf, depending
+on the arch. The directory name is not included, only the file name.
+
+arch
+----
+For <arch>/ directories that support multiple architectures, this restricts
+the test to the specified arch. By default, the test will run on any
+architecture.
+
+smp
+---
+smp = <number>
+
+Optional, the number of processors created in the machine to run the test.
+Defaults to 1. $MAX_SMP can be used to specify the maximum supported.
+
+extra_params
+------------
+These are extra parameters supplied to the QEMU process. -append '...' can
+be used to pass arguments into the test case argv. Multiple parameters can
+be added, for example:
+
+extra_params = -m 256 -append 'smp=2'
+
+groups
+------
+groups = <group_name1> <group_name2> ...
+
+Used to group the test cases for the `run_tests.sh -g ...` run group
+option. Adding a test to the nodefault group will cause it to not be
+run by default.
+
+accel
+-----
+accel = kvm|tcg
+
+This restricts the test to the specified accelerator. By default, the
+test will run on either accelerator. (Note, the accelerator can be
+specified with ACCEL= environment variable, and defaults to KVM if
+available).
+
+timeout
+-------
+timeout = <duration>
+
+Optional timeout in seconds, after which the test will be killed and fail.
+
+check
+-----
+check = <path>=<<value>
+
+Check a file for a particular value before running a test. The check line
+can contain multiple files to check separated by a space, but each check
+parameter needs to be of the form <path>=<value>
