@@ -126,6 +126,16 @@ qmp_events ()
 		jq -c 'select(has("event"))'
 }
 
+filter_quiet_msgs ()
+{
+	grep -v "Now migrate the VM (quiet)"
+}
+
+seen_migrate_msg ()
+{
+	grep -q -e "Now migrate the VM" < $1
+}
+
 run_migration ()
 {
 	if ! command -v ncat >/dev/null 2>&1; then
@@ -156,7 +166,7 @@ run_migration ()
 		-chardev socket,id=mon,path=${src_qmp},server=on,wait=off \
 		-mon chardev=mon,mode=control > ${src_outfifo} &
 	live_pid=$!
-	cat ${src_outfifo} | tee ${src_out} | grep -v "Now migrate the VM (quiet)" &
+	cat ${src_outfifo} | tee ${src_out} | filter_quiet_msgs &
 
 	# Start the first destination QEMU machine in advance of the test
 	# reaching the migration point, since we expect at least one migration.
@@ -166,7 +176,7 @@ run_migration ()
 
 	while ps -p ${live_pid} > /dev/null ; do
 		# Wait for test exit or further migration messages.
-		if ! grep -q -i "Now migrate the VM" < ${src_out} ; then
+		if ! seen_migrate_msg ${src_out} ;  then
 			sleep 0.1
 		else
 			do_migration || return $?
@@ -194,11 +204,11 @@ do_migration ()
 		-mon chardev=mon,mode=control -incoming unix:${dst_incoming} \
 		< <(cat ${dst_infifo}) > ${dst_outfifo} &
 	incoming_pid=$!
-	cat ${dst_outfifo} | tee ${dst_out} | grep -v "Now migrate the VM (quiet)" &
+	cat ${dst_outfifo} | tee ${dst_out} | filter_quiet_msgs &
 
 	# The test must prompt the user to migrate, so wait for the
-	# "Now migrate VM" console message.
-	while ! grep -q -i "Now migrate the VM" < ${src_out} ; do
+	# "Now migrate VM" or similar console message.
+	while ! seen_migrate_msg ${src_out} ; do
 		if ! ps -p ${live_pid} > /dev/null ; then
 			echo "ERROR: Test exit before migration point." >&2
 			echo > ${dst_infifo}
