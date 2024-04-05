@@ -46,6 +46,21 @@ start:
 	add	r1, r1, r31
 	add	r2, r2, r31
 
+	/* Zero backpointers in initial stack frame so backtrace() stops */
+	li	r0,0
+	std	r0,0(r1)
+	std	r0,16(r1)
+
+	/*
+	 * Create entry frame of 64-bytes, same as the initial frame. A callee
+	 * may use the caller frame to store LR, and backtrace() termination
+	 * looks for return address == NULL, so the initial stack frame can't
+	 * be used to call C or else it could overwrite the zeroed LR save slot
+	 * and break backtrace termination.  This frame would be unnecessary if
+	 * backtrace looked for a zeroed frame address.
+	 */
+	stdu	r1,-64(r1)
+
 	/* save DTB pointer */
 	std	r3, 56(r1)
 
