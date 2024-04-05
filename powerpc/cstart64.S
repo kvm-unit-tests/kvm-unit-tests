@@ -51,16 +51,6 @@ start:
 	std	r0,0(r1)
 	std	r0,16(r1)
 
-	/*
-	 * Create entry frame of 64-bytes, same as the initial frame. A callee
-	 * may use the caller frame to store LR, and backtrace() termination
-	 * looks for return address == NULL, so the initial stack frame can't
-	 * be used to call C or else it could overwrite the zeroed LR save slot
-	 * and break backtrace termination.  This frame would be unnecessary if
-	 * backtrace looked for a zeroed frame address.
-	 */
-	stdu	r1,-64(r1)
-
 	/* save DTB pointer */
 	std	r3, 56(r1)
 
@@ -195,6 +185,7 @@ call_handler:
 	.endr
 	mfsprg1	r0
 	std	r0,GPR1(r1)
+	std	r0,0(r1) /* Backchain from interrupt stack to regular stack */
 
 	/* lr, xer, ccr */
 
@@ -213,12 +204,12 @@ call_handler:
 	subi	r31, r31, 0b - start_text
 	ld	r2, (p_toc_text - start_text)(r31)
 
-	/* FIXME: build stack frame */
-
 	/* call generic handler */
 
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	do_handle_exception
+	.global do_handle_exception_return
+do_handle_exception_return:
 
 	/* restore context */
 
