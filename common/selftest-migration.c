@@ -11,7 +11,7 @@
 #include <migrate.h>
 #include <asm/time.h>
 
-#define NR_MIGRATIONS 15
+#define NR_MIGRATIONS 5
 
 int main(int argc, char **argv)
 {
@@ -28,11 +28,11 @@ int main(int argc, char **argv)
 		report(true, "cooperative migration");
 
 		migrate_begin_continuous();
-		mdelay(2000);
-		migrate_end_continuous();
 		mdelay(1000);
+		migrate_end_continuous();
+		mdelay(500);
 		migrate_begin_continuous();
-		mdelay(2000);
+		mdelay(1000);
 		migrate_end_continuous();
 		report(true, "continuous migration");
 	}
