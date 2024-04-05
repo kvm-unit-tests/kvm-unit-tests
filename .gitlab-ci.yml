@@ -92,27 +92,39 @@ build-arm:
 build-ppc64be:
  extends: .outoftree_template
  script:
- - dnf install -y qemu-system-ppc gcc-powerpc64-linux-gnu
+ - dnf install -y qemu-system-ppc gcc-powerpc64-linux-gnu nmap-ncat
  - mkdir build
  - cd build
  - ../configure --arch=ppc64 --endian=big --cross-prefix=powerpc64-linux-gnu-
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     selftest-setup spapr_hcall rtas-get-time-of-day rtas-get-time-of-day-base
-     rtas-set-time-of-day emulator
-     | tee results.txt
+      selftest-setup
+      selftest-migration
+      selftest-migration-skip
+      spapr_hcall
+      rtas-get-time-of-day
+      rtas-get-time-of-day-base
+      rtas-set-time-of-day
+      emulator
+      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 build-ppc64le:
  extends: .intree_template
  script:
- - dnf install -y qemu-system-ppc gcc-powerpc64-linux-gnu
+ - dnf install -y qemu-system-ppc gcc-powerpc64-linux-gnu nmap-ncat
  - ./configure --arch=ppc64 --endian=little --cross-prefix=powerpc64-linux-gnu-
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     selftest-setup spapr_hcall rtas-get-time-of-day rtas-get-time-of-day-base
-     rtas-set-time-of-day emulator
-     | tee results.txt
+      selftest-setup
+      selftest-migration
+      selftest-migration-skip
+      spapr_hcall
+      rtas-get-time-of-day
+      rtas-get-time-of-day-base
+      rtas-set-time-of-day
+      emulator
+      | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
 # build-riscv32:
@@ -339,9 +351,34 @@ s390x-kvm:
   - ./configure --arch=s390x
   - make -j$(nproc)
   - ACCEL=kvm ./run_tests.sh
-      selftest-setup intercept emulator sieve sthyi diag10 diag308 pfmf
-      cmm vector gs iep cpumodel diag288 stsi sclp-1g sclp-3g css skrf sie
+      selftest-setup
+      selftest-migration
+      selftest-migration-skip
+      cmm
+      cpumodel
+      css
+      diag10
+      diag288
+      diag308
+      emulator
       execute
+      gs
+      iep
+      intercept
+      migration
+      migration-memory
+      migration-sck
+      migration-skey-parallel
+      migration-skey-sequential
+      pfmf
+      sclp-1g
+      sclp-3g
+      sie
+      sieve
+      skrf
+      sthyi
+      stsi
+      vector
       | tee results.txt
   - grep -q PASS results.txt && ! grep -q FAIL results.txt
  only:
