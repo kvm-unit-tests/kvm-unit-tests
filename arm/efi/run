@@ -87,7 +87,7 @@ uefi_shell_run()
 if [ "$EFI_DIRECT" = "y" ]; then
 	$TEST_DIR/run \
 		$KERNEL_NAME \
-		-append "$(basename $KERNEL_NAME) ${cmd_args[@]}" \
+		-append "$(basename $KERNEL_NAME) ${cmd_args[*]}" \
 		-bios "$EFI_UEFI" \
 		"${qemu_args[@]}"
 else

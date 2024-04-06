@@ -76,7 +76,7 @@ generate_test ()
 
 	cat scripts/runtime.bash
 
-	echo "run ${args[@]}"
+	echo "run ${args[*]}"
 }
 
 function mkstandalone()

@@ -97,7 +97,7 @@ if [ "$EFI_DIRECT" = "y" ]; then
 	fi
 	$TEST_DIR/run \
 		$KERNEL_NAME \
-		-append "$(basename $KERNEL_NAME) ${cmd_args[@]}" \
+		-append "$(basename $KERNEL_NAME) ${cmd_args[*]}" \
 		-machine pflash0=pflash0 \
 		-blockdev node-name=pflash0,driver=file,read-only=on,filename="$EFI_UEFI" \
 		"${qemu_args[@]}"
