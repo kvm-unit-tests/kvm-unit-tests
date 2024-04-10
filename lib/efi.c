@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <asm/setup.h>
 #include "efi.h"
-#include "libfdt/libfdt.h"
 
 /* From each arch */
 extern char *initrd;
@@ -205,6 +204,7 @@ static char *efi_convert_cmdline(struct efi_loaded_image_64 *image, int *cmd_lin
 }
 
 #if defined(__aarch64__) || defined(__riscv)
+#include "libfdt/libfdt.h"
 /*
  * Open the file and read it into a buffer.
  */
