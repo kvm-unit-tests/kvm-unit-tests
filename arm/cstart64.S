@@ -12,6 +12,7 @@
 #include <asm/ptrace.h>
 #include <asm/page.h>
 #include <asm/pgtable-hwdef.h>
+#include <asm/processor.h>
 #include <asm/thread_info.h>
 #include <asm/sysreg.h>
 

@@ -10,9 +10,17 @@ arch_LDFLAGS = -pie -n
 arch_LDFLAGS += -z notext
 CFLAGS += -mstrict-align
 
+sve_flag := $(call cc-option, -march=armv8.5-a+sve, "")
+ifneq ($(strip $(sve_flag)),)
+# Don't pass the option to the compiler, we don't
+# want the compiler to generate SVE instructions.
+CFLAGS += -DCC_HAS_SVE
+endif
+
 mno_outline_atomics := $(call cc-option, -mno-outline-atomics, "")
 CFLAGS += $(mno_outline_atomics)
 CFLAGS += -DCONFIG_RELOC
+CFLAGS += -mgeneral-regs-only
 
 define arch_elf_check =
 	$(if $(shell ! $(READELF) -rW $(1) >&/dev/null && echo "nok"),
@@ -48,6 +56,7 @@ tests = $(TEST_DIR)/timer.$(exe)
 tests += $(TEST_DIR)/micro-bench.$(exe)
 tests += $(TEST_DIR)/cache.$(exe)
 tests += $(TEST_DIR)/debug.$(exe)
+tests += $(TEST_DIR)/fpu.$(exe)
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 

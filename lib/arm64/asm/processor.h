@@ -142,5 +142,36 @@ static inline bool system_supports_granule(size_t granule)
 	return ID_AA64MMFR0_TGRAN64_SUPPORTED(mmfr0);
 }
 
+static inline unsigned long get_id_aa64pfr0_el1(void)
+{
+	return read_sysreg(id_aa64pfr0_el1);
+}
+
+#define ID_AA64PFR0_EL1_SVE_SHIFT	32
+
+static inline bool system_supports_sve(void)
+{
+	return ((get_id_aa64pfr0_el1() >> ID_AA64PFR0_EL1_SVE_SHIFT) & 0xf) != 0;
+}
+
+static inline int sve_vl(void)
+{
+	int vl;
+
+	asm volatile(".arch_extension sve\n"
+		     "rdvl %0, #8"
+		     : "=r" (vl));
+
+	return vl;
+}
+
+
+static inline bool system_supports_rndr(void)
+{
+	u64 id_aa64isar0_el1 = read_sysreg(ID_AA64ISAR0_EL1);
+
+	return ((id_aa64isar0_el1 >> ID_AA64ISAR0_EL1_RNDR_SHIFT) & 0xf) != 0;
+}
+
 #endif /* !__ASSEMBLY__ */
 #endif /* _ASMARM64_PROCESSOR_H_ */
