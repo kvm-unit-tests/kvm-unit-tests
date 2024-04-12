@@ -88,8 +88,9 @@ start:
 	adrp    x4, stackptr
 	add     sp, x4, :lo12:stackptr
 
-	/* enable FP/ASIMD */
-	mov	x4, #(3 << 20)
+	/* enable FP/ASIMD and SVE */
+	mov	x4, (3 << 20)
+	orr	x4, x4, (3 << 16)
 	msr	cpacr_el1, x4
 
 	/* set up exception handling */
@@ -184,8 +185,9 @@ get_mmu_off:
 
 .globl secondary_entry
 secondary_entry:
-	/* Enable FP/ASIMD */
+	/* enable FP/ASIMD and SVE */
 	mov	x0, #(3 << 20)
+	orr	x0, x0, #(3 << 16)
 	msr	cpacr_el1, x0
 
 	/* set up exception handling */
