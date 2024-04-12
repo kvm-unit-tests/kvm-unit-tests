@@ -116,26 +116,65 @@ start:
 .text
 
 /*
- * psci_invoke_hvc / psci_invoke_smc
+ * arm_smccc_hvc / arm_smccc_smc
  *
  * Inputs:
  *   w0 -- function_id
  *   x1 -- arg0
  *   x2 -- arg1
  *   x3 -- arg2
+ *   x4 -- arg3
+ *   x5 -- arg4
+ *   x6 -- arg5
+ *   x7 -- arg6
+ *   sp -- { arg7, arg8, arg9, arg10, result }
  *
  * Outputs:
  *   x0 -- return code
+ *
+ * If result pointer is not NULL:
+ *   result.r0 -- return code
+ *   result.r1 -- x1
+ *   result.r2 -- x2
+ *   result.r3 -- x3
+ *   result.r4 -- x4
+ *   result.r5 -- x5
+ *   result.r6 -- x6
+ *   result.r7 -- x7
+ *   result.r8 -- x8
+ *   result.r9 -- x9
  */
-.globl psci_invoke_hvc
-psci_invoke_hvc:
-	hvc	#0
+.macro do_smccc_call instr
+	/* Save x8-x11 on stack */
+	stp	x9, x8,	  [sp, #-16]!
+	stp	x11, x10, [sp, #-16]!
+	/* Load arg7 - arg10 from the stack */
+	ldp	x8, x9,   [sp, #32]
+	ldp	x10, x11, [sp, #48]
+	\instr	#0
+	/* Get the result address */
+	ldr	x10, [sp, #64]
+	cmp	x10, xzr
+	b.eq	1f
+	stp	x0, x1, [x10, #0]
+	stp	x2, x3, [x10, #16]
+	stp	x4, x5, [x10, #32]
+	stp	x6, x7, [x10, #48]
+	stp	x8, x9, [x10, #64]
+1:
+	/* Restore x8-x11 from stack */
+	ldp	x11, x10, [sp], #16
+	ldp	x9, x8,   [sp], #16
 	ret
+.endm
 
-.globl psci_invoke_smc
-psci_invoke_smc:
-	smc	#0
-	ret
+.globl arm_smccc_hvc
+arm_smccc_hvc:
+	do_smccc_call hvc
+
+.globl arm_smccc_smc
+arm_smccc_smc:
+	do_smccc_call smc
 
 get_mmu_off:
 	adrp	x0, auxinfo

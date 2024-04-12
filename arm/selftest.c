@@ -406,7 +406,7 @@ static void psci_print(void)
 	int ver = psci_invoke(PSCI_0_2_FN_PSCI_VERSION, 0, 0, 0);
 	report_info("PSCI version: %d.%d", PSCI_VERSION_MAJOR(ver),
 					  PSCI_VERSION_MINOR(ver));
-	report_info("PSCI method: %s", psci_invoke == psci_invoke_hvc ?
+	report_info("PSCI method: %s", psci_invoke_fn == arm_smccc_hvc ?
 				       "hvc" : "smc");
 }
 

@@ -96,26 +96,59 @@ start:
 .text
 
 /*
- * psci_invoke_hvc / psci_invoke_smc
+ * arm_smccc_hvc / arm_smccc_smc
  *
  * Inputs:
  *   r0 -- function_id
  *   r1 -- arg0
  *   r2 -- arg1
  *   r3 -- arg2
+ *   [sp] - arg3
+ *   [sp + #4] - arg4
+ *   [sp + #8] - arg5
+ *   [sp + #12] - arg6
+ *   [sp + #16] - arg7
+ *   [sp + #20] - arg8
+ *   [sp + #24] - arg9
+ *   [sp + #28] - arg10
+ *   [sp + #32] - result (as a pointer to a struct smccc_result)
  *
  * Outputs:
  *   r0 -- return code
+ *
+ * If result pointer is not NULL:
+ *   result.r0 -- return code
+ *   result.r1 -- r1
+ *   result.r2 -- r2
+ *   result.r3 -- r3
+ *   result.r4 -- r4
+ *   result.r5 -- r5
+ *   result.r6 -- r6
+ *   result.r7 -- r7
+ *   result.r8 -- r8
+ *   result.r9 -- r9
  */
-.globl psci_invoke_hvc
-psci_invoke_hvc:
-	hvc	#0
+.macro do_smccc_call instr
+	mov	r12, sp
+	push	{r4-r11}
+	ldm	r12, {r4-r11}
+	\instr	#0
+	ldr	r10, [sp, #64]
+	cmp	r10, #0
+	beq	1f
+	stm	r10, {r0-r9}
+1:
+	pop	{r4-r11}
 	mov	pc, lr
+.endm
 
-.globl psci_invoke_smc
-psci_invoke_smc:
-	smc	#0
-	mov	pc, lr
+.globl arm_smccc_hvc
+arm_smccc_hvc:
+	do_smccc_call hvc
+
+.globl arm_smccc_smc
+arm_smccc_smc:
+	do_smccc_call smc
 
 enable_vfp:
 	/* Enable full access to CP10 and CP11: */
