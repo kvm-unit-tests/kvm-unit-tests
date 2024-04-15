@@ -308,7 +308,7 @@ build-centos7:
 #   https://gitlab.com/libvirt/libvirt/-/blob/v7.0.0/ci/README.rst
 #
 .cirrus_build_job_template: &cirrus_build_job_definition
- image: registry.gitlab.com/libvirt/libvirt-ci/cirrus-run:master
+ image: registry.gitlab.com/libvirt/libvirt-ci/cirrus-run:latest
  before_script:
   - sed -e "s|[@]CI_REPOSITORY_URL@|$CI_REPOSITORY_URL|g"
         -e "s|[@]CI_COMMIT_REF_NAME@|$CI_COMMIT_REF_NAME|g"
