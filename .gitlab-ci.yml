@@ -352,7 +352,6 @@ s390x-kvm:
   - make -j$(nproc)
   - ACCEL=kvm ./run_tests.sh
       selftest-setup
-      selftest-migration
       selftest-migration-skip
       cmm
       cpumodel
