@@ -112,6 +112,16 @@ static void test_rdmsr_fault(u32 msr, const char *name)
 	       "Expected #GP on RDMSR(%s), got vector %d", name, vector);
 }
 
+static void test_wrmsr_fep_fault(u32 msr, const char *name,
+				 unsigned long long val)
+{
+	unsigned char vector = wrmsr_fep_safe(msr, val);
+
+	report(vector == GP_VECTOR,
+	       "Expected #GP on emulated WRSMR(%s, 0x%llx), got vector %d",
+	       name, val, vector);
+}
+
 static void test_msr(struct msr_info *msr, bool is_64bit_host)
 {
 	if (is_64bit_host || !msr->is_64bit_only) {
@@ -302,8 +312,11 @@ static void test_cmd_msrs(void)
 		test_wrmsr_fault(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", 0);
 		test_wrmsr_fault(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", L1D_FLUSH);
 	}
-	for (i = 1; i < 64; i++)
-		test_wrmsr_fault(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", BIT_ULL(i));
+
+	if (is_fep_available()) {
+		for (i = 1; i < 64; i++)
+			test_wrmsr_fep_fault(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", BIT_ULL(i));
+	}
 }
 
 int main(int ac, char **av)
