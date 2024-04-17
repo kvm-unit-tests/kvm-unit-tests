@@ -436,12 +436,12 @@ static inline void wrmsr(u32 index, u64 val)
 	asm volatile ("wrmsr" : : "a"(a), "d"(d), "c"(index) : "memory");
 }
 
-#define rdreg64_safe(insn, index, val)					\
+#define __rdreg64_safe(fep, insn, index, val)				\
 ({									\
 	uint32_t a, d;							\
 	int vector;							\
 									\
-	vector = asm_safe_out2(insn, "=a"(a), "=d"(d), "c"(index));	\
+	vector = __asm_safe_out2(fep, insn, "=a"(a), "=d"(d), "c"(index));\
 									\
 	if (vector)							\
 		*(val) = 0;						\
@@ -450,13 +450,18 @@ static inline void wrmsr(u32 index, u64 val)
 	vector;								\
 })
 
-#define wrreg64_safe(insn, index, val)					\
+#define rdreg64_safe(insn, index, val)					\
+	__rdreg64_safe("", insn, index, val)
+
+#define __wrreg64_safe(fep, insn, index, val)				\
 ({									\
 	uint32_t eax = (val), edx = (val) >> 32;			\
 									\
-	asm_safe(insn, "a" (eax), "d" (edx), "c" (index));		\
+	__asm_safe(fep, insn, "a" (eax), "d" (edx), "c" (index));	\
 })
 
+#define wrreg64_safe(insn, index, val)					\
+	__wrreg64_safe("", insn, index, val)
 
 static inline int rdmsr_safe(u32 index, uint64_t *val)
 {
@@ -466,6 +471,11 @@ static inline int rdmsr_safe(u32 index, uint64_t *val)
 static inline int wrmsr_safe(u32 index, u64 val)
 {
 	return wrreg64_safe("wrmsr", index, val);
+}
+
+static inline int wrmsr_fep_safe(u32 index, u64 val)
+{
+	return __wrreg64_safe(KVM_FEP, "wrmsr", index, val);
 }
 
 static inline int rdpmc_safe(u32 index, uint64_t *val)

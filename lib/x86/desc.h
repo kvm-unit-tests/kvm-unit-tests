@@ -272,9 +272,9 @@ extern gdt_entry_t *get_tss_descr(void);
 extern unsigned long get_gdt_entry_base(gdt_entry_t *entry);
 extern unsigned long get_gdt_entry_limit(gdt_entry_t *entry);
 
-#define asm_safe(insn, inputs...)					\
+#define __asm_safe(fep, insn, inputs...)				\
 ({									\
-	asm volatile(ASM_TRY("1f")					\
+	asm volatile(__ASM_TRY(fep, "1f")				\
 		     insn "\n\t"					\
 		     "1:\n\t"						\
 		     :							\
@@ -283,9 +283,15 @@ extern unsigned long get_gdt_entry_limit(gdt_entry_t *entry);
 	exception_vector();						\
 })
 
-#define asm_safe_out1(insn, output, inputs...)				\
+#define asm_safe(insn, inputs...)					\
+	__asm_safe("", insn, inputs)
+
+#define asm_fep_safe(insn, output, inputs...)				\
+	__asm_safe_out1(KVM_FEP, insn, output, inputs)
+
+#define __asm_safe_out1(fep, insn, output, inputs...)			\
 ({									\
-	asm volatile(ASM_TRY("1f")					\
+	asm volatile(__ASM_TRY(fep, "1f")				\
 		     insn "\n\t"					\
 		     "1:\n\t"						\
 		     : output						\
@@ -294,9 +300,15 @@ extern unsigned long get_gdt_entry_limit(gdt_entry_t *entry);
 	exception_vector();						\
 })
 
-#define asm_safe_out2(insn, output1, output2, inputs...)		\
+#define asm_safe_out1(insn, output, inputs...)				\
+	__asm_safe_out1("", insn, output, inputs)
+
+#define asm_fep_safe_out1(insn, output, inputs...)			\
+	__asm_safe_out1(KVM_FEP, insn, output, inputs)
+
+#define __asm_safe_out2(fep, insn, output1, output2, inputs...)		\
 ({									\
-	asm volatile(ASM_TRY("1f")					\
+	asm volatile(__ASM_TRY(fep, "1f")				\
 		     insn "\n\t"					\
 		     "1:\n\t"						\
 		     : output1, output2					\
@@ -304,6 +316,12 @@ extern unsigned long get_gdt_entry_limit(gdt_entry_t *entry);
 		     : "memory");					\
 	exception_vector();						\
 })
+
+#define asm_safe_out2(fep, insn, output1, output2, inputs...)		\
+	__asm_safe_out2("", insn, output1, output2, inputs)
+
+#define asm_fep_safe_out2(insn, output1, output2, inputs...)		\
+	__asm_safe_out2(KVM_FEP, insn, output1, output2, inputs)
 
 #define __asm_safe_report(want, insn, inputs...)			\
 do {									\
