@@ -146,7 +146,7 @@ void uv_create_guest(struct vm *vm)
 	int cc;
 
 	uvcb_cgc.guest_stor_origin = vm->sblk->mso;
-	uvcb_cgc.guest_stor_len = vm->sblk->msl;
+	uvcb_cgc.guest_stor_len = vm->sblk->msl - vm->sblk->mso + SZ_1M;
 
 	/* Config allocation */
 	vsize = uvcb_qui.conf_base_virt_stor_len +
