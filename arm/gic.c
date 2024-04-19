@@ -829,6 +829,7 @@ static void test_migrate_unmapped_collection(void)
 	if (!errata(ERRATA_UNMAPPED_COLLECTIONS)) {
 		report_skip("Skipping test, as this test hangs without the fix. "
 			    "Set %s=y to enable.", ERRATA_UNMAPPED_COLLECTIONS);
+		migrate_skip();
 		return;
 	}
 
