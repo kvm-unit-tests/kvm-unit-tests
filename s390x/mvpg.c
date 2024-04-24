@@ -40,12 +40,14 @@ static uint8_t *fresh;
 static inline int mvpg(unsigned long r0, void *dest, void *src)
 {
 	register unsigned long reg0 asm ("0") = r0;
+	uint64_t bogus_cc = 3;
 	int cc;
 
-	asm volatile("	mvpg    %1,%2\n"
+	asm volatile("	tmll	%[bogus_cc],3\n"
+		     "	mvpg    %1,%2\n"
 		     "	ipm     %0\n"
 		     "	srl     %0,28"
-		: "=&d" (cc) : "a" (dest), "a" (src), "d" (reg0)
+		: "=&d" (cc) : "a" (dest), "a" (src), "d" (reg0), [bogus_cc] "d" (bogus_cc)
 		: "memory", "cc");
 	return cc;
 }

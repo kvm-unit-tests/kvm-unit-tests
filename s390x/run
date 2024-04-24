@@ -21,12 +21,12 @@ is_pv() {
 	return 1
 }
 
-if is_pv && [ "$ACCEL" = "tcg" ]; then
+if is_pv "$@" && [ "$ACCEL" = "tcg" ]; then
 	echo "Protected Virtualization isn't supported under TCG"
 	exit 2
 fi
 
-if is_pv && [ "$MIGRATION" = "yes" ]; then
+if is_pv "$@" && [ "$MIGRATION" = "yes" ]; then
 	echo "Migration isn't supported under Protected Virtualization"
 	exit 2
 fi
@@ -34,12 +34,12 @@ fi
 M='-machine s390-ccw-virtio'
 M+=",accel=$ACCEL$ACCEL_PROPS"
 
-if is_pv; then
+if is_pv "$@"; then
 	M+=",confidential-guest-support=pv0"
 fi
 
 command="$qemu -nodefaults -nographic $M"
-if is_pv; then
+if is_pv "$@"; then
 	command+=" -object s390-pv-guest,id=pv0"
 fi
 command+=" -chardev stdio,id=con0 -device sclpconsole,chardev=con0"

@@ -130,8 +130,8 @@ static __always_inline void __test_cpacf_invalid_func(unsigned int opcode)
 		report_skip("127 not invalid");
 	} else {
 		__test_cpacf(opcode, 127, 2, 4, 6);
+		check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
 	}
-	check_pgm_int_code(PGM_INT_CODE_SPECIFICATION);
 	report_prefix_pop();
 }
 

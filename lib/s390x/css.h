@@ -147,14 +147,16 @@ static inline int ssch(unsigned long schid, struct orb *addr)
 static inline int stsch(unsigned long schid, struct schib *addr)
 {
 	register unsigned long reg1 asm ("1") = schid;
+	uint64_t bogus_cc = 1;
 	int cc;
 
 	asm volatile(
+		"       tmll    %[bogus_cc],3\n"
 		"	stsch	0(%3)\n"
 		"	ipm	%0\n"
 		"	srl	%0,28"
 		: "=d" (cc), "=m" (*addr)
-		: "d" (reg1), "a" (addr)
+		: "d" (reg1), "a" (addr), [bogus_cc] "d" (bogus_cc)
 		: "cc");
 	return cc;
 }
@@ -177,14 +179,16 @@ static inline int msch(unsigned long schid, struct schib *addr)
 static inline int tsch(unsigned long schid, struct irb *addr)
 {
 	register unsigned long reg1 asm ("1") = schid;
+	uint64_t bogus_cc = 2;
 	int cc;
 
 	asm volatile(
+		"       tmll    %[bogus_cc],3\n"
 		"	tsch	0(%3)\n"
 		"	ipm	%0\n"
 		"	srl	%0,28"
 		: "=d" (cc), "=m" (*addr)
-		: "d" (reg1), "a" (addr)
+		: "d" (reg1), "a" (addr), [bogus_cc] "d" (bogus_cc)
 		: "cc");
 	return cc;
 }
@@ -252,28 +256,32 @@ static inline int rsch(unsigned long schid)
 static inline int rchp(unsigned long chpid)
 {
 	register unsigned long reg1 asm("1") = chpid;
+	uint64_t bogus_cc = 1;
 	int cc;
 
 	asm volatile(
+		"       tmll    %[bogus_cc],3\n"
 		"	rchp\n"
 		"	ipm	%0\n"
 		"	srl	%0,28"
 		: "=d" (cc)
-		: "d" (reg1)
+		: "d" (reg1), [bogus_cc] "d" (bogus_cc)
 		: "cc");
 	return cc;
 }
 
 static inline int stcrw(uint32_t *crw)
 {
+	uint64_t bogus_cc = 1;
 	int cc;
 
 	asm volatile(
+		"       tmll    %[bogus_cc],3\n"
 		"	stcrw	%[crw]\n"
 		"	ipm	%[cc]\n"
 		"	srl	%[cc],28"
 		: [cc] "=d" (cc)
-		: [crw] "Q" (*crw)
+		: [crw] "Q" (*crw), [bogus_cc] "d" (bogus_cc)
 		: "cc", "memory");
 	return cc;
 }
