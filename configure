@@ -422,6 +422,8 @@ ln -sf "$asm" lib/asm
 
 # create the config
 cat <<EOF > config.mak
+# Shellcheck does not see these are used
+# shellcheck disable=SC2034
 SRCDIR=$srcdir
 PREFIX=$prefix
 HOST=$host
