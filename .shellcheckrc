@@ -1,0 +1,30 @@
+# shellcheck configuration file
+external-sources=true
+
+# Optional extras --  https://www.shellcheck.net/wiki/Optional
+# Possibilities, e.g., -
+# quote‐safe‐variables
+# require-double-brackets
+# require-variable-braces
+# add-default-case
+
+# Disable SC2004 style? I.e.,
+# In run_tests.sh line 67:
+#            if (( $unittest_run_queues <= 0 )); then
+#                  ^------------------^ SC2004 (style): $/${} is unnecessary on arithmetic variables.
+disable=SC2004
+
+# Disable SC2086 for now, double quote to prevent globbing and word
+# splitting. There are lots of places that use it for word splitting
+# (e.g., invoking commands with arguments) that break. Should have a
+# more consistent approach for this (perhaps use arrays for such cases)
+# but for now disable.
+# SC2086 (info): Double quote to prevent globbing and word splitting.
+disable=SC2086
+
+# Disable SC2235.  Most developers are used to seeing expressions
+# like a || (b && c), not a || { b && c ; }. The subshell overhead in
+# kvm-unit-tests is negligible as it's not shell-heavy in the first
+# place (time is dominated by qemu startup/shutdown and test execution)
+# SC2235 (style): Use { ..; } instead of (..) to avoid subshell overhead.
+disable=SC2235
