@@ -193,3 +193,6 @@ with `git config diff.orderFile scripts/git.difforder` enables it.
 
 We strive to follow the Linux kernels coding style so it's recommended
 to run the kernel's ./scripts/checkpatch.pl on new patches.
+
+Also run `make shellcheck` before submitting a patch which touches bash
+scripts.
