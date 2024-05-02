@@ -75,7 +75,7 @@ usage() {
 	                           (s390x only)
 	    --page-size=PAGE_SIZE
 	                           Specify the page size (translation granule) (4k, 16k or
-	                           64k, default is 64k, arm64 only)
+	                           64k, default is 4k, arm64 only)
 	    --earlycon=EARLYCON
 	                           Specify the UART name, type and address (optional, arm and
 	                           arm64 only). The specified address will overwrite the UART
@@ -243,11 +243,7 @@ if [ "$efi" ] && [ "$arch" = "riscv64" ] && [ -z "$efi_direct" ]; then
 fi
 
 if [ -z "$page_size" ]; then
-    if [ "$efi" = 'y' ] && [ "$arch" = "arm64" ]; then
-        page_size="4096"
-    elif [ "$arch" = "arm64" ]; then
-        page_size="65536"
-    elif [ "$arch" = "arm" ]; then
+    if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
         page_size="4096"
     fi
 else
