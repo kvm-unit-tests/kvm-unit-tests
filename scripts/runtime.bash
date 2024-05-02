@@ -208,8 +208,10 @@ function probe_maxsmp()
 {
 	local smp
 
-	if smp=$($RUNTIME_arch_run _NO_FILE_4Uhere_ -smp $MAX_SMP |& grep 'Invalid SMP CPUs'); then
+	if smp=$($RUNTIME_arch_run _NO_FILE_4Uhere_ -smp $MAX_SMP |& grep 'SMP CPUs'); then
 		smp=${smp##* }
+		smp=${smp/\(}
+		smp=${smp/\)}
 		echo "Restricting MAX_SMP from ($MAX_SMP) to the max supported ($smp)" >&2
 		MAX_SMP=$smp
 	fi
