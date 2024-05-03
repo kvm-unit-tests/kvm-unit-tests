@@ -420,6 +420,8 @@ ln -sf "$asm" lib/asm
 cat <<EOF > config.mak
 # Shellcheck does not see these are used
 # shellcheck disable=SC2034
+# Shellcheck can give pointless quoting warnings for some commands
+# shellcheck disable=SC2209
 SRCDIR=$srcdir
 PREFIX=$prefix
 HOST=$host
