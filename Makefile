@@ -150,4 +150,4 @@ tags:
 	ctags -R
 
 check-kerneldoc:
-	find . -name '*.[ch]' -exec scripts/kernel-doc -none {} +
+	find $(SRCDIR) -name '*.[ch]' -exec scripts/kernel-doc -none {} +
