@@ -143,7 +143,7 @@ cscope:
 
 .PHONY: shellcheck
 shellcheck:
-	shellcheck -a run_tests.sh */run */efi/run scripts/mkstandalone.sh
+	shellcheck -P $(SRCDIR) -a $(SRCDIR)/run_tests.sh $(SRCDIR)/*/run $(SRCDIR)/*/efi/run $(SRCDIR)/scripts/mkstandalone.sh
 
 .PHONY: tags
 tags:
