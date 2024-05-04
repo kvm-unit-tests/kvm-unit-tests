@@ -15,6 +15,7 @@
 #include <devicetree.h>
 #include <alloc.h>
 #include <alloc_phys.h>
+#include <alloc_page.h>
 #include <argv.h>
 #include <asm/setup.h>
 #include <asm/page.h>
@@ -133,6 +134,7 @@ static void mem_init(phys_addr_t freemem_start)
 		.start = (phys_addr_t)-1,
 	};
 	int nr_regs, i;
+	phys_addr_t base, top;
 
 	nr_regs = dt_get_memory_params(regs, NR_MEM_REGIONS);
 	assert(nr_regs > 0);
@@ -170,6 +172,12 @@ static void mem_init(phys_addr_t freemem_start)
 	phys_alloc_init(freemem_start, primary.end - freemem_start);
 	phys_alloc_set_minimum_alignment(__icache_bytes > __dcache_bytes
 					 ? __icache_bytes : __dcache_bytes);
+
+	phys_alloc_get_unused(&base, &top);
+	base = PAGE_ALIGN(base);
+	top &= PAGE_MASK;
+	page_alloc_init_area(0, base >> PAGE_SHIFT, top >> PAGE_SHIFT);
+	page_alloc_ops_enable();
 }
 
 #define EXCEPTION_STACK_SIZE	SZ_64K
