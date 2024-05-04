@@ -19,6 +19,7 @@
 #define SPR_SPRG1	0x111
 #define SPR_SPRG2	0x112
 #define SPR_SPRG3	0x113
+#define SPR_TBU40	0x11e
 #define SPR_PVR		0x11f
 #define   PVR_VERSION_MASK	UL(0xffff0000)
 #define   PVR_VER_970		UL(0x00390000)

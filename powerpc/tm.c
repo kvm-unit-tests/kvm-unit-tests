@@ -89,7 +89,7 @@ static void test_h_cede_tm(int argc, char **argv)
 	if (argc > 2)
 		report_abort("Unsupported argument: '%s'", argv[2]);
 
-	if (!start_all_cpus(halt, 0))
+	if (!start_all_cpus(halt))
 		report_abort("Failed to start secondary cpus");
 
 	if (!enable_tm())
@@ -133,8 +133,9 @@ int main(int argc, char **argv)
 		report_skip("TM is not available");
 		goto done;
 	}
+	/* kvm-unit-tests can limit number of CPUs present */
 	/* KVM does not report TM in secondary threads in POWER9 */
-	report_kfail(true, cpus_with_tm == nr_cpus,
+	report_kfail(true, cpus_with_tm >= nr_cpus_present,
 	       "TM available in all 'ibm,pa-features' properties");
 
 	all = argc == 1 || !strcmp(argv[1], "all");

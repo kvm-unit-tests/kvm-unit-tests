@@ -10,6 +10,7 @@
 #include <asm/rtas.h>
 #include <asm/setup.h>
 #include <asm/processor.h>
+#include <asm/atomic.h>
 #include "io.h"
 
 static struct spinlock print_lock;
@@ -55,13 +56,17 @@ extern void halt(int code);
 
 void exit(int code)
 {
+	static int exited = 0;
+
 // FIXME: change this print-exit/rtas-poweroff to chr_testdev_exit(),
 //        maybe by plugging chr-testdev into a spapr-vty.
-	printf("\nEXIT: STATUS=%d\n", ((code) << 1) | 1);
-	if (machine_is_powernv())
-		opal_power_off();
-	else
-		rtas_power_off();
+	if (atomic_fetch_inc(&exited) == 0) {
+		printf("\nEXIT: STATUS=%d\n", ((code) << 1) | 1);
+		if (machine_is_powernv())
+			opal_power_off();
+		else
+			rtas_power_off();
+	}
 	halt(code);
 	__builtin_unreachable();
 }

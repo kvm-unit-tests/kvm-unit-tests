@@ -8,6 +8,7 @@
 #include <libcflat.h>
 #include <util.h>
 #include <asm/setup.h>
+#include <asm/smp.h>
 
 static void check_setup(int argc, char **argv)
 {
@@ -34,7 +35,8 @@ static void check_setup(int argc, char **argv)
 
 		} else if (strcmp(argv[i], "smp") == 0) {
 
-			report(nr_cpus == (int)val, "nr_cpus = %d", nr_cpus);
+			report(nr_cpus_present == (int)val,
+				"nr_cpus_present = %d", nr_cpus_present);
 			++nr_tests;
 		}
 

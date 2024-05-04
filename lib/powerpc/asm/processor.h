@@ -16,6 +16,7 @@ extern bool cpu_has_siar;
 extern bool cpu_has_heai;
 extern bool cpu_has_prefix;
 extern bool cpu_has_sc_lev;
+extern bool cpu_has_pause_short;
 
 static inline uint64_t mfspr(int nr)
 {
@@ -43,6 +44,28 @@ static inline uint64_t mfmsr(void)
 static inline void mtmsr(uint64_t msr)
 {
 	asm volatile ("mtmsrd %[msr]" :: [msr] "r" (msr) : "memory");
+}
+
+static inline void local_irq_enable(void)
+{
+	unsigned long msr;
+
+	asm volatile(
+"		mfmsr	%0		\n \
+		ori	%0,%0,%1	\n \
+		mtmsrd	%0,1		"
+		: "=r"(msr) : "i"(MSR_EE): "memory");
+}
+
+static inline void local_irq_disable(void)
+{
+	unsigned long msr;
+
+	asm volatile(
+"		mfmsr	%0		\n \
+		andc	%0,%0,%1	\n \
+		mtmsrd	%0,1		"
+		: "=r"(msr) : "r"(MSR_EE): "memory");
 }
 
 /*

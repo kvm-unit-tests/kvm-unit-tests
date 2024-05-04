@@ -8,8 +8,6 @@
 #include <libcflat.h>
 
 #define NR_CPUS			8	/* arbitrarily set for now */
-extern u32 cpus[NR_CPUS];
-extern int nr_cpus;
 
 extern uint64_t tb_hz;
 

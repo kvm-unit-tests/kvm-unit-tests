@@ -2,7 +2,7 @@
  * Initialize machine setup information and I/O.
  *
  * After running setup() unit tests may query how many cpus they have
- * (nr_cpus), how much memory they have (PHYSICAL_END - PHYSICAL_START),
+ * (nr_cpus_present), how much memory they have (PHYSICAL_END - PHYSICAL_START),
  * may use dynamic memory allocation (malloc, etc.), printf, and exit.
  * Finally, argc and argv are also ready to be passed to main().
  *
@@ -18,6 +18,7 @@
 #include <alloc_page.h>
 #include <argv.h>
 #include <asm/setup.h>
+#include <asm/smp.h>
 #include <asm/page.h>
 #include <asm/ptrace.h>
 #include <asm/processor.h>
@@ -29,8 +30,8 @@ extern unsigned long stacktop;
 char *initrd;
 u32 initrd_size;
 
-u32 cpus[NR_CPUS] = { [0 ... NR_CPUS-1] = (~0U) };
-int nr_cpus;
+u32 cpu_to_hwid[NR_CPUS] = { [0 ... NR_CPUS-1] = (~0U) };
+int nr_cpus_present;
 uint64_t tb_hz;
 
 struct mem_region mem_regions[NR_MEM_REGIONS];
@@ -45,13 +46,32 @@ struct cpu_set_params {
 
 static void cpu_set(int fdtnode, u64 regval, void *info)
 {
+	const struct fdt_property *prop;
+	u32 *threads;
 	static bool read_common_info = false;
 	struct cpu_set_params *params = info;
-	int cpu = nr_cpus++;
+	int nr_threads;
+	int len, i;
 
-	assert_msg(cpu < NR_CPUS, "Number cpus exceeds maximum supported (%d).", NR_CPUS);
+	/* Get the id array of threads on this node */
+	prop = fdt_get_property(dt_fdt(), fdtnode,
+				"ibm,ppc-interrupt-server#s", &len);
+	assert(prop);
 
-	cpus[cpu] = regval;
+	nr_threads = len >> 2; /* Divide by 4 since 4 bytes per thread */
+	threads = (u32 *)prop->data; /* Array of valid ids */
+
+	for (i = 0; i < nr_threads; i++) {
+		if (nr_cpus_present >= NR_CPUS) {
+			static bool warned = false;
+			if (!warned) {
+				printf("Warning: Number of present CPUs exceeds maximum supported (%d).\n", NR_CPUS);
+				warned = true;
+			}
+			break;
+		}
+		cpu_to_hwid[nr_cpus_present++] = fdt32_to_cpu(threads[i]);
+	}
 
 	if (!read_common_info) {
 		const struct fdt_property *prop;
@@ -85,32 +105,25 @@ bool cpu_has_siar;
 bool cpu_has_heai;
 bool cpu_has_prefix;
 bool cpu_has_sc_lev; /* sc interrupt has LEV field in SRR1 */
+bool cpu_has_pause_short;
 
-static void cpu_init(void)
+static void cpu_init_params(void)
 {
 	struct cpu_set_params params;
 	int ret;
 
-	nr_cpus = 0;
+	nr_cpus_present = 0;
 	ret = dt_for_each_cpu_node(cpu_set, &params);
 	assert(ret == 0);
 	__icache_bytes = params.icache_bytes;
 	__dcache_bytes = params.dcache_bytes;
 	tb_hz = params.tb_hz;
 
-	/* Interrupt Endianness */
-	if (machine_is_pseries()) {
-#if  __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-		hcall(H_SET_MODE, 1, 4, 0, 0);
-#else
-		hcall(H_SET_MODE, 0, 4, 0, 0);
-#endif
-	}
-
 	switch (mfspr(SPR_PVR) & PVR_VERSION_MASK) {
 	case PVR_VER_POWER10:
 		cpu_has_prefix = true;
 		cpu_has_sc_lev = true;
+		cpu_has_pause_short = true;
 	case PVR_VER_POWER9:
 	case PVR_VER_POWER8E:
 	case PVR_VER_POWER8NVL:
@@ -183,19 +196,37 @@ static void mem_init(phys_addr_t freemem_start)
 #define EXCEPTION_STACK_SIZE	SZ_64K
 
 static char boot_exception_stack[EXCEPTION_STACK_SIZE];
+struct cpu cpus[NR_CPUS];
+
+void cpu_init(struct cpu *cpu, int cpu_id)
+{
+	cpu->server_no = cpu_id;
+
+	cpu->stack = (unsigned long)memalign(SZ_4K, SZ_64K);
+	cpu->stack += SZ_64K - 64;
+	cpu->exception_stack = (unsigned long)memalign(SZ_4K, SZ_64K);
+	cpu->exception_stack += SZ_64K - 64;
+}
 
 void setup(const void *fdt)
 {
 	void *freemem = &stacktop;
 	const char *bootargs, *tmp;
+	struct cpu *cpu;
 	u32 fdt_size;
 	int ret;
 
 	cpu_has_hv = !!(mfmsr() & (1ULL << MSR_HV_BIT));
 
-	/* set exception stack address for this CPU (in SPGR0) */
-	asm volatile ("mtsprg0 %[addr]" ::
-		      [addr] "r" (boot_exception_stack + EXCEPTION_STACK_SIZE - 64));
+	memset(cpus, 0xff, sizeof(cpus));
+
+	cpu = &cpus[0];
+	cpu->server_no = fdt_boot_cpuid_phys(fdt);
+	cpu->exception_stack = (unsigned long)boot_exception_stack;
+	cpu->exception_stack += EXCEPTION_STACK_SIZE - 64;
+
+	mtspr(SPR_SPRG0, (unsigned long)cpu);
+	__current_cpu = cpu;
 
 	enable_mcheck();
 
@@ -238,8 +269,19 @@ void setup(const void *fdt)
 
 	assert(STACK_INT_FRAME_SIZE % 16 == 0);
 
-	/* call init functions */
-	cpu_init();
+	/* set parameters from dt */
+	cpu_init_params();
+
+	/* Interrupt Endianness */
+	if (machine_is_pseries()) {
+#if  __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+		hcall(H_SET_MODE, 1, 4, 0, 0);
+#else
+		hcall(H_SET_MODE, 0, 4, 0, 0);
+#endif
+	}
+
+	cpu_init_ipis();
 
 	/* cpu_init must be called before mem_init */
 	mem_init(PAGE_ALIGN((unsigned long)freemem));

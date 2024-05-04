@@ -125,6 +125,50 @@ start:
 	bl	exit
 	b	halt
 
+/*
+ * start_secondary is the secondary entry point. r3 contains the cpu id
+ */
+.globl start_secondary
+start_secondary:
+	FIXUP_ENDIAN
+	/* Switch to 64-bit mode */
+	mfmsr	r1
+	li	r2,1
+	sldi	r2,r2,MSR_SF_BIT
+	or	r1,r1,r2
+	mtmsrd	r1
+
+	bl	0f
+0:	mflr	r31
+	subi	r31, r31, 0b - start	/* QEMU's kernel load address */
+
+	ld	r2, (p_toc - start)(r31)
+
+	LOAD_REG_ADDR(r9, cpus)
+	li	r8,0
+	li	r7,0
+1:	add	r6,r9,r7
+	ld	r6,CPU_SERVER_NO(r6)
+	cmpd	r6,r3
+	beq	2f
+	addi	r7,r7,SIZEOF_STRUCT_CPU
+	addi	r8,r8,1
+	cmpdi	r8,MAX_CPUS
+	bne	1b
+	b	.
+
+2:	add	r3,r9,r7
+	ld	r1,CPU_STACK(r3)
+
+	/* Zero backpointers in initial stack frame so backtrace() stops */
+	li	r0,0
+	std	r0,0(r1)
+	std	r0,16(r1)
+
+	bl	main_secondary
+	bl	exit
+	b	halt
+
 .align 3
 p_stack:	.llong  stackptr
 p_toc:		.llong  tocptr
@@ -257,7 +301,8 @@ do_handle_exception_return:
 	. = \vec
 
 	mtsprg1	r1	/* save r1 */
-	mfsprg0	r1	/* get exception stack address */
+	mfsprg0	r1	/* get struct cpu address */
+	ld	r1,CPU_EXCEPTION_STACK(r1) /* get exception stack address */
 	subi	r1,r1, INT_FRAME_SIZE
 
 	/* save r0 and ctr to call generic handler */
@@ -273,7 +318,8 @@ do_handle_exception_return:
 	. = \vec
 
 	mtsprg1	r1	/* save r1 */
-	mfsprg0	r1	/* get exception stack address */
+	mfsprg0	r1	/* get struct cpu address */
+	ld	r1,CPU_EXCEPTION_STACK(r1) /* get exception stack address */
 	subi	r1,r1, INT_FRAME_SIZE
 
 	/* save r0 and ctr to call generic handler */
