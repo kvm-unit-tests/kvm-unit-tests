@@ -100,6 +100,8 @@ extern void report(bool pass, const char *msg_fmt, ...)
 		__attribute__((format(printf, 2, 3), nonnull(2)));
 extern void report_xfail(bool xfail, bool pass, const char *msg_fmt, ...)
 		__attribute__((format(printf, 3, 4), nonnull(3)));
+extern void report_kfail(bool kfail, bool pass, const char *msg_fmt, ...)
+		__attribute__((format(printf, 3, 4), nonnull(3)));
 extern void report_abort(const char *msg_fmt, ...)
 					__attribute__((format(printf, 1, 2)))
 					__attribute__((noreturn));

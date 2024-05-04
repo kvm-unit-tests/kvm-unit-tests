@@ -13,7 +13,7 @@
 #include "libcflat.h"
 #include "asm/spinlock.h"
 
-static unsigned int tests, failures, xfailures, skipped;
+static unsigned int tests, failures, xfailures, kfailures, skipped;
 static char prefixes[256];
 static struct spinlock lock;
 
@@ -81,11 +81,12 @@ void report_prefix_pop(void)
 }
 
 static void va_report(const char *msg_fmt,
-		bool pass, bool xfail, bool skip, va_list va)
+		bool pass, bool xfail, bool kfail, bool skip, va_list va)
 {
 	const char *prefix = skip ? "SKIP"
 				  : xfail ? (pass ? "XPASS" : "XFAIL")
-					  : (pass ? "PASS"  : "FAIL");
+				          : kfail ? (pass ? "PASS" : "KFAIL")
+					          : (pass ? "PASS"  : "FAIL");
 
 	spin_lock(&lock);
 
@@ -98,6 +99,8 @@ static void va_report(const char *msg_fmt,
 		skipped++;
 	else if (xfail && !pass)
 		xfailures++;
+	else if (kfail && !pass)
+		kfailures++;
 	else if (xfail || !pass)
 		failures++;
 
@@ -108,7 +111,7 @@ void report(bool pass, const char *msg_fmt, ...)
 {
 	va_list va;
 	va_start(va, msg_fmt);
-	va_report(msg_fmt, pass, false, false, va);
+	va_report(msg_fmt, pass, false, false, false, va);
 	va_end(va);
 }
 
@@ -117,7 +120,7 @@ void report_pass(const char *msg_fmt, ...)
 	va_list va;
 
 	va_start(va, msg_fmt);
-	va_report(msg_fmt, true, false, false, va);
+	va_report(msg_fmt, true, false, false, false, va);
 	va_end(va);
 }
 
@@ -126,7 +129,7 @@ void report_fail(const char *msg_fmt, ...)
 	va_list va;
 
 	va_start(va, msg_fmt);
-	va_report(msg_fmt, false, false, false, va);
+	va_report(msg_fmt, false, false, false, false, va);
 	va_end(va);
 }
 
@@ -134,7 +137,19 @@ void report_xfail(bool xfail, bool pass, const char *msg_fmt, ...)
 {
 	va_list va;
 	va_start(va, msg_fmt);
-	va_report(msg_fmt, pass, xfail, false, va);
+	va_report(msg_fmt, pass, xfail, false, false, va);
+	va_end(va);
+}
+
+/*
+ * kfail is known failure. If kfail is true then test will succeed
+ * regardless of pass.
+ */
+void report_kfail(bool kfail, bool pass, const char *msg_fmt, ...)
+{
+	va_list va;
+	va_start(va, msg_fmt);
+	va_report(msg_fmt, pass, false, kfail, false, va);
 	va_end(va);
 }
 
@@ -142,7 +157,7 @@ void report_skip(const char *msg_fmt, ...)
 {
 	va_list va;
 	va_start(va, msg_fmt);
-	va_report(msg_fmt, false, false, true, va);
+	va_report(msg_fmt, false, false, false, true, va);
 	va_end(va);
 }
 
@@ -168,6 +183,8 @@ int report_summary(void)
 	printf("SUMMARY: %d tests", tests);
 	if (failures)
 		printf(", %d unexpected failures", failures);
+	if (kfailures)
+		printf(", %d known failures", kfailures);
 	if (xfailures)
 		printf(", %d expected failures", xfailures);
 	if (skipped)
