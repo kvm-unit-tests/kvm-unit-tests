@@ -5,6 +5,8 @@
 
 #define UL(x) _AC(x, UL)
 
+#define SPR_SRR0	0x01a
+#define SPR_SRR1	0x01b
 #define SPR_TB		0x10c
 #define SPR_SPRG0	0x110
 #define SPR_SPRG1	0x111
