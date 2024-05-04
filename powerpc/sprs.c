@@ -228,8 +228,8 @@ static const struct spr sprs_power_common[1024] = {
 [815] = { "TAR",	64,	RW, },
 [848] = { "IC",		64,	HV_RW | OS_RO,	SPR_ASYNC, },
 [849] = { "VTB",	64,	HV_RW | OS_RO,	SPR_ASYNC, },
-[896] = { "PPR",	64,	RW, },
-[898] = { "PPR32",	32,	RW, },
+[896] = { "PPR",	64,	RW,		SPR_ASYNC, }, /* PPR(32) is changed by cpu_relax(), appears to be async */
+[898] = { "PPR32",	32,	RW,		SPR_ASYNC, },
 [1023]= { "PIR",	32,	OS_RO,		SPR_ASYNC, }, /* Can't be virtualised, appears to be async */
 };
 
