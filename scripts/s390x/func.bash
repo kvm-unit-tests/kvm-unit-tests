@@ -13,12 +13,13 @@ function arch_cmd_s390x()
 	local kernel=$5
 	local opts=$6
 	local arch=$7
-	local check=$8
-	local accel=$9
-	local timeout=${10}
+	local machine=$8
+	local check=$9
+	local accel=${10}
+	local timeout=${11}
 
 	# run the normal test case
-	"$cmd" "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$check" "$accel" "$timeout"
+	"$cmd" "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$machine" "$check" "$accel" "$timeout"
 
 	# run PV test case
 	if [ "$accel" = 'tcg' ] || grep -q "migration" <<< "$groups"; then

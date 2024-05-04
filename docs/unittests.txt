@@ -42,6 +42,13 @@ For <arch>/ directories that support multiple architectures, this restricts
 the test to the specified arch. By default, the test will run on any
 architecture.
 
+machine
+-------
+For those architectures that support multiple machine types, this restricts
+the test to the specified machine. By default, the test will run on
+any machine type. (Note, the machine can be specified with the MACHINE=
+environment variable, and defaults to the architecture's default.)
+
 smp
 ---
 smp = <number>
