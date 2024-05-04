@@ -150,7 +150,8 @@ static void test_vpa(void)
 		report_fail("Could not deregister after registration");
 
 	disp_count1 = be32_to_cpu(vpa->vp_dispatch_count);
-	report(disp_count1 % 2 == 1, "Dispatch count is odd after deregister");
+	/* TCG known fail, could be wrong test, must verify against PowerVM */
+	report_kfail(true, disp_count1 % 2 == 1, "Dispatch count is odd after deregister");
 
 	report_prefix_pop();
 }

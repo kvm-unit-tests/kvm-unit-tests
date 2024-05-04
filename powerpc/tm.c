@@ -133,7 +133,8 @@ int main(int argc, char **argv)
 		report_skip("TM is not available");
 		goto done;
 	}
-	report(cpus_with_tm == nr_cpus,
+	/* KVM does not report TM in secondary threads in POWER9 */
+	report_kfail(true, cpus_with_tm == nr_cpus,
 	       "TM available in all 'ibm,pa-features' properties");
 
 	all = argc == 1 || !strcmp(argv[1], "all");
