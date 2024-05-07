@@ -1,4 +1,4 @@
-dist: focal
+dist: jammy
 language: c
 cache: ccache
 compiler: clang
@@ -20,13 +20,14 @@ jobs:
 
     - arch: ppc64le
       addons:
-        apt_packages: clang-11 qemu-system-ppc
+        apt_packages: clang qemu-system-ppc
       env:
-      - CONFIG="--arch=ppc64 --endian=little --cc=clang-11 --cflags=-no-integrated-as"
+      - CONFIG="--arch=ppc64 --endian=little --cc=clang --cflags=-no-integrated-as"
       - TESTS="emulator rtas-get-time-of-day rtas-get-time-of-day-base
           rtas-set-time-of-day selftest-setup spapr_hcall"
 
     - arch: s390x
+      dist: focal
       addons:
         apt_packages: clang-11 qemu-system-s390x
       env:
