@@ -1554,10 +1554,12 @@ static bool exc_inject_check(struct svm_test *test)
 }
 
 static volatile bool virq_fired;
+static volatile unsigned long virq_rip;
 
 static void virq_isr(isr_regs_t *regs)
 {
 	virq_fired = true;
+	virq_rip = regs->rip;
 }
 
 static void virq_inject_prepare(struct svm_test *test)
@@ -1568,6 +1570,7 @@ static void virq_inject_prepare(struct svm_test *test)
 		(0x0f << V_INTR_PRIO_SHIFT); // Set to the highest priority
 	vmcb->control.int_vector = 0xf1;
 	virq_fired = false;
+	virq_rip = -1;
 	set_test_stage(test, 0);
 }
 
@@ -1676,6 +1679,45 @@ static bool virq_inject_finished(struct svm_test *test)
 static bool virq_inject_check(struct svm_test *test)
 {
 	return get_test_stage(test) == 5;
+}
+
+static void virq_inject_within_shadow_prepare(struct svm_test *test)
+{
+	virq_inject_prepare(test);
+	vmcb->control.int_state = SVM_INTERRUPT_SHADOW_MASK;
+	vmcb->save.rflags |= X86_EFLAGS_IF;
+}
+
+extern void virq_inject_within_shadow_test(struct svm_test *test);
+asm("virq_inject_within_shadow_test: nop; nop; vmmcall");
+
+static void virq_inject_within_shadow_prepare_gif_clear(struct svm_test *test)
+{
+	vmcb->save.rip = (unsigned long) test->guest_func;
+}
+
+static bool virq_inject_within_shadow_finished(struct svm_test *test)
+{
+	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL)
+		report_fail("VMEXIT not due to vmmcall. Exit reason 0x%x",
+			    vmcb->control.exit_code);
+	if (!virq_fired)
+		report_fail("V_IRQ did not fire");
+	else if (virq_rip != (unsigned long) virq_inject_within_shadow_test + 1)
+		report_fail("Unexpected RIP for interrupt handler");
+	else if (vmcb->control.int_ctl & V_IRQ_MASK)
+		report_fail("V_IRQ not cleared on VMEXIT after firing");
+	else if (vmcb->control.int_state & SVM_INTERRUPT_SHADOW_MASK)
+		report_fail("Interrupt shadow not cleared");
+	else
+		inc_test_stage(test);
+
+	return true;
+}
+
+static bool virq_inject_within_shadow_check(struct svm_test *test)
+{
+	return get_test_stage(test) == 1;
 }
 
 /*
@@ -3352,6 +3394,9 @@ struct svm_test svm_tests[] = {
 	{ "virq_inject", default_supported, virq_inject_prepare,
 	  default_prepare_gif_clear, virq_inject_test,
 	  virq_inject_finished, virq_inject_check },
+	{ "virq_inject_within_shadow", default_supported, virq_inject_within_shadow_prepare,
+	  virq_inject_within_shadow_prepare_gif_clear, virq_inject_within_shadow_test,
+	  virq_inject_within_shadow_finished, virq_inject_within_shadow_check },
 	{ "reg_corruption", default_supported, reg_corruption_prepare,
 	  default_prepare_gif_clear, reg_corruption_test,
 	  reg_corruption_finished, reg_corruption_check },
