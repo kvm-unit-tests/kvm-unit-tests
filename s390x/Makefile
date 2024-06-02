@@ -199,11 +199,15 @@ $(comm-key):
 
 # The genprotimg arguments for the cck changed over time so we need to
 # figure out which argument to use in order to set the cck
+ifneq ($(HOST_KEY_DOCUMENT),)
 GENPROTIMG_HAS_COMM_KEY = $(shell $(GENPROTIMG) --help | grep -q -- --comm-key && echo yes)
 ifeq ($(GENPROTIMG_HAS_COMM_KEY),yes)
 	GENPROTIMG_COMM_OPTION := --comm-key
 else
 	GENPROTIMG_COMM_OPTION := --x-comm-key
+endif
+else
+GENPROTIMG_HAS_COMM_KEY =
 endif
 
 ifeq ($(CONFIG_DUMP),yes)
