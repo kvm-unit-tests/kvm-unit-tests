@@ -1,5 +1,11 @@
 #include <asm/asm-offsets.h>
 
+PHDRS
+{
+    text PT_LOAD FLAGS(5);
+    data PT_LOAD FLAGS(6);
+}
+
 SECTIONS
 {
 	.lowcore : {
@@ -29,7 +35,7 @@ SECTIONS
 		*(.init)
 		*(.text)
 		*(.text.*)
-	}
+	} :text
 	. = ALIGN(4K);
 	etext = .;
 	/* End text */
@@ -37,9 +43,9 @@ SECTIONS
 	.data : {
 		*(.data)
 		*(.data.rel*)
-	}
+	} :data
 	. = ALIGN(16);
-	.rodata : { *(.rodata) *(.rodata.*) }
+	.rodata : { *(.rodata) *(.rodata.*) } :data
 	. = ALIGN(16);
 	.bss : { *(.bss) }
 	/* End data */
