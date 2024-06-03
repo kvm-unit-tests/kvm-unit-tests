@@ -1154,7 +1154,7 @@ static void interrupt_test(struct svm_test *test)
 
 	apic_setup_timer(TIMER_VECTOR, APIC_LVT_TIMER_PERIODIC);
 	sti();
-	apic_start_timer(1);
+	apic_start_timer(1000);
 
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
@@ -1167,7 +1167,7 @@ static void interrupt_test(struct svm_test *test)
 	vmmcall();
 
 	timer_fired = false;
-	apic_start_timer(1);
+	apic_start_timer(1000);
 	for (loops = 0; loops < 10000000 && !timer_fired; loops++)
 		asm volatile ("nop");
 
