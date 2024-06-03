@@ -112,6 +112,7 @@ R: Thomas Huth <thuth@redhat.com>
 L: linux-s390@vger.kernel.org
 F: s390x/
 F: lib/s390x/
+F: scripts/s390x/
 
 X86
 M: Paolo Bonzini <pbonzini@redhat.com>
