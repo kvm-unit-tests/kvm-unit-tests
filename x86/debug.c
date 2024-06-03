@@ -85,6 +85,7 @@ typedef unsigned long (*db_test_fn)(void);
 typedef void (*db_report_fn)(unsigned long, const char *);
 
 static unsigned long singlestep_with_movss_blocking_and_dr7_gd(void);
+static unsigned long singlestep_with_sti_hlt(void);
 
 static void __run_single_step_db_test(db_test_fn test, db_report_fn report_fn)
 {
@@ -97,8 +98,12 @@ static void __run_single_step_db_test(db_test_fn test, db_report_fn report_fn)
 	start = test();
 	report_fn(start, "");
 
-	/* MOV DR #GPs at CPL>0, don't try to run the DR7.GD test in usermode. */
-	if (test == singlestep_with_movss_blocking_and_dr7_gd)
+	/*
+	 * MOV DR #GPs at CPL>0, don't try to run the DR7.GD test in usermode.
+	 * Likewise for HLT.
+	 */
+	if (test == singlestep_with_movss_blocking_and_dr7_gd
+	    || test == singlestep_with_sti_hlt)
 		return;
 
 	n = 0;
@@ -352,6 +357,58 @@ static noinline unsigned long singlestep_with_movss_blocking_and_dr7_gd(void)
 	return start_rip;
 }
 
+static void report_singlestep_with_sti_hlt(unsigned long start,
+						const char *usermode)
+{
+	report(n == 5 &&
+	       is_single_step_db(dr6[0]) && db_addr[0] == start &&
+	       is_single_step_db(dr6[1]) && db_addr[1] == start + 1 &&
+	       is_single_step_db(dr6[2]) && db_addr[2] == start + 1 + 6 &&
+	       is_single_step_db(dr6[3]) && db_addr[3] == start + 1 + 6 + 1 &&
+	       is_single_step_db(dr6[4]) && db_addr[4] == start + 1 + 6 + 1 + 1,
+	       "%sSingle-step #DB w/ STI;HLT", usermode);
+}
+
+#define APIC_LVT_TIMER_VECTOR    (0xee)
+
+static void lvtt_handler(isr_regs_t *regs)
+{
+        eoi();
+}
+
+static noinline unsigned long singlestep_with_sti_hlt(void)
+{
+	unsigned long start_rip;
+
+	cli();
+
+	handle_irq(APIC_LVT_TIMER_VECTOR, lvtt_handler);
+	apic_write(APIC_LVTT, APIC_LVT_TIMER_ONESHOT |
+		   APIC_LVT_TIMER_VECTOR);
+	apic_write(APIC_TDCR, 0x0000000b);
+	apic_write(APIC_TMICT, 1000000);
+
+	/*
+	 * STI blocking doesn't suppress #DBs, thus the first single-step #DB
+	 * should arrive after the standard one instruction delay.
+	 */
+	asm volatile(
+		"pushf\n\t"
+		"pop %%rax\n\t"
+		"or $(1<<8),%%rax\n\t"
+		"push %%rax\n\t"
+		"popf\n\t"
+		"sti\n\t"
+		"1:hlt;\n\t"
+		"and $~(1<<8),%%rax\n\t"
+		"push %%rax\n\t"
+		"popf\n\t"
+		"lea 1b(%%rip),%0\n\t"
+		: "=r" (start_rip) : : "rax"
+	);
+	return start_rip;
+}
+
 int main(int ac, char **av)
 {
 	unsigned long cr4;
@@ -416,6 +473,7 @@ int main(int ac, char **av)
 	run_ss_db_test(singlestep_with_movss_blocking);
 	run_ss_db_test(singlestep_with_movss_blocking_and_icebp);
 	run_ss_db_test(singlestep_with_movss_blocking_and_dr7_gd);
+	run_ss_db_test(singlestep_with_sti_hlt);
 
 	n = 0;
 	write_dr1((void *)&value);
