@@ -105,9 +105,9 @@ test_cases: $(tests-common) $(tests)
 
 $(TEST_DIR)/%.o: CFLAGS += -std=gnu99 -ffreestanding -I $(SRCDIR)/lib -I $(SRCDIR)/lib/x86 -I lib
 
-$(TEST_DIR)/realmode.elf: $(TEST_DIR)/realmode.o
+$(TEST_DIR)/realmode.elf: $(TEST_DIR)/realmode.o $(SRCDIR)/$(TEST_DIR)/realmode.lds
 	$(LD) -m elf_i386 -nostdlib -o $@ \
-	      -T $(SRCDIR)/$(TEST_DIR)/realmode.lds $^
+	      -T $(SRCDIR)/$(TEST_DIR)/realmode.lds $(filter %.o, $^)
 
 $(TEST_DIR)/realmode.o: bits = $(realmode_bits)
 
