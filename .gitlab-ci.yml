@@ -4,14 +4,18 @@ before_script:
  - dnf update -y
  - dnf install -y make python
 
+# By default artifacts are only saved on success. This uses when:always
+# because the test logs are important to help diagnose failures.
 .intree_template:
  artifacts:
+  when: always
   expire_in: 2 days
   paths:
    - logs
 
 .outoftree_template:
  artifacts:
+  when: always
   expire_in: 2 days
   paths:
    - build/logs
