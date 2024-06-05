@@ -1126,6 +1126,8 @@ static void init_vmcs_host(void)
 	vmcs_write(HOST_CR4, read_cr4());
 	vmcs_write(HOST_SYSENTER_EIP, (u64)(&entry_sysenter));
 	vmcs_write(HOST_SYSENTER_CS,  KERNEL_CS);
+	if (ctrl_exit_rev.clr & EXI_LOAD_PAT)
+		vmcs_write(HOST_PAT, rdmsr(MSR_IA32_CR_PAT));
 
 	/* 26.2.3 */
 	vmcs_write(HOST_SEL_CS, KERNEL_CS);
@@ -1247,7 +1249,7 @@ int init_vmcs(struct vmcs **vmcs)
 	/* All settings to pin/exit/enter/cpu
 	   control fields should be placed here */
 	ctrl_pin |= PIN_EXTINT | PIN_NMI | PIN_VIRT_NMI;
-	ctrl_exit = EXI_LOAD_EFER | EXI_HOST_64;
+	ctrl_exit = EXI_LOAD_EFER | EXI_HOST_64 | EXI_LOAD_PAT;
 	ctrl_enter = (ENT_LOAD_EFER | ENT_GUEST_64);
 	/* DIsable IO instruction VMEXIT now */
 	ctrl_cpu[0] &= (~(CPU_IO | CPU_IO_BITMAP));
