@@ -7275,6 +7275,11 @@ static void test_pat(u32 field, const char * field_name, u32 ctrl_field,
 					error = 0;
 
 				test_vmx_vmlaunch(error);
+
+				if (!error)
+					report(rdmsr(MSR_IA32_CR_PAT) == val,
+					       "Expected PAT = 0x%lx, got 0x%lx",
+						val, rdmsr(MSR_IA32_CR_PAT));
 				wrmsr(MSR_IA32_CR_PAT, pat_msr_saved);
 
 				report_prefix_pop();
