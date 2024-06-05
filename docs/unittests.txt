@@ -69,8 +69,11 @@ groups
 groups = <group_name1> <group_name2> ...
 
 Used to group the test cases for the `run_tests.sh -g ...` run group
-option. Adding a test to the nodefault group will cause it to not be
-run by default.
+option. The group name is arbitrary, except for these special groups:
+- Tests in the "nodefault" group are not run by default (with no -g option).
+- Tests in the "migration" group are run with the migration harness and
+  are expected to make migrate_*() calls.
+- Tests in the "panic" group expect QEMU to enter the GUEST_PANICKED state.
 
 accel
 -----
@@ -89,8 +92,10 @@ Optional timeout in seconds, after which the test will be killed and fail.
 
 check
 -----
-check = <path>=<<value>
+check = <path>=<value>
 
 Check a file for a particular value before running a test. The check line
 can contain multiple files to check separated by a space, but each check
 parameter needs to be of the form <path>=<value>
+
+The path and value cannot contain space, =, or shell wildcard characters.
