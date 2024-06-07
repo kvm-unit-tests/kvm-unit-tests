@@ -314,6 +314,8 @@ build-centos7:
      setjmp sieve tsc rmap_chain umip
      | tee results.txt
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
+ - make -s check-kerneldoc 2>&1 | tee docwarnings.txt
+ - test -z `cat docwarnings.txt`
 
 # Cirrus-CI provides containers with macOS and Linux with KVM enabled,
 # so we can test some scenarios there that are not possible with the
