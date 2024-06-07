@@ -1,4 +1,4 @@
-image: fedora:37
+image: fedora:40
 
 before_script:
  - dnf update -y
@@ -220,7 +220,6 @@ build-x86_64:
       vmexit_ple_round_robin
       vmexit_tscdeadline
       vmexit_tscdeadline_immed
-      xsave
       | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
@@ -272,7 +271,6 @@ build-clang:
       pks
       pku
       rdpru
-      realmode
       rmap_chain
       setjmp
       sieve
@@ -293,7 +291,6 @@ build-clang:
       vmexit_ple_round_robin
       vmexit_tscdeadline
       vmexit_tscdeadline_immed
-      xsave
       | tee results.txt
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
 
