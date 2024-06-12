@@ -25,8 +25,8 @@ opal_call:
 	mfmsr	r12
 	std	r12,-16(r1) /* use redzone */
 
-	/* switch to BE when we enter OPAL */
-	li	r11,(1 << MSR_LE_BIT)
+	/* switch to BE and real-mode when we enter OPAL */
+	li	r11,(1 << MSR_LE_BIT) | MSR_IR | MSR_DR
 	ori	r11,r11,(1 << MSR_EE_BIT)
 	andc	r12,r12,r11
 	mtspr	SPR_HSRR1,r12

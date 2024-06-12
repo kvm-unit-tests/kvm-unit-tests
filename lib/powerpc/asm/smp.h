@@ -3,6 +3,7 @@
 
 #include <libcflat.h>
 #include <asm/processor.h>
+#include <asm/page.h>
 
 typedef void (*secondary_entry_fn)(int cpu_id);
 
@@ -11,6 +12,7 @@ struct cpu {
 	unsigned long stack;
 	unsigned long exception_stack;
 	secondary_entry_fn entry;
+	pgd_t *pgtable;
 };
 
 extern int nr_cpus_present;

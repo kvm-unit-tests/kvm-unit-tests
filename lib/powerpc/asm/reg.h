@@ -11,6 +11,7 @@
 #define SPR_SRR0	0x01a
 #define SPR_SRR1	0x01b
 #define   SRR1_PREFIX		UL(0x20000000)
+#define SPR_PIDR	0x030
 #define SPR_FSCR	0x099
 #define   FSCR_PREFIX		UL(0x2000)
 #define SPR_HFSCR	0x0be
@@ -36,7 +37,9 @@
 #define SPR_LPCR	0x13e
 #define   LPCR_HDICE		UL(0x1)
 #define   LPCR_LD		UL(0x20000)
+#define SPR_LPIDR	0x13f
 #define SPR_HEIR	0x153
+#define SPR_PTCR	0x1d0
 #define SPR_MMCR0	0x31b
 #define   MMCR0_FC		UL(0x80000000)
 #define   MMCR0_PMAE		UL(0x04000000)

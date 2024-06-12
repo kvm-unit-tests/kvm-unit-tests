@@ -13,6 +13,7 @@
 #include <asm/barrier.h>
 #include <asm/hcall.h>
 #include <asm/handlers.h>
+#include <asm/mmu.h>
 #include <asm/smp.h>
 
 static struct {
@@ -46,6 +47,14 @@ void do_handle_exception(struct pt_regs *regs)
 	unsigned char v;
 
 	__current_cpu = (struct cpu *)mfspr(SPR_SPRG0);
+
+	/*
+	 * We run with AIL=0, so interrupts taken with MMU disabled.
+	 * Enable here.
+	 */
+	assert(!(mfmsr() & (MSR_IR|MSR_DR)));
+	if (mmu_enabled())
+		mtmsr(mfmsr() | (MSR_IR|MSR_DR));
 
 	v = regs->trap >> 5;
 

@@ -24,6 +24,12 @@
 #define H_PUT_TERM_CHAR		0x58
 #define H_RANDOM		0x300
 #define H_SET_MODE		0x31C
+#define H_REGISTER_PROCESS_TABLE	0x37C
+
+#define PTBL_NEW		0x18
+#define PTBL_UNREGISTER		0x10
+#define PTBL_RADIX		0x04
+#define PTBL_GTSE		0x01
 
 #define KVMPPC_HCALL_BASE	0xf000
 #define KVMPPC_H_RTAS		(KVMPPC_HCALL_BASE + 0x0)

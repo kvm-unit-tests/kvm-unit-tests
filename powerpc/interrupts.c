@@ -14,6 +14,9 @@
 #include <asm/processor.h>
 #include <asm/time.h>
 #include <asm/barrier.h>
+#include <asm/mmu.h>
+#include "alloc_phys.h"
+#include "vmalloc.h"
 
 static volatile bool got_interrupt;
 static volatile struct pt_regs recorded_regs;
@@ -44,6 +47,7 @@ static void test_mce(void)
 	unsigned long addr = -4ULL;
 	uint8_t tmp;
 	bool is_fetch;
+	bool mmu = mmu_enabled();
 
 	report_prefix_push("mce");
 
@@ -52,6 +56,9 @@ static void test_mce(void)
 	handle_exception(0x380, fault_handler, NULL);
 	handle_exception(0x400, fault_handler, NULL);
 	handle_exception(0x480, fault_handler, NULL);
+
+	if (mmu)
+		mmu_disable();
 
 	if (machine_is_powernv()) {
 		enable_mcheck();
@@ -92,6 +99,9 @@ static void test_mce(void)
 		got_interrupt = false;
 	}
 
+	if (mmu)
+		mmu_enable(NULL);
+
 	handle_exception(0x200, NULL, NULL);
 	handle_exception(0x300, NULL, NULL);
 	handle_exception(0x380, NULL, NULL);
@@ -101,29 +111,36 @@ static void test_mce(void)
 	report_prefix_pop();
 }
 
-static void dseg_handler(struct pt_regs *regs, void *data)
+static void dside_handler(struct pt_regs *regs, void *data)
 {
 	got_interrupt = true;
 	memcpy((void *)&recorded_regs, regs, sizeof(struct pt_regs));
 	regs_advance_insn(regs);
-	regs->msr &= ~MSR_DR;
 }
 
-static void test_dseg(void)
+static void iside_handler(struct pt_regs *regs, void *data)
+{
+	got_interrupt = true;
+	memcpy((void *)&recorded_regs, regs, sizeof(struct pt_regs));
+	regs->nip = regs->link;
+}
+
+static void test_dseg_nommu(void)
 {
 	uint64_t msr, tmp;
 
-	report_prefix_push("data segment");
+	report_prefix_push("dseg");
 
 	/* Some HV start in radix mode and need 0x300 */
-	handle_exception(0x300, &dseg_handler, NULL);
-	handle_exception(0x380, &dseg_handler, NULL);
+	handle_exception(0x300, &dside_handler, NULL);
+	handle_exception(0x380, &dside_handler, NULL);
 
 	asm volatile(
 "		mfmsr	%0		\n \
-		ori	%0,%0,%2	\n \
-		mtmsrd	%0		\n \
-		lbz	%1,0(0)		"
+		ori	%1,%0,%2	\n \
+		mtmsrd	%1		\n \
+		lbz	%1,0(0)		\n \
+		mtmsrd	%0		"
 		: "=r"(msr), "=r"(tmp) : "i"(MSR_DR): "memory");
 
 	report(got_interrupt, "interrupt on NULL dereference");
@@ -132,6 +149,61 @@ static void test_dseg(void)
 	handle_exception(0x300, NULL, NULL);
 	handle_exception(0x380, NULL, NULL);
 
+	report_prefix_pop();
+}
+
+static void test_mmu(void)
+{
+	uint64_t tmp, addr;
+	phys_addr_t base, top;
+
+	if (!mmu_enabled()) {
+		test_dseg_nommu();
+		return;
+	}
+
+	phys_alloc_get_unused(&base, &top);
+
+	report_prefix_push("dsi");
+	addr = top + PAGE_SIZE;
+	handle_exception(0x300, &dside_handler, NULL);
+	asm volatile("lbz %0,0(%1)" : "=r"(tmp) : "r"(addr));
+	report(got_interrupt, "dsi on out of range dereference");
+	report(mfspr(SPR_DAR) == addr, "DAR set correctly");
+	report(mfspr(SPR_DSISR) & (1ULL << 30), "DSISR set correctly");
+	got_interrupt = false;
+	handle_exception(0x300, NULL, NULL);
+	report_prefix_pop();
+
+	report_prefix_push("dseg");
+	addr = -4ULL;
+	handle_exception(0x380, &dside_handler, NULL);
+	asm volatile("lbz %0,0(%1)" : "=r"(tmp) : "r"(addr));
+	report(got_interrupt, "dseg on out of range dereference");
+	report(mfspr(SPR_DAR) == addr, "DAR set correctly");
+	got_interrupt = false;
+	handle_exception(0x380, NULL, NULL);
+	report_prefix_pop();
+
+	report_prefix_push("isi");
+	addr = top + PAGE_SIZE;
+	handle_exception(0x400, &iside_handler, NULL);
+	asm volatile("mtctr %0 ; bctrl" :: "r"(addr) : "ctr", "lr");
+	report(got_interrupt, "isi on out of range fetch");
+	report(recorded_regs.nip == addr, "SRR0 set correctly");
+	report(recorded_regs.msr & (1ULL << 30), "SRR1 set correctly");
+	got_interrupt = false;
+	handle_exception(0x400, NULL, NULL);
+	report_prefix_pop();
+
+	report_prefix_push("iseg");
+	addr = -4ULL;
+	handle_exception(0x480, &iside_handler, NULL);
+	asm volatile("mtctr %0 ; bctrl" :: "r"(addr) : "ctr", "lr");
+	report(got_interrupt, "isi on out of range fetch");
+	report(recorded_regs.nip == addr, "SRR0 set correctly");
+	got_interrupt = false;
+	handle_exception(0x480, NULL, NULL);
 	report_prefix_pop();
 }
 
@@ -402,9 +474,12 @@ int main(int argc, char **argv)
 {
 	report_prefix_push("interrupts");
 
+	if (vm_available())
+		setup_vm();
+
 	if (cpu_has_power_mce)
 		test_mce();
-	test_dseg();
+	test_mmu();
 	test_illegal();
 	test_dec();
 	test_sc();

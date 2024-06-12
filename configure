@@ -74,8 +74,9 @@ usage() {
 	                           Allow PV guests to be dumped. Requires at least z16.
 	                           (s390x only)
 	    --page-size=PAGE_SIZE
-	                           Specify the page size (translation granule) (4k, 16k or
-	                           64k, default is 4k, arm64 only)
+	                           Specify the page size (translation granule). PAGE_SIZE can be
+	                           4k [default], 16k, 64k for arm64.
+	                           4k [default], 64k for ppc64.
 	    --earlycon=EARLYCON
 	                           Specify the UART name, type and address (optional, arm and
 	                           arm64 only). The specified address will overwrite the UART
@@ -245,24 +246,32 @@ fi
 if [ -z "$page_size" ]; then
     if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
         page_size="4096"
+    elif [ "$arch" = "ppc64" ]; then
+        page_size="65536"
     fi
 else
-    if [ "$arch" != "arm64" ]; then
-        echo "--page-size is not supported for $arch"
-        usage
-    fi
-
     if [ "${page_size: -1}" = "K" ] || [ "${page_size: -1}" = "k" ]; then
         page_size=$(( ${page_size%?} * 1024 ))
     fi
-    if [ "$page_size" != "4096" ] && [ "$page_size" != "16384" ] &&
-           [ "$page_size" != "65536" ]; then
-        echo "arm64 doesn't support page size of $page_size"
+
+    if [ "$arch" = "arm64" ]; then
+        if [ "$page_size" != "4096" ] && [ "$page_size" != "16384" ] &&
+               [ "$page_size" != "65536" ]; then
+            echo "arm64 doesn't support page size of $page_size"
+            usage
+        fi
+        if [ "$efi" = 'y' ] && [ "$page_size" != "4096" ]; then
+            echo "efi must use 4K pages"
+            exit 1
+        fi
+    elif [ "$arch" = "ppc64" ]; then
+        if [ "$page_size" != "4096" ] && [ "$page_size" != "65536" ]; then
+            echo "ppc64 doesn't support page size of $page_size"
+            usage
+        fi
+    else
+        echo "--page-size is not supported for $arch"
         usage
-    fi
-    if [ "$efi" = 'y' ] && [ "$page_size" != "4096" ]; then
-        echo "efi must use 4K pages"
-        exit 1
     fi
 fi
 
@@ -472,6 +481,13 @@ cat <<EOF >> lib/config.h
 
 #define CONFIG_UART_EARLY_BASE ${arm_uart_early_addr}
 #define CONFIG_ERRATA_FORCE ${errata_force}
+
+EOF
+fi
+
+if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ] || [ "$arch" = "ppc64" ]; then
+cat <<EOF >> lib/config.h
+
 #define CONFIG_PAGE_SIZE _AC(${page_size}, UL)
 
 EOF

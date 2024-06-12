@@ -18,6 +18,7 @@ reloc.o  = $(TEST_DIR)/reloc64.o
 
 OBJDIRS += lib/ppc64
 cflatobjs += lib/ppc64/stack.o
+cflatobjs += lib/ppc64/mmu.o
 cflatobjs += lib/ppc64/opal.o
 cflatobjs += lib/ppc64/opal-calls.o
 
