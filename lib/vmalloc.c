@@ -206,9 +206,16 @@ void init_alloc_vpage(void *top)
 	spin_unlock(&lock);
 }
 
+bool __attribute__((__weak__)) vm_available(void)
+{
+	return true;
+}
+
 void __setup_vm(void *opaque)
 {
 	phys_addr_t base, top;
+
+	assert_msg(vm_available(), "Virtual memory not available. Must check vm_available() before calling setup_vm()");
 
 	if (alloc_ops == &vmalloc_ops)
 		return;
