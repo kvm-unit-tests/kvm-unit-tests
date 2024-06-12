@@ -72,7 +72,8 @@ static void test_mce(void)
 	is_fetch = false;
 	asm volatile("lbz %0,0(%1)" : "=r"(tmp) : "r"(addr));
 
-	report(got_interrupt, "MCE on access to invalid real address");
+	/* KVM does not MCE on access outside partition scope */
+	report_kfail(host_is_kvm, got_interrupt, "MCE on access to invalid real address");
 	if (got_interrupt) {
 		report(mfspr(SPR_DAR) == addr, "MCE sets DAR correctly");
 		if (cpu_has_power_mce)
@@ -82,7 +83,8 @@ static void test_mce(void)
 
 	is_fetch = true;
 	asm volatile("mtctr %0 ; bctrl" :: "r"(addr) : "ctr", "lr");
-	report(got_interrupt, "MCE on fetch from invalid real address");
+	/* KVM does not MCE on access outside partition scope */
+	report_kfail(host_is_kvm, got_interrupt, "MCE on fetch from invalid real address");
 	if (got_interrupt) {
 		report(recorded_regs.nip == addr, "MCE sets SRR0 correctly");
 		if (cpu_has_power_mce)

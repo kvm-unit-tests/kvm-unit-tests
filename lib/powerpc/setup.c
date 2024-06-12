@@ -208,6 +208,9 @@ void cpu_init(struct cpu *cpu, int cpu_id)
 	cpu->exception_stack += SZ_64K - 64;
 }
 
+bool host_is_tcg;
+bool host_is_kvm;
+
 void setup(const void *fdt)
 {
 	void *freemem = &stacktop;
@@ -259,6 +262,29 @@ void setup(const void *fdt)
 	assert(ret == 0);
 	freemem += fdt_size;
 
+	if (!fdt_node_check_compatible(fdt, 0, "qemu,pseries")) {
+		assert(!cpu_has_hv);
+
+		/*
+		 * host_is_tcg incorrectly does not get set when running
+		 * KVM on a TCG host (using powernv HV emulation or spapr
+		 * nested HV).
+		 */
+		ret = fdt_subnode_offset(fdt, 0, "hypervisor");
+		if (ret < 0) {
+			host_is_tcg = true;
+			host_is_kvm = false;
+		} else {
+			/* KVM is the only supported hypervisor */
+			assert(!fdt_node_check_compatible(fdt, ret, "linux,kvm"));
+			host_is_tcg = false;
+			host_is_kvm = true;
+		}
+	} else {
+		assert(cpu_has_hv);
+		host_is_tcg = true;
+		host_is_kvm = false;
+	}
 	ret = dt_get_initrd(&tmp, &initrd_size);
 	assert(ret == 0 || ret == -FDT_ERR_NOTFOUND);
 	if (ret == 0) {

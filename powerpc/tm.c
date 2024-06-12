@@ -135,7 +135,7 @@ int main(int argc, char **argv)
 	}
 	/* kvm-unit-tests can limit number of CPUs present */
 	/* KVM does not report TM in secondary threads in POWER9 */
-	report_kfail(true, cpus_with_tm >= nr_cpus_present,
+	report_kfail(host_is_kvm, cpus_with_tm >= nr_cpus_present,
 	       "TM available in all 'ibm,pa-features' properties");
 
 	all = argc == 1 || !strcmp(argv[1], "all");
