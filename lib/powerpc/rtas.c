@@ -9,6 +9,7 @@
 #include <libfdt/libfdt.h>
 #include <devicetree.h>
 #include <asm/spinlock.h>
+#include <asm/smp.h>
 #include <asm/hcall.h>
 #include <asm/io.h>
 #include <asm/rtas.h>
@@ -136,6 +137,8 @@ int rtas_call(int token, int nargs, int nret, int *outputs, ...)
 {
 	va_list list;
 	int ret;
+
+	assert_msg(!in_usermode(), "May not make RTAS call from user mode\n");
 
 	spin_lock(&rtas_lock);
 
