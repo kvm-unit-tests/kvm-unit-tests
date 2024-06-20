@@ -58,7 +58,7 @@ void* virt;
 volatile uint64_t  i;
 volatile uint64_t phys;
 volatile uint32_t saved_token;
-volatile uint32_t asyncpf_num;
+volatile unsigned asyncpf_num;
 
 static inline uint32_t get_and_clear_apf_reason(void)
 {
@@ -75,13 +75,13 @@ static void handle_interrupt(isr_regs_t *regs)
 	wrmsr(MSR_KVM_ASYNC_PF_ACK, 1);
 
 	if (apf_token == 0xffffffff) {
-		report_pass("Wakeup all, got token 0x%x", apf_token);
+		report_pass("Wakeup all, got token 0x%" PRIx32, apf_token);
 	} else if (apf_token == saved_token) {
 		asyncpf_num++;
 		install_pte(phys_to_virt(read_cr3()), 1, virt, phys | PT_PRESENT_MASK | PT_WRITABLE_MASK, 0);
 		phys = 0;
 	} else {
-		report_fail("unexpected async pf int token 0x%x", apf_token);
+		report_fail("unexpected async pf int token 0x%" PRIx32, apf_token);
 	}
 
 	eoi();
@@ -105,7 +105,7 @@ static void handle_pf(struct ex_regs *r)
 		}
 		break;
 	default:
-		report_fail("unexpected async pf with reason 0x%x", reason);
+		report_fail("unexpected async pf with reason 0x%" PRIx32, reason);
 		exit(report_summary());
 	}
 }
