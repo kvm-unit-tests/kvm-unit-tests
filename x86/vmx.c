@@ -66,7 +66,7 @@ static int matched;
 static int guest_finished;
 static int in_guest;
 
-union vmx_basic basic;
+union vmx_basic_msr basic_msr;
 union vmx_ctrl_msr ctrl_pin_rev;
 union vmx_ctrl_msr ctrl_cpu_rev[2];
 union vmx_ctrl_msr ctrl_exit_rev;
@@ -369,7 +369,7 @@ static void test_vmwrite_vmread(void)
 	struct vmcs *vmcs = alloc_page();
 	u32 vmcs_enum_max, max_index = 0;
 
-	vmcs->hdr.revision_id = basic.revision;
+	vmcs->hdr.revision_id = basic_msr.revision;
 	assert(!vmcs_clear(vmcs));
 	assert(!make_vmcs_current(vmcs));
 
@@ -430,7 +430,7 @@ static void test_vmread_vmwrite_pf(bool vmread)
 	void *vpage = alloc_vpage();
 
 	memset(vmcs, 0, PAGE_SIZE);
-	vmcs->hdr.revision_id = basic.revision;
+	vmcs->hdr.revision_id = basic_msr.revision;
 	assert(!vmcs_clear(vmcs));
 	assert(!make_vmcs_current(vmcs));
 
@@ -456,7 +456,7 @@ static void test_vmcs_high(void)
 {
 	struct vmcs *vmcs = alloc_page();
 
-	vmcs->hdr.revision_id = basic.revision;
+	vmcs->hdr.revision_id = basic_msr.revision;
 	assert(!vmcs_clear(vmcs));
 	assert(!make_vmcs_current(vmcs));
 
@@ -482,7 +482,7 @@ static void test_vmcs_lifecycle(void)
 
 	for (i = 0; i < ARRAY_SIZE(vmcs); i++) {
 		vmcs[i] = alloc_page();
-		vmcs[i]->hdr.revision_id = basic.revision;
+		vmcs[i]->hdr.revision_id = basic_msr.revision;
 	}
 
 #define VMPTRLD(_i) do { \
@@ -731,13 +731,13 @@ static void test_vmclear_flushing(void)
 		vmcs[i] = alloc_page();
 	}
 
-	vmcs[0]->hdr.revision_id = basic.revision;
+	vmcs[0]->hdr.revision_id = basic_msr.revision;
 	assert(!vmcs_clear(vmcs[0]));
 	assert(!make_vmcs_current(vmcs[0]));
 	set_all_vmcs_fields(0x86);
 
 	assert(!vmcs_clear(vmcs[0]));
-	memcpy(vmcs[1], vmcs[0], basic.size);
+	memcpy(vmcs[1], vmcs[0], basic_msr.size);
 	assert(!make_vmcs_current(vmcs[1]));
 	report(check_all_vmcs_fields(0x86),
 	       "test vmclear flush (current VMCS)");
@@ -745,7 +745,7 @@ static void test_vmclear_flushing(void)
 	set_all_vmcs_fields(0x87);
 	assert(!make_vmcs_current(vmcs[0]));
 	assert(!vmcs_clear(vmcs[1]));
-	memcpy(vmcs[2], vmcs[1], basic.size);
+	memcpy(vmcs[2], vmcs[1], basic_msr.size);
 	assert(!make_vmcs_current(vmcs[2]));
 	report(check_all_vmcs_fields(0x87),
 	       "test vmclear flush (!current VMCS)");
@@ -1126,6 +1126,8 @@ static void init_vmcs_host(void)
 	vmcs_write(HOST_CR4, read_cr4());
 	vmcs_write(HOST_SYSENTER_EIP, (u64)(&entry_sysenter));
 	vmcs_write(HOST_SYSENTER_CS,  KERNEL_CS);
+	if (ctrl_exit_rev.clr & EXI_LOAD_PAT)
+		vmcs_write(HOST_PAT, rdmsr(MSR_IA32_CR_PAT));
 
 	/* 26.2.3 */
 	vmcs_write(HOST_SEL_CS, KERNEL_CS);
@@ -1232,7 +1234,7 @@ static void init_vmcs_guest(void)
 int init_vmcs(struct vmcs **vmcs)
 {
 	*vmcs = alloc_page();
-	(*vmcs)->hdr.revision_id = basic.revision;
+	(*vmcs)->hdr.revision_id = basic_msr.revision;
 	/* vmclear first to init vmcs */
 	if (vmcs_clear(*vmcs)) {
 		printf("%s : vmcs_clear error\n", __func__);
@@ -1247,7 +1249,7 @@ int init_vmcs(struct vmcs **vmcs)
 	/* All settings to pin/exit/enter/cpu
 	   control fields should be placed here */
 	ctrl_pin |= PIN_EXTINT | PIN_NMI | PIN_VIRT_NMI;
-	ctrl_exit = EXI_LOAD_EFER | EXI_HOST_64;
+	ctrl_exit = EXI_LOAD_EFER | EXI_HOST_64 | EXI_LOAD_PAT;
 	ctrl_enter = (ENT_LOAD_EFER | ENT_GUEST_64);
 	/* DIsable IO instruction VMEXIT now */
 	ctrl_cpu[0] &= (~(CPU_IO | CPU_IO_BITMAP));
@@ -1279,14 +1281,14 @@ void enable_vmx(void)
 
 static void init_vmx_caps(void)
 {
-	basic.val = rdmsr(MSR_IA32_VMX_BASIC);
-	ctrl_pin_rev.val = rdmsr(basic.ctrl ? MSR_IA32_VMX_TRUE_PIN
+	basic_msr.val = rdmsr(MSR_IA32_VMX_BASIC);
+	ctrl_pin_rev.val = rdmsr(basic_msr.ctrl ? MSR_IA32_VMX_TRUE_PIN
 			: MSR_IA32_VMX_PINBASED_CTLS);
-	ctrl_exit_rev.val = rdmsr(basic.ctrl ? MSR_IA32_VMX_TRUE_EXIT
+	ctrl_exit_rev.val = rdmsr(basic_msr.ctrl ? MSR_IA32_VMX_TRUE_EXIT
 			: MSR_IA32_VMX_EXIT_CTLS);
-	ctrl_enter_rev.val = rdmsr(basic.ctrl ? MSR_IA32_VMX_TRUE_ENTRY
+	ctrl_enter_rev.val = rdmsr(basic_msr.ctrl ? MSR_IA32_VMX_TRUE_ENTRY
 			: MSR_IA32_VMX_ENTRY_CTLS);
-	ctrl_cpu_rev[0].val = rdmsr(basic.ctrl ? MSR_IA32_VMX_TRUE_PROC
+	ctrl_cpu_rev[0].val = rdmsr(basic_msr.ctrl ? MSR_IA32_VMX_TRUE_PROC
 			: MSR_IA32_VMX_PROCBASED_CTLS);
 	if ((ctrl_cpu_rev[0].clr & CPU_SECONDARY) != 0)
 		ctrl_cpu_rev[1].val = rdmsr(MSR_IA32_VMX_PROCBASED_CTLS2);
@@ -1311,7 +1313,7 @@ void init_vmx(u64 *vmxon_region)
 	write_cr0((read_cr0() & fix_cr0_clr) | fix_cr0_set);
 	write_cr4((read_cr4() & fix_cr4_clr) | fix_cr4_set | X86_CR4_VMXE);
 
-	*vmxon_region = basic.revision;
+	*vmxon_region = basic_msr.revision;
 }
 
 static void alloc_bsp_vmx_pages(void)
@@ -1430,7 +1432,7 @@ static int test_vmxon_bad_cr(int cr_number, unsigned long orig_cr,
 		 */
 		if ((cr_number == 0 && (bit == X86_CR0_PE || bit == X86_CR0_PG)) ||
 		    (cr_number == 4 && (bit == X86_CR4_PAE || bit == X86_CR4_SMAP ||
-					bit == X86_CR4_SMEP)))
+					bit == X86_CR4_SMEP || bit == X86_CR4_CET)))
 			continue;
 
 		if (!(bit & required1) && !(bit & disallowed1)) {
@@ -1515,7 +1517,7 @@ static int test_vmxon(void)
 	/* and finally a valid region, with valid-but-tweaked cr0/cr4 */
 	write_cr0(orig_cr0 ^ flexible_cr0);
 	write_cr4(orig_cr4 ^ flexible_cr4);
-	*bsp_vmxon_region = basic.revision;
+	*bsp_vmxon_region = basic_msr.revision;
 	ret = vmxon_safe();
 	report(!ret, "test vmxon with valid vmxon region");
 	write_cr0(orig_cr0);
@@ -1529,7 +1531,7 @@ static void test_vmptrld(void)
 	int width = cpuid_maxphyaddr();
 
 	vmcs = alloc_page();
-	vmcs->hdr.revision_id = basic.revision;
+	vmcs->hdr.revision_id = basic_msr.revision;
 
 	/* Unaligned page access */
 	tmp_root = (struct vmcs *)((intptr_t)vmcs + 1);
@@ -1592,10 +1594,10 @@ static void test_vmx_caps(void)
 
 	printf("\nTest suite: VMX capability reporting\n");
 
-	report((basic.revision & (1ul << 31)) == 0 &&
-	       basic.size > 0 && basic.size <= 4096 &&
-	       (basic.type == 0 || basic.type == 6) &&
-	       basic.reserved1 == 0 && basic.reserved2 == 0,
+	report((basic_msr.revision & (1ul << 31)) == 0 &&
+	       basic_msr.size > 0 && basic_msr.size <= 4096 &&
+	       (basic_msr.type == 0 || basic_msr.type == 6) &&
+	       basic_msr.reserved1 == 0 && basic_msr.reserved2 == 0,
 	       "MSR_IA32_VMX_BASIC");
 
 	val = rdmsr(MSR_IA32_VMX_MISC);
@@ -1609,7 +1611,7 @@ static void test_vmx_caps(void)
 		default1 = vmx_ctl_msr[n].default1;
 		ok = (ctrl.set & default1) == default1;
 		ok = ok && (ctrl.set & ~ctrl.clr) == 0;
-		if (ok && basic.ctrl) {
+		if (ok && basic_msr.ctrl) {
 			true_ctrl.val = rdmsr(vmx_ctl_msr[n].true_index);
 			ok = ctrl.clr == true_ctrl.clr;
 			ok = ok && ctrl.set == (true_ctrl.set | default1);

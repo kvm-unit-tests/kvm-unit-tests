@@ -81,6 +81,11 @@ static inline bool apic_lvt_entry_supported(int idx)
 	return GET_APIC_MAXLVT(apic_read(APIC_LVR)) >= idx;
 }
 
+static inline u8 task_priority_class(u8 vector)
+{
+	return vector >> 4;
+}
+
 enum x2apic_reg_semantics {
 	X2APIC_INVALID	= 0,
 	X2APIC_READABLE	= BIT(0),
