@@ -67,7 +67,14 @@ static bool get_lam_mask(u64 address, u64* lam_mask)
 		return true;
 	}
 
-	/* TODO: Get LAM mask for userspace address. */
+	if(is_lam_u48_enabled()) {
+		*lam_mask = LAM48_MASK;
+		return true;
+	}
+
+	if(is_lam_u57_enabled())
+		return true;
+
 	return false;
 }
 
@@ -88,6 +95,17 @@ static void test_ptr(u64* ptr, bool is_mmio)
 	report(fault != lam_active, "Expected access to tagged address for %s %s LAM to %s",
 	       is_mmio ? "MMIO" : "memory", lam_active ? "with" : "without",
 	       lam_active ? "succeed" : "#GP");
+
+	/*
+	 * This test case is only triggered when LAM_U57 is active and 4-level
+	 * paging is used. For the case, bit[56:47] aren't all 0 triggers #GP.
+	 */
+	if (lam_active && (lam_mask == LAM57_MASK) && !is_la57_enabled()) {
+		ptr = (u64 *)get_non_canonical((u64)ptr, LAM48_MASK);
+		fault = test_for_exception(GP_VECTOR, do_mov, ptr);
+		report(fault, "Expected access to non-LAM-canonical address for %s to #GP",
+		       is_mmio ? "MMIO" : "memory");
+	}
 }
 
 /* invlpg with tagged address is same as NOP, no #GP expected. */
@@ -204,6 +222,54 @@ static void test_lam_sup(void)
 	}
 }
 
+static void test_lam_user(void)
+{
+	void* vaddr;
+	int vector;
+	unsigned long cr3 = read_cr3() & ~(X86_CR3_LAM_U48 | X86_CR3_LAM_U57);
+	bool has_lam = this_cpu_has(X86_FEATURE_LAM);
+
+	/*
+	 * The physical address of AREA_NORMAL is within 36 bits, so that using
+	 * identical mapping, the linear address will be considered as user mode
+	 * address from the view of LAM, and the metadata bits are not used as
+	 * address for both LAM48 and LAM57.
+	 */
+	vaddr = alloc_pages_flags(0, AREA_NORMAL);
+	_Static_assert((AREA_NORMAL_PFN & GENMASK(63, 47)) == 0UL,
+			"Identical mapping range check");
+
+	/*
+	 * Note, LAM doesn't have a global control bit to turn on/off LAM
+	 * completely, but purely depends on hardware's CPUID to determine it
+	 * can be enabled or not. That means, when EPT is on, even when KVM
+	 * doesn't expose LAM to guest, the guest can still set LAM control bits
+	 * in CR3 w/o causing problem. This is an unfortunate virtualization
+	 * hole. KVM doesn't choose to intercept CR3 in this case for
+	 * performance.
+	 * Only enable LAM CR3 bits when LAM feature is exposed.
+	 */
+	if (has_lam) {
+		vector = write_cr3_safe(cr3 | X86_CR3_LAM_U48);
+		report(!vector && is_lam_u48_enabled(), "Expected CR3.LAM_U48=1 to succeed");
+	}
+	/*
+	 * Physical memory & MMIO have already been identical mapped in
+	 * setup_mmu().
+	 */
+	test_ptr(vaddr, false);
+	test_ptr(phys_to_virt(IORAM_BASE_PHYS), true);
+
+	if (has_lam) {
+		vector = write_cr3_safe(cr3 | X86_CR3_LAM_U57);
+		report(!vector && is_lam_u57_enabled(), "Expected CR3.LAM_U57=1 to succeed");
+
+		/* If !has_lam, it has been tested above, no need to test again. */
+		test_ptr(vaddr, false);
+		test_ptr(phys_to_virt(IORAM_BASE_PHYS), true);
+	}
+}
+
 int main(int ac, char **av)
 {
 	setup_vm();
@@ -214,6 +280,7 @@ int main(int ac, char **av)
 		report_info("This CPU supports LAM\n");
 
 	test_lam_sup();
+	test_lam_user();
 
 	return report_summary();
 }

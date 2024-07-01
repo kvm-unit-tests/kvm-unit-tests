@@ -83,7 +83,9 @@ static inline u64 get_non_canonical(u64 addr, u64 mask)
 
 #define X86_CR3_PCID_MASK	GENMASK(11, 0)
 #define X86_CR3_LAM_U57_BIT	(61)
+#define X86_CR3_LAM_U57		BIT_ULL(X86_CR3_LAM_U57_BIT)
 #define X86_CR3_LAM_U48_BIT	(62)
+#define X86_CR3_LAM_U48		BIT_ULL(X86_CR3_LAM_U48_BIT)
 
 #define X86_CR4_VME_BIT		(0)
 #define X86_CR4_VME		BIT(X86_CR4_VME_BIT)
@@ -1038,6 +1040,16 @@ static inline bool is_la57_enabled(void)
 static inline bool is_lam_sup_enabled(void)
 {
 	return !!(read_cr4() & X86_CR4_LAM_SUP);
+}
+
+static inline bool is_lam_u48_enabled(void)
+{
+	return (read_cr3() & (X86_CR3_LAM_U48 | X86_CR3_LAM_U57)) == X86_CR3_LAM_U48;
+}
+
+static inline bool is_lam_u57_enabled(void)
+{
+	return !!(read_cr3() & X86_CR3_LAM_U57);
 }
 
 #endif
