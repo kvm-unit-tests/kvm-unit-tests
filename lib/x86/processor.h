@@ -11,6 +11,18 @@
 #define CANONICAL_57_VAL 0xffaaaaaaaaaaaaaaull
 #define NONCANONICAL	 0xaaaaaaaaaaaaaaaaull
 
+#define LAM57_MASK	GENMASK_ULL(62, 57)
+#define LAM48_MASK	GENMASK_ULL(62, 48)
+
+/*
+ * Get a linear address by combining @addr with a non-canonical pattern in the
+ * @mask bits.
+ */
+static inline u64 get_non_canonical(u64 addr, u64 mask)
+{
+	return (addr & ~mask) | (NONCANONICAL & mask);
+}
+
 #ifdef __x86_64__
 #  define R "r"
 #  define W "q"
@@ -122,6 +134,8 @@
 #define X86_CR4_CET		BIT(X86_CR4_CET_BIT)
 #define X86_CR4_PKS_BIT		(24)
 #define X86_CR4_PKS		BIT(X86_CR4_PKS_BIT)
+#define X86_CR4_LAM_SUP_BIT	(28)
+#define X86_CR4_LAM_SUP		BIT(X86_CR4_LAM_SUP_BIT)
 
 #define X86_EFLAGS_CF_BIT	(0)
 #define X86_EFLAGS_CF		BIT(X86_EFLAGS_CF_BIT)
@@ -1014,6 +1028,16 @@ static inline void generate_cr0_em_nm(void)
 {
 	write_cr0((read_cr0() & ~X86_CR0_TS) | X86_CR0_EM);
 	fnop();
+}
+
+static inline bool is_la57_enabled(void)
+{
+	return !!(read_cr4() & X86_CR4_LA57);
+}
+
+static inline bool is_lam_sup_enabled(void)
+{
+	return !!(read_cr4() & X86_CR4_LAM_SUP);
 }
 
 #endif
