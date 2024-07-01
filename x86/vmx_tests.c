@@ -3233,6 +3233,46 @@ static void invvpid_test_not_in_vmx_operation(void)
 	TEST_ASSERT(!vmx_on());
 }
 
+/* LAM doesn't apply to the linear address inside the descriptor of invvpid */
+static void invvpid_test_lam(void)
+{
+	void *vaddr;
+	struct invvpid_operand *operand;
+	u64 lam_mask;
+	bool fault;
+
+	if (!this_cpu_has(X86_FEATURE_LAM)) {
+		report_skip("LAM is not supported, skip INVVPID with LAM");
+		return;
+	}
+
+	write_cr4(read_cr4() | X86_CR4_LAM_SUP);
+	lam_mask = is_la57_enabled() ? LAM57_MASK : LAM48_MASK;
+
+	vaddr = alloc_vpage();
+	install_page(current_page_table(), virt_to_phys(alloc_page()), vaddr);
+	/*
+	 * Since the stack memory address in KUT doesn't follow kernel address
+	 * space partition rule, reuse the memory address for descriptor and
+	 * the target address in the descriptor of invvpid.
+	 */
+	operand = (struct invvpid_operand *)vaddr;
+	operand->vpid = 0xffff;
+	operand->gla = (u64)vaddr;
+	operand = (struct invvpid_operand *)get_non_canonical((u64)operand, lam_mask);
+	fault = test_for_exception(GP_VECTOR, ds_invvpid, operand);
+	report(!fault, "Expected INVVPID with tagged operand when LAM is enabled to succeed");
+
+	/*
+	 * Verify that LAM doesn't apply to the address inside the descriptor
+	 * even when LAM is enabled. i.e., the address in the descriptor should
+	 * be canonical.
+	 */
+	try_invvpid(INVVPID_ADDR, 0xffff, (u64)operand);
+
+	write_cr4(read_cr4() & ~X86_CR4_LAM_SUP);
+}
+
 /*
  * This does not test real-address mode, virtual-8086 mode, protected mode,
  * or CPL > 0.
@@ -3282,8 +3322,10 @@ static void invvpid_test(void)
 	/*
 	 * The gla operand is only validated for single-address INVVPID.
 	 */
-	if (types & (1u << INVVPID_ADDR))
+	if (types & (1u << INVVPID_ADDR)) {
 		try_invvpid(INVVPID_ADDR, 0xffff, NONCANONICAL);
+		invvpid_test_lam();
+	}
 
 	invvpid_test_gp();
 	invvpid_test_ss();
