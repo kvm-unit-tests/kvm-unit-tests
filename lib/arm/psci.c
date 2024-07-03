@@ -13,13 +13,24 @@
 #include <asm/smp.h>
 
 static int psci_invoke_none(unsigned int function_id, unsigned long arg0,
-			    unsigned long arg1, unsigned long arg2)
+			    unsigned long arg1, unsigned long arg2,
+			    unsigned long arg3, unsigned long arg4,
+			    unsigned long arg5, unsigned long arg6,
+			    unsigned long arg7, unsigned long arg8,
+			    unsigned long arg9, unsigned long arg10,
+			    struct smccc_result *result)
 {
 	printf("No PSCI method configured! Can't invoke...\n");
 	return PSCI_RET_NOT_PRESENT;
 }
 
-psci_invoke_fn psci_invoke = psci_invoke_none;
+smccc_invoke_fn psci_invoke_fn = psci_invoke_none;
+
+int psci_invoke(unsigned int function_id, unsigned long arg0,
+		unsigned long arg1, unsigned long arg2)
+{
+	return psci_invoke_fn(function_id, arg0, arg1, arg2, 0, 0, 0, 0, 0, 0, 0, 0, NULL);
+}
 
 int psci_cpu_on(unsigned long cpuid, unsigned long entry_point)
 {
@@ -69,9 +80,9 @@ static void psci_set_conduit_fdt(void)
 	assert(method != NULL && len == 4);
 
 	if (strcmp(method->data, "hvc") == 0)
-		psci_invoke = psci_invoke_hvc;
+		psci_invoke_fn = arm_smccc_hvc;
 	else if (strcmp(method->data, "smc") == 0)
-		psci_invoke = psci_invoke_smc;
+		psci_invoke_fn = arm_smccc_smc;
 	else
 		assert_msg(false, "Unknown PSCI conduit: %s", method->data);
 }
@@ -89,9 +100,9 @@ static void psci_set_conduit_acpi(void)
 		   "PSCI is not supported in this platform");
 
 	if (fadt->arm_boot_flags & ACPI_FADT_PSCI_USE_HVC)
-		psci_invoke = psci_invoke_hvc;
+		psci_invoke_fn = arm_smccc_hvc;
 	else
-		psci_invoke = psci_invoke_smc;
+		psci_invoke_fn = arm_smccc_smc;
 }
 
 #else

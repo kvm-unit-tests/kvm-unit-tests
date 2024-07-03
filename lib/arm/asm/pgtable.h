@@ -13,7 +13,9 @@
  *
  * This work is licensed under the terms of the GNU GPL, version 2.
  */
+#include <alloc.h>
 #include <alloc_page.h>
+#include <asm/setup.h>
 
 /*
  * We can convert va <=> pa page table addresses with simple casts

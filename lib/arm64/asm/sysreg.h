@@ -73,6 +73,8 @@ asm(
 );
 #endif /* __ASSEMBLY__ */
 
+#define ID_AA64ISAR0_EL1_RNDR_SHIFT	60
+
 #define ICC_PMR_EL1			sys_reg(3, 0, 4, 6, 0)
 #define ICC_SGI1R_EL1			sys_reg(3, 0, 12, 11, 5)
 #define ICC_IAR1_EL1			sys_reg(3, 0, 12, 12, 0)
@@ -101,5 +103,10 @@ asm(
 			(SCTLR_EL1_ITD | SCTLR_EL1_SED | SCTLR_EL1_EOS | \
 			 SCTLR_EL1_TSCXT | SCTLR_EL1_EIS | SCTLR_EL1_SPAN | \
 			 SCTLR_EL1_NTLSMD | SCTLR_EL1_LSMAOE)
+
+#define ZCR_EL1		S3_0_C1_C2_0
+#define ZCR_EL1_LEN	GENMASK(3, 0)
+
+#define RNDR		S3_3_C2_C4_0
 
 #endif /* _ASMARM64_SYSREG_H_ */

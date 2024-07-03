@@ -26,6 +26,7 @@
 #define ESR_EL1_EC_SVC32	(0x11)
 #define ESR_EL1_EC_SVC64	(0x15)
 #define ESR_EL1_EC_SYS64	(0x18)
+#define ESR_EL1_EC_SVE		(0x19)
 #define ESR_EL1_EC_IABT_EL0	(0x20)
 #define ESR_EL1_EC_IABT_EL1	(0x21)
 #define ESR_EL1_EC_PC_ALIGN	(0x22)

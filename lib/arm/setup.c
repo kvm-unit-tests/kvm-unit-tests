@@ -35,6 +35,7 @@
 #define NR_MEM_REGIONS		(MAX_DT_MEM_REGIONS + NR_EXTRA_MEM_REGIONS)
 
 extern unsigned long _text, _etext, _data, _edata;
+extern unsigned long stacktop;
 
 char *initrd;
 u32 initrd_size;
@@ -195,6 +196,14 @@ static void freemem_push_fdt(void **freemem, const void *fdt)
 {
 	u32 fdt_size;
 	int ret;
+
+#ifndef CONFIG_EFI
+	/*
+	 * Ensure that the FDT was not overlapping with the uninitialised
+	 * data that was overwritten.
+	 */
+	assert((unsigned long)fdt > (unsigned long)&stacktop);
+#endif
 
 	fdt_size = fdt_totalsize(fdt);
 	ret = fdt_move(fdt, *freemem, fdt_size);

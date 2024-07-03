@@ -43,6 +43,7 @@ static const char *ec_names[EC_MAX] = {
 	[ESR_EL1_EC_SVC32]		= "SVC32",
 	[ESR_EL1_EC_SVC64]		= "SVC64",
 	[ESR_EL1_EC_SYS64]		= "SYS64",
+	[ESR_EL1_EC_SVE]		= "SVE",
 	[ESR_EL1_EC_IABT_EL0]		= "IABT_EL0",
 	[ESR_EL1_EC_IABT_EL1]		= "IABT_EL1",
 	[ESR_EL1_EC_PC_ALIGN]		= "PC_ALIGN",
