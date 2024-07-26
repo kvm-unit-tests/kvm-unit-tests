@@ -429,3 +429,16 @@ check-kerneldoc:
   before_script:
     - apk -U add bash make perl gcc
   allow_failure: true
+
+check-shellcheck:
+  extends: .intree_template
+  stage: build
+  image: python:3.10-alpine
+  needs: []
+  script:
+    - ./configure --arch=x86_64
+    - make -s shellcheck 2>&1 | tee shellcheckwarnings.txt
+    - test -z `cat shellcheckwarnings.txt`
+  before_script:
+    - apk -U add bash make gcc shellcheck
+  allow_failure: true
