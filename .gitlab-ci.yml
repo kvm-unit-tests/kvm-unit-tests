@@ -442,3 +442,14 @@ check-shellcheck:
   before_script:
     - apk -U add bash make gcc shellcheck
   allow_failure: true
+
+check-patch:
+  extends: .intree_template
+  stage: build
+  image: python:3.10-alpine
+  needs: []
+  script:
+    - scripts/check-patch.py
+  before_script:
+    - apk -U add git perl
+  allow_failure: true
