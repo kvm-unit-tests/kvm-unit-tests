@@ -300,6 +300,10 @@ build-centos7:
  extends: .outoftree_template
  image: centos:7
  before_script:
+# CentOS mirrors have changed, these sed scripts fixes the repos.
+ - sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
+ - sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
+ - sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
  - yum update -y
  - yum install -y make python qemu-kvm gcc
  script:
