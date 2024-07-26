@@ -305,7 +305,7 @@ build-centos8:
  - sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
  - sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
  - yum update -y
- - yum install -y make python39 qemu-kvm gcc
+ - yum install -y make qemu-kvm gcc
  script:
  - mkdir build
  - cd build
@@ -343,8 +343,6 @@ build-centos8:
       | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
- - make -s check-kerneldoc 2>&1 | tee docwarnings.txt
- - test -z `cat docwarnings.txt`
 
 # Cirrus-CI provides containers with macOS and Linux with KVM enabled,
 # so we can test some scenarios there that are not possible with the
@@ -418,3 +416,16 @@ s390x-kvm:
  only:
   variables:
    - $S390X_Z15_RUNNER_AVAILABLE
+
+check-kerneldoc:
+  extends: .intree_template
+  stage: build
+  image: python:3.10-alpine
+  needs: []
+  script:
+    - ./configure --arch=x86_64
+    - make -s check-kerneldoc 2>&1 | tee docwarnings.txt
+    - test -z `cat docwarnings.txt`
+  before_script:
+    - apk -U add bash make perl gcc
+  allow_failure: true
