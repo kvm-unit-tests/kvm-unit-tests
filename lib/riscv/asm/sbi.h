@@ -16,6 +16,7 @@
 
 enum sbi_ext_id {
 	SBI_EXT_BASE = 0x10,
+	SBI_EXT_TIME = 0x54494d45,
 	SBI_EXT_HSM = 0x48534d,
 	SBI_EXT_SRST = 0x53525354,
 };
@@ -35,6 +36,10 @@ enum sbi_ext_hsm_fid {
 	SBI_EXT_HSM_HART_STOP,
 	SBI_EXT_HSM_HART_STATUS,
 	SBI_EXT_HSM_HART_SUSPEND,
+};
+
+enum sbi_ext_time_fid {
+	SBI_EXT_TIME_SET_TIMER = 0,
 };
 
 struct sbiret {
