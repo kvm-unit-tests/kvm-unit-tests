@@ -6,7 +6,15 @@
  */
 #include <libcflat.h>
 #include <stdlib.h>
+#include <limits.h>
+#include <asm/barrier.h>
+#include <asm/csr.h>
+#include <asm/delay.h>
+#include <asm/isa.h>
+#include <asm/processor.h>
 #include <asm/sbi.h>
+#include <asm/smp.h>
+#include <asm/timer.h>
 
 static void help(void)
 {
@@ -17,6 +25,11 @@ static void help(void)
 static struct sbiret __base_sbi_ecall(int fid, unsigned long arg0)
 {
 	return sbi_ecall(SBI_EXT_BASE, fid, arg0, 0, 0, 0, 0, 0);
+}
+
+static struct sbiret __time_sbi_ecall(unsigned long stime_value)
+{
+	return sbi_ecall(SBI_EXT_TIME, SBI_EXT_TIME_SET_TIMER, stime_value, 0, 0, 0, 0, 0);
 }
 
 static bool env_or_skip(const char *env)
@@ -83,6 +96,10 @@ static void check_base(void)
 	expected = getenv("PROBE_EXT") ? strtol(getenv("PROBE_EXT"), NULL, 0) : 1;
 	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, SBI_EXT_BASE);
 	gen_report(&ret, 0, expected);
+	report_prefix_push("unavailable");
+	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, 0xb000000);
+	gen_report(&ret, 0, 0);
+	report_prefix_pop();
 	report_prefix_pop();
 
 	report_prefix_push("mvendorid");
@@ -112,6 +129,125 @@ static void check_base(void)
 	report_prefix_pop();
 }
 
+struct timer_info {
+	bool timer_works;
+	bool mask_timer_irq;
+	bool timer_irq_set;
+	bool timer_irq_cleared;
+	unsigned long timer_irq_count;
+};
+
+static struct timer_info timer_info;
+
+static bool timer_irq_pending(void)
+{
+	return csr_read(CSR_SIP) & IP_TIP;
+}
+
+static void timer_irq_handler(struct pt_regs *regs)
+{
+	timer_info.timer_works = true;
+
+	if (timer_info.timer_irq_count < ULONG_MAX)
+		++timer_info.timer_irq_count;
+
+	if (timer_irq_pending())
+		timer_info.timer_irq_set = true;
+
+	if (timer_info.mask_timer_irq)
+		timer_irq_disable();
+	else
+		__time_sbi_ecall(ULONG_MAX);
+
+	if (!timer_irq_pending())
+		timer_info.timer_irq_cleared = true;
+}
+
+static void timer_check_set_timer(bool mask_timer_irq)
+{
+	struct sbiret ret;
+	unsigned long begin, end, duration;
+	const char *mask_test_str = mask_timer_irq ? " for mask irq test" : "";
+	unsigned long d = getenv("TIMER_DELAY") ? strtol(getenv("TIMER_DELAY"), NULL, 0) : 200000;
+	unsigned long margin = getenv("TIMER_MARGIN") ? strtol(getenv("TIMER_MARGIN"), NULL, 0) : 200000;
+
+	d = usec_to_cycles(d);
+	margin = usec_to_cycles(margin);
+
+	timer_info = (struct timer_info){ .mask_timer_irq = mask_timer_irq };
+	begin = timer_get_cycles();
+	ret = __time_sbi_ecall(begin + d);
+
+	report(!ret.error, "set timer%s", mask_test_str);
+	if (ret.error)
+		report_info("set timer%s failed with %ld\n", mask_test_str, ret.error);
+
+	while ((end = timer_get_cycles()) <= (begin + d + margin) && !timer_info.timer_works)
+		cpu_relax();
+
+	report(timer_info.timer_works, "timer interrupt received%s", mask_test_str);
+	report(timer_info.timer_irq_set, "pending timer interrupt bit set in irq handler%s", mask_test_str);
+
+	if (!mask_timer_irq) {
+		report(timer_info.timer_irq_set && timer_info.timer_irq_cleared,
+		       "pending timer interrupt bit cleared by setting timer to -1");
+	}
+
+	if (timer_info.timer_works) {
+		duration = end - begin;
+		report(duration >= d && duration <= (d + margin), "timer delay honored%s", mask_test_str);
+	}
+
+	report(timer_info.timer_irq_count == 1, "timer interrupt received exactly once%s", mask_test_str);
+}
+
+static void check_time(void)
+{
+	bool pending;
+
+	report_prefix_push("time");
+
+	if (!sbi_probe(SBI_EXT_TIME)) {
+		report_skip("time extension not available");
+		report_prefix_pop();
+		return;
+	}
+
+	report_prefix_push("set_timer");
+
+	install_irq_handler(IRQ_S_TIMER, timer_irq_handler);
+	local_irq_enable();
+	if (cpu_has_extension(smp_processor_id(), ISA_SSTC)) {
+		csr_write(CSR_STIMECMP, ULONG_MAX);
+		if (__riscv_xlen == 32)
+			csr_write(CSR_STIMECMPH, ULONG_MAX);
+	}
+	timer_irq_enable();
+
+	timer_check_set_timer(false);
+
+	if (csr_read(CSR_SIE) & IE_TIE)
+		timer_check_set_timer(true);
+	else
+		report_skip("timer irq enable bit is not writable, skipping mask irq test");
+
+	timer_irq_disable();
+	__time_sbi_ecall(0);
+	pending = timer_irq_pending();
+	report(pending, "timer immediately pending by setting timer to 0");
+	__time_sbi_ecall(ULONG_MAX);
+	if (pending)
+		report(!timer_irq_pending(), "pending timer cleared while masked");
+	else
+		report_skip("timer is not pending, skipping timer cleared while masked test");
+
+	local_irq_disable();
+	install_irq_handler(IRQ_S_TIMER, NULL);
+
+	report_prefix_pop();
+	report_prefix_pop();
+}
+
 int main(int argc, char **argv)
 {
 
@@ -122,6 +258,7 @@ int main(int argc, char **argv)
 
 	report_prefix_push("sbi");
 	check_base();
+	check_time();
 
 	return report_summary();
 }
