@@ -194,7 +194,7 @@ unsigned long virt_to_phys(volatile void *address)
 	paddr = virt_to_pte_phys(pgtable, (void *)address);
 	assert(sizeof(long) == 8 || !(paddr >> 32));
 
-	return (unsigned long)paddr;
+	return (unsigned long)paddr | offset_in_page(address);
 }
 
 void *phys_to_virt(unsigned long address)
