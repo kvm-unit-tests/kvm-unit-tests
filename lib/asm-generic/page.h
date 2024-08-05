@@ -19,6 +19,8 @@
 
 #define PAGE_ALIGN(addr)	ALIGN(addr, PAGE_SIZE)
 
+#define offset_in_page(p)	((unsigned long)(p) & ~PAGE_MASK)
+
 #define __va(x)			((void *)((unsigned long) (x)))
 #define __pa(x)			((unsigned long) (x))
 #define virt_to_pfn(kaddr)	(__pa(kaddr) >> PAGE_SHIFT)
