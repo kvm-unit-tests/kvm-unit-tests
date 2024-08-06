@@ -122,7 +122,7 @@ cflatobjs += lib/s390x/fault.o
 
 OBJDIRS += lib/s390x
 
-asmlib = $(TEST_DIR)/cstart64.o $(TEST_DIR)/cpu.o
+asmlib = $(TEST_DIR)/cstart64.o $(TEST_DIR)/cpu.o $(TEST_DIR)/cpu-sie.o
 
 FLATLIBS = $(libcflat)
 
