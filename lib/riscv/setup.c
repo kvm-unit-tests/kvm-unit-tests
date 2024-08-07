@@ -193,7 +193,7 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 	const char *bootargs;
 	int ret;
 
-	assert(sizeof(long) == 8 || freemem_start < VA_BASE);
+	assert(freemem_start < VA_BASE);
 	freemem = __va(freemem_start);
 
 	freemem_push_fdt(&freemem, fdt);
