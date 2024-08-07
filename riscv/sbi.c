@@ -10,6 +10,7 @@
 #include <asm/barrier.h>
 #include <asm/csr.h>
 #include <asm/delay.h>
+#include <asm/io.h>
 #include <asm/isa.h>
 #include <asm/processor.h>
 #include <asm/sbi.h>
@@ -30,6 +31,19 @@ static struct sbiret __base_sbi_ecall(int fid, unsigned long arg0)
 static struct sbiret __time_sbi_ecall(unsigned long stime_value)
 {
 	return sbi_ecall(SBI_EXT_TIME, SBI_EXT_TIME_SET_TIMER, stime_value, 0, 0, 0, 0, 0);
+}
+
+static struct sbiret __dbcn_sbi_ecall(int fid, unsigned long arg0, unsigned long arg1, unsigned long arg2)
+{
+	return sbi_ecall(SBI_EXT_DBCN, fid, arg0, arg1, arg2, 0, 0, 0);
+}
+
+static void split_phys_addr(phys_addr_t paddr, unsigned long *hi, unsigned long *lo)
+{
+	*lo = (unsigned long)paddr;
+	*hi = 0;
+	if (__riscv_xlen == 32)
+		*hi = (unsigned long)(paddr >> 32);
 }
 
 static bool env_or_skip(const char *env)
@@ -248,9 +262,69 @@ static void check_time(void)
 	report_prefix_pop();
 }
 
+#define DBCN_WRITE_TEST_STRING		"DBCN_WRITE_TEST_STRING\n"
+#define DBCN_WRITE_BYTE_TEST_BYTE	(u8)'a'
+
+/*
+ * Only the write functionality is tested here. There's no easy way to
+ * non-interactively test the read functionality.
+ */
+static void check_dbcn(void)
+{
+	unsigned long num_bytes, base_addr_lo, base_addr_hi;
+	phys_addr_t paddr;
+	int num_calls = 0;
+	struct sbiret ret;
+
+	report_prefix_push("dbcn");
+
+	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, SBI_EXT_DBCN);
+	if (!ret.value) {
+		report_skip("DBCN extension unavailable");
+		report_prefix_pop();
+		return;
+	}
+
+	num_bytes = strlen(DBCN_WRITE_TEST_STRING);
+	paddr = virt_to_phys((void *)&DBCN_WRITE_TEST_STRING);
+	split_phys_addr(paddr, &base_addr_hi, &base_addr_lo);
+
+	report_prefix_push("write");
+
+	do {
+		ret = __dbcn_sbi_ecall(SBI_EXT_DBCN_CONSOLE_WRITE, num_bytes, base_addr_lo, base_addr_hi);
+		num_bytes -= ret.value;
+		paddr += ret.value;
+		split_phys_addr(paddr, &base_addr_hi, &base_addr_lo);
+		num_calls++;
+	} while (num_bytes != 0 && ret.error == SBI_SUCCESS);
+
+	report(ret.error == SBI_SUCCESS, "write success");
+	report_info("%d sbi calls made", num_calls);
+
+	/* Bytes are read from memory and written to the console */
+	if (env_or_skip("INVALID_ADDR")) {
+		paddr = strtoull(getenv("INVALID_ADDR"), NULL, 0);
+		split_phys_addr(paddr, &base_addr_hi, &base_addr_lo);
+		ret = __dbcn_sbi_ecall(SBI_EXT_DBCN_CONSOLE_WRITE, 1, base_addr_lo, base_addr_hi);
+		report(ret.error == SBI_ERR_INVALID_PARAM, "invalid parameter: address");
+	}
+
+	report_prefix_pop();
+
+	report_prefix_push("write_byte");
+
+	puts("DBCN_WRITE TEST CHAR: ");
+	ret = __dbcn_sbi_ecall(SBI_EXT_DBCN_CONSOLE_WRITE_BYTE, (u8)DBCN_WRITE_BYTE_TEST_BYTE, 0, 0);
+	puts("\n");
+	report(ret.error == SBI_SUCCESS, "write success");
+	report(ret.value == 0, "expected ret.value");
+
+	report_prefix_pop();
+}
+
 int main(int argc, char **argv)
 {
-
 	if (argc > 1 && !strcmp(argv[1], "-h")) {
 		help();
 		exit(0);
@@ -259,6 +333,7 @@ int main(int argc, char **argv)
 	report_prefix_push("sbi");
 	check_base();
 	check_time();
+	check_dbcn();
 
 	return report_summary();
 }
