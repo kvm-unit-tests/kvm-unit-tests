@@ -179,7 +179,7 @@ phys_addr_t virt_to_pte_phys(pgd_t *pgtable, void *virt)
 	if (!pte_val(*ptep))
 		return 0;
 
-	return __pa(pteval_to_ptep(pte_val(*ptep)));
+	return __pa(pteval_to_ptep(pte_val(*ptep))) | offset_in_page(virt);
 }
 
 unsigned long virt_to_phys(volatile void *address)
@@ -194,7 +194,7 @@ unsigned long virt_to_phys(volatile void *address)
 	paddr = virt_to_pte_phys(pgtable, (void *)address);
 	assert(sizeof(long) == 8 || !(paddr >> 32));
 
-	return (unsigned long)paddr | offset_in_page(address);
+	return (unsigned long)paddr;
 }
 
 void *phys_to_virt(unsigned long address)
