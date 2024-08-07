@@ -8,6 +8,7 @@
 #include <alloc_page.h>
 #include <cpumask.h>
 #include <asm/csr.h>
+#include <asm/io.h>
 #include <asm/mmu.h>
 #include <asm/page.h>
 #include <asm/processor.h>
@@ -36,6 +37,7 @@ secondary_func_t secondary_cinit(struct secondary_data *data)
 static void __smp_boot_secondary(int cpu, secondary_func_t func)
 {
 	struct secondary_data *sp = alloc_pages(1) + SZ_8K - 16;
+	phys_addr_t sp_phys;
 	struct sbiret ret;
 
 	sp -= sizeof(struct secondary_data);
@@ -43,7 +45,10 @@ static void __smp_boot_secondary(int cpu, secondary_func_t func)
 	sp->stvec = csr_read(CSR_STVEC);
 	sp->func = func;
 
-	ret = sbi_hart_start(cpus[cpu].hartid, (unsigned long)&secondary_entry, __pa(sp));
+	sp_phys = virt_to_phys(sp);
+	assert(sp_phys == __pa(sp_phys));
+
+	ret = sbi_hart_start(cpus[cpu].hartid, (unsigned long)&secondary_entry, __pa(sp_phys));
 	assert(ret.error == SBI_SUCCESS);
 }
 

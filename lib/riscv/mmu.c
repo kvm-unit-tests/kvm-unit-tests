@@ -18,9 +18,16 @@ static int pte_index(uintptr_t vaddr, int level)
 	return (vaddr >> (PGDIR_BITS * level + PAGE_SHIFT)) & PGDIR_MASK;
 }
 
+static phys_addr_t pteval_to_phys_addr(pteval_t pteval)
+{
+	return (phys_addr_t)((pteval & PTE_PPN) >> PPN_SHIFT) << PAGE_SHIFT;
+}
+
 static pte_t *pteval_to_ptep(pteval_t pteval)
 {
-	return (pte_t *)(((pteval & PTE_PPN) >> PPN_SHIFT) << PAGE_SHIFT);
+	phys_addr_t paddr = pteval_to_phys_addr(pteval);
+	assert(paddr == __pa(paddr));
+	return (pte_t *)__pa(paddr);
 }
 
 static pteval_t ptep_to_pteval(pte_t *ptep)
@@ -106,7 +113,7 @@ void __mmu_enable(unsigned long satp)
 
 void mmu_enable(unsigned long mode, pgd_t *pgtable)
 {
-	unsigned long ppn = (unsigned long)pgtable >> PAGE_SHIFT;
+	unsigned long ppn = __pa(pgtable) >> PAGE_SHIFT;
 	unsigned long satp = mode | ppn;
 
 	assert(!(ppn & ~SATP_PPN));
@@ -117,6 +124,9 @@ void *setup_mmu(phys_addr_t top, void *opaque)
 {
 	struct mem_region *r;
 	pgd_t *pgtable;
+
+	/* The initial page table uses an identity mapping. */
+	assert(top == __pa(top));
 
 	if (!__initial_pgtable)
 		__initial_pgtable = alloc_page();
@@ -146,7 +156,8 @@ void __iomem *ioremap(phys_addr_t phys_addr, size_t size)
 	pgd_t *pgtable = current_pgtable();
 	bool flush = true;
 
-	assert(sizeof(long) == 8 || !(phys_addr >> 32));
+	/* I/O is always identity mapped. */
+	assert(end == __pa(end));
 
 	if (!pgtable) {
 		if (!__initial_pgtable)
@@ -158,7 +169,7 @@ void __iomem *ioremap(phys_addr_t phys_addr, size_t size)
 	mmu_set_range_ptes(pgtable, start, start, end,
 			   __pgprot(_PAGE_READ | _PAGE_WRITE), flush);
 
-	return (void __iomem *)(unsigned long)phys_addr;
+	return (void __iomem *)__pa(phys_addr);
 }
 
 phys_addr_t virt_to_pte_phys(pgd_t *pgtable, void *virt)
@@ -179,27 +190,24 @@ phys_addr_t virt_to_pte_phys(pgd_t *pgtable, void *virt)
 	if (!pte_val(*ptep))
 		return 0;
 
-	return __pa(pteval_to_ptep(pte_val(*ptep))) | offset_in_page(virt);
+	return pteval_to_phys_addr(pte_val(*ptep)) | offset_in_page(virt);
 }
 
-unsigned long virt_to_phys(volatile void *address)
+phys_addr_t virt_to_phys(volatile void *address)
 {
 	unsigned long satp = csr_read(CSR_SATP);
 	pgd_t *pgtable = (pgd_t *)((satp & SATP_PPN) << PAGE_SHIFT);
-	phys_addr_t paddr;
 
 	if ((satp >> SATP_MODE_SHIFT) == 0)
 		return __pa(address);
 
-	paddr = virt_to_pte_phys(pgtable, (void *)address);
-	assert(sizeof(long) == 8 || !(paddr >> 32));
-
-	return (unsigned long)paddr;
+	return virt_to_pte_phys(pgtable, (void *)address);
 }
 
-void *phys_to_virt(unsigned long address)
+void *phys_to_virt(phys_addr_t address)
 {
 	/* @address must have an identity mapping for this to work. */
+	assert(address == __pa(address));
 	assert(virt_to_phys(__va(address)) == address);
 	return __va(address);
 }
