@@ -64,13 +64,15 @@ define arch_elf_check =
 		$(error $(1) has unsupported reloc types))
 endef
 
-ISA_COMMON = mafdc_zicsr_zifencei_zihintpause
+ISA_COMMON = imac_zicsr_zifencei_zihintpause
 
 ifeq ($(ARCH),riscv64)
-CFLAGS += -march=rv64i$(ISA_COMMON)
-CFLAGS += -DCONFIG_64BIT
+CFLAGS  += -DCONFIG_64BIT
+CFLAGS  += -mabi=lp64 -march=rv64$(ISA_COMMON)
+LDFLAGS += -melf64lriscv
 else ifeq ($(ARCH),riscv32)
-CFLAGS += -march=rv32i$(ISA_COMMON)
+CFLAGS  += -mabi=ilp32 -march=rv32$(ISA_COMMON)
+LDFLAGS += -melf32lriscv
 endif
 CFLAGS += -DCONFIG_RELOC
 CFLAGS += -mcmodel=medany
