@@ -418,12 +418,16 @@ rm -f lib/asm
 asm="asm-generic"
 if [ -d "$srcdir/lib/$arch/asm" ]; then
 	asm="$srcdir/lib/$arch/asm"
+	mkdir -p "lib/$arch"
+elif [ -d "$srcdir/lib/$arch_libdir/asm" ]; then
+	asm="$srcdir/lib/$arch_libdir/asm"
+	mkdir -p "lib/$arch_libdir"
 elif [ -d "$srcdir/lib/$testdir/asm" ]; then
 	asm="$srcdir/lib/$testdir/asm"
+	mkdir -p "lib/$testdir"
 fi
-mkdir -p lib
 ln -sf "$asm" lib/asm
-
+mkdir -p lib/generated lib/libfdt
 
 # create the config
 cat <<EOF > config.mak
