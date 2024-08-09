@@ -85,8 +85,9 @@ static void cpu_init(void)
 	cpu0_calls_idle = true;
 }
 
-static void mem_allocator_init(phys_addr_t freemem_start, phys_addr_t freemem_end)
+static void mem_allocator_init(struct mem_region *freemem, phys_addr_t freemem_start)
 {
+	phys_addr_t freemem_end = freemem->end;
 	phys_addr_t base, top;
 
 	freemem_start = PAGE_ALIGN(freemem_start);
@@ -100,8 +101,14 @@ static void mem_allocator_init(phys_addr_t freemem_start, phys_addr_t freemem_en
 	 *
 	 * TODO: Allow the VA range to shrink and move.
 	 */
-	if (freemem_end > VA_BASE)
+	if (freemem_end > VA_BASE) {
+		struct mem_region *curr, *rest;
 		freemem_end = VA_BASE;
+		memregions_split(VA_BASE, &curr, &rest);
+		assert(curr == freemem);
+		if (rest)
+			rest->flags = MR_F_UNUSED;
+	}
 	assert(freemem_end - freemem_start >= SZ_1M * 16);
 
 	init_alloc_vpage(__va(VA_TOP));
@@ -135,7 +142,7 @@ static void mem_init(phys_addr_t freemem_start)
 	freemem = memregions_find(freemem_start);
 	assert(freemem && !(freemem->flags & (MR_F_IO | MR_F_CODE)));
 
-	mem_allocator_init(freemem_start, freemem->end);
+	mem_allocator_init(freemem, freemem_start);
 }
 
 static void freemem_push_fdt(void **freemem, const void *fdt)
@@ -248,7 +255,7 @@ static efi_status_t efi_mem_init(efi_bootinfo_t *efi_bootinfo)
 		freemem_push_fdt(&freemem, efi_bootinfo->fdt);
 
 	mmu_disable();
-	mem_allocator_init((unsigned long)freemem, freemem_mr->end);
+	mem_allocator_init(freemem_mr, (unsigned long)freemem);
 
 	return EFI_SUCCESS;
 }
