@@ -91,7 +91,7 @@ static void mem_allocator_init(struct mem_region *freemem, phys_addr_t freemem_s
 	phys_addr_t base, top;
 
 	freemem_start = PAGE_ALIGN(freemem_start);
-	freemem_end &= PAGE_MASK;
+	freemem_end &= PHYS_PAGE_MASK;
 
 	/*
 	 * The assert below is mostly checking that the free memory doesn't

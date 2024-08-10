@@ -74,7 +74,7 @@ static pteval_t *__install_page(pgd_t *pgtable, phys_addr_t paddr,
 
 pteval_t *install_page(pgd_t *pgtable, phys_addr_t phys, void *virt)
 {
-	phys_addr_t paddr = phys & PAGE_MASK;
+	phys_addr_t paddr = phys & PHYS_PAGE_MASK;
 	uintptr_t vaddr = (uintptr_t)virt & PAGE_MASK;
 
 	assert(phys == (phys & PHYS_MASK));
@@ -87,7 +87,7 @@ void mmu_set_range_ptes(pgd_t *pgtable, uintptr_t virt_offset,
 			phys_addr_t phys_start, phys_addr_t phys_end,
 			pgprot_t prot, bool flush)
 {
-	phys_addr_t paddr = phys_start & PAGE_MASK;
+	phys_addr_t paddr = phys_start & PHYS_PAGE_MASK;
 	uintptr_t vaddr = virt_offset & PAGE_MASK;
 	uintptr_t virt_end = phys_end - paddr + vaddr;
 
@@ -155,7 +155,7 @@ void *setup_mmu(phys_addr_t top, void *opaque)
 
 void __iomem *ioremap(phys_addr_t phys_addr, size_t size)
 {
-	phys_addr_t start = phys_addr & PAGE_MASK;
+	phys_addr_t start = phys_addr & PHYS_PAGE_MASK;
 	phys_addr_t end = PAGE_ALIGN(phys_addr + size);
 	pgd_t *pgtable = current_pgtable();
 	bool flush = true;
