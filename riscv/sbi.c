@@ -84,30 +84,30 @@ static void check_base(void)
 	}
 
 	report_prefix_push("spec_version");
-	if (env_or_skip("SPEC_VERSION")) {
-		expected = (long)strtoul(getenv("SPEC_VERSION"), NULL, 0);
+	if (env_or_skip("SBI_SPEC_VERSION")) {
+		expected = (long)strtoul(getenv("SBI_SPEC_VERSION"), NULL, 0);
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
 	report_prefix_push("impl_id");
-	if (env_or_skip("IMPL_ID")) {
-		expected = (long)strtoul(getenv("IMPL_ID"), NULL, 0);
+	if (env_or_skip("SBI_IMPL_ID")) {
+		expected = (long)strtoul(getenv("SBI_IMPL_ID"), NULL, 0);
 		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_IMP_ID, 0);
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
 	report_prefix_push("impl_version");
-	if (env_or_skip("IMPL_VERSION")) {
-		expected = (long)strtoul(getenv("IMPL_VERSION"), NULL, 0);
+	if (env_or_skip("SBI_IMPL_VERSION")) {
+		expected = (long)strtoul(getenv("SBI_IMPL_VERSION"), NULL, 0);
 		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_IMP_VERSION, 0);
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
 	report_prefix_push("probe_ext");
-	expected = getenv("PROBE_EXT") ? (long)strtoul(getenv("PROBE_EXT"), NULL, 0) : 1;
+	expected = getenv("SBI_PROBE_EXT") ? (long)strtoul(getenv("SBI_PROBE_EXT"), NULL, 0) : 1;
 	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, SBI_EXT_BASE);
 	gen_report(&ret, 0, expected);
 	report_prefix_push("unavailable");
@@ -183,8 +183,8 @@ static void timer_check_set_timer(bool mask_timer_irq)
 	struct sbiret ret;
 	unsigned long begin, end, duration;
 	const char *mask_test_str = mask_timer_irq ? " for mask irq test" : "";
-	unsigned long d = getenv("TIMER_DELAY") ? strtol(getenv("TIMER_DELAY"), NULL, 0) : 200000;
-	unsigned long margin = getenv("TIMER_MARGIN") ? strtol(getenv("TIMER_MARGIN"), NULL, 0) : 200000;
+	unsigned long d = getenv("SBI_TIMER_DELAY") ? strtol(getenv("SBI_TIMER_DELAY"), NULL, 0) : 200000;
+	unsigned long margin = getenv("SBI_TIMER_MARGIN") ? strtol(getenv("SBI_TIMER_MARGIN"), NULL, 0) : 200000;
 
 	d = usec_to_cycles(d);
 	margin = usec_to_cycles(margin);
