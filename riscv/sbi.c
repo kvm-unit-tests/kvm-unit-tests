@@ -299,7 +299,7 @@ static void check_dbcn(void)
 		num_calls++;
 	} while (num_bytes != 0 && ret.error == SBI_SUCCESS);
 
-	report(ret.error == SBI_SUCCESS, "write success");
+	report(ret.error == SBI_SUCCESS, "write success (error=%ld)", ret.error);
 	report_info("%d sbi calls made", num_calls);
 
 	/* Bytes are read from memory and written to the console */
@@ -307,7 +307,7 @@ static void check_dbcn(void)
 		paddr = strtoull(getenv("INVALID_ADDR"), NULL, 0);
 		split_phys_addr(paddr, &base_addr_hi, &base_addr_lo);
 		ret = __dbcn_sbi_ecall(SBI_EXT_DBCN_CONSOLE_WRITE, 1, base_addr_lo, base_addr_hi);
-		report(ret.error == SBI_ERR_INVALID_PARAM, "invalid parameter: address");
+		report(ret.error == SBI_ERR_INVALID_PARAM, "invalid parameter: address (error=%ld)", ret.error);
 	}
 
 	report_prefix_pop();
@@ -317,8 +317,8 @@ static void check_dbcn(void)
 	puts("DBCN_WRITE TEST CHAR: ");
 	ret = __dbcn_sbi_ecall(SBI_EXT_DBCN_CONSOLE_WRITE_BYTE, (u8)DBCN_WRITE_BYTE_TEST_BYTE, 0, 0);
 	puts("\n");
-	report(ret.error == SBI_SUCCESS, "write success");
-	report(ret.value == 0, "expected ret.value");
+	report(ret.error == SBI_SUCCESS, "write success (error=%ld)", ret.error);
+	report(ret.value == 0, "expected ret.value (%ld)", ret.value);
 
 	report_prefix_pop();
 }
