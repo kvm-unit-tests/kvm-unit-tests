@@ -77,6 +77,8 @@ pteval_t *install_page(pgd_t *pgtable, phys_addr_t phys, void *virt)
 	phys_addr_t paddr = phys & PAGE_MASK;
 	uintptr_t vaddr = (uintptr_t)virt & PAGE_MASK;
 
+	assert(phys == (phys & PHYS_MASK));
+
 	return __install_page(pgtable, paddr, vaddr,
 			      __pgprot(_PAGE_READ | _PAGE_WRITE), true);
 }
@@ -89,6 +91,8 @@ void mmu_set_range_ptes(pgd_t *pgtable, uintptr_t virt_offset,
 	uintptr_t vaddr = virt_offset & PAGE_MASK;
 	uintptr_t virt_end = phys_end - paddr + vaddr;
 
+	assert(phys_start == (phys_start & PHYS_MASK));
+	assert(phys_end == (phys_end & PHYS_MASK));
 	assert(phys_start < phys_end);
 
 	for (; vaddr < virt_end; vaddr += PAGE_SIZE, paddr += PAGE_SIZE)

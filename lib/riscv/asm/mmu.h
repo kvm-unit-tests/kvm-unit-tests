@@ -6,6 +6,8 @@
 #include <asm/page.h>
 #include <asm/pgtable.h>
 
+#define PHYS_MASK	((phys_addr_t)SATP_PPN << PAGE_SHIFT | (PAGE_SIZE - 1))
+
 static inline pgd_t *current_pgtable(void)
 {
 	return (pgd_t *)((csr_read(CSR_SATP) & SATP_PPN) << PAGE_SHIFT);
