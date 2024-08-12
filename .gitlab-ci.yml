@@ -296,25 +296,53 @@ build-clang:
       | tee results.txt
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
 
-build-centos7:
+build-centos8:
  extends: .outoftree_template
- image: centos:7
+ image: centos:8
  before_script:
+# CentOS mirrors have changed, these sed scripts fixes the repos.
+ - sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
+ - sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
+ - sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
  - yum update -y
- - yum install -y make python qemu-kvm gcc
+ - yum install -y make qemu-kvm gcc
  script:
  - mkdir build
  - cd build
  - ../configure --arch=x86_64 --disable-pretty-print-stacks
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-     vmexit_cpuid vmexit_mov_from_cr8 vmexit_mov_to_cr8 vmexit_inl_pmtimer
-     vmexit_ple_round_robin vmexit_tscdeadline vmexit_tscdeadline_immed port80
-     setjmp sieve tsc rmap_chain umip
-     | tee results.txt
+      eventinj
+      intel_iommu
+      ioapic-split
+      memory
+      pks
+      pku
+      port80
+      rdpru
+      rmap_chain
+      setjmp
+      sieve
+      smap
+      smptest
+      smptest3
+      syscall
+      tsc
+      umip
+      vmexit_cpuid
+      vmexit_cr0_wp
+      vmexit_cr4_pge
+      vmexit_inl_pmtimer
+      vmexit_ipi
+      vmexit_ipi_halt
+      vmexit_mov_from_cr8
+      vmexit_mov_to_cr8
+      vmexit_ple_round_robin
+      vmexit_tscdeadline
+      vmexit_tscdeadline_immed
+      | tee results.txt
+ - if grep -q FAIL results.txt ; then exit 1 ; fi
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
- - make -s check-kerneldoc 2>&1 | tee docwarnings.txt
- - test -z `cat docwarnings.txt`
 
 # Cirrus-CI provides containers with macOS and Linux with KVM enabled,
 # so we can test some scenarios there that are not possible with the
@@ -388,3 +416,40 @@ s390x-kvm:
  only:
   variables:
    - $S390X_Z15_RUNNER_AVAILABLE
+
+check-kerneldoc:
+  extends: .intree_template
+  stage: build
+  image: python:3.10-alpine
+  needs: []
+  script:
+    - ./configure --arch=x86_64
+    - make -s check-kerneldoc 2>&1 | tee docwarnings.txt
+    - test -z `cat docwarnings.txt`
+  before_script:
+    - apk -U add bash make perl gcc
+  allow_failure: true
+
+check-shellcheck:
+  extends: .intree_template
+  stage: build
+  image: python:3.10-alpine
+  needs: []
+  script:
+    - ./configure --arch=x86_64
+    - make -s shellcheck 2>&1 | tee shellcheckwarnings.txt
+    - test -z `cat shellcheckwarnings.txt`
+  before_script:
+    - apk -U add bash make gcc shellcheck
+  allow_failure: true
+
+check-patch:
+  extends: .intree_template
+  stage: build
+  image: python:3.10-alpine
+  needs: []
+  script:
+    - scripts/check-patch.py
+  before_script:
+    - apk -U add git perl
+  allow_failure: true

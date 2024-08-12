@@ -212,8 +212,8 @@ static void nr_cpu_check(int nr)
 		report_abort("At least %d cpus required", nr);
 }
 
-/**
- * @brief check if the FPU/SIMD/SVE register contents are the same as
+/*
+ * check if the FPU/SIMD/SVE register contents are the same as
  * the input data provided.
  */
 static uint32_t __fpuregs_testall(uint64_t *indata, int sve)
@@ -256,8 +256,8 @@ static uint32_t __fpuregs_testall(uint64_t *indata, int sve)
 	return result;
 }
 
-/**
- * @brief writes randomly sampled data into the FPU/SIMD registers.
+/*
+ * Write randomly sampled data into the FPU/SIMD registers.
  */
 static void __fpuregs_writeall_random(uint64_t **indata, int sve)
 {
@@ -315,9 +315,9 @@ static void sveregs_testall_run(void *data)
 	       "SVE register save/restore mask: 0x%x", result);
 }
 
-/**
- * @brief This test uses two CPUs to test FPU/SIMD save/restore
- * @details CPU1 writes random data into FPU/SIMD registers,
+/*
+ * This test uses two CPUs to test FPU/SIMD save/restore
+ * CPU1 writes random data into FPU/SIMD registers,
  * CPU0 corrupts/overwrites the data and finally CPU1 checks
  * if the data remains unchanged in its context.
  */
@@ -344,9 +344,9 @@ static void fpuregs_context_switch_cpu1(int sve)
 	free(indata_local);
 }
 
-/**
- * @brief This test uses two CPUs to test FPU/SIMD save/restore
- * @details CPU0 writes random data into FPU/SIMD registers,
+/*
+ * This test uses two CPUs to test FPU/SIMD save/restore
+ * CPU0 writes random data into FPU/SIMD registers,
  * CPU1 corrupts/overwrites the data and finally CPU0 checks if
  * the data remains unchanged in its context.
  */
@@ -374,7 +374,7 @@ static void fpuregs_context_switch_cpu0(int sve)
 	free(indata_local);
 }
 
-/**
+/*
  * Checks if during context switch, FPU/SIMD registers
  * are saved/restored.
  */
@@ -384,7 +384,7 @@ static void fpuregs_context_switch(void)
 	fpuregs_context_switch_cpu1(0);
 }
 
-/**
+/*
  * Checks if during context switch, SVE registers
  * are saved/restored.
  */
