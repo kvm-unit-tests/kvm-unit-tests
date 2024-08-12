@@ -64,7 +64,8 @@ static pteval_t *__install_page(pgd_t *pgtable, phys_addr_t paddr,
 	assert(!(ppn & ~PTE_PPN));
 
 	ptep = get_pte(pgtable, vaddr);
-	*ptep = __pte(pte | pgprot_val(prot) | _PAGE_PRESENT | _PAGE_ACCESSED | _PAGE_DIRTY);
+	pte |= pgprot_val(prot) | _PAGE_PRESENT | _PAGE_ACCESSED | _PAGE_DIRTY;
+	WRITE_ONCE(*ptep, __pte(pte));
 
 	if (flush)
 		local_flush_tlb_page(vaddr);
