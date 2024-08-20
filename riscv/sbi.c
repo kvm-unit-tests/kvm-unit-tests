@@ -5,16 +5,24 @@
  * Copyright (C) 2023, Ventana Micro Systems Inc., Andrew Jones <ajones@ventanamicro.com>
  */
 #include <libcflat.h>
+#include <alloc_page.h>
 #include <stdlib.h>
+#include <string.h>
 #include <limits.h>
+#include <vmalloc.h>
+#include <memregions.h>
 #include <asm/barrier.h>
 #include <asm/csr.h>
 #include <asm/delay.h>
+#include <asm/io.h>
 #include <asm/isa.h>
+#include <asm/mmu.h>
 #include <asm/processor.h>
 #include <asm/sbi.h>
 #include <asm/smp.h>
 #include <asm/timer.h>
+
+#define	HIGH_ADDR_BOUNDARY	((phys_addr_t)1 << 32)
 
 static void help(void)
 {
@@ -30,6 +38,38 @@ static struct sbiret __base_sbi_ecall(int fid, unsigned long arg0)
 static struct sbiret __time_sbi_ecall(unsigned long stime_value)
 {
 	return sbi_ecall(SBI_EXT_TIME, SBI_EXT_TIME_SET_TIMER, stime_value, 0, 0, 0, 0, 0);
+}
+
+static struct sbiret __dbcn_sbi_ecall(int fid, unsigned long arg0, unsigned long arg1, unsigned long arg2)
+{
+	return sbi_ecall(SBI_EXT_DBCN, fid, arg0, arg1, arg2, 0, 0, 0);
+}
+
+static void split_phys_addr(phys_addr_t paddr, unsigned long *hi, unsigned long *lo)
+{
+	*lo = (unsigned long)paddr;
+	*hi = 0;
+	if (__riscv_xlen == 32)
+		*hi = (unsigned long)(paddr >> 32);
+}
+
+static bool check_addr(phys_addr_t start, phys_addr_t size)
+{
+	struct mem_region *r = memregions_find(start);
+	return r && r->end - start >= size && r->flags == MR_F_UNUSED;
+}
+
+static phys_addr_t get_highest_addr(void)
+{
+	phys_addr_t highest_end = 0;
+	struct mem_region *r;
+
+	for (r = mem_regions; r->end; ++r) {
+		if (r->end > highest_end)
+			highest_end = r->end;
+	}
+
+	return highest_end - 1;
 }
 
 static bool env_or_skip(const char *env)
@@ -70,30 +110,30 @@ static void check_base(void)
 	}
 
 	report_prefix_push("spec_version");
-	if (env_or_skip("SPEC_VERSION")) {
-		expected = strtol(getenv("SPEC_VERSION"), NULL, 0);
+	if (env_or_skip("SBI_SPEC_VERSION")) {
+		expected = (long)strtoul(getenv("SBI_SPEC_VERSION"), NULL, 0);
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
 	report_prefix_push("impl_id");
-	if (env_or_skip("IMPL_ID")) {
-		expected = strtol(getenv("IMPL_ID"), NULL, 0);
+	if (env_or_skip("SBI_IMPL_ID")) {
+		expected = (long)strtoul(getenv("SBI_IMPL_ID"), NULL, 0);
 		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_IMP_ID, 0);
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
 	report_prefix_push("impl_version");
-	if (env_or_skip("IMPL_VERSION")) {
-		expected = strtol(getenv("IMPL_VERSION"), NULL, 0);
+	if (env_or_skip("SBI_IMPL_VERSION")) {
+		expected = (long)strtoul(getenv("SBI_IMPL_VERSION"), NULL, 0);
 		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_IMP_VERSION, 0);
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
 	report_prefix_push("probe_ext");
-	expected = getenv("PROBE_EXT") ? strtol(getenv("PROBE_EXT"), NULL, 0) : 1;
+	expected = getenv("SBI_PROBE_EXT") ? (long)strtoul(getenv("SBI_PROBE_EXT"), NULL, 0) : 1;
 	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, SBI_EXT_BASE);
 	gen_report(&ret, 0, expected);
 	report_prefix_push("unavailable");
@@ -104,7 +144,8 @@ static void check_base(void)
 
 	report_prefix_push("mvendorid");
 	if (env_or_skip("MVENDORID")) {
-		expected = strtol(getenv("MVENDORID"), NULL, 0);
+		expected = (long)strtoul(getenv("MVENDORID"), NULL, 0);
+		assert(__riscv_xlen == 32 || !(expected >> 32));
 		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_MVENDORID, 0);
 		gen_report(&ret, 0, expected);
 	}
@@ -112,7 +153,7 @@ static void check_base(void)
 
 	report_prefix_push("marchid");
 	if (env_or_skip("MARCHID")) {
-		expected = strtol(getenv("MARCHID"), NULL, 0);
+		expected = (long)strtoul(getenv("MARCHID"), NULL, 0);
 		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_MARCHID, 0);
 		gen_report(&ret, 0, expected);
 	}
@@ -120,7 +161,7 @@ static void check_base(void)
 
 	report_prefix_push("mimpid");
 	if (env_or_skip("MIMPID")) {
-		expected = strtol(getenv("MIMPID"), NULL, 0);
+		expected = (long)strtoul(getenv("MIMPID"), NULL, 0);
 		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_MIMPID, 0);
 		gen_report(&ret, 0, expected);
 	}
@@ -168,8 +209,8 @@ static void timer_check_set_timer(bool mask_timer_irq)
 	struct sbiret ret;
 	unsigned long begin, end, duration;
 	const char *mask_test_str = mask_timer_irq ? " for mask irq test" : "";
-	unsigned long d = getenv("TIMER_DELAY") ? strtol(getenv("TIMER_DELAY"), NULL, 0) : 200000;
-	unsigned long margin = getenv("TIMER_MARGIN") ? strtol(getenv("TIMER_MARGIN"), NULL, 0) : 200000;
+	unsigned long d = getenv("SBI_TIMER_DELAY") ? strtol(getenv("SBI_TIMER_DELAY"), NULL, 0) : 200000;
+	unsigned long margin = getenv("SBI_TIMER_MARGIN") ? strtol(getenv("SBI_TIMER_MARGIN"), NULL, 0) : 200000;
 
 	d = usec_to_cycles(d);
 	margin = usec_to_cycles(margin);
@@ -248,9 +289,139 @@ static void check_time(void)
 	report_prefix_pop();
 }
 
+#define DBCN_WRITE_TEST_STRING		"DBCN_WRITE_TEST_STRING\n"
+#define DBCN_WRITE_BYTE_TEST_BYTE	((u8)'a')
+
+static void dbcn_write_test(const char *s, unsigned long num_bytes)
+{
+	unsigned long base_addr_lo, base_addr_hi;
+	phys_addr_t paddr = virt_to_phys((void *)s);
+	int num_calls = 0;
+	struct sbiret ret;
+
+	split_phys_addr(paddr, &base_addr_hi, &base_addr_lo);
+
+	do {
+		ret = __dbcn_sbi_ecall(SBI_EXT_DBCN_CONSOLE_WRITE, num_bytes, base_addr_lo, base_addr_hi);
+		num_bytes -= ret.value;
+		paddr += ret.value;
+		split_phys_addr(paddr, &base_addr_hi, &base_addr_lo);
+		num_calls++;
+	} while (num_bytes != 0 && ret.error == SBI_SUCCESS);
+
+	report(ret.error == SBI_SUCCESS, "write success (error=%ld)", ret.error);
+	report_info("%d sbi calls made", num_calls);
+}
+
+static void dbcn_high_write_test(const char *s, unsigned long num_bytes,
+				 phys_addr_t page_addr, size_t page_offset)
+{
+	int nr_pages = page_offset ? 2 : 1;
+	void *vaddr;
+
+	if (page_addr != PAGE_ALIGN(page_addr) || page_addr + PAGE_SIZE < HIGH_ADDR_BOUNDARY ||
+	    !check_addr(page_addr, nr_pages * PAGE_SIZE)) {
+		report_skip("Memory above 4G required");
+		return;
+	}
+
+	vaddr = alloc_vpages(nr_pages);
+
+	for (int i = 0; i < nr_pages; ++i)
+		install_page(current_pgtable(), page_addr + i * PAGE_SIZE, vaddr + i * PAGE_SIZE);
+	memcpy(vaddr + page_offset, DBCN_WRITE_TEST_STRING, num_bytes);
+	dbcn_write_test(vaddr + page_offset, num_bytes);
+}
+
+/*
+ * Only the write functionality is tested here. There's no easy way to
+ * non-interactively test the read functionality.
+ */
+static void check_dbcn(void)
+{
+	unsigned long num_bytes = strlen(DBCN_WRITE_TEST_STRING);
+	unsigned long base_addr_lo, base_addr_hi;
+	bool do_invalid_addr = false;
+	phys_addr_t paddr;
+	struct sbiret ret;
+	const char *tmp;
+	char *buf;
+
+	report_prefix_push("dbcn");
+
+	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, SBI_EXT_DBCN);
+	if (!ret.value) {
+		report_skip("DBCN extension unavailable");
+		report_prefix_pop();
+		return;
+	}
+
+	report_prefix_push("write");
+
+	dbcn_write_test(DBCN_WRITE_TEST_STRING, num_bytes);
+
+	assert(num_bytes < PAGE_SIZE);
+
+	report_prefix_push("page boundary");
+	buf = alloc_pages(1);
+	memcpy(&buf[PAGE_SIZE - num_bytes / 2], DBCN_WRITE_TEST_STRING, num_bytes);
+	dbcn_write_test(&buf[PAGE_SIZE - num_bytes / 2], num_bytes);
+	report_prefix_pop();
+
+	report_prefix_push("high boundary");
+	tmp = getenv("SBI_DBCN_SKIP_HIGH_BOUNDARY");
+	if (!tmp || atol(tmp) == 0)
+		dbcn_high_write_test(DBCN_WRITE_TEST_STRING, num_bytes,
+				     HIGH_ADDR_BOUNDARY - PAGE_SIZE, PAGE_SIZE - num_bytes / 2);
+	else
+		report_skip("user disabled");
+	report_prefix_pop();
+
+	report_prefix_push("high page");
+	tmp = getenv("SBI_DBCN_SKIP_HIGH_PAGE");
+	if (!tmp || atol(tmp) == 0) {
+		paddr = HIGH_ADDR_BOUNDARY;
+		tmp = getenv("HIGH_PAGE");
+		if (tmp)
+			paddr = strtoull(tmp, NULL, 0);
+		dbcn_high_write_test(DBCN_WRITE_TEST_STRING, num_bytes, paddr, 0);
+	} else {
+		report_skip("user disabled");
+	}
+	report_prefix_pop();
+
+	/* Bytes are read from memory and written to the console */
+	report_prefix_push("invalid parameter");
+	tmp = getenv("INVALID_ADDR_AUTO");
+	if (tmp && atol(tmp) == 1) {
+		paddr = get_highest_addr() + 1;
+		do_invalid_addr = true;
+	} else if (env_or_skip("INVALID_ADDR")) {
+		paddr = strtoull(getenv("INVALID_ADDR"), NULL, 0);
+		do_invalid_addr = true;
+	}
+
+	if (do_invalid_addr) {
+		split_phys_addr(paddr, &base_addr_hi, &base_addr_lo);
+		ret = __dbcn_sbi_ecall(SBI_EXT_DBCN_CONSOLE_WRITE, 1, base_addr_lo, base_addr_hi);
+		report(ret.error == SBI_ERR_INVALID_PARAM, "address (error=%ld)", ret.error);
+	}
+	report_prefix_pop();
+
+	report_prefix_pop();
+	report_prefix_push("write_byte");
+
+	puts("DBCN_WRITE TEST CHAR: ");
+	ret = __dbcn_sbi_ecall(SBI_EXT_DBCN_CONSOLE_WRITE_BYTE, (u8)DBCN_WRITE_BYTE_TEST_BYTE, 0, 0);
+	puts("\n");
+	report(ret.error == SBI_SUCCESS, "write success (error=%ld)", ret.error);
+	report(ret.value == 0, "expected ret.value (%ld)", ret.value);
+
+	report_prefix_pop();
+}
+
 int main(int argc, char **argv)
 {
-
 	if (argc > 1 && !strcmp(argv[1], "-h")) {
 		help();
 		exit(0);
@@ -259,6 +430,7 @@ int main(int argc, char **argv)
 	report_prefix_push("sbi");
 	check_base();
 	check_time();
+	check_dbcn();
 
 	return report_summary();
 }

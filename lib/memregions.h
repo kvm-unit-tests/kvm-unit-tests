@@ -10,6 +10,7 @@
 #define MR_F_CODE			BIT(1)
 #define MR_F_RESERVED			BIT(2)
 #define MR_F_PERSISTENT			BIT(3)
+#define MR_F_UNUSED			BIT(4)
 #define MR_F_UNKNOWN			BIT(31)
 
 struct mem_region {

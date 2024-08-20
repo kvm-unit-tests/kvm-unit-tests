@@ -28,6 +28,7 @@ cflatobjs := \
 	lib/printf.o \
 	lib/string.o \
 	lib/abort.o \
+	lib/rand.o \
 	lib/report.o \
 	lib/stack.o
 
