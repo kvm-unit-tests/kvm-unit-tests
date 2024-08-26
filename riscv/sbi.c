@@ -418,6 +418,7 @@ static void check_dbcn(void)
 	report(ret.value == 0, "expected ret.value (%ld)", ret.value);
 
 	report_prefix_pop();
+	report_prefix_pop();
 }
 
 int main(int argc, char **argv)
