@@ -5,6 +5,8 @@
 #include <asm/csr.h>
 
 extern void timer_get_frequency(void);
+extern void timer_start(unsigned long duration_us);
+extern void timer_stop(void);
 
 static inline uint64_t timer_get_cycles(void)
 {
