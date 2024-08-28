@@ -34,11 +34,6 @@ static struct sbiret __base_sbi_ecall(int fid, unsigned long arg0)
 	return sbi_ecall(SBI_EXT_BASE, fid, arg0, 0, 0, 0, 0, 0);
 }
 
-static struct sbiret __time_sbi_ecall(unsigned long stime_value)
-{
-	return sbi_ecall(SBI_EXT_TIME, SBI_EXT_TIME_SET_TIMER, stime_value, 0, 0, 0, 0, 0);
-}
-
 static struct sbiret __dbcn_sbi_ecall(int fid, unsigned long arg0, unsigned long arg1, unsigned long arg2)
 {
 	return sbi_ecall(SBI_EXT_DBCN, fid, arg0, arg1, arg2, 0, 0, 0);
@@ -197,7 +192,7 @@ static void timer_irq_handler(struct pt_regs *regs)
 	if (timer_info.mask_timer_irq)
 		timer_irq_disable();
 	else
-		__time_sbi_ecall(ULONG_MAX);
+		sbi_set_timer(ULONG_MAX);
 
 	if (!timer_irq_pending())
 		timer_info.timer_irq_cleared = true;
@@ -216,7 +211,7 @@ static void timer_check_set_timer(bool mask_timer_irq)
 
 	timer_info = (struct timer_info){ .mask_timer_irq = mask_timer_irq };
 	begin = timer_get_cycles();
-	ret = __time_sbi_ecall(begin + d);
+	ret = sbi_set_timer(begin + d);
 
 	report(!ret.error, "set timer%s", mask_test_str);
 	if (ret.error)
@@ -267,10 +262,10 @@ static void check_time(void)
 		report_skip("timer irq enable bit is not writable, skipping mask irq test");
 
 	timer_irq_disable();
-	__time_sbi_ecall(0);
+	sbi_set_timer(0);
 	pending = timer_irq_pending();
 	report(pending, "timer immediately pending by setting timer to 0");
-	__time_sbi_ecall(ULONG_MAX);
+	sbi_set_timer(ULONG_MAX);
 	if (pending)
 		report(!timer_irq_pending(), "pending timer cleared while masked");
 	else
