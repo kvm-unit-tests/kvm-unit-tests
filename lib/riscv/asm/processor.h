@@ -36,6 +36,7 @@ void install_exception_handler(unsigned long cause, void (*handler)(struct pt_re
 void install_irq_handler(unsigned long cause, void (*handler)(struct pt_regs *));
 void do_handle_exception(struct pt_regs *regs);
 void thread_info_init(void);
+void local_hart_init(void);
 
 void show_regs(struct pt_regs *regs);
 

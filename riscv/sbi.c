@@ -15,7 +15,6 @@
 #include <asm/csr.h>
 #include <asm/delay.h>
 #include <asm/io.h>
-#include <asm/isa.h>
 #include <asm/mmu.h>
 #include <asm/processor.h>
 #include <asm/sbi.h>
@@ -258,11 +257,6 @@ static void check_time(void)
 
 	install_irq_handler(IRQ_S_TIMER, timer_irq_handler);
 	local_irq_enable();
-	if (cpu_has_extension(smp_processor_id(), ISA_SSTC)) {
-		csr_write(CSR_STIMECMP, ULONG_MAX);
-		if (__riscv_xlen == 32)
-			csr_write(CSR_STIMECMPH, ULONG_MAX);
-	}
 	timer_irq_enable();
 
 	timer_check_set_timer(false);
