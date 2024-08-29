@@ -124,6 +124,43 @@ void on_cpu_async(int cpu, void (*func)(void *data), void *data)
 	smp_send_event();
 }
 
+void on_cpumask_async(const cpumask_t *mask, void (*func)(void *data), void *data)
+{
+	int cpu, me = smp_processor_id();
+
+	for_each_cpu(cpu, mask) {
+		if (cpu == me)
+			continue;
+		on_cpu_async(cpu, func, data);
+	}
+	if (cpumask_test_cpu(me, mask))
+		func(data);
+}
+
+void on_cpumask(const cpumask_t *mask, void (*func)(void *data), void *data)
+{
+	int cpu, me = smp_processor_id();
+
+	for_each_cpu(cpu, mask) {
+		if (cpu == me)
+			continue;
+		on_cpu_async(cpu, func, data);
+	}
+	if (cpumask_test_cpu(me, mask))
+		func(data);
+
+	for_each_cpu(cpu, mask) {
+		if (cpu == me)
+			continue;
+		cpumask_set_cpu(me, &on_cpu_info[cpu].waiters);
+		deadlock_check(me, cpu);
+	}
+	while (cpumask_weight(&cpu_idle_mask) < nr_cpus - 1)
+		smp_wait_for_event();
+	for_each_cpu(cpu, mask)
+		cpumask_clear_cpu(me, &on_cpu_info[cpu].waiters);
+}
+
 void on_cpu(int cpu, void (*func)(void *data), void *data)
 {
 	on_cpu_async(cpu, func, data);
@@ -132,23 +169,5 @@ void on_cpu(int cpu, void (*func)(void *data), void *data)
 
 void on_cpus(void (*func)(void *data), void *data)
 {
-	int cpu, me = smp_processor_id();
-
-	for_each_present_cpu(cpu) {
-		if (cpu == me)
-			continue;
-		on_cpu_async(cpu, func, data);
-	}
-	func(data);
-
-	for_each_present_cpu(cpu) {
-		if (cpu == me)
-			continue;
-		cpumask_set_cpu(me, &on_cpu_info[cpu].waiters);
-		deadlock_check(me, cpu);
-	}
-	while (cpumask_weight(&cpu_idle_mask) < nr_cpus - 1)
-		smp_wait_for_event();
-	for_each_present_cpu(cpu)
-		cpumask_clear_cpu(me, &on_cpu_info[cpu].waiters);
+	on_cpumask(&cpu_present_mask, func, data);
 }
