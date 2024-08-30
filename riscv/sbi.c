@@ -406,8 +406,14 @@ static void check_dbcn(void)
 	report_prefix_pop();
 	report_prefix_push("write_byte");
 
-	puts("DBCN_WRITE TEST CHAR: ");
+	puts("DBCN_WRITE_BYTE TEST BYTE: ");
 	ret = sbi_dbcn_write_byte(DBCN_WRITE_BYTE_TEST_BYTE);
+	puts("\n");
+	report(ret.error == SBI_SUCCESS, "write success (error=%ld)", ret.error);
+	report(ret.value == 0, "expected ret.value (%ld)", ret.value);
+
+	puts("DBCN_WRITE_BYTE TEST WORD: "); /* still expect 'a' in the output */
+	ret = sbi_ecall(SBI_EXT_DBCN, SBI_EXT_DBCN_CONSOLE_WRITE_BYTE, 0x64636261, 0, 0, 0, 0, 0);
 	puts("\n");
 	report(ret.error == SBI_SUCCESS, "write success (error=%ld)", ret.error);
 	report(ret.value == 0, "expected ret.value (%ld)", ret.value);
