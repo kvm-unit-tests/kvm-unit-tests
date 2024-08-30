@@ -93,7 +93,7 @@ start:
 
 	/* run the test */
 	la	a0, __argc
-	REG_L	a0, 0(a0)
+	lw	a0, 0(a0)
 	la	a1, __argv
 	la	a2, __environ
 	call	main
