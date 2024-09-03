@@ -210,6 +210,7 @@ void setup(const void *fdt, phys_addr_t freemem_start)
 	cpu_init();
 	timer_get_frequency();
 	thread_info_init();
+	local_hart_init();
 	io_init();
 
 	ret = dt_get_bootargs(&bootargs);
@@ -276,6 +277,7 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	cpu_init();
 	timer_get_frequency();
 	thread_info_init();
+	local_hart_init();
 	io_init();
 	initrd_setup();
 

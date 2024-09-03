@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #include <libcflat.h>
+#include <cpumask.h>
+#include <limits.h>
 #include <asm/sbi.h>
+#include <asm/setup.h>
 
 struct sbiret sbi_ecall(int ext, int fid, unsigned long arg0,
 			unsigned long arg1, unsigned long arg2,
@@ -37,6 +40,56 @@ void sbi_shutdown(void)
 struct sbiret sbi_hart_start(unsigned long hartid, unsigned long entry, unsigned long sp)
 {
 	return sbi_ecall(SBI_EXT_HSM, SBI_EXT_HSM_HART_START, hartid, entry, sp, 0, 0, 0);
+}
+
+struct sbiret sbi_send_ipi(unsigned long hart_mask, unsigned long hart_mask_base)
+{
+	return sbi_ecall(SBI_EXT_IPI, SBI_EXT_IPI_SEND_IPI, hart_mask, hart_mask_base, 0, 0, 0, 0);
+}
+
+struct sbiret sbi_send_ipi_cpu(int cpu)
+{
+	return sbi_send_ipi(1UL, cpus[cpu].hartid);
+}
+
+struct sbiret sbi_send_ipi_cpumask(const cpumask_t *mask)
+{
+	struct sbiret ret;
+	cpumask_t tmp;
+
+	if (cpumask_full(mask))
+		return sbi_send_ipi(0, -1UL);
+
+	cpumask_copy(&tmp, mask);
+
+	while (!cpumask_empty(&tmp)) {
+		unsigned long base = ULONG_MAX;
+		unsigned long mask = 0;
+		int cpu;
+
+		for_each_cpu(cpu, &tmp) {
+			if (base > cpus[cpu].hartid)
+				base = cpus[cpu].hartid;
+		}
+
+		for_each_cpu(cpu, &tmp) {
+			if (cpus[cpu].hartid < base + BITS_PER_LONG) {
+				mask |= 1UL << (cpus[cpu].hartid - base);
+				cpumask_clear_cpu(cpu, &tmp);
+			}
+		}
+
+		ret = sbi_send_ipi(mask, base);
+		if (ret.error)
+			break;
+	}
+
+	return ret;
+}
+
+struct sbiret sbi_set_timer(unsigned long stime_value)
+{
+	return sbi_ecall(SBI_EXT_TIME, SBI_EXT_TIME_SET_TIMER, stime_value, 0, 0, 0, 0, 0);
 }
 
 long sbi_probe(int ext)

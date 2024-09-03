@@ -27,6 +27,7 @@ secondary_func_t secondary_cinit(struct secondary_data *data)
 
 	__mmu_enable(data->satp);
 	thread_info_init();
+	local_hart_init();
 	info = current_thread_info();
 	set_cpu_online(info->cpu, true);
 	smp_send_event();

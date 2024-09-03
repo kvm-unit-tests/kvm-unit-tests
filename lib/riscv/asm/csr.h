@@ -51,7 +51,8 @@
 #define IRQ_S_GEXT		12
 #define IRQ_PMU_OVF		13
 
-#define IE_TIE			(_AC(0x1, UL) << IRQ_S_TIMER)
+#define IE_SSIE			(_AC(1, UL) << IRQ_S_SOFT)
+#define IE_TIE			(_AC(1, UL) << IRQ_S_TIMER)
 
 #define IP_TIP			IE_TIE
 

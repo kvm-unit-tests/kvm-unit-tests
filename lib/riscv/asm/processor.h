@@ -32,10 +32,26 @@ static inline void local_irq_disable(void)
 	csr_clear(CSR_SSTATUS, SR_SIE);
 }
 
+static inline void local_ipi_enable(void)
+{
+	csr_set(CSR_SIE, IE_SSIE);
+}
+
+static inline void local_ipi_disable(void)
+{
+	csr_clear(CSR_SIE, IE_SSIE);
+}
+
+static inline void ipi_ack(void)
+{
+	csr_clear(CSR_SIP, IE_SSIE);
+}
+
 void install_exception_handler(unsigned long cause, void (*handler)(struct pt_regs *));
 void install_irq_handler(unsigned long cause, void (*handler)(struct pt_regs *));
 void do_handle_exception(struct pt_regs *regs);
 void thread_info_init(void);
+void local_hart_init(void);
 
 void show_regs(struct pt_regs *regs);
 

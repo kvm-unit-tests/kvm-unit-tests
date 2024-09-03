@@ -3,10 +3,12 @@
  * Copyright (C) 2023, Ventana Micro Systems Inc., Andrew Jones <ajones@ventanamicro.com>
  */
 #include <libcflat.h>
+#include <limits.h>
 #include <asm/csr.h>
 #include <asm/isa.h>
 #include <asm/processor.h>
 #include <asm/setup.h>
+#include <asm/smp.h>
 
 extern unsigned long ImageBase;
 
@@ -81,4 +83,13 @@ void thread_info_init(void)
 
 	isa_init(&cpus[cpu]);
 	csr_write(CSR_SSCRATCH, &cpus[cpu]);
+}
+
+void local_hart_init(void)
+{
+	if (cpu_has_extension(smp_processor_id(), ISA_SSTC)) {
+		csr_write(CSR_STIMECMP, ULONG_MAX);
+		if (__riscv_xlen == 32)
+			csr_write(CSR_STIMECMPH, ULONG_MAX);
+	}
 }

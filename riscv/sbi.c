@@ -15,7 +15,6 @@
 #include <asm/csr.h>
 #include <asm/delay.h>
 #include <asm/io.h>
-#include <asm/isa.h>
 #include <asm/mmu.h>
 #include <asm/processor.h>
 #include <asm/sbi.h>
@@ -30,19 +29,21 @@ static void help(void)
 	puts("An environ must be provided where expected values are given.\n");
 }
 
-static struct sbiret __base_sbi_ecall(int fid, unsigned long arg0)
+static struct sbiret sbi_base(int fid, unsigned long arg0)
 {
 	return sbi_ecall(SBI_EXT_BASE, fid, arg0, 0, 0, 0, 0, 0);
 }
 
-static struct sbiret __time_sbi_ecall(unsigned long stime_value)
+static struct sbiret sbi_dbcn_write(unsigned long num_bytes, unsigned long base_addr_lo,
+				    unsigned long base_addr_hi)
 {
-	return sbi_ecall(SBI_EXT_TIME, SBI_EXT_TIME_SET_TIMER, stime_value, 0, 0, 0, 0, 0);
+	return sbi_ecall(SBI_EXT_DBCN, SBI_EXT_DBCN_CONSOLE_WRITE,
+			 num_bytes, base_addr_lo, base_addr_hi, 0, 0, 0);
 }
 
-static struct sbiret __dbcn_sbi_ecall(int fid, unsigned long arg0, unsigned long arg1, unsigned long arg2)
+static struct sbiret sbi_dbcn_write_byte(uint8_t byte)
 {
-	return sbi_ecall(SBI_EXT_DBCN, fid, arg0, arg1, arg2, 0, 0, 0);
+	return sbi_ecall(SBI_EXT_DBCN, SBI_EXT_DBCN_CONSOLE_WRITE_BYTE, byte, 0, 0, 0, 0, 0);
 }
 
 static void split_phys_addr(phys_addr_t paddr, unsigned long *hi, unsigned long *lo)
@@ -103,7 +104,7 @@ static void check_base(void)
 
 	report_prefix_push("base");
 
-	ret = __base_sbi_ecall(SBI_EXT_BASE_GET_SPEC_VERSION, 0);
+	ret = sbi_base(SBI_EXT_BASE_GET_SPEC_VERSION, 0);
 	if (ret.error || ret.value < 2) {
 		report_skip("SBI spec version 0.2 or higher required");
 		return;
@@ -119,7 +120,7 @@ static void check_base(void)
 	report_prefix_push("impl_id");
 	if (env_or_skip("SBI_IMPL_ID")) {
 		expected = (long)strtoul(getenv("SBI_IMPL_ID"), NULL, 0);
-		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_IMP_ID, 0);
+		ret = sbi_base(SBI_EXT_BASE_GET_IMP_ID, 0);
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
@@ -127,17 +128,17 @@ static void check_base(void)
 	report_prefix_push("impl_version");
 	if (env_or_skip("SBI_IMPL_VERSION")) {
 		expected = (long)strtoul(getenv("SBI_IMPL_VERSION"), NULL, 0);
-		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_IMP_VERSION, 0);
+		ret = sbi_base(SBI_EXT_BASE_GET_IMP_VERSION, 0);
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
 	report_prefix_push("probe_ext");
 	expected = getenv("SBI_PROBE_EXT") ? (long)strtoul(getenv("SBI_PROBE_EXT"), NULL, 0) : 1;
-	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, SBI_EXT_BASE);
+	ret = sbi_base(SBI_EXT_BASE_PROBE_EXT, SBI_EXT_BASE);
 	gen_report(&ret, 0, expected);
 	report_prefix_push("unavailable");
-	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, 0xb000000);
+	ret = sbi_base(SBI_EXT_BASE_PROBE_EXT, 0xb000000);
 	gen_report(&ret, 0, 0);
 	report_prefix_pop();
 	report_prefix_pop();
@@ -146,7 +147,7 @@ static void check_base(void)
 	if (env_or_skip("MVENDORID")) {
 		expected = (long)strtoul(getenv("MVENDORID"), NULL, 0);
 		assert(__riscv_xlen == 32 || !(expected >> 32));
-		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_MVENDORID, 0);
+		ret = sbi_base(SBI_EXT_BASE_GET_MVENDORID, 0);
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
@@ -154,7 +155,7 @@ static void check_base(void)
 	report_prefix_push("marchid");
 	if (env_or_skip("MARCHID")) {
 		expected = (long)strtoul(getenv("MARCHID"), NULL, 0);
-		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_MARCHID, 0);
+		ret = sbi_base(SBI_EXT_BASE_GET_MARCHID, 0);
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
@@ -162,7 +163,7 @@ static void check_base(void)
 	report_prefix_push("mimpid");
 	if (env_or_skip("MIMPID")) {
 		expected = (long)strtoul(getenv("MIMPID"), NULL, 0);
-		ret = __base_sbi_ecall(SBI_EXT_BASE_GET_MIMPID, 0);
+		ret = sbi_base(SBI_EXT_BASE_GET_MIMPID, 0);
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
@@ -198,7 +199,7 @@ static void timer_irq_handler(struct pt_regs *regs)
 	if (timer_info.mask_timer_irq)
 		timer_irq_disable();
 	else
-		__time_sbi_ecall(ULONG_MAX);
+		sbi_set_timer(ULONG_MAX);
 
 	if (!timer_irq_pending())
 		timer_info.timer_irq_cleared = true;
@@ -217,7 +218,7 @@ static void timer_check_set_timer(bool mask_timer_irq)
 
 	timer_info = (struct timer_info){ .mask_timer_irq = mask_timer_irq };
 	begin = timer_get_cycles();
-	ret = __time_sbi_ecall(begin + d);
+	ret = sbi_set_timer(begin + d);
 
 	report(!ret.error, "set timer%s", mask_test_str);
 	if (ret.error)
@@ -258,11 +259,6 @@ static void check_time(void)
 
 	install_irq_handler(IRQ_S_TIMER, timer_irq_handler);
 	local_irq_enable();
-	if (cpu_has_extension(smp_processor_id(), ISA_SSTC)) {
-		csr_write(CSR_STIMECMP, ULONG_MAX);
-		if (__riscv_xlen == 32)
-			csr_write(CSR_STIMECMPH, ULONG_MAX);
-	}
 	timer_irq_enable();
 
 	timer_check_set_timer(false);
@@ -273,10 +269,10 @@ static void check_time(void)
 		report_skip("timer irq enable bit is not writable, skipping mask irq test");
 
 	timer_irq_disable();
-	__time_sbi_ecall(0);
+	sbi_set_timer(0);
 	pending = timer_irq_pending();
 	report(pending, "timer immediately pending by setting timer to 0");
-	__time_sbi_ecall(ULONG_MAX);
+	sbi_set_timer(ULONG_MAX);
 	if (pending)
 		report(!timer_irq_pending(), "pending timer cleared while masked");
 	else
@@ -302,7 +298,7 @@ static void dbcn_write_test(const char *s, unsigned long num_bytes)
 	split_phys_addr(paddr, &base_addr_hi, &base_addr_lo);
 
 	do {
-		ret = __dbcn_sbi_ecall(SBI_EXT_DBCN_CONSOLE_WRITE, num_bytes, base_addr_lo, base_addr_hi);
+		ret = sbi_dbcn_write(num_bytes, base_addr_lo, base_addr_hi);
 		num_bytes -= ret.value;
 		paddr += ret.value;
 		split_phys_addr(paddr, &base_addr_hi, &base_addr_lo);
@@ -335,7 +331,7 @@ static void dbcn_high_write_test(const char *s, unsigned long num_bytes,
 
 /*
  * Only the write functionality is tested here. There's no easy way to
- * non-interactively test the read functionality.
+ * non-interactively test SBI_EXT_DBCN_CONSOLE_READ.
  */
 static void check_dbcn(void)
 {
@@ -349,8 +345,7 @@ static void check_dbcn(void)
 
 	report_prefix_push("dbcn");
 
-	ret = __base_sbi_ecall(SBI_EXT_BASE_PROBE_EXT, SBI_EXT_DBCN);
-	if (!ret.value) {
+	if (!sbi_probe(SBI_EXT_DBCN)) {
 		report_skip("DBCN extension unavailable");
 		report_prefix_pop();
 		return;
@@ -403,7 +398,7 @@ static void check_dbcn(void)
 
 	if (do_invalid_addr) {
 		split_phys_addr(paddr, &base_addr_hi, &base_addr_lo);
-		ret = __dbcn_sbi_ecall(SBI_EXT_DBCN_CONSOLE_WRITE, 1, base_addr_lo, base_addr_hi);
+		ret = sbi_dbcn_write(1, base_addr_lo, base_addr_hi);
 		report(ret.error == SBI_ERR_INVALID_PARAM, "address (error=%ld)", ret.error);
 	}
 	report_prefix_pop();
@@ -411,12 +406,19 @@ static void check_dbcn(void)
 	report_prefix_pop();
 	report_prefix_push("write_byte");
 
-	puts("DBCN_WRITE TEST CHAR: ");
-	ret = __dbcn_sbi_ecall(SBI_EXT_DBCN_CONSOLE_WRITE_BYTE, (u8)DBCN_WRITE_BYTE_TEST_BYTE, 0, 0);
+	puts("DBCN_WRITE_BYTE TEST BYTE: ");
+	ret = sbi_dbcn_write_byte(DBCN_WRITE_BYTE_TEST_BYTE);
 	puts("\n");
 	report(ret.error == SBI_SUCCESS, "write success (error=%ld)", ret.error);
 	report(ret.value == 0, "expected ret.value (%ld)", ret.value);
 
+	puts("DBCN_WRITE_BYTE TEST WORD: "); /* still expect 'a' in the output */
+	ret = sbi_ecall(SBI_EXT_DBCN, SBI_EXT_DBCN_CONSOLE_WRITE_BYTE, 0x64636261, 0, 0, 0, 0, 0);
+	puts("\n");
+	report(ret.error == SBI_SUCCESS, "write success (error=%ld)", ret.error);
+	report(ret.value == 0, "expected ret.value (%ld)", ret.value);
+
+	report_prefix_pop();
 	report_prefix_pop();
 }
 

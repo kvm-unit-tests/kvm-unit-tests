@@ -13,10 +13,12 @@
 #define SBI_ERR_ALREADY_STOPPED		-8
 
 #ifndef __ASSEMBLY__
+#include <cpumask.h>
 
 enum sbi_ext_id {
 	SBI_EXT_BASE = 0x10,
 	SBI_EXT_TIME = 0x54494d45,
+	SBI_EXT_IPI = 0x735049,
 	SBI_EXT_HSM = 0x48534d,
 	SBI_EXT_SRST = 0x53525354,
 	SBI_EXT_DBCN = 0x4442434E,
@@ -43,6 +45,10 @@ enum sbi_ext_time_fid {
 	SBI_EXT_TIME_SET_TIMER = 0,
 };
 
+enum sbi_ext_ipi_fid {
+	SBI_EXT_IPI_SEND_IPI = 0,
+};
+
 enum sbi_ext_dbcn_fid {
 	SBI_EXT_DBCN_CONSOLE_WRITE = 0,
 	SBI_EXT_DBCN_CONSOLE_READ,
@@ -61,6 +67,10 @@ struct sbiret sbi_ecall(int ext, int fid, unsigned long arg0,
 
 void sbi_shutdown(void);
 struct sbiret sbi_hart_start(unsigned long hartid, unsigned long entry, unsigned long sp);
+struct sbiret sbi_send_ipi(unsigned long hart_mask, unsigned long hart_mask_base);
+struct sbiret sbi_send_ipi_cpu(int cpu);
+struct sbiret sbi_send_ipi_cpumask(const cpumask_t *mask);
+struct sbiret sbi_set_timer(unsigned long stime_value);
 long sbi_probe(int ext);
 
 #endif /* !__ASSEMBLY__ */

@@ -6,8 +6,9 @@
  */
 #ifndef _CPUMASK_H_
 #define _CPUMASK_H_
-#include <asm/setup.h>
 #include <bitops.h>
+#include <limits.h>
+#include <asm/setup.h>
 
 #define CPUMASK_NR_LONGS ((NR_CPUS + BITS_PER_LONG - 1) / BITS_PER_LONG)
 
@@ -49,46 +50,34 @@ static inline int cpumask_test_and_clear_cpu(int cpu, cpumask_t *mask)
 
 static inline void cpumask_setall(cpumask_t *mask)
 {
-	int i;
-	for (i = 0; i < nr_cpus; i += BITS_PER_LONG)
-		cpumask_bits(mask)[BIT_WORD(i)] = ~0UL;
-	i -= BITS_PER_LONG;
-	if ((nr_cpus - i) < BITS_PER_LONG)
-		cpumask_bits(mask)[BIT_WORD(i)] = BIT_MASK(nr_cpus - i) - 1;
+	memset(mask, 0xff, sizeof(*mask));
 }
 
 static inline void cpumask_clear(cpumask_t *mask)
 {
-	int i;
-	for (i = 0; i < nr_cpus; i += BITS_PER_LONG)
-		cpumask_bits(mask)[BIT_WORD(i)] = 0UL;
+	memset(mask, 0, sizeof(*mask));
 }
 
 static inline bool cpumask_empty(const cpumask_t *mask)
 {
-	int i;
-	for (i = 0; i < nr_cpus; i += BITS_PER_LONG) {
-		if (i < NR_CPUS) { /* silence crazy compiler warning */
-			if (cpumask_bits(mask)[BIT_WORD(i)] != 0UL)
-				return false;
-		}
-	}
-	return true;
+	unsigned long lastmask = BIT_MASK(nr_cpus) - 1;
+
+	for (int i = 0; i < BIT_WORD(nr_cpus); ++i)
+		if (cpumask_bits(mask)[i])
+			return false;
+
+	return !lastmask || !(cpumask_bits(mask)[BIT_WORD(nr_cpus)] & lastmask);
 }
 
 static inline bool cpumask_full(const cpumask_t *mask)
 {
-	int i;
-	for (i = 0; i < nr_cpus; i += BITS_PER_LONG) {
-		if (cpumask_bits(mask)[BIT_WORD(i)] != ~0UL) {
-			if ((nr_cpus - i) >= BITS_PER_LONG)
-				return false;
-			if (cpumask_bits(mask)[BIT_WORD(i)]
-					!= BIT_MASK(nr_cpus - i) - 1)
-				return false;
-		}
-	}
-	return true;
+	unsigned long lastmask = BIT_MASK(nr_cpus) - 1;
+
+	for (int i = 0; i < BIT_WORD(nr_cpus); ++i)
+		if (cpumask_bits(mask)[i] != ULONG_MAX)
+			return false;
+
+	return !lastmask || (cpumask_bits(mask)[BIT_WORD(nr_cpus)] & lastmask) == lastmask;
 }
 
 static inline int cpumask_weight(const cpumask_t *mask)
