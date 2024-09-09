@@ -105,17 +105,22 @@ static void check_base(void)
 	report_prefix_push("base");
 
 	ret = sbi_base(SBI_EXT_BASE_GET_SPEC_VERSION, 0);
-	if (ret.error || ret.value < 2) {
-		report_skip("SBI spec version 0.2 or higher required");
-		return;
-	}
 
 	report_prefix_push("spec_version");
 	if (env_or_skip("SBI_SPEC_VERSION")) {
 		expected = (long)strtoul(getenv("SBI_SPEC_VERSION"), NULL, 0);
+		assert_msg(!(expected & BIT(31)), "SBI spec version bit 31 must be zero");
+		assert_msg(__riscv_xlen == 32 || !(expected >> 32), "SBI spec version bits greater than 31 must be zero");
 		gen_report(&ret, 0, expected);
 	}
 	report_prefix_pop();
+
+	ret.value &= 0x7ffffffful;
+
+	if (ret.error || ret.value < 2) {
+		report_skip("SBI spec version 0.2 or higher required");
+		return;
+	}
 
 	report_prefix_push("impl_id");
 	if (env_or_skip("SBI_IMPL_ID")) {
