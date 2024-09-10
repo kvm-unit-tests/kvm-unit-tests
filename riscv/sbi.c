@@ -140,8 +140,7 @@ static void check_base(void)
 	report_prefix_push("unavailable");
 	ret = sbi_base(SBI_EXT_BASE_PROBE_EXT, 0xb000000);
 	gen_report(&ret, 0, 0);
-	report_prefix_pop();
-	report_prefix_pop();
+	report_prefix_popn(2);
 
 	report_prefix_push("mvendorid");
 	if (env_or_skip("MVENDORID")) {
@@ -166,9 +165,7 @@ static void check_base(void)
 		ret = sbi_base(SBI_EXT_BASE_GET_MIMPID, 0);
 		gen_report(&ret, 0, expected);
 	}
-	report_prefix_pop();
-
-	report_prefix_pop();
+	report_prefix_popn(2);
 }
 
 struct timer_info {
@@ -281,8 +278,7 @@ static void check_time(void)
 	local_irq_disable();
 	install_irq_handler(IRQ_S_TIMER, NULL);
 
-	report_prefix_pop();
-	report_prefix_pop();
+	report_prefix_popn(2);
 }
 
 #define DBCN_WRITE_TEST_STRING		"DBCN_WRITE_TEST_STRING\n"
@@ -401,9 +397,7 @@ static void check_dbcn(void)
 		ret = sbi_dbcn_write(1, base_addr_lo, base_addr_hi);
 		report(ret.error == SBI_ERR_INVALID_PARAM, "address (error=%ld)", ret.error);
 	}
-	report_prefix_pop();
-
-	report_prefix_pop();
+	report_prefix_popn(2);
 	report_prefix_push("write_byte");
 
 	puts("DBCN_WRITE_BYTE TEST BYTE: ");
@@ -418,8 +412,7 @@ static void check_dbcn(void)
 	report(ret.error == SBI_SUCCESS, "write success (error=%ld)", ret.error);
 	report(ret.value == 0, "expected ret.value (%ld)", ret.value);
 
-	report_prefix_pop();
-	report_prefix_pop();
+	report_prefix_popn(2);
 }
 
 int main(int argc, char **argv)
