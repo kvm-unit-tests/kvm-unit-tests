@@ -60,23 +60,32 @@ void report_prefix_push(const char *prefix)
 	report_prefix_pushf("%s", prefix);
 }
 
-void report_prefix_pop(void)
+static void __report_prefix_pop(void)
 {
 	char *p, *q;
 
-	spin_lock(&lock);
-
-	if (!*prefixes) {
-		spin_unlock(&lock);
+	if (!*prefixes)
 		return;
-	}
 
 	for (p = prefixes, q = strstr(p, PREFIX_DELIMITER) + 2;
 			*q;
 			p = q, q = strstr(p, PREFIX_DELIMITER) + 2)
 		;
 	*p = '\0';
+}
 
+void report_prefix_pop(void)
+{
+	spin_lock(&lock);
+	__report_prefix_pop();
+	spin_unlock(&lock);
+}
+
+void report_prefix_popn(int n)
+{
+	spin_lock(&lock);
+	while (n--)
+		__report_prefix_pop();
 	spin_unlock(&lock);
 }
 
