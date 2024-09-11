@@ -11,10 +11,10 @@
 
 #define MAX_DEPTH 20
 
-#ifdef CONFIG_RELOC
+#if defined(CONFIG_RELOC) && !defined(HAVE_ARCH_BASE_ADDRESS)
 extern char _text, _etext;
 
-bool __attribute__((weak)) arch_base_address(const void *rebased_addr, unsigned long *addr)
+bool base_address(const void *rebased_addr, unsigned long *addr)
 {
 	unsigned long ra = (unsigned long)rebased_addr;
 	unsigned long start = (unsigned long)&_text;
@@ -26,8 +26,8 @@ bool __attribute__((weak)) arch_base_address(const void *rebased_addr, unsigned 
 	*addr = ra - start;
 	return true;
 }
-#else
-bool __attribute__((weak)) arch_base_address(const void *rebased_addr, unsigned long *addr)
+#elif !defined(CONFIG_RELOC) && !defined(HAVE_ARCH_BASE_ADDRESS)
+bool base_address(const void *rebased_addr, unsigned long *addr)
 {
 	*addr = (unsigned long)rebased_addr;
 	return true;
@@ -45,13 +45,13 @@ static void print_stack(const void **return_addrs, int depth,
 	/* @addr indicates a non-return address, as expected by the stack
 	 * pretty printer script. */
 	if (depth > 0 && !top_is_return_address) {
-		if (arch_base_address(return_addrs[0], &addr))
+		if (base_address(return_addrs[0], &addr))
 			printf(" @%lx", addr);
 		i++;
 	}
 
 	for (; i < depth; i++) {
-		if (arch_base_address(return_addrs[i], &addr))
+		if (base_address(return_addrs[i], &addr))
 			printf(" %lx", addr);
 	}
 	printf("\n");

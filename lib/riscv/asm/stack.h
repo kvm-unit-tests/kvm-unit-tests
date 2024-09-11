@@ -8,5 +8,8 @@
 
 #define HAVE_ARCH_BACKTRACE_FRAME
 #define HAVE_ARCH_BACKTRACE
+#ifdef CONFIG_RELOC
+#define HAVE_ARCH_BASE_ADDRESS
+#endif
 
 #endif

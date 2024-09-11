@@ -5,7 +5,7 @@
 #ifdef CONFIG_RELOC
 extern char ImageBase, _text, _etext;
 
-bool arch_base_address(const void *rebased_addr, unsigned long *addr)
+bool base_address(const void *rebased_addr, unsigned long *addr)
 {
 	unsigned long ra = (unsigned long)rebased_addr;
 	unsigned long base = (unsigned long)&ImageBase;
