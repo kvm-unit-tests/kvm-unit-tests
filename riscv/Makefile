@@ -76,7 +76,9 @@ LDFLAGS += -melf32lriscv
 endif
 CFLAGS += -DCONFIG_RELOC
 CFLAGS += -mcmodel=medany
-CFLAGS += -mstrict-align
+# Unaligned accesses are allowed, but may be emulated by M-mode.
+# Enable -mstrict-align if that's troublesome (only supported by gcc).
+#CFLAGS += -mstrict-align
 CFLAGS += -std=gnu99
 CFLAGS += -ffreestanding
 CFLAGS += -O2
