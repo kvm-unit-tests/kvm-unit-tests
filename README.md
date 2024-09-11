@@ -17,6 +17,28 @@ in this directory.  Test images are created in ./ARCH/\*.flat
 
 NOTE: GCC cross-compiler is required for [build on macOS](README.macOS.md).
 
+## Cross-compiling
+
+A cross compiler may be configured by specifying a cross prefix. For example,
+for arm64
+
+    ./configure --arch=arm64 --cross-prefix=aarch64-linux-gnu-
+    make
+
+## clang
+
+clang may be used as an alternative to gcc.
+
+    ./configure --cc=clang
+    make
+
+clang may also be used with cross binutils when cross-compiling. For example,
+for riscv64
+
+    ./configure --arch=riscv64 --cc=clang --cflags='--target=riscv64' \
+                --cross-prefix=riscv64-linux-gnu-
+    make
+
 ## Standalone tests
 
 The tests can be built as standalone.  To create and use standalone tests do:
