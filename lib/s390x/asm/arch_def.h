@@ -505,4 +505,20 @@ static inline uint32_t get_prefix(void)
 	return current_prefix;
 }
 
+static inline void diag44(void)
+{
+	asm volatile("diag	0,0,0x44\n");
+}
+
+static inline void diag500(uint64_t val)
+{
+	asm volatile(
+		"lgr	2,%[val]\n"
+		"diag	0,0,0x500\n"
+		:
+		: [val] "d"(val)
+		: "r2"
+	);
+}
+
 #endif
