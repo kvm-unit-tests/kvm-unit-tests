@@ -112,6 +112,7 @@ cflatobjs += lib/s390x/css_lib.o
 cflatobjs += lib/s390x/malloc_io.o
 cflatobjs += lib/s390x/uv.o
 cflatobjs += lib/s390x/sie.o
+cflatobjs += lib/s390x/sie-icpt.o
 cflatobjs += lib/s390x/fault.o
 
 OBJDIRS += lib/s390x

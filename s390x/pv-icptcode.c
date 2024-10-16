@@ -13,7 +13,7 @@
 #include <smp.h>
 #include <sclp.h>
 #include <snippet.h>
-#include <pv_icptdata.h>
+#include <sie-icpt.h>
 #include <asm/facility.h>
 #include <asm/barrier.h>
 #include <asm/sigp.h>
@@ -47,7 +47,7 @@ static void test_validity_timing(void)
 			size_gbin, size_hdr, SNIPPET_UNPACK_OFF);
 
 	sie(&vm);
-	report(pv_icptdata_check_diag(&vm, 0x44), "spt done");
+	report(sie_is_diag_icpt(&vm, 0x44), "spt done");
 	stck(&time_exit);
 	tmp = vm.sblk->cputm;
 	mb();
@@ -258,7 +258,7 @@ static void test_validity_asce(void)
 
 	/* Try if we can still do an entry with the correct asce */
 	sie(&vm);
-	report(pv_icptdata_check_diag(&vm, 0x44), "re-entry with valid CR1");
+	report(sie_is_diag_icpt(&vm, 0x44), "re-entry with valid CR1");
 	uv_destroy_guest(&vm);
 	free_pages(pgd_new);
 	report_prefix_pop();
@@ -294,7 +294,7 @@ static void run_icpt_122_tests_prefix(unsigned long prefix)
 
 	sie(&vm);
 	/* Guest indicates that it has been setup via the diag 0x44 */
-	assert(pv_icptdata_check_diag(&vm, 0x44));
+	assert(sie_is_diag_icpt(&vm, 0x44));
 	/* If the pages have not been shared these writes will cause exceptions */
 	ptr = (uint32_t *)prefix;
 	WRITE_ONCE(ptr, 0);
@@ -328,7 +328,7 @@ static void test_icpt_112(void)
 
 	/* Setup of the guest's state for 0x0 prefix */
 	sie(&vm);
-	assert(pv_icptdata_check_diag(&vm, 0x44));
+	assert(sie_is_diag_icpt(&vm, 0x44));
 
 	/* Test on standard 0x0 prefix */
 	run_icpt_122_tests_prefix(0);
@@ -348,7 +348,7 @@ static void test_icpt_112(void)
 
 	/* Try a re-entry after everything has been imported again */
 	sie(&vm);
-	report(pv_icptdata_check_diag(&vm, 0x9c) &&
+	report(sie_is_diag_icpt(&vm, 0x9c) &&
 	       vm.save_area.guest.grs[0] == 42,
 	       "re-entry successful");
 	report_prefix_pop();

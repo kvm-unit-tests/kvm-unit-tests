@@ -9,7 +9,7 @@
  */
 #include <libcflat.h>
 #include <snippet.h>
-#include <pv_icptdata.h>
+#include <sie-icpt.h>
 #include <sie.h>
 #include <sclp.h>
 #include <asm/facility.h>
@@ -32,8 +32,7 @@ static void test_diag_500(void)
 			size_gbin, size_hdr, SNIPPET_UNPACK_OFF);
 
 	sie(&vm);
-	report(pv_icptdata_check_diag(&vm, 0x500),
-	       "intercept values");
+	report(sie_is_diag_icpt(&vm, 0x500), "intercept values");
 	report(vm.save_area.guest.grs[1] == 1 &&
 	       vm.save_area.guest.grs[2] == 2 &&
 	       vm.save_area.guest.grs[3] == 3 &&
@@ -45,7 +44,7 @@ static void test_diag_500(void)
 	 */
 	vm.sblk->iictl = IICTL_CODE_OPERAND;
 	sie(&vm);
-	report(pv_icptdata_check_diag(&vm, 0x9c) &&
+	report(sie_is_diag_icpt(&vm, 0x9c) &&
 	       vm.save_area.guest.grs[0] == PGM_INT_CODE_OPERAND,
 	       "operand exception");
 
@@ -57,7 +56,7 @@ static void test_diag_500(void)
 	vm.sblk->iictl = IICTL_CODE_SPECIFICATION;
 	/* Inject PGM, next exit should be 9c */
 	sie(&vm);
-	report(pv_icptdata_check_diag(&vm, 0x9c) &&
+	report(sie_is_diag_icpt(&vm, 0x9c) &&
 	       vm.save_area.guest.grs[0] == PGM_INT_CODE_SPECIFICATION,
 	       "specification exception");
 
