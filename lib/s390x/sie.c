@@ -59,7 +59,7 @@ void sie(struct vm *vm)
 	/* When a pgm int code is set, we'll never enter SIE below. */
 	assert(!read_pgm_int_code());
 
-	if (vm->sblk->sdf == 2)
+	if (sie_is_pv(vm))
 		memcpy(vm->sblk->pv_grregs, vm->save_area.guest.grs,
 		       sizeof(vm->save_area.guest.grs));
 
@@ -98,7 +98,7 @@ void sie(struct vm *vm)
 	/* restore the old CR 13 */
 	lctlg(13, old_cr13);
 
-	if (vm->sblk->sdf == 2)
+	if (sie_is_pv(vm))
 		memcpy(vm->save_area.guest.grs, vm->sblk->pv_grregs,
 		       sizeof(vm->save_area.guest.grs));
 }
