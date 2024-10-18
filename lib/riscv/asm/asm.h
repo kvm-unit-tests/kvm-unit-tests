@@ -14,6 +14,9 @@
 #define REG_S	__REG_SEL(sd, sw)
 #define SZREG	__REG_SEL(8, 4)
 
+/* ASMARR() may be used with arrays of longs */
+#define ASMARR(reg, idx)	((idx) * SZREG)(reg)
+
 #define FP_SIZE 16
 
 #endif /* _ASMRISCV_ASM_H_ */

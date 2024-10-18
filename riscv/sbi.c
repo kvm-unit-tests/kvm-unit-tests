@@ -11,6 +11,7 @@
 #include <memregions.h>
 #include <on-cpus.h>
 #include <rand.h>
+#include <setjmp.h>
 #include <stdlib.h>
 #include <string.h>
 #include <vmalloc.h>
@@ -24,6 +25,8 @@
 #include <asm/sbi.h>
 #include <asm/smp.h>
 #include <asm/timer.h>
+
+#include "sbi-tests.h"
 
 #define	HIGH_ADDR_BOUNDARY	((phys_addr_t)1 << 32)
 
@@ -53,6 +56,22 @@ static struct sbiret sbi_dbcn_write(unsigned long num_bytes, unsigned long base_
 static struct sbiret sbi_dbcn_write_byte(uint8_t byte)
 {
 	return sbi_ecall(SBI_EXT_DBCN, SBI_EXT_DBCN_CONSOLE_WRITE_BYTE, byte, 0, 0, 0, 0, 0);
+}
+
+static struct sbiret sbi_system_suspend(uint32_t sleep_type, unsigned long resume_addr, unsigned long opaque)
+{
+	return sbi_ecall(SBI_EXT_SUSP, 0, sleep_type, resume_addr, opaque, 0, 0, 0);
+}
+
+static void start_cpu(void *data)
+{
+	/* nothing to do */
+}
+
+static void stop_cpu(void *data)
+{
+	struct sbiret ret = sbi_hart_stop();
+	assert_msg(0, "cpu%d failed to stop with sbiret.error %ld", smp_processor_id(), ret.error);
 }
 
 static int rand_online_cpu(prng_state *ps)
@@ -111,6 +130,22 @@ static bool env_or_skip(const char *env)
 	}
 
 	return true;
+}
+
+static bool get_invalid_addr(phys_addr_t *paddr, bool allow_default)
+{
+	if (env_enabled("INVALID_ADDR_AUTO")) {
+		*paddr = get_highest_addr() + 1;
+		return true;
+	} else if (allow_default && !getenv("INVALID_ADDR")) {
+		*paddr = -1ul;
+		return true;
+	} else if (env_or_skip("INVALID_ADDR")) {
+		*paddr = strtoull(getenv("INVALID_ADDR"), NULL, 0);
+		return true;
+	}
+
+	return false;
 }
 
 static void gen_report(struct sbiret *ret,
@@ -530,7 +565,6 @@ static void check_dbcn(void)
 {
 	unsigned long num_bytes = strlen(DBCN_WRITE_TEST_STRING);
 	unsigned long base_addr_lo, base_addr_hi;
-	bool do_invalid_addr = false;
 	bool highmem_supported = true;
 	phys_addr_t paddr;
 	struct sbiret ret;
@@ -579,15 +613,7 @@ static void check_dbcn(void)
 
 	/* Bytes are read from memory and written to the console */
 	report_prefix_push("invalid parameter");
-	if (env_enabled("INVALID_ADDR_AUTO")) {
-		paddr = get_highest_addr() + 1;
-		do_invalid_addr = true;
-	} else if (env_or_skip("INVALID_ADDR")) {
-		paddr = strtoull(getenv("INVALID_ADDR"), NULL, 0);
-		do_invalid_addr = true;
-	}
-
-	if (do_invalid_addr) {
+	if (get_invalid_addr(&paddr, false)) {
 		split_phys_addr(paddr, &base_addr_hi, &base_addr_lo);
 		ret = sbi_dbcn_write(1, base_addr_lo, base_addr_hi);
 		report(ret.error == SBI_ERR_INVALID_PARAM, "address (error=%ld)", ret.error);
@@ -610,6 +636,231 @@ static void check_dbcn(void)
 	report_prefix_popn(2);
 }
 
+void sbi_susp_resume(unsigned long hartid, unsigned long opaque);
+jmp_buf sbi_susp_jmp;
+
+struct susp_params {
+	unsigned long sleep_type;
+	unsigned long resume_addr;
+	unsigned long opaque;
+	bool returns;
+	struct sbiret ret;
+};
+
+static bool susp_basic_prep(unsigned long ctx[], struct susp_params *params)
+{
+	int cpu, me = smp_processor_id();
+	struct sbiret ret;
+	cpumask_t mask;
+
+	memset(params, 0, sizeof(*params));
+	params->sleep_type = 0; /* suspend-to-ram */
+	params->resume_addr = virt_to_phys(sbi_susp_resume);
+	params->opaque = virt_to_phys(ctx);
+	params->returns = false;
+
+	cpumask_copy(&mask, &cpu_present_mask);
+	cpumask_clear_cpu(me, &mask);
+	on_cpumask_async(&mask, stop_cpu, NULL);
+
+	/* Wait up to 1s for all harts to stop */
+	for (int i = 0; i < 100; i++) {
+		int count = 1;
+
+		udelay(10000);
+
+		for_each_present_cpu(cpu) {
+			if (cpu == me)
+				continue;
+			ret = sbi_hart_get_status(cpus[cpu].hartid);
+			if (!ret.error && ret.value == SBI_EXT_HSM_STOPPED)
+				++count;
+		}
+		if (count == cpumask_weight(&cpu_present_mask))
+			break;
+	}
+
+	for_each_present_cpu(cpu) {
+		ret = sbi_hart_get_status(cpus[cpu].hartid);
+		if (cpu == me) {
+			assert_msg(!ret.error && ret.value == SBI_EXT_HSM_STARTED,
+				   "cpu%d is not started", cpu);
+		} else {
+			assert_msg(!ret.error && ret.value == SBI_EXT_HSM_STOPPED,
+				   "cpu%d is not stopped", cpu);
+		}
+	}
+
+	return true;
+}
+
+static void susp_basic_check(unsigned long ctx[], struct susp_params *params)
+{
+	if (ctx[SBI_SUSP_RESULTS_IDX] == SBI_SUSP_TEST_MASK) {
+		report_pass("suspend and resume");
+	} else {
+		if (!(ctx[SBI_SUSP_RESULTS_IDX] & SBI_SUSP_TEST_SATP))
+			report_fail("SATP set to zero on resume");
+		if (!(ctx[SBI_SUSP_RESULTS_IDX] & SBI_SUSP_TEST_SIE))
+			report_fail("sstatus.SIE clear on resume");
+		if (!(ctx[SBI_SUSP_RESULTS_IDX] & SBI_SUSP_TEST_HARTID))
+			report_fail("a0 is hartid on resume");
+	}
+}
+
+static bool susp_type_prep(unsigned long ctx[], struct susp_params *params)
+{
+	bool r;
+
+	r = susp_basic_prep(ctx, params);
+	assert(r);
+	params->sleep_type = 1;
+	params->returns = true;
+	params->ret.error = SBI_ERR_INVALID_PARAM;
+
+	return true;
+}
+
+static bool susp_badaddr_prep(unsigned long ctx[], struct susp_params *params)
+{
+	phys_addr_t badaddr;
+	bool r;
+
+	if (!get_invalid_addr(&badaddr, false))
+		return false;
+
+	r = susp_basic_prep(ctx, params);
+	assert(r);
+	params->resume_addr = badaddr;
+	params->returns = true;
+	params->ret.error = SBI_ERR_INVALID_ADDRESS;
+
+	return true;
+}
+
+static bool susp_one_prep(unsigned long ctx[], struct susp_params *params)
+{
+	int started = 0, cpu, me = smp_processor_id();
+	struct sbiret ret;
+	bool r;
+
+	if (cpumask_weight(&cpu_present_mask) < 2) {
+		report_skip("At least 2 cpus required");
+		return false;
+	}
+
+	r = susp_basic_prep(ctx, params);
+	assert(r);
+	params->returns = true;
+	params->ret.error = SBI_ERR_DENIED;
+
+	for_each_present_cpu(cpu) {
+		if (cpu == me)
+			continue;
+		break;
+	}
+
+	on_cpu(cpu, start_cpu, NULL);
+
+	for_each_present_cpu(cpu) {
+		ret = sbi_hart_get_status(cpus[cpu].hartid);
+		assert_msg(!ret.error, "HSM get status failed for cpu%d", cpu);
+		if (ret.value == SBI_EXT_HSM_STARTED)
+			started++;
+	}
+
+	assert(started == 2);
+
+	return true;
+}
+
+static void check_susp(void)
+{
+	unsigned long csrs[] = {
+		[SBI_CSR_SSTATUS_IDX] = csr_read(CSR_SSTATUS),
+		[SBI_CSR_SIE_IDX] = csr_read(CSR_SIE),
+		[SBI_CSR_STVEC_IDX] = csr_read(CSR_STVEC),
+		[SBI_CSR_SSCRATCH_IDX] = csr_read(CSR_SSCRATCH),
+		[SBI_CSR_SATP_IDX] = csr_read(CSR_SATP),
+	};
+	unsigned long ctx[] = {
+		[SBI_SUSP_MAGIC_IDX] = SBI_SUSP_MAGIC,
+		[SBI_SUSP_CSRS_IDX] = (unsigned long)csrs,
+		[SBI_SUSP_HARTID_IDX] = current_thread_info()->hartid,
+		[SBI_SUSP_TESTNUM_IDX] = 0,
+		[SBI_SUSP_RESULTS_IDX] = 0,
+	};
+	enum {
+#define SUSP_FIRST_TESTNUM 1
+		SUSP_BASIC = SUSP_FIRST_TESTNUM,
+		SUSP_TYPE,
+		SUSP_BAD_ADDR,
+		SUSP_ONE_ONLINE,
+		NR_SUSP_TESTS,
+	};
+	struct susp_test {
+		const char *name;
+		bool (*prep)(unsigned long ctx[], struct susp_params *params);
+		void (*check)(unsigned long ctx[], struct susp_params *params);
+	} susp_tests[] = {
+		[SUSP_BASIC]		= { "basic",		susp_basic_prep,	susp_basic_check,	},
+		[SUSP_TYPE]		= { "sleep_type",	susp_type_prep,					},
+		[SUSP_BAD_ADDR]		= { "bad addr",		susp_badaddr_prep,				},
+		[SUSP_ONE_ONLINE]	= { "one cpu online",	susp_one_prep,					},
+	};
+	struct susp_params params;
+	struct sbiret ret;
+	int testnum, i;
+
+	local_irq_disable();
+	timer_stop();
+
+	report_prefix_push("susp");
+
+	ret = sbi_ecall(SBI_EXT_SUSP, 1, 0, 0, 0, 0, 0, 0);
+	report(ret.error == SBI_ERR_NOT_SUPPORTED, "funcid != 0 not supported");
+
+	for (i = SUSP_FIRST_TESTNUM; i < NR_SUSP_TESTS; i++) {
+		report_prefix_push(susp_tests[i].name);
+
+		ctx[SBI_SUSP_TESTNUM_IDX] = i;
+		ctx[SBI_SUSP_RESULTS_IDX] = 0;
+
+		assert(susp_tests[i].prep);
+		if (!susp_tests[i].prep(ctx, &params)) {
+			report_prefix_pop();
+			continue;
+		}
+
+		if ((testnum = setjmp(sbi_susp_jmp)) == 0) {
+			ret = sbi_system_suspend(params.sleep_type, params.resume_addr, params.opaque);
+
+			if (!params.returns && ret.error == SBI_ERR_NOT_SUPPORTED) {
+				report_skip("SUSP not supported?");
+				report_prefix_popn(2);
+				return;
+			} else if (!params.returns) {
+				report_fail("unexpected return with error: %ld, value: %ld", ret.error, ret.value);
+			} else {
+				report(ret.error == params.ret.error, "expected sbi.error");
+				if (ret.error != params.ret.error)
+					report_info("expected error %ld, received %ld", params.ret.error, ret.error);
+			}
+
+			report_prefix_pop();
+			continue;
+		}
+		assert(testnum == i);
+
+		if (susp_tests[i].check)
+			susp_tests[i].check(ctx, &params);
+
+		report_prefix_pop();
+	}
+
+	report_prefix_pop();
+}
+
 int main(int argc, char **argv)
 {
 	if (argc > 1 && !strcmp(argv[1], "-h")) {
@@ -622,6 +873,7 @@ int main(int argc, char **argv)
 	check_time();
 	check_ipi();
 	check_dbcn();
+	check_susp();
 
 	return report_summary();
 }
