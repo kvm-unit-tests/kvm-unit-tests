@@ -109,6 +109,30 @@ halt:
 1:	wfi
 	j	1b
 
+/*
+ * hartid_to_cpu
+ *   a0 is a hartid on entry
+ * Returns, in a0, the corresponding cpuid, or -1 if no
+ * thread_info struct with 'hartid' is found.
+ */
+.balign 4
+.global hartid_to_cpu
+hartid_to_cpu:
+	la	t0, cpus
+	la	t1, nr_cpus
+	lw	t1, 0(t1)
+	li	t2, 0
+1:	bne	t2, t1, 2f
+	li	a0, -1
+	ret
+2:	REG_L	t3, THREAD_INFO_HARTID(t0)
+	bne	a0, t3, 3f
+	lw	a0, THREAD_INFO_CPU(t0)
+	ret
+3:	addi	t0, t0, THREAD_INFO_SIZE
+	addi	t2, t2, 1
+	j	1b
+
 .balign 4
 .global secondary_entry
 secondary_entry:

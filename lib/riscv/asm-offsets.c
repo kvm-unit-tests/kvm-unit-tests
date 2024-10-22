@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #include <kbuild.h>
 #include <elf.h>
+#include <asm/processor.h>
 #include <asm/ptrace.h>
 #include <asm/smp.h>
 
@@ -57,6 +58,10 @@ int main(void)
 	OFFSET(SECONDARY_STVEC, secondary_data, stvec);
 	OFFSET(SECONDARY_FUNC, secondary_data, func);
 	DEFINE(SECONDARY_DATA_SIZE, sizeof(struct secondary_data));
+
+	OFFSET(THREAD_INFO_CPU, thread_info, cpu);
+	OFFSET(THREAD_INFO_HARTID, thread_info, hartid);
+	DEFINE(THREAD_INFO_SIZE, sizeof(struct thread_info));
 
 	return 0;
 }

@@ -43,16 +43,6 @@ uint64_t timebase_frequency;
 
 static struct mem_region riscv_mem_regions[NR_MEM_REGIONS + 1];
 
-int hartid_to_cpu(unsigned long hartid)
-{
-	int cpu;
-
-	for_each_present_cpu(cpu)
-		if (cpus[cpu].hartid == hartid)
-			return cpu;
-	return -1;
-}
-
 static void cpu_set_fdt(int fdtnode __unused, u64 regval, void *info __unused)
 {
 	int cpu = nr_cpus++;
