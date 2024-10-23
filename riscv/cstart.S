@@ -154,9 +154,9 @@ secondary_entry:
 	mv	a0, sp
 	call	secondary_cinit
 	addi	sp, sp, SECONDARY_DATA_SIZE
-	jr	a0
-	la	a0, do_idle
-	jr	a0
+	jalr	ra, a0
+	call	do_idle
+	j	.	/* unreachable */
 
 /*
  * Save context to address in a0.
