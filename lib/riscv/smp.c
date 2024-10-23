@@ -19,8 +19,6 @@ cpumask_t cpu_present_mask;
 cpumask_t cpu_online_mask;
 cpumask_t cpu_idle_mask;
 
-static cpumask_t cpu_started;
-
 secondary_func_t secondary_cinit(struct secondary_data *data)
 {
 	struct thread_info *info;
@@ -37,27 +35,40 @@ secondary_func_t secondary_cinit(struct secondary_data *data)
 
 static void __smp_boot_secondary(int cpu, secondary_func_t func)
 {
-	struct secondary_data *sp = alloc_pages(1) + SZ_8K - 16;
-	phys_addr_t sp_phys;
+	void *sp_mem = __va(cpus[cpu].sp);
+	struct secondary_data *data;
 	struct sbiret ret;
 
-	sp -= sizeof(struct secondary_data);
-	sp->satp = csr_read(CSR_SATP);
-	sp->stvec = csr_read(CSR_STVEC);
-	sp->func = func;
+	if (!sp_mem) {
+		phys_addr_t sp_phys;
 
-	sp_phys = virt_to_phys(sp);
-	assert(sp_phys == __pa(sp_phys));
+		sp_mem = alloc_pages(1) + SZ_8K - 16;
+		sp_phys = virt_to_phys(sp_mem);
+		cpus[cpu].sp = __pa(sp_phys);
 
-	ret = sbi_hart_start(cpus[cpu].hartid, (unsigned long)&secondary_entry, __pa(sp_phys));
+		assert(__va(cpus[cpu].sp) == sp_mem);
+	}
+
+	sp_mem -= sizeof(struct secondary_data);
+	data = (struct secondary_data *)sp_mem;
+	data->satp = csr_read(CSR_SATP);
+	data->stvec = csr_read(CSR_STVEC);
+	data->func = func;
+
+	ret = sbi_hart_start(cpus[cpu].hartid, __pa(secondary_entry), cpus[cpu].sp);
 	assert(ret.error == SBI_SUCCESS);
 }
 
 void smp_boot_secondary(int cpu, void (*func)(void))
 {
-	int ret = cpumask_test_and_set_cpu(cpu, &cpu_started);
+	struct sbiret ret;
 
-	assert_msg(!ret, "CPU%d already boot once", cpu);
+	do {
+		ret = sbi_hart_get_status(cpus[cpu].hartid);
+		assert(!ret.error);
+	} while (ret.value == SBI_EXT_HSM_STOP_PENDING);
+
+	assert_msg(ret.value == SBI_EXT_HSM_STOPPED, "CPU%d is not stopped", cpu);
 	__smp_boot_secondary(cpu, func);
 
 	while (!cpu_online(cpu))
@@ -66,10 +77,18 @@ void smp_boot_secondary(int cpu, void (*func)(void))
 
 void smp_boot_secondary_nofail(int cpu, void (*func)(void))
 {
-	int ret = cpumask_test_and_set_cpu(cpu, &cpu_started);
+	struct sbiret ret;
 
-	if (!ret)
+	do {
+		ret = sbi_hart_get_status(cpus[cpu].hartid);
+		assert(!ret.error);
+	} while (ret.value == SBI_EXT_HSM_STOP_PENDING);
+
+	if (ret.value == SBI_EXT_HSM_STOPPED)
 		__smp_boot_secondary(cpu, func);
+	else
+		assert_msg(ret.value == SBI_EXT_HSM_START_PENDING || ret.value == SBI_EXT_HSM_STARTED,
+			   "CPU%d is in an unexpected state %ld", cpu, ret.value);
 
 	while (!cpu_online(cpu))
 		smp_wait_for_event();
