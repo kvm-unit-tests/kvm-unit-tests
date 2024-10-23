@@ -38,7 +38,8 @@ static inline bool arch_collect_entropy(uint64_t *random)
 #define fpu_reg_read(val)				\
 ({							\
 	uint64_t *__val = (val);			\
-	asm volatile("stp q0, q1, [%0], #32\n\t"	\
+	asm volatile(".arch_extension fp\n"		\
+		     "stp q0, q1, [%0], #32\n\t"	\
 		     "stp q2, q3, [%0], #32\n\t"	\
 		     "stp q4, q5, [%0], #32\n\t"	\
 		     "stp q6, q7, [%0], #32\n\t"	\
@@ -71,7 +72,8 @@ static inline bool arch_collect_entropy(uint64_t *random)
 #define fpu_reg_write(val)				\
 do {							\
 	uint64_t *__val = (val);			\
-	asm volatile("ldp q0, q1, [%0], #32\n\t"	\
+	asm volatile(".arch_extension fp\n"		\
+		     "ldp q0, q1, [%0], #32\n\t"	\
 		     "ldp q2, q3, [%0], #32\n\t"	\
 		     "ldp q4, q5, [%0], #32\n\t"	\
 		     "ldp q6, q7, [%0], #32\n\t"	\
