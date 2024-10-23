@@ -19,6 +19,7 @@
 #include <asm/mmu.h>
 #include <asm/page.h>
 #include <asm/processor.h>
+#include <asm/sbi.h>
 #include <asm/setup.h>
 #include <asm/timer.h>
 
@@ -51,7 +52,9 @@ static void cpu_set_fdt(int fdtnode __unused, u64 regval, void *info __unused)
 
 	cpus[cpu].cpu = cpu;
 	cpus[cpu].hartid = regval;
-	set_cpu_present(cpu, true);
+
+	if (!sbi_hart_get_status(cpus[cpu].hartid).error)
+		set_cpu_present(cpu, true);
 }
 
 static void cpu_init_acpi(void)
@@ -61,7 +64,7 @@ static void cpu_init_acpi(void)
 
 static void cpu_init(void)
 {
-	int ret;
+	int ret, me;
 
 	nr_cpus = 0;
 	if (dt_available()) {
@@ -71,7 +74,9 @@ static void cpu_init(void)
 		cpu_init_acpi();
 	}
 
-	set_cpu_online(hartid_to_cpu(csr_read(CSR_SSCRATCH)), true);
+	me = hartid_to_cpu(csr_read(CSR_SSCRATCH));
+	assert(cpu_present(me));
+	set_cpu_online(me, true);
 	cpu0_calls_idle = true;
 }
 
