@@ -89,7 +89,7 @@ void report_prefix_popn(int n)
 	spin_unlock(&lock);
 }
 
-static void va_report(const char *msg_fmt,
+static bool va_report(const char *msg_fmt,
 		bool pass, bool xfail, bool kfail, bool skip, va_list va)
 {
 	const char *prefix = skip ? "SKIP"
@@ -114,14 +114,20 @@ static void va_report(const char *msg_fmt,
 		failures++;
 
 	spin_unlock(&lock);
+
+	return pass || xfail;
 }
 
-void report(bool pass, const char *msg_fmt, ...)
+bool report(bool pass, const char *msg_fmt, ...)
 {
 	va_list va;
+	bool ret;
+
 	va_start(va, msg_fmt);
-	va_report(msg_fmt, pass, false, false, false, va);
+	ret = va_report(msg_fmt, pass, false, false, false, va);
 	va_end(va);
+
+	return ret;
 }
 
 void report_pass(const char *msg_fmt, ...)
@@ -142,24 +148,32 @@ void report_fail(const char *msg_fmt, ...)
 	va_end(va);
 }
 
-void report_xfail(bool xfail, bool pass, const char *msg_fmt, ...)
+bool report_xfail(bool xfail, bool pass, const char *msg_fmt, ...)
 {
+	bool ret;
+
 	va_list va;
 	va_start(va, msg_fmt);
-	va_report(msg_fmt, pass, xfail, false, false, va);
+	ret = va_report(msg_fmt, pass, xfail, false, false, va);
 	va_end(va);
+
+	return ret;
 }
 
 /*
  * kfail is known failure. If kfail is true then test will succeed
  * regardless of pass.
  */
-void report_kfail(bool kfail, bool pass, const char *msg_fmt, ...)
+bool report_kfail(bool kfail, bool pass, const char *msg_fmt, ...)
 {
+	bool ret;
+
 	va_list va;
 	va_start(va, msg_fmt);
-	va_report(msg_fmt, pass, false, kfail, false, va);
+	ret = va_report(msg_fmt, pass, false, kfail, false, va);
 	va_end(va);
+
+	return ret;
 }
 
 void report_skip(const char *msg_fmt, ...)

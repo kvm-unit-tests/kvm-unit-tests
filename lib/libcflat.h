@@ -97,11 +97,11 @@ void report_prefix_pushf(const char *prefix_fmt, ...)
 extern void report_prefix_push(const char *prefix);
 extern void report_prefix_pop(void);
 extern void report_prefix_popn(int n);
-extern void report(bool pass, const char *msg_fmt, ...)
+extern bool report(bool pass, const char *msg_fmt, ...)
 		__attribute__((format(printf, 2, 3), nonnull(2)));
-extern void report_xfail(bool xfail, bool pass, const char *msg_fmt, ...)
+extern bool report_xfail(bool xfail, bool pass, const char *msg_fmt, ...)
 		__attribute__((format(printf, 3, 4), nonnull(3)));
-extern void report_kfail(bool kfail, bool pass, const char *msg_fmt, ...)
+extern bool report_kfail(bool kfail, bool pass, const char *msg_fmt, ...)
 		__attribute__((format(printf, 3, 4), nonnull(3)));
 extern void report_abort(const char *msg_fmt, ...)
 					__attribute__((format(printf, 1, 2)))
