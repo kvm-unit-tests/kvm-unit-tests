@@ -62,13 +62,18 @@ struct sbiret sbi_send_ipi_cpu(int cpu)
 	return sbi_send_ipi(1UL, cpus[cpu].hartid);
 }
 
+struct sbiret sbi_send_ipi_broadcast(void)
+{
+	return sbi_send_ipi(0, -1UL);
+}
+
 struct sbiret sbi_send_ipi_cpumask(const cpumask_t *mask)
 {
 	struct sbiret ret;
 	cpumask_t tmp;
 
 	if (cpumask_full(mask))
-		return sbi_send_ipi(0, -1UL);
+		return sbi_send_ipi_broadcast();
 
 	cpumask_copy(&tmp, mask);
 
