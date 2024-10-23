@@ -4,7 +4,7 @@
 #include <libcflat.h>
 #include <asm/processor.h>
 
-#define NR_CPUS 16
+#define NR_CPUS 256
 extern struct thread_info cpus[NR_CPUS];
 extern int nr_cpus;
 extern uint64_t timebase_frequency;
