@@ -96,6 +96,13 @@ static phys_addr_t get_highest_addr(void)
 	return highest_end - 1;
 }
 
+static bool env_enabled(const char *env)
+{
+	char *s = getenv(env);
+
+	return s && (*s == '1' || *s == 'y' || *s == 'Y');
+}
+
 static bool env_or_skip(const char *env)
 {
 	if (!getenv(env)) {
@@ -527,7 +534,6 @@ static void check_dbcn(void)
 	bool highmem_supported = true;
 	phys_addr_t paddr;
 	struct sbiret ret;
-	const char *tmp;
 	char *buf;
 
 	report_prefix_push("dbcn");
@@ -550,13 +556,11 @@ static void check_dbcn(void)
 	dbcn_write_test(&buf[PAGE_SIZE - num_bytes / 2], num_bytes, false);
 	report_prefix_pop();
 
-	tmp = getenv("SBI_HIGHMEM_NOT_SUPPORTED");
-	if (tmp && atol(tmp) != 0)
+	if (env_enabled("SBI_HIGHMEM_NOT_SUPPORTED"))
 		highmem_supported = false;
 
 	report_prefix_push("high boundary");
-	tmp = getenv("SBI_DBCN_SKIP_HIGH_BOUNDARY");
-	if (!tmp || atol(tmp) == 0)
+	if (!env_enabled("SBI_DBCN_SKIP_HIGH_BOUNDARY"))
 		dbcn_high_write_test(DBCN_WRITE_TEST_STRING, num_bytes,
 				     HIGH_ADDR_BOUNDARY - PAGE_SIZE, PAGE_SIZE - num_bytes / 2,
 				     highmem_supported);
@@ -565,12 +569,8 @@ static void check_dbcn(void)
 	report_prefix_pop();
 
 	report_prefix_push("high page");
-	tmp = getenv("SBI_DBCN_SKIP_HIGH_PAGE");
-	if (!tmp || atol(tmp) == 0) {
-		paddr = HIGH_ADDR_BOUNDARY;
-		tmp = getenv("HIGH_PAGE");
-		if (tmp)
-			paddr = strtoull(tmp, NULL, 0);
+	if (!env_enabled("SBI_DBCN_SKIP_HIGH_PAGE")) {
+		paddr = getenv("HIGH_PAGE") ? strtoull(getenv("HIGH_PAGE"), NULL, 0) : HIGH_ADDR_BOUNDARY;
 		dbcn_high_write_test(DBCN_WRITE_TEST_STRING, num_bytes, paddr, 0, highmem_supported);
 	} else {
 		report_skip("user disabled");
@@ -579,8 +579,7 @@ static void check_dbcn(void)
 
 	/* Bytes are read from memory and written to the console */
 	report_prefix_push("invalid parameter");
-	tmp = getenv("INVALID_ADDR_AUTO");
-	if (tmp && atol(tmp) == 1) {
+	if (env_enabled("INVALID_ADDR_AUTO")) {
 		paddr = get_highest_addr() + 1;
 		do_invalid_addr = true;
 	} else if (env_or_skip("INVALID_ADDR")) {
