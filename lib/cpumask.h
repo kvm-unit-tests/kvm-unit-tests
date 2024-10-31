@@ -58,6 +58,20 @@ static inline void cpumask_clear(cpumask_t *mask)
 	memset(mask, 0, sizeof(*mask));
 }
 
+/* true if src1 is a subset of src2 */
+static inline bool cpumask_subset(const struct cpumask *src1, const struct cpumask *src2)
+{
+	unsigned long lastmask = BIT_MASK(nr_cpus) - 1;
+	int i;
+
+	for (i = 0; i < BIT_WORD(nr_cpus); ++i) {
+		if (cpumask_bits(src1)[i] & ~cpumask_bits(src2)[i])
+			return false;
+	}
+
+	return !lastmask || !((cpumask_bits(src1)[i] & ~cpumask_bits(src2)[i]) & lastmask);
+}
+
 static inline bool cpumask_empty(const cpumask_t *mask)
 {
 	unsigned long lastmask = BIT_MASK(nr_cpus) - 1;

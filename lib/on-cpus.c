@@ -127,24 +127,23 @@ void on_cpumask_async(const cpumask_t *mask, void (*func)(void *data), void *dat
 void on_cpumask(const cpumask_t *mask, void (*func)(void *data), void *data)
 {
 	int cpu, me = smp_processor_id();
+	cpumask_t tmp;
 
-	for_each_cpu(cpu, mask) {
-		if (cpu == me)
-			continue;
+	cpumask_copy(&tmp, mask);
+	cpumask_clear_cpu(me, &tmp);
+
+	for_each_cpu(cpu, &tmp)
 		on_cpu_async(cpu, func, data);
-	}
 	if (cpumask_test_cpu(me, mask))
 		func(data);
 
-	for_each_cpu(cpu, mask) {
-		if (cpu == me)
-			continue;
+	for_each_cpu(cpu, &tmp) {
 		cpumask_set_cpu(me, &on_cpu_info[cpu].waiters);
 		deadlock_check(me, cpu);
 	}
-	while (cpumask_weight(&cpu_idle_mask) < nr_cpus - 1)
+	while (!cpumask_subset(&tmp, &cpu_idle_mask))
 		smp_wait_for_event();
-	for_each_cpu(cpu, mask)
+	for_each_cpu(cpu, &tmp)
 		cpumask_clear_cpu(me, &on_cpu_info[cpu].waiters);
 	smp_rmb(); /* pairs with the smp_wmb() in do_idle() */
 }
