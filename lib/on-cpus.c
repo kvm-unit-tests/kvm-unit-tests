@@ -79,6 +79,7 @@ void do_idle(void)
 			smp_wait_for_event();
 		smp_rmb();
 		on_cpu_info[cpu].func(on_cpu_info[cpu].data);
+		smp_wmb(); /* pairs with the smp_rmb() in on_cpu() and on_cpumask() */
 	}
 }
 
@@ -145,12 +146,14 @@ void on_cpumask(const cpumask_t *mask, void (*func)(void *data), void *data)
 		smp_wait_for_event();
 	for_each_cpu(cpu, mask)
 		cpumask_clear_cpu(me, &on_cpu_info[cpu].waiters);
+	smp_rmb(); /* pairs with the smp_wmb() in do_idle() */
 }
 
 void on_cpu(int cpu, void (*func)(void *data), void *data)
 {
 	on_cpu_async(cpu, func, data);
 	cpu_wait(cpu);
+	smp_rmb(); /* pairs with the smp_wmb() in do_idle() */
 }
 
 void on_cpus(void (*func)(void *data), void *data)
