@@ -2,6 +2,18 @@
 #ifndef _RISCV_SBI_TESTS_H_
 #define _RISCV_SBI_TESTS_H_
 
+#define SBI_HSM_TEST_DONE	(1 << 0)
+#define SBI_HSM_TEST_MAGIC_A1	(1 << 1)
+#define SBI_HSM_TEST_HARTID_A0	(1 << 2)
+#define SBI_HSM_TEST_SATP	(1 << 3)
+#define SBI_HSM_TEST_SIE	(1 << 4)
+
+#define SBI_HSM_MAGIC		0x453
+
+#define SBI_HSM_MAGIC_IDX	0
+#define SBI_HSM_HARTID_IDX	1
+#define SBI_HSM_NUM_OF_PARAMS	2
+
 #define SBI_SUSP_MAGIC_IDX	0
 #define SBI_SUSP_CSRS_IDX	1
 #define SBI_SUSP_HARTID_IDX	2
