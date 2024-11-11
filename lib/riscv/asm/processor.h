@@ -13,6 +13,7 @@ struct thread_info {
 	int cpu;
 	unsigned long hartid;
 	unsigned long isa[1];
+	unsigned long sp;
 	exception_fn exception_handlers[EXCEPTION_CAUSE_MAX];
 	exception_fn interrupt_handlers[INTERRUPT_CAUSE_MAX];
 };

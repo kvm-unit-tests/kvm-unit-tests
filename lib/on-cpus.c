@@ -9,6 +9,7 @@
 #include <on-cpus.h>
 #include <asm/barrier.h>
 #include <asm/smp.h>
+#include <asm/spinlock.h>
 
 bool cpu0_calls_idle;
 
@@ -18,18 +19,7 @@ struct on_cpu_info {
 	cpumask_t waiters;
 };
 static struct on_cpu_info on_cpu_info[NR_CPUS];
-static cpumask_t on_cpu_info_lock;
-
-static bool get_on_cpu_info(int cpu)
-{
-	return !cpumask_test_and_set_cpu(cpu, &on_cpu_info_lock);
-}
-
-static void put_on_cpu_info(int cpu)
-{
-	int ret = cpumask_test_and_clear_cpu(cpu, &on_cpu_info_lock);
-	assert(ret);
-}
+static struct spinlock lock;
 
 static void __deadlock_check(int cpu, const cpumask_t *waiters, bool *found)
 {
@@ -81,18 +71,15 @@ void do_idle(void)
 	if (cpu == 0)
 		cpu0_calls_idle = true;
 
-	set_cpu_idle(cpu, true);
-	smp_send_event();
-
 	for (;;) {
+		set_cpu_idle(cpu, true);
+		smp_send_event();
+
 		while (cpu_idle(cpu))
 			smp_wait_for_event();
 		smp_rmb();
 		on_cpu_info[cpu].func(on_cpu_info[cpu].data);
-		on_cpu_info[cpu].func = NULL;
-		smp_wmb();
-		set_cpu_idle(cpu, true);
-		smp_send_event();
+		smp_wmb(); /* pairs with the smp_rmb() in on_cpu() and on_cpumask() */
 	}
 }
 
@@ -110,17 +97,17 @@ void on_cpu_async(int cpu, void (*func)(void *data), void *data)
 
 	for (;;) {
 		cpu_wait(cpu);
-		if (get_on_cpu_info(cpu)) {
-			if ((volatile void *)on_cpu_info[cpu].func == NULL)
-				break;
-			put_on_cpu_info(cpu);
-		}
+		spin_lock(&lock);
+		if (cpu_idle(cpu))
+			break;
+		spin_unlock(&lock);
 	}
 
 	on_cpu_info[cpu].func = func;
 	on_cpu_info[cpu].data = data;
+	smp_wmb();
 	set_cpu_idle(cpu, false);
-	put_on_cpu_info(cpu);
+	spin_unlock(&lock);
 	smp_send_event();
 }
 
@@ -140,31 +127,32 @@ void on_cpumask_async(const cpumask_t *mask, void (*func)(void *data), void *dat
 void on_cpumask(const cpumask_t *mask, void (*func)(void *data), void *data)
 {
 	int cpu, me = smp_processor_id();
+	cpumask_t tmp;
 
-	for_each_cpu(cpu, mask) {
-		if (cpu == me)
-			continue;
+	cpumask_copy(&tmp, mask);
+	cpumask_clear_cpu(me, &tmp);
+
+	for_each_cpu(cpu, &tmp)
 		on_cpu_async(cpu, func, data);
-	}
 	if (cpumask_test_cpu(me, mask))
 		func(data);
 
-	for_each_cpu(cpu, mask) {
-		if (cpu == me)
-			continue;
+	for_each_cpu(cpu, &tmp) {
 		cpumask_set_cpu(me, &on_cpu_info[cpu].waiters);
 		deadlock_check(me, cpu);
 	}
-	while (cpumask_weight(&cpu_idle_mask) < nr_cpus - 1)
+	while (!cpumask_subset(&tmp, &cpu_idle_mask))
 		smp_wait_for_event();
-	for_each_cpu(cpu, mask)
+	for_each_cpu(cpu, &tmp)
 		cpumask_clear_cpu(me, &on_cpu_info[cpu].waiters);
+	smp_rmb(); /* pairs with the smp_wmb() in do_idle() */
 }
 
 void on_cpu(int cpu, void (*func)(void *data), void *data)
 {
 	on_cpu_async(cpu, func, data);
 	cpu_wait(cpu);
+	smp_rmb(); /* pairs with the smp_wmb() in do_idle() */
 }
 
 void on_cpus(void (*func)(void *data), void *data)

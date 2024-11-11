@@ -149,14 +149,15 @@ secondary_entry:
 	csrw	CSR_SSCRATCH, a0
 	mv	sp, a1
 	mv	fp, zero
+	addi	sp, sp, -SECONDARY_DATA_SIZE
 	REG_L	a0, SECONDARY_STVEC(sp)
 	csrw	CSR_STVEC, a0
 	mv	a0, sp
 	call	secondary_cinit
 	addi	sp, sp, SECONDARY_DATA_SIZE
-	jr	a0
-	la	a0, do_idle
-	jr	a0
+	jalr	ra, a0
+	call	do_idle
+	j	.	/* unreachable */
 
 /*
  * Save context to address in a0.
