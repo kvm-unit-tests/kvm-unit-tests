@@ -62,13 +62,18 @@ struct sbiret sbi_send_ipi_cpu(int cpu)
 	return sbi_send_ipi(1UL, cpus[cpu].hartid);
 }
 
+struct sbiret sbi_send_ipi_broadcast(void)
+{
+	return sbi_send_ipi(0, -1UL);
+}
+
 struct sbiret sbi_send_ipi_cpumask(const cpumask_t *mask)
 {
 	struct sbiret ret;
 	cpumask_t tmp;
 
 	if (cpumask_full(mask))
-		return sbi_send_ipi(0, -1UL);
+		return sbi_send_ipi_broadcast();
 
 	cpumask_copy(&tmp, mask);
 
@@ -107,7 +112,7 @@ long sbi_probe(int ext)
 	struct sbiret ret;
 
 	ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_SPEC_VERSION, 0, 0, 0, 0, 0, 0);
-	assert(!ret.error && ret.value >= 2);
+	assert(!ret.error && (ret.value & 0x7ffffffful) >= 2);
 
 	ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_PROBE_EXT, ext, 0, 0, 0, 0, 0);
 	assert(!ret.error);
