@@ -7334,11 +7334,18 @@ union cpuidA_eax {
 	unsigned int full;
 };
 
+union cpuidA_ecx {
+	unsigned int fixed_counters_mask;
+	unsigned int full;
+};
+
 union cpuidA_edx {
 	struct {
-		unsigned int num_counters_fixed:5;
+		unsigned int num_contiguous_fixed_counters:5;
 		unsigned int bit_width_fixed:8;
-		unsigned int reserved:9;
+		unsigned int reserved1:2;
+		unsigned int anythread_deprecated:1;
+		unsigned int reserved2:16;
 	} split;
 	unsigned int full;
 };
@@ -7347,14 +7354,19 @@ static bool valid_pgc(u64 val)
 {
 	struct cpuid id;
 	union cpuidA_eax eax;
+	union cpuidA_ecx ecx;
 	union cpuidA_edx edx;
 	u64 mask;
 
 	id = cpuid(0xA);
 	eax.full = id.a;
+	ecx.full = id.c;
 	edx.full = id.d;
+
+	/* FxCtr[i]_is_supported := ECX[i] || (EDX[4:0] > i); */
 	mask = ~(((1ull << eax.split.num_counters_gp) - 1) |
-		 (((1ull << edx.split.num_counters_fixed) - 1) << 32));
+		 (((1ull << edx.split.num_contiguous_fixed_counters) - 1) << 32) |
+		 ((u64)ecx.fixed_counters_mask << 32));
 
 	return !(val & mask);
 }
