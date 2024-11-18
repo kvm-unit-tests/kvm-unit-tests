@@ -404,8 +404,8 @@ int main(int ac, char **av)
 	} else if (!pmu_has_pebs()) {
 		report_skip("PEBS required PMU version 2, reported version is %d", pmu.version);
 		return report_summary();
-	} else if (!pmu_pebs_format()) {
-		report_skip("PEBS not enumerated in PERF_CAPABILITIES");
+	} else if (pmu_pebs_format() < 4) {
+		report_skip("This test supports PEBS_Record_Format >= 4 only");
 		return report_summary();
 	} else if (rdmsr(MSR_IA32_MISC_ENABLE) & MSR_IA32_MISC_ENABLE_PEBS_UNAVAIL) {
 		report_skip("PEBS unavailable according to MISC_ENABLE");
