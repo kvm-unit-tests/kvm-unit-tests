@@ -154,12 +154,12 @@ static inline bool system_supports_sve(void)
 	return ((get_id_aa64pfr0_el1() >> ID_AA64PFR0_EL1_SVE_SHIFT) & 0xf) != 0;
 }
 
-static inline int sve_vl(void)
+static inline unsigned long sve_vl(void)
 {
-	int vl;
+	unsigned long vl;
 
 	asm volatile(".arch_extension sve\n"
-		     "rdvl %w0, #8"
+		     "rdvl %x0, #8"
 		     : "=r" (vl));
 
 	return vl;
