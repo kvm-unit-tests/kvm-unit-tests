@@ -182,17 +182,26 @@ $(comm-key):
 %.bin: %.elf
 	$(OBJCOPY) -O binary  $< $@
 
+define test_genprotimg_opt
+$(shell $(GENPROTIMG) --help | grep -q -- "$1" && echo yes || echo no)
+endef
+
+GENPROTIMG_DEFAULT_ARGS := --no-verify
+ifneq ($(HOST_KEY_DOCUMENT),)
 # The genprotimg arguments for the cck changed over time so we need to
 # figure out which argument to use in order to set the cck
-ifneq ($(HOST_KEY_DOCUMENT),)
-GENPROTIMG_HAS_COMM_KEY = $(shell $(GENPROTIMG) --help | grep -q -- --comm-key && echo yes)
-ifeq ($(GENPROTIMG_HAS_COMM_KEY),yes)
+ifeq ($(call test_genprotimg_opt,--comm-key),yes)
 	GENPROTIMG_COMM_OPTION := --comm-key
 else
 	GENPROTIMG_COMM_OPTION := --x-comm-key
 endif
-else
-GENPROTIMG_HAS_COMM_KEY =
+# Newer version of the genprotimg command checks if the given image/kernel is a
+# s390x Linux kernel and it does not overwrite the output file by default.
+# Disable the component check, since a KUT test is being prepared, and always
+# overwrite the output.
+ifeq ($(call test_genprotimg_opt,--overwrite),yes)
+	GENPROTIMG_DEFAULT_ARGS += --overwrite --no-component-check
+endif
 endif
 
 ifeq ($(CONFIG_DUMP),yes)
@@ -206,7 +215,7 @@ endif
 $(patsubst %.parmfile,%.pv.bin,$(wildcard s390x/*.parmfile)): %.pv.bin: %.parmfile
 %.pv.bin: %.bin $(HOST_KEY_DOCUMENT) $(comm-key)
 	$(eval parmfile_args = $(if $(filter %.parmfile,$^),--parmfile $(filter %.parmfile,$^),))
-	$(GENPROTIMG) --host-key-document $(HOST_KEY_DOCUMENT) --no-verify $(GENPROTIMG_COMM_OPTION) $(comm-key) --x-pcf $(GENPROTIMG_PCF) $(parmfile_args) --image $(filter %.bin,$^) -o $@
+	$(GENPROTIMG) $(GENPROTIMG_DEFAULT_ARGS) --host-key-document $(HOST_KEY_DOCUMENT) $(GENPROTIMG_COMM_OPTION) $(comm-key) --x-pcf $(GENPROTIMG_PCF) $(parmfile_args) --image $(filter %.bin,$^) -o $@
 
 $(snippet_asmlib): $$(patsubst %.o,%.S,$$@) $(asm-offsets)
 	$(CC) $(CFLAGS) -c -nostdlib -o $@ $<
