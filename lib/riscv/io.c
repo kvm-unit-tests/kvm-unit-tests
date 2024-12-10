@@ -25,7 +25,33 @@
  */
 #define UART_EARLY_BASE ((u8 *)(unsigned long)CONFIG_UART_EARLY_BASE)
 static volatile u8 *uart0_base = UART_EARLY_BASE;
+static u32 uart0_reg_width = 1;
+static u32 uart0_reg_shift;
 static struct spinlock uart_lock;
+
+static u32 uart0_read(u32 num)
+{
+	u32 offset = num << uart0_reg_shift;
+
+	if (uart0_reg_width == 1)
+		return readb(uart0_base + offset);
+	else if (uart0_reg_width == 2)
+		return readw(uart0_base + offset);
+	else
+		return readl(uart0_base + offset);
+}
+
+static void uart0_write(u32 num, u32 val)
+{
+	u32 offset = num << uart0_reg_shift;
+
+	if (uart0_reg_width == 1)
+		writeb(val, uart0_base + offset);
+	else if (uart0_reg_width == 2)
+		writew(val, uart0_base + offset);
+	else
+		writel(val, uart0_base + offset);
+}
 
 static void uart0_init_fdt(void)
 {
@@ -50,6 +76,17 @@ static void uart0_init_fdt(void)
 			abort();
 		}
 	} else {
+		const fdt32_t *val;
+		int len;
+
+		val = fdt_getprop(dt_fdt(), ret, "reg-shift", &len);
+		if (len == sizeof(*val))
+			uart0_reg_shift = fdt32_to_cpu(*val);
+
+		val = fdt_getprop(dt_fdt(), ret, "reg-io-width", &len);
+		if (len == sizeof(*val))
+			uart0_reg_width = fdt32_to_cpu(*val);
+
 		ret = dt_pbus_translate_node(ret, 0, &base);
 		assert(ret == 0);
 	}
@@ -80,9 +117,9 @@ void puts(const char *s)
 {
 	spin_lock(&uart_lock);
 	while (*s) {
-		while (!(readb(uart0_base + UART_LSR_OFFSET) & UART_LSR_THRE))
+		while (!(uart0_read(UART_LSR_OFFSET) & UART_LSR_THRE))
 			;
-		writeb(*s++, uart0_base);
+		uart0_write(0, *s++);
 	}
 	spin_unlock(&uart_lock);
 }
