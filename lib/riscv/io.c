@@ -13,6 +13,9 @@
 #include <asm/setup.h>
 #include <asm/spinlock.h>
 
+#define UART_LSR_OFFSET		5
+#define UART_LSR_THRE		0x20
+
 /*
  * Use this guess for the uart base in order to make an attempt at
  * having earlier printf support. We'll overwrite it with the real
@@ -76,8 +79,11 @@ void io_init(void)
 void puts(const char *s)
 {
 	spin_lock(&uart_lock);
-	while (*s)
+	while (*s) {
+		while (!(readb(uart0_base + UART_LSR_OFFSET) & UART_LSR_THRE))
+			;
 		writeb(*s++, uart0_base);
+	}
 	spin_unlock(&uart_lock);
 }
 
