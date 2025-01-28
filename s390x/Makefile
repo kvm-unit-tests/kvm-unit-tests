@@ -96,6 +96,7 @@ LDFLAGS += -Wl,--build-id=none
 asm-offsets = lib/$(ARCH)/asm-offsets.h
 include $(SRCDIR)/scripts/asm-offsets.mak
 
+cflatobjs += lib/auxinfo.o
 cflatobjs += lib/util.o
 cflatobjs += lib/alloc.o
 cflatobjs += lib/alloc_phys.o
