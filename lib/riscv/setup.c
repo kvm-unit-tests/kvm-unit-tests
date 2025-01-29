@@ -31,7 +31,11 @@
 #endif
 
 #define MAX_DT_MEM_REGIONS	16
+#ifdef CONFIG_EFI
+#define NR_MEM_REGIONS		(MAX_DT_MEM_REGIONS + 128)
+#else
 #define NR_MEM_REGIONS		(MAX_DT_MEM_REGIONS + 16)
+#endif
 
 extern unsigned long _etext;
 
