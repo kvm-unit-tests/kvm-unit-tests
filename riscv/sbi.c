@@ -156,23 +156,6 @@ static bool get_invalid_addr(phys_addr_t *paddr, bool allow_default)
 	return false;
 }
 
-#define sbiret_report(ret, expected_error, expected_value, fmt, ...) ({						\
-	long ex_err = expected_error;										\
-	long ex_val = expected_value;										\
-	bool ch_err = (ret)->error == ex_err;									\
-	bool ch_val = (ret)->value == ex_val;									\
-	bool pass = report(ch_err && ch_val, fmt, ##__VA_ARGS__);						\
-														\
-	if (!pass)												\
-		report_info(fmt ": expected (error: %ld, value: %ld), received: (error: %ld, value %ld)",	\
-			    ##__VA_ARGS__, ex_err, ex_val, (ret)->error, (ret)->value);				\
-														\
-	pass;													\
-})
-
-#define sbiret_check(ret, expected_error, expected_value) \
-	sbiret_report(ret, expected_error, expected_value, "check sbi.error and sbi.value")
-
 static void check_base(void)
 {
 	struct sbiret ret;

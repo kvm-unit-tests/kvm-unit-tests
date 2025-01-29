@@ -33,4 +33,25 @@
 #define SBI_SUSP_TEST_HARTID	(1 << 2)
 #define SBI_SUSP_TEST_MASK	7
 
+#ifndef __ASSEMBLY__
+#include <asm/sbi.h>
+
+#define sbiret_report(ret, expected_error, expected_value, fmt, ...) ({						\
+	long ex_err = expected_error;										\
+	long ex_val = expected_value;										\
+	bool ch_err = (ret)->error == ex_err;									\
+	bool ch_val = (ret)->value == ex_val;									\
+	bool pass = report(ch_err && ch_val, fmt, ##__VA_ARGS__);						\
+														\
+	if (!pass)												\
+		report_info(fmt ": expected (error: %ld, value: %ld), received: (error: %ld, value %ld)",	\
+			    ##__VA_ARGS__, ex_err, ex_val, (ret)->error, (ret)->value);				\
+														\
+	pass;													\
+})
+
+#define sbiret_check(ret, expected_error, expected_value) \
+	sbiret_report(ret, expected_error, expected_value, "check sbi.error and sbi.value")
+
+#endif /* __ASSEMBLY__ */
 #endif /* _RISCV_SBI_TESTS_H_ */
