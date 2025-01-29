@@ -156,19 +156,22 @@ static bool get_invalid_addr(phys_addr_t *paddr, bool allow_default)
 	return false;
 }
 
-static void gen_report(struct sbiret *ret,
-		       long expected_error, long expected_value)
-{
-	bool check_error = ret->error == expected_error;
-	bool check_value = ret->value == expected_value;
+#define sbiret_report(ret, expected_error, expected_value, fmt, ...) ({						\
+	long ex_err = expected_error;										\
+	long ex_val = expected_value;										\
+	bool ch_err = (ret)->error == ex_err;									\
+	bool ch_val = (ret)->value == ex_val;									\
+	bool pass = report(ch_err && ch_val, fmt, ##__VA_ARGS__);						\
+														\
+	if (!pass)												\
+		report_info(fmt ": expected (error: %ld, value: %ld), received: (error: %ld, value %ld)",	\
+			    ##__VA_ARGS__, ex_err, ex_val, (ret)->error, (ret)->value);				\
+														\
+	pass;													\
+})
 
-	if (!check_error || !check_value)
-		report_info("expected (error: %ld, value: %ld), received: (error: %ld, value %ld)",
-			    expected_error, expected_value, ret->error, ret->value);
-
-	report(check_error, "expected sbi.error");
-	report(check_value, "expected sbi.value");
-}
+#define sbiret_check(ret, expected_error, expected_value) \
+	sbiret_report(ret, expected_error, expected_value, "check sbi.error and sbi.value")
 
 static void check_base(void)
 {
@@ -184,7 +187,7 @@ static void check_base(void)
 		expected = (long)strtoul(getenv("SBI_SPEC_VERSION"), NULL, 0);
 		assert_msg(!(expected & BIT(31)), "SBI spec version bit 31 must be zero");
 		assert_msg(__riscv_xlen == 32 || !(expected >> 32), "SBI spec version bits greater than 31 must be zero");
-		gen_report(&ret, 0, expected);
+		sbiret_check(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
@@ -199,7 +202,7 @@ static void check_base(void)
 	if (env_or_skip("SBI_IMPL_ID")) {
 		expected = (long)strtoul(getenv("SBI_IMPL_ID"), NULL, 0);
 		ret = sbi_base(SBI_EXT_BASE_GET_IMP_ID, 0);
-		gen_report(&ret, 0, expected);
+		sbiret_check(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
@@ -207,17 +210,17 @@ static void check_base(void)
 	if (env_or_skip("SBI_IMPL_VERSION")) {
 		expected = (long)strtoul(getenv("SBI_IMPL_VERSION"), NULL, 0);
 		ret = sbi_base(SBI_EXT_BASE_GET_IMP_VERSION, 0);
-		gen_report(&ret, 0, expected);
+		sbiret_check(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
 	report_prefix_push("probe_ext");
 	expected = getenv("SBI_PROBE_EXT") ? (long)strtoul(getenv("SBI_PROBE_EXT"), NULL, 0) : 1;
 	ret = sbi_base(SBI_EXT_BASE_PROBE_EXT, SBI_EXT_BASE);
-	gen_report(&ret, 0, expected);
+	sbiret_check(&ret, 0, expected);
 	report_prefix_push("unavailable");
 	ret = sbi_base(SBI_EXT_BASE_PROBE_EXT, 0xb000000);
-	gen_report(&ret, 0, 0);
+	sbiret_check(&ret, 0, 0);
 	report_prefix_popn(2);
 
 	report_prefix_push("mvendorid");
@@ -225,7 +228,7 @@ static void check_base(void)
 		expected = (long)strtoul(getenv("MVENDORID"), NULL, 0);
 		assert(__riscv_xlen == 32 || !(expected >> 32));
 		ret = sbi_base(SBI_EXT_BASE_GET_MVENDORID, 0);
-		gen_report(&ret, 0, expected);
+		sbiret_check(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
@@ -233,7 +236,7 @@ static void check_base(void)
 	if (env_or_skip("MARCHID")) {
 		expected = (long)strtoul(getenv("MARCHID"), NULL, 0);
 		ret = sbi_base(SBI_EXT_BASE_GET_MARCHID, 0);
-		gen_report(&ret, 0, expected);
+		sbiret_check(&ret, 0, expected);
 	}
 	report_prefix_pop();
 
@@ -241,7 +244,7 @@ static void check_base(void)
 	if (env_or_skip("MIMPID")) {
 		expected = (long)strtoul(getenv("MIMPID"), NULL, 0);
 		ret = sbi_base(SBI_EXT_BASE_GET_MIMPID, 0);
-		gen_report(&ret, 0, expected);
+		sbiret_check(&ret, 0, expected);
 	}
 	report_prefix_popn(2);
 }
