@@ -396,13 +396,13 @@ static void test_event_counter_config(void)
 	 * Test setting through PMESELR/PMXEVTYPER and PMEVTYPERn read,
 	 * select counter 0
 	 */
-	write_sysreg(1, PMSELR_EL0);
+	write_sysreg(0, PMSELR_EL0);
 	/* program this counter to count unsupported event */
 	write_sysreg(0xEA, PMXEVTYPER_EL0);
 	write_sysreg(0xdeadbeef, PMXEVCNTR_EL0);
-	report((read_regn_el0(pmevtyper, 1) & 0xFFF) == 0xEA,
+	report((read_regn_el0(pmevtyper, 0) & 0xFFF) == 0xEA,
 		"PMESELR/PMXEVTYPER/PMEVTYPERn");
-	report((read_regn_el0(pmevcntr, 1) == 0xdeadbeef),
+	report((read_regn_el0(pmevcntr, 0) == 0xdeadbeef),
 		"PMESELR/PMXEVCNTR/PMEVCNTRn");
 
 	/* try to configure an unsupported event within the range [0x0, 0x3F] */
