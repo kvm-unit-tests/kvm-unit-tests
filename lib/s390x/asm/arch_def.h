@@ -119,6 +119,7 @@ enum address_space {
 
 #define CTL2_GUARDED_STORAGE		(63 - 59)
 
+#define LC_SIZE	(2 * PAGE_SIZE)
 struct lowcore {
 	uint8_t		pad_0x0000[0x0080 - 0x0000];	/* 0x0000 */
 	uint32_t	ext_int_param;			/* 0x0080 */
@@ -502,6 +503,22 @@ static inline uint32_t get_prefix(void)
 
 	asm volatile("	stpx %0" : "=Q" (current_prefix));
 	return current_prefix;
+}
+
+static inline void diag44(void)
+{
+	asm volatile("diag	0,0,0x44\n");
+}
+
+static inline void diag500(uint64_t val)
+{
+	asm volatile(
+		"lgr	2,%[val]\n"
+		"diag	0,0,0x500\n"
+		:
+		: [val] "d"(val)
+		: "r2"
+	);
 }
 
 #endif

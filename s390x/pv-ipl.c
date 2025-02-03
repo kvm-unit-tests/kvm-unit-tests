@@ -11,7 +11,7 @@
 #include <sie.h>
 #include <sclp.h>
 #include <snippet.h>
-#include <pv_icptdata.h>
+#include <sie-icpt.h>
 #include <asm/facility.h>
 #include <asm/uv.h>
 
@@ -35,7 +35,7 @@ static void test_diag_308(int subcode)
 
 	/* First exit is a diag 0x500 */
 	sie(&vm);
-	assert(pv_icptdata_check_diag(&vm, 0x500));
+	assert(sie_is_diag_icpt(&vm, 0x500));
 
 	/*
 	 * The snippet asked us for the subcode and we answer by
@@ -46,7 +46,7 @@ static void test_diag_308(int subcode)
 
 	/* Continue after diag 0x500, next icpt should be the 0x308 */
 	sie(&vm);
-	assert(pv_icptdata_check_diag(&vm, 0x308));
+	assert(sie_is_diag_icpt(&vm, 0x308));
 	assert(vm.save_area.guest.grs[2] == subcode);
 
 	/*
@@ -118,7 +118,7 @@ static void test_diag_308(int subcode)
 	 * see a diagnose 0x9c PV instruction notification.
 	 */
 	sie(&vm);
-	report(pv_icptdata_check_diag(&vm, 0x9c) &&
+	report(sie_is_diag_icpt(&vm, 0x9c) &&
 	       vm.save_area.guest.grs[0] == 42,
 	       "continue after load");
 

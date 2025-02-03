@@ -17,7 +17,6 @@
 
 #define PGD_PAGE_SHIFT (REGION1_SHIFT - PAGE_SHIFT)
 
-#define LC_SIZE	(2 * PAGE_SIZE)
 #define VIRT(x)	((void *)((unsigned long)(x) + (unsigned long)mem))
 
 static uint8_t prefix_buf[LC_SIZE] __attribute__((aligned(LC_SIZE)));
@@ -196,6 +195,8 @@ static void test_edat1(void)
 
 static void test_edat2(void)
 {
+	uint64_t mem_end, i;
+
 	report_prefix_push("edat2");
 	p[0] = 42;
 
@@ -206,7 +207,21 @@ static void test_edat2(void)
 	/* Prefixing should not work with huge pages, just like large pages */
 	report(!memcmp(0, VIRT(prefix_buf), LC_SIZE) &&
 		!memcmp(prefix_buf, VIRT(0), LC_SIZE),
-		"pmd, large, prefixing");
+		"pud, large, prefixing");
+
+	mem_end = get_ram_size();
+	if (mem_end >= BIT_ULL(REGION3_SHIFT)) {
+		report_skip("pud spanning end of memory");
+	} else {
+		for (i = 0; i < mem_end; i += PAGE_SIZE)
+			READ_ONCE(*(uint64_t *)VIRT(i));
+		for (i = mem_end; i < BIT_ULL(REGION3_SHIFT); i += PAGE_SIZE) {
+			expect_pgm_int();
+			READ_ONCE(*(uint64_t *)VIRT(i));
+			assert(clear_pgm_int() == PGM_INT_CODE_ADDRESSING);
+		}
+		report_pass("pud spanning end of memory");
+	}
 
 	report_prefix_pop();
 }
