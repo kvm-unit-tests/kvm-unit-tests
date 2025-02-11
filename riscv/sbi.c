@@ -1452,6 +1452,12 @@ static void check_susp(void)
 
 	report_prefix_push("susp");
 
+	if (!sbi_probe(SBI_EXT_SUSP)) {
+		report_skip("SUSP extension not available");
+		report_prefix_pop();
+		return;
+	}
+
 	timer_setup(susp_timer);
 	local_irq_enable();
 	timer_start(SBI_SUSP_TIMER_DURATION_US);
@@ -1479,7 +1485,7 @@ static void check_susp(void)
 			local_irq_enable();
 
 			if (!params.returns && ret.error == SBI_ERR_NOT_SUPPORTED) {
-				report_skip("SUSP not supported?");
+				report_fail("probing claims support, but it's not?");
 				report_prefix_pop();
 				goto out;
 			} else if (!params.returns) {
