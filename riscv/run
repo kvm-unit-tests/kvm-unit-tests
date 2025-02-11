@@ -10,10 +10,12 @@ if [ -z "$KUT_STANDALONE" ]; then
 fi
 
 # Allow user overrides of some config.mak variables
+mach=$MACHINE_OVERRIDE
 processor=$PROCESSOR_OVERRIDE
 firmware=$FIRMWARE_OVERRIDE
 
 [ "$PROCESSOR" = "$ARCH" ] && PROCESSOR="max"
+: "${mach:=virt}"
 : "${processor:=$PROCESSOR}"
 : "${firmware:=$FIRMWARE}"
 [ "$firmware" ] && firmware="-bios $firmware"
@@ -23,11 +25,11 @@ set_qemu_accelerator || exit $?
 acc="-accel $ACCEL$ACCEL_PROPS"
 
 qemu=$(search_qemu_binary) || exit $?
-if ! $qemu -machine '?' | grep -q 'RISC-V VirtIO board'; then
+if [ "$mach" = 'virt' ] && ! $qemu -machine '?' | grep -q 'RISC-V VirtIO board'; then
 	echo "$qemu doesn't support mach-virt ('-machine virt'). Exiting."
 	exit 2
 fi
-mach='-machine virt'
+mach="-machine $mach"
 
 command="$qemu -nodefaults -nographic -serial mon:stdio"
 command+=" $mach $acc $firmware -cpu $processor "
