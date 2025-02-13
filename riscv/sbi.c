@@ -158,6 +158,19 @@ static bool get_invalid_addr(phys_addr_t *paddr, bool allow_default)
 	return false;
 }
 
+static void timer_setup(void (*handler)(struct pt_regs *))
+{
+	install_irq_handler(IRQ_S_TIMER, handler);
+	timer_irq_enable();
+}
+
+static void timer_teardown(void)
+{
+	timer_irq_disable();
+	timer_stop();
+	install_irq_handler(IRQ_S_TIMER, NULL);
+}
+
 static void check_base(void)
 {
 	struct sbiret ret;
@@ -534,18 +547,6 @@ static void hsm_timer_irq_handler(struct pt_regs *regs)
 	sbi_hsm_timer_fired = true;
 }
 
-static void hsm_timer_setup(void)
-{
-	install_irq_handler(IRQ_S_TIMER, hsm_timer_irq_handler);
-	timer_irq_enable();
-}
-
-static void hsm_timer_teardown(void)
-{
-	timer_irq_disable();
-	install_irq_handler(IRQ_S_TIMER, NULL);
-}
-
 static void hart_check_already_started(void *data)
 {
 	struct sbiret ret;
@@ -753,7 +754,7 @@ static void check_hsm(void)
 
 	cpumask_copy(&secondary_cpus_mask, &cpu_present_mask);
 	cpumask_clear_cpu(me, &secondary_cpus_mask);
-	hsm_timer_setup();
+	timer_setup(hsm_timer_irq_handler);
 	local_irq_enable();
 
 	/* Assume that previous tests have not cleaned up and stopped the secondary harts */
@@ -975,7 +976,7 @@ sbi_hsm_hart_stop_tests:
 
 	if (__riscv_xlen == 32 || ipi_unavailable) {
 		local_irq_disable();
-		hsm_timer_teardown();
+		timer_teardown();
 		report_prefix_pop();
 		return;
 	}
@@ -1084,7 +1085,7 @@ sbi_hsm_hart_stop_tests:
 	report(count, "secondary hart stopped after suspension tests with MSB set");
 
 	local_irq_disable();
-	hsm_timer_teardown();
+	timer_teardown();
 	report_prefix_popn(2);
 }
 
@@ -1215,6 +1216,12 @@ static void check_dbcn(void)
 void sbi_susp_resume(unsigned long hartid, unsigned long opaque);
 jmp_buf sbi_susp_jmp;
 
+#define SBI_SUSP_TIMER_DURATION_US 500000
+static void susp_timer(struct pt_regs *regs)
+{
+	timer_start(SBI_SUSP_TIMER_DURATION_US);
+}
+
 struct susp_params {
 	unsigned long sleep_type;
 	unsigned long resume_addr;
@@ -1226,8 +1233,16 @@ struct susp_params {
 static bool susp_basic_prep(unsigned long ctx[], struct susp_params *params)
 {
 	int cpu, me = smp_processor_id();
+	unsigned long *csrs;
 	struct sbiret ret;
 	cpumask_t mask;
+
+	csrs = (unsigned long *)ctx[SBI_SUSP_CSRS_IDX];
+	csrs[SBI_CSR_SSTATUS_IDX] = csr_read(CSR_SSTATUS);
+	csrs[SBI_CSR_SIE_IDX] = csr_read(CSR_SIE);
+	csrs[SBI_CSR_STVEC_IDX] = csr_read(CSR_STVEC);
+	csrs[SBI_CSR_SSCRATCH_IDX] = csr_read(CSR_SSCRATCH);
+	csrs[SBI_CSR_SATP_IDX] = csr_read(CSR_SATP);
 
 	memset(params, 0, sizeof(*params));
 	params->sleep_type = 0; /* suspend-to-ram */
@@ -1352,19 +1367,11 @@ static bool susp_one_prep(unsigned long ctx[], struct susp_params *params)
 
 static void check_susp(void)
 {
-	unsigned long csrs[] = {
-		[SBI_CSR_SSTATUS_IDX] = csr_read(CSR_SSTATUS),
-		[SBI_CSR_SIE_IDX] = csr_read(CSR_SIE),
-		[SBI_CSR_STVEC_IDX] = csr_read(CSR_STVEC),
-		[SBI_CSR_SSCRATCH_IDX] = csr_read(CSR_SSCRATCH),
-		[SBI_CSR_SATP_IDX] = csr_read(CSR_SATP),
-	};
-	unsigned long ctx[] = {
+	unsigned long csrs[SBI_CSR_NR_IDX];
+	unsigned long ctx[SBI_SUSP_NR_IDX] = {
 		[SBI_SUSP_MAGIC_IDX] = SBI_SUSP_MAGIC,
 		[SBI_SUSP_CSRS_IDX] = (unsigned long)csrs,
 		[SBI_SUSP_HARTID_IDX] = current_thread_info()->hartid,
-		[SBI_SUSP_TESTNUM_IDX] = 0,
-		[SBI_SUSP_RESULTS_IDX] = 0,
 	};
 	enum {
 #define SUSP_FIRST_TESTNUM 1
@@ -1393,6 +1400,10 @@ static void check_susp(void)
 
 	report_prefix_push("susp");
 
+	timer_setup(susp_timer);
+	local_irq_enable();
+	timer_start(SBI_SUSP_TIMER_DURATION_US);
+
 	ret = sbi_ecall(SBI_EXT_SUSP, 1, 0, 0, 0, 0, 0, 0);
 	report(ret.error == SBI_ERR_NOT_SUPPORTED, "funcid != 0 not supported");
 
@@ -1402,6 +1413,8 @@ static void check_susp(void)
 		ctx[SBI_SUSP_TESTNUM_IDX] = i;
 		ctx[SBI_SUSP_RESULTS_IDX] = 0;
 
+		local_irq_disable();
+
 		assert(susp_tests[i].prep);
 		if (!susp_tests[i].prep(ctx, &params)) {
 			report_prefix_pop();
@@ -1410,6 +1423,8 @@ static void check_susp(void)
 
 		if ((testnum = setjmp(sbi_susp_jmp)) == 0) {
 			ret = sbi_system_suspend(params.sleep_type, params.resume_addr, params.opaque);
+
+			local_irq_enable();
 
 			if (!params.returns && ret.error == SBI_ERR_NOT_SUPPORTED) {
 				report_skip("SUSP not supported?");
@@ -1428,11 +1443,16 @@ static void check_susp(void)
 		}
 		assert(testnum == i);
 
+		local_irq_enable();
+
 		if (susp_tests[i].check)
 			susp_tests[i].check(ctx, &params);
 
 		report_prefix_pop();
 	}
+
+	local_irq_disable();
+	timer_teardown();
 
 	report_prefix_pop();
 }
