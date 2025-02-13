@@ -78,10 +78,9 @@ usage() {
 	                           4k [default], 16k, 64k for arm64.
 	                           4k [default], 64k for ppc64.
 	    --earlycon=EARLYCON
-	                           Specify the UART name, type and address (optional, arm and
-	                           arm64 only). The specified address will overwrite the UART
-	                           address set by the --target option. EARLYCON can be one of
-	                           (case sensitive):
+				   Specify the UART name, type and address (optional).
+	                           The specified address will overwrite the UART address set by
+	                           the --target option. EARLYCON can be one of (case sensitive):
 	               uart[8250],mmio,ADDR
 	                           Specify an 8250 compatible UART at address ADDR. Supported
 	                           register stride is 8 bit only.
@@ -89,6 +88,7 @@ usage() {
 	               pl011,mmio32,ADDR
 	                           Specify a PL011 compatible UART at address ADDR. Supported
 	                           register stride is 32 bit only.
+	                           (arm/arm64 and riscv32/riscv64 only)
 	    --[enable|disable]-efi Boot and run from UEFI (disabled by default, x86_64 and arm64 only)
 	    --[enable|disable]-werror
 	                           Select whether to compile with the -Werror compiler flag
@@ -283,6 +283,41 @@ else
     fi
 fi
 
+if [ "$earlycon" ]; then
+    IFS=, read -r name type_addr addr <<<"$earlycon"
+    if [ "$name" != "uart" ] && [ "$name" != "uart8250" ] && [ "$name" != "pl011" ]; then
+        echo "unknown earlycon name: $name"
+        usage
+    fi
+
+    if [ "$name" = "pl011" ]; then
+        if [ -z "$addr" ]; then
+            addr=$type_addr
+        else
+            if [ "$type_addr" != "mmio32" ]; then
+                echo "unknown $name earlycon type: $type_addr"
+                usage
+            fi
+        fi
+    else
+        if [ "$type_addr" != "mmio" ]; then
+            echo "unknown $name earlycon type: $type_addr"
+            usage
+        fi
+    fi
+
+    if [ -z "$addr" ]; then
+        echo "missing $name earlycon address"
+        usage
+    fi
+    if [[ $addr =~ ^0(x|X)[0-9a-fA-F]+$ ]] || [[ $addr =~ ^[0-9]+$ ]]; then
+        uart_early_addr=$addr
+    else
+        echo "invalid $name earlycon address: $addr"
+        usage
+    fi
+fi
+
 [ -z "$processor" ] && processor="$arch"
 
 if [ "$processor" = "arm64" ]; then
@@ -296,50 +331,13 @@ if [ "$arch" = "i386" ] || [ "$arch" = "x86_64" ]; then
 elif [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
     testdir=arm
     if [ "$target" = "qemu" ]; then
-        arm_uart_early_addr=0x09000000
+        : "${uart_early_addr:=0x9000000}"
     elif [ "$target" = "kvmtool" ]; then
-        arm_uart_early_addr=0x1000000
+        : "${uart_early_addr:=0x1000000}"
         errata_force=1
     else
         echo "--target must be one of 'qemu' or 'kvmtool'!"
         usage
-    fi
-
-    if [ "$earlycon" ]; then
-        IFS=, read -r name type_addr addr <<<"$earlycon"
-        if [ "$name" != "uart" ] && [ "$name" != "uart8250" ] &&
-                [ "$name" != "pl011" ]; then
-            echo "unknown earlycon name: $name"
-            usage
-        fi
-
-        if [ "$name" = "pl011" ]; then
-            if [ -z "$addr" ]; then
-                addr=$type_addr
-            else
-                if [ "$type_addr" != "mmio32" ]; then
-                    echo "unknown $name earlycon type: $type_addr"
-                    usage
-                fi
-            fi
-        else
-            if [ "$type_addr" != "mmio" ]; then
-                echo "unknown $name earlycon type: $type_addr"
-                usage
-            fi
-        fi
-
-        if [ -z "$addr" ]; then
-            echo "missing $name earlycon address"
-            usage
-        fi
-        if [[ $addr =~ ^0(x|X)[0-9a-fA-F]+$ ]] ||
-                [[ $addr =~ ^[0-9]+$ ]]; then
-            arm_uart_early_addr=$addr
-        else
-            echo "invalid $name earlycon address: $addr"
-            usage
-        fi
     fi
 elif [ "$arch" = "ppc64" ]; then
     testdir=powerpc
@@ -351,6 +349,7 @@ elif [ "$arch" = "ppc64" ]; then
 elif [ "$arch" = "riscv32" ] || [ "$arch" = "riscv64" ]; then
     testdir=riscv
     arch_libdir=riscv
+    : "${uart_early_addr:=0x10000000}"
 elif [ "$arch" = "s390x" ]; then
     testdir=s390x
 else
@@ -491,7 +490,7 @@ EOF
 if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
 cat <<EOF >> lib/config.h
 
-#define CONFIG_UART_EARLY_BASE ${arm_uart_early_addr}
+#define CONFIG_UART_EARLY_BASE ${uart_early_addr}
 #define CONFIG_ERRATA_FORCE ${errata_force}
 
 EOF
@@ -506,7 +505,7 @@ EOF
 elif [ "$arch" = "riscv32" ] || [ "$arch" = "riscv64" ]; then
 cat <<EOF >> lib/config.h
 
-#define CONFIG_UART_EARLY_BASE 0x10000000
+#define CONFIG_UART_EARLY_BASE ${uart_early_addr}
 
 EOF
 fi
