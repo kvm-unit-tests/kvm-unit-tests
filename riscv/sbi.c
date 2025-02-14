@@ -571,6 +571,8 @@ static void hart_start_invalid_hartid(void *data)
 		sbi_hsm_invalid_hartid_check = true;
 }
 
+static cpumask_t hsm_suspend_not_supported;
+
 static void ipi_nop(struct pt_regs *regs)
 {
 	ipi_ack();
@@ -587,7 +589,9 @@ static void hart_suspend_and_wait_ipi(unsigned long suspend_type, unsigned long 
 	local_irq_enable();
 
 	ret = sbi_hart_suspend_raw(suspend_type, resume_addr, opaque);
-	if (ret.error)
+	if (ret.error == SBI_ERR_NOT_SUPPORTED)
+		cpumask_set_cpu(smp_processor_id(), &hsm_suspend_not_supported);
+	else if (ret.error)
 		report_fail("failed to %s cpu%d (hartid = %lx) (error=%ld)",
 			    typestr, smp_processor_id(), hartid, ret.error);
 	else if (!returns)
@@ -707,7 +711,7 @@ static void check_hsm(void)
 {
 	struct sbiret ret;
 	unsigned long hartid;
-	cpumask_t secondary_cpus_mask, mask;
+	cpumask_t secondary_cpus_mask, mask, resume_mask;
 	struct hart_state_transition_info transition_states;
 	bool ipi_unavailable = false;
 	int cpu, me = smp_processor_id();
@@ -715,7 +719,7 @@ static void check_hsm(void)
 	unsigned long hsm_timer_duration = getenv("SBI_HSM_TIMER_DURATION")
 					 ? strtol(getenv("SBI_HSM_TIMER_DURATION"), NULL, 0) : 200000;
 	unsigned long sbi_hsm_hart_start_params[NR_CPUS * SBI_HSM_NUM_OF_PARAMS];
-	int count, check;
+	int count, check, expected_count, resume_count;
 
 	max_cpus = MIN(MIN(max_cpus, nr_cpus), cpumask_weight(&cpu_present_mask));
 
@@ -879,6 +883,7 @@ static void check_hsm(void)
 		goto sbi_hsm_hart_stop_tests;
 	}
 
+	cpumask_clear(&hsm_suspend_not_supported);
 	on_cpumask_async(&secondary_cpus_mask, hart_retentive_suspend, NULL);
 
 	transition_states = (struct hart_state_transition_info) {
@@ -888,22 +893,36 @@ static void check_hsm(void)
 	};
 	count = hart_wait_state_transition(&secondary_cpus_mask, hsm_timer_duration, &transition_states);
 
-	report(count == max_cpus - 1, "all secondary harts retentive suspended");
+	expected_count = max_cpus - 1 - cpumask_weight(&hsm_suspend_not_supported);
+
+	if (expected_count != 0) {
+		if (expected_count != max_cpus - 1)
+			report_info("not all harts support retentive suspend");
+		report(count == expected_count, "supporting secondary harts retentive suspended");
+	} else {
+		report_skip("retentive suspend not supported by any harts");
+		goto nonret_suspend_tests;
+	}
+
+	cpumask_andnot(&resume_mask, &secondary_cpus_mask, &hsm_suspend_not_supported);
+	resume_count = cpumask_weight(&resume_mask);
 
 	/* Ignore the return value since we check the status of each hart anyway */
-	sbi_send_ipi_cpumask(&secondary_cpus_mask);
+	sbi_send_ipi_cpumask(&resume_mask);
 
 	transition_states = (struct hart_state_transition_info) {
 		.initial_state = SBI_EXT_HSM_SUSPENDED,
 		.intermediate_state = SBI_EXT_HSM_RESUME_PENDING,
 		.final_state = SBI_EXT_HSM_STARTED,
 	};
-	count = hart_wait_state_transition(&secondary_cpus_mask, hsm_timer_duration, &transition_states);
+	count = hart_wait_state_transition(&resume_mask, hsm_timer_duration, &transition_states);
 
-	report(count == max_cpus - 1, "all secondary harts retentive resumed");
+	report(count == resume_count, "supporting secondary harts retentive resumed");
 
+nonret_suspend_tests:
 	hart_wait_until_idle(&secondary_cpus_mask, hsm_timer_duration);
 
+	cpumask_clear(&hsm_suspend_not_supported);
 	on_cpumask_async(&secondary_cpus_mask, hart_non_retentive_suspend, NULL);
 
 	transition_states = (struct hart_state_transition_info) {
@@ -913,20 +932,32 @@ static void check_hsm(void)
 	};
 	count = hart_wait_state_transition(&secondary_cpus_mask, hsm_timer_duration, &transition_states);
 
-	report(count == max_cpus - 1, "all secondary harts non-retentive suspended");
+	expected_count = max_cpus - 1 - cpumask_weight(&hsm_suspend_not_supported);
+
+	if (expected_count != 0) {
+		if (expected_count != max_cpus - 1)
+			report_info("not all harts support non-retentive suspend");
+		report(count == expected_count, "supporting secondary harts non-retentive suspended");
+	} else {
+		report_skip("non-retentive suspend not supported by any harts");
+		goto hsm_suspend_tests_done;
+	}
+
+	cpumask_andnot(&resume_mask, &secondary_cpus_mask, &hsm_suspend_not_supported);
+	resume_count = cpumask_weight(&resume_mask);
 
 	/* Ignore the return value since we check the status of each hart anyway */
-	sbi_send_ipi_cpumask(&secondary_cpus_mask);
+	sbi_send_ipi_cpumask(&resume_mask);
 
 	transition_states = (struct hart_state_transition_info) {
 		.initial_state = SBI_EXT_HSM_SUSPENDED,
 		.intermediate_state = SBI_EXT_HSM_RESUME_PENDING,
 		.final_state = SBI_EXT_HSM_STARTED,
 	};
-	count = hart_wait_state_transition(&secondary_cpus_mask, hsm_timer_duration, &transition_states);
+	count = hart_wait_state_transition(&resume_mask, hsm_timer_duration, &transition_states);
 	check = 0;
 
-	for_each_cpu(cpu, &secondary_cpus_mask) {
+	for_each_cpu(cpu, &resume_mask) {
 		sbi_hsm_timer_fired = false;
 		timer_start(hsm_timer_duration);
 
@@ -952,15 +983,16 @@ static void check_hsm(void)
 			check++;
 	}
 
-	report(count == max_cpus - 1, "all secondary harts non-retentive resumed");
-	report(check == max_cpus - 1, "all secondary harts have expected register values after non-retentive resume");
+	report(count == resume_count, "supporting secondary harts non-retentive resumed");
+	report(check == resume_count, "supporting secondary harts have expected register values after non-retentive resume");
 
+hsm_suspend_tests_done:
 	report_prefix_pop();
 
 sbi_hsm_hart_stop_tests:
 	report_prefix_push("hart_stop");
 
-	if (ipi_unavailable)
+	if (ipi_unavailable || expected_count == 0)
 		on_cpumask_async(&secondary_cpus_mask, stop_cpu, NULL);
 	else
 		memset(sbi_hsm_stop_hart, 1, sizeof(sbi_hsm_stop_hart));
@@ -994,6 +1026,7 @@ sbi_hsm_hart_stop_tests:
 	/* Boot up the secondary cpu and let it proceed to the idle loop */
 	on_cpu(cpu, start_cpu, NULL);
 
+	cpumask_clear(&hsm_suspend_not_supported);
 	on_cpu_async(cpu, hart_retentive_suspend_with_msb_set, NULL);
 
 	transition_states = (struct hart_state_transition_info) {
@@ -1003,7 +1036,14 @@ sbi_hsm_hart_stop_tests:
 	};
 	count = hart_wait_state_transition(&mask, hsm_timer_duration, &transition_states);
 
-	report(count, "secondary hart retentive suspended with MSB set");
+	expected_count = 1 - cpumask_weight(&hsm_suspend_not_supported);
+
+	if (expected_count) {
+		report(count == expected_count, "retentive suspend with MSB set");
+	} else {
+		report_skip("retentive suspend not supported by cpu%d", cpu);
+		goto nonret_suspend_with_msb;
+	}
 
 	/* Ignore the return value since we manually validate the status of the hart anyway */
 	sbi_send_ipi_cpu(cpu);
@@ -1017,10 +1057,12 @@ sbi_hsm_hart_stop_tests:
 
 	report(count, "secondary hart retentive resumed with MSB set");
 
+nonret_suspend_with_msb:
 	/* Reset these flags so that we can reuse them for the non-retentive suspension test */
 	sbi_hsm_stop_hart[cpu] = 0;
 	sbi_hsm_non_retentive_hart_suspend_checks[cpu] = 0;
 
+	cpumask_clear(&hsm_suspend_not_supported);
 	on_cpu_async(cpu, hart_non_retentive_suspend_with_msb_set, NULL);
 
 	transition_states = (struct hart_state_transition_info) {
@@ -1030,7 +1072,14 @@ sbi_hsm_hart_stop_tests:
 	};
 	count = hart_wait_state_transition(&mask, hsm_timer_duration, &transition_states);
 
-	report(count, "secondary hart non-retentive suspended with MSB set");
+	expected_count = 1 - cpumask_weight(&hsm_suspend_not_supported);
+
+	if (expected_count) {
+		report(count == expected_count, "non-retentive suspend with MSB set");
+	} else {
+		report_skip("non-retentive suspend not supported by cpu%d", cpu);
+		goto hsm_hart_stop_test;
+	}
 
 	/* Ignore the return value since we manually validate the status of the hart anyway */
 	sbi_send_ipi_cpu(cpu);
@@ -1071,11 +1120,15 @@ sbi_hsm_hart_stop_tests:
 	report(count, "secondary hart non-retentive resumed with MSB set");
 	report(check, "secondary hart has expected register values after non-retentive resume with MSB set");
 
+hsm_hart_stop_test:
 	report_prefix_pop();
 
 	report_prefix_push("hart_stop");
 
-	sbi_hsm_stop_hart[cpu] = 1;
+	if (expected_count == 0)
+		on_cpu_async(cpu, stop_cpu, NULL);
+	else
+		sbi_hsm_stop_hart[cpu] = 1;
 
 	transition_states = (struct hart_state_transition_info) {
 		.initial_state = SBI_EXT_HSM_STARTED,
