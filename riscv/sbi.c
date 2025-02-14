@@ -394,6 +394,8 @@ static void ipi_hart_wait(void *data)
 	timer_stop();
 	local_ipi_disable();
 	timer_irq_disable();
+	install_irq_handler(IRQ_S_SOFT, NULL);
+	install_irq_handler(IRQ_S_TIMER, NULL);
 
 	cpumask_set_cpu(me, &ipi_done);
 }
@@ -1395,9 +1397,6 @@ static void check_susp(void)
 	struct sbiret ret;
 	int testnum, i;
 
-	local_irq_disable();
-	timer_stop();
-
 	report_prefix_push("susp");
 
 	timer_setup(susp_timer);
@@ -1428,8 +1427,8 @@ static void check_susp(void)
 
 			if (!params.returns && ret.error == SBI_ERR_NOT_SUPPORTED) {
 				report_skip("SUSP not supported?");
-				report_prefix_popn(2);
-				return;
+				report_prefix_pop();
+				goto out;
 			} else if (!params.returns) {
 				report_fail("unexpected return with error: %ld, value: %ld", ret.error, ret.value);
 			} else {
@@ -1450,6 +1449,7 @@ static void check_susp(void)
 		report_prefix_pop();
 	}
 
+out:
 	local_irq_disable();
 	timer_teardown();
 
