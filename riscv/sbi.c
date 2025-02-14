@@ -62,7 +62,7 @@ static struct sbiret sbi_dbcn_write_byte(uint8_t byte)
 	return sbi_ecall(SBI_EXT_DBCN, SBI_EXT_DBCN_CONSOLE_WRITE_BYTE, byte, 0, 0, 0, 0, 0);
 }
 
-static struct sbiret sbi_hart_suspend(uint32_t suspend_type, unsigned long resume_addr, unsigned long opaque)
+static struct sbiret sbi_hart_suspend_raw(unsigned long suspend_type, unsigned long resume_addr, unsigned long opaque)
 {
 	return sbi_ecall(SBI_EXT_HSM, SBI_EXT_HSM_HART_SUSPEND, suspend_type, resume_addr, opaque, 0, 0, 0);
 }
@@ -568,59 +568,71 @@ static void hart_start_invalid_hartid(void *data)
 		sbi_hsm_invalid_hartid_check = true;
 }
 
-static void hart_retentive_suspend(void *data)
+static void ipi_nop(struct pt_regs *regs)
+{
+	ipi_ack();
+}
+
+static void hart_suspend_and_wait_ipi(unsigned long suspend_type, unsigned long resume_addr,
+				      unsigned long opaque, bool returns, const char *typestr)
 {
 	unsigned long hartid = current_thread_info()->hartid;
-	struct sbiret ret = sbi_hart_suspend(SBI_EXT_HSM_HART_SUSPEND_RETENTIVE, 0, 0);
+	struct sbiret ret;
 
+	install_irq_handler(IRQ_S_SOFT, ipi_nop);
+	local_ipi_enable();
+	local_irq_enable();
+
+	ret = sbi_hart_suspend_raw(suspend_type, resume_addr, opaque);
 	if (ret.error)
-		report_fail("failed to retentive suspend cpu%d (hartid = %lx) (error=%ld)",
-			    smp_processor_id(), hartid, ret.error);
+		report_fail("failed to %s cpu%d (hartid = %lx) (error=%ld)",
+			    typestr, smp_processor_id(), hartid, ret.error);
+	else if (!returns)
+		report_fail("failed to %s cpu%d (hartid = %lx) (call should not return)",
+			    typestr, smp_processor_id(), hartid);
+
+	local_irq_disable();
+	local_ipi_disable();
+	install_irq_handler(IRQ_S_SOFT, NULL);
+}
+
+static void hart_retentive_suspend(void *data)
+{
+	hart_suspend_and_wait_ipi(SBI_EXT_HSM_HART_SUSPEND_RETENTIVE, 0, 0, true, "retentive suspend");
 }
 
 static void hart_non_retentive_suspend(void *data)
 {
-	unsigned long hartid = current_thread_info()->hartid;
 	unsigned long params[] = {
 		[SBI_HSM_MAGIC_IDX] = SBI_HSM_MAGIC,
-		[SBI_HSM_HARTID_IDX] = hartid,
+		[SBI_HSM_HARTID_IDX] = current_thread_info()->hartid,
 	};
-	struct sbiret ret = sbi_hart_suspend(SBI_EXT_HSM_HART_SUSPEND_NON_RETENTIVE,
-					     virt_to_phys(&sbi_hsm_check_non_retentive_suspend),
-					     virt_to_phys(params));
 
-	report_fail("failed to non-retentive suspend cpu%d (hartid = %lx) (error=%ld)",
-		    smp_processor_id(), hartid, ret.error);
+	hart_suspend_and_wait_ipi(SBI_EXT_HSM_HART_SUSPEND_NON_RETENTIVE,
+				  virt_to_phys(&sbi_hsm_check_non_retentive_suspend), virt_to_phys(params),
+				  false, "non-retentive suspend");
 }
 
 /* This test function is only being run on RV64 to verify that upper bits of suspend_type are ignored */
 static void hart_retentive_suspend_with_msb_set(void *data)
 {
-	unsigned long hartid = current_thread_info()->hartid;
 	unsigned long suspend_type = SBI_EXT_HSM_HART_SUSPEND_RETENTIVE | (_AC(1, UL) << (__riscv_xlen - 1));
-	struct sbiret ret = sbi_ecall(SBI_EXT_HSM, SBI_EXT_HSM_HART_SUSPEND, suspend_type, 0, 0, 0, 0, 0);
 
-	if (ret.error)
-		report_fail("failed to retentive suspend cpu%d (hartid = %lx) with MSB set (error=%ld)",
-			    smp_processor_id(), hartid, ret.error);
+	hart_suspend_and_wait_ipi(suspend_type, 0, 0, true, "retentive suspend with MSB set");
 }
 
 /* This test function is only being run on RV64 to verify that upper bits of suspend_type are ignored */
 static void hart_non_retentive_suspend_with_msb_set(void *data)
 {
-	unsigned long hartid = current_thread_info()->hartid;
 	unsigned long suspend_type = SBI_EXT_HSM_HART_SUSPEND_NON_RETENTIVE | (_AC(1, UL) << (__riscv_xlen - 1));
 	unsigned long params[] = {
 		[SBI_HSM_MAGIC_IDX] = SBI_HSM_MAGIC,
-		[SBI_HSM_HARTID_IDX] = hartid,
+		[SBI_HSM_HARTID_IDX] = current_thread_info()->hartid,
 	};
 
-	struct sbiret ret = sbi_ecall(SBI_EXT_HSM, SBI_EXT_HSM_HART_SUSPEND, suspend_type,
-				      virt_to_phys(&sbi_hsm_check_non_retentive_suspend), virt_to_phys(params),
-				      0, 0, 0);
-
-	report_fail("failed to non-retentive suspend cpu%d (hartid = %lx) with MSB set (error=%ld)",
-		    smp_processor_id(), hartid, ret.error);
+	hart_suspend_and_wait_ipi(suspend_type,
+				  virt_to_phys(&sbi_hsm_check_non_retentive_suspend), virt_to_phys(params),
+				  false, "non-retentive suspend with MSB set");
 }
 
 static bool hart_wait_on_status(unsigned long hartid, enum sbi_ext_hsm_sid status, unsigned long duration)
