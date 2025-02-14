@@ -4750,6 +4750,8 @@ static void test_ept_eptp(void)
 
 		eptp |= EPTP_AD_FLAG;
 		test_eptp_ad_bit(eptp, false);
+
+		eptp &= ~EPTP_AD_FLAG;
 	}
 
 	/*
