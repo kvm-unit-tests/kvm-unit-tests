@@ -14,11 +14,6 @@
 
 #define N 1000000
 
-// These values match the number of instructions and branches in the
-// assembly block in check_emulated_instr().
-#define EXPECTED_INSTR 17
-#define EXPECTED_BRNCH 5
-
 #define IBPB_JMP_INSNS		9
 #define IBPB_JMP_BRANCHES	2
 
@@ -69,6 +64,40 @@ do {								\
 		     : "a"(eax), "d"(edx), "c"(global_ctl),	\
 		       "0"(N), "1"(buf)				\
 		     : "edi");					\
+} while (0)
+
+/* the number of instructions and branches of the kvm_fep_asm() blob */
+#define KVM_FEP_INSNS		22
+#define KVM_FEP_BRANCHES	5
+
+/*
+ * KVM_FEP is a magic prefix that forces emulation so
+ * 'KVM_FEP "jne label\n"' just counts as a single instruction.
+ */
+#define kvm_fep_asm(_wrmsr)			\
+do {						\
+	asm volatile(				\
+		_wrmsr "\n\t"			\
+		"mov %%ecx, %%edi;\n\t"		\
+		"mov $0x0, %%eax;\n\t"		\
+		"cmp $0x0, %%eax;\n\t"		\
+		KVM_FEP "jne 1f\n\t"		\
+		KVM_FEP "jne 1f\n\t"		\
+		KVM_FEP "jne 1f\n\t"		\
+		KVM_FEP "jne 1f\n\t"		\
+		KVM_FEP "jne 1f\n\t"		\
+		"mov $0xa, %%eax; cpuid;\n\t"	\
+		"mov $0xa, %%eax; cpuid;\n\t"	\
+		"mov $0xa, %%eax; cpuid;\n\t"	\
+		"mov $0xa, %%eax; cpuid;\n\t"	\
+		"mov $0xa, %%eax; cpuid;\n\t"	\
+		"1: mov %%edi, %%ecx; \n\t"	\
+		"xor %%eax, %%eax; \n\t"	\
+		"xor %%edx, %%edx;\n\t"		\
+		_wrmsr "\n\t"			\
+		:				\
+		: "a"(eax), "d"(edx), "c"(ecx)	\
+		: "ebx", "edi");		\
 } while (0)
 
 typedef struct {
@@ -668,6 +697,7 @@ static void check_running_counter_wrmsr(void)
 
 static void check_emulated_instr(void)
 {
+	u32 eax, edx, ecx;
 	uint64_t status, instr_start, brnch_start;
 	uint64_t gp_counter_width = (1ull << pmu.gp_counter_width) - 1;
 	unsigned int branch_idx = pmu.is_intel ?
@@ -675,6 +705,7 @@ static void check_emulated_instr(void)
 	unsigned int instruction_idx = pmu.is_intel ?
 				       INTEL_INSTRUCTIONS_IDX :
 				       AMD_INSTRUCTIONS_IDX;
+
 	pmu_counter_t brnch_cnt = {
 		.ctr = MSR_GP_COUNTERx(0),
 		/* branch instructions */
@@ -690,55 +721,46 @@ static void check_emulated_instr(void)
 	if (this_cpu_has_perf_global_status())
 		pmu_clear_global_status();
 
-	start_event(&brnch_cnt);
-	start_event(&instr_cnt);
+	__start_event(&brnch_cnt, 0);
+	__start_event(&instr_cnt, 0);
 
-	brnch_start = -EXPECTED_BRNCH;
-	instr_start = -EXPECTED_INSTR;
+	brnch_start = -KVM_FEP_BRANCHES;
+	instr_start = -KVM_FEP_INSNS;
 	wrmsr(MSR_GP_COUNTERx(0), brnch_start & gp_counter_width);
 	wrmsr(MSR_GP_COUNTERx(1), instr_start & gp_counter_width);
-	// KVM_FEP is a magic prefix that forces emulation so
-	// 'KVM_FEP "jne label\n"' just counts as a single instruction.
-	asm volatile(
-		"mov $0x0, %%eax\n"
-		"cmp $0x0, %%eax\n"
-		KVM_FEP "jne label\n"
-		KVM_FEP "jne label\n"
-		KVM_FEP "jne label\n"
-		KVM_FEP "jne label\n"
-		KVM_FEP "jne label\n"
-		"mov $0xa, %%eax\n"
-		"cpuid\n"
-		"mov $0xa, %%eax\n"
-		"cpuid\n"
-		"mov $0xa, %%eax\n"
-		"cpuid\n"
-		"mov $0xa, %%eax\n"
-		"cpuid\n"
-		"mov $0xa, %%eax\n"
-		"cpuid\n"
-		"label:\n"
-		:
-		:
-		: "eax", "ebx", "ecx", "edx");
 
-	if (this_cpu_has_perf_global_ctrl())
-		wrmsr(pmu.msr_global_ctl, 0);
+	if (this_cpu_has_perf_global_ctrl()) {
+		eax = BIT(0) | BIT(1);
+		ecx = pmu.msr_global_ctl;
+		edx = 0;
+		kvm_fep_asm("wrmsr");
+	} else {
+		eax = ecx = edx = 0;
+		kvm_fep_asm("nop");
+	}
 
-	stop_event(&brnch_cnt);
-	stop_event(&instr_cnt);
+	__stop_event(&brnch_cnt);
+	__stop_event(&instr_cnt);
 
 	// Check that the end count - start count is at least the expected
 	// number of instructions and branches.
-	report(instr_cnt.count - instr_start >= EXPECTED_INSTR,
-	       "instruction count");
-	report(brnch_cnt.count - brnch_start >= EXPECTED_BRNCH,
-	       "branch count");
+	if (this_cpu_has_perf_global_ctrl()) {
+		report(instr_cnt.count - instr_start == KVM_FEP_INSNS,
+		       "instruction count");
+		report(brnch_cnt.count - brnch_start == KVM_FEP_BRANCHES,
+		       "branch count");
+	} else {
+		report(instr_cnt.count - instr_start >= KVM_FEP_INSNS,
+		       "instruction count");
+		report(brnch_cnt.count - brnch_start >= KVM_FEP_BRANCHES,
+		       "branch count");
+	}
+
 	if (this_cpu_has_perf_global_status()) {
 		// Additionally check that those counters overflowed properly.
 		status = rdmsr(pmu.msr_global_status);
-		report(status & 1, "branch counter overflow");
-		report(status & 2, "instruction counter overflow");
+		report(status & BIT_ULL(0), "branch counter overflow");
+		report(status & BIT_ULL(1), "instruction counter overflow");
 	}
 
 	report_prefix_pop();
