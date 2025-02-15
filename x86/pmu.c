@@ -19,24 +19,52 @@
 #define EXPECTED_INSTR 17
 #define EXPECTED_BRNCH 5
 
-/* Enable GLOBAL_CTRL + disable GLOBAL_CTRL + clflush/mfence instructions */
-#define EXTRA_INSNS  (3 + 3 +2)
+#define IBPB_JMP_INSNS		9
+#define IBPB_JMP_BRANCHES	2
+
+#if defined(__i386__) || defined(_M_IX86) /* i386 */
+#define IBPB_JMP_ASM(_wrmsr)				\
+	"mov $1, %%eax; xor %%edx, %%edx;\n\t"		\
+	"mov $73, %%ecx;\n\t"				\
+	_wrmsr "\n\t"					\
+	"call 1f\n\t"					\
+	"1: pop %%eax\n\t"				\
+	"add $(2f-1b), %%eax\n\t"			\
+	"jmp *%%eax;\n\t"                               \
+	"nop;\n\t"					\
+	"2: nop;\n\t"
+#else /* x86_64 */
+#define IBPB_JMP_ASM(_wrmsr)				\
+	"mov $1, %%eax; xor %%edx, %%edx;\n\t"		\
+	"mov $73, %%ecx;\n\t"				\
+	_wrmsr "\n\t"					\
+	"call 1f\n\t"					\
+	"1: pop %%rax\n\t"				\
+	"add $(2f-1b), %%rax\n\t"                       \
+	"jmp *%%rax;\n\t"                               \
+	"nop;\n\t"					\
+	"2: nop;\n\t"
+#endif
+
+/* GLOBAL_CTRL enable + disable + clflush/mfence + IBPB_JMP */
+#define EXTRA_INSNS  (3 + 3 + 2 + IBPB_JMP_INSNS)
 #define LOOP_INSNS   (N * 10 + EXTRA_INSNS)
-#define LOOP_BRANCHES  (N)
-#define LOOP_ASM(_wrmsr, _clflush)					\
-	_wrmsr "\n\t"							\
+#define LOOP_BRANCHES  (N + IBPB_JMP_BRANCHES)
+#define LOOP_ASM(_wrmsr1, _clflush, _wrmsr2)				\
+	_wrmsr1 "\n\t"							\
 	"mov %%ecx, %%edi; mov %%ebx, %%ecx;\n\t"			\
 	_clflush "\n\t"                                 		\
 	"mfence;\n\t"                                   		\
 	"1: mov (%1), %2; add $64, %1;\n\t"				\
 	"nop; nop; nop; nop; nop; nop; nop;\n\t"			\
 	"loop 1b;\n\t"							\
+	IBPB_JMP_ASM(_wrmsr2) 						\
 	"mov %%edi, %%ecx; xor %%eax, %%eax; xor %%edx, %%edx;\n\t"	\
-	_wrmsr "\n\t"
+	_wrmsr1 "\n\t"
 
-#define _loop_asm(_wrmsr, _clflush)				\
+#define _loop_asm(_wrmsr1, _clflush, _wrmsr2)			\
 do {								\
-	asm volatile(LOOP_ASM(_wrmsr, _clflush)			\
+	asm volatile(LOOP_ASM(_wrmsr1, _clflush, _wrmsr2)	\
 		     : "=b"(tmp), "=r"(tmp2), "=r"(tmp3)	\
 		     : "a"(eax), "d"(edx), "c"(global_ctl),	\
 		       "0"(N), "1"(buf)				\
@@ -100,6 +128,12 @@ static struct pmu_event *gp_events;
 static unsigned int gp_events_size;
 static unsigned int fixed_counters_num;
 
+static int has_ibpb(void)
+{
+	return this_cpu_has(X86_FEATURE_SPEC_CTRL) ||
+	       this_cpu_has(X86_FEATURE_AMD_IBPB);
+}
+
 static inline void __loop(void)
 {
 	unsigned long tmp, tmp2, tmp3;
@@ -107,10 +141,14 @@ static inline void __loop(void)
 	u32 eax = 0;
 	u32 edx = 0;
 
-	if (this_cpu_has(X86_FEATURE_CLFLUSH))
-		_loop_asm("nop", "clflush (%1)");
+	if (this_cpu_has(X86_FEATURE_CLFLUSH) && has_ibpb())
+		_loop_asm("nop", "clflush (%1)", "wrmsr");
+	else if (this_cpu_has(X86_FEATURE_CLFLUSH))
+		_loop_asm("nop", "clflush (%1)", "nop");
+	else if (has_ibpb())
+		_loop_asm("nop", "nop", "wrmsr");
 	else
-		_loop_asm("nop", "nop");
+		_loop_asm("nop", "nop", "nop");
 }
 
 /*
@@ -127,10 +165,14 @@ static inline void __precise_loop(u64 cntrs)
 	u32 eax = cntrs & (BIT_ULL(32) - 1);
 	u32 edx = cntrs >> 32;
 
-	if (this_cpu_has(X86_FEATURE_CLFLUSH))
-		_loop_asm("wrmsr", "clflush (%1)");
+	if (this_cpu_has(X86_FEATURE_CLFLUSH) && has_ibpb())
+		_loop_asm("wrmsr", "clflush (%1)", "wrmsr");
+	else if (this_cpu_has(X86_FEATURE_CLFLUSH))
+		_loop_asm("wrmsr", "clflush (%1)", "nop");
+	else if (has_ibpb())
+		_loop_asm("wrmsr", "nop", "wrmsr");
 	else
-		_loop_asm("wrmsr", "nop");
+		_loop_asm("wrmsr", "nop", "nop");
 }
 
 static inline void loop(u64 cntrs)
