@@ -19,6 +19,10 @@
 #define EXPECTED_INSTR 17
 #define EXPECTED_BRNCH 5
 
+/* Enable GLOBAL_CTRL + disable GLOBAL_CTRL instructions */
+#define EXTRA_INSNS  (3 + 3)
+#define LOOP_INSNS   (N * 10 + EXTRA_INSNS)
+#define LOOP_BRANCHES  (N)
 #define LOOP_ASM(_wrmsr)						\
 	_wrmsr "\n\t"							\
 	"mov %%ecx, %%edi; mov %%ebx, %%ecx;\n\t"			\
@@ -121,6 +125,27 @@ static inline void loop(u64 cntrs)
 		__loop();
 	else
 		__precise_loop(cntrs);
+}
+
+static void adjust_events_range(struct pmu_event *gp_events,
+				int instruction_idx, int branch_idx)
+{
+	/*
+	 * If HW supports GLOBAL_CTRL MSR, enabling and disabling PMCs are
+	 * moved in __precise_loop(). Thus, instructions and branches events
+	 * can be verified against a precise count instead of a rough range.
+	 *
+	 * Skip the precise checks on AMD, as AMD CPUs count VMRUN as a branch
+	 * instruction in guest context, which* leads to intermittent failures
+	 * as the counts will vary depending on how many asynchronous VM-Exits
+	 * occur while running the measured code, e.g. if the host takes IRQs.
+	 */
+	if (pmu.is_intel && this_cpu_has_perf_global_ctrl()) {
+		gp_events[instruction_idx].min = LOOP_INSNS;
+		gp_events[instruction_idx].max = LOOP_INSNS;
+		gp_events[branch_idx].min = LOOP_BRANCHES;
+		gp_events[branch_idx].max = LOOP_BRANCHES;
+	}
 }
 
 volatile uint64_t irq_received;
@@ -833,6 +858,9 @@ static void check_invalid_rdpmc_gp(void)
 
 int main(int ac, char **av)
 {
+	int instruction_idx;
+	int branch_idx;
+
 	setup_vm();
 	handle_irq(PMI_VECTOR, cnt_overflow);
 	buf = malloc(N*64);
@@ -846,13 +874,18 @@ int main(int ac, char **av)
 		}
 		gp_events = (struct pmu_event *)intel_gp_events;
 		gp_events_size = sizeof(intel_gp_events)/sizeof(intel_gp_events[0]);
+		instruction_idx = INTEL_INSTRUCTIONS_IDX;
+		branch_idx = INTEL_BRANCHES_IDX;
 		report_prefix_push("Intel");
 		set_ref_cycle_expectations();
 	} else {
 		gp_events_size = sizeof(amd_gp_events)/sizeof(amd_gp_events[0]);
 		gp_events = (struct pmu_event *)amd_gp_events;
+		instruction_idx = AMD_INSTRUCTIONS_IDX;
+		branch_idx = AMD_BRANCHES_IDX;
 		report_prefix_push("AMD");
 	}
+	adjust_events_range(gp_events, instruction_idx, branch_idx);
 
 	printf("PMU version:         %d\n", pmu.version);
 	printf("GP counters:         %d\n", pmu.nr_gp_counters);
