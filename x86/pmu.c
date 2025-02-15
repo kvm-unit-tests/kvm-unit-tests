@@ -55,6 +55,7 @@ struct pmu_event {
  * intel_gp_events[].
  */
 enum {
+	INTEL_INSTRUCTIONS_IDX  = 1,
 	INTEL_REF_CYCLES_IDX	= 2,
 	INTEL_BRANCHES_IDX	= 5,
 };
@@ -64,6 +65,7 @@ enum {
  * amd_gp_events[].
  */
 enum {
+	AMD_INSTRUCTIONS_IDX    = 1,
 	AMD_BRANCHES_IDX	= 2,
 };
 
@@ -329,11 +331,16 @@ static uint64_t measure_for_overflow(pmu_counter_t *cnt)
 
 static void check_counter_overflow(void)
 {
-	uint64_t overflow_preset;
 	int i;
+	uint64_t overflow_preset;
+	int instruction_idx = pmu.is_intel ?
+			      INTEL_INSTRUCTIONS_IDX :
+			      AMD_INSTRUCTIONS_IDX;
+
 	pmu_counter_t cnt = {
 		.ctr = MSR_GP_COUNTERx(0),
-		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel /* instructions */,
+		.config = EVNTSEL_OS | EVNTSEL_USR |
+			  gp_events[instruction_idx].unit_sel /* instructions */,
 	};
 	overflow_preset = measure_for_overflow(&cnt);
 
@@ -389,13 +396,18 @@ static void check_counter_overflow(void)
 
 static void check_gp_counter_cmask(void)
 {
+	int instruction_idx = pmu.is_intel ?
+			      INTEL_INSTRUCTIONS_IDX :
+			      AMD_INSTRUCTIONS_IDX;
+
 	pmu_counter_t cnt = {
 		.ctr = MSR_GP_COUNTERx(0),
-		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel /* instructions */,
+		.config = EVNTSEL_OS | EVNTSEL_USR |
+			  gp_events[instruction_idx].unit_sel /* instructions */,
 	};
 	cnt.config |= (0x2 << EVNTSEL_CMASK_SHIFT);
 	measure_one(&cnt);
-	report(cnt.count < gp_events[1].min, "cmask");
+	report(cnt.count < gp_events[instruction_idx].min, "cmask");
 }
 
 static void do_rdpmc_fast(void *ptr)
@@ -470,9 +482,14 @@ static void check_running_counter_wrmsr(void)
 {
 	uint64_t status;
 	uint64_t count;
+	unsigned int instruction_idx = pmu.is_intel ?
+				       INTEL_INSTRUCTIONS_IDX :
+				       AMD_INSTRUCTIONS_IDX;
+
 	pmu_counter_t evt = {
 		.ctr = MSR_GP_COUNTERx(0),
-		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel,
+		.config = EVNTSEL_OS | EVNTSEL_USR |
+			  gp_events[instruction_idx].unit_sel,
 	};
 
 	report_prefix_push("running counter wrmsr");
@@ -481,7 +498,7 @@ static void check_running_counter_wrmsr(void)
 	loop();
 	wrmsr(MSR_GP_COUNTERx(0), 0);
 	stop_event(&evt);
-	report(evt.count < gp_events[1].min, "cntr");
+	report(evt.count < gp_events[instruction_idx].min, "cntr");
 
 	/* clear status before overflow test */
 	if (this_cpu_has_perf_global_status())
@@ -512,6 +529,9 @@ static void check_emulated_instr(void)
 	uint64_t gp_counter_width = (1ull << pmu.gp_counter_width) - 1;
 	unsigned int branch_idx = pmu.is_intel ?
 				  INTEL_BRANCHES_IDX : AMD_BRANCHES_IDX;
+	unsigned int instruction_idx = pmu.is_intel ?
+				       INTEL_INSTRUCTIONS_IDX :
+				       AMD_INSTRUCTIONS_IDX;
 	pmu_counter_t brnch_cnt = {
 		.ctr = MSR_GP_COUNTERx(0),
 		/* branch instructions */
@@ -520,7 +540,7 @@ static void check_emulated_instr(void)
 	pmu_counter_t instr_cnt = {
 		.ctr = MSR_GP_COUNTERx(1),
 		/* instructions */
-		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[1].unit_sel,
+		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[instruction_idx].unit_sel,
 	};
 	report_prefix_push("emulated instruction");
 
