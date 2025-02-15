@@ -2,6 +2,9 @@
  * Common bootstrapping code to transition from 16-bit to 32-bit code, and to
  * transition from 32-bit to 64-bit code (x86-64 only)
  */
+#include "apic-defs.h"
+
+per_cpu_size = PER_CPU_SIZE
 
  /* EFI provides it's own SIPI sequence to handle relocation. */
 #ifndef CONFIG_EFI
@@ -56,7 +59,7 @@ rm_trampoline_end:
 MSR_GS_BASE = 0xc0000101
 
 .macro setup_percpu_area
-	lea -4096(%esp), %eax
+	lea -per_cpu_size(%esp), %eax
 	mov $0, %edx
 	mov $MSR_GS_BASE, %ecx
 	wrmsr
@@ -116,7 +119,7 @@ ap_start32:
 	setup_segments
 
 	load_absolute_addr $smp_stacktop, %edx
-	mov $-4096, %esp
+	mov $-per_cpu_size, %esp
 	lock xaddl %esp, (%edx)
 
 	setup_percpu_area

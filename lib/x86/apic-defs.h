@@ -2,11 +2,11 @@
 #define _X86_APIC_DEFS_H_
 
 /*
- * Abuse this header file to hold the number of max-cpus, making it available
- * both in C and ASM
+ * Abuse this header file to hold the number of max-cpus and the size of the
+ * per-CPU stack/data area, making them available both in C and ASM.
  */
-
 #define MAX_TEST_CPUS (255)
+#define PER_CPU_SIZE  (4096)
 
 /*
  * Constants for various Intel APICs. (local APIC, IOAPIC, etc.)

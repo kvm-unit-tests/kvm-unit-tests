@@ -146,7 +146,7 @@ unsigned long setup_tss(u8 *stacktop)
 	set_gdt_entry(TSS_MAIN + id * 8,
 		      (unsigned long)tss_entry, 0xffff, 0x89, 0);
 	set_gdt_entry(TSS_MAIN + MAX_TEST_CPUS * 8 + id * 8,
-		      (unsigned long)stacktop - 4096, 0xfffff, 0x93, 0xc0);
+		      (unsigned long)stacktop - PER_CPU_SIZE, 0xfffff, 0x93, 0xc0);
 
 	return TSS_MAIN + id * 8;
 }

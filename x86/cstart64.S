@@ -3,11 +3,12 @@
 
 ipi_vector = 0x20
 
+per_cpu_size = PER_CPU_SIZE
 max_cpus = MAX_TEST_CPUS
 
 .bss
 .align 4096
-	. = . + 4096 * max_cpus
+	. = . + PER_CPU_SIZE * max_cpus
 stacktop:
 
 .data
@@ -91,7 +92,7 @@ switch_to_5level:
 	call enter_long_mode
 	jmpl $8, $lvl5
 
-smp_stacktop:	.long stacktop - 4096
+smp_stacktop:	.long stacktop - per_cpu_size
 
 .align 16
 

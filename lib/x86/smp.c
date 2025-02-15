@@ -273,7 +273,7 @@ void bringup_aps(void)
 	setup_rm_gdt();
 
 #ifdef CONFIG_EFI
-	smp_stacktop = ((u64) (&stacktop)) - PAGE_SIZE;
+	smp_stacktop = ((u64) (&stacktop)) - PER_CPU_SIZE;
 #endif
 
 	/* INIT */

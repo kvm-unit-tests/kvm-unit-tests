@@ -5,11 +5,12 @@
 
 ipi_vector = 0x20
 
+per_cpu_size = PER_CPU_SIZE
 max_cpus = MAX_TEST_CPUS
 
 .bss
 .align 4096
-	. = . + 4096 * max_cpus
+	. = . + PER_CPU_SIZE * max_cpus
 stacktop:
 
 .data
@@ -81,7 +82,7 @@ prepare_32:
 	mov %eax, %cr0
 	ret
 
-smp_stacktop:	.long stacktop - 4096
+smp_stacktop:	.long stacktop - per_cpu_size
 
 save_id:
 	movl $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
@@ -92,7 +93,7 @@ save_id:
 
 ap_start32:
 	setup_segments
-	mov $-4096, %esp
+	mov $-per_cpu_size, %esp
 	lock xaddl %esp, smp_stacktop
 	setup_tr_and_percpu
 	call prepare_32
