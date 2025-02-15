@@ -81,6 +81,7 @@ struct pmu_event {
 enum {
 	INTEL_INSTRUCTIONS_IDX  = 1,
 	INTEL_REF_CYCLES_IDX	= 2,
+	INTEL_LLC_MISSES_IDX	= 4,
 	INTEL_BRANCHES_IDX	= 5,
 };
 
@@ -889,6 +890,15 @@ int main(int ac, char **av)
 		gp_events_size = sizeof(intel_gp_events)/sizeof(intel_gp_events[0]);
 		instruction_idx = INTEL_INSTRUCTIONS_IDX;
 		branch_idx = INTEL_BRANCHES_IDX;
+
+		/*
+		 * For legacy Intel CPUS without clflush/clflushopt support,
+		 * there is no way to force to trigger a LLC miss, thus set
+		 * the minimum value to 0 to avoid false positives.
+		 */
+		if (!this_cpu_has(X86_FEATURE_CLFLUSH))
+			gp_events[INTEL_LLC_MISSES_IDX].min = 0;
+
 		report_prefix_push("Intel");
 		set_ref_cycle_expectations();
 	} else {
