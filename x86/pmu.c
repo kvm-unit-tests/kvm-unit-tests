@@ -21,9 +21,9 @@
 
 typedef struct {
 	uint32_t ctr;
+	uint32_t idx;
 	uint64_t config;
 	uint64_t count;
-	int idx;
 } pmu_counter_t;
 
 struct pmu_event {
