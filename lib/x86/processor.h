@@ -468,6 +468,11 @@ static inline int rdmsr_safe(u32 index, uint64_t *val)
 	return rdreg64_safe("rdmsr", index, val);
 }
 
+static inline int rdmsr_fep_safe(u32 index, uint64_t *val)
+{
+	return __rdreg64_safe(KVM_FEP, "rdmsr", index, val);
+}
+
 static inline int wrmsr_safe(u32 index, u64 val)
 {
 	return wrreg64_safe("wrmsr", index, val);
@@ -597,6 +602,16 @@ static inline void lgdt(const struct descriptor_table_ptr *ptr)
 	asm volatile ("lgdt %0" : : "m"(*ptr));
 }
 
+static inline int lgdt_safe(const struct descriptor_table_ptr *ptr)
+{
+	return asm_safe("lgdt %0", "m"(*ptr));
+}
+
+static inline int lgdt_fep_safe(const struct descriptor_table_ptr *ptr)
+{
+	return asm_fep_safe("lgdt %0", "m"(*ptr));
+}
+
 static inline void sgdt(struct descriptor_table_ptr *ptr)
 {
 	asm volatile ("sgdt %0" : "=m"(*ptr));
@@ -605,6 +620,16 @@ static inline void sgdt(struct descriptor_table_ptr *ptr)
 static inline void lidt(const struct descriptor_table_ptr *ptr)
 {
 	asm volatile ("lidt %0" : : "m"(*ptr));
+}
+
+static inline int lidt_safe(const struct descriptor_table_ptr *ptr)
+{
+	return asm_safe("lidt %0", "m"(*ptr));
+}
+
+static inline int lidt_fep_safe(const struct descriptor_table_ptr *ptr)
+{
+	return asm_fep_safe("lidt %0", "m"(*ptr));
 }
 
 static inline void sidt(struct descriptor_table_ptr *ptr)
@@ -617,6 +642,16 @@ static inline void lldt(u16 val)
 	asm volatile ("lldt %0" : : "rm"(val));
 }
 
+static inline int lldt_safe(u16 val)
+{
+	return asm_safe("lldt %0", "rm"(val));
+}
+
+static inline int lldt_fep_safe(u16 val)
+{
+	return asm_safe("lldt %0", "rm"(val));
+}
+
 static inline u16 sldt(void)
 {
 	u16 val;
@@ -627,6 +662,16 @@ static inline u16 sldt(void)
 static inline void ltr(u16 val)
 {
 	asm volatile ("ltr %0" : : "rm"(val));
+}
+
+static inline int ltr_safe(u16 val)
+{
+	return asm_safe("ltr %0", "rm"(val));
+}
+
+static inline int ltr_fep_safe(u16 val)
+{
+	return asm_safe("ltr %0", "rm"(val));
 }
 
 static inline u16 str(void)

@@ -286,8 +286,8 @@ extern unsigned long get_gdt_entry_limit(gdt_entry_t *entry);
 #define asm_safe(insn, inputs...)					\
 	__asm_safe("", insn, inputs)
 
-#define asm_fep_safe(insn, output, inputs...)				\
-	__asm_safe_out1(KVM_FEP, insn, output, inputs)
+#define asm_fep_safe(insn, inputs...)				\
+	__asm_safe_out1(KVM_FEP, insn,, inputs)
 
 #define __asm_safe_out1(fep, insn, output, inputs...)			\
 ({									\
