@@ -6,9 +6,8 @@ ipi_vector = 0x20
 max_cpus = MAX_TEST_CPUS
 
 .bss
-
+.align 4096
 	. = . + 4096 * max_cpus
-	.align 16
 stacktop:
 
 .data
