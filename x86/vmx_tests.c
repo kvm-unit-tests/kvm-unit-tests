@@ -10756,6 +10756,172 @@ static void vmx_exception_test(void)
 	test_set_guest_finished();
 }
 
+/*
+ * Arbitrary canonical values for validating direct writes in the host, e.g. to
+ * an MSR, and for indirect writes via loads from VMCS fields on VM-Exit.
+ */
+#define TEST_DIRECT_VALUE 	0xff45454545000000
+#define TEST_VMCS_VALUE		0xff55555555000000
+
+static void vmx_canonical_test_guest(void)
+{
+	while (true)
+		vmcall();
+}
+
+static int get_host_value(u64 vmcs_field, u64 *value)
+{
+	struct descriptor_table_ptr dt_ptr;
+
+	switch (vmcs_field) {
+	case HOST_SYSENTER_ESP:
+		*value = rdmsr(MSR_IA32_SYSENTER_ESP);
+		break;
+	case HOST_SYSENTER_EIP:
+		*value =  rdmsr(MSR_IA32_SYSENTER_EIP);
+		break;
+	case HOST_BASE_FS:
+		*value =  rdmsr(MSR_FS_BASE);
+		break;
+	case HOST_BASE_GS:
+		*value =  rdmsr(MSR_GS_BASE);
+		break;
+	case HOST_BASE_GDTR:
+		sgdt(&dt_ptr);
+		*value =  dt_ptr.base;
+		break;
+	case HOST_BASE_IDTR:
+		sidt(&dt_ptr);
+		*value =  dt_ptr.base;
+		break;
+	case HOST_BASE_TR:
+		*value = get_gdt_entry_base(get_tss_descr());
+		/* value might not reflect the actual base if changed by VMX */
+		return 1;
+	default:
+		assert(0);
+		return 1;
+	}
+	return 0;
+}
+
+static int set_host_value(u64 vmcs_field, u64 value)
+{
+	struct descriptor_table_ptr dt_ptr;
+
+	switch (vmcs_field) {
+	case HOST_SYSENTER_ESP:
+		return wrmsr_safe(MSR_IA32_SYSENTER_ESP, value);
+	case HOST_SYSENTER_EIP:
+		return wrmsr_safe(MSR_IA32_SYSENTER_EIP, value);
+	case HOST_BASE_FS:
+		return wrmsr_safe(MSR_FS_BASE, value);
+	case HOST_BASE_GS:
+		/* TODO: _safe variants assume per-cpu gs base*/
+		wrmsr(MSR_GS_BASE, value);
+		return 0;
+	case HOST_BASE_GDTR:
+		sgdt(&dt_ptr);
+		dt_ptr.base = value;
+		lgdt(&dt_ptr);
+		return lgdt_fep_safe(&dt_ptr);
+	case HOST_BASE_IDTR:
+		sidt(&dt_ptr);
+		dt_ptr.base = value;
+		return lidt_fep_safe(&dt_ptr);
+	case HOST_BASE_TR:
+		/* Set the base and clear the busy bit */
+		set_gdt_entry(FIRST_SPARE_SEL, value, 0x200, 0x89, 0);
+		return ltr_safe(FIRST_SPARE_SEL);
+	default:
+		assert(0);
+	}
+}
+
+static void test_host_value_direct(const char *field_name, u64 vmcs_field)
+{
+	u64 value = 0;
+	int vector;
+
+	/*
+	 * Set the directly register via host ISA (e.g lgdt) and check that we
+	 * got no exception.
+	 */
+	vector = set_host_value(vmcs_field, TEST_DIRECT_VALUE);
+	if (vector) {
+		report_fail("Exception %d when setting %s to 0x%lx via direct write",
+			    vector, field_name, TEST_DIRECT_VALUE);
+		return;
+	}
+
+	/*
+	 * Now check that the host value matches what we expect for fields
+	 * that can be read back (these that we can't we assume that are correct)
+	 */
+	report(get_host_value(vmcs_field, &value) || value == TEST_DIRECT_VALUE,
+	       "%s: HOST value set to 0x%lx (wanted 0x%lx) via direct write",
+	       field_name, value, TEST_DIRECT_VALUE);
+}
+
+static void test_host_value_vmcs(const char *field_name, u64 vmcs_field)
+{
+	u64 value = 0;
+
+	/* Set host state field in the vmcs and do the VM entry
+	 * Success of VM entry already shows that L0 accepted the value
+	 */
+	vmcs_write(vmcs_field, TEST_VMCS_VALUE);
+	enter_guest();
+	skip_exit_vmcall();
+
+	/*
+	 * Now check that the host value matches what we expect for fields
+	 * that can be read back (these that we can't we assume that are correct)
+	 */
+	report(get_host_value(vmcs_field, &value) || value == TEST_VMCS_VALUE,
+	       "%s: HOST value set to 0x%lx (wanted 0x%lx) via VMLAUNCH/VMRESUME",
+	       field_name, value, TEST_VMCS_VALUE);
+}
+
+static void do_vmx_canonical_test_one_field(const char *field_name, u64 field)
+{
+	u64 host_org_value, field_org_value;
+
+	/* Backup the current host value and vmcs field value values */
+	get_host_value(field, &host_org_value);
+	field_org_value = vmcs_read(field);
+
+	test_host_value_direct(field_name, field);
+	test_host_value_vmcs(field_name, field);
+
+	/* Restore original values */
+	vmcs_write(field, field_org_value);
+	set_host_value(field, host_org_value);
+}
+
+#define vmx_canonical_test_one_field(field) \
+	do_vmx_canonical_test_one_field(#field, field)
+
+static void vmx_canonical_test(void)
+{
+	report(!(read_cr4() & X86_CR4_LA57), "4 level paging");
+
+	if (!this_cpu_has(X86_FEATURE_LA57))
+		test_skip("5 level paging not supported");
+
+	test_set_guest(vmx_canonical_test_guest);
+
+	vmx_canonical_test_one_field(HOST_SYSENTER_ESP);
+	vmx_canonical_test_one_field(HOST_SYSENTER_EIP);
+	vmx_canonical_test_one_field(HOST_BASE_FS);
+	vmx_canonical_test_one_field(HOST_BASE_GS);
+	vmx_canonical_test_one_field(HOST_BASE_GDTR);
+	vmx_canonical_test_one_field(HOST_BASE_IDTR);
+	vmx_canonical_test_one_field(HOST_BASE_TR);
+
+	test_set_guest_finished();
+}
+
 enum Vid_op {
 	VID_OP_SET_ISR,
 	VID_OP_NOP,
@@ -11264,5 +11430,6 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_pf_invvpid_test),
 	TEST(vmx_pf_vpid_test),
 	TEST(vmx_exception_test),
+	TEST(vmx_canonical_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
