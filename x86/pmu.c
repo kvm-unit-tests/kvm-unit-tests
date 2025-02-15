@@ -19,18 +19,29 @@
 #define EXPECTED_INSTR 17
 #define EXPECTED_BRNCH 5
 
-/* Enable GLOBAL_CTRL + disable GLOBAL_CTRL instructions */
-#define EXTRA_INSNS  (3 + 3)
+/* Enable GLOBAL_CTRL + disable GLOBAL_CTRL + clflush/mfence instructions */
+#define EXTRA_INSNS  (3 + 3 +2)
 #define LOOP_INSNS   (N * 10 + EXTRA_INSNS)
 #define LOOP_BRANCHES  (N)
-#define LOOP_ASM(_wrmsr)						\
+#define LOOP_ASM(_wrmsr, _clflush)					\
 	_wrmsr "\n\t"							\
 	"mov %%ecx, %%edi; mov %%ebx, %%ecx;\n\t"			\
+	_clflush "\n\t"                                 		\
+	"mfence;\n\t"                                   		\
 	"1: mov (%1), %2; add $64, %1;\n\t"				\
 	"nop; nop; nop; nop; nop; nop; nop;\n\t"			\
 	"loop 1b;\n\t"							\
 	"mov %%edi, %%ecx; xor %%eax, %%eax; xor %%edx, %%edx;\n\t"	\
 	_wrmsr "\n\t"
+
+#define _loop_asm(_wrmsr, _clflush)				\
+do {								\
+	asm volatile(LOOP_ASM(_wrmsr, _clflush)			\
+		     : "=b"(tmp), "=r"(tmp2), "=r"(tmp3)	\
+		     : "a"(eax), "d"(edx), "c"(global_ctl),	\
+		       "0"(N), "1"(buf)				\
+		     : "edi");					\
+} while (0)
 
 typedef struct {
 	uint32_t ctr;
@@ -88,14 +99,17 @@ static struct pmu_event *gp_events;
 static unsigned int gp_events_size;
 static unsigned int fixed_counters_num;
 
-
 static inline void __loop(void)
 {
 	unsigned long tmp, tmp2, tmp3;
+	u32 global_ctl = 0;
+	u32 eax = 0;
+	u32 edx = 0;
 
-	asm volatile(LOOP_ASM("nop")
-		     : "=c"(tmp), "=r"(tmp2), "=r"(tmp3)
-		     : "0"(N), "1"(buf));
+	if (this_cpu_has(X86_FEATURE_CLFLUSH))
+		_loop_asm("nop", "clflush (%1)");
+	else
+		_loop_asm("nop", "nop");
 }
 
 /*
@@ -108,15 +122,14 @@ static inline void __loop(void)
 static inline void __precise_loop(u64 cntrs)
 {
 	unsigned long tmp, tmp2, tmp3;
-	unsigned int global_ctl = pmu.msr_global_ctl;
+	u32 global_ctl = pmu.msr_global_ctl;
 	u32 eax = cntrs & (BIT_ULL(32) - 1);
 	u32 edx = cntrs >> 32;
 
-	asm volatile(LOOP_ASM("wrmsr")
-		     : "=b"(tmp), "=r"(tmp2), "=r"(tmp3)
-		     : "a"(eax), "d"(edx), "c"(global_ctl),
-		       "0"(N), "1"(buf)
-		     : "edi");
+	if (this_cpu_has(X86_FEATURE_CLFLUSH))
+		_loop_asm("wrmsr", "clflush (%1)");
+	else
+		_loop_asm("wrmsr", "nop");
 }
 
 static inline void loop(u64 cntrs)
