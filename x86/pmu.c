@@ -54,6 +54,7 @@ char *buf;
 
 static struct pmu_event *gp_events;
 static unsigned int gp_events_size;
+static unsigned int fixed_counters_num;
 
 static inline void loop(void)
 {
@@ -113,8 +114,12 @@ static struct pmu_event* get_counter_event(pmu_counter_t *cnt)
 		for (i = 0; i < gp_events_size; i++)
 			if (gp_events[i].unit_sel == (cnt->config & 0xffff))
 				return &gp_events[i];
-	} else
-		return &fixed_events[cnt->ctr - MSR_CORE_PERF_FIXED_CTR0];
+	} else {
+		unsigned int idx = cnt->ctr - MSR_CORE_PERF_FIXED_CTR0;
+
+		if (idx < ARRAY_SIZE(fixed_events))
+			return &fixed_events[idx];
+	}
 
 	return (void*)0;
 }
@@ -204,8 +209,12 @@ static noinline void __measure(pmu_counter_t *evt, uint64_t count)
 
 static bool verify_event(uint64_t count, struct pmu_event *e)
 {
-	bool pass = count >= e->min && count <= e->max;
+	bool pass;
 
+	if (!e)
+		return false;
+
+	pass = count >= e->min && count <= e->max;
 	if (!pass)
 		printf("FAIL: %d <= %"PRId64" <= %d\n", e->min, count, e->max);
 
@@ -250,7 +259,7 @@ static void check_fixed_counters(void)
 	};
 	int i;
 
-	for (i = 0; i < pmu.nr_fixed_counters; i++) {
+	for (i = 0; i < fixed_counters_num; i++) {
 		cnt.ctr = fixed_events[i].unit_sel;
 		measure_one(&cnt);
 		report(verify_event(cnt.count, &fixed_events[i]), "fixed-%d", i);
@@ -271,7 +280,7 @@ static void check_counters_many(void)
 			gp_events[i % gp_events_size].unit_sel;
 		n++;
 	}
-	for (i = 0; i < pmu.nr_fixed_counters; i++) {
+	for (i = 0; i < fixed_counters_num; i++) {
 		cnt[n].ctr = fixed_events[i].unit_sel;
 		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR;
 		n++;
@@ -420,7 +429,7 @@ static void check_rdpmc(void)
 		else
 			report(cnt.count == (u32)val, "fast-%d", i);
 	}
-	for (i = 0; i < pmu.nr_fixed_counters; i++) {
+	for (i = 0; i < fixed_counters_num; i++) {
 		uint64_t x = val & ((1ull << pmu.fixed_counter_width) - 1);
 		pmu_counter_t cnt = {
 			.ctr = MSR_CORE_PERF_FIXED_CTR0 + i,
@@ -744,6 +753,12 @@ int main(int ac, char **av)
 	printf("Mask length:         %d\n", pmu.gp_counter_mask_length);
 	printf("Fixed counters:      %d\n", pmu.nr_fixed_counters);
 	printf("Fixed counter width: %d\n", pmu.fixed_counter_width);
+
+	fixed_counters_num = MIN(pmu.nr_fixed_counters, ARRAY_SIZE(fixed_events));
+	if (pmu.nr_fixed_counters > ARRAY_SIZE(fixed_events))
+		report_info("Fixed counters number %d > defined fixed events %u.  "
+			    "Please update test case.", pmu.nr_fixed_counters,
+			    (uint32_t)ARRAY_SIZE(fixed_events));
 
 	apic_write(APIC_LVTPC, PMI_VECTOR);
 
