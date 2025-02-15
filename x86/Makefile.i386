@@ -9,6 +9,6 @@ arch_LDFLAGS = -m elf_i386
 cflatobjs += lib/x86/setjmp32.o lib/ldiv32.o
 
 tests = $(TEST_DIR)/taskswitch.$(exe) $(TEST_DIR)/taskswitch2.$(exe) \
-	$(TEST_DIR)/cmpxchg8b.$(exe) $(TEST_DIR)/la57.$(exe)
+	$(TEST_DIR)/cmpxchg8b.$(exe)
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common
