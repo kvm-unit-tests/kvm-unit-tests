@@ -50,6 +50,22 @@ struct pmu_event {
 	{"fixed 2", MSR_CORE_PERF_FIXED_CTR0 + 2, 0.1*N, 30*N}
 };
 
+/*
+ * Events index in intel_gp_events[], ensure consistent with
+ * intel_gp_events[].
+ */
+enum {
+	INTEL_BRANCHES_IDX	= 5,
+};
+
+/*
+ * Events index in amd_gp_events[], ensure consistent with
+ * amd_gp_events[].
+ */
+enum {
+	AMD_BRANCHES_IDX	= 2,
+};
+
 char *buf;
 
 static struct pmu_event *gp_events;
@@ -493,7 +509,8 @@ static void check_emulated_instr(void)
 {
 	uint64_t status, instr_start, brnch_start;
 	uint64_t gp_counter_width = (1ull << pmu.gp_counter_width) - 1;
-	unsigned int branch_idx = pmu.is_intel ? 5 : 2;
+	unsigned int branch_idx = pmu.is_intel ?
+				  INTEL_BRANCHES_IDX : AMD_BRANCHES_IDX;
 	pmu_counter_t brnch_cnt = {
 		.ctr = MSR_GP_COUNTERx(0),
 		/* branch instructions */
