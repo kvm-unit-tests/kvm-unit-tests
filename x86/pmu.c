@@ -204,8 +204,12 @@ static noinline void __measure(pmu_counter_t *evt, uint64_t count)
 
 static bool verify_event(uint64_t count, struct pmu_event *e)
 {
-	// printf("%d <= %ld <= %d\n", e->min, count, e->max);
-	return count >= e->min && count <= e->max;
+	bool pass = count >= e->min && count <= e->max;
+
+	if (!pass)
+		printf("FAIL: %d <= %"PRId64" <= %d\n", e->min, count, e->max);
+
+	return pass;
 }
 
 static bool verify_counter(pmu_counter_t *cnt)
