@@ -19,6 +19,15 @@
 #define EXPECTED_INSTR 17
 #define EXPECTED_BRNCH 5
 
+#define LOOP_ASM(_wrmsr)						\
+	_wrmsr "\n\t"							\
+	"mov %%ecx, %%edi; mov %%ebx, %%ecx;\n\t"			\
+	"1: mov (%1), %2; add $64, %1;\n\t"				\
+	"nop; nop; nop; nop; nop; nop; nop;\n\t"			\
+	"loop 1b;\n\t"							\
+	"mov %%edi, %%ecx; xor %%eax, %%eax; xor %%edx, %%edx;\n\t"	\
+	_wrmsr "\n\t"
+
 typedef struct {
 	uint32_t ctr;
 	uint32_t idx;
@@ -75,13 +84,43 @@ static struct pmu_event *gp_events;
 static unsigned int gp_events_size;
 static unsigned int fixed_counters_num;
 
-static inline void loop(void)
+
+static inline void __loop(void)
 {
 	unsigned long tmp, tmp2, tmp3;
 
-	asm volatile("1: mov (%1), %2; add $64, %1; nop; nop; nop; nop; nop; nop; nop; loop 1b"
-			: "=c"(tmp), "=r"(tmp2), "=r"(tmp3): "0"(N), "1"(buf));
+	asm volatile(LOOP_ASM("nop")
+		     : "=c"(tmp), "=r"(tmp2), "=r"(tmp3)
+		     : "0"(N), "1"(buf));
+}
 
+/*
+ * Enable and disable counters in a whole asm blob to ensure
+ * no other instructions are counted in the window between
+ * counters enabling and really LOOP_ASM code executing.
+ * Thus counters can verify instructions and branches events
+ * against precise counts instead of a rough valid count range.
+ */
+static inline void __precise_loop(u64 cntrs)
+{
+	unsigned long tmp, tmp2, tmp3;
+	unsigned int global_ctl = pmu.msr_global_ctl;
+	u32 eax = cntrs & (BIT_ULL(32) - 1);
+	u32 edx = cntrs >> 32;
+
+	asm volatile(LOOP_ASM("wrmsr")
+		     : "=b"(tmp), "=r"(tmp2), "=r"(tmp3)
+		     : "a"(eax), "d"(edx), "c"(global_ctl),
+		       "0"(N), "1"(buf)
+		     : "edi");
+}
+
+static inline void loop(u64 cntrs)
+{
+	if (!this_cpu_has_perf_global_ctrl())
+		__loop();
+	else
+		__precise_loop(cntrs);
 }
 
 volatile uint64_t irq_received;
@@ -181,18 +220,17 @@ static void __start_event(pmu_counter_t *evt, uint64_t count)
 	    ctrl = (ctrl & ~(0xf << shift)) | (usrospmi << shift);
 	    wrmsr(MSR_CORE_PERF_FIXED_CTR_CTRL, ctrl);
     }
-    global_enable(evt);
     apic_write(APIC_LVTPC, PMI_VECTOR);
 }
 
 static void start_event(pmu_counter_t *evt)
 {
 	__start_event(evt, 0);
+	global_enable(evt);
 }
 
-static void stop_event(pmu_counter_t *evt)
+static void __stop_event(pmu_counter_t *evt)
 {
-	global_disable(evt);
 	if (is_gp(evt)) {
 		wrmsr(MSR_GP_EVENT_SELECTx(event_to_global_idx(evt)),
 		      evt->config & ~EVNTSEL_EN);
@@ -204,14 +242,24 @@ static void stop_event(pmu_counter_t *evt)
 	evt->count = rdmsr(evt->ctr);
 }
 
+static void stop_event(pmu_counter_t *evt)
+{
+	global_disable(evt);
+	__stop_event(evt);
+}
+
 static noinline void measure_many(pmu_counter_t *evt, int count)
 {
 	int i;
+	u64 cntrs = 0;
+
+	for (i = 0; i < count; i++) {
+		__start_event(&evt[i], 0);
+		cntrs |= BIT_ULL(event_to_global_idx(&evt[i]));
+	}
+	loop(cntrs);
 	for (i = 0; i < count; i++)
-		start_event(&evt[i]);
-	loop();
-	for (i = 0; i < count; i++)
-		stop_event(&evt[i]);
+		__stop_event(&evt[i]);
 }
 
 static void measure_one(pmu_counter_t *evt)
@@ -221,9 +269,11 @@ static void measure_one(pmu_counter_t *evt)
 
 static noinline void __measure(pmu_counter_t *evt, uint64_t count)
 {
+	u64 cntrs = BIT_ULL(event_to_global_idx(evt));
+
 	__start_event(evt, count);
-	loop();
-	stop_event(evt);
+	loop(cntrs);
+	__stop_event(evt);
 }
 
 static bool verify_event(uint64_t count, struct pmu_event *e)
@@ -495,7 +545,7 @@ static void check_running_counter_wrmsr(void)
 	report_prefix_push("running counter wrmsr");
 
 	start_event(&evt);
-	loop();
+	__loop();
 	wrmsr(MSR_GP_COUNTERx(0), 0);
 	stop_event(&evt);
 	report(evt.count < gp_events[instruction_idx].min, "cntr");
@@ -512,7 +562,7 @@ static void check_running_counter_wrmsr(void)
 
 	wrmsr(MSR_GP_COUNTERx(0), count);
 
-	loop();
+	__loop();
 	stop_event(&evt);
 
 	if (this_cpu_has_perf_global_status()) {
@@ -653,7 +703,7 @@ static void warm_up(void)
 	 * the real verification.
 	 */
 	for (i = 0; i < 10; i++)
-		loop();
+		loop(0);
 }
 
 static void check_counters(void)
