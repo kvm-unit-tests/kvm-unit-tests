@@ -4,12 +4,6 @@
 #include "processor.h"
 #include "desc.h"
 
-struct invpcid_desc {
-    u64 pcid : 12;
-    u64 rsv  : 52;
-    u64 addr : 64;
-};
-
 static void test_pcid_enabled(void)
 {
     int passed = 0;

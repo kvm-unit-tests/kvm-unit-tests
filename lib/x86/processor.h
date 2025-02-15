@@ -836,8 +836,13 @@ static inline void invlpg(volatile void *va)
 	asm volatile("invlpg (%0)" ::"r" (va) : "memory");
 }
 
+struct invpcid_desc {
+	u64 pcid : 12;
+	u64 rsv  : 52;
+	u64 addr : 64;
+};
 
-static inline int invpcid_safe(unsigned long type, void *desc)
+static inline int invpcid_safe(unsigned long type, struct invpcid_desc *desc)
 {
 	/* invpcid (%rax), %rbx */
 	return asm_safe(".byte 0x66,0x0f,0x38,0x82,0x18", "a" (desc), "b" (type));
