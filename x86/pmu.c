@@ -255,7 +255,7 @@ static void check_fixed_counters(void)
 
 static void check_counters_many(void)
 {
-	pmu_counter_t cnt[10];
+	pmu_counter_t cnt[48];
 	int i, n;
 
 	for (i = 0, n = 0; n < pmu.nr_gp_counters; i++) {
@@ -273,6 +273,7 @@ static void check_counters_many(void)
 		n++;
 	}
 
+	assert(n <= ARRAY_SIZE(cnt));
 	measure_many(cnt, n);
 
 	for (i = 0; i < n; i++)
