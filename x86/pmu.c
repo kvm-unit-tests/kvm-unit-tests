@@ -90,12 +90,12 @@ struct pmu_event {
 	{"llc references", 0x4f2e, 1, 2*N},
 	{"llc misses", 0x412e, 1, 1*N},
 	{"branches", 0x00c4, 1*N, 1.1*N},
-	{"branch misses", 0x00c5, 0, 0.1*N},
+	{"branch misses", 0x00c5, 1, 0.1*N},
 }, amd_gp_events[] = {
 	{"core cycles", 0x0076, 1*N, 50*N},
 	{"instructions", 0x00c0, 10*N, 10.2*N},
 	{"branches", 0x00c2, 1*N, 1.1*N},
-	{"branch misses", 0x00c3, 0, 0.1*N},
+	{"branch misses", 0x00c3, 1, 0.1*N},
 }, fixed_events[] = {
 	{"fixed 0", MSR_CORE_PERF_FIXED_CTR0, 10*N, 10.2*N},
 	{"fixed 1", MSR_CORE_PERF_FIXED_CTR0 + 1, 1*N, 30*N},
@@ -111,6 +111,7 @@ enum {
 	INTEL_REF_CYCLES_IDX	= 2,
 	INTEL_LLC_MISSES_IDX	= 4,
 	INTEL_BRANCHES_IDX	= 5,
+	INTEL_BRANCH_MISS_IDX	= 6,
 };
 
 /*
@@ -120,6 +121,7 @@ enum {
 enum {
 	AMD_INSTRUCTIONS_IDX    = 1,
 	AMD_BRANCHES_IDX	= 2,
+	AMD_BRANCH_MISS_IDX	= 3,
 };
 
 char *buf;
@@ -184,7 +186,8 @@ static inline void loop(u64 cntrs)
 }
 
 static void adjust_events_range(struct pmu_event *gp_events,
-				int instruction_idx, int branch_idx)
+				int instruction_idx, int branch_idx,
+				int branch_miss_idx)
 {
 	/*
 	 * If HW supports GLOBAL_CTRL MSR, enabling and disabling PMCs are
@@ -202,6 +205,15 @@ static void adjust_events_range(struct pmu_event *gp_events,
 		gp_events[branch_idx].min = LOOP_BRANCHES;
 		gp_events[branch_idx].max = LOOP_BRANCHES;
 	}
+
+	/*
+	 * For CPUs without IBPB support, no way to force to trigger a branch
+	 * miss and the measured branch misses is possible to be 0.  Thus
+	 * overwrite the lower boundary of branch misses event to 0 to avoid
+	 * false positive.
+	 */
+	if (!has_ibpb())
+		gp_events[branch_miss_idx].min = 0;
 }
 
 volatile uint64_t irq_received;
@@ -916,6 +928,7 @@ int main(int ac, char **av)
 {
 	int instruction_idx;
 	int branch_idx;
+	int branch_miss_idx;
 
 	setup_vm();
 	handle_irq(PMI_VECTOR, cnt_overflow);
@@ -932,6 +945,7 @@ int main(int ac, char **av)
 		gp_events_size = sizeof(intel_gp_events)/sizeof(intel_gp_events[0]);
 		instruction_idx = INTEL_INSTRUCTIONS_IDX;
 		branch_idx = INTEL_BRANCHES_IDX;
+		branch_miss_idx = INTEL_BRANCH_MISS_IDX;
 
 		/*
 		 * For legacy Intel CPUS without clflush/clflushopt support,
@@ -948,9 +962,10 @@ int main(int ac, char **av)
 		gp_events = (struct pmu_event *)amd_gp_events;
 		instruction_idx = AMD_INSTRUCTIONS_IDX;
 		branch_idx = AMD_BRANCHES_IDX;
+		branch_miss_idx = AMD_BRANCH_MISS_IDX;
 		report_prefix_push("AMD");
 	}
-	adjust_events_range(gp_events, instruction_idx, branch_idx);
+	adjust_events_range(gp_events, instruction_idx, branch_idx, branch_miss_idx);
 
 	printf("PMU version:         %d\n", pmu.version);
 	printf("GP counters:         %d\n", pmu.nr_gp_counters);
