@@ -7,7 +7,9 @@
 #include <bitops.h>
 #include <stdint.h>
 
-#define NONCANONICAL	0xaaaaaaaaaaaaaaaaull
+#define CANONICAL_48_VAL 0xffffaaaaaaaaaaaaull
+#define CANONICAL_57_VAL 0xffaaaaaaaaaaaaaaull
+#define NONCANONICAL	 0xaaaaaaaaaaaaaaaaull
 
 #ifdef __x86_64__
 #  define R "r"
@@ -241,6 +243,7 @@ static inline bool is_intel(void)
 #define	X86_FEATURE_MCE			(CPUID(0x1, 0, EDX, 7))
 #define	X86_FEATURE_APIC		(CPUID(0x1, 0, EDX, 9))
 #define	X86_FEATURE_CLFLUSH		(CPUID(0x1, 0, EDX, 19))
+#define	X86_FEATURE_DS			(CPUID(0x1, 0, EDX, 21))
 #define	X86_FEATURE_XMM			(CPUID(0x1, 0, EDX, 25))
 #define	X86_FEATURE_XMM2		(CPUID(0x1, 0, EDX, 26))
 #define	X86_FEATURE_TSC_ADJUST		(CPUID(0x7, 0, EBX, 1))
@@ -252,6 +255,7 @@ static inline bool is_intel(void)
 #define	X86_FEATURE_PCOMMIT		(CPUID(0x7, 0, EBX, 22))
 #define	X86_FEATURE_CLFLUSHOPT		(CPUID(0x7, 0, EBX, 23))
 #define	X86_FEATURE_CLWB		(CPUID(0x7, 0, EBX, 24))
+#define X86_FEATURE_INTEL_PT		(CPUID(0x7, 0, EBX, 25))
 #define	X86_FEATURE_UMIP		(CPUID(0x7, 0, ECX, 2))
 #define	X86_FEATURE_PKU			(CPUID(0x7, 0, ECX, 3))
 #define	X86_FEATURE_LA57		(CPUID(0x7, 0, ECX, 16))
