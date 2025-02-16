@@ -70,5 +70,7 @@
 #define sbiret_check(ret, expected_error, expected_value) \
 	sbiret_report(ret, expected_error, expected_value, "check sbi.error and sbi.value")
 
+void sbi_bad_fid(int ext);
+
 #endif /* __ASSEMBLY__ */
 #endif /* _RISCV_SBI_TESTS_H_ */

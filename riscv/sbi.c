@@ -72,6 +72,12 @@ static struct sbiret sbi_system_suspend_raw(unsigned long sleep_type, unsigned l
 	return sbi_ecall(SBI_EXT_SUSP, 0, sleep_type, resume_addr, opaque, 0, 0, 0);
 }
 
+void sbi_bad_fid(int ext)
+{
+	struct sbiret ret = sbi_ecall(ext, 0xbad, 0, 0, 0, 0, 0, 0);
+	sbiret_report_error(&ret, SBI_ERR_NOT_SUPPORTED, "Bad FID");
+}
+
 static void start_cpu(void *data)
 {
 	/* nothing to do */
@@ -177,6 +183,8 @@ static void check_base(void)
 	long expected;
 
 	report_prefix_push("base");
+
+	sbi_bad_fid(SBI_EXT_BASE);
 
 	ret = sbi_base(SBI_EXT_BASE_GET_SPEC_VERSION, 0);
 
@@ -331,6 +339,8 @@ static void check_time(void)
 		return;
 	}
 
+	sbi_bad_fid(SBI_EXT_TIME);
+
 	report_prefix_push("set_timer");
 
 	install_irq_handler(IRQ_S_TIMER, timer_irq_handler);
@@ -437,6 +447,8 @@ static void check_ipi(void)
 		report_prefix_pop();
 		return;
 	}
+
+	sbi_bad_fid(SBI_EXT_IPI);
 
 	if (nr_cpus_present < 2) {
 		report_skip("At least 2 cpus required");
@@ -730,6 +742,8 @@ static void check_hsm(void)
 		report_prefix_pop();
 		return;
 	}
+
+	sbi_bad_fid(SBI_EXT_HSM);
 
 	report_prefix_push("hart_get_status");
 
@@ -1210,6 +1224,8 @@ static void check_dbcn(void)
 		return;
 	}
 
+	sbi_bad_fid(SBI_EXT_DBCN);
+
 	report_prefix_push("write");
 
 	dbcn_write_test(DBCN_WRITE_TEST_STRING, num_bytes, false);
@@ -1474,6 +1490,8 @@ static void check_susp(void)
 		report_prefix_pop();
 		return;
 	}
+
+	sbi_bad_fid(SBI_EXT_SUSP);
 
 	timer_setup(susp_timer);
 	local_irq_enable();

@@ -339,6 +339,8 @@ void check_fwft(void)
 		return;
 	}
 
+	sbi_bad_fid(SBI_EXT_FWFT);
+
 	fwft_check_base();
 	fwft_check_misaligned_exc_deleg();
 	fwft_check_pte_ad_hw_updating();
