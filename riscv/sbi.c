@@ -67,7 +67,7 @@ static struct sbiret sbi_hart_suspend_raw(unsigned long suspend_type, unsigned l
 	return sbi_ecall(SBI_EXT_HSM, SBI_EXT_HSM_HART_SUSPEND, suspend_type, resume_addr, opaque, 0, 0, 0);
 }
 
-static struct sbiret sbi_system_suspend(uint32_t sleep_type, unsigned long resume_addr, unsigned long opaque)
+static struct sbiret sbi_system_suspend_raw(unsigned long sleep_type, unsigned long resume_addr, unsigned long opaque)
 {
 	return sbi_ecall(SBI_EXT_SUSP, 0, sleep_type, resume_addr, opaque, 0, 0, 0);
 }
@@ -1367,6 +1367,19 @@ static bool susp_type_prep(unsigned long ctx[], struct susp_params *params)
 	return true;
 }
 
+#if __riscv_xlen != 32
+static bool susp_type_prep2(unsigned long ctx[], struct susp_params *params)
+{
+	bool r;
+
+	r = susp_basic_prep(ctx, params);
+	assert(r);
+	params->sleep_type = BIT(32);
+
+	return true;
+}
+#endif
+
 static bool susp_badaddr_prep(unsigned long ctx[], struct susp_params *params)
 {
 	phys_addr_t badaddr;
@@ -1432,6 +1445,7 @@ static void check_susp(void)
 #define SUSP_FIRST_TESTNUM 1
 		SUSP_BASIC = SUSP_FIRST_TESTNUM,
 		SUSP_TYPE,
+		SUSP_TYPE2,
 		SUSP_BAD_ADDR,
 		SUSP_ONE_ONLINE,
 		NR_SUSP_TESTS,
@@ -1441,10 +1455,13 @@ static void check_susp(void)
 		bool (*prep)(unsigned long ctx[], struct susp_params *params);
 		void (*check)(unsigned long ctx[], struct susp_params *params);
 	} susp_tests[] = {
-		[SUSP_BASIC]		= { "basic",		susp_basic_prep,	susp_basic_check,	},
-		[SUSP_TYPE]		= { "sleep_type",	susp_type_prep,					},
-		[SUSP_BAD_ADDR]		= { "bad addr",		susp_badaddr_prep,				},
-		[SUSP_ONE_ONLINE]	= { "one cpu online",	susp_one_prep,					},
+		[SUSP_BASIC]		= { "basic",			susp_basic_prep,	susp_basic_check,	},
+		[SUSP_TYPE]		= { "sleep_type",		susp_type_prep,					},
+#if __riscv_xlen != 32
+		[SUSP_TYPE2]		= { "sleep_type upper bits",	susp_type_prep2,	susp_basic_check	},
+#endif
+		[SUSP_BAD_ADDR]		= { "bad addr",			susp_badaddr_prep,				},
+		[SUSP_ONE_ONLINE]	= { "one cpu online",		susp_one_prep,					},
 	};
 	struct susp_params params;
 	struct sbiret ret;
@@ -1466,6 +1483,9 @@ static void check_susp(void)
 	report(ret.error == SBI_ERR_NOT_SUPPORTED, "funcid != 0 not supported");
 
 	for (i = SUSP_FIRST_TESTNUM; i < NR_SUSP_TESTS; i++) {
+		if (!susp_tests[i].name)
+			continue;
+
 		report_prefix_push(susp_tests[i].name);
 
 		ctx[SBI_SUSP_TESTNUM_IDX] = i;
@@ -1480,7 +1500,7 @@ static void check_susp(void)
 		}
 
 		if ((testnum = setjmp(sbi_susp_jmp)) == 0) {
-			ret = sbi_system_suspend(params.sleep_type, params.resume_addr, params.opaque);
+			ret = sbi_system_suspend_raw(params.sleep_type, params.resume_addr, params.opaque);
 
 			local_irq_enable();
 
