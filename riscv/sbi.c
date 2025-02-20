@@ -1433,9 +1433,8 @@ static void check_susp(void)
 			} else if (!params.returns) {
 				report_fail("unexpected return with error: %ld, value: %ld", ret.error, ret.value);
 			} else {
-				report(ret.error == params.ret.error, "expected sbi.error");
-				if (ret.error != params.ret.error)
-					report_info("expected error %ld, received %ld", params.ret.error, ret.error);
+				if (!report(ret.error == params.ret.error, "got expected sbi.error (%ld)", params.ret.error))
+					report_info("expected sbi.error %ld, received %ld", params.ret.error, ret.error);
 			}
 
 			report_prefix_pop();
