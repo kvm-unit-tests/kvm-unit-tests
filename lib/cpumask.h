@@ -72,6 +72,62 @@ static inline bool cpumask_subset(const struct cpumask *src1, const struct cpuma
 	return !lastmask || !((cpumask_bits(src1)[i] & ~cpumask_bits(src2)[i]) & lastmask);
 }
 
+/* false if dst is empty */
+static inline bool cpumask_and(cpumask_t *dst, const cpumask_t *src1, const cpumask_t *src2)
+{
+	unsigned long lastmask = BIT_MASK(nr_cpus) - 1;
+	unsigned long ret = 0;
+	int i;
+
+	for (i = 0; i < BIT_WORD(nr_cpus); ++i) {
+		cpumask_bits(dst)[i] = cpumask_bits(src1)[i] & cpumask_bits(src2)[i];
+		ret |= cpumask_bits(dst)[i];
+	}
+
+	cpumask_bits(dst)[i] = (cpumask_bits(src1)[i] & cpumask_bits(src2)[i]) & lastmask;
+
+	return ret | cpumask_bits(dst)[i];
+}
+
+static inline void cpumask_or(cpumask_t *dst, const cpumask_t *src1, const cpumask_t *src2)
+{
+	unsigned long lastmask = BIT_MASK(nr_cpus) - 1;
+	int i;
+
+	for (i = 0; i < BIT_WORD(nr_cpus); ++i)
+		cpumask_bits(dst)[i] = cpumask_bits(src1)[i] | cpumask_bits(src2)[i];
+
+	cpumask_bits(dst)[i] = (cpumask_bits(src1)[i] | cpumask_bits(src2)[i]) & lastmask;
+}
+
+static inline void cpumask_xor(cpumask_t *dst, const cpumask_t *src1, const cpumask_t *src2)
+{
+	unsigned long lastmask = BIT_MASK(nr_cpus) - 1;
+	int i;
+
+	for (i = 0; i < BIT_WORD(nr_cpus); ++i)
+		cpumask_bits(dst)[i] = cpumask_bits(src1)[i] ^ cpumask_bits(src2)[i];
+
+	cpumask_bits(dst)[i] = (cpumask_bits(src1)[i] ^ cpumask_bits(src2)[i]) & lastmask;
+}
+
+/* false if dst is empty */
+static inline bool cpumask_andnot(cpumask_t *dst, const cpumask_t *src1, const cpumask_t *src2)
+{
+	unsigned long lastmask = BIT_MASK(nr_cpus) - 1;
+	unsigned long ret = 0;
+	int i;
+
+	for (i = 0; i < BIT_WORD(nr_cpus); ++i) {
+		cpumask_bits(dst)[i] = cpumask_bits(src1)[i] & ~cpumask_bits(src2)[i];
+		ret |= cpumask_bits(dst)[i];
+	}
+
+	cpumask_bits(dst)[i] = (cpumask_bits(src1)[i] & ~cpumask_bits(src2)[i]) & lastmask;
+
+	return ret | cpumask_bits(dst)[i];
+}
+
 static inline bool cpumask_equal(const struct cpumask *src1, const struct cpumask *src2)
 {
 	unsigned long lastmask = BIT_MASK(nr_cpus) - 1;
