@@ -10,6 +10,7 @@
  */
 #include <asm/debugreg.h>
 
+#include "atomic.h"
 #include "libcflat.h"
 #include "processor.h"
 #include "desc.h"
@@ -79,6 +80,12 @@ static void handle_ud(struct ex_regs *regs)
 	unsigned long cr4 = read_cr4();
 	write_cr4(cr4 & ~X86_CR4_DE);
 	got_ud = 1;
+}
+
+static bool got_ac;
+static void handle_ac(struct ex_regs *regs)
+{
+	got_ac = true;
 }
 
 typedef unsigned long (*db_test_fn)(void);
@@ -409,6 +416,41 @@ static noinline unsigned long singlestep_with_sti_hlt(void)
 	return start_rip;
 }
 
+static noinline uint64_t bus_lock(uint64_t magic)
+{
+	uint8_t buffer[128] __attribute__((aligned(64))) = { };
+	atomic64_t *val = (atomic64_t *)&buffer[60];
+
+	atomic64_cmpxchg(val, 0, magic);
+	return READ_ONCE(*(uint64_t *)val);
+}
+
+static void bus_lock_test(void)
+{
+	const uint64_t magic = 0xdeadbeefdeadbeefull;
+	bool bus_lock_db = false;
+	uint64_t val;
+
+	/*
+	 * Generate a bus lock (via a locked access that splits cache lines)
+	 * in CPL0 and again in CPL3 (Bus Lock Detect only affects CPL3), and
+	 * verify that no #AC or #DB is generated (the relevant features are
+	 * not enabled).
+	 */
+	val = bus_lock(magic);
+	report(!got_ac && !n && val == magic,
+	       "CPL0 Split Lock #AC = %u (#DB = %u), val = %lx (wanted %lx)",
+	       got_ac, n, val, magic);
+
+	val = run_in_user((usermode_func)bus_lock, DB_VECTOR, magic, 0, 0, 0, &bus_lock_db);
+	report(!bus_lock_db && val == magic,
+	       "CPL3 Bus Lock #DB = %u, val = %lx (wanted %lx)",
+	       bus_lock_db, val, magic);
+
+	n = 0;
+	got_ac = false;
+}
+
 int main(int ac, char **av)
 {
 	unsigned long cr4;
@@ -416,6 +458,9 @@ int main(int ac, char **av)
 	handle_exception(DB_VECTOR, handle_db);
 	handle_exception(BP_VECTOR, handle_bp);
 	handle_exception(UD_VECTOR, handle_ud);
+	handle_exception(AC_VECTOR, handle_ac);
+
+	bus_lock_test();
 
 	/*
 	 * DR4 is an alias for DR6 (and DR5 aliases DR7) if CR4.DE is NOT set,
