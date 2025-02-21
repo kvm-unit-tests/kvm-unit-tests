@@ -1,14 +1,24 @@
 #ifndef _X86_SMP_H_
 #define _X86_SMP_H_
 
+#define MAX_TEST_CPUS (255)
+
+/*
+ * Allocate 12KiB of data for per-CPU usage.  One page for per-CPU data, and
+ * two pages for the stack (plus some buffer in-between).
+ */
+#define PER_CPU_SIZE  (3 * 4096)
+
+/* Address where to store the address of realmode GDT descriptor. */
+#define REALMODE_GDT_LOWMEM (PAGE_SIZE - 2)
+
+#ifndef __ASSEMBLER__
+
 #include <stddef.h>
 #include <asm/spinlock.h>
 #include "libcflat.h"
 #include "atomic.h"
 #include "apic-defs.h"
-
-/* Address where to store the address of realmode GDT descriptor. */
-#define REALMODE_GDT_LOWMEM (PAGE_SIZE - 2)
 
 /* Offsets into the per-cpu page. */
 struct percpu_data {
@@ -89,5 +99,7 @@ void ap_online(void);
 
 extern atomic_t cpu_online_count;
 extern unsigned char online_cpus[(MAX_TEST_CPUS + 7) / 8];
+
+#endif /* __ASSEMBLER__ */
 
 #endif

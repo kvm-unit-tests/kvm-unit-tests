@@ -1,5 +1,6 @@
 #include "apic-defs.h"
 #include "desc.h"
+#include "smp.h"
 
 ipi_vector = 0x20
 

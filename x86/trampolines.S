@@ -3,6 +3,7 @@
  * transition from 32-bit to 64-bit code (x86-64 only)
  */
 #include "apic-defs.h"
+#include "smp.h"
 
 per_cpu_size = PER_CPU_SIZE
 

@@ -3,7 +3,7 @@
 #include "apic-defs.h"
 #include "asm-generic/page.h"
 #include "crt0-efi-x86_64.S"
-
+#include "smp.h"
 
 /* Reserve stack in .data */
 .data
@@ -36,7 +36,6 @@ ptl4:
 .text
 
 .code16
-REALMODE_GDT_LOWMEM = PAGE_SIZE - 2
 
 .globl rm_trampoline
 rm_trampoline:

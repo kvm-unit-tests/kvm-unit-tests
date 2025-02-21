@@ -1,5 +1,6 @@
 
 #include "apic-defs.h"
+#include "smp.h"
 
 .global online_cpus
 
