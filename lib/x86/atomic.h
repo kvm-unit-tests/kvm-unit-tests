@@ -3,6 +3,8 @@
 
 #include "asm-generic/atomic.h"
 
+#include "libcflat.h"
+
 typedef struct {
 	volatile int counter;
 } atomic_t;
