@@ -50,7 +50,6 @@ struct kvm_vcpu_pv_apf_data {
       uint32_t  token;
 
       uint8_t  pad[56];
-      uint32_t  enabled;
 } apf_reason __attribute__((aligned(64)));
 
 char *buf;
