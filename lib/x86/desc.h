@@ -69,6 +69,8 @@
 #define __ASM_SEL(a,b)		__ASM_FORM(b)
 #endif
 
+#ifndef __ASSEMBLER__
+
 #include <setjmp.h>
 
 void setup_idt(void);
@@ -343,4 +345,7 @@ do {									\
 
 #define asm_safe_report_ex __asm_safe_report
 
-#endif
+
+#endif /* __ASSEMBLER__ */
+
+#endif /* _X86_DESC_H_ */

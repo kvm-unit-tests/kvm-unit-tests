@@ -1,5 +1,5 @@
-
 #include "apic-defs.h"
+#include "desc.h"
 
 ipi_vector = 0x20
 
@@ -66,7 +66,7 @@ start:
 	mov $stacktop, %esp
 	setup_percpu_area
 	call prepare_64
-	jmpl $8, $start64
+	jmpl $KERNEL_CS, $start64
 
 switch_to_5level:
 	/* Disable CR4.PCIDE */
@@ -86,11 +86,11 @@ switch_to_5level:
 	bts $12, %eax
 	mov %eax, %cr4
 
-	mov $0x10, %ax
+	mov $KERNEL_DS, %ax
 	mov %ax, %ss
 
 	call enter_long_mode
-	jmpl $8, $lvl5
+	jmpl $KERNEL_CS, $lvl5
 
 smp_stacktop:	.long stacktop - per_cpu_size
 

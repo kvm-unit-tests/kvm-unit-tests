@@ -6,6 +6,8 @@
 
 per_cpu_size = PER_CPU_SIZE
 
+#include "desc.h"
+
  /* EFI provides it's own SIPI sequence to handle relocation. */
 #ifndef CONFIG_EFI
 .code16
@@ -18,7 +20,7 @@ sipi_entry:
 	or $1, %eax
 	mov %eax, %cr0
 	lgdtl ap_rm_gdt_descr - sipi_entry
-	ljmpl $8, $ap_start32
+	ljmpl $KERNEL_CS, $ap_start32
 sipi_end:
 
 .globl ap_rm_gdt_descr
@@ -69,7 +71,7 @@ MSR_GS_BASE = 0xc0000101
 	mov $MSR_GS_BASE, %ecx
 	rdmsr
 
-	mov $0x10, %bx
+	mov $KERNEL_DS, %bx
 	mov %bx, %ds
 	mov %bx, %es
 	mov %bx, %fs
@@ -126,7 +128,7 @@ ap_start32:
 	call prepare_64
 
 	load_absolute_addr $ap_start64, %edx
-	pushl $0x08
+	pushl $KERNEL_CS
 	pushl %edx
 	lretl
 #endif
