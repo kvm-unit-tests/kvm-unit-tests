@@ -15,7 +15,7 @@ typedef unsigned long pgd_t;
 
 #include <asm-generic/page.h>
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #define PAGE_ALIGN(addr)        ALIGN(addr, PAGE_SIZE)
 
@@ -79,5 +79,5 @@ extern unsigned long long get_amd_sev_addr_upperbound(void);
 #define PGDIR_BITS(lvl)        (((lvl) - 1) * PGDIR_WIDTH + PAGE_SHIFT)
 #define PGDIR_OFFSET(va, lvl)  (((va) >> PGDIR_BITS(lvl)) & PGDIR_MASK)
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif

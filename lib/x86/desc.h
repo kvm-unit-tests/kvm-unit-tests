@@ -57,7 +57,7 @@
 #define FIRST_SPARE_SEL 0x50
 #define TSS_MAIN 0x80
 
-#ifdef __ASSEMBLY__
+#ifdef __ASSEMBLER__
 #define __ASM_FORM(x, ...)	x,## __VA_ARGS__
 #else
 #define __ASM_FORM(x, ...)	" " xstr(x,##__VA_ARGS__) " "
