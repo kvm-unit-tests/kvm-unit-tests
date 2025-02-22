@@ -10,7 +10,7 @@
 #define ARCH_TIMER_CTL_IMASK   (1 << 1)
 #define ARCH_TIMER_CTL_ISTATUS (1 << 2)
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 struct timer_state {
 	struct {
@@ -29,5 +29,5 @@ extern struct timer_state __timer_state;
 
 void timer_save_state(void);
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* _ASMARM_TIMER_H_ */

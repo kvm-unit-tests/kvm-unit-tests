@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-#define __ASSEMBLY__
 #include <asm/asm.h>
 
 .section .text

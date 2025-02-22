@@ -20,7 +20,7 @@
 #ifndef _LIBCFLAT_H_
 #define _LIBCFLAT_H_
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <linux/compiler.h>
 #include <stdarg.h>
@@ -155,7 +155,7 @@ do {									\
 void binstr(unsigned long x, char out[BINSTR_SZ]);
 void print_binstr(unsigned long x);
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 
 #define SZ_256			(1 << 8)
 #define SZ_4K			(1 << 12)

@@ -12,7 +12,7 @@
 #define PAGE_SIZE		(_AC(1,UL) << PAGE_SHIFT)
 #define PAGE_MASK		(~(PAGE_SIZE-1))
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #define PAGE_ALIGN(addr)	ALIGN(addr, PAGE_SIZE)
 
@@ -49,5 +49,5 @@ extern unsigned long __phys_to_virt(phys_addr_t addr);
 
 extern void *__ioremap(phys_addr_t phys_addr, size_t size);
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* _ASMARM_PAGE_H_ */

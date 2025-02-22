@@ -35,7 +35,7 @@
 #define SBI_SUSP_TEST_HARTID	(1 << 2)
 #define SBI_SUSP_TEST_MASK	7
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 #include <asm/sbi.h>
 
 #define __sbiret_report(ret, expected_error, expected_value, has_value, expected_error_name, fmt, ...) ({	\
@@ -72,5 +72,5 @@
 
 void sbi_bad_fid(int ext);
 
-#endif /* __ASSEMBLY__ */
+#endif /* __ASSEMBLER__ */
 #endif /* _RISCV_SBI_TESTS_H_ */

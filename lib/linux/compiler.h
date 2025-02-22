@@ -6,7 +6,7 @@
 #ifndef __LINUX_COMPILER_H
 #define __LINUX_COMPILER_H
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #define GCC_VERSION (__GNUC__ * 10000           \
 		     + __GNUC_MINOR__ * 100     \
@@ -121,5 +121,5 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
 	__u.__val;					\
 })
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* !__LINUX_COMPILER_H */

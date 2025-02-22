@@ -8,7 +8,7 @@
  * Copyright (C) 2012 ARM Ltd.
  */
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 #error "Only include this from assembly code"
 #endif
 

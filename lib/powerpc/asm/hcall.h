@@ -34,7 +34,7 @@
 #define KVMPPC_HCALL_BASE	0xf000
 #define KVMPPC_H_RTAS		(KVMPPC_HCALL_BASE + 0x0)
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 /*
  * hcall_have_broken_sc1 checks if we're on a host with a broken sc1.
  * Returns 0 if we're not.
@@ -49,5 +49,5 @@ extern int hcall_have_broken_sc1(void);
  */
 extern unsigned long hcall(unsigned long nr, ...);
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* _ASMPOWERPC_HCALL_H_ */

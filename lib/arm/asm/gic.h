@@ -46,7 +46,7 @@
 #define PPI(irq)			((irq) + 16)
 #define SPI(irq)			((irq) + GIC_FIRST_SPI)
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 #include <cpumask.h>
 
 enum gic_irq_state {
@@ -88,5 +88,5 @@ void gic_irq_set_clr_enable(int irq, bool enable);
 #define gic_enable_irq(irq) gic_irq_set_clr_enable(irq, true)
 #define gic_disable_irq(irq) gic_irq_set_clr_enable(irq, false)
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* _ASMARM_GIC_H_ */

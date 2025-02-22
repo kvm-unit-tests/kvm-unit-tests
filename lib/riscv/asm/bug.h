@@ -2,7 +2,7 @@
 #ifndef _ASMRISCV_BUG_H_
 #define _ASMRISCV_BUG_H_
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 static inline void bug(void)
 {

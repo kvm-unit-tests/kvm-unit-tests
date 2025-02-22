@@ -7,7 +7,7 @@
 
 #define AUXINFO_MMU_OFF (1 << 0)
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 struct auxinfo {
 	const char *progname;
 	unsigned long flags;

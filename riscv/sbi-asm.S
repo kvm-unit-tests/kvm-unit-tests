@@ -4,7 +4,6 @@
  *
  * Copyright (C) 2024, James Raphael Tiovalen <jamestiotio@gmail.com>
  */
-#define __ASSEMBLY__
 #include <asm/asm.h>
 #include <asm/csr.h>
 

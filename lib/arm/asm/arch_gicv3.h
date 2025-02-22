@@ -8,7 +8,7 @@
 #ifndef _ASMARM_ARCH_GICV3_H_
 #define _ASMARM_ARCH_GICV3_H_
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 #include <libcflat.h>
 #include <asm/sysreg.h>
 #include <asm/barrier.h>
@@ -61,5 +61,5 @@ static inline u64 gicv3_read_typer(const volatile void __iomem *addr)
 	return val;
 }
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* _ASMARM_ARCH_GICV3_H_ */

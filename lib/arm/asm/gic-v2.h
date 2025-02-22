@@ -17,7 +17,7 @@
 #define GICC_ENABLE			0x1
 #define GICC_IAR_INT_ID_MASK		0x3ff
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 #include <cpumask.h>
 
 struct gicv2_data {
@@ -38,5 +38,5 @@ extern void gicv2_write_eoir(u32 irqstat);
 extern void gicv2_ipi_send_single(int irq, int cpu);
 extern void gicv2_ipi_send_mask(int irq, const cpumask_t *dest);
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* _ASMARM_GIC_V2_H_ */

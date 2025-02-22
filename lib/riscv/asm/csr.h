@@ -56,7 +56,7 @@
 
 #define IP_TIP			IE_TIE
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #define csr_swap(csr, val)					\
 ({								\
@@ -118,5 +118,5 @@
 				: "memory");			\
 })
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* _ASMRISCV_CSR_H_ */

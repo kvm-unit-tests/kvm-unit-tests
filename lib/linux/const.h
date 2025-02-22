@@ -12,7 +12,7 @@
  * leave it unchanged in asm.
  */
 
-#if defined(__ASSEMBLY__) || defined(__ASSEMBLER__)
+#ifdef __ASSEMBLER__
 #define _AC(X,Y)	X
 #define _AT(T,X)	X
 #define __ASM_STR(X)	X

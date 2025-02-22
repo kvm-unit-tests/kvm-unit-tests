@@ -6,7 +6,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <libcflat.h>
 
@@ -27,7 +27,7 @@ extern int rtas_call_unlocked(struct rtas_args *args, int token, int nargs, int 
 
 extern void rtas_power_off(void);
 extern void rtas_stop_self(void);
-#endif /* __ASSEMBLY__ */
+#endif /* __ASSEMBLER__ */
 
 #define RTAS_MSR_MASK 0xfffffffffffffffe
 

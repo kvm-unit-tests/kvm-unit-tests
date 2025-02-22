@@ -48,7 +48,7 @@
 #define PSR_x		0x0000ff00	/* Extension            */
 #define PSR_c		0x000000ff	/* Control              */
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 #include <libcflat.h>
 
 struct user_pt_regs {
@@ -95,5 +95,5 @@ struct pt_regs {
 #define fast_interrupts_enabled(regs) \
 	(!((regs)->pstate & PSR_F_BIT))
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* _ASMARM64_PTRACE_H_ */

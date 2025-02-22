@@ -38,7 +38,7 @@
 #define CR_AFE	(1 << 29)	/* Access flag enable			*/
 #define CR_TE	(1 << 30)	/* Thumb exception enable		*/
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 #include <libcflat.h>
 
 #define __ACCESS_CP15(CRn, Op1, CRm, Op2)			\
@@ -60,6 +60,6 @@
 
 #define __write_sysreg(v, r, w, c, t)   asm volatile(w " " c : : "r" ((t)(v)))
 #define write_sysreg(v, ...)            __write_sysreg(v, __VA_ARGS__)
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 
 #endif /* _ASMARM_SYSREG_H_ */

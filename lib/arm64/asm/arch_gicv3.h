@@ -10,7 +10,7 @@
 
 #include <asm/sysreg.h>
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <libcflat.h>
 #include <asm/barrier.h>
@@ -54,5 +54,5 @@ static inline void gicv3_write_grpen1(u32 val)
 
 #define gicv3_read_typer(c) readq(c)
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* _ASMARM64_ARCH_GICV3_H_ */

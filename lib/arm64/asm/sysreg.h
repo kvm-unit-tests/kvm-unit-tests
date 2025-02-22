@@ -13,7 +13,7 @@
 #define sys_reg(op0, op1, crn, crm, op2) \
 	((((op0)&3)<<19)|((op1)<<16)|((crn)<<12)|((crm)<<8)|((op2)<<5))
 
-#ifdef __ASSEMBLY__
+#ifdef __ASSEMBLER__
 	.irp	num,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30
 	.equ	.L__reg_num_x\num, \num
 	.endr
@@ -71,7 +71,7 @@ asm(
 "	.inst	0xd5000000|(\\sreg)|(.L__reg_num_\\rt)\n"
 "	.endm\n"
 );
-#endif /* __ASSEMBLY__ */
+#endif /* __ASSEMBLER__ */
 
 #define ID_AA64ISAR0_EL1_RNDR_SHIFT	60
 

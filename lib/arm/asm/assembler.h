@@ -4,7 +4,7 @@
  * arch/arm/mm/proc-v7.S.
  */
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 #error "Only include this from assembly code"
 #endif
 

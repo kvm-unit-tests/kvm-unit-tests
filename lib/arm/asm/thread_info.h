@@ -22,7 +22,7 @@
 #define THREAD_ALIGNMENT	THREAD_SIZE
 #endif
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 #include <asm/processor.h>
 #include <alloc.h>
 
@@ -73,5 +73,5 @@ static inline struct thread_info *current_thread_info(void)
 
 extern void thread_info_init(struct thread_info *ti, unsigned int flags);
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* _ASMARM_THREAD_INFO_H_ */

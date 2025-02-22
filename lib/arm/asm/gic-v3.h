@@ -66,7 +66,7 @@
 
 #include <asm/arch_gicv3.h>
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 #include <cpumask.h>
 #include <asm/setup.h>
 #include <asm/processor.h>
@@ -153,5 +153,5 @@ static inline u64 mpidr_uncompress(u32 compressed)
 
 #define gicv3_lpi_get_config(intid) (gicv3_data.lpi_prop[LPI_OFFSET(intid)])
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* _ASMARM_GIC_V3_H_ */

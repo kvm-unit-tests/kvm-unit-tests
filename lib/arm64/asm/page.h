@@ -37,7 +37,7 @@
 #define PGTABLE_LEVELS \
 	(((VA_BITS - PAGE_SHIFT) + ((PAGE_SHIFT - 3) - 1)) / (PAGE_SHIFT - 3))
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #define PAGE_ALIGN(addr)	ALIGN(addr, PAGE_SIZE)
 
@@ -74,5 +74,5 @@ extern unsigned long __phys_to_virt(phys_addr_t addr);
 
 extern void *__ioremap(phys_addr_t phys_addr, size_t size);
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 #endif /* _ASMARM64_PAGE_H_ */

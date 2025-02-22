@@ -4,7 +4,7 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 struct vpa {
 	uint32_t	descriptor;
@@ -57,6 +57,6 @@ struct vpa {
 	uint8_t		reserved10[96];
 };
 
-#endif /* __ASSEMBLY__ */
+#endif /* __ASSEMBLER__ */
 
 #endif /* _ASMPOWERPC_VPA_H_ */

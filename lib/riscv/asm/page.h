@@ -2,7 +2,7 @@
 #ifndef _ASMRISCV_PAGE_H_
 #define _ASMRISCV_PAGE_H_
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 typedef unsigned long pgd_t;
 typedef unsigned long pte_t;
@@ -14,7 +14,7 @@ typedef unsigned long pteval_t;
 #define __pte(x)		((pte_t)(x))
 #define __pgprot(x)		((pgprot_t)(x))
 
-#endif /* !__ASSEMBLY__ */
+#endif /* !__ASSEMBLER__ */
 
 #include <asm-generic/page.h>
 
