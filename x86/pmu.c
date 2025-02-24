@@ -1000,7 +1000,7 @@ int main(int ac, char **av)
 	if (pmu.nr_fixed_counters > ARRAY_SIZE(fixed_events))
 		report_info("Fixed counters number %d > defined fixed events %u.  "
 			    "Please update test case.", pmu.nr_fixed_counters,
-			    (uint32_t)ARRAY_SIZE(fixed_events));
+			    (unsigned)ARRAY_SIZE(fixed_events));
 
 	apic_write(APIC_LVTPC, PMI_VECTOR);
 
