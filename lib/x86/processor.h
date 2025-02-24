@@ -7,7 +7,21 @@
 #include <bitops.h>
 #include <stdint.h>
 
-#define NONCANONICAL	0xaaaaaaaaaaaaaaaaull
+#define CANONICAL_48_VAL 0xffffaaaaaaaaaaaaull
+#define CANONICAL_57_VAL 0xffaaaaaaaaaaaaaaull
+#define NONCANONICAL	 0xaaaaaaaaaaaaaaaaull
+
+#define LAM57_MASK	GENMASK_ULL(62, 57)
+#define LAM48_MASK	GENMASK_ULL(62, 48)
+
+/*
+ * Get a linear address by combining @addr with a non-canonical pattern in the
+ * @mask bits.
+ */
+static inline u64 get_non_canonical(u64 addr, u64 mask)
+{
+	return (addr & ~mask) | (NONCANONICAL & mask);
+}
 
 #ifdef __x86_64__
 #  define R "r"
@@ -68,6 +82,10 @@
 #define X86_CR0_PG		BIT(X86_CR0_PG_BIT)
 
 #define X86_CR3_PCID_MASK	GENMASK(11, 0)
+#define X86_CR3_LAM_U57_BIT	(61)
+#define X86_CR3_LAM_U57		BIT_ULL(X86_CR3_LAM_U57_BIT)
+#define X86_CR3_LAM_U48_BIT	(62)
+#define X86_CR3_LAM_U48		BIT_ULL(X86_CR3_LAM_U48_BIT)
 
 #define X86_CR4_VME_BIT		(0)
 #define X86_CR4_VME		BIT(X86_CR4_VME_BIT)
@@ -118,6 +136,8 @@
 #define X86_CR4_CET		BIT(X86_CR4_CET_BIT)
 #define X86_CR4_PKS_BIT		(24)
 #define X86_CR4_PKS		BIT(X86_CR4_PKS_BIT)
+#define X86_CR4_LAM_SUP_BIT	(28)
+#define X86_CR4_LAM_SUP		BIT(X86_CR4_LAM_SUP_BIT)
 
 #define X86_EFLAGS_CF_BIT	(0)
 #define X86_EFLAGS_CF		BIT(X86_EFLAGS_CF_BIT)
@@ -241,6 +261,7 @@ static inline bool is_intel(void)
 #define	X86_FEATURE_MCE			(CPUID(0x1, 0, EDX, 7))
 #define	X86_FEATURE_APIC		(CPUID(0x1, 0, EDX, 9))
 #define	X86_FEATURE_CLFLUSH		(CPUID(0x1, 0, EDX, 19))
+#define	X86_FEATURE_DS			(CPUID(0x1, 0, EDX, 21))
 #define	X86_FEATURE_XMM			(CPUID(0x1, 0, EDX, 25))
 #define	X86_FEATURE_XMM2		(CPUID(0x1, 0, EDX, 26))
 #define	X86_FEATURE_TSC_ADJUST		(CPUID(0x7, 0, EBX, 1))
@@ -252,6 +273,7 @@ static inline bool is_intel(void)
 #define	X86_FEATURE_PCOMMIT		(CPUID(0x7, 0, EBX, 22))
 #define	X86_FEATURE_CLFLUSHOPT		(CPUID(0x7, 0, EBX, 23))
 #define	X86_FEATURE_CLWB		(CPUID(0x7, 0, EBX, 24))
+#define X86_FEATURE_INTEL_PT		(CPUID(0x7, 0, EBX, 25))
 #define	X86_FEATURE_UMIP		(CPUID(0x7, 0, ECX, 2))
 #define	X86_FEATURE_PKU			(CPUID(0x7, 0, ECX, 3))
 #define	X86_FEATURE_LA57		(CPUID(0x7, 0, ECX, 16))
@@ -262,6 +284,7 @@ static inline bool is_intel(void)
 #define	X86_FEATURE_FLUSH_L1D		(CPUID(0x7, 0, EDX, 28))
 #define	X86_FEATURE_ARCH_CAPABILITIES	(CPUID(0x7, 0, EDX, 29))
 #define	X86_FEATURE_PKS			(CPUID(0x7, 0, ECX, 31))
+#define	X86_FEATURE_LAM			(CPUID(0x7, 1, EAX, 26))
 
 /*
  * KVM defined leafs
@@ -468,6 +491,11 @@ static inline int rdmsr_safe(u32 index, uint64_t *val)
 	return rdreg64_safe("rdmsr", index, val);
 }
 
+static inline int rdmsr_fep_safe(u32 index, uint64_t *val)
+{
+	return __rdreg64_safe(KVM_FEP, "rdmsr", index, val);
+}
+
 static inline int wrmsr_safe(u32 index, u64 val)
 {
 	return wrreg64_safe("wrmsr", index, val);
@@ -597,6 +625,16 @@ static inline void lgdt(const struct descriptor_table_ptr *ptr)
 	asm volatile ("lgdt %0" : : "m"(*ptr));
 }
 
+static inline int lgdt_safe(const struct descriptor_table_ptr *ptr)
+{
+	return asm_safe("lgdt %0", "m"(*ptr));
+}
+
+static inline int lgdt_fep_safe(const struct descriptor_table_ptr *ptr)
+{
+	return asm_fep_safe("lgdt %0", "m"(*ptr));
+}
+
 static inline void sgdt(struct descriptor_table_ptr *ptr)
 {
 	asm volatile ("sgdt %0" : "=m"(*ptr));
@@ -605,6 +643,16 @@ static inline void sgdt(struct descriptor_table_ptr *ptr)
 static inline void lidt(const struct descriptor_table_ptr *ptr)
 {
 	asm volatile ("lidt %0" : : "m"(*ptr));
+}
+
+static inline int lidt_safe(const struct descriptor_table_ptr *ptr)
+{
+	return asm_safe("lidt %0", "m"(*ptr));
+}
+
+static inline int lidt_fep_safe(const struct descriptor_table_ptr *ptr)
+{
+	return asm_fep_safe("lidt %0", "m"(*ptr));
 }
 
 static inline void sidt(struct descriptor_table_ptr *ptr)
@@ -617,6 +665,16 @@ static inline void lldt(u16 val)
 	asm volatile ("lldt %0" : : "rm"(val));
 }
 
+static inline int lldt_safe(u16 val)
+{
+	return asm_safe("lldt %0", "rm"(val));
+}
+
+static inline int lldt_fep_safe(u16 val)
+{
+	return asm_safe("lldt %0", "rm"(val));
+}
+
 static inline u16 sldt(void)
 {
 	u16 val;
@@ -627,6 +685,16 @@ static inline u16 sldt(void)
 static inline void ltr(u16 val)
 {
 	asm volatile ("ltr %0" : : "rm"(val));
+}
+
+static inline int ltr_safe(u16 val)
+{
+	return asm_safe("ltr %0", "rm"(val));
+}
+
+static inline int ltr_fep_safe(u16 val)
+{
+	return asm_safe("ltr %0", "rm"(val));
 }
 
 static inline u16 str(void)
@@ -791,8 +859,13 @@ static inline void invlpg(volatile void *va)
 	asm volatile("invlpg (%0)" ::"r" (va) : "memory");
 }
 
+struct invpcid_desc {
+	u64 pcid : 12;
+	u64 rsv  : 52;
+	u64 addr : 64;
+};
 
-static inline int invpcid_safe(unsigned long type, void *desc)
+static inline int invpcid_safe(unsigned long type, struct invpcid_desc *desc)
 {
 	/* invpcid (%rax), %rbx */
 	return asm_safe(".byte 0x66,0x0f,0x38,0x82,0x18", "a" (desc), "b" (type));
@@ -843,13 +916,13 @@ static inline bool is_canonical(u64 addr)
 
 static inline void clear_bit(int bit, u8 *addr)
 {
-	__asm__ __volatile__("btr %1, %0"
+	__asm__ __volatile__("lock; btr %1, %0"
 			     : "+m" (*addr) : "Ir" (bit) : "cc", "memory");
 }
 
 static inline void set_bit(int bit, u8 *addr)
 {
-	__asm__ __volatile__("bts %1, %0"
+	__asm__ __volatile__("lock; bts %1, %0"
 			     : "+m" (*addr) : "Ir" (bit) : "cc", "memory");
 }
 
@@ -957,6 +1030,26 @@ static inline void generate_cr0_em_nm(void)
 {
 	write_cr0((read_cr0() & ~X86_CR0_TS) | X86_CR0_EM);
 	fnop();
+}
+
+static inline bool is_la57_enabled(void)
+{
+	return !!(read_cr4() & X86_CR4_LA57);
+}
+
+static inline bool is_lam_sup_enabled(void)
+{
+	return !!(read_cr4() & X86_CR4_LAM_SUP);
+}
+
+static inline bool is_lam_u48_enabled(void)
+{
+	return (read_cr3() & (X86_CR3_LAM_U48 | X86_CR3_LAM_U57)) == X86_CR3_LAM_U48;
+}
+
+static inline bool is_lam_u57_enabled(void)
+{
+	return !!(read_cr3() & X86_CR3_LAM_U57);
 }
 
 #endif

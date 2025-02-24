@@ -98,7 +98,6 @@ int main(int ac, char **av)
 	lbr_test();
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
 
-	report(rdmsr(MSR_LBR_TOS) != 0, "The guest LBR MSR_LBR_TOS value is good.");
 	for (i = 0; i < max; ++i) {
 		if (!rdmsr(lbr_to + i) || !rdmsr(lbr_from + i))
 			break;

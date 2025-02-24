@@ -96,7 +96,8 @@ tests-common = $(TEST_DIR)/vmexit.$(exe) $(TEST_DIR)/tsc.$(exe) \
 # use absolute addresses in their inline assembly code, which cannot compile
 # with the '-fPIC' flag
 ifneq ($(CONFIG_EFI),y)
-tests-common += $(TEST_DIR)/realmode.$(exe)
+tests-common += $(TEST_DIR)/realmode.$(exe) \
+		$(TEST_DIR)/la57.$(exe)
 endif
 
 test_cases: $(tests-common) $(tests)

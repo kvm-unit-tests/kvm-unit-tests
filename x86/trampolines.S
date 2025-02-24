@@ -2,6 +2,12 @@
  * Common bootstrapping code to transition from 16-bit to 32-bit code, and to
  * transition from 32-bit to 64-bit code (x86-64 only)
  */
+#include "apic-defs.h"
+#include "smp.h"
+
+per_cpu_size = PER_CPU_SIZE
+
+#include "desc.h"
 
  /* EFI provides it's own SIPI sequence to handle relocation. */
 #ifndef CONFIG_EFI
@@ -15,7 +21,7 @@ sipi_entry:
 	or $1, %eax
 	mov %eax, %cr0
 	lgdtl ap_rm_gdt_descr - sipi_entry
-	ljmpl $8, $ap_start32
+	ljmpl $KERNEL_CS, $ap_start32
 sipi_end:
 
 .globl ap_rm_gdt_descr
@@ -56,7 +62,7 @@ rm_trampoline_end:
 MSR_GS_BASE = 0xc0000101
 
 .macro setup_percpu_area
-	lea -4096(%esp), %eax
+	lea -per_cpu_size(%esp), %eax
 	mov $0, %edx
 	mov $MSR_GS_BASE, %ecx
 	wrmsr
@@ -66,7 +72,7 @@ MSR_GS_BASE = 0xc0000101
 	mov $MSR_GS_BASE, %ecx
 	rdmsr
 
-	mov $0x10, %bx
+	mov $KERNEL_DS, %bx
 	mov %bx, %ds
 	mov %bx, %es
 	mov %bx, %fs
@@ -116,14 +122,14 @@ ap_start32:
 	setup_segments
 
 	load_absolute_addr $smp_stacktop, %edx
-	mov $-4096, %esp
+	mov $-per_cpu_size, %esp
 	lock xaddl %esp, (%edx)
 
 	setup_percpu_area
 	call prepare_64
 
 	load_absolute_addr $ap_start64, %edx
-	pushl $0x08
+	pushl $KERNEL_CS
 	pushl %edx
 	lretl
 #endif

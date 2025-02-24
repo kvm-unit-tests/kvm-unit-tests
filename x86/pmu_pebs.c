@@ -297,6 +297,8 @@ static void check_pebs_records(u64 bitmask, u64 pebs_data_cfg, bool use_adaptive
 		pebs_idx_match = pebs_rec->applicable_counters & bitmask;
 		pebs_size_match = pebs_record_size == get_pebs_record_size(pebs_data_cfg, use_adaptive);
 		data_cfg_match = (pebs_rec->format_size & GENMASK_ULL(47, 0)) == pebs_data_cfg;
+		data_cfg_match = (pebs_rec->format_size & GENMASK_ULL(47, 0)) ==
+				 (use_adaptive ? pebs_data_cfg : 0);
 		expected = pebs_idx_match && pebs_size_match && data_cfg_match;
 		report(expected,
 		       "PEBS record (written seq %d) is verified (including size, counters and cfg).", count);
@@ -402,8 +404,8 @@ int main(int ac, char **av)
 	} else if (!pmu_has_pebs()) {
 		report_skip("PEBS required PMU version 2, reported version is %d", pmu.version);
 		return report_summary();
-	} else if (!pmu_pebs_format()) {
-		report_skip("PEBS not enumerated in PERF_CAPABILITIES");
+	} else if (pmu_pebs_format() < 4) {
+		report_skip("This test supports PEBS_Record_Format >= 4 only");
 		return report_summary();
 	} else if (rdmsr(MSR_IA32_MISC_ENABLE) & MSR_IA32_MISC_ENABLE_PEBS_UNAVAIL) {
 		report_skip("PEBS unavailable according to MISC_ENABLE");

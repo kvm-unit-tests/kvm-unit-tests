@@ -3233,6 +3233,46 @@ static void invvpid_test_not_in_vmx_operation(void)
 	TEST_ASSERT(!vmx_on());
 }
 
+/* LAM doesn't apply to the linear address inside the descriptor of invvpid */
+static void invvpid_test_lam(void)
+{
+	void *vaddr;
+	struct invvpid_operand *operand;
+	u64 lam_mask;
+	bool fault;
+
+	if (!this_cpu_has(X86_FEATURE_LAM)) {
+		report_skip("LAM is not supported, skip INVVPID with LAM");
+		return;
+	}
+
+	write_cr4(read_cr4() | X86_CR4_LAM_SUP);
+	lam_mask = is_la57_enabled() ? LAM57_MASK : LAM48_MASK;
+
+	vaddr = alloc_vpage();
+	install_page(current_page_table(), virt_to_phys(alloc_page()), vaddr);
+	/*
+	 * Since the stack memory address in KUT doesn't follow kernel address
+	 * space partition rule, reuse the memory address for descriptor and
+	 * the target address in the descriptor of invvpid.
+	 */
+	operand = (struct invvpid_operand *)vaddr;
+	operand->vpid = 0xffff;
+	operand->gla = (u64)vaddr;
+	operand = (struct invvpid_operand *)get_non_canonical((u64)operand, lam_mask);
+	fault = test_for_exception(GP_VECTOR, ds_invvpid, operand);
+	report(!fault, "Expected INVVPID with tagged operand when LAM is enabled to succeed");
+
+	/*
+	 * Verify that LAM doesn't apply to the address inside the descriptor
+	 * even when LAM is enabled. i.e., the address in the descriptor should
+	 * be canonical.
+	 */
+	try_invvpid(INVVPID_ADDR, 0xffff, (u64)operand);
+
+	write_cr4(read_cr4() & ~X86_CR4_LAM_SUP);
+}
+
 /*
  * This does not test real-address mode, virtual-8086 mode, protected mode,
  * or CPL > 0.
@@ -3282,8 +3322,10 @@ static void invvpid_test(void)
 	/*
 	 * The gla operand is only validated for single-address INVVPID.
 	 */
-	if (types & (1u << INVVPID_ADDR))
+	if (types & (1u << INVVPID_ADDR)) {
 		try_invvpid(INVVPID_ADDR, 0xffff, NONCANONICAL);
+		invvpid_test_lam();
+	}
 
 	invvpid_test_gp();
 	invvpid_test_ss();
@@ -4750,6 +4792,8 @@ static void test_ept_eptp(void)
 
 		eptp |= EPTP_AD_FLAG;
 		test_eptp_ad_bit(eptp, false);
+
+		eptp &= ~EPTP_AD_FLAG;
 	}
 
 	/*
@@ -7032,7 +7076,11 @@ static void test_host_ctl_regs(void)
 		cr3 = cr3_saved | (1ul << i);
 		vmcs_write(HOST_CR3, cr3);
 		report_prefix_pushf("HOST_CR3 %lx", cr3);
-		test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+		if (this_cpu_has(X86_FEATURE_LAM) &&
+		    ((i == X86_CR3_LAM_U57_BIT) || (i == X86_CR3_LAM_U48_BIT)))
+			test_vmx_vmlaunch(0);
+		else
+			test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
 		report_prefix_pop();
 	}
 
@@ -7332,11 +7380,18 @@ union cpuidA_eax {
 	unsigned int full;
 };
 
+union cpuidA_ecx {
+	unsigned int fixed_counters_mask;
+	unsigned int full;
+};
+
 union cpuidA_edx {
 	struct {
-		unsigned int num_counters_fixed:5;
+		unsigned int num_contiguous_fixed_counters:5;
 		unsigned int bit_width_fixed:8;
-		unsigned int reserved:9;
+		unsigned int reserved1:2;
+		unsigned int anythread_deprecated:1;
+		unsigned int reserved2:16;
 	} split;
 	unsigned int full;
 };
@@ -7345,14 +7400,19 @@ static bool valid_pgc(u64 val)
 {
 	struct cpuid id;
 	union cpuidA_eax eax;
+	union cpuidA_ecx ecx;
 	union cpuidA_edx edx;
 	u64 mask;
 
 	id = cpuid(0xA);
 	eax.full = id.a;
+	ecx.full = id.c;
 	edx.full = id.d;
+
+	/* FxCtr[i]_is_supported := ECX[i] || (EDX[4:0] > i); */
 	mask = ~(((1ull << eax.split.num_counters_gp) - 1) |
-		 (((1ull << edx.split.num_counters_fixed) - 1) << 32));
+		 (((1ull << edx.split.num_contiguous_fixed_counters) - 1) << 32) |
+		 ((u64)ecx.fixed_counters_mask << 32));
 
 	return !(val & mask);
 }
@@ -10754,6 +10814,172 @@ static void vmx_exception_test(void)
 	test_set_guest_finished();
 }
 
+/*
+ * Arbitrary canonical values for validating direct writes in the host, e.g. to
+ * an MSR, and for indirect writes via loads from VMCS fields on VM-Exit.
+ */
+#define TEST_DIRECT_VALUE 	0xff45454545000000
+#define TEST_VMCS_VALUE		0xff55555555000000
+
+static void vmx_canonical_test_guest(void)
+{
+	while (true)
+		vmcall();
+}
+
+static int get_host_value(u64 vmcs_field, u64 *value)
+{
+	struct descriptor_table_ptr dt_ptr;
+
+	switch (vmcs_field) {
+	case HOST_SYSENTER_ESP:
+		*value = rdmsr(MSR_IA32_SYSENTER_ESP);
+		break;
+	case HOST_SYSENTER_EIP:
+		*value =  rdmsr(MSR_IA32_SYSENTER_EIP);
+		break;
+	case HOST_BASE_FS:
+		*value =  rdmsr(MSR_FS_BASE);
+		break;
+	case HOST_BASE_GS:
+		*value =  rdmsr(MSR_GS_BASE);
+		break;
+	case HOST_BASE_GDTR:
+		sgdt(&dt_ptr);
+		*value =  dt_ptr.base;
+		break;
+	case HOST_BASE_IDTR:
+		sidt(&dt_ptr);
+		*value =  dt_ptr.base;
+		break;
+	case HOST_BASE_TR:
+		*value = get_gdt_entry_base(get_tss_descr());
+		/* value might not reflect the actual base if changed by VMX */
+		return 1;
+	default:
+		assert(0);
+		return 1;
+	}
+	return 0;
+}
+
+static int set_host_value(u64 vmcs_field, u64 value)
+{
+	struct descriptor_table_ptr dt_ptr;
+
+	switch (vmcs_field) {
+	case HOST_SYSENTER_ESP:
+		return wrmsr_safe(MSR_IA32_SYSENTER_ESP, value);
+	case HOST_SYSENTER_EIP:
+		return wrmsr_safe(MSR_IA32_SYSENTER_EIP, value);
+	case HOST_BASE_FS:
+		return wrmsr_safe(MSR_FS_BASE, value);
+	case HOST_BASE_GS:
+		/* TODO: _safe variants assume per-cpu gs base*/
+		wrmsr(MSR_GS_BASE, value);
+		return 0;
+	case HOST_BASE_GDTR:
+		sgdt(&dt_ptr);
+		dt_ptr.base = value;
+		lgdt(&dt_ptr);
+		return lgdt_fep_safe(&dt_ptr);
+	case HOST_BASE_IDTR:
+		sidt(&dt_ptr);
+		dt_ptr.base = value;
+		return lidt_fep_safe(&dt_ptr);
+	case HOST_BASE_TR:
+		/* Set the base and clear the busy bit */
+		set_gdt_entry(FIRST_SPARE_SEL, value, 0x200, 0x89, 0);
+		return ltr_safe(FIRST_SPARE_SEL);
+	default:
+		assert(0);
+	}
+}
+
+static void test_host_value_direct(const char *field_name, u64 vmcs_field)
+{
+	u64 value = 0;
+	int vector;
+
+	/*
+	 * Set the directly register via host ISA (e.g lgdt) and check that we
+	 * got no exception.
+	 */
+	vector = set_host_value(vmcs_field, TEST_DIRECT_VALUE);
+	if (vector) {
+		report_fail("Exception %d when setting %s to 0x%lx via direct write",
+			    vector, field_name, TEST_DIRECT_VALUE);
+		return;
+	}
+
+	/*
+	 * Now check that the host value matches what we expect for fields
+	 * that can be read back (these that we can't we assume that are correct)
+	 */
+	report(get_host_value(vmcs_field, &value) || value == TEST_DIRECT_VALUE,
+	       "%s: HOST value set to 0x%lx (wanted 0x%lx) via direct write",
+	       field_name, value, TEST_DIRECT_VALUE);
+}
+
+static void test_host_value_vmcs(const char *field_name, u64 vmcs_field)
+{
+	u64 value = 0;
+
+	/* Set host state field in the vmcs and do the VM entry
+	 * Success of VM entry already shows that L0 accepted the value
+	 */
+	vmcs_write(vmcs_field, TEST_VMCS_VALUE);
+	enter_guest();
+	skip_exit_vmcall();
+
+	/*
+	 * Now check that the host value matches what we expect for fields
+	 * that can be read back (these that we can't we assume that are correct)
+	 */
+	report(get_host_value(vmcs_field, &value) || value == TEST_VMCS_VALUE,
+	       "%s: HOST value set to 0x%lx (wanted 0x%lx) via VMLAUNCH/VMRESUME",
+	       field_name, value, TEST_VMCS_VALUE);
+}
+
+static void do_vmx_canonical_test_one_field(const char *field_name, u64 field)
+{
+	u64 host_org_value, field_org_value;
+
+	/* Backup the current host value and vmcs field value values */
+	get_host_value(field, &host_org_value);
+	field_org_value = vmcs_read(field);
+
+	test_host_value_direct(field_name, field);
+	test_host_value_vmcs(field_name, field);
+
+	/* Restore original values */
+	vmcs_write(field, field_org_value);
+	set_host_value(field, host_org_value);
+}
+
+#define vmx_canonical_test_one_field(field) \
+	do_vmx_canonical_test_one_field(#field, field)
+
+static void vmx_canonical_test(void)
+{
+	report(!(read_cr4() & X86_CR4_LA57), "4 level paging");
+
+	if (!this_cpu_has(X86_FEATURE_LA57))
+		test_skip("5 level paging not supported");
+
+	test_set_guest(vmx_canonical_test_guest);
+
+	vmx_canonical_test_one_field(HOST_SYSENTER_ESP);
+	vmx_canonical_test_one_field(HOST_SYSENTER_EIP);
+	vmx_canonical_test_one_field(HOST_BASE_FS);
+	vmx_canonical_test_one_field(HOST_BASE_GS);
+	vmx_canonical_test_one_field(HOST_BASE_GDTR);
+	vmx_canonical_test_one_field(HOST_BASE_IDTR);
+	vmx_canonical_test_one_field(HOST_BASE_TR);
+
+	test_set_guest_finished();
+}
+
 enum Vid_op {
 	VID_OP_SET_ISR,
 	VID_OP_NOP,
@@ -11262,5 +11488,6 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_pf_invvpid_test),
 	TEST(vmx_pf_vpid_test),
 	TEST(vmx_exception_test),
+	TEST(vmx_canonical_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };

@@ -3,7 +3,9 @@
 
 #include <bitops.h>
 #include <stdint.h>
+
 #include "apic-defs.h"
+#include "smp.h"
 
 extern u8 id_map[MAX_TEST_CPUS];
 

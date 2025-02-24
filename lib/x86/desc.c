@@ -338,7 +338,7 @@ bool exception_rflags_rf(void)
 
 static char intr_alt_stack[4096];
 
-void set_gdt_entry(int sel, unsigned long base,  u32 limit, u8 type, u8 flags)
+void set_gdt_entry_base(int sel, unsigned long base)
 {
 	gdt_entry_t *entry = &gdt[sel >> 3];
 
@@ -347,10 +347,6 @@ void set_gdt_entry(int sel, unsigned long base,  u32 limit, u8 type, u8 flags)
 	entry->base2 = (base >> 16) & 0xFF;
 	entry->base3 = (base >> 24) & 0xFF;
 
-	/* Setup the descriptor limits, type and flags */
-	entry->limit1 = (limit & 0xFFFF);
-	entry->type_limit_flags = ((limit & 0xF0000) >> 8) | ((flags & 0xF0) << 8) | type;
-
 #ifdef __x86_64__
 	if (!entry->s) {
 		struct system_desc64 *entry16 = (struct system_desc64 *)entry;
@@ -358,6 +354,24 @@ void set_gdt_entry(int sel, unsigned long base,  u32 limit, u8 type, u8 flags)
 		entry16->base4 = base >> 32;
 	}
 #endif
+}
+
+void set_gdt_entry(int sel, unsigned long base,  u32 limit, u8 type, u8 flags)
+{
+	gdt_entry_t *entry = &gdt[sel >> 3];
+
+	/* Setup the descriptor limits, type and flags */
+	entry->limit1 = (limit & 0xFFFF);
+	entry->type_limit_flags = ((limit & 0xF0000) >> 8) | ((flags & 0xF0) << 8) | type;
+	set_gdt_entry_base(sel, base);
+}
+
+void clear_tss_busy(int sel)
+{
+	gdt_entry_t *entry = &gdt[sel >> 3];
+
+	entry->type_limit_flags &= ~0xFF;
+	entry->type_limit_flags |= 0x89;
 }
 
 void load_gdt_tss(size_t tss_offset)
@@ -483,14 +497,24 @@ void __set_exception_jmpbuf(jmp_buf *addr)
 	exception_jmpbuf = addr;
 }
 
-gdt_entry_t *get_tss_descr(void)
+gdt_entry_t *get_gdt_entry(u16 sel)
 {
 	struct descriptor_table_ptr gdt_ptr;
 	gdt_entry_t *gdt;
 
 	sgdt(&gdt_ptr);
 	gdt = (gdt_entry_t *)gdt_ptr.base;
-	return &gdt[str() / 8];
+	return &gdt[sel / 8];
+}
+
+gdt_entry_t *get_tss_descr(void)
+{
+	return get_gdt_entry(str());
+}
+
+gdt_entry_t *get_ldt_descr(void)
+{
+	return get_gdt_entry(sldt());
 }
 
 unsigned long get_gdt_entry_base(gdt_entry_t *entry)
