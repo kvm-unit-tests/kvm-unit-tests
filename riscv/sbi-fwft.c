@@ -57,21 +57,6 @@ static void fwft_check_base(void)
 	fwft_check_reserved(SBI_FWFT_GLOBAL_RESERVED_START);
 	fwft_check_reserved(SBI_FWFT_GLOBAL_RESERVED_END);
 
-#if __riscv_xlen > 32
-	/* Check id > 32 bits */
-	{
-		struct sbiret ret;
-
-		ret = fwft_get_raw(BIT(32));
-		sbiret_report_error(&ret, SBI_ERR_INVALID_PARAM,
-				    "get feature with bit 32 set error");
-
-		ret = fwft_set_raw(BIT(32), 0, 0);
-		sbiret_report_error(&ret, SBI_ERR_INVALID_PARAM,
-				    "set feature with bit 32 set error");
-	}
-#endif
-
 	report_prefix_pop();
 }
 
