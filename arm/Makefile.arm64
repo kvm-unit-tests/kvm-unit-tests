@@ -17,6 +17,12 @@ ifneq ($(strip $(sve_flag)),)
 CFLAGS += -DCC_HAS_SVE
 endif
 
+mte_flag := $(call cc-option, -march=armv8.5-a+memtag, "")
+ifneq ($(strip $(mte_flag)),)
+# MTE is supported by the compiler, generate MTE instructions
+CFLAGS += -DCC_HAS_MTE
+endif
+
 mno_outline_atomics := $(call cc-option, -mno-outline-atomics, "")
 CFLAGS += $(mno_outline_atomics)
 CFLAGS += -DCONFIG_RELOC
@@ -57,6 +63,7 @@ tests += $(TEST_DIR)/micro-bench.$(exe)
 tests += $(TEST_DIR)/cache.$(exe)
 tests += $(TEST_DIR)/debug.$(exe)
 tests += $(TEST_DIR)/fpu.$(exe)
+tests += $(TEST_DIR)/mte.$(exe)
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 

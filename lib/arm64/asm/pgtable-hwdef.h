@@ -145,6 +145,8 @@
 #define TCR_TG1_64K		(UL(3) << 30)
 #define TCR_ASID16		(UL(1) << 36)
 #define TCR_TBI0		(UL(1) << 37)
+#define TCR_TBI1		(UL(1) << 38)
+#define TCR_TCMA0		(UL(1) << 57)
 
 /*
  * Memory types available.
@@ -156,5 +158,6 @@
 #define MT_NORMAL		4
 #define MT_NORMAL_WT		5
 #define MT_DEVICE_nGRE		6
+#define MT_NORMAL_TAGGED	7
 
 #endif /* _ASMARM64_PGTABLE_HWDEF_H_ */
