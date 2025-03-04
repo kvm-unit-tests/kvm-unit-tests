@@ -373,28 +373,58 @@ static void test_ioapic_level_retrigger_mask(void)
 	set_mask(0x0e, false);
 }
 
-static volatile int g_isr_84;
+static volatile int g_isr_64, g_isr_84;
 
-static void ioapic_isr_84(isr_regs_t *regs)
+static void ioapic_reconfigure_dest(int line)
 {
-	int line = 0xe;
 	ioapic_redir_entry_t e;
 
-	++g_isr_84;
 	set_irq_line(line, 0);
 
 	e = ioapic_read_redir(line);
+	report(e.remote_irr == 1, "Reconfigure Remote IRR set");
+
 	e.dest_id = 1;
 
 	// Update only upper part of the register because we only change the
 	// destination, which resides in the upper part
 	ioapic_write_reg(0x10 + line * 2 + 1, ((u32 *)&e)[1]);
+}
 
+static void ioapic_isr_64(isr_regs_t *regs)
+{
+	/*
+	 * Raise the IRQ line for the higher priority interrupt, *before*
+	 * reconfiguring the I/O APIC routing.  KVM should intercept EOI for
+	 * both the in-service vector (line 0xd, vector 0x64) and the requested
+	 * vector (line 0xe, vector 0x84).
+	 */
+	set_irq_line(0x0e, 1);
+
+	ioapic_reconfigure_dest(0xe);
+	ioapic_reconfigure_dest(0xd);
+	eoi();
+
+	++g_isr_64;
+}
+
+static void ioapic_isr_84(isr_regs_t *regs)
+{
+	report(g_isr_64, "Higher priority IRQ should be blocked until IRET restores RFLAGS.IF");
+
+	++g_isr_84;
 	eoi();
 }
 
 static void test_ioapic_self_reconfigure(void)
 {
+	ioapic_redir_entry_t d = {
+		.vector = 0x64,
+		.delivery_mode = 0,
+		.dest_mode = 0,
+		.dest_id = 0,
+		.trig_mode = TRIGGER_LEVEL,
+	};
 	ioapic_redir_entry_t e = {
 		.vector = 0x84,
 		.delivery_mode = 0,
@@ -403,11 +433,21 @@ static void test_ioapic_self_reconfigure(void)
 		.trig_mode = TRIGGER_LEVEL,
 	};
 
+	handle_irq(0x64, ioapic_isr_64);
+	ioapic_write_redir(0xd, d);
+
 	handle_irq(0x84, ioapic_isr_84);
 	ioapic_write_redir(0xe, e);
-	set_irq_line(0x0e, 1);
+
+	set_irq_line(0x0d, 1);
+
 	e = ioapic_read_redir(0xe);
-	report(g_isr_84 == 1 && e.remote_irr == 0, "Reconfigure self");
+	report(g_isr_84 == 1 && e.remote_irr == 0, "Reconfigure self highest priority");
+
+	d = ioapic_read_redir(0xd);
+	report(g_isr_64 == 1 && d.remote_irr == 0, "Reconfigure self lower priority");
+
+	poll_remote_irr(0xd);
 	poll_remote_irr(0xe);
 }
 
