@@ -10,26 +10,6 @@
 
 #define MAX_TPR			0xf
 
-static bool is_apic_hw_enabled(void)
-{
-	return rdmsr(MSR_IA32_APICBASE) & APIC_EN;
-}
-
-static bool is_apic_sw_enabled(void)
-{
-	return apic_read(APIC_SPIV) & APIC_SPIV_APIC_ENABLED;
-}
-
-static bool is_x2apic_enabled(void)
-{
-	return (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == (APIC_EN | APIC_EXTD);
-}
-
-static bool is_xapic_enabled(void)
-{
-	return (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == APIC_EN;
-}
-
 static void test_lapic_existence(void)
 {
 	u8 version;

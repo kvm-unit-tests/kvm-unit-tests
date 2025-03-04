@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "apic-defs.h"
+#include "processor.h"
 #include "smp.h"
 
 extern u8 id_map[MAX_TEST_CPUS];
@@ -66,6 +67,26 @@ void apic_setup_timer(int vector, u32 mode);
 
 void apic_start_timer(u32 counter);
 void apic_stop_timer(void);
+
+static inline bool is_apic_hw_enabled(void)
+{
+	return rdmsr(MSR_IA32_APICBASE) & APIC_EN;
+}
+
+static inline bool is_apic_sw_enabled(void)
+{
+	return apic_read(APIC_SPIV) & APIC_SPIV_APIC_ENABLED;
+}
+
+static inline bool is_x2apic_enabled(void)
+{
+	return (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == (APIC_EN | APIC_EXTD);
+}
+
+static inline bool is_xapic_enabled(void)
+{
+	return (rdmsr(MSR_IA32_APICBASE) & (APIC_EN | APIC_EXTD)) == APIC_EN;
+}
 
 /* Converts byte-addressable APIC register offset to 4-byte offset. */
 static inline u32 apic_reg_index(u32 reg)
