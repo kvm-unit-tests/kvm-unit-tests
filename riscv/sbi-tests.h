@@ -36,6 +36,7 @@
 #define SBI_SUSP_TEST_MASK	7
 
 #ifndef __ASSEMBLER__
+#include <libcflat.h>
 #include <asm/sbi.h>
 
 #define __sbiret_report(ret, expected_error, expected_value, has_value, expected_error_name, fmt, ...) ({	\
@@ -69,6 +70,22 @@
 
 #define sbiret_check(ret, expected_error, expected_value) \
 	sbiret_report(ret, expected_error, expected_value, "check sbi.error and sbi.value")
+
+static inline bool env_or_skip(const char *env)
+{
+	if (!getenv(env)) {
+		report_skip("missing %s environment variable", env);
+		return false;
+	}
+	return true;
+}
+
+static inline bool env_enabled(const char *env)
+{
+	char *s = getenv(env);
+
+	return s && (*s == '1' || *s == 'y' || *s == 'Y');
+}
 
 void sbi_bad_fid(int ext);
 

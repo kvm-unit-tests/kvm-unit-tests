@@ -66,6 +66,14 @@ static void fwft_check_reserved(unsigned long id)
 	sbiret_report_error(&ret, SBI_ERR_DENIED, "set reserved feature 0x%lx", id);
 }
 
+/* Must be called before any fwft_set() call is made for @feature */
+static void fwft_check_reset(uint32_t feature, unsigned long reset)
+{
+	struct sbiret ret = fwft_get(feature);
+
+	sbiret_report(&ret, SBI_SUCCESS, reset, "resets to %lu", reset);
+}
+
 static void fwft_check_base(void)
 {
 	report_prefix_push("base");
@@ -99,17 +107,27 @@ static struct sbiret fwft_misaligned_exc_get(void)
 static void fwft_check_misaligned_exc_deleg(void)
 {
 	struct sbiret ret;
+	unsigned long expected;
 
 	report_prefix_push("misaligned_exc_deleg");
 
 	ret = fwft_misaligned_exc_get();
-	if (ret.error == SBI_ERR_NOT_SUPPORTED) {
-		report_skip("SBI_FWFT_MISALIGNED_EXC_DELEG is not supported");
+	if (ret.error != SBI_SUCCESS) {
+		if (env_enabled("SBI_HAVE_FWFT_MISALIGNED_EXC_DELEG")) {
+			sbiret_report_error(&ret, SBI_SUCCESS, "supported");
+			return;
+		}
+		report_skip("not supported by platform");
 		return;
 	}
 
 	if (!sbiret_report_error(&ret, SBI_SUCCESS, "Get misaligned deleg feature"))
 		return;
+
+	if (env_or_skip("MISALIGNED_EXC_DELEG_RESET")) {
+		expected = strtoul(getenv("MISALIGNED_EXC_DELEG_RESET"), NULL, 0);
+		fwft_check_reset(SBI_FWFT_MISALIGNED_EXC_DELEG, expected);
+	}
 
 	ret = fwft_misaligned_exc_set(2, 0);
 	sbiret_report_error(&ret, SBI_ERR_INVALID_PARAM,
@@ -129,16 +147,10 @@ static void fwft_check_misaligned_exc_deleg(void)
 #endif
 
 	/* Set to 0 and check after with get */
-	ret = fwft_misaligned_exc_set(0, 0);
-	sbiret_report_error(&ret, SBI_SUCCESS, "Set misaligned deleg feature value 0");
-	ret = fwft_misaligned_exc_get();
-	sbiret_report(&ret, SBI_SUCCESS, 0, "Get misaligned deleg feature expected value 0");
+	fwft_set_and_check_raw("", SBI_FWFT_MISALIGNED_EXC_DELEG, 0, 0);
 
 	/* Set to 1 and check after with get */
-	ret = fwft_misaligned_exc_set(1, 0);
-	sbiret_report_error(&ret, SBI_SUCCESS, "Set misaligned deleg feature value 1");
-	ret = fwft_misaligned_exc_get();
-	sbiret_report(&ret, SBI_SUCCESS, 1, "Get misaligned deleg feature expected value 1");
+	fwft_set_and_check_raw("", SBI_FWFT_MISALIGNED_EXC_DELEG, 1, 0);
 
 	install_exception_handler(EXC_LOAD_MISALIGNED, misaligned_handler);
 
@@ -261,7 +273,11 @@ static void fwft_check_pte_ad_hw_updating(void)
 	report_prefix_push("pte_ad_hw_updating");
 
 	ret = fwft_get(SBI_FWFT_PTE_AD_HW_UPDATING);
-	if (ret.error == SBI_ERR_NOT_SUPPORTED) {
+	if (ret.error != SBI_SUCCESS) {
+		if (env_enabled("SBI_HAVE_FWFT_PTE_AD_HW_UPDATING")) {
+			sbiret_report_error(&ret, SBI_SUCCESS, "supported");
+			return;
+		}
 		report_skip("not supported by platform");
 		return;
 	} else if (!sbiret_report_error(&ret, SBI_SUCCESS, "get")) {

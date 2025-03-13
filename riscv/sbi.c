@@ -131,23 +131,6 @@ static phys_addr_t get_highest_addr(void)
 	return highest_end - 1;
 }
 
-static bool env_enabled(const char *env)
-{
-	char *s = getenv(env);
-
-	return s && (*s == '1' || *s == 'y' || *s == 'Y');
-}
-
-static bool env_or_skip(const char *env)
-{
-	if (!getenv(env)) {
-		report_skip("missing %s environment variable", env);
-		return false;
-	}
-
-	return true;
-}
-
 static bool get_invalid_addr(phys_addr_t *paddr, bool allow_default)
 {
 	if (env_enabled("INVALID_ADDR_AUTO")) {
