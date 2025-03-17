@@ -18,6 +18,13 @@
 #define SBI_ERR_IO			-13
 #define SBI_ERR_DENIED_LOCKED		-14
 
+/* SBI spec version fields */
+#define SBI_SPEC_VERSION_MAJOR_SHIFT	24
+#define SBI_SPEC_VERSION_MAJOR_MASK	0x7f
+#define SBI_SPEC_VERSION_MINOR_MASK	0xffffff
+#define SBI_SPEC_VERSION_MASK		((SBI_SPEC_VERSION_MAJOR_MASK << SBI_SPEC_VERSION_MAJOR_SHIFT) | \
+					 SBI_SPEC_VERSION_MINOR_MASK)
+
 #ifndef __ASSEMBLER__
 #include <cpumask.h>
 
@@ -110,6 +117,12 @@ struct sbiret {
 	long value;
 };
 
+static inline unsigned long sbi_mk_version(unsigned long major, unsigned long minor)
+{
+	return ((major & SBI_SPEC_VERSION_MAJOR_MASK) << SBI_SPEC_VERSION_MAJOR_SHIFT)
+		| (minor & SBI_SPEC_VERSION_MINOR_MASK);
+}
+
 struct sbiret sbi_ecall(int ext, int fid, unsigned long arg0,
 			unsigned long arg1, unsigned long arg2,
 			unsigned long arg3, unsigned long arg4,
@@ -124,6 +137,7 @@ struct sbiret sbi_send_ipi_cpu(int cpu);
 struct sbiret sbi_send_ipi_cpumask(const cpumask_t *mask);
 struct sbiret sbi_send_ipi_broadcast(void);
 struct sbiret sbi_set_timer(unsigned long stime_value);
+struct sbiret sbi_get_spec_version(void);
 long sbi_probe(int ext);
 
 #endif /* !__ASSEMBLER__ */
