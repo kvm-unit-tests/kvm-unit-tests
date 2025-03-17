@@ -507,6 +507,12 @@ end_two:
 			max_hartid = cpus[cpu].hartid;
 	}
 
+	/* Test no targets */
+	ret = sbi_send_ipi(0, 0);
+	sbiret_report_error(&ret, SBI_SUCCESS, "no targets, hart_mask_base is 0");
+	ret = sbi_send_ipi(0, 1);
+	sbiret_report_error(&ret, SBI_SUCCESS, "no targets, hart_mask_base is 1");
+
 	/* Try the next higher hartid than the max */
 	ret = sbi_send_ipi(2, max_hartid);
 	report_kfail(true, ret.error == SBI_ERR_INVALID_PARAM, "hart_mask got expected error (%ld)", ret.error);
