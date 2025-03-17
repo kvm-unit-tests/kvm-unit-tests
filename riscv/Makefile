@@ -17,7 +17,9 @@ tests += $(TEST_DIR)/sieve.$(exe)
 
 all: $(tests)
 
-$(TEST_DIR)/sbi-deps = $(TEST_DIR)/sbi-asm.o $(TEST_DIR)/sbi-fwft.o
+$(TEST_DIR)/sbi-deps += $(TEST_DIR)/sbi-asm.o
+$(TEST_DIR)/sbi-deps += $(TEST_DIR)/sbi-fwft.o
+$(TEST_DIR)/sbi-deps += $(TEST_DIR)/sbi-sse.o
 
 all_deps += $($(TEST_DIR)/sbi-deps)
 

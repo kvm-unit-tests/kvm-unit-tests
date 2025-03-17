@@ -88,6 +88,7 @@ static inline bool env_enabled(const char *env)
 }
 
 void sbi_bad_fid(int ext);
+void check_sse(void);
 
 #endif /* __ASSEMBLER__ */
 #endif /* _RISCV_SBI_TESTS_H_ */
