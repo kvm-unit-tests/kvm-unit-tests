@@ -74,6 +74,38 @@ static void fwft_check_reset(uint32_t feature, unsigned long reset)
 	sbiret_report(&ret, SBI_SUCCESS, reset, "resets to %lu", reset);
 }
 
+/* Must be called after locking the feature using SBI_FWFT_SET_FLAG_LOCK */
+static void fwft_feature_lock_test_values(uint32_t feature, size_t nr_values,
+					  unsigned long test_values[],
+					  unsigned long locked_value)
+{
+	struct sbiret ret;
+
+	report_prefix_push("locked");
+
+	for (int i = 0; i < nr_values; ++i) {
+		ret = fwft_set(feature, test_values[i], 0);
+		sbiret_report_error(&ret, SBI_ERR_DENIED_LOCKED,
+				    "Set to %lu without lock flag", test_values[i]);
+
+		ret = fwft_set(feature, test_values[i], SBI_FWFT_SET_FLAG_LOCK);
+		sbiret_report_error(&ret, SBI_ERR_DENIED_LOCKED,
+				    "Set to %lu with lock flag", test_values[i]);
+	}
+
+	ret = fwft_get(feature);
+	sbiret_report(&ret, SBI_SUCCESS, locked_value, "Get value %lu", locked_value);
+
+	report_prefix_pop();
+}
+
+static void fwft_feature_lock_test(uint32_t feature, unsigned long locked_value)
+{
+	unsigned long values[] = {0, 1};
+
+	fwft_feature_lock_test_values(feature, 2, values, locked_value);
+}
+
 static void fwft_check_base(void)
 {
 	report_prefix_push("base");
@@ -181,11 +213,8 @@ static void fwft_check_misaligned_exc_deleg(void)
 	/* Lock the feature */
 	ret = fwft_misaligned_exc_set(0, SBI_FWFT_SET_FLAG_LOCK);
 	sbiret_report_error(&ret, SBI_SUCCESS, "Set misaligned deleg feature value 0 and lock");
-	ret = fwft_misaligned_exc_set(1, 0);
-	sbiret_report_error(&ret, SBI_ERR_DENIED_LOCKED,
-			    "Set locked misaligned deleg feature to new value");
-	ret = fwft_misaligned_exc_get();
-	sbiret_report(&ret, SBI_SUCCESS, 0, "Get misaligned deleg locked value 0");
+
+	fwft_feature_lock_test(SBI_FWFT_MISALIGNED_EXC_DELEG, 0);
 
 	report_prefix_pop();
 }
@@ -326,17 +355,7 @@ adue_inval_tests:
 	else
 		enabled = !enabled;
 
-	ret = fwft_set(SBI_FWFT_PTE_AD_HW_UPDATING, !enabled, 0);
-	sbiret_report_error(&ret, SBI_ERR_DENIED_LOCKED, "set locked to %d without lock", !enabled);
-
-	ret = fwft_set(SBI_FWFT_PTE_AD_HW_UPDATING, !enabled, 1);
-	sbiret_report_error(&ret, SBI_ERR_DENIED_LOCKED, "set locked to %d with lock", !enabled);
-
-	ret = fwft_set(SBI_FWFT_PTE_AD_HW_UPDATING, enabled, 0);
-	sbiret_report_error(&ret, SBI_ERR_DENIED_LOCKED, "set locked to %d without lock", enabled);
-
-	ret = fwft_set(SBI_FWFT_PTE_AD_HW_UPDATING, enabled, 1);
-	sbiret_report_error(&ret, SBI_ERR_DENIED_LOCKED, "set locked to %d with lock", enabled);
+	fwft_feature_lock_test(SBI_FWFT_PTE_AD_HW_UPDATING, enabled);
 
 adue_done:
 	install_exception_handler(EXC_LOAD_PAGE_FAULT, NULL);
