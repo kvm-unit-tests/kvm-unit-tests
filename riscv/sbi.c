@@ -515,10 +515,12 @@ end_two:
 	sbiret_report_error(&ret, SBI_SUCCESS, "no targets, hart_mask_base is 1");
 
 	/* Try the next higher hartid than the max */
+	bool kfail = __sbi_get_imp_id() == SBI_IMPL_OPENSBI &&
+		     __sbi_get_imp_version() < sbi_impl_opensbi_mk_version(1, 7);
 	ret = sbi_send_ipi(2, max_hartid);
-	report_kfail(true, ret.error == SBI_ERR_INVALID_PARAM, "hart_mask got expected error (%ld)", ret.error);
+	sbiret_kfail_error(kfail, &ret, SBI_ERR_INVALID_PARAM, "hart_mask");
 	ret = sbi_send_ipi(1, max_hartid + 1);
-	report_kfail(true, ret.error == SBI_ERR_INVALID_PARAM, "hart_mask_base got expected error (%ld)", ret.error);
+	sbiret_kfail_error(kfail, &ret, SBI_ERR_INVALID_PARAM, "hart_mask_base");
 
 	report_prefix_pop();
 

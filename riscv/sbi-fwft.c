@@ -83,14 +83,17 @@ static void fwft_feature_lock_test_values(uint32_t feature, size_t nr_values,
 
 	report_prefix_push("locked");
 
+	bool kfail = __sbi_get_imp_id() == SBI_IMPL_OPENSBI &&
+		     __sbi_get_imp_version() < sbi_impl_opensbi_mk_version(1, 7);
+
 	for (int i = 0; i < nr_values; ++i) {
 		ret = fwft_set(feature, test_values[i], 0);
-		sbiret_report_error(&ret, SBI_ERR_DENIED_LOCKED,
-				    "Set to %lu without lock flag", test_values[i]);
+		sbiret_kfail_error(kfail, &ret, SBI_ERR_DENIED_LOCKED,
+				   "Set to %lu without lock flag", test_values[i]);
 
 		ret = fwft_set(feature, test_values[i], SBI_FWFT_SET_FLAG_LOCK);
-		sbiret_report_error(&ret, SBI_ERR_DENIED_LOCKED,
-				    "Set to %lu with lock flag", test_values[i]);
+		sbiret_kfail_error(kfail, &ret, SBI_ERR_DENIED_LOCKED,
+				   "Set to %lu with lock flag", test_values[i]);
 	}
 
 	ret = fwft_get(feature);
@@ -317,7 +320,10 @@ static void fwft_check_pte_ad_hw_updating(void)
 	report(ret.value == 0 || ret.value == 1, "first get value is 0/1");
 
 	enabled = ret.value;
-	report_kfail(true, !enabled, "resets to 0");
+
+	bool kfail = __sbi_get_imp_id() == SBI_IMPL_OPENSBI &&
+		     __sbi_get_imp_version() < sbi_impl_opensbi_mk_version(1, 7);
+	report_kfail(kfail, !enabled, "resets to 0");
 
 	install_exception_handler(EXC_LOAD_PAGE_FAULT, adue_read_handler);
 	install_exception_handler(EXC_STORE_PAGE_FAULT, adue_write_handler);
