@@ -183,21 +183,31 @@ struct sbiret sbi_set_timer(unsigned long stime_value)
 	return sbi_ecall(SBI_EXT_TIME, SBI_EXT_TIME_SET_TIMER, stime_value, 0, 0, 0, 0, 0);
 }
 
-unsigned long sbi_get_imp_version(void)
+struct sbiret sbi_get_imp_version(void)
+{
+	return sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_IMP_VERSION, 0, 0, 0, 0, 0, 0);
+}
+
+struct sbiret sbi_get_imp_id(void)
+{
+	return sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_IMP_ID, 0, 0, 0, 0, 0, 0);
+}
+
+unsigned long __sbi_get_imp_version(void)
 {
 	struct sbiret ret;
 
-	ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_IMP_VERSION, 0, 0, 0, 0, 0, 0);
+	ret = sbi_get_imp_version();
 	assert(!ret.error);
 
 	return ret.value;
 }
 
-unsigned long sbi_get_imp_id(void)
+unsigned long __sbi_get_imp_id(void)
 {
 	struct sbiret ret;
 
-	ret = sbi_ecall(SBI_EXT_BASE, SBI_EXT_BASE_GET_IMP_ID, 0, 0, 0, 0, 0, 0);
+	ret = sbi_get_imp_id();
 	assert(!ret.error);
 
 	return ret.value;

@@ -260,9 +260,11 @@ struct sbiret sbi_send_ipi_cpumask(const cpumask_t *mask);
 struct sbiret sbi_send_ipi_broadcast(void);
 struct sbiret sbi_set_timer(unsigned long stime_value);
 struct sbiret sbi_get_spec_version(void);
-unsigned long sbi_get_imp_version(void);
-unsigned long sbi_get_imp_id(void);
+struct sbiret sbi_get_imp_version(void);
+struct sbiret sbi_get_imp_id(void);
 long sbi_probe(int ext);
+unsigned long __sbi_get_imp_version(void);
+unsigned long __sbi_get_imp_id(void);
 
 typedef void (*sbi_sse_handler_fn)(void *data, struct pt_regs *regs, unsigned int hartid);
 

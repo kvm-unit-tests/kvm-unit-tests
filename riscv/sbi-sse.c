@@ -1232,8 +1232,8 @@ void check_sse(void)
 		return;
 	}
 
-	if (sbi_get_imp_id() == SBI_IMPL_OPENSBI &&
-	    sbi_get_imp_version() < sbi_impl_opensbi_mk_version(1, 7)) {
+	if (__sbi_get_imp_id() == SBI_IMPL_OPENSBI &&
+	    __sbi_get_imp_version() < sbi_impl_opensbi_mk_version(1, 7)) {
 		report_skip("OpenSBI < v1.7 detected, skipping tests");
 		report_prefix_pop();
 		return;
