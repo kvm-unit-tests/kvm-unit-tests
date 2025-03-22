@@ -39,15 +39,29 @@
  * The hartid of the current core is in a0
  * The address of the devicetree is in a1
  *
- * See Linux kernel doc Documentation/riscv/boot.rst
+ * See Linux kernel doc Documentation/arch/riscv/boot.rst and
+ * Documentation/arch/riscv/boot-image-header.rst
  */
 .global start
 start:
+	j	1f
+	.balign	8
+	.dword	0x200000			// text offset
+	.dword	stacktop - ImageBase		// image size
+	.dword	0				// flags
+	.word	(0 << 16 | 2 << 0)		// version
+	.word	0				// res1
+	.dword	0				// res2
+	.ascii	"RISCV\0\0\0"			// magic
+	.ascii	"RSC\x05"			// magic2
+	.word	0				// res3
+
 	/*
 	 * Stash the hartid in scratch and shift the dtb address into a0.
 	 * thread_info_init() will later promote scratch to point at thread
 	 * local storage.
 	 */
+1:
 	csrw	CSR_SSCRATCH, a0
 	mv	a0, a1
 

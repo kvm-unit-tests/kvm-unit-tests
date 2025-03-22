@@ -32,6 +32,7 @@
 
 #define	HIGH_ADDR_BOUNDARY	((phys_addr_t)1 << 32)
 
+void check_sse(void);
 void check_fwft(void);
 
 static long __labs(long a)
@@ -129,23 +130,6 @@ static phys_addr_t get_highest_addr(void)
 	}
 
 	return highest_end - 1;
-}
-
-static bool env_enabled(const char *env)
-{
-	char *s = getenv(env);
-
-	return s && (*s == '1' || *s == 'y' || *s == 'Y');
-}
-
-static bool env_or_skip(const char *env)
-{
-	if (!getenv(env)) {
-		report_skip("missing %s environment variable", env);
-		return false;
-	}
-
-	return true;
 }
 
 static bool get_invalid_addr(phys_addr_t *paddr, bool allow_default)
@@ -524,11 +508,19 @@ end_two:
 			max_hartid = cpus[cpu].hartid;
 	}
 
+	/* Test no targets */
+	ret = sbi_send_ipi(0, 0);
+	sbiret_report_error(&ret, SBI_SUCCESS, "no targets, hart_mask_base is 0");
+	ret = sbi_send_ipi(0, 1);
+	sbiret_report_error(&ret, SBI_SUCCESS, "no targets, hart_mask_base is 1");
+
 	/* Try the next higher hartid than the max */
+	bool kfail = __sbi_get_imp_id() == SBI_IMPL_OPENSBI &&
+		     __sbi_get_imp_version() < sbi_impl_opensbi_mk_version(1, 7);
 	ret = sbi_send_ipi(2, max_hartid);
-	report_kfail(true, ret.error == SBI_ERR_INVALID_PARAM, "hart_mask got expected error (%ld)", ret.error);
+	sbiret_kfail_error(kfail, &ret, SBI_ERR_INVALID_PARAM, "hart_mask");
 	ret = sbi_send_ipi(1, max_hartid + 1);
-	report_kfail(true, ret.error == SBI_ERR_INVALID_PARAM, "hart_mask_base got expected error (%ld)", ret.error);
+	sbiret_kfail_error(kfail, &ret, SBI_ERR_INVALID_PARAM, "hart_mask_base");
 
 	report_prefix_pop();
 
@@ -1567,6 +1559,7 @@ int main(int argc, char **argv)
 	check_hsm();
 	check_dbcn();
 	check_susp();
+	check_sse();
 	check_fwft();
 
 	return report_summary();

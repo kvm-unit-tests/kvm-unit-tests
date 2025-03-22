@@ -31,6 +31,7 @@ gen_se_header=
 enable_dump=no
 page_size=
 earlycon=
+console=
 efi=
 efi_direct=
 
@@ -78,7 +79,7 @@ usage() {
 	                           4k [default], 16k, 64k for arm64.
 	                           4k [default], 64k for ppc64.
 	    --earlycon=EARLYCON
-				   Specify the UART name, type and address (optional).
+	                           Specify the UART name, type and address used for the earlycon (optional).
 	                           The specified address will overwrite the UART address set by
 	                           the --target option. EARLYCON can be one of (case sensitive):
 	               uart[8250],mmio,ADDR
@@ -89,6 +90,9 @@ usage() {
 	                           Specify a PL011 compatible UART at address ADDR. Supported
 	                           register stride is 32 bit only.
 	                           (arm/arm64 and riscv32/riscv64 only)
+	    --console=CONSOLE
+	                           Specify the device used for output (optional).
+	               sbi         Use SBI DBCN (riscv only)
 	    --[enable|disable]-efi Boot and run from UEFI (disabled by default, x86_64 and arm64 only)
 	    --[enable|disable]-werror
 	                           Select whether to compile with the -Werror compiler flag
@@ -174,6 +178,9 @@ while [[ $optno -le $argc ]]; do
 	    ;;
 	--earlycon)
 	    earlycon="$arg"
+	    ;;
+	--console)
+	    console="$arg"
 	    ;;
 	--enable-efi)
 	    efi=y
@@ -503,10 +510,8 @@ cat <<EOF >> lib/config.h
 
 EOF
 elif [ "$arch" = "riscv32" ] || [ "$arch" = "riscv64" ]; then
-cat <<EOF >> lib/config.h
-
-#define CONFIG_UART_EARLY_BASE ${uart_early_addr}
-
-EOF
+    echo "#define CONFIG_UART_EARLY_BASE ${uart_early_addr}" >> lib/config.h
+    [ "$console" = "sbi" ] && echo "#define CONFIG_SBI_CONSOLE" >> lib/config.h
+    echo >> lib/config.h
 fi
 echo "#endif" >> lib/config.h
