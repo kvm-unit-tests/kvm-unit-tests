@@ -32,10 +32,7 @@ function get_default_qemu_cpu()
     "arm")
         echo "cortex-a15"
         ;;
-    "arm64")
-        echo "cortex-a57"
-        ;;
-    "riscv32" | "riscv64")
+    "arm64" | "riscv32" | "riscv64")
         echo "max"
         ;;
     esac
