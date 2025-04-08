@@ -241,6 +241,7 @@ halt:
  *   NORMAL             100     11111111
  *   NORMAL_WT          101     10111011
  *   DEVICE_nGRE        110     00001000
+ *   NORMAL_TAGGED      111     11110000
  */
 #define MAIR(attr, mt) ((attr) << ((mt) * 8))
 
@@ -274,7 +275,8 @@ asm_mmu_enable:
 		     MAIR(0x44, MT_NORMAL_NC) |		\
 		     MAIR(0xff, MT_NORMAL) |	        \
 		     MAIR(0xbb, MT_NORMAL_WT) |         \
-		     MAIR(0x08, MT_DEVICE_nGRE)
+		     MAIR(0x08, MT_DEVICE_nGRE) |       \
+		     MAIR(0xf0, MT_NORMAL_TAGGED)
 	msr	mair_el1, x1
 
 	/* TTBR0 */

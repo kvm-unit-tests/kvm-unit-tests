@@ -28,6 +28,7 @@
 	.endm
 #else
 #include <libcflat.h>
+#include <bitops.h>
 
 #define read_sysreg(r) ({					\
 	u64 __val;						\
@@ -74,6 +75,7 @@ asm(
 #endif /* __ASSEMBLER__ */
 
 #define ID_AA64ISAR0_EL1_RNDR_SHIFT	60
+#define ID_AA64PFR1_EL1_MTE_SHIFT	8
 
 #define ICC_PMR_EL1			sys_reg(3, 0, 4, 6, 0)
 #define ICC_SGI1R_EL1			sys_reg(3, 0, 12, 11, 5)
@@ -81,7 +83,13 @@ asm(
 #define ICC_EOIR1_EL1			sys_reg(3, 0, 12, 12, 1)
 #define ICC_GRPEN1_EL1			sys_reg(3, 0, 12, 12, 7)
 
+#define TFSR_EL1			sys_reg(3, 0, 5, 6, 0)
+#define TFSR_EL1_TF0                    _BITULL(0)
+#define TFSR_EL1_TF1                    _BITULL(1)
+
 /* System Control Register (SCTLR_EL1) bits */
+#define SCTLR_EL1_ATA		_BITULL(43)
+#define SCTLR_EL1_ATA0		_BITULL(42)
 #define SCTLR_EL1_LSMAOE	_BITULL(29)
 #define SCTLR_EL1_NTLSMD	_BITULL(28)
 #define SCTLR_EL1_EE		_BITULL(25)
@@ -98,6 +106,12 @@ asm(
 #define SCTLR_EL1_C		_BITULL(2)
 #define SCTLR_EL1_A		_BITULL(1)
 #define SCTLR_EL1_M		_BITULL(0)
+
+#define SCTLR_EL1_TCF_SHIFT	40
+#define SCTLR_EL1_TCF_MASK	GENMASK_ULL(41, 40)
+
+#define SCTLR_EL1_TCF0_SHIFT	38
+#define SCTLR_EL1_TCF0_MASK	GENMASK_ULL(39, 38)
 
 #define INIT_SCTLR_EL1_MMU_OFF	\
 			(SCTLR_EL1_ITD | SCTLR_EL1_SED | SCTLR_EL1_EOS | \

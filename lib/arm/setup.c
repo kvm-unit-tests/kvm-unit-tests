@@ -31,7 +31,7 @@
 #include "io.h"
 
 #define MAX_DT_MEM_REGIONS	16
-#define NR_EXTRA_MEM_REGIONS	64
+#define NR_EXTRA_MEM_REGIONS	128
 #define NR_MEM_REGIONS		(MAX_DT_MEM_REGIONS + NR_EXTRA_MEM_REGIONS)
 
 extern unsigned long _text, _etext, _data, _edata;
