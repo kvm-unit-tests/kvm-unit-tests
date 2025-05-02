@@ -126,7 +126,7 @@ function run()
         machine="$MACHINE"
     fi
 
-    if [ -n "$accel" ] && [ -n "$ACCEL" ] && [ "$accel" != "$ACCEL" ]; then
+    if [ -n "$accel" ] && [ -n "$ACCEL" ] && [[ ! "$ACCEL" =~ ^$accel(,|$) ]]; then
         print_result "SKIP" $testname "" "$accel only, but ACCEL=$ACCEL"
         return 2
     elif [ -n "$ACCEL" ]; then
