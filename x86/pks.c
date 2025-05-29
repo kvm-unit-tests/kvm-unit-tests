@@ -69,7 +69,7 @@ int main(int ac, char **av)
     unsigned int pkrs_wd = 0x20;
 
     if (!this_cpu_has(X86_FEATURE_PKS)) {
-        printf("PKS not enabled\n");
+        report_skip("PKS not enabled\n");
         return report_summary();
     }
 
