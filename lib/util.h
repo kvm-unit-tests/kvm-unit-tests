@@ -8,6 +8,9 @@
  * This work is licensed under the terms of the GNU LGPL, version 2.
  */
 
+#define static_assert(expr, ...) __static_assert(expr, ##__VA_ARGS__, #expr)
+#define __static_assert(expr, msg, ...) _Static_assert(expr, msg)
+
 /*
  * parse_keyval extracts the integer from a string formatted as
  * string=integer. This is useful for passing expected values to

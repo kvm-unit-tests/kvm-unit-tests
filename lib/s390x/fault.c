@@ -9,6 +9,7 @@
  */
 #include <libcflat.h>
 #include <bitops.h>
+#include <util.h>
 #include <asm/arch_def.h>
 #include <asm/page.h>
 #include <fault.h>
@@ -40,7 +41,7 @@ static void print_decode_pgm_prot(union teid teid)
 			"LAP",
 			"IEP",
 		};
-		_Static_assert(ARRAY_SIZE(prot_str) == PROT_NUM_CODES, "ESOP2 prot codes");
+		static_assert(ARRAY_SIZE(prot_str) == PROT_NUM_CODES);
 		int prot_code = teid_esop2_prot_code(teid);
 
 		printf("Type: %s\n", prot_str[prot_code]);

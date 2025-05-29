@@ -13,6 +13,7 @@
 #include "libcflat.h"
 #include "processor.h"
 #include "desc.h"
+#include <util.h>
 #include "vmalloc.h"
 #include "alloc_page.h"
 #include "vm.h"
@@ -236,8 +237,7 @@ static void test_lam_user(void)
 	 * address for both LAM48 and LAM57.
 	 */
 	vaddr = alloc_pages_flags(0, AREA_NORMAL);
-	_Static_assert((AREA_NORMAL_PFN & GENMASK(63, 47)) == 0UL,
-			"Identical mapping range check");
+	static_assert((AREA_NORMAL_PFN & GENMASK(63, 47)) == 0UL);
 
 	/*
 	 * Note, LAM doesn't have a global control bit to turn on/off LAM
