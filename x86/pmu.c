@@ -905,9 +905,6 @@ static void set_ref_cycle_expectations(void)
 	if (!pmu.nr_gp_counters || !pmu_gp_counter_is_available(2))
 		return;
 
-	if (this_cpu_has_perf_global_ctrl())
-		wrmsr(pmu.msr_global_ctl, 0);
-
 	t0 = fenced_rdtsc();
 	start_event(&cnt);
 	t1 = fenced_rdtsc();
@@ -955,6 +952,9 @@ int main(int ac, char **av)
 	setup_vm();
 	handle_irq(PMI_VECTOR, cnt_overflow);
 	buf = malloc(N*64);
+
+	if (this_cpu_has_perf_global_ctrl())
+		wrmsr(pmu.msr_global_ctl, 0);
 
 	check_invalid_rdpmc_gp();
 
