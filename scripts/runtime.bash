@@ -150,6 +150,11 @@ function run()
         done
     fi
 
+    if [ ! -f "$kernel" ]; then
+        print_result "SKIP" $testname "" "Test file '$kernel' not found";
+        return 2;
+    fi
+
     log=$(premature_failure) && {
         skip=true
         if [ "${CONFIG_EFI}" == "y" ]; then
