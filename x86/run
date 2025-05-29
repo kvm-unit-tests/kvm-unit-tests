@@ -36,7 +36,15 @@ else
 	pc_testdev="-device testdev,chardev=testlog -chardev file,id=testlog,path=msr.out"
 fi
 
-command="${qemu} --no-reboot -nodefaults $pc_testdev -vnc none -serial stdio $pci_testdev"
+if
+	${qemu} -vnc '?' 2>&1 | grep -F "vnc options" > /dev/null;
+then
+	vnc_none="-vnc none"
+else
+	vnc_none=""
+fi
+
+command="${qemu} --no-reboot -nodefaults $pc_testdev $vnc_none -serial stdio $pci_testdev"
 command+=" -machine accel=$ACCEL$ACCEL_PROPS"
 if [ "${CONFIG_EFI}" != y ]; then
 	command+=" -kernel"
