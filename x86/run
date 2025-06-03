@@ -44,7 +44,12 @@ else
 	vnc_none=""
 fi
 
-command="${qemu} --no-reboot -nodefaults $pc_testdev $vnc_none -serial stdio $pci_testdev"
+# Discard lost ticks from the Programmable Interval Timer (PIT, a.k.a 8254), as
+# enabling KVM's re-injection mode inhibits (x2)AVIC, i.e. prevents validating
+# (x2)AVIC.  Note, the realmode test relies on the PIT, but not re-injection.
+pit="-global kvm-pit.lost_tick_policy=discard"
+
+command="${qemu} --no-reboot -nodefaults $pit $pc_testdev $vnc_none -serial stdio $pci_testdev"
 command+=" -machine accel=$ACCEL$ACCEL_PROPS"
 if [ "${CONFIG_EFI}" != y ]; then
 	command+=" -kernel"
