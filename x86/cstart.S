@@ -109,7 +109,6 @@ ap_start32:
 
 start32:
 	setup_tr_and_percpu
-	call load_idt
 	call setup_idt
 	call reset_apic
 	call save_id
