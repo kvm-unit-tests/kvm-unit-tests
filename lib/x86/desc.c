@@ -301,12 +301,7 @@ static void *idt_handlers[32] = {
 void setup_idt(void)
 {
 	int i;
-	static bool idt_initialized = false;
 
-	if (idt_initialized)
-		return;
-
-	idt_initialized = true;
 	for (i = 0; i < 32; i++) {
 		if (!idt_handlers[i])
 			continue;
