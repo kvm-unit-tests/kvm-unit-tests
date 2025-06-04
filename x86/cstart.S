@@ -36,7 +36,6 @@ mb_flags = 0x0
 mb_cmdline = 16
 
 .macro setup_tr_and_percpu
-	call load_idt
 	push %esp
 	call setup_tss
 	addl $4, %esp
@@ -97,6 +96,7 @@ ap_start32:
 	mov $-per_cpu_size, %esp
 	lock xaddl %esp, smp_stacktop
 	setup_tr_and_percpu
+	call load_idt
 	call prepare_32
 	call reset_apic
 	call save_id
@@ -109,6 +109,7 @@ ap_start32:
 
 start32:
 	setup_tr_and_percpu
+	call load_idt
 	call setup_idt
 	call reset_apic
 	call save_id
