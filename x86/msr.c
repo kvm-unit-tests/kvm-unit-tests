@@ -313,7 +313,7 @@ static void test_cmd_msrs(void)
 		test_wrmsr_fault(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", L1D_FLUSH);
 	}
 
-	if (is_fep_available()) {
+	if (is_fep_available) {
 		for (i = 1; i < 64; i++)
 			test_wrmsr_fep_fault(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", BIT_ULL(i));
 	}

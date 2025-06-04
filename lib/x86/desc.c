@@ -298,6 +298,22 @@ static void *idt_handlers[32] = {
 	[21] = &cp_fault,
 };
 
+bool is_fep_available;
+
+static bool __is_fep_available(void)
+{
+	/*
+	 * Use the non-FEP ASM_TRY() as KVM will inject a #UD on the prefix
+	 * itself if forced emulation is not available.
+	 */
+	asm goto(ASM_TRY("%l[fep_unavailable]")
+		 KVM_FEP "nop\n\t"
+		 ::: "memory" : fep_unavailable);
+	return true;
+fep_unavailable:
+	return false;
+}
+
 void setup_idt(void)
 {
 	int i;
@@ -311,6 +327,12 @@ void setup_idt(void)
 	}
 
 	load_idt();
+
+	/*
+	 * Detect support for forced emulation *after* loading the IDT, as this
+	 * will #UD if FEP is unavailable.
+	 */
+	is_fep_available = __is_fep_available();
 }
 
 void load_idt(void)

@@ -728,7 +728,6 @@ static void handle_db(struct ex_regs *regs)
 static void test_mov_pop_ss_code_db(void)
 {
 	handler old_db_handler = handle_exception(DB_VECTOR, handle_db);
-	bool fep_available = is_fep_available();
 	/* On Intel, code #DBs are inhibited when MOV/POP SS blocking is active. */
 	int nr_expected = is_intel() ? 0 : 1;
 
@@ -761,7 +760,7 @@ static void test_mov_pop_ss_code_db(void)
 		      "mov %%ss, %0\n\t", "mov %0, %%ss\n\t")
 
 	MOV_SS_DB("no fep", "", "");
-	if (fep_available) {
+	if (is_fep_available) {
 		MOV_SS_DB("fep MOV-SS", KVM_FEP, "");
 		MOV_SS_DB("fep XOR", "", KVM_FEP);
 		MOV_SS_DB("fep MOV-SS/fep XOR", KVM_FEP, KVM_FEP);
@@ -774,7 +773,7 @@ static void test_mov_pop_ss_code_db(void)
 		      "push %%ss\n\t", "pop %%ss\n\t")
 
 	POP_SS_DB("no fep", "", "");
-	if (fep_available) {
+	if (is_fep_available) {
 		POP_SS_DB("fep POP-SS", KVM_FEP, "");
 		POP_SS_DB("fep XOR", "", KVM_FEP);
 		POP_SS_DB("fep POP-SS/fep XOR", KVM_FEP, KVM_FEP);
@@ -791,8 +790,8 @@ int main(void)
 	void *mem;
 	void *cross_mem;
 
-	if (!is_fep_available())
-		report_skip("Skipping tests the require forced emulation, "
+	if (!is_fep_available)
+		report_skip("Skipping tests that require forced emulation, "
 			    "use kvm.force_emulation_prefix=1 to enable");
 
 	setup_vm();
@@ -821,7 +820,7 @@ int main(void)
 	//test_lldt(mem);
 	test_ltr(mem);
 
-	if (is_fep_available()) {
+	if (is_fep_available) {
 		test_smsw_reg(mem);
 		test_nop(mem);
 		test_mov_dr(mem);

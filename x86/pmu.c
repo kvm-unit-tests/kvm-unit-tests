@@ -823,7 +823,7 @@ static void warm_up(void)
 
 static void check_counters(void)
 {
-	if (is_fep_available())
+	if (is_fep_available)
 		check_emulated_instr();
 
 	warm_up();

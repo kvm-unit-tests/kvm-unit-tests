@@ -164,19 +164,7 @@ typedef struct  __attribute__((packed)) {
 #define KVM_FEP "ud2; .byte 'k', 'v', 'm';"
 #define ASM_TRY_FEP(catch) __ASM_TRY(KVM_FEP, catch)
 
-static inline bool is_fep_available(void)
-{
-	/*
-	 * Use the non-FEP ASM_TRY() as KVM will inject a #UD on the prefix
-	 * itself if forced emulation is not available.
-	 */
-	asm goto(ASM_TRY("%l[fep_unavailable]")
-		 KVM_FEP "nop\n\t"
-		 ::: "memory" : fep_unavailable);
-	return true;
-fep_unavailable:
-	return false;
-}
+extern bool is_fep_available;
 
 typedef struct {
 	unsigned short offset0;

@@ -185,7 +185,7 @@ static void __test_lam_sup(void *vaddr, void *vaddr_mmio)
 	test_ptr(vaddr_mmio, true);
 	test_invpcid(vaddr);
 	test_invlpg(vaddr, false);
-	if (is_fep_available())
+	if (is_fep_available)
 		test_invlpg(vaddr, true);
 }
 

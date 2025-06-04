@@ -313,7 +313,7 @@ static void test_canonical_checks(void)
 {
 	__test_canonical_checks(false);
 
-	if (is_fep_available())
+	if (is_fep_available)
 		__test_canonical_checks(true);
 	else
 		report_skip("Force emulation prefix not enabled");
