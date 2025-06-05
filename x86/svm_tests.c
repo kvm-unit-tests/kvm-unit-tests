@@ -312,7 +312,6 @@ static void prepare_msr_intercept(struct svm_test *test)
 {
 	default_prepare(test);
 	vmcb->control.intercept |= (1ULL << INTERCEPT_MSR_PROT);
-	vmcb->control.intercept_exceptions |= (1ULL << GP_VECTOR);
 	memset(msr_bitmap, 0xff, MSR_BITMAP_SIZE);
 }
 
@@ -320,6 +319,8 @@ static void test_msr_intercept(struct svm_test *test)
 {
 	unsigned long msr_value = 0xef8056791234abcd; /* Arbitrary value */
 	unsigned long msr_index;
+	u64 ignored;
+	int vector;
 
 	for (msr_index = 0; msr_index <= 0xc0011fff; msr_index++) {
 		if (msr_index == 0xC0010131 /* MSR_SEV_STATUS */) {
@@ -340,11 +341,13 @@ static void test_msr_intercept(struct svm_test *test)
 
 		test->scratch = -1;
 
-		rdmsr(msr_index);
-
-		/* Check that a read intercept occurred for MSR at msr_index */
-		if (test->scratch != msr_index)
-			report_fail("MSR 0x%lx read intercept", msr_index);
+		vector = rdmsr_safe(msr_index, &ignored);
+		if (vector)
+			report_fail("Expected RDMSR(0x%lx) to #VMEXIT, got exception '%u'",
+				    msr_index, vector);
+		else if (test->scratch != msr_index)
+			report_fail("Expected RDMSR(0x%lx) to #VMEXIT, got scratch '%ld",
+				    msr_index, test->scratch);
 
 		/*
 		 * Poor man approach to generate a value that
@@ -352,11 +355,13 @@ static void test_msr_intercept(struct svm_test *test)
 		 */
 		msr_value += (msr_value << 1);
 
-		wrmsr(msr_index, msr_value);
-
-		/* Check that a write intercept occurred for MSR with msr_value */
-		if (test->scratch != msr_value)
-			report_fail("MSR 0x%lx write intercept", msr_index);
+		vector = wrmsr_safe(msr_index, msr_value);
+		if (vector)
+			report_fail("Expected WRMSR(0x%0lx) to #VMEXIT, got exception '%u'",
+				    msr_index, vector);
+		else if (test->scratch != msr_value)
+			report_fail("Expected WRMSR(0x%lx) to #VMEXIT, got scratch '%ld' (wanted %ld)",
+				    msr_index, test->scratch, msr_value);
 	}
 
 	test->scratch = -2;
@@ -365,41 +370,13 @@ static void test_msr_intercept(struct svm_test *test)
 static bool msr_intercept_finished(struct svm_test *test)
 {
 	u32 exit_code = vmcb->control.exit_code;
-	u64 exit_info_1;
-	u8 *opcode;
 
-	if (exit_code == SVM_EXIT_MSR) {
-		exit_info_1 = vmcb->control.exit_info_1;
-	} else {
-		/*
-		 * If #GP exception occurs instead, check that it was
-		 * for RDMSR/WRMSR and set exit_info_1 accordingly.
-		 */
+	if (exit_code == SVM_EXIT_VMMCALL)
+		return true;
 
-		if (exit_code != (SVM_EXIT_EXCP_BASE + GP_VECTOR))
-			return true;
-
-		opcode = (u8 *)vmcb->save.rip;
-		if (opcode[0] != 0x0f)
-			return true;
-
-		switch (opcode[1]) {
-		case 0x30: /* WRMSR */
-			exit_info_1 = 1;
-			break;
-		case 0x32: /* RDMSR */
-			exit_info_1 = 0;
-			break;
-		default:
-			return true;
-		}
-
-		/*
-		 * Warn that #GP exception occurred instead.
-		 * RCX holds the MSR index.
-		 */
-		printf("%s 0x%lx #GP exception\n",
-		       exit_info_1 ? "WRMSR" : "RDMSR", get_regs().rcx);
+	if (exit_code != SVM_EXIT_MSR) {
+		report_fail("Wanted MSR VM-Exit, got reason 0x%x", exit_code);
+		return true;
 	}
 
 	/* Jump over RDMSR/WRMSR instruction */
@@ -413,9 +390,8 @@ static bool msr_intercept_finished(struct svm_test *test)
 	 *      RDX holds the upper 32 bits of the MSR value,
 	 *      while RAX hold its lower 32 bits.
 	 */
-	if (exit_info_1)
-		test->scratch =
-			((get_regs().rdx << 32) | (vmcb->save.rax & 0xffffffff));
+	if (vmcb->control.exit_info_1)
+		test->scratch = ((get_regs().rdx << 32) | (vmcb->save.rax & 0xffffffff));
 	else
 		test->scratch = get_regs().rcx;
 
@@ -3065,7 +3041,7 @@ static void svm_intr_intercept_mix_run_guest(volatile int *counter, int expected
 		*counter = 0;
 
 	sti();  // host IF value should not matter
-	clgi(); // vmrun will set back GI to 1
+	clgi(); // vmrun will set back GIF to 1
 
 	svm_vmrun();
 
@@ -3077,7 +3053,9 @@ static void svm_intr_intercept_mix_run_guest(volatile int *counter, int expected
 	if (counter)
 		report(*counter == 1, "Interrupt is expected");
 
-	report (vmcb->control.exit_code == expected_vmexit, "Test expected VM exit");
+	report(vmcb->control.exit_code == expected_vmexit,
+	       "Wanted VM-Exit reason 0x%x, got 0x%x",
+	       expected_vmexit, vmcb->control.exit_code);
 	report(vmcb->save.rflags & X86_EFLAGS_IF, "Guest should have EFLAGS.IF set now");
 	cli();
 }
