@@ -308,12 +308,16 @@ static bool check_next_rip(struct svm_test *test)
 
 extern u8 *msr_bitmap;
 
+static bool is_x2apic;
+
 static void prepare_msr_intercept(struct svm_test *test)
 {
 	default_prepare(test);
 	vmcb->control.intercept |= (1ULL << INTERCEPT_MSR_PROT);
 
 	memset(msr_bitmap, 0, MSR_BITMAP_SIZE);
+
+	is_x2apic = is_x2apic_enabled();
 }
 
 #define SVM_MSRPM_BYTES_PER_RANGE 2048
@@ -404,6 +408,37 @@ static void __test_msr_intercept(struct svm_test *test)
 
 		test->scratch = BIT_ULL(33) | msr;
 		vmmcall();
+
+		if (get_msrpm_bit_nr(msr) < 0) {
+			report(msr == 0x2000 ||
+			       msr == 0xc0000000 - 1 || msr == 0xc0002000 ||
+			       msr == 0xc0010000 - 1 || msr == 0xc0012000,
+			       "MSR 0x%x not covered by an MSRPM range", msr);
+			continue;
+		}
+
+		/*
+		 * Verify that disabling interception for MSRs within an MSRPM
+		 * range behaves as expected.  Simply eat exceptions, the goal
+		 * is to verify interception, not MSR emulation/virtualization.
+		 */
+		test->scratch = -1;
+		(void)rdmsr_safe(msr, &val);
+		if (test->scratch != -1)
+			report_fail("RDMSR 0x%x, Wanted -1 (no intercept), got 0x%lx",
+				    msr, test->scratch);
+
+		test->scratch = BIT_ULL(34) | msr;
+		vmmcall();
+
+		test->scratch = -1;
+		(void)wrmsr_safe(msr, val);
+		if (test->scratch != -1)
+			report_fail("WRMSR 0x%x, Wanted -1 (no intercept), got 0x%lx",
+				    msr, test->scratch);
+
+		test->scratch = BIT_ULL(35) | msr;
+		vmmcall();
 	}
 }
 
@@ -434,6 +469,8 @@ static bool msr_intercept_finished(struct svm_test *test)
 	int bit_nr;
 
 	if (exit_code == SVM_EXIT_VMMCALL) {
+		u32 msr = test->scratch & -1u;
+
 		vmcb->save.rip += 3;
 
 		if (test->scratch == -3)
@@ -445,7 +482,7 @@ static bool msr_intercept_finished(struct svm_test *test)
 			return false;
 		}
 	
-		bit_nr = get_msrpm_bit_nr(test->scratch & -1u);
+		bit_nr = get_msrpm_bit_nr(msr);
 		if (bit_nr < 0)
 			return false;
 
@@ -459,6 +496,22 @@ static bool msr_intercept_finished(struct svm_test *test)
 			return false;
 		case 2:
 			restore_msrpm_bit(bit_nr + 1, all_set);
+			__clear_bit(bit_nr, msr_bitmap);
+			return false;
+		case 4:
+			restore_msrpm_bit(bit_nr, all_set);
+			__clear_bit(bit_nr + 1, msr_bitmap);
+			/*
+			 * Disable x2APIC so that WRMSR faults instead of doing
+			 * random things, e.g. sending IPIs.
+			 */
+			if (is_x2apic && msr >= 0x800 && msr <= 0x8ff)
+				reset_apic();
+			return false;
+		case 8:
+			restore_msrpm_bit(bit_nr + 1, all_set);
+			if (is_x2apic && msr >= 0x800 && msr <= 0x8ff)
+				enable_x2apic();
 			return false;
 		default:
 			return true;
