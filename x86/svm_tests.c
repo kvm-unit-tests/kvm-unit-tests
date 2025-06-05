@@ -312,12 +312,41 @@ static void prepare_msr_intercept(struct svm_test *test)
 {
 	default_prepare(test);
 	vmcb->control.intercept |= (1ULL << INTERCEPT_MSR_PROT);
-	memset(msr_bitmap, 0xff, MSR_BITMAP_SIZE);
+
+	memset(msr_bitmap, 0, MSR_BITMAP_SIZE);
 }
 
-static void test_msr_intercept(struct svm_test *test)
+#define SVM_MSRPM_BYTES_PER_RANGE 2048
+#define SVM_BITS_PER_MSR 2
+#define SVM_MSRS_PER_BYTE 4
+#define SVM_MSRS_PER_RANGE 8192
+#define SVM_MSRPM_OFFSET_MASK (SVM_MSRS_PER_RANGE - 1)
+
+static int get_msrpm_bit_nr(u32 msr)
 {
-	u64 ignored, arb_val = 0xef8056791234abcd; /* Arbitrary value */
+	int range_nr;
+
+	switch (msr & ~SVM_MSRPM_OFFSET_MASK) {
+	case 0:
+		range_nr = 0;
+		break;
+	case 0xc0000000:
+		range_nr = 1;
+		break;
+	case 0xc0010000:
+		range_nr = 2;
+		break;
+	default:
+		return - 1;
+	}
+
+	return range_nr * SVM_MSRPM_BYTES_PER_RANGE * BITS_PER_BYTE +
+	       (msr & SVM_MSRPM_OFFSET_MASK) * SVM_BITS_PER_MSR;
+}
+
+static void __test_msr_intercept(struct svm_test *test)
+{
+	u64 val, arb_val = 0xef8056791234abcd; /* Arbitrary value */
 	int vector;
 	u32 msr;
 
@@ -341,9 +370,12 @@ static void test_msr_intercept(struct svm_test *test)
 		else if (msr == 0xc0002000 + 1)
 			msr = 0xc0010000 - 1;
 
+		test->scratch = msr;
+		vmmcall();
+
 		test->scratch = -1;
 
-		vector = rdmsr_safe(msr, &ignored);
+		vector = rdmsr_safe(msr, &val);
 		if (vector)
 			report_fail("Expected RDMSR(0x%x) to #VMEXIT, got exception '%u'",
 				    msr, vector);
@@ -351,11 +383,16 @@ static void test_msr_intercept(struct svm_test *test)
 			report_fail("Expected RDMSR(0x%x) to #VMEXIT, got scratch '%ld",
 				    msr, test->scratch);
 
+		test->scratch = BIT_ULL(32) | msr;
+		vmmcall();
+
 		/*
 		 * Poor man approach to generate a value that
 		 * seems arbitrary each time around the loop.
 		 */
 		arb_val += (arb_val << 1);
+
+		test->scratch = -1;
 
 		vector = wrmsr_safe(msr, arb_val);
 		if (vector)
@@ -364,17 +401,69 @@ static void test_msr_intercept(struct svm_test *test)
 		else if (test->scratch != arb_val)
 			report_fail("Expected WRMSR(0x%x) to #VMEXIT, got scratch '%ld' (wanted %ld)",
 				    msr, test->scratch, arb_val);
+
+		test->scratch = BIT_ULL(33) | msr;
+		vmmcall();
 	}
+}
+
+static void test_msr_intercept(struct svm_test *test)
+{
+	__test_msr_intercept(test);
 
 	test->scratch = -2;
+	vmmcall();
+
+	__test_msr_intercept(test);
+
+	test->scratch = -3;
+}
+
+static void restore_msrpm_bit(int bit_nr, bool set)
+{
+	if (set)
+		__set_bit(bit_nr, msr_bitmap);
+	else
+		__clear_bit(bit_nr, msr_bitmap);
 }
 
 static bool msr_intercept_finished(struct svm_test *test)
 {
 	u32 exit_code = vmcb->control.exit_code;
+	bool all_set = false;
+	int bit_nr;
 
-	if (exit_code == SVM_EXIT_VMMCALL)
-		return true;
+	if (exit_code == SVM_EXIT_VMMCALL) {
+		vmcb->save.rip += 3;
+
+		if (test->scratch == -3)
+			return true;
+
+		if (test->scratch == -2) {
+			all_set = true;
+			memset(msr_bitmap, 0xff, MSR_BITMAP_SIZE);
+			return false;
+		}
+	
+		bit_nr = get_msrpm_bit_nr(test->scratch & -1u);
+		if (bit_nr < 0)
+			return false;
+
+		switch (test->scratch >> 32) {
+		case 0:
+			__set_bit(bit_nr, msr_bitmap);
+			return false;
+		case 1:
+			restore_msrpm_bit(bit_nr, all_set);
+			__set_bit(bit_nr + 1, msr_bitmap);
+			return false;
+		case 2:
+			restore_msrpm_bit(bit_nr + 1, all_set);
+			return false;
+		default:
+			return true;
+		}
+	}
 
 	if (exit_code != SVM_EXIT_MSR) {
 		report_fail("Wanted MSR VM-Exit, got reason 0x%x", exit_code);
@@ -402,8 +491,7 @@ static bool msr_intercept_finished(struct svm_test *test)
 
 static bool check_msr_intercept(struct svm_test *test)
 {
-	memset(msr_bitmap, 0, MSR_BITMAP_SIZE);
-	return (test->scratch == -2);
+	return (test->scratch == -3);
 }
 
 static void prepare_mode_switch(struct svm_test *test)
