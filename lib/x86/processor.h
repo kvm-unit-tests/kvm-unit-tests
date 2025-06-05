@@ -914,18 +914,6 @@ static inline bool is_canonical(u64 addr)
 	return (s64)(addr << shift_amt) >> shift_amt == addr;
 }
 
-static inline void clear_bit(int bit, u8 *addr)
-{
-	__asm__ __volatile__("lock; btr %1, %0"
-			     : "+m" (*addr) : "Ir" (bit) : "cc", "memory");
-}
-
-static inline void set_bit(int bit, u8 *addr)
-{
-	__asm__ __volatile__("lock; bts %1, %0"
-			     : "+m" (*addr) : "Ir" (bit) : "cc", "memory");
-}
-
 static inline void flush_tlb(void)
 {
 	ulong cr4;
