@@ -350,7 +350,7 @@ static int get_msrpm_bit_nr(u32 msr)
 
 static void __test_msr_intercept(struct svm_test *test)
 {
-	u64 val, arb_val = 0xef8056791234abcd; /* Arbitrary value */
+	u64 val, exp, arb_val = 0xef8056791234abcd; /* Arbitrary value */
 	int vector;
 	u32 msr;
 
@@ -417,6 +417,8 @@ static void __test_msr_intercept(struct svm_test *test)
 			continue;
 		}
 
+		exp = test->scratch;
+
 		/*
 		 * Verify that disabling interception for MSRs within an MSRPM
 		 * range behaves as expected.  Simply eat exceptions, the goal
@@ -427,6 +429,14 @@ static void __test_msr_intercept(struct svm_test *test)
 		if (test->scratch != -1)
 			report_fail("RDMSR 0x%x, Wanted -1 (no intercept), got 0x%lx",
 				    msr, test->scratch);
+
+		/*
+		 * Verify L1 and L2 see the same MSR value.  Skip TSC to avoid
+		 * false failures, as it's constantly changing.
+		 */
+		if (val != exp && msr != MSR_IA32_TSC)
+			report_fail("RDMSR 0x%x, wanted val '0%lx', got val '0x%lx'",
+				    msr, exp, val);
 
 		test->scratch = BIT_ULL(34) | msr;
 		vmmcall();
@@ -497,6 +507,7 @@ static bool msr_intercept_finished(struct svm_test *test)
 		case 2:
 			restore_msrpm_bit(bit_nr + 1, all_set);
 			__clear_bit(bit_nr, msr_bitmap);
+			(void)rdmsr_safe(msr, &test->scratch);
 			return false;
 		case 4:
 			restore_msrpm_bit(bit_nr, all_set);
