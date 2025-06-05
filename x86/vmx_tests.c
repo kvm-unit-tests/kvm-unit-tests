@@ -11123,8 +11123,8 @@ static void vmx_posted_interrupts_test_worker(void *data)
 	while (!args->in_guest)
 		pause();
 
-	test_and_set_bit(args->nr, args->pi_desc);
-	test_and_set_bit(256, args->pi_desc);
+	set_bit(args->nr, args->pi_desc);
+	set_bit(256, args->pi_desc);
 	apic_icr_write(PI_VECTOR, args->dest);
 }
 
