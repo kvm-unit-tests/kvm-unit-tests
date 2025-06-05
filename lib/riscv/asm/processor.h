@@ -7,6 +7,8 @@
 #define EXCEPTION_CAUSE_MAX	24
 #define INTERRUPT_CAUSE_MAX	16
 
+#define RV_INSN_LEN(insn)		((((insn) & 0x3) < 0x3) ? 2 : 4)
+
 typedef void (*exception_fn)(struct pt_regs *);
 
 struct thread_info {
