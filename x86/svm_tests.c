@@ -317,13 +317,12 @@ static void prepare_msr_intercept(struct svm_test *test)
 
 static void test_msr_intercept(struct svm_test *test)
 {
-	unsigned long msr_value = 0xef8056791234abcd; /* Arbitrary value */
-	unsigned long msr_index;
-	u64 ignored;
+	u64 ignored, arb_val = 0xef8056791234abcd; /* Arbitrary value */
 	int vector;
+	u32 msr;
 
-	for (msr_index = 0; msr_index <= 0xc0012000; msr_index++) {
-		if (msr_index == 0xC0010131 /* MSR_SEV_STATUS */) {
+	for (msr = 0; msr <= 0xc0012000; msr++) {
+		if (msr == 0xC0010131 /* MSR_SEV_STATUS */) {
 			/*
 			 * Per section 15.34.10 "SEV_STATUS MSR" of AMD64 Architecture
 			 * Programmer's Manual volume 2 - System Programming:
@@ -337,34 +336,34 @@ static void test_msr_intercept(struct svm_test *test)
 		 * Test one MSR just before and after each range, but otherwise
 		 * skips gaps between supported MSR ranges.
 		 */
-		if (msr_index == 0x2000 + 1)
-			msr_index = 0xc0000000 - 1;
-		else if (msr_index == 0xc0002000 + 1)
-			msr_index = 0xc0010000 - 1;
+		if (msr == 0x2000 + 1)
+			msr = 0xc0000000 - 1;
+		else if (msr == 0xc0002000 + 1)
+			msr = 0xc0010000 - 1;
 
 		test->scratch = -1;
 
-		vector = rdmsr_safe(msr_index, &ignored);
+		vector = rdmsr_safe(msr, &ignored);
 		if (vector)
-			report_fail("Expected RDMSR(0x%lx) to #VMEXIT, got exception '%u'",
-				    msr_index, vector);
-		else if (test->scratch != msr_index)
-			report_fail("Expected RDMSR(0x%lx) to #VMEXIT, got scratch '%ld",
-				    msr_index, test->scratch);
+			report_fail("Expected RDMSR(0x%x) to #VMEXIT, got exception '%u'",
+				    msr, vector);
+		else if (test->scratch != msr)
+			report_fail("Expected RDMSR(0x%x) to #VMEXIT, got scratch '%ld",
+				    msr, test->scratch);
 
 		/*
 		 * Poor man approach to generate a value that
 		 * seems arbitrary each time around the loop.
 		 */
-		msr_value += (msr_value << 1);
+		arb_val += (arb_val << 1);
 
-		vector = wrmsr_safe(msr_index, msr_value);
+		vector = wrmsr_safe(msr, arb_val);
 		if (vector)
-			report_fail("Expected WRMSR(0x%0lx) to #VMEXIT, got exception '%u'",
-				    msr_index, vector);
-		else if (test->scratch != msr_value)
-			report_fail("Expected WRMSR(0x%lx) to #VMEXIT, got scratch '%ld' (wanted %ld)",
-				    msr_index, test->scratch, msr_value);
+			report_fail("Expected WRMSR(0x%x) to #VMEXIT, got exception '%u'",
+				    msr, vector);
+		else if (test->scratch != arb_val)
+			report_fail("Expected WRMSR(0x%x) to #VMEXIT, got scratch '%ld' (wanted %ld)",
+				    msr, test->scratch, arb_val);
 	}
 
 	test->scratch = -2;
