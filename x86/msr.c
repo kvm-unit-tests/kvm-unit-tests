@@ -296,7 +296,8 @@ static void test_cmd_msrs(void)
 
 	test_rdmsr_fault(MSR_IA32_PRED_CMD, "PRED_CMD");
 	if (this_cpu_has(X86_FEATURE_SPEC_CTRL) ||
-	    this_cpu_has(X86_FEATURE_AMD_IBPB)) {
+	    this_cpu_has(X86_FEATURE_AMD_IBPB) ||
+	    this_cpu_has(X86_FEATURE_SBPB)) {
 		test_wrmsr(MSR_IA32_PRED_CMD, "PRED_CMD", 0);
 		test_wrmsr(MSR_IA32_PRED_CMD, "PRED_CMD", PRED_CMD_IBPB);
 	} else {
