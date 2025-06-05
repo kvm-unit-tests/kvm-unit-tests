@@ -32,8 +32,12 @@
 #define EFER_FFXSR		(1<<_EFER_FFXSR)
 
 /* Intel MSRs. Some also available on other CPUs */
-#define MSR_IA32_SPEC_CTRL              0x00000048
-#define MSR_IA32_PRED_CMD               0x00000049
+#define MSR_IA32_SPEC_CTRL		0x00000048
+#define SPEC_CTRL_IBRS			BIT(0)
+#define SPEC_CTRL_STIBP			BIT(1)
+#define SPEC_CTRL_SSBD			BIT(2)
+
+#define MSR_IA32_PRED_CMD		0x00000049
 #define PRED_CMD_IBPB			BIT(0)
 
 #define MSR_IA32_FLUSH_CMD		0x0000010b
