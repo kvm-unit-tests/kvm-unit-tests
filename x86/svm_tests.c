@@ -322,7 +322,7 @@ static void test_msr_intercept(struct svm_test *test)
 	u64 ignored;
 	int vector;
 
-	for (msr_index = 0; msr_index <= 0xc0011fff; msr_index++) {
+	for (msr_index = 0; msr_index <= 0xc0012000; msr_index++) {
 		if (msr_index == 0xC0010131 /* MSR_SEV_STATUS */) {
 			/*
 			 * Per section 15.34.10 "SEV_STATUS MSR" of AMD64 Architecture
@@ -333,11 +333,14 @@ static void test_msr_intercept(struct svm_test *test)
 			continue;
 		}
 
-		/* Skips gaps between supported MSR ranges */
-		if (msr_index == 0x2000)
-			msr_index = 0xc0000000;
-		else if (msr_index == 0xc0002000)
-			msr_index = 0xc0010000;
+		/*
+		 * Test one MSR just before and after each range, but otherwise
+		 * skips gaps between supported MSR ranges.
+		 */
+		if (msr_index == 0x2000 + 1)
+			msr_index = 0xc0000000 - 1;
+		else if (msr_index == 0xc0002000 + 1)
+			msr_index = 0xc0010000 - 1;
 
 		test->scratch = -1;
 
