@@ -442,6 +442,15 @@ static inline u8 cpuid_maxphyaddr(void)
 	return this_cpu_property(X86_PROPERTY_MAX_PHY_ADDR);
 }
 
+static inline u64 this_cpu_supported_xcr0(void)
+{
+	if (!this_cpu_has_p(X86_PROPERTY_SUPPORTED_XCR0_LO))
+		return 0;
+
+	return (u64)this_cpu_property(X86_PROPERTY_SUPPORTED_XCR0_LO) |
+	       ((u64)this_cpu_property(X86_PROPERTY_SUPPORTED_XCR0_HI) << 32);
+}
+
 struct far_pointer32 {
 	u32 offset;
 	u16 selector;
