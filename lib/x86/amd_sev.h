@@ -21,12 +21,9 @@
 
 /*
  * AMD Programmer's Manual Volume 3
- *   - Section "Function 8000_0000h - Maximum Extended Function Number and Vendor String"
  *   - Section "Function 8000_001Fh - Encrypted Memory Capabilities"
  */
-#define CPUID_FN_LARGEST_EXT_FUNC_NUM 0x80000000
 #define CPUID_FN_ENCRYPT_MEM_CAPAB    0x8000001f
-#define SEV_SUPPORT_MASK              0b10
 
 /*
  * AMD Programmer's Manual Volume 2
