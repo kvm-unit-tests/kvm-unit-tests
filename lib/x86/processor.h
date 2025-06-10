@@ -1022,9 +1022,14 @@ static inline void write_pkru(u32 pkru)
 
 static inline bool is_canonical(u64 addr)
 {
-	int va_width = (raw_cpuid(0x80000008, 0).a & 0xff00) >> 8;
-	int shift_amt = 64 - va_width;
+	int va_width, shift_amt;
 
+	if (this_cpu_has_p(X86_PROPERTY_MAX_VIRT_ADDR))
+		va_width = this_cpu_property(X86_PROPERTY_MAX_VIRT_ADDR);
+	else
+		va_width = 48;
+
+	shift_amt = 64 - va_width;
 	return (s64)(addr << shift_amt) >> shift_amt == addr;
 }
 
