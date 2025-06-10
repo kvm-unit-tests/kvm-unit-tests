@@ -19,15 +19,6 @@
 
 static char st1[] = "abcdefghijklmnop";
 
-static void test_sev_es_activation(void)
-{
-	if (rdmsr(MSR_SEV_STATUS) & SEV_ES_ENABLED_MASK) {
-		printf("SEV-ES is enabled.\n");
-	} else {
-		printf("SEV-ES is not enabled.\n");
-	}
-}
-
 static void test_stringio(void)
 {
 	int st1_len = sizeof(st1) - 1;
@@ -52,7 +43,8 @@ int main(void)
 		goto out;
 	}
 
-	test_sev_es_activation();
+	printf("SEV-ES is %senabled.\n", amd_sev_es_enabled() ? "" : "not ");
+
 	test_stringio();
 
 out:
