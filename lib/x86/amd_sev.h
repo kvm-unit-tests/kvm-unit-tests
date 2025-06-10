@@ -20,12 +20,6 @@
 #include "efi.h"
 
 /*
- * AMD Programmer's Manual Volume 3
- *   - Section "Function 8000_001Fh - Encrypted Memory Capabilities"
- */
-#define CPUID_FN_ENCRYPT_MEM_CAPAB    0x8000001f
-
-/*
  * AMD Programmer's Manual Volume 2
  *   - Section "SEV_STATUS MSR"
  */
