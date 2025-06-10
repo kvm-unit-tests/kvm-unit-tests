@@ -7,21 +7,19 @@ void pmu_init(void)
 	pmu.is_intel = is_intel();
 
 	if (pmu.is_intel) {
-		struct cpuid cpuid_10 = cpuid(10);
-
-		pmu.version = cpuid_10.a & 0xff;
+		pmu.version = this_cpu_property(X86_PROPERTY_PMU_VERSION);
 
 		if (pmu.version > 1) {
-			pmu.nr_fixed_counters = cpuid_10.d & 0x1f;
-			pmu.fixed_counter_width = (cpuid_10.d >> 5) & 0xff;
+			pmu.nr_fixed_counters = this_cpu_property(X86_PROPERTY_PMU_NR_FIXED_COUNTERS);
+			pmu.fixed_counter_width = this_cpu_property(X86_PROPERTY_PMU_FIXED_COUNTERS_BIT_WIDTH);
 		}
 
-		pmu.nr_gp_counters = (cpuid_10.a >> 8) & 0xff;
-		pmu.gp_counter_width = (cpuid_10.a >> 16) & 0xff;
-		pmu.arch_event_mask_length = (cpuid_10.a >> 24) & 0xff;
+		pmu.nr_gp_counters = this_cpu_property(X86_PROPERTY_PMU_NR_GP_COUNTERS);
+		pmu.gp_counter_width = this_cpu_property(X86_PROPERTY_PMU_GP_COUNTERS_BIT_WIDTH);
+		pmu.arch_event_mask_length = this_cpu_property(X86_PROPERTY_PMU_EBX_BIT_VECTOR_LENGTH);
 
 		/* CPUID.0xA.EBX bit is '1' if an arch event is NOT available. */
-		pmu.arch_event_available = ~cpuid_10.b &
+		pmu.arch_event_available = ~this_cpu_property(X86_PROPERTY_PMU_EVENTS_MASK) &
 					   (BIT(pmu.arch_event_mask_length) - 1);
 
 		if (this_cpu_has(X86_FEATURE_PDCM))
@@ -39,7 +37,7 @@ void pmu_init(void)
 			/* Performance Monitoring Version 2 Supported */
 			if (this_cpu_has(X86_FEATURE_AMD_PMU_V2)) {
 				pmu.version = 2;
-				pmu.nr_gp_counters = cpuid(0x80000022).b & 0xf;
+				pmu.nr_gp_counters = this_cpu_property(X86_PROPERTY_NR_PERFCTR_CORE);
 			} else {
 				pmu.nr_gp_counters = AMD64_NUM_COUNTERS_CORE;
 			}
