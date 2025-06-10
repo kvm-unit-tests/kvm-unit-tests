@@ -436,7 +436,7 @@ static void check_gp_counters(void)
 	int i;
 
 	for (i = 0; i < gp_events_size; i++)
-		if (pmu_gp_counter_is_available(i))
+		if (pmu_arch_event_is_available(i))
 			check_gp_counter(&gp_events[i]);
 		else
 			printf("GP event '%s' is disabled\n",
@@ -463,7 +463,7 @@ static void check_counters_many(void)
 	int i, n;
 
 	for (i = 0, n = 0; n < pmu.nr_gp_counters; i++) {
-		if (!pmu_gp_counter_is_available(i))
+		if (!pmu_arch_event_is_available(i))
 			continue;
 
 		cnt[n].ctr = MSR_GP_COUNTERx(n);
@@ -902,7 +902,7 @@ static void set_ref_cycle_expectations(void)
 	uint64_t t0, t1, t2, t3;
 
 	/* Bit 2 enumerates the availability of reference cycles events. */
-	if (!pmu.nr_gp_counters || !pmu_gp_counter_is_available(2))
+	if (!pmu.nr_gp_counters || !pmu_arch_event_is_available(2))
 		return;
 
 	t0 = fenced_rdtsc();
@@ -992,7 +992,7 @@ int main(int ac, char **av)
 	printf("PMU version:         %d\n", pmu.version);
 	printf("GP counters:         %d\n", pmu.nr_gp_counters);
 	printf("GP counter width:    %d\n", pmu.gp_counter_width);
-	printf("Mask length:         %d\n", pmu.gp_counter_mask_length);
+	printf("Event Mask length:   %d\n", pmu.arch_event_mask_length);
 	printf("Fixed counters:      %d\n", pmu.nr_fixed_counters);
 	printf("Fixed counter width: %d\n", pmu.fixed_counter_width);
 

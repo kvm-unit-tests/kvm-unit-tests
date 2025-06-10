@@ -18,10 +18,10 @@ void pmu_init(void)
 
 		pmu.nr_gp_counters = (cpuid_10.a >> 8) & 0xff;
 		pmu.gp_counter_width = (cpuid_10.a >> 16) & 0xff;
-		pmu.gp_counter_mask_length = (cpuid_10.a >> 24) & 0xff;
+		pmu.arch_event_mask_length = (cpuid_10.a >> 24) & 0xff;
 
-		/* CPUID.0xA.EBX bit is '1' if a counter is NOT available. */
-		pmu.gp_counter_available = ~cpuid_10.b;
+		/* CPUID.0xA.EBX bit is '1' if an arch event is NOT available. */
+		pmu.arch_event_available = ~cpuid_10.b;
 
 		if (this_cpu_has(X86_FEATURE_PDCM))
 			pmu.perf_cap = rdmsr(MSR_IA32_PERF_CAPABILITIES);
@@ -50,8 +50,8 @@ void pmu_init(void)
 			pmu.msr_gp_event_select_base = MSR_K7_EVNTSEL0;
 		}
 		pmu.gp_counter_width = PMC_DEFAULT_WIDTH;
-		pmu.gp_counter_mask_length = pmu.nr_gp_counters;
-		pmu.gp_counter_available = (1u << pmu.nr_gp_counters) - 1;
+		pmu.arch_event_mask_length = 32;
+		pmu.arch_event_available = -1u;
 
 		if (this_cpu_has_perf_global_status()) {
 			pmu.msr_global_status = MSR_AMD64_PERF_CNTR_GLOBAL_STATUS;
