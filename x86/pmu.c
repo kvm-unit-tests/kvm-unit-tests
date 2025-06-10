@@ -993,6 +993,7 @@ int main(int ac, char **av)
 	printf("GP counters:         %d\n", pmu.nr_gp_counters);
 	printf("GP counter width:    %d\n", pmu.gp_counter_width);
 	printf("Event Mask length:   %d\n", pmu.arch_event_mask_length);
+	printf("Arch Events (mask):  0x%x\n", pmu.arch_event_available);
 	printf("Fixed counters:      %d\n", pmu.nr_fixed_counters);
 	printf("Fixed counter width: %d\n", pmu.fixed_counter_width);
 

@@ -21,7 +21,8 @@ void pmu_init(void)
 		pmu.arch_event_mask_length = (cpuid_10.a >> 24) & 0xff;
 
 		/* CPUID.0xA.EBX bit is '1' if an arch event is NOT available. */
-		pmu.arch_event_available = ~cpuid_10.b;
+		pmu.arch_event_available = ~cpuid_10.b &
+					   (BIT(pmu.arch_event_mask_length) - 1);
 
 		if (this_cpu_has(X86_FEATURE_PDCM))
 			pmu.perf_cap = rdmsr(MSR_IA32_PERF_CAPABILITIES);
