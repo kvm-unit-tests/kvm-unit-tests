@@ -41,12 +41,6 @@ efi_status_t setup_amd_sev(void);
 
 /*
  * AMD Programmer's Manual Volume 2
- *   - Section "#VC Exception"
- */
-#define SEV_ES_VC_HANDLER_VECTOR 29
-
-/*
- * AMD Programmer's Manual Volume 2
  *   - Section "GHCB"
  */
 #define SEV_ES_GHCB_MSR_INDEX 0xc0010130
