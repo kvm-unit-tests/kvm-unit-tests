@@ -6,6 +6,7 @@
 #include "msr.h"
 #include <bitops.h>
 #include <stdint.h>
+#include <util.h>
 
 #define CANONICAL_48_VAL 0xffffaaaaaaaaaaaaull
 #define CANONICAL_57_VAL 0xffaaaaaaaaaaaaaaull
@@ -232,100 +233,118 @@ static inline bool is_intel(void)
 	return strcmp((char *)name, "GenuineIntel") == 0;
 }
 
-#define	CPUID(a, b, c, d) ((((unsigned long long) a) << 32) | (b << 16) | \
-			  (c << 8) | d)
-
 /*
- * Each X86_FEATURE_XXX definition is 64-bit and contains the following
- * CPUID meta-data:
- *
- * 	[63:32] :  input value for EAX
- * 	[31:16] :  input value for ECX
- * 	[15:8]  :  output register
- * 	[7:0]   :  bit position in output register
+ * Pack the information into a 64-bit value so that each X86_FEATURE_XXX can be
+ * passed by value with no overhead.
  */
+struct x86_cpu_feature {
+	u32	function;
+	u16	index;
+	u8	reg;
+	u8	bit;
+};
+
+#define X86_CPU_FEATURE(fn, idx, gpr, __bit)					\
+({										\
+	struct x86_cpu_feature feature = {					\
+		.function = fn,							\
+		.index = idx,							\
+		.reg = gpr,							\
+		.bit = __bit,							\
+	};									\
+										\
+	static_assert((fn & 0xc0000000) == 0 ||					\
+		      (fn & 0xc0000000) == 0x40000000 ||			\
+		      (fn & 0xc0000000) == 0x80000000 ||			\
+		      (fn & 0xc0000000) == 0xc0000000);				\
+	static_assert(idx < BIT(sizeof(feature.index) * BITS_PER_BYTE));	\
+	feature;								\
+})
 
 /*
  * Basic Leafs, a.k.a. Intel defined
  */
-#define	X86_FEATURE_MWAIT		(CPUID(0x1, 0, ECX, 3))
-#define	X86_FEATURE_VMX			(CPUID(0x1, 0, ECX, 5))
-#define	X86_FEATURE_PDCM		(CPUID(0x1, 0, ECX, 15))
-#define	X86_FEATURE_PCID		(CPUID(0x1, 0, ECX, 17))
-#define X86_FEATURE_X2APIC		(CPUID(0x1, 0, ECX, 21))
-#define	X86_FEATURE_MOVBE		(CPUID(0x1, 0, ECX, 22))
-#define	X86_FEATURE_TSC_DEADLINE_TIMER	(CPUID(0x1, 0, ECX, 24))
-#define	X86_FEATURE_XSAVE		(CPUID(0x1, 0, ECX, 26))
-#define	X86_FEATURE_OSXSAVE		(CPUID(0x1, 0, ECX, 27))
-#define	X86_FEATURE_RDRAND		(CPUID(0x1, 0, ECX, 30))
-#define	X86_FEATURE_MCE			(CPUID(0x1, 0, EDX, 7))
-#define	X86_FEATURE_APIC		(CPUID(0x1, 0, EDX, 9))
-#define	X86_FEATURE_CLFLUSH		(CPUID(0x1, 0, EDX, 19))
-#define	X86_FEATURE_DS			(CPUID(0x1, 0, EDX, 21))
-#define	X86_FEATURE_XMM			(CPUID(0x1, 0, EDX, 25))
-#define	X86_FEATURE_XMM2		(CPUID(0x1, 0, EDX, 26))
-#define	X86_FEATURE_TSC_ADJUST		(CPUID(0x7, 0, EBX, 1))
-#define	X86_FEATURE_HLE			(CPUID(0x7, 0, EBX, 4))
-#define	X86_FEATURE_SMEP		(CPUID(0x7, 0, EBX, 7))
-#define	X86_FEATURE_INVPCID		(CPUID(0x7, 0, EBX, 10))
-#define	X86_FEATURE_RTM			(CPUID(0x7, 0, EBX, 11))
-#define	X86_FEATURE_SMAP		(CPUID(0x7, 0, EBX, 20))
-#define	X86_FEATURE_PCOMMIT		(CPUID(0x7, 0, EBX, 22))
-#define	X86_FEATURE_CLFLUSHOPT		(CPUID(0x7, 0, EBX, 23))
-#define	X86_FEATURE_CLWB		(CPUID(0x7, 0, EBX, 24))
-#define X86_FEATURE_INTEL_PT		(CPUID(0x7, 0, EBX, 25))
-#define	X86_FEATURE_UMIP		(CPUID(0x7, 0, ECX, 2))
-#define	X86_FEATURE_PKU			(CPUID(0x7, 0, ECX, 3))
-#define	X86_FEATURE_LA57		(CPUID(0x7, 0, ECX, 16))
-#define	X86_FEATURE_RDPID		(CPUID(0x7, 0, ECX, 22))
-#define	X86_FEATURE_SHSTK		(CPUID(0x7, 0, ECX, 7))
-#define	X86_FEATURE_IBT			(CPUID(0x7, 0, EDX, 20))
-#define	X86_FEATURE_SPEC_CTRL		(CPUID(0x7, 0, EDX, 26))
-#define	X86_FEATURE_FLUSH_L1D		(CPUID(0x7, 0, EDX, 28))
-#define	X86_FEATURE_ARCH_CAPABILITIES	(CPUID(0x7, 0, EDX, 29))
-#define	X86_FEATURE_PKS			(CPUID(0x7, 0, ECX, 31))
-#define	X86_FEATURE_LAM			(CPUID(0x7, 1, EAX, 26))
+#define X86_FEATURE_MWAIT		X86_CPU_FEATURE(0x1, 0, ECX, 3)
+#define X86_FEATURE_VMX			X86_CPU_FEATURE(0x1, 0, ECX, 5)
+#define X86_FEATURE_PDCM		X86_CPU_FEATURE(0x1, 0, ECX, 15)
+#define X86_FEATURE_PCID		X86_CPU_FEATURE(0x1, 0, ECX, 17)
+#define X86_FEATURE_X2APIC		X86_CPU_FEATURE(0x1, 0, ECX, 21)
+#define X86_FEATURE_MOVBE		X86_CPU_FEATURE(0x1, 0, ECX, 22)
+#define X86_FEATURE_TSC_DEADLINE_TIMER	X86_CPU_FEATURE(0x1, 0, ECX, 24)
+#define X86_FEATURE_XSAVE		X86_CPU_FEATURE(0x1, 0, ECX, 26)
+#define X86_FEATURE_OSXSAVE		X86_CPU_FEATURE(0x1, 0, ECX, 27)
+#define X86_FEATURE_RDRAND		X86_CPU_FEATURE(0x1, 0, ECX, 30)
+#define X86_FEATURE_MCE			X86_CPU_FEATURE(0x1, 0, EDX, 7)
+#define X86_FEATURE_APIC		X86_CPU_FEATURE(0x1, 0, EDX, 9)
+#define X86_FEATURE_CLFLUSH		X86_CPU_FEATURE(0x1, 0, EDX, 19)
+#define X86_FEATURE_DS			X86_CPU_FEATURE(0x1, 0, EDX, 21)
+#define X86_FEATURE_XMM			X86_CPU_FEATURE(0x1, 0, EDX, 25)
+#define X86_FEATURE_XMM2		X86_CPU_FEATURE(0x1, 0, EDX, 26)
+#define X86_FEATURE_TSC_ADJUST		X86_CPU_FEATURE(0x7, 0, EBX, 1)
+#define X86_FEATURE_HLE			X86_CPU_FEATURE(0x7, 0, EBX, 4)
+#define X86_FEATURE_SMEP		X86_CPU_FEATURE(0x7, 0, EBX, 7)
+#define X86_FEATURE_INVPCID		X86_CPU_FEATURE(0x7, 0, EBX, 10)
+#define X86_FEATURE_RTM			X86_CPU_FEATURE(0x7, 0, EBX, 11)
+#define X86_FEATURE_SMAP		X86_CPU_FEATURE(0x7, 0, EBX, 20)
+#define X86_FEATURE_PCOMMIT		X86_CPU_FEATURE(0x7, 0, EBX, 22)
+#define X86_FEATURE_CLFLUSHOPT		X86_CPU_FEATURE(0x7, 0, EBX, 23)
+#define X86_FEATURE_CLWB		X86_CPU_FEATURE(0x7, 0, EBX, 24)
+#define X86_FEATURE_INTEL_PT		X86_CPU_FEATURE(0x7, 0, EBX, 25)
+#define X86_FEATURE_UMIP		X86_CPU_FEATURE(0x7, 0, ECX, 2)
+#define X86_FEATURE_PKU			X86_CPU_FEATURE(0x7, 0, ECX, 3)
+#define X86_FEATURE_LA57		X86_CPU_FEATURE(0x7, 0, ECX, 16)
+#define X86_FEATURE_RDPID		X86_CPU_FEATURE(0x7, 0, ECX, 22)
+#define X86_FEATURE_SHSTK		X86_CPU_FEATURE(0x7, 0, ECX, 7)
+#define X86_FEATURE_IBT			X86_CPU_FEATURE(0x7, 0, EDX, 20)
+#define X86_FEATURE_SPEC_CTRL		X86_CPU_FEATURE(0x7, 0, EDX, 26)
+#define X86_FEATURE_FLUSH_L1D		X86_CPU_FEATURE(0x7, 0, EDX, 28)
+#define X86_FEATURE_ARCH_CAPABILITIES	X86_CPU_FEATURE(0x7, 0, EDX, 29)
+#define X86_FEATURE_PKS			X86_CPU_FEATURE(0x7, 0, ECX, 31)
+#define X86_FEATURE_LAM			X86_CPU_FEATURE(0x7, 1, EAX, 26)
 
 /*
  * KVM defined leafs
  */
-#define	KVM_FEATURE_ASYNC_PF		(CPUID(0x40000001, 0, EAX, 4))
-#define	KVM_FEATURE_ASYNC_PF_INT	(CPUID(0x40000001, 0, EAX, 14))
+#define KVM_FEATURE_ASYNC_PF		X86_CPU_FEATURE(0x40000001, 0, EAX, 4)
+#define KVM_FEATURE_ASYNC_PF_INT	X86_CPU_FEATURE(0x40000001, 0, EAX, 14)
 
 /*
  * Extended Leafs, a.k.a. AMD defined
  */
-#define	X86_FEATURE_SVM			(CPUID(0x80000001, 0, ECX, 2))
-#define	X86_FEATURE_PERFCTR_CORE	(CPUID(0x80000001, 0, ECX, 23))
-#define	X86_FEATURE_NX			(CPUID(0x80000001, 0, EDX, 20))
-#define	X86_FEATURE_GBPAGES		(CPUID(0x80000001, 0, EDX, 26))
-#define	X86_FEATURE_RDTSCP		(CPUID(0x80000001, 0, EDX, 27))
-#define	X86_FEATURE_LM			(CPUID(0x80000001, 0, EDX, 29))
-#define	X86_FEATURE_RDPRU		(CPUID(0x80000008, 0, EBX, 4))
-#define	X86_FEATURE_AMD_IBPB		(CPUID(0x80000008, 0, EBX, 12))
-#define	X86_FEATURE_NPT			(CPUID(0x8000000A, 0, EDX, 0))
-#define	X86_FEATURE_LBRV		(CPUID(0x8000000A, 0, EDX, 1))
-#define	X86_FEATURE_NRIPS		(CPUID(0x8000000A, 0, EDX, 3))
-#define X86_FEATURE_TSCRATEMSR		(CPUID(0x8000000A, 0, EDX, 4))
-#define X86_FEATURE_PAUSEFILTER		(CPUID(0x8000000A, 0, EDX, 10))
-#define X86_FEATURE_PFTHRESHOLD		(CPUID(0x8000000A, 0, EDX, 12))
-#define	X86_FEATURE_VGIF		(CPUID(0x8000000A, 0, EDX, 16))
-#define X86_FEATURE_VNMI		(CPUID(0x8000000A, 0, EDX, 25))
-#define	X86_FEATURE_AMD_PMU_V2		(CPUID(0x80000022, 0, EAX, 0))
+#define X86_FEATURE_SVM			X86_CPU_FEATURE(0x80000001, 0, ECX, 2)
+#define X86_FEATURE_PERFCTR_CORE	X86_CPU_FEATURE(0x80000001, 0, ECX, 23)
+#define X86_FEATURE_NX			X86_CPU_FEATURE(0x80000001, 0, EDX, 20)
+#define X86_FEATURE_GBPAGES		X86_CPU_FEATURE(0x80000001, 0, EDX, 26)
+#define X86_FEATURE_RDTSCP		X86_CPU_FEATURE(0x80000001, 0, EDX, 27)
+#define X86_FEATURE_LM			X86_CPU_FEATURE(0x80000001, 0, EDX, 29)
+#define X86_FEATURE_RDPRU		X86_CPU_FEATURE(0x80000008, 0, EBX, 4)
+#define X86_FEATURE_AMD_IBPB		X86_CPU_FEATURE(0x80000008, 0, EBX, 12)
+#define X86_FEATURE_NPT			X86_CPU_FEATURE(0x8000000A, 0, EDX, 0)
+#define X86_FEATURE_LBRV		X86_CPU_FEATURE(0x8000000A, 0, EDX, 1)
+#define X86_FEATURE_NRIPS		X86_CPU_FEATURE(0x8000000A, 0, EDX, 3)
+#define X86_FEATURE_TSCRATEMSR		X86_CPU_FEATURE(0x8000000A, 0, EDX, 4)
+#define X86_FEATURE_PAUSEFILTER		X86_CPU_FEATURE(0x8000000A, 0, EDX, 10)
+#define X86_FEATURE_PFTHRESHOLD		X86_CPU_FEATURE(0x8000000A, 0, EDX, 12)
+#define X86_FEATURE_VGIF		X86_CPU_FEATURE(0x8000000A, 0, EDX, 16)
+#define X86_FEATURE_VNMI		X86_CPU_FEATURE(0x8000000A, 0, EDX, 25)
+#define X86_FEATURE_AMD_PMU_V2		X86_CPU_FEATURE(0x80000022, 0, EAX, 0)
 
-static inline bool this_cpu_has(u64 feature)
+static inline u32 __this_cpu_has(u32 function, u32 index, u8 reg, u8 lo, u8 hi)
 {
-	u32 input_eax = feature >> 32;
-	u32 input_ecx = (feature >> 16) & 0xffff;
-	u32 output_reg = (feature >> 8) & 0xff;
-	u8 bit = feature & 0xff;
-	struct cpuid c;
-	u32 *tmp;
+	union {
+		struct cpuid cpuid;
+		u32 gprs[4];
+	} c;
 
-	c = cpuid_indexed(input_eax, input_ecx);
-	tmp = (u32 *)&c;
+	c.cpuid = cpuid_indexed(function, index);
 
-	return ((*(tmp + (output_reg % 32))) & (1 << bit));
+	return (c.gprs[reg] & GENMASK(hi, lo)) >> lo;
+}
+
+static inline bool this_cpu_has(struct x86_cpu_feature feature)
+{
+	return __this_cpu_has(feature.function, feature.index,
+			      feature.reg, feature.bit, feature.bit);
 }
 
 struct far_pointer32 {
