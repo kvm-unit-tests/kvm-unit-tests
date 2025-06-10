@@ -25,7 +25,7 @@ bool amd_sev_enabled(void)
 		initialized = true;
 
 		sev_enabled = this_cpu_has(X86_FEATURE_SEV) &&
-			      rdmsr(MSR_SEV_STATUS) & SEV_ENABLED_MASK;
+			      rdmsr(MSR_SEV_STATUS) & SEV_STATUS_SEV_ENABLED;
 	}
 
 	return sev_enabled;
@@ -52,7 +52,7 @@ bool amd_sev_es_enabled(void)
 
 		sev_es_enabled = amd_sev_enabled() &&
 				 this_cpu_has(X86_FEATURE_SEV_ES) &&
-				 rdmsr(MSR_SEV_STATUS) & SEV_ES_ENABLED_MASK;
+				 rdmsr(MSR_SEV_STATUS) & SEV_STATUS_SEV_ES_ENABLED;
 	}
 
 	return sev_es_enabled;
@@ -100,7 +100,7 @@ void setup_ghcb_pte(pgd_t *page_table)
 	pteval_t *pte;
 
 	/* Read the current GHCB page addr */
-	ghcb_addr = rdmsr(SEV_ES_GHCB_MSR_INDEX);
+	ghcb_addr = rdmsr(MSR_SEV_ES_GHCB);
 
 	/* Search Level 1 page table entry for GHCB page */
 	pte = get_pte_level(page_table, (void *)ghcb_addr, 1);

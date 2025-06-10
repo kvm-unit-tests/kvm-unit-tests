@@ -19,22 +19,8 @@
 #include "asm/page.h"
 #include "efi.h"
 
-/*
- * AMD Programmer's Manual Volume 2
- *   - Section "SEV_STATUS MSR"
- */
-#define MSR_SEV_STATUS      0xc0010131
-#define SEV_ENABLED_MASK    0b1
-#define SEV_ES_ENABLED_MASK 0b10
-
 bool amd_sev_enabled(void);
 efi_status_t setup_amd_sev(void);
-
-/*
- * AMD Programmer's Manual Volume 2
- *   - Section "GHCB"
- */
-#define SEV_ES_GHCB_MSR_INDEX 0xc0010130
 
 bool amd_sev_es_enabled(void);
 efi_status_t setup_amd_sev_es(void);
