@@ -457,18 +457,34 @@ static void check_fixed_counters(void)
 	}
 }
 
+static struct pmu_event *get_one_event(int idx)
+{
+	int i;
+
+	if (pmu_arch_event_is_available(idx))
+		return &gp_events[idx % gp_events_size];
+
+	for (i = 0; i < gp_events_size; i++) {
+		if (pmu_arch_event_is_available(i))
+			return &gp_events[i];
+	}
+
+	return NULL;
+}
+
 static void check_counters_many(void)
 {
+	struct pmu_event *evt;
 	pmu_counter_t cnt[48];
 	int i, n;
 
 	for (i = 0, n = 0; n < pmu.nr_gp_counters; i++) {
-		if (!pmu_arch_event_is_available(i))
+		evt = get_one_event(i);
+		if (!evt)
 			continue;
 
 		cnt[n].ctr = MSR_GP_COUNTERx(n);
-		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR |
-			gp_events[i % gp_events_size].unit_sel;
+		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR | evt->unit_sel;
 		n++;
 	}
 	for (i = 0; i < fixed_counters_num; i++) {
