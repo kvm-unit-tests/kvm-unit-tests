@@ -30,7 +30,6 @@ static u32 uart0_reg_width = 1;
 static u32 uart0_reg_shift;
 static struct spinlock uart_lock;
 
-#ifndef CONFIG_SBI_CONSOLE
 static u32 uart0_read(u32 num)
 {
 	u32 offset = num << uart0_reg_shift;
@@ -54,7 +53,6 @@ static void uart0_write(u32 num, u32 val)
 	else
 		writel(val, uart0_base + offset);
 }
-#endif
 
 static void uart0_init_fdt(void)
 {
@@ -73,11 +71,16 @@ static void uart0_init_fdt(void)
 				break;
 		}
 
+#ifdef CONFIG_SBI_CONSOLE
+		uart0_base = NULL;
+		return;
+#else
 		if (ret) {
 			printf("%s: Compatible uart not found in the device tree, aborting...\n",
 			       __func__);
 			abort();
 		}
+#endif
 	} else {
 		const fdt32_t *val;
 		int len;
@@ -116,8 +119,8 @@ void io_init(void)
 	}
 }
 
-#ifdef CONFIG_SBI_CONSOLE
-void puts(const char *s)
+void sbi_puts(const char *s);
+void sbi_puts(const char *s)
 {
 	phys_addr_t addr = virt_to_phys((void *)s);
 	unsigned long hi = upper_32_bits(addr);
@@ -127,9 +130,11 @@ void puts(const char *s)
 	sbi_ecall(SBI_EXT_DBCN, SBI_EXT_DBCN_CONSOLE_WRITE, strlen(s), lo, hi, 0, 0, 0);
 	spin_unlock(&uart_lock);
 }
-#else
-void puts(const char *s)
+
+void uart0_puts(const char *s);
+void uart0_puts(const char *s)
 {
+	assert(uart0_base);
 	spin_lock(&uart_lock);
 	while (*s) {
 		while (!(uart0_read(UART_LSR_OFFSET) & UART_LSR_THRE))
@@ -138,7 +143,15 @@ void puts(const char *s)
 	}
 	spin_unlock(&uart_lock);
 }
+
+void puts(const char *s)
+{
+#ifdef CONFIG_SBI_CONSOLE
+	sbi_puts(s);
+#else
+	uart0_puts(s);
 #endif
+}
 
 /*
  * Defining halt to take 'code' as an argument guarantees that it will
