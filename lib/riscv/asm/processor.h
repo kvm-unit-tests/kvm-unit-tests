@@ -50,6 +50,16 @@ static inline void ipi_ack(void)
 	csr_clear(CSR_SIP, IE_SSIE);
 }
 
+static inline void local_dlbtrp_enable(void)
+{
+	csr_set(CSR_SSTATUS, SR_SDT);
+}
+
+static inline void local_dlbtrp_disable(void)
+{
+	csr_clear(CSR_SSTATUS, SR_SDT);
+}
+
 void install_exception_handler(unsigned long cause, void (*handler)(struct pt_regs *));
 void install_irq_handler(unsigned long cause, void (*handler)(struct pt_regs *));
 void do_handle_exception(struct pt_regs *regs);
