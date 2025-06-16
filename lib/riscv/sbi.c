@@ -107,6 +107,26 @@ struct sbiret sbi_sse_inject(unsigned long event_id, unsigned long hart_id)
 	return sbi_ecall(SBI_EXT_SSE, SBI_EXT_SSE_INJECT, event_id, hart_id, 0, 0, 0, 0);
 }
 
+struct sbiret sbi_fwft_set_raw(unsigned long feature, unsigned long value, unsigned long flags)
+{
+	return sbi_ecall(SBI_EXT_FWFT, SBI_EXT_FWFT_SET, feature, value, flags, 0, 0, 0);
+}
+
+struct sbiret sbi_fwft_set(uint32_t feature, unsigned long value, unsigned long flags)
+{
+	return sbi_fwft_set_raw(feature, value, flags);
+}
+
+struct sbiret sbi_fwft_get_raw(unsigned long feature)
+{
+	return sbi_ecall(SBI_EXT_FWFT, SBI_EXT_FWFT_GET, feature, 0, 0, 0, 0, 0);
+}
+
+struct sbiret sbi_fwft_get(uint32_t feature)
+{
+	return sbi_fwft_get_raw(feature);
+}
+
 void sbi_shutdown(void)
 {
 	sbi_ecall(SBI_EXT_SRST, 0, 0, 0, 0, 0, 0, 0);

@@ -302,5 +302,10 @@ struct sbiret sbi_sse_hart_mask(void);
 struct sbiret sbi_sse_hart_unmask(void);
 struct sbiret sbi_sse_inject(unsigned long event_id, unsigned long hart_id);
 
+struct sbiret sbi_fwft_set_raw(unsigned long feature, unsigned long value, unsigned long flags);
+struct sbiret sbi_fwft_set(uint32_t feature, unsigned long value, unsigned long flags);
+struct sbiret sbi_fwft_get_raw(unsigned long feature);
+struct sbiret sbi_fwft_get(uint32_t feature);
+
 #endif /* !__ASSEMBLER__ */
 #endif /* _ASMRISCV_SBI_H_ */

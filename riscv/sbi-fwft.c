@@ -19,37 +19,16 @@
 
 void check_fwft(void);
 
-
-static struct sbiret fwft_set_raw(unsigned long feature, unsigned long value, unsigned long flags)
-{
-	return sbi_ecall(SBI_EXT_FWFT, SBI_EXT_FWFT_SET, feature, value, flags, 0, 0, 0);
-}
-
-static struct sbiret fwft_set(uint32_t feature, unsigned long value, unsigned long flags)
-{
-	return fwft_set_raw(feature, value, flags);
-}
-
-static struct sbiret fwft_get_raw(unsigned long feature)
-{
-	return sbi_ecall(SBI_EXT_FWFT, SBI_EXT_FWFT_GET, feature, 0, 0, 0, 0, 0);
-}
-
-static struct sbiret fwft_get(uint32_t feature)
-{
-	return fwft_get_raw(feature);
-}
-
 static struct sbiret fwft_set_and_check_raw(const char *str, unsigned long feature,
 					    unsigned long value, unsigned long flags)
 {
 	struct sbiret ret;
 
-	ret = fwft_set_raw(feature, value, flags);
+	ret = sbi_fwft_set_raw(feature, value, flags);
 	if (!sbiret_report_error(&ret, SBI_SUCCESS, "set to %ld%s", value, str))
 		return ret;
 
-	ret = fwft_get_raw(feature);
+	ret = sbi_fwft_get_raw(feature);
 	sbiret_report(&ret, SBI_SUCCESS, value, "get %ld after set%s", value, str);
 
 	return ret;
@@ -59,17 +38,17 @@ static void fwft_check_reserved(unsigned long id)
 {
 	struct sbiret ret;
 
-	ret = fwft_get(id);
+	ret = sbi_fwft_get(id);
 	sbiret_report_error(&ret, SBI_ERR_DENIED, "get reserved feature 0x%lx", id);
 
-	ret = fwft_set(id, 1, 0);
+	ret = sbi_fwft_set(id, 1, 0);
 	sbiret_report_error(&ret, SBI_ERR_DENIED, "set reserved feature 0x%lx", id);
 }
 
-/* Must be called before any fwft_set() call is made for @feature */
+/* Must be called before any sbi_fwft_set() call is made for @feature */
 static void fwft_check_reset(uint32_t feature, unsigned long reset)
 {
-	struct sbiret ret = fwft_get(feature);
+	struct sbiret ret = sbi_fwft_get(feature);
 
 	sbiret_report(&ret, SBI_SUCCESS, reset, "resets to %lu", reset);
 }
@@ -87,16 +66,16 @@ static void fwft_feature_lock_test_values(uint32_t feature, size_t nr_values,
 		     __sbi_get_imp_version() < sbi_impl_opensbi_mk_version(1, 7);
 
 	for (int i = 0; i < nr_values; ++i) {
-		ret = fwft_set(feature, test_values[i], 0);
+		ret = sbi_fwft_set(feature, test_values[i], 0);
 		sbiret_kfail_error(kfail, &ret, SBI_ERR_DENIED_LOCKED,
 				   "Set to %lu without lock flag", test_values[i]);
 
-		ret = fwft_set(feature, test_values[i], SBI_FWFT_SET_FLAG_LOCK);
+		ret = sbi_fwft_set(feature, test_values[i], SBI_FWFT_SET_FLAG_LOCK);
 		sbiret_kfail_error(kfail, &ret, SBI_ERR_DENIED_LOCKED,
 				   "Set to %lu with lock flag", test_values[i]);
 	}
 
-	ret = fwft_get(feature);
+	ret = sbi_fwft_get(feature);
 	sbiret_report(&ret, SBI_SUCCESS, locked_value, "Get value %lu", locked_value);
 
 	report_prefix_pop();
@@ -131,12 +110,12 @@ static void misaligned_handler(struct pt_regs *regs)
 
 static struct sbiret fwft_misaligned_exc_set(unsigned long value, unsigned long flags)
 {
-	return fwft_set(SBI_FWFT_MISALIGNED_EXC_DELEG, value, flags);
+	return sbi_fwft_set(SBI_FWFT_MISALIGNED_EXC_DELEG, value, flags);
 }
 
 static struct sbiret fwft_misaligned_exc_get(void)
 {
-	return fwft_get(SBI_FWFT_MISALIGNED_EXC_DELEG);
+	return sbi_fwft_get(SBI_FWFT_MISALIGNED_EXC_DELEG);
 }
 
 static void fwft_check_misaligned_exc_deleg(void)
@@ -304,7 +283,7 @@ static void fwft_check_pte_ad_hw_updating(void)
 
 	report_prefix_push("pte_ad_hw_updating");
 
-	ret = fwft_get(SBI_FWFT_PTE_AD_HW_UPDATING);
+	ret = sbi_fwft_get(SBI_FWFT_PTE_AD_HW_UPDATING);
 	if (ret.error != SBI_SUCCESS) {
 		if (env_enabled("SBI_HAVE_FWFT_PTE_AD_HW_UPDATING")) {
 			sbiret_report_error(&ret, SBI_SUCCESS, "supported");
@@ -350,10 +329,10 @@ static void fwft_check_pte_ad_hw_updating(void)
 #endif
 
 adue_inval_tests:
-	ret = fwft_set(SBI_FWFT_PTE_AD_HW_UPDATING, 2, 0);
+	ret = sbi_fwft_set(SBI_FWFT_PTE_AD_HW_UPDATING, 2, 0);
 	sbiret_report_error(&ret, SBI_ERR_INVALID_PARAM, "set to 2");
 
-	ret = fwft_set(SBI_FWFT_PTE_AD_HW_UPDATING, !enabled, 2);
+	ret = sbi_fwft_set(SBI_FWFT_PTE_AD_HW_UPDATING, !enabled, 2);
 	sbiret_report_error(&ret, SBI_ERR_INVALID_PARAM, "set to %d with flags=2", !enabled);
 
 	if (!adue_toggle_and_check(" with lock", !enabled, 1))
