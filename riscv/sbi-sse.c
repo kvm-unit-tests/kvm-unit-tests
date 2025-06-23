@@ -1017,8 +1017,10 @@ static void sse_test_injection_priority_arg(struct priority_test_arg *in_args,
 	sbiret_report_error(&ret, SBI_SUCCESS, "injection");
 
 	/* Check that all handlers have been called */
-	for (i = 0; i < args_size; i++)
-		report(arg->called, "Event %s handler called", sse_event_name(args[i]->event_id));
+	for (i = 0; i < args_size; i++) {
+		arg = args[i];
+		report(arg->called, "Event %s handler called", sse_event_name(arg->event_id));
+	}
 
 err:
 	for (i = 0; i < args_size; i++) {
