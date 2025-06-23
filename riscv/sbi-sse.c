@@ -957,8 +957,8 @@ static void sse_test_injection_priority_arg(struct priority_test_arg *in_args,
 			continue;
 
 		args[args_size] = arg;
+		event_args[args_size].stack = 0;
 		args_size++;
-		event_args->stack = 0;
 	}
 
 	if (!args_size) {
