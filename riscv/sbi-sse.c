@@ -918,15 +918,16 @@ static void sse_low_priority_test_handler(void *arg, struct pt_regs *regs,
 					  unsigned int hartid)
 {
 	struct priority_test_arg *targ = arg;
-	struct priority_test_arg *next = targ->next_event_arg;
+	struct priority_test_arg *next = READ_ONCE(targ->next_event_arg);
 
-	targ->called = true;
+	WRITE_ONCE(targ->called, true);
 
 	if (next) {
 		sbi_sse_inject(next->event_id, current_thread_info()->hartid);
 
 		report(sse_event_pending(next->event_id), "Lower priority event is pending");
-		report(!next->called, "Lower priority event %s was not handled before %s",
+		report(!READ_ONCE(next->called),
+		       "Lower priority event %s was not handled before %s",
 		       sse_event_name(next->event_id), sse_event_name(targ->event_id));
 	}
 }
@@ -977,9 +978,9 @@ static void sse_test_injection_priority_arg(struct priority_test_arg *in_args,
 		event_arg->stack = stack;
 
 		if (i < (args_size - 1))
-			arg->next_event_arg = args[i + 1];
+			WRITE_ONCE(arg->next_event_arg, args[i + 1]);
 		else
-			arg->next_event_arg = NULL;
+			WRITE_ONCE(arg->next_event_arg, NULL);
 
 		/* Be sure global events are targeting the current hart */
 		if (sbi_sse_event_is_global(event_id)) {
@@ -1019,7 +1020,8 @@ static void sse_test_injection_priority_arg(struct priority_test_arg *in_args,
 	/* Check that all handlers have been called */
 	for (i = 0; i < args_size; i++) {
 		arg = args[i];
-		report(arg->called, "Event %s handler called", sse_event_name(arg->event_id));
+		report(READ_ONCE(arg->called), "Event %s handler called",
+		       sse_event_name(arg->event_id));
 	}
 
 err:
