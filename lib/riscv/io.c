@@ -163,7 +163,7 @@ void halt(int code);
 void exit(int code)
 {
 	printf("\nEXIT: STATUS=%d\n", ((code) << 1) | 1);
-	sbi_shutdown();
+	sbi_shutdown(code == 0);
 	halt(code);
 	__builtin_unreachable();
 }

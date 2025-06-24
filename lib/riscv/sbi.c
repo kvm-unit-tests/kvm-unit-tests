@@ -127,9 +127,9 @@ struct sbiret sbi_fwft_get(uint32_t feature)
 	return sbi_fwft_get_raw(feature);
 }
 
-void sbi_shutdown(void)
+void sbi_shutdown(bool passed)
 {
-	sbi_ecall(SBI_EXT_SRST, 0, 0, 0, 0, 0, 0, 0);
+	sbi_ecall(SBI_EXT_SRST, 0, 0, !passed, 0, 0, 0, 0);
 	puts("SBI shutdown failed!\n");
 }
 
