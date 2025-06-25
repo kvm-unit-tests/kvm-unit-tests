@@ -38,3 +38,19 @@ function vmm_check_supported()
 		;;
 	esac
 }
+
+function vmm_unittest_params_name()
+{
+	# shellcheck disable=SC2155
+	local target=$(vmm_get_target)
+
+	case "$target" in
+	qemu)
+		echo "extra_params|qemu_params"
+		;;
+	*)
+		echo "$0 does not support '$target'"
+		exit 2
+		;;
+	esac
+}
