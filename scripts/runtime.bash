@@ -83,6 +83,7 @@ function run()
     local check="${CHECK:-$9}"
     local accel="${10}"
     local timeout="${11:-$TIMEOUT}" # unittests.cfg overrides the default
+    local disabled_if="${12}"
 
     if [ "${CONFIG_EFI}" == "y" ]; then
         kernel=${kernel/%.flat/.efi}
@@ -128,6 +129,11 @@ function run()
         return 2
     elif [ -n "$ACCEL" ]; then
         accel="$ACCEL"
+    fi
+
+    if [[ "$disabled_if" ]] && (eval $disabled_if); then
+        print_result "SKIP" $testname "" "disabled because: $disabled_if"
+	return 2
     fi
 
     # check a file for a particular value before running a test
