@@ -6,6 +6,9 @@ if [ ! -f config.mak ]; then
 fi
 source config.mak
 source scripts/common.bash
+source scripts/vmm.bash
+
+vmm_check_supported
 
 temp_file ()
 {
@@ -71,7 +74,8 @@ generate_test ()
 	args[3]='$bin'
 
 	(echo "#!/usr/bin/env bash"
-	 cat scripts/arch-run.bash "$TEST_DIR/run") | temp_file RUNTIME_arch_run
+	 cat scripts/vmm.bash scripts/arch-run.bash "$TEST_DIR/run") \
+		| temp_file RUNTIME_arch_run
 
 	echo "exec {stdout}>&1"
 	echo "RUNTIME_log_stdout () { cat >&\$stdout; }"
