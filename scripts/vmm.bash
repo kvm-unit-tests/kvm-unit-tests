@@ -204,7 +204,7 @@ function vmm_check_supported()
 	local target=$(vmm_get_target)
 
 	case "$target" in
-	qemu)
+	qemu | kvmtool)
 		return 0
 		;;
 	*)
