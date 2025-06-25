@@ -37,7 +37,7 @@ function for_each_unittest()
 			# -append as a kernel parameter instead of a command
 			# line option.
 			test_args=""
-			opts=""
+			opts="$(vmm_default_opts)"
 			groups=""
 			arch=""
 			machine=""
@@ -51,7 +51,7 @@ function for_each_unittest()
 		elif [[ $line =~ ^test_args\ *=\ *(.*)$ ]]; then
 			test_args="$(vmm_optname_args) ${BASH_REMATCH[1]}"
 		elif [[ $line =~ ^$params_name\ *=\ *'"""'(.*)$ ]]; then
-			opts=${BASH_REMATCH[1]}$'\n'
+			opts="$(vmm_defaults_opts) ${BASH_REMATCH[1]}$'\n'"
 			while read -r -u $fd; do
 				#escape backslash newline, but not double backslash
 				if [[ $opts =~ [^\\]*(\\*)$'\n'$ ]]; then
@@ -67,7 +67,7 @@ function for_each_unittest()
 				fi
 			done
 		elif [[ $line =~ ^$params_name\ *=\ *(.*)$ ]]; then
-			opts=${BASH_REMATCH[1]}
+			opts="$(vmm_default_opts) ${BASH_REMATCH[1]}"
 		elif [[ $line =~ ^groups\ *=\ *(.*)$ ]]; then
 			groups=${BASH_REMATCH[1]}
 		elif [[ $line =~ ^arch\ *=\ *(.*)$ ]]; then

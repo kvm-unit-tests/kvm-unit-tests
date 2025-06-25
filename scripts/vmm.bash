@@ -1,3 +1,14 @@
+# The following parameters are enabled by default when running a test with
+# kvmtool:
+# --nodefaults: suppress VM configuration that cannot be disabled (like
+#               modifying the supplied kernel command line). Otherwise tests
+#               that use the command line will fail without this parameter.
+# --network mode=none: do not create a network device. kvmtool tries to help the
+#               user by automatically create one, and then prints a warning
+#               when the VM terminates if the device hasn't been initialized.
+# --loglevel=warning: reduce verbosity
+: "${KVMTOOL_DEFAULT_OPTS:="--nodefaults --network mode=none --loglevel=warning"}"
+
 ##############################################################################
 # qemu_fixup_return_code translates the ambiguous exit status in Table1 to that
 # in Table2.  Table3 simply documents the complete status table.
@@ -82,11 +93,13 @@ function kvmtool_fixup_return_code()
 
 declare -A vmm_optname=(
 	[qemu,args]='-append'
+	[qemu,default_opts]=''
 	[qemu,fixup_return_code]=qemu_fixup_return_code
 	[qemu,initrd]='-initrd'
 	[qemu,nr_cpus]='-smp'
 
 	[kvmtool,args]='--params'
+	[kvmtool,default_opts]="$KVMTOOL_DEFAULT_OPTS"
 	[kvmtool,fixup_return_code]=kvmtool_fixup_return_code
 	[kvmtool,initrd]='--initrd'
 	[kvmtool,nr_cpus]='--cpus'
@@ -95,6 +108,11 @@ declare -A vmm_optname=(
 function vmm_optname_args()
 {
 	echo ${vmm_optname[$(vmm_get_target),args]}
+}
+
+function vmm_default_opts()
+{
+	echo ${vmm_optname[$(vmm_get_target),default_opts]}
 }
 
 function vmm_fixup_return_code()
