@@ -81,6 +81,7 @@ generate_test ()
 	echo "RUNTIME_log_stdout () { cat >&\$stdout; }"
 	echo "RUNTIME_log_stderr () { cat >&2; }"
 
+	cat scripts/vmm.bash
 	cat scripts/runtime.bash
 
 	echo "run ${args[*]}"

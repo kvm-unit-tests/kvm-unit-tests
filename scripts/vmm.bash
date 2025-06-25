@@ -79,6 +79,18 @@ function qemu_fixup_return_code()
 	echo $ret
 }
 
+function qemu_parse_premature_failure()
+{
+	local log=$*
+
+	echo "$log" | grep "_NO_FILE_4Uhere_" |
+		grep -q -e "[Cc]ould not \(load\|open\) kernel" \
+			-e "error loading" \
+			-e "failed to load" &&
+		return 1
+	return 0
+}
+
 function kvmtool_fixup_return_code()
 {
 	local ret=$1
@@ -91,18 +103,29 @@ function kvmtool_fixup_return_code()
 	echo $ret
 }
 
+function kvmtool_parse_premature_failure()
+{
+	local log=$*
+
+	echo "$log" | grep "Fatal: Unable to open kernel _NO_FILE_4Uhere_" &&
+		return 1
+	return 0
+}
+
 declare -A vmm_optname=(
 	[qemu,args]='-append'
 	[qemu,default_opts]=''
 	[qemu,fixup_return_code]=qemu_fixup_return_code
 	[qemu,initrd]='-initrd'
 	[qemu,nr_cpus]='-smp'
+	[qemu,parse_premature_failure]=qemu_parse_premature_failure
 
 	[kvmtool,args]='--params'
 	[kvmtool,default_opts]="$KVMTOOL_DEFAULT_OPTS"
 	[kvmtool,fixup_return_code]=kvmtool_fixup_return_code
 	[kvmtool,initrd]='--initrd'
 	[kvmtool,nr_cpus]='--cpus'
+	[kvmtool,parse_premature_failure]=kvmtool_parse_premature_failure
 )
 
 function vmm_optname_args()
@@ -128,6 +151,11 @@ function vmm_optname_initrd()
 function vmm_optname_nr_cpus()
 {
 	echo ${vmm_optname[$(vmm_get_target),nr_cpus]}
+}
+
+function vmm_parse_premature_failure()
+{
+	${vmm_optname[$(vmm_get_target),parse_premature_failure]} "$@"
 }
 
 function vmm_get_target()
