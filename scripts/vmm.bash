@@ -1,3 +1,18 @@
+declare -A vmm_optname=(
+	[qemu,args]='-append'
+	[qemu,nr_cpus]='-smp'
+)
+
+function vmm_optname_args()
+{
+	echo ${vmm_optname[$(vmm_get_target),args]}
+}
+
+function vmm_optname_nr_cpus()
+{
+	echo ${vmm_optname[$(vmm_get_target),nr_cpus]}
+}
+
 function vmm_get_target()
 {
 	if [[ -z "$TARGET" ]]; then
