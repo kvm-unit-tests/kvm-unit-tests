@@ -56,13 +56,22 @@ smp = <number>
 Optional, the number of processors created in the machine to run the test.
 Defaults to 1. $MAX_SMP can be used to specify the maximum supported.
 
+test_args
+---------
+test_args = "..."
+
+Optional, will be used to pass arguments into the test case argv. If multiple,
+space separated, arguments need to be passed to a test, wrap them in quotes.
+Backticks can be used to pass the result of shell commands, for example:
+
+test_args = "10000000 `date +%s`"
+
 qemu_params
 ------------
-These are extra parameters supplied to the QEMU process. -append '...' can
-be used to pass arguments into the test case argv. Multiple parameters can
-be added, for example:
+These are extra parameters supplied to the QEMU process. Multiple parameters
+can be added, for example:
 
-qemu_params = -m 256 -append 'smp=2'
+qemu_params = -m 256 -machine pit=off
 
 extra_params
 ------------

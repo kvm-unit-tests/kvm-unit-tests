@@ -80,12 +80,18 @@ function run()
     local groups="$2"
     local smp="$3"
     local kernel="$4"
-    local opts="$5"
-    local arch="$6"
-    local machine="$7"
-    local check="${CHECK:-$8}"
-    local accel="$9"
-    local timeout="${10:-$TIMEOUT}" # unittests.cfg overrides the default
+    local test_args="$5"
+    local opts="$6"
+    local arch="$7"
+    local machine="$8"
+    local check="${CHECK:-$9}"
+    local accel="${10}"
+    local timeout="${11:-$TIMEOUT}" # unittests.cfg overrides the default
+
+    # If $test_args is empty, qemu will interpret the first option after -append
+    # as a test argument instead of a qemu option, so make sure that doesn't
+    # happen.
+    [ -n "$test_args" ] && opts="-append $test_args $opts"
 
     if [ "${CONFIG_EFI}" == "y" ]; then
         kernel=${kernel/%.flat/.efi}
