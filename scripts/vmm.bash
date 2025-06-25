@@ -1,11 +1,110 @@
+##############################################################################
+# qemu_fixup_return_code translates the ambiguous exit status in Table1 to that
+# in Table2.  Table3 simply documents the complete status table.
+#
+# Table1: Before fixup
+# --------------------
+# 0      - Unexpected exit from QEMU (possible signal), or the unittest did
+#          not use debug-exit
+# 1      - most likely unittest succeeded, or QEMU failed
+#
+# Table2: After fixup
+# -------------------
+# 0      - Everything succeeded
+# 1      - most likely QEMU failed
+#
+# Table3: Complete table
+# ----------------------
+# 0      - SUCCESS
+# 1      - most likely QEMU failed
+# 2      - most likely a run script failed
+# 3      - most likely the unittest failed
+# 124    - most likely the unittest timed out
+# 127    - most likely the unittest called abort()
+# 1..127 - FAILURE (could be QEMU, a run script, or the unittest)
+# >= 128 - Signal (signum = status - 128)
+##############################################################################
+function qemu_fixup_return_code()
+{
+	local ret=$1
+	# Remove $ret from the list of arguments
+	shift 1
+	local errors=$*
+	local sig
+
+	[ $ret -eq 134 ] && echo "QEMU Aborted" >&2
+
+	if [ "$errors" ]; then
+		sig=$(grep 'terminating on signal' <<<"$errors")
+		if [ "$sig" ]; then
+			# This is too complex for ${var/search/replace}
+			# shellcheck disable=SC2001
+			sig=$(sed 's/.*terminating on signal \([0-9][0-9]*\).*/\1/' <<<"$sig")
+		fi
+	fi
+
+	if [ $ret -eq 0 ]; then
+		# Some signals result in a zero return status, but the
+		# error log tells the truth.
+		if [ "$sig" ]; then
+			((ret=sig+128))
+		else
+			# Exiting with zero (non-debugexit) is an error
+			ret=1
+		fi
+	elif [ $ret -eq 1 ]; then
+		# Even when ret==1 (unittest success) if we also got stderr
+		# logs, then we assume a QEMU failure. Otherwise we translate
+		# status of 1 to 0 (SUCCESS)
+	        if [ "$errors" ]; then
+			if ! grep -qvi warning <<<"$errors" ; then
+				ret=0
+			fi
+		else
+			ret=0
+		fi
+	fi
+
+	echo $ret
+}
+
+function kvmtool_fixup_return_code()
+{
+	local ret=$1
+
+	# Force run_test_status() to interpret the STATUS line.
+	if [ $ret -eq 0 ]; then
+		ret=1
+	fi
+
+	echo $ret
+}
+
 declare -A vmm_optname=(
 	[qemu,args]='-append'
+	[qemu,fixup_return_code]=qemu_fixup_return_code
+	[qemu,initrd]='-initrd'
 	[qemu,nr_cpus]='-smp'
+
+	[kvmtool,args]='--params'
+	[kvmtool,fixup_return_code]=kvmtool_fixup_return_code
+	[kvmtool,initrd]='--initrd'
+	[kvmtool,nr_cpus]='--cpus'
 )
 
 function vmm_optname_args()
 {
 	echo ${vmm_optname[$(vmm_get_target),args]}
+}
+
+function vmm_fixup_return_code()
+{
+	${vmm_optname[$(vmm_get_target),fixup_return_code]} "$@"
+}
+
+function vmm_optname_initrd()
+{
+	echo ${vmm_optname[$(vmm_get_target),initrd]}
 }
 
 function vmm_optname_nr_cpus()
@@ -47,6 +146,9 @@ function vmm_unittest_params_name()
 	case "$target" in
 	qemu)
 		echo "extra_params|qemu_params"
+		;;
+	kvmtool)
+		echo "kvmtool_params"
 		;;
 	*)
 		echo "$0 does not support '$target'"
