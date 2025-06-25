@@ -91,6 +91,23 @@ function qemu_parse_premature_failure()
 	return 0
 }
 
+#
+# Probe for MAX_SMP, in case it's less than the number of host cpus.
+#
+function qemu_probe_maxsmp()
+{
+	local runtime_arch_run="$1"
+	local smp
+
+	if smp=$($runtime_arch_run _NO_FILE_4Uhere_ -smp $MAX_SMP |& grep 'SMP CPUs'); then
+		smp=${smp##* }
+		smp=${smp/\(}
+		smp=${smp/\)}
+		echo "Restricting MAX_SMP from ($MAX_SMP) to the max supported ($smp)" >&2
+		MAX_SMP=$smp
+	fi
+}
+
 function kvmtool_fixup_return_code()
 {
 	local ret=$1
@@ -112,6 +129,12 @@ function kvmtool_parse_premature_failure()
 	return 0
 }
 
+function kvmtool_probe_maxsmp()
+{
+	echo "kvmtool automatically limits the number of VCPUs to maximum supported"
+	echo "The 'smp' test parameter won't be modified"
+}
+
 declare -A vmm_optname=(
 	[qemu,args]='-append'
 	[qemu,default_opts]=''
@@ -119,6 +142,7 @@ declare -A vmm_optname=(
 	[qemu,initrd]='-initrd'
 	[qemu,nr_cpus]='-smp'
 	[qemu,parse_premature_failure]=qemu_parse_premature_failure
+	[qemu,probe_maxsmp]=qemu_probe_maxsmp
 
 	[kvmtool,args]='--params'
 	[kvmtool,default_opts]="$KVMTOOL_DEFAULT_OPTS"
@@ -126,6 +150,7 @@ declare -A vmm_optname=(
 	[kvmtool,initrd]='--initrd'
 	[kvmtool,nr_cpus]='--cpus'
 	[kvmtool,parse_premature_failure]=kvmtool_parse_premature_failure
+	[kvmtool,probe_maxsmp]=kvmtool_probe_maxsmp
 )
 
 function vmm_optname_args()
@@ -156,6 +181,11 @@ function vmm_optname_nr_cpus()
 function vmm_parse_premature_failure()
 {
 	${vmm_optname[$(vmm_get_target),parse_premature_failure]} "$@"
+}
+
+function vmm_probe_maxsmp()
+{
+	${vmm_optname[$(vmm_get_target),probe_maxsmp]} "$1"
 }
 
 function vmm_get_target()
