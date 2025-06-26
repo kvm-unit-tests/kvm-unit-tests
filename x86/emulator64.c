@@ -325,9 +325,13 @@ static void test_mmx_movq_mf(uint64_t *mem)
 	report(exception_vector() == MF_VECTOR, "movq mmx generates #MF");
 }
 
+#define CR2_REF_VALUE	0xdecafbadUL
+
 #define ASM_TRY_NONCANONICAL(insn, inputs, access, ex_vector)			\
 do {										\
 	unsigned int vector, ec;						\
+										\
+	write_cr2(CR2_REF_VALUE);						\
 										\
 	asm volatile(ASM_TRY("1f") insn "; 1:" :: inputs);			\
 										\
@@ -337,6 +341,13 @@ do {										\
 	report(vector == ex_vector && !ec,					\
 	      "non-canonical " access ", should %s(0), got %s(%u)",		\
 	      exception_mnemonic(ex_vector), exception_mnemonic(vector), ec);	\
+										\
+	if (vector != PF_VECTOR) {						\
+		unsigned long cr2  = read_cr2();				\
+										\
+		report(cr2 == CR2_REF_VALUE,					\
+		       "Wanted CR2 '0x%lx', got '0x%lx", CR2_REF_VALUE, cr2);	\
+	}									\
 } while (0)
 
 static void test_jmp_noncanonical(uint64_t *mem)
