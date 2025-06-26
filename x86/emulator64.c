@@ -325,39 +325,40 @@ static void test_mmx_movq_mf(uint64_t *mem)
 	report(exception_vector() == MF_VECTOR, "movq mmx generates #MF");
 }
 
+#define ASM_TRY_NONCANONICAL(insn, inputs, access, ex_vector)			\
+do {										\
+	unsigned int vector, ec;						\
+										\
+	asm volatile(ASM_TRY("1f") insn "; 1:" :: inputs);			\
+										\
+	vector = exception_vector();						\
+	ec = exception_error_code();						\
+										\
+	report(vector == ex_vector && !ec,					\
+	      "non-canonical " access ", should %s(0), got %s(%u)",		\
+	      exception_mnemonic(ex_vector), exception_mnemonic(vector), ec);	\
+} while (0)
+
 static void test_jmp_noncanonical(uint64_t *mem)
 {
 	*mem = NONCANONICAL;
-	asm volatile (ASM_TRY("1f") "jmp *%0; 1:" : : "m"(*mem));
-	report(exception_vector() == GP_VECTOR,
-	       "jump to non-canonical address");
+
+	ASM_TRY_NONCANONICAL("jmp *%0", "m"(*mem), "jmp", GP_VECTOR);
 }
 
 static void test_reg_noncanonical(void)
 {
 	/* RAX based, should #GP(0) */
-	asm volatile(ASM_TRY("1f") "orq $0, (%[noncanonical]); 1:"
-		     : : [noncanonical]"a"(NONCANONICAL));
-	report(exception_vector() == GP_VECTOR && exception_error_code() == 0,
-	       "non-canonical memory access, should %s(0), got %s(%u)",
-	       exception_mnemonic(GP_VECTOR),
-	       exception_mnemonic(exception_vector()), exception_error_code());
+	ASM_TRY_NONCANONICAL("orq $0, (%[nc])", [nc]"a"(NONCANONICAL),
+			     "memory access", GP_VECTOR);
 
 	/* RSP based, should #SS(0) */
-	asm volatile(ASM_TRY("1f") "orq $0, (%%rsp,%[noncanonical],1); 1:"
-		     : : [noncanonical]"r"(NONCANONICAL));
-	report(exception_vector() == SS_VECTOR && exception_error_code() == 0,
-	       "non-canonical rsp-based access, should %s(0), got %s(%u)",
-	       exception_mnemonic(SS_VECTOR),
-	       exception_mnemonic(exception_vector()), exception_error_code());
+	ASM_TRY_NONCANONICAL("orq $0, (%%rsp,%[nc],1)", [nc]"r"(NONCANONICAL),
+			     "rsp-based access", SS_VECTOR);
 
 	/* RBP based, should #SS(0) */
-	asm volatile(ASM_TRY("1f") "orq $0, (%%rbp,%[noncanonical],1); 1:"
-		     : : [noncanonical]"r"(NONCANONICAL));
-	report(exception_vector() == SS_VECTOR && exception_error_code() == 0,
-	       "non-canonical rbp-based access, should %s(0), got %s(%u)",
-	       exception_mnemonic(SS_VECTOR),
-	       exception_mnemonic(exception_vector()), exception_error_code());
+	ASM_TRY_NONCANONICAL("orq $0, (%%rbp,%[nc],1)", [nc]"r"(NONCANONICAL),
+			     "rbp-based access", SS_VECTOR);
 }
 
 static void test_movabs(uint64_t *mem)
