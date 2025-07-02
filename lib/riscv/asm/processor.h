@@ -7,6 +7,8 @@
 #define EXCEPTION_CAUSE_MAX	24
 #define INTERRUPT_CAUSE_MAX	16
 
+#define RV_INSN_LEN(insn)		((((insn) & 0x3) < 0x3) ? 2 : 4)
+
 typedef void (*exception_fn)(struct pt_regs *);
 
 struct thread_info {
@@ -46,6 +48,16 @@ static inline void local_ipi_disable(void)
 static inline void ipi_ack(void)
 {
 	csr_clear(CSR_SIP, IE_SSIE);
+}
+
+static inline void local_dlbtrp_enable(void)
+{
+	csr_set(CSR_SSTATUS, SR_SDT);
+}
+
+static inline void local_dlbtrp_disable(void)
+{
+	csr_clear(CSR_SSTATUS, SR_SDT);
 }
 
 void install_exception_handler(unsigned long cause, void (*handler)(struct pt_regs *));

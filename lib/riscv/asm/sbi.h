@@ -51,6 +51,7 @@ enum sbi_ext_id {
 	SBI_EXT_SUSP = 0x53555350,
 	SBI_EXT_FWFT = 0x46574654,
 	SBI_EXT_SSE = 0x535345,
+	SBI_EXT_DBTR = 0x44425452,
 };
 
 enum sbi_ext_base_fid {
@@ -250,7 +251,7 @@ struct sbiret sbi_ecall(int ext, int fid, unsigned long arg0,
 			unsigned long arg3, unsigned long arg4,
 			unsigned long arg5);
 
-void sbi_shutdown(void);
+void sbi_shutdown(bool passed);
 struct sbiret sbi_hart_start(unsigned long hartid, unsigned long entry, unsigned long sp);
 struct sbiret sbi_hart_stop(void);
 struct sbiret sbi_hart_get_status(unsigned long hartid);
@@ -301,6 +302,11 @@ struct sbiret sbi_sse_disable(unsigned long event_id);
 struct sbiret sbi_sse_hart_mask(void);
 struct sbiret sbi_sse_hart_unmask(void);
 struct sbiret sbi_sse_inject(unsigned long event_id, unsigned long hart_id);
+
+struct sbiret sbi_fwft_set_raw(unsigned long feature, unsigned long value, unsigned long flags);
+struct sbiret sbi_fwft_set(uint32_t feature, unsigned long value, unsigned long flags);
+struct sbiret sbi_fwft_get_raw(unsigned long feature);
+struct sbiret sbi_fwft_get(uint32_t feature);
 
 #endif /* !__ASSEMBLER__ */
 #endif /* _ASMRISCV_SBI_H_ */

@@ -14,10 +14,12 @@ tests =
 tests += $(TEST_DIR)/sbi.$(exe)
 tests += $(TEST_DIR)/selftest.$(exe)
 tests += $(TEST_DIR)/sieve.$(exe)
+tests += $(TEST_DIR)/isa-dbltrp.$(exe)
 
 all: $(tests)
 
 $(TEST_DIR)/sbi-deps += $(TEST_DIR)/sbi-asm.o
+$(TEST_DIR)/sbi-deps += $(TEST_DIR)/sbi-dbtr.o
 $(TEST_DIR)/sbi-deps += $(TEST_DIR)/sbi-fwft.o
 $(TEST_DIR)/sbi-deps += $(TEST_DIR)/sbi-sse.o
 
