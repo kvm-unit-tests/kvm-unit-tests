@@ -1,4 +1,5 @@
 source config.mak
+source scripts/vmm.bash
 
 function for_each_unittest()
 {
@@ -7,6 +8,7 @@ function for_each_unittest()
 	local testname
 	local smp
 	local kernel
+	local test_args
 	local opts
 	local groups
 	local arch
@@ -14,7 +16,11 @@ function for_each_unittest()
 	local check
 	local accel
 	local timeout
+	local disabled_if
 	local rematch
+
+	# shellcheck disable=SC2155
+	local params_name=$(vmm_unittest_params_name)
 
 	exec {fd}<"$unittests"
 
@@ -22,24 +28,32 @@ function for_each_unittest()
 		if [[ "$line" =~ ^\[(.*)\]$ ]]; then
 			rematch=${BASH_REMATCH[1]}
 			if [ -n "${testname}" ]; then
-				$(arch_cmd) "$cmd" "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$machine" "$check" "$accel" "$timeout"
+				$(arch_cmd) "$cmd" "$testname" "$groups" "$smp" "$kernel" "$test_args" "$opts" "$arch" "$machine" "$check" "$accel" "$timeout" "$disabled_if"
 			fi
 			testname=$rematch
-			smp=1
+			smp="$(vmm_optname_nr_cpus) 1"
 			kernel=""
-			opts=""
+			# Intentionally don't use -append if test_args is empty
+			# because qemu interprets the first word after
+			# -append as a kernel parameter instead of a command
+			# line option.
+			test_args=""
+			opts="$(vmm_default_opts)"
 			groups=""
 			arch=""
 			machine=""
 			check=""
 			accel=""
 			timeout=""
+			disabled_if=""
 		elif [[ $line =~ ^file\ *=\ *(.*)$ ]]; then
 			kernel=$TEST_DIR/${BASH_REMATCH[1]}
 		elif [[ $line =~ ^smp\ *=\ *(.*)$ ]]; then
-			smp=${BASH_REMATCH[1]}
-		elif [[ $line =~ ^extra_params\ *=\ *'"""'(.*)$ ]]; then
-			opts=${BASH_REMATCH[1]}$'\n'
+			smp="$(vmm_optname_nr_cpus) ${BASH_REMATCH[1]}"
+		elif [[ $line =~ ^test_args\ *=\ *(.*)$ ]]; then
+			test_args="$(vmm_optname_args) ${BASH_REMATCH[1]}"
+		elif [[ $line =~ ^$params_name\ *=\ *'"""'(.*)$ ]]; then
+			opts="$(vmm_defaults_opts) ${BASH_REMATCH[1]}$'\n'"
 			while read -r -u $fd; do
 				#escape backslash newline, but not double backslash
 				if [[ $opts =~ [^\\]*(\\*)$'\n'$ ]]; then
@@ -54,8 +68,8 @@ function for_each_unittest()
 					opts+=$REPLY$'\n'
 				fi
 			done
-		elif [[ $line =~ ^extra_params\ *=\ *(.*)$ ]]; then
-			opts=${BASH_REMATCH[1]}
+		elif [[ $line =~ ^$params_name\ *=\ *(.*)$ ]]; then
+			opts="$(vmm_default_opts) ${BASH_REMATCH[1]}"
 		elif [[ $line =~ ^groups\ *=\ *(.*)$ ]]; then
 			groups=${BASH_REMATCH[1]}
 		elif [[ $line =~ ^arch\ *=\ *(.*)$ ]]; then
@@ -64,6 +78,8 @@ function for_each_unittest()
 			machine=${BASH_REMATCH[1]}
 		elif [[ $line =~ ^check\ *=\ *(.*)$ ]]; then
 			check=${BASH_REMATCH[1]}
+		elif [[ $line =~ ^disabled_if\ *=\ *(.*)$ ]]; then
+			disabled_if=${BASH_REMATCH[1]}
 		elif [[ $line =~ ^accel\ *=\ *(.*)$ ]]; then
 			accel=${BASH_REMATCH[1]}
 		elif [[ $line =~ ^timeout\ *=\ *(.*)$ ]]; then
@@ -71,7 +87,7 @@ function for_each_unittest()
 		fi
 	done
 	if [ -n "${testname}" ]; then
-		$(arch_cmd) "$cmd" "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$machine" "$check" "$accel" "$timeout"
+		$(arch_cmd) "$cmd" "$testname" "$groups" "$smp" "$kernel" "$test_args" "$opts" "$arch" "$machine" "$check" "$accel" "$timeout"
 	fi
 	exec {fd}<&-
 }

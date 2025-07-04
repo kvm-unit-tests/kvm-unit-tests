@@ -19,11 +19,7 @@ premature_failure()
 
     log="$(eval "$(get_cmdline _NO_FILE_4Uhere_)" 2>&1)"
 
-    echo "$log" | grep "_NO_FILE_4Uhere_" |
-        grep -q -e "[Cc]ould not \(load\|open\) kernel" \
-                -e "error loading" \
-                -e "failed to load" &&
-        return 1
+    vmm_parse_premature_failure "$log" || return 1
 
     RUNTIME_log_stderr <<< "$log"
 
@@ -34,7 +30,7 @@ premature_failure()
 get_cmdline()
 {
     local kernel=$1
-    echo "TESTNAME=$testname TIMEOUT=$timeout MACHINE=$machine ACCEL=$accel $RUNTIME_arch_run $kernel -smp $smp $opts"
+    echo "TESTNAME=$testname TIMEOUT=$timeout MACHINE=$machine ACCEL=$accel $RUNTIME_arch_run $kernel $smp $test_args $opts"
 }
 
 skip_nodefault()
@@ -80,12 +76,14 @@ function run()
     local groups="$2"
     local smp="$3"
     local kernel="$4"
-    local opts="$5"
-    local arch="$6"
-    local machine="$7"
-    local check="${CHECK:-$8}"
-    local accel="$9"
-    local timeout="${10:-$TIMEOUT}" # unittests.cfg overrides the default
+    local test_args="$5"
+    local opts="$6"
+    local arch="$7"
+    local machine="$8"
+    local check="${CHECK:-$9}"
+    local accel="${10}"
+    local timeout="${11:-$TIMEOUT}" # unittests.cfg overrides the default
+    local disabled_if="${12}"
 
     if [ "${CONFIG_EFI}" == "y" ]; then
         kernel=${kernel/%.flat/.efi}
@@ -131,6 +129,11 @@ function run()
         return 2
     elif [ -n "$ACCEL" ]; then
         accel="$ACCEL"
+    fi
+
+    if [[ "$disabled_if" ]] && (eval $disabled_if); then
+        print_result "SKIP" $testname "" "disabled because: $disabled_if"
+	return 2
     fi
 
     # check a file for a particular value before running a test
@@ -179,9 +182,9 @@ function run()
         echo $cmdline
     fi
 
-    # extra_params in the config file may contain backticks that need to be
-    # expanded, so use eval to start qemu.  Use "> >(foo)" instead of a pipe to
-    # preserve the exit status.
+    # qemu_params/extra_params in the config file may contain backticks that
+    # need to be expanded, so use eval to start qemu.  Use "> >(foo)" instead of
+    # a pipe to preserve the exit status.
     summary=$(eval "$cmdline" 2> >(RUNTIME_log_stderr $testname) \
                              > >(tee >(RUNTIME_log_stdout $testname $kernel) | extract_summary))
     ret=$?
@@ -209,20 +212,4 @@ function run()
     fi
 
     return $ret
-}
-
-#
-# Probe for MAX_SMP, in case it's less than the number of host cpus.
-#
-function probe_maxsmp()
-{
-	local smp
-
-	if smp=$($RUNTIME_arch_run _NO_FILE_4Uhere_ -smp $MAX_SMP |& grep 'SMP CPUs'); then
-		smp=${smp##* }
-		smp=${smp/\(}
-		smp=${smp/\)}
-		echo "Restricting MAX_SMP from ($MAX_SMP) to the max supported ($smp)" >&2
-		MAX_SMP=$smp
-	fi
 }

@@ -6,6 +6,9 @@ if [ ! -f config.mak ]; then
 fi
 source config.mak
 source scripts/common.bash
+source scripts/vmm.bash
+
+vmm_check_supported
 
 temp_file ()
 {
@@ -44,6 +47,7 @@ generate_test ()
 	config_export ARCH_NAME
 	config_export TARGET_CPU
 	config_export DEFAULT_QEMU_CPU
+	config_export TARGET
 
 	echo "echo BUILD_HEAD=$(cat build-head)"
 
@@ -71,12 +75,14 @@ generate_test ()
 	args[3]='$bin'
 
 	(echo "#!/usr/bin/env bash"
-	 cat scripts/arch-run.bash "$TEST_DIR/run") | temp_file RUNTIME_arch_run
+	 cat scripts/vmm.bash scripts/arch-run.bash "$TEST_DIR/run") \
+		| temp_file RUNTIME_arch_run
 
 	echo "exec {stdout}>&1"
 	echo "RUNTIME_log_stdout () { cat >&\$stdout; }"
 	echo "RUNTIME_log_stderr () { cat >&2; }"
 
+	cat scripts/vmm.bash
 	cat scripts/runtime.bash
 
 	echo "run ${args[*]}"

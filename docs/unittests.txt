@@ -24,9 +24,9 @@ param = value format.
 
 Available parameters
 ====================
-Note! Some parameters like smp and extra_params modify how a test is run,
-while others like arch and accel restrict the configurations in which the
-test is run.
+Note! Some parameters like smp and qemu_params/extra_params modify how a
+test is run, while others like arch and accel restrict the configurations
+in which the test is run.
 
 file
 ----
@@ -56,13 +56,35 @@ smp = <number>
 Optional, the number of processors created in the machine to run the test.
 Defaults to 1. $MAX_SMP can be used to specify the maximum supported.
 
+test_args
+---------
+test_args = "..."
+
+Optional, will be used to pass arguments into the test case argv. If multiple,
+space separated, arguments need to be passed to a test, wrap them in quotes.
+Backticks can be used to pass the result of shell commands, for example:
+
+test_args = "10000000 `date +%s`"
+
+qemu_params
+------------
+These are extra parameters supplied to the QEMU process. Multiple parameters
+can be added, for example:
+
+qemu_params = -m 256 -machine pit=off
+
 extra_params
 ------------
-These are extra parameters supplied to the QEMU process. -append '...' can
-be used to pass arguments into the test case argv. Multiple parameters can
-be added, for example:
+Alias for 'qemu_params', supported for compatibility purposes. Use
+'qemu_params' for new tests.
 
-extra_params = -m 256 -append 'smp=2'
+kvmtool_params
+--------------
+Extra parameters supplied to the kvmtool process. Works similarly to
+'qemu_params', but uses kvmtool's syntax for command line arguments. The
+example for 'qemu_params', applied to kvmtool, would be:
+
+kvmtool_params = --mem 256
 
 groups
 ------
@@ -88,7 +110,8 @@ timeout
 -------
 timeout = <duration>
 
-Optional timeout in seconds, after which the test will be killed and fail.
+Optional timeout in seconds, after which the test will be killed and fail. Can
+be overwritten with the TIMEOUT=<duration> environment variable.
 
 check
 -----
@@ -99,3 +122,18 @@ can contain multiple files to check separated by a space, but each check
 parameter needs to be of the form <path>=<value>
 
 The path and value cannot contain space, =, or shell wildcard characters.
+
+Can be overwritten with the CHECK environment variable with the same syntax.
+
+disabled_if
+-----------
+disabled_if = <condition>
+
+Do not run the test if <condition> is met. <condition> will be fed unmodified
+to a bash 'if' statement and follows the same syntax.
+
+This can be used to prevent running a test when kvm-unit-tests is configured a
+certain way. For example, it can be used to skip a qemu specific test when
+using another VMM and using UEFI:
+
+disabled_if = [[ "$TARGET" != qemu ]] && [[ "$CONFIG_EFI" = y ]]
