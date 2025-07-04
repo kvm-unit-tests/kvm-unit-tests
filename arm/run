@@ -97,6 +97,11 @@ function arch_run_kvmtool()
 {
 	local command
 
+	if [ "$HOST" != "arm" ] && [ "$HOST" != "aarch64" ]; then
+		echo "kvmtool requires KVM but the host ('$HOST') is not arm" >&2
+		exit 2
+	fi
+
 	kvmtool=$(search_kvmtool_binary) ||
 		exit $?
 
