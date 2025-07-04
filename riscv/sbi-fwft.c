@@ -174,7 +174,7 @@ static void fwft_check_misaligned_exc_deleg(void)
 		 * Disable compression so the lw takes exactly 4 bytes and thus
 		 * can be skipped reliably from the exception handler.
 		 */
-		".option arch,-c\n"
+		".option norvc\n"
 		"lw %[val], 1(%[val_addr])\n"
 		".option pop\n"
 		: [val] "+r" (ret.value)

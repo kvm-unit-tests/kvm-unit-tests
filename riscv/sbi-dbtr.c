@@ -134,7 +134,7 @@ static __attribute__((naked)) void exec_call(void)
 {
 	/* skip over nop when triggered instead of ret. */
 	asm volatile (".option push\n"
-		      ".option arch, -c\n"
+		      ".option norvc\n"
 		      "nop\n"
 		      "ret\n"
 		      ".option pop\n");

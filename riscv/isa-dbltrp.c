@@ -26,7 +26,7 @@ do {										\
 	unsigned long value = 0;						\
 	asm volatile(								\
 	"	.option push\n"							\
-	"	.option arch,-c\n"						\
+	"	.option norvc\n"						\
 	"	sw %0, 0(%1)\n"							\
 	"	.option pop\n"							\
 	: : "r" (value), "r" (ptr) : "memory");					\
