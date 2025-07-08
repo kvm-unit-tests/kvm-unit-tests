@@ -6,6 +6,7 @@
 #include "msr.h"
 #include <bitops.h>
 #include <stdint.h>
+#include <util.h>
 
 #define CANONICAL_48_VAL 0xffffaaaaaaaaaaaaull
 #define CANONICAL_57_VAL 0xffaaaaaaaaaaaaaaull
@@ -217,13 +218,6 @@ static inline struct cpuid cpuid(u32 function)
 	return cpuid_indexed(function, 0);
 }
 
-static inline u8 cpuid_maxphyaddr(void)
-{
-	if (raw_cpuid(0x80000000, 0).a < 0x80000008)
-	return 36;
-	return raw_cpuid(0x80000008, 0).a & 0xff;
-}
-
 static inline bool is_intel(void)
 {
 	struct cpuid c = cpuid(0);
@@ -232,100 +226,249 @@ static inline bool is_intel(void)
 	return strcmp((char *)name, "GenuineIntel") == 0;
 }
 
-#define	CPUID(a, b, c, d) ((((unsigned long long) a) << 32) | (b << 16) | \
-			  (c << 8) | d)
-
 /*
- * Each X86_FEATURE_XXX definition is 64-bit and contains the following
- * CPUID meta-data:
- *
- * 	[63:32] :  input value for EAX
- * 	[31:16] :  input value for ECX
- * 	[15:8]  :  output register
- * 	[7:0]   :  bit position in output register
+ * Pack the information into a 64-bit value so that each X86_FEATURE_XXX can be
+ * passed by value with no overhead.
  */
+struct x86_cpu_feature {
+	u32	function;
+	u16	index;
+	u8	reg;
+	u8	bit;
+};
+
+#define X86_CPU_FEATURE(fn, idx, gpr, __bit)					\
+({										\
+	struct x86_cpu_feature feature = {					\
+		.function = fn,							\
+		.index = idx,							\
+		.reg = gpr,							\
+		.bit = __bit,							\
+	};									\
+										\
+	static_assert((fn & 0xc0000000) == 0 ||					\
+		      (fn & 0xc0000000) == 0x40000000 ||			\
+		      (fn & 0xc0000000) == 0x80000000 ||			\
+		      (fn & 0xc0000000) == 0xc0000000);				\
+	static_assert(idx < BIT(sizeof(feature.index) * BITS_PER_BYTE));	\
+	feature;								\
+})
 
 /*
  * Basic Leafs, a.k.a. Intel defined
  */
-#define	X86_FEATURE_MWAIT		(CPUID(0x1, 0, ECX, 3))
-#define	X86_FEATURE_VMX			(CPUID(0x1, 0, ECX, 5))
-#define	X86_FEATURE_PDCM		(CPUID(0x1, 0, ECX, 15))
-#define	X86_FEATURE_PCID		(CPUID(0x1, 0, ECX, 17))
-#define X86_FEATURE_X2APIC		(CPUID(0x1, 0, ECX, 21))
-#define	X86_FEATURE_MOVBE		(CPUID(0x1, 0, ECX, 22))
-#define	X86_FEATURE_TSC_DEADLINE_TIMER	(CPUID(0x1, 0, ECX, 24))
-#define	X86_FEATURE_XSAVE		(CPUID(0x1, 0, ECX, 26))
-#define	X86_FEATURE_OSXSAVE		(CPUID(0x1, 0, ECX, 27))
-#define	X86_FEATURE_RDRAND		(CPUID(0x1, 0, ECX, 30))
-#define	X86_FEATURE_MCE			(CPUID(0x1, 0, EDX, 7))
-#define	X86_FEATURE_APIC		(CPUID(0x1, 0, EDX, 9))
-#define	X86_FEATURE_CLFLUSH		(CPUID(0x1, 0, EDX, 19))
-#define	X86_FEATURE_DS			(CPUID(0x1, 0, EDX, 21))
-#define	X86_FEATURE_XMM			(CPUID(0x1, 0, EDX, 25))
-#define	X86_FEATURE_XMM2		(CPUID(0x1, 0, EDX, 26))
-#define	X86_FEATURE_TSC_ADJUST		(CPUID(0x7, 0, EBX, 1))
-#define	X86_FEATURE_HLE			(CPUID(0x7, 0, EBX, 4))
-#define	X86_FEATURE_SMEP		(CPUID(0x7, 0, EBX, 7))
-#define	X86_FEATURE_INVPCID		(CPUID(0x7, 0, EBX, 10))
-#define	X86_FEATURE_RTM			(CPUID(0x7, 0, EBX, 11))
-#define	X86_FEATURE_SMAP		(CPUID(0x7, 0, EBX, 20))
-#define	X86_FEATURE_PCOMMIT		(CPUID(0x7, 0, EBX, 22))
-#define	X86_FEATURE_CLFLUSHOPT		(CPUID(0x7, 0, EBX, 23))
-#define	X86_FEATURE_CLWB		(CPUID(0x7, 0, EBX, 24))
-#define X86_FEATURE_INTEL_PT		(CPUID(0x7, 0, EBX, 25))
-#define	X86_FEATURE_UMIP		(CPUID(0x7, 0, ECX, 2))
-#define	X86_FEATURE_PKU			(CPUID(0x7, 0, ECX, 3))
-#define	X86_FEATURE_LA57		(CPUID(0x7, 0, ECX, 16))
-#define	X86_FEATURE_RDPID		(CPUID(0x7, 0, ECX, 22))
-#define	X86_FEATURE_SHSTK		(CPUID(0x7, 0, ECX, 7))
-#define	X86_FEATURE_IBT			(CPUID(0x7, 0, EDX, 20))
-#define	X86_FEATURE_SPEC_CTRL		(CPUID(0x7, 0, EDX, 26))
-#define	X86_FEATURE_FLUSH_L1D		(CPUID(0x7, 0, EDX, 28))
-#define	X86_FEATURE_ARCH_CAPABILITIES	(CPUID(0x7, 0, EDX, 29))
-#define	X86_FEATURE_PKS			(CPUID(0x7, 0, ECX, 31))
-#define	X86_FEATURE_LAM			(CPUID(0x7, 1, EAX, 26))
+#define X86_FEATURE_MWAIT		X86_CPU_FEATURE(0x1, 0, ECX, 3)
+#define X86_FEATURE_VMX			X86_CPU_FEATURE(0x1, 0, ECX, 5)
+#define X86_FEATURE_PDCM		X86_CPU_FEATURE(0x1, 0, ECX, 15)
+#define X86_FEATURE_PCID		X86_CPU_FEATURE(0x1, 0, ECX, 17)
+#define X86_FEATURE_X2APIC		X86_CPU_FEATURE(0x1, 0, ECX, 21)
+#define X86_FEATURE_MOVBE		X86_CPU_FEATURE(0x1, 0, ECX, 22)
+#define X86_FEATURE_TSC_DEADLINE_TIMER	X86_CPU_FEATURE(0x1, 0, ECX, 24)
+#define X86_FEATURE_XSAVE		X86_CPU_FEATURE(0x1, 0, ECX, 26)
+#define X86_FEATURE_OSXSAVE		X86_CPU_FEATURE(0x1, 0, ECX, 27)
+#define X86_FEATURE_RDRAND		X86_CPU_FEATURE(0x1, 0, ECX, 30)
+#define X86_FEATURE_MCE			X86_CPU_FEATURE(0x1, 0, EDX, 7)
+#define X86_FEATURE_APIC		X86_CPU_FEATURE(0x1, 0, EDX, 9)
+#define X86_FEATURE_CLFLUSH		X86_CPU_FEATURE(0x1, 0, EDX, 19)
+#define X86_FEATURE_DS			X86_CPU_FEATURE(0x1, 0, EDX, 21)
+#define X86_FEATURE_XMM			X86_CPU_FEATURE(0x1, 0, EDX, 25)
+#define X86_FEATURE_XMM2		X86_CPU_FEATURE(0x1, 0, EDX, 26)
+#define X86_FEATURE_TSC_ADJUST		X86_CPU_FEATURE(0x7, 0, EBX, 1)
+#define X86_FEATURE_HLE			X86_CPU_FEATURE(0x7, 0, EBX, 4)
+#define X86_FEATURE_SMEP		X86_CPU_FEATURE(0x7, 0, EBX, 7)
+#define X86_FEATURE_INVPCID		X86_CPU_FEATURE(0x7, 0, EBX, 10)
+#define X86_FEATURE_RTM			X86_CPU_FEATURE(0x7, 0, EBX, 11)
+#define X86_FEATURE_SMAP		X86_CPU_FEATURE(0x7, 0, EBX, 20)
+#define X86_FEATURE_PCOMMIT		X86_CPU_FEATURE(0x7, 0, EBX, 22)
+#define X86_FEATURE_CLFLUSHOPT		X86_CPU_FEATURE(0x7, 0, EBX, 23)
+#define X86_FEATURE_CLWB		X86_CPU_FEATURE(0x7, 0, EBX, 24)
+#define X86_FEATURE_INTEL_PT		X86_CPU_FEATURE(0x7, 0, EBX, 25)
+#define X86_FEATURE_UMIP		X86_CPU_FEATURE(0x7, 0, ECX, 2)
+#define X86_FEATURE_PKU			X86_CPU_FEATURE(0x7, 0, ECX, 3)
+#define X86_FEATURE_LA57		X86_CPU_FEATURE(0x7, 0, ECX, 16)
+#define X86_FEATURE_RDPID		X86_CPU_FEATURE(0x7, 0, ECX, 22)
+#define X86_FEATURE_SHSTK		X86_CPU_FEATURE(0x7, 0, ECX, 7)
+#define X86_FEATURE_PKS			X86_CPU_FEATURE(0x7, 0, ECX, 31)
+#define X86_FEATURE_IBT			X86_CPU_FEATURE(0x7, 0, EDX, 20)
+#define X86_FEATURE_SPEC_CTRL		X86_CPU_FEATURE(0x7, 0, EDX, 26)
+#define X86_FEATURE_STIBP		X86_CPU_FEATURE(0x7, 0, EDX, 27)
+#define X86_FEATURE_FLUSH_L1D		X86_CPU_FEATURE(0x7, 0, EDX, 28)
+#define X86_FEATURE_ARCH_CAPABILITIES	X86_CPU_FEATURE(0x7, 0, EDX, 29)
+#define X86_FEATURE_SSBD		X86_CPU_FEATURE(0x7, 0, EDX, 31)
+#define X86_FEATURE_LAM			X86_CPU_FEATURE(0x7, 1, EAX, 26)
 
 /*
  * KVM defined leafs
  */
-#define	KVM_FEATURE_ASYNC_PF		(CPUID(0x40000001, 0, EAX, 4))
-#define	KVM_FEATURE_ASYNC_PF_INT	(CPUID(0x40000001, 0, EAX, 14))
+#define KVM_FEATURE_ASYNC_PF		X86_CPU_FEATURE(0x40000001, 0, EAX, 4)
+#define KVM_FEATURE_ASYNC_PF_INT	X86_CPU_FEATURE(0x40000001, 0, EAX, 14)
 
 /*
  * Extended Leafs, a.k.a. AMD defined
  */
-#define	X86_FEATURE_SVM			(CPUID(0x80000001, 0, ECX, 2))
-#define	X86_FEATURE_PERFCTR_CORE	(CPUID(0x80000001, 0, ECX, 23))
-#define	X86_FEATURE_NX			(CPUID(0x80000001, 0, EDX, 20))
-#define	X86_FEATURE_GBPAGES		(CPUID(0x80000001, 0, EDX, 26))
-#define	X86_FEATURE_RDTSCP		(CPUID(0x80000001, 0, EDX, 27))
-#define	X86_FEATURE_LM			(CPUID(0x80000001, 0, EDX, 29))
-#define	X86_FEATURE_RDPRU		(CPUID(0x80000008, 0, EBX, 4))
-#define	X86_FEATURE_AMD_IBPB		(CPUID(0x80000008, 0, EBX, 12))
-#define	X86_FEATURE_NPT			(CPUID(0x8000000A, 0, EDX, 0))
-#define	X86_FEATURE_LBRV		(CPUID(0x8000000A, 0, EDX, 1))
-#define	X86_FEATURE_NRIPS		(CPUID(0x8000000A, 0, EDX, 3))
-#define X86_FEATURE_TSCRATEMSR		(CPUID(0x8000000A, 0, EDX, 4))
-#define X86_FEATURE_PAUSEFILTER		(CPUID(0x8000000A, 0, EDX, 10))
-#define X86_FEATURE_PFTHRESHOLD		(CPUID(0x8000000A, 0, EDX, 12))
-#define	X86_FEATURE_VGIF		(CPUID(0x8000000A, 0, EDX, 16))
-#define X86_FEATURE_VNMI		(CPUID(0x8000000A, 0, EDX, 25))
-#define	X86_FEATURE_AMD_PMU_V2		(CPUID(0x80000022, 0, EAX, 0))
+#define X86_FEATURE_SVM			X86_CPU_FEATURE(0x80000001, 0, ECX, 2)
+#define X86_FEATURE_PERFCTR_CORE	X86_CPU_FEATURE(0x80000001, 0, ECX, 23)
+#define X86_FEATURE_NX			X86_CPU_FEATURE(0x80000001, 0, EDX, 20)
+#define X86_FEATURE_GBPAGES		X86_CPU_FEATURE(0x80000001, 0, EDX, 26)
+#define X86_FEATURE_RDTSCP		X86_CPU_FEATURE(0x80000001, 0, EDX, 27)
+#define X86_FEATURE_LM			X86_CPU_FEATURE(0x80000001, 0, EDX, 29)
+#define X86_FEATURE_RDPRU		X86_CPU_FEATURE(0x80000008, 0, EBX, 4)
+#define X86_FEATURE_AMD_IBPB		X86_CPU_FEATURE(0x80000008, 0, EBX, 12)
+#define X86_FEATURE_AMD_IBRS		X86_CPU_FEATURE(0x80000008, 0, EBX, 14)
+#define X86_FEATURE_AMD_STIBP		X86_CPU_FEATURE(0x80000008, 0, EBX, 15)
+#define X86_FEATURE_AMD_STIBP_ALWAYS_ON	X86_CPU_FEATURE(0x80000008, 0, EBX, 17)
+#define X86_FEATURE_AMD_IBRS_SAME_MODE	X86_CPU_FEATURE(0x80000008, 0, EBX, 19)
+#define X86_FEATURE_AMD_SSBD		X86_CPU_FEATURE(0x80000008, 0, EBX, 24)
+#define X86_FEATURE_NPT			X86_CPU_FEATURE(0x8000000A, 0, EDX, 0)
+#define X86_FEATURE_LBRV		X86_CPU_FEATURE(0x8000000A, 0, EDX, 1)
+#define X86_FEATURE_NRIPS		X86_CPU_FEATURE(0x8000000A, 0, EDX, 3)
+#define X86_FEATURE_TSCRATEMSR		X86_CPU_FEATURE(0x8000000A, 0, EDX, 4)
+#define X86_FEATURE_PAUSEFILTER		X86_CPU_FEATURE(0x8000000A, 0, EDX, 10)
+#define X86_FEATURE_PFTHRESHOLD		X86_CPU_FEATURE(0x8000000A, 0, EDX, 12)
+#define X86_FEATURE_VGIF		X86_CPU_FEATURE(0x8000000A, 0, EDX, 16)
+#define X86_FEATURE_VNMI		X86_CPU_FEATURE(0x8000000A, 0, EDX, 25)
+#define X86_FEATURE_SME			X86_CPU_FEATURE(0x8000001F, 0, EAX,  0)
+#define X86_FEATURE_SEV			X86_CPU_FEATURE(0x8000001F, 0, EAX,  1)
+#define X86_FEATURE_VM_PAGE_FLUSH	X86_CPU_FEATURE(0x8000001F, 0, EAX,  2)
+#define X86_FEATURE_SEV_ES		X86_CPU_FEATURE(0x8000001F, 0, EAX,  3)
+#define X86_FEATURE_SEV_SNP		X86_CPU_FEATURE(0x8000001F, 0, EAX,  4)
+#define X86_FEATURE_V_TSC_AUX		X86_CPU_FEATURE(0x8000001F, 0, EAX,  9)
+#define X86_FEATURE_SME_COHERENT	X86_CPU_FEATURE(0x8000001F, 0, EAX, 10)
+#define X86_FEATURE_DEBUG_SWAP		X86_CPU_FEATURE(0x8000001F, 0, EAX, 14)
+#define X86_FEATURE_SVSM		X86_CPU_FEATURE(0x8000001F, 0, EAX, 28)
+#define X86_FEATURE_SBPB		X86_CPU_FEATURE(0x80000021, 0, EAX, 27)
+#define X86_FEATURE_AMD_PMU_V2		X86_CPU_FEATURE(0x80000022, 0, EAX, 0)
 
-static inline bool this_cpu_has(u64 feature)
+/*
+ * Same idea as X86_FEATURE_XXX, but X86_PROPERTY_XXX retrieves a multi-bit
+ * value/property as opposed to a single-bit feature.  Again, pack the info
+ * into a 64-bit value to pass by value with no overhead on 64-bit builds.
+ */
+struct x86_cpu_property {
+	u32	function;
+	u8	index;
+	u8	reg;
+	u8	lo_bit;
+	u8	hi_bit;
+};
+#define X86_CPU_PROPERTY(fn, idx, gpr, low_bit, high_bit)			\
+({										\
+	struct x86_cpu_property property = {					\
+		.function = fn,							\
+		.index = idx,							\
+		.reg = gpr,							\
+		.lo_bit = low_bit,						\
+		.hi_bit = high_bit,						\
+	};									\
+										\
+	static_assert(low_bit < high_bit);					\
+	static_assert((fn & 0xc0000000) == 0 ||					\
+		      (fn & 0xc0000000) == 0x40000000 ||			\
+		      (fn & 0xc0000000) == 0x80000000 ||			\
+		      (fn & 0xc0000000) == 0xc0000000);				\
+	static_assert(idx < BIT(sizeof(property.index) * BITS_PER_BYTE));	\
+	property;								\
+})
+
+#define X86_PROPERTY_MAX_BASIC_LEAF		X86_CPU_PROPERTY(0, 0, EAX, 0, 31)
+#define X86_PROPERTY_PMU_VERSION		X86_CPU_PROPERTY(0xa, 0, EAX, 0, 7)
+#define X86_PROPERTY_PMU_NR_GP_COUNTERS		X86_CPU_PROPERTY(0xa, 0, EAX, 8, 15)
+#define X86_PROPERTY_PMU_GP_COUNTERS_BIT_WIDTH	X86_CPU_PROPERTY(0xa, 0, EAX, 16, 23)
+#define X86_PROPERTY_PMU_EBX_BIT_VECTOR_LENGTH	X86_CPU_PROPERTY(0xa, 0, EAX, 24, 31)
+#define X86_PROPERTY_PMU_EVENTS_MASK		X86_CPU_PROPERTY(0xa, 0, EBX, 0, 7)
+#define X86_PROPERTY_PMU_FIXED_COUNTERS_BITMASK	X86_CPU_PROPERTY(0xa, 0, ECX, 0, 31)
+#define X86_PROPERTY_PMU_NR_FIXED_COUNTERS	X86_CPU_PROPERTY(0xa, 0, EDX, 0, 4)
+#define X86_PROPERTY_PMU_FIXED_COUNTERS_BIT_WIDTH	X86_CPU_PROPERTY(0xa, 0, EDX, 5, 12)
+
+#define X86_PROPERTY_SUPPORTED_XCR0_LO		X86_CPU_PROPERTY(0xd,  0, EAX,  0, 31)
+#define X86_PROPERTY_XSTATE_MAX_SIZE_XCR0	X86_CPU_PROPERTY(0xd,  0, EBX,  0, 31)
+#define X86_PROPERTY_XSTATE_MAX_SIZE		X86_CPU_PROPERTY(0xd,  0, ECX,  0, 31)
+#define X86_PROPERTY_SUPPORTED_XCR0_HI		X86_CPU_PROPERTY(0xd,  0, EDX,  0, 31)
+
+#define X86_PROPERTY_XSTATE_TILE_SIZE		X86_CPU_PROPERTY(0xd, 18, EAX,  0, 31)
+#define X86_PROPERTY_XSTATE_TILE_OFFSET		X86_CPU_PROPERTY(0xd, 18, EBX,  0, 31)
+
+#define X86_PROPERTY_INTEL_PT_NR_RANGES		X86_CPU_PROPERTY(0x14, 1, EAX,  0, 2)
+
+#define X86_PROPERTY_AMX_MAX_PALETTE_TABLES	X86_CPU_PROPERTY(0x1d, 0, EAX,  0, 31)
+#define X86_PROPERTY_AMX_TOTAL_TILE_BYTES	X86_CPU_PROPERTY(0x1d, 1, EAX,  0, 15)
+#define X86_PROPERTY_AMX_BYTES_PER_TILE		X86_CPU_PROPERTY(0x1d, 1, EAX, 16, 31)
+#define X86_PROPERTY_AMX_BYTES_PER_ROW		X86_CPU_PROPERTY(0x1d, 1, EBX, 0,  15)
+#define X86_PROPERTY_AMX_NR_TILE_REGS		X86_CPU_PROPERTY(0x1d, 1, EBX, 16, 31)
+#define X86_PROPERTY_AMX_MAX_ROWS		X86_CPU_PROPERTY(0x1d, 1, ECX, 0,  15)
+
+#define X86_PROPERTY_MAX_KVM_LEAF		X86_CPU_PROPERTY(0x40000000, 0, EAX, 0, 31)
+
+#define X86_PROPERTY_MAX_EXT_LEAF		X86_CPU_PROPERTY(0x80000000, 0, EAX, 0, 31)
+#define X86_PROPERTY_MAX_PHY_ADDR		X86_CPU_PROPERTY(0x80000008, 0, EAX, 0, 7)
+#define X86_PROPERTY_MAX_VIRT_ADDR		X86_CPU_PROPERTY(0x80000008, 0, EAX, 8, 15)
+#define X86_PROPERTY_GUEST_MAX_PHY_ADDR		X86_CPU_PROPERTY(0x80000008, 0, EAX, 16, 23)
+#define X86_PROPERTY_SEV_C_BIT			X86_CPU_PROPERTY(0x8000001F, 0, EBX, 0, 5)
+#define X86_PROPERTY_PHYS_ADDR_REDUCTION	X86_CPU_PROPERTY(0x8000001F, 0, EBX, 6, 11)
+#define X86_PROPERTY_NR_PERFCTR_CORE		X86_CPU_PROPERTY(0x80000022, 0, EBX, 0, 3)
+#define X86_PROPERTY_NR_PERFCTR_NB		X86_CPU_PROPERTY(0x80000022, 0, EBX, 10, 15)
+
+#define X86_PROPERTY_MAX_CENTAUR_LEAF		X86_CPU_PROPERTY(0xC0000000, 0, EAX, 0, 31)
+
+static inline u32 __this_cpu_has(u32 function, u32 index, u8 reg, u8 lo, u8 hi)
 {
-	u32 input_eax = feature >> 32;
-	u32 input_ecx = (feature >> 16) & 0xffff;
-	u32 output_reg = (feature >> 8) & 0xff;
-	u8 bit = feature & 0xff;
-	struct cpuid c;
-	u32 *tmp;
+	union {
+		struct cpuid cpuid;
+		u32 gprs[4];
+	} c;
 
-	c = cpuid_indexed(input_eax, input_ecx);
-	tmp = (u32 *)&c;
+	c.cpuid = cpuid_indexed(function, index);
 
-	return ((*(tmp + (output_reg % 32))) & (1 << bit));
+	return (c.gprs[reg] & GENMASK(hi, lo)) >> lo;
+}
+
+static inline bool this_cpu_has(struct x86_cpu_feature feature)
+{
+	return __this_cpu_has(feature.function, feature.index,
+			      feature.reg, feature.bit, feature.bit);
+}
+
+static inline uint32_t this_cpu_property(struct x86_cpu_property property)
+{
+	return __this_cpu_has(property.function, property.index,
+			      property.reg, property.lo_bit, property.hi_bit);
+}
+
+static __always_inline bool this_cpu_has_p(struct x86_cpu_property property)
+{
+	uint32_t max_leaf;
+
+	switch (property.function & 0xc0000000) {
+	case 0:
+		max_leaf = this_cpu_property(X86_PROPERTY_MAX_BASIC_LEAF);
+		break;
+	case 0x40000000:
+		max_leaf = this_cpu_property(X86_PROPERTY_MAX_KVM_LEAF);
+		break;
+	case 0x80000000:
+		max_leaf = this_cpu_property(X86_PROPERTY_MAX_EXT_LEAF);
+		break;
+	case 0xc0000000:
+		max_leaf = this_cpu_property(X86_PROPERTY_MAX_CENTAUR_LEAF);
+	}
+	return max_leaf >= property.function;
+}
+
+static inline u8 cpuid_maxphyaddr(void)
+{
+	if (!this_cpu_has_p(X86_PROPERTY_MAX_PHY_ADDR))
+		return 36;
+
+	return this_cpu_property(X86_PROPERTY_MAX_PHY_ADDR);
+}
+
+static inline u64 this_cpu_supported_xcr0(void)
+{
+	if (!this_cpu_has_p(X86_PROPERTY_SUPPORTED_XCR0_LO))
+		return 0;
+
+	return (u64)this_cpu_property(X86_PROPERTY_SUPPORTED_XCR0_LO) |
+	       ((u64)this_cpu_property(X86_PROPERTY_SUPPORTED_XCR0_HI) << 32);
 }
 
 struct far_pointer32 {
@@ -908,22 +1051,15 @@ static inline void write_pkru(u32 pkru)
 
 static inline bool is_canonical(u64 addr)
 {
-	int va_width = (raw_cpuid(0x80000008, 0).a & 0xff00) >> 8;
-	int shift_amt = 64 - va_width;
+	int va_width, shift_amt;
 
+	if (this_cpu_has_p(X86_PROPERTY_MAX_VIRT_ADDR))
+		va_width = this_cpu_property(X86_PROPERTY_MAX_VIRT_ADDR);
+	else
+		va_width = 48;
+
+	shift_amt = 64 - va_width;
 	return (s64)(addr << shift_amt) >> shift_amt == addr;
-}
-
-static inline void clear_bit(int bit, u8 *addr)
-{
-	__asm__ __volatile__("lock; btr %1, %0"
-			     : "+m" (*addr) : "Ir" (bit) : "cc", "memory");
-}
-
-static inline void set_bit(int bit, u8 *addr)
-{
-	__asm__ __volatile__("lock; bts %1, %0"
-			     : "+m" (*addr) : "Ir" (bit) : "cc", "memory");
 }
 
 static inline void flush_tlb(void)

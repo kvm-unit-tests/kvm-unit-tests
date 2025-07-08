@@ -436,7 +436,7 @@ static void check_gp_counters(void)
 	int i;
 
 	for (i = 0; i < gp_events_size; i++)
-		if (pmu_gp_counter_is_available(i))
+		if (pmu_arch_event_is_available(i))
 			check_gp_counter(&gp_events[i]);
 		else
 			printf("GP event '%s' is disabled\n",
@@ -457,18 +457,34 @@ static void check_fixed_counters(void)
 	}
 }
 
+static struct pmu_event *get_one_event(int idx)
+{
+	int i;
+
+	if (pmu_arch_event_is_available(idx))
+		return &gp_events[idx % gp_events_size];
+
+	for (i = 0; i < gp_events_size; i++) {
+		if (pmu_arch_event_is_available(i))
+			return &gp_events[i];
+	}
+
+	return NULL;
+}
+
 static void check_counters_many(void)
 {
+	struct pmu_event *evt;
 	pmu_counter_t cnt[48];
 	int i, n;
 
 	for (i = 0, n = 0; n < pmu.nr_gp_counters; i++) {
-		if (!pmu_gp_counter_is_available(i))
+		evt = get_one_event(i);
+		if (!evt)
 			continue;
 
 		cnt[n].ctr = MSR_GP_COUNTERx(n);
-		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR |
-			gp_events[i % gp_events_size].unit_sel;
+		cnt[n].config = EVNTSEL_OS | EVNTSEL_USR | evt->unit_sel;
 		n++;
 	}
 	for (i = 0; i < fixed_counters_num; i++) {
@@ -823,7 +839,7 @@ static void warm_up(void)
 
 static void check_counters(void)
 {
-	if (is_fep_available())
+	if (is_fep_available)
 		check_emulated_instr();
 
 	warm_up();
@@ -902,11 +918,8 @@ static void set_ref_cycle_expectations(void)
 	uint64_t t0, t1, t2, t3;
 
 	/* Bit 2 enumerates the availability of reference cycles events. */
-	if (!pmu.nr_gp_counters || !pmu_gp_counter_is_available(2))
+	if (!pmu.nr_gp_counters || !pmu_arch_event_is_available(2))
 		return;
-
-	if (this_cpu_has_perf_global_ctrl())
-		wrmsr(pmu.msr_global_ctl, 0);
 
 	t0 = fenced_rdtsc();
 	start_event(&cnt);
@@ -956,6 +969,9 @@ int main(int ac, char **av)
 	handle_irq(PMI_VECTOR, cnt_overflow);
 	buf = malloc(N*64);
 
+	if (this_cpu_has_perf_global_ctrl())
+		wrmsr(pmu.msr_global_ctl, 0);
+
 	check_invalid_rdpmc_gp();
 
 	if (pmu.is_intel) {
@@ -992,7 +1008,8 @@ int main(int ac, char **av)
 	printf("PMU version:         %d\n", pmu.version);
 	printf("GP counters:         %d\n", pmu.nr_gp_counters);
 	printf("GP counter width:    %d\n", pmu.gp_counter_width);
-	printf("Mask length:         %d\n", pmu.gp_counter_mask_length);
+	printf("Event Mask length:   %d\n", pmu.arch_event_mask_length);
+	printf("Arch Events (mask):  0x%x\n", pmu.arch_event_available);
 	printf("Fixed counters:      %d\n", pmu.nr_fixed_counters);
 	printf("Fixed counter width: %d\n", pmu.fixed_counter_width);
 

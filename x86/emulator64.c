@@ -478,7 +478,7 @@ static void test_emulator_64(void *mem)
 	test_sreg(mem);
 	test_cmov(mem);
 
-	if (is_fep_available()) {
+	if (is_fep_available) {
 		test_mmx_movq_mf(mem);
 		test_movabs(mem);
 		test_user_load_dpl0_seg();

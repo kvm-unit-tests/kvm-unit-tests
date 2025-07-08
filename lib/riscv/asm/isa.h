@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #ifndef _ASMRISCV_ISA_H_
 #define _ASMRISCV_ISA_H_
+
 #include <bitops.h>
+#include <util.h>
 #include <asm/setup.h>
 
 /*
@@ -14,7 +16,7 @@ enum {
 	ISA_SSTC,
 	ISA_MAX,
 };
-_Static_assert(ISA_MAX <= __riscv_xlen, "Need to increase thread_info.isa");
+__static_assert(ISA_MAX <= __riscv_xlen, "Need to increase thread_info.isa");
 
 static inline bool cpu_has_extension(int cpu, int ext)
 {

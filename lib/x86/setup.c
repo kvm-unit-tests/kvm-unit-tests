@@ -345,7 +345,6 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	setup_gdt_tss();
 	setup_segments64();
 	setup_idt();
-	load_idt();
 	/*
 	 * Load GS.base with the per-vCPU data.  This must be done after
 	 * loading the IDT as reading the APIC ID may #VC when running

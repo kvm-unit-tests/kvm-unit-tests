@@ -105,7 +105,7 @@ gdt32_end:
 
 .code64
 start64:
-	call load_idt
+	call setup_idt
 	load_tss
 	call reset_apic
 	call mask_pic_interrupts

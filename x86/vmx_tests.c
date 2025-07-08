@@ -10881,12 +10881,13 @@ static int set_host_value(u64 vmcs_field, u64 value)
 	case HOST_BASE_GDTR:
 		sgdt(&dt_ptr);
 		dt_ptr.base = value;
-		lgdt(&dt_ptr);
-		return lgdt_fep_safe(&dt_ptr);
+		return is_fep_available ? lgdt_fep_safe(&dt_ptr) :
+					  lgdt_safe(&dt_ptr);
 	case HOST_BASE_IDTR:
 		sidt(&dt_ptr);
 		dt_ptr.base = value;
-		return lidt_fep_safe(&dt_ptr);
+		return is_fep_available ? lidt_fep_safe(&dt_ptr) :
+					  lidt_safe(&dt_ptr);
 	case HOST_BASE_TR:
 		/* Set the base and clear the busy bit */
 		set_gdt_entry(FIRST_SPARE_SEL, value, 0x200, 0x89, 0);
@@ -11122,8 +11123,8 @@ static void vmx_posted_interrupts_test_worker(void *data)
 	while (!args->in_guest)
 		pause();
 
-	test_and_set_bit(args->nr, args->pi_desc);
-	test_and_set_bit(256, args->pi_desc);
+	set_bit(args->nr, args->pi_desc);
+	set_bit(256, args->pi_desc);
 	apic_icr_write(PI_VECTOR, args->dest);
 }
 

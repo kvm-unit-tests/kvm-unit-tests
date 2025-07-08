@@ -1232,7 +1232,7 @@ void ac_test_run(int pt_levels, bool force_emulation)
 	ac_pt_env_t pt_env;
 	int i, tests, successes;
 
-	if (force_emulation && !is_fep_available()) {
+	if (force_emulation && !is_fep_available) {
 		report_skip("Forced emulation prefix (FEP) not available\n");
 		return;
 	}

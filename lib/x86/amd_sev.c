@@ -17,31 +17,15 @@ static unsigned short amd_sev_c_bit_pos;
 
 bool amd_sev_enabled(void)
 {
-	struct cpuid cpuid_out;
 	static bool sev_enabled;
 	static bool initialized = false;
 
 	/* Check CPUID and MSR for SEV status and store it for future function calls. */
 	if (!initialized) {
-		sev_enabled = false;
 		initialized = true;
 
-		/* Test if we can query SEV features */
-		cpuid_out = cpuid(CPUID_FN_LARGEST_EXT_FUNC_NUM);
-		if (cpuid_out.a < CPUID_FN_ENCRYPT_MEM_CAPAB) {
-			return sev_enabled;
-		}
-
-		/* Test if SEV is supported */
-		cpuid_out = cpuid(CPUID_FN_ENCRYPT_MEM_CAPAB);
-		if (!(cpuid_out.a & SEV_SUPPORT_MASK)) {
-			return sev_enabled;
-		}
-
-		/* Test if SEV is enabled */
-		if (rdmsr(MSR_SEV_STATUS) & SEV_ENABLED_MASK) {
-			sev_enabled = true;
-		}
+		sev_enabled = this_cpu_has(X86_FEATURE_SEV) &&
+			      rdmsr(MSR_SEV_STATUS) & SEV_STATUS_SEV_ENABLED;
 	}
 
 	return sev_enabled;
@@ -49,19 +33,11 @@ bool amd_sev_enabled(void)
 
 efi_status_t setup_amd_sev(void)
 {
-	struct cpuid cpuid_out;
-
 	if (!amd_sev_enabled()) {
 		return EFI_UNSUPPORTED;
 	}
 
-	/*
-	 * Extract C-Bit position from ebx[5:0]
-	 * AMD64 Architecture Programmer's Manual Volume 3
-	 *   - Section " Function 8000_001Fh - Encrypted Memory Capabilities"
-	 */
-	cpuid_out = cpuid(CPUID_FN_ENCRYPT_MEM_CAPAB);
-	amd_sev_c_bit_pos = (unsigned short)(cpuid_out.b & 0x3f);
+	amd_sev_c_bit_pos = this_cpu_property(X86_PROPERTY_SEV_C_BIT);
 
 	return EFI_SUCCESS;
 }
@@ -72,17 +48,11 @@ bool amd_sev_es_enabled(void)
 	static bool initialized = false;
 
 	if (!initialized) {
-		sev_es_enabled = false;
 		initialized = true;
 
-		if (!amd_sev_enabled()) {
-			return sev_es_enabled;
-		}
-
-		/* Test if SEV-ES is enabled */
-		if (rdmsr(MSR_SEV_STATUS) & SEV_ES_ENABLED_MASK) {
-			sev_es_enabled = true;
-		}
+		sev_es_enabled = amd_sev_enabled() &&
+				 this_cpu_has(X86_FEATURE_SEV_ES) &&
+				 rdmsr(MSR_SEV_STATUS) & SEV_STATUS_SEV_ES_ENABLED;
 	}
 
 	return sev_es_enabled;
@@ -111,9 +81,9 @@ efi_status_t setup_amd_sev_es(void)
 	 */
 	sidt(&idtr);
 	idt = (idt_entry_t *)idtr.base;
-	vc_handler_idt = idt[SEV_ES_VC_HANDLER_VECTOR];
+	vc_handler_idt = idt[VC_VECTOR];
 	vc_handler_idt.selector = KERNEL_CS;
-	boot_idt[SEV_ES_VC_HANDLER_VECTOR] = vc_handler_idt;
+	boot_idt[VC_VECTOR] = vc_handler_idt;
 
 	return EFI_SUCCESS;
 }
@@ -130,7 +100,7 @@ void setup_ghcb_pte(pgd_t *page_table)
 	pteval_t *pte;
 
 	/* Read the current GHCB page addr */
-	ghcb_addr = rdmsr(SEV_ES_GHCB_MSR_INDEX);
+	ghcb_addr = rdmsr(MSR_SEV_ES_GHCB);
 
 	/* Search Level 1 page table entry for GHCB page */
 	pte = get_pte_level(page_table, (void *)ghcb_addr, 1);

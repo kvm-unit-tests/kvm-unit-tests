@@ -308,21 +308,54 @@ static bool check_next_rip(struct svm_test *test)
 
 extern u8 *msr_bitmap;
 
+static bool is_x2apic;
+
 static void prepare_msr_intercept(struct svm_test *test)
 {
 	default_prepare(test);
 	vmcb->control.intercept |= (1ULL << INTERCEPT_MSR_PROT);
-	vmcb->control.intercept_exceptions |= (1ULL << GP_VECTOR);
-	memset(msr_bitmap, 0xff, MSR_BITMAP_SIZE);
+
+	memset(msr_bitmap, 0, MSR_BITMAP_SIZE);
+
+	is_x2apic = is_x2apic_enabled();
 }
 
-static void test_msr_intercept(struct svm_test *test)
-{
-	unsigned long msr_value = 0xef8056791234abcd; /* Arbitrary value */
-	unsigned long msr_index;
+#define SVM_MSRPM_BYTES_PER_RANGE 2048
+#define SVM_BITS_PER_MSR 2
+#define SVM_MSRS_PER_BYTE 4
+#define SVM_MSRS_PER_RANGE 8192
+#define SVM_MSRPM_OFFSET_MASK (SVM_MSRS_PER_RANGE - 1)
 
-	for (msr_index = 0; msr_index <= 0xc0011fff; msr_index++) {
-		if (msr_index == 0xC0010131 /* MSR_SEV_STATUS */) {
+static int get_msrpm_bit_nr(u32 msr)
+{
+	int range_nr;
+
+	switch (msr & ~SVM_MSRPM_OFFSET_MASK) {
+	case 0:
+		range_nr = 0;
+		break;
+	case 0xc0000000:
+		range_nr = 1;
+		break;
+	case 0xc0010000:
+		range_nr = 2;
+		break;
+	default:
+		return - 1;
+	}
+
+	return range_nr * SVM_MSRPM_BYTES_PER_RANGE * BITS_PER_BYTE +
+	       (msr & SVM_MSRPM_OFFSET_MASK) * SVM_BITS_PER_MSR;
+}
+
+static void __test_msr_intercept(struct svm_test *test)
+{
+	u64 val, exp, arb_val = 0xef8056791234abcd; /* Arbitrary value */
+	int vector;
+	u32 msr;
+
+	for (msr = 0; msr <= 0xc0012000; msr++) {
+		if (msr == 0xC0010131 /* MSR_SEV_STATUS */) {
 			/*
 			 * Per section 15.34.10 "SEV_STATUS MSR" of AMD64 Architecture
 			 * Programmer's Manual volume 2 - System Programming:
@@ -332,74 +365,173 @@ static void test_msr_intercept(struct svm_test *test)
 			continue;
 		}
 
-		/* Skips gaps between supported MSR ranges */
-		if (msr_index == 0x2000)
-			msr_index = 0xc0000000;
-		else if (msr_index == 0xc0002000)
-			msr_index = 0xc0010000;
+		/*
+		 * Test one MSR just before and after each range, but otherwise
+		 * skips gaps between supported MSR ranges.
+		 */
+		if (msr == 0x2000 + 1)
+			msr = 0xc0000000 - 1;
+		else if (msr == 0xc0002000 + 1)
+			msr = 0xc0010000 - 1;
+
+		test->scratch = msr;
+		vmmcall();
 
 		test->scratch = -1;
 
-		rdmsr(msr_index);
+		vector = rdmsr_safe(msr, &val);
+		if (vector)
+			report_fail("Expected RDMSR(0x%x) to #VMEXIT, got exception '%u'",
+				    msr, vector);
+		else if (test->scratch != msr)
+			report_fail("Expected RDMSR(0x%x) to #VMEXIT, got scratch '%ld",
+				    msr, test->scratch);
 
-		/* Check that a read intercept occurred for MSR at msr_index */
-		if (test->scratch != msr_index)
-			report_fail("MSR 0x%lx read intercept", msr_index);
+		test->scratch = BIT_ULL(32) | msr;
+		vmmcall();
 
 		/*
 		 * Poor man approach to generate a value that
 		 * seems arbitrary each time around the loop.
 		 */
-		msr_value += (msr_value << 1);
+		arb_val += (arb_val << 1);
 
-		wrmsr(msr_index, msr_value);
+		test->scratch = -1;
 
-		/* Check that a write intercept occurred for MSR with msr_value */
-		if (test->scratch != msr_value)
-			report_fail("MSR 0x%lx write intercept", msr_index);
+		vector = wrmsr_safe(msr, arb_val);
+		if (vector)
+			report_fail("Expected WRMSR(0x%x) to #VMEXIT, got exception '%u'",
+				    msr, vector);
+		else if (test->scratch != arb_val)
+			report_fail("Expected WRMSR(0x%x) to #VMEXIT, got scratch '%ld' (wanted %ld)",
+				    msr, test->scratch, arb_val);
+
+		test->scratch = BIT_ULL(33) | msr;
+		vmmcall();
+
+		if (get_msrpm_bit_nr(msr) < 0) {
+			report(msr == 0x2000 ||
+			       msr == 0xc0000000 - 1 || msr == 0xc0002000 ||
+			       msr == 0xc0010000 - 1 || msr == 0xc0012000,
+			       "MSR 0x%x not covered by an MSRPM range", msr);
+			continue;
+		}
+
+		exp = test->scratch;
+
+		/*
+		 * Verify that disabling interception for MSRs within an MSRPM
+		 * range behaves as expected.  Simply eat exceptions, the goal
+		 * is to verify interception, not MSR emulation/virtualization.
+		 */
+		test->scratch = -1;
+		(void)rdmsr_safe(msr, &val);
+		if (test->scratch != -1)
+			report_fail("RDMSR 0x%x, Wanted -1 (no intercept), got 0x%lx",
+				    msr, test->scratch);
+
+		/*
+		 * Verify L1 and L2 see the same MSR value.  Skip TSC to avoid
+		 * false failures, as it's constantly changing.
+		 */
+		if (val != exp && msr != MSR_IA32_TSC)
+			report_fail("RDMSR 0x%x, wanted val '0%lx', got val '0x%lx'",
+				    msr, exp, val);
+
+		test->scratch = BIT_ULL(34) | msr;
+		vmmcall();
+
+		test->scratch = -1;
+		(void)wrmsr_safe(msr, val);
+		if (test->scratch != -1)
+			report_fail("WRMSR 0x%x, Wanted -1 (no intercept), got 0x%lx",
+				    msr, test->scratch);
+
+		test->scratch = BIT_ULL(35) | msr;
+		vmmcall();
 	}
+}
+
+static void test_msr_intercept(struct svm_test *test)
+{
+	__test_msr_intercept(test);
 
 	test->scratch = -2;
+	vmmcall();
+
+	__test_msr_intercept(test);
+
+	test->scratch = -3;
+}
+
+static void restore_msrpm_bit(int bit_nr, bool set)
+{
+	if (set)
+		__set_bit(bit_nr, msr_bitmap);
+	else
+		__clear_bit(bit_nr, msr_bitmap);
 }
 
 static bool msr_intercept_finished(struct svm_test *test)
 {
 	u32 exit_code = vmcb->control.exit_code;
-	u64 exit_info_1;
-	u8 *opcode;
+	bool all_set = false;
+	int bit_nr;
 
-	if (exit_code == SVM_EXIT_MSR) {
-		exit_info_1 = vmcb->control.exit_info_1;
-	} else {
-		/*
-		 * If #GP exception occurs instead, check that it was
-		 * for RDMSR/WRMSR and set exit_info_1 accordingly.
-		 */
+	if (exit_code == SVM_EXIT_VMMCALL) {
+		u32 msr = test->scratch & -1u;
 
-		if (exit_code != (SVM_EXIT_EXCP_BASE + GP_VECTOR))
+		vmcb->save.rip += 3;
+
+		if (test->scratch == -3)
 			return true;
 
-		opcode = (u8 *)vmcb->save.rip;
-		if (opcode[0] != 0x0f)
-			return true;
+		if (test->scratch == -2) {
+			all_set = true;
+			memset(msr_bitmap, 0xff, MSR_BITMAP_SIZE);
+			return false;
+		}
+	
+		bit_nr = get_msrpm_bit_nr(msr);
+		if (bit_nr < 0)
+			return false;
 
-		switch (opcode[1]) {
-		case 0x30: /* WRMSR */
-			exit_info_1 = 1;
-			break;
-		case 0x32: /* RDMSR */
-			exit_info_1 = 0;
-			break;
+		switch (test->scratch >> 32) {
+		case 0:
+			__set_bit(bit_nr, msr_bitmap);
+			return false;
+		case 1:
+			restore_msrpm_bit(bit_nr, all_set);
+			__set_bit(bit_nr + 1, msr_bitmap);
+			return false;
+		case 2:
+			restore_msrpm_bit(bit_nr + 1, all_set);
+			__clear_bit(bit_nr, msr_bitmap);
+			(void)rdmsr_safe(msr, &test->scratch);
+			return false;
+		case 4:
+			restore_msrpm_bit(bit_nr, all_set);
+			__clear_bit(bit_nr + 1, msr_bitmap);
+			/*
+			 * Disable x2APIC so that WRMSR faults instead of doing
+			 * random things, e.g. sending IPIs.
+			 */
+			if (is_x2apic && msr >= 0x800 && msr <= 0x8ff)
+				reset_apic();
+			return false;
+		case 8:
+			restore_msrpm_bit(bit_nr + 1, all_set);
+			if (is_x2apic && msr >= 0x800 && msr <= 0x8ff)
+				enable_x2apic();
+			return false;
 		default:
 			return true;
 		}
+	}
 
-		/*
-		 * Warn that #GP exception occurred instead.
-		 * RCX holds the MSR index.
-		 */
-		printf("%s 0x%lx #GP exception\n",
-		       exit_info_1 ? "WRMSR" : "RDMSR", get_regs().rcx);
+	if (exit_code != SVM_EXIT_MSR) {
+		report_fail("Wanted MSR VM-Exit, got reason 0x%x", exit_code);
+		return true;
 	}
 
 	/* Jump over RDMSR/WRMSR instruction */
@@ -413,9 +545,8 @@ static bool msr_intercept_finished(struct svm_test *test)
 	 *      RDX holds the upper 32 bits of the MSR value,
 	 *      while RAX hold its lower 32 bits.
 	 */
-	if (exit_info_1)
-		test->scratch =
-			((get_regs().rdx << 32) | (vmcb->save.rax & 0xffffffff));
+	if (vmcb->control.exit_info_1)
+		test->scratch = ((get_regs().rdx << 32) | (vmcb->save.rax & 0xffffffff));
 	else
 		test->scratch = get_regs().rcx;
 
@@ -424,8 +555,7 @@ static bool msr_intercept_finished(struct svm_test *test)
 
 static bool check_msr_intercept(struct svm_test *test)
 {
-	memset(msr_bitmap, 0, MSR_BITMAP_SIZE);
-	return (test->scratch == -2);
+	return (test->scratch == -3);
 }
 
 static void prepare_mode_switch(struct svm_test *test)
@@ -3065,7 +3195,7 @@ static void svm_intr_intercept_mix_run_guest(volatile int *counter, int expected
 		*counter = 0;
 
 	sti();  // host IF value should not matter
-	clgi(); // vmrun will set back GI to 1
+	clgi(); // vmrun will set back GIF to 1
 
 	svm_vmrun();
 
@@ -3077,7 +3207,9 @@ static void svm_intr_intercept_mix_run_guest(volatile int *counter, int expected
 	if (counter)
 		report(*counter == 1, "Interrupt is expected");
 
-	report (vmcb->control.exit_code == expected_vmexit, "Test expected VM exit");
+	report(vmcb->control.exit_code == expected_vmexit,
+	       "Wanted VM-Exit reason 0x%x, got 0x%x",
+	       expected_vmexit, vmcb->control.exit_code);
 	report(vmcb->save.rflags & X86_EFLAGS_IF, "Guest should have EFLAGS.IF set now");
 	cli();
 }

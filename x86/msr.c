@@ -290,13 +290,41 @@ static void test_x2apic_msrs(void)
 	__test_x2apic_msrs(true);
 }
 
-static void test_cmd_msrs(void)
+static void test_mitigation_msrs(void)
 {
+	u64 spec_ctrl_bits = 0, val;
 	int i;
+
+	if (this_cpu_has(X86_FEATURE_SPEC_CTRL) || this_cpu_has(X86_FEATURE_AMD_IBRS))
+		spec_ctrl_bits |= SPEC_CTRL_IBRS;
+
+	if (this_cpu_has(X86_FEATURE_STIBP) || this_cpu_has(X86_FEATURE_AMD_STIBP))
+		spec_ctrl_bits |= SPEC_CTRL_STIBP;
+
+	if (this_cpu_has(X86_FEATURE_SSBD) || this_cpu_has(X86_FEATURE_AMD_SSBD))
+		spec_ctrl_bits |= SPEC_CTRL_SSBD;
+
+	if (spec_ctrl_bits) {
+		for (val = 0; val <= spec_ctrl_bits; val++) {
+			/*
+			 * Test only values that are guaranteed not to fault,
+			 * virtualization of SPEC_CTRL has myriad holes that
+			 * won't be ever closed.
+			 */
+			if ((val & spec_ctrl_bits) != val)
+				continue;
+
+			test_msr_rw(MSR_IA32_SPEC_CTRL, "SPEC_CTRL", val);
+		}
+	} else {
+		test_rdmsr_fault(MSR_IA32_SPEC_CTRL, "SPEC_CTRL");
+		test_wrmsr_fault(MSR_IA32_SPEC_CTRL, "SPEC_CTRL", 0);
+	}
 
 	test_rdmsr_fault(MSR_IA32_PRED_CMD, "PRED_CMD");
 	if (this_cpu_has(X86_FEATURE_SPEC_CTRL) ||
-	    this_cpu_has(X86_FEATURE_AMD_IBPB)) {
+	    this_cpu_has(X86_FEATURE_AMD_IBPB) ||
+	    this_cpu_has(X86_FEATURE_SBPB)) {
 		test_wrmsr(MSR_IA32_PRED_CMD, "PRED_CMD", 0);
 		test_wrmsr(MSR_IA32_PRED_CMD, "PRED_CMD", PRED_CMD_IBPB);
 	} else {
@@ -313,7 +341,7 @@ static void test_cmd_msrs(void)
 		test_wrmsr_fault(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", L1D_FLUSH);
 	}
 
-	if (is_fep_available()) {
+	if (is_fep_available) {
 		for (i = 1; i < 64; i++)
 			test_wrmsr_fep_fault(MSR_IA32_FLUSH_CMD, "FLUSH_CMD", BIT_ULL(i));
 	}
@@ -331,7 +359,7 @@ int main(int ac, char **av)
 		test_misc_msrs();
 		test_mce_msrs();
 		test_x2apic_msrs();
-		test_cmd_msrs();
+		test_mitigation_msrs();
 	}
 
 	return report_summary();

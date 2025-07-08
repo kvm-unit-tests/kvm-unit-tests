@@ -417,9 +417,11 @@ int main(int ac, char **av)
 	printf("PEBS Fixed counters: %d\n", pmu.nr_fixed_counters);
 	printf("PEBS baseline (Adaptive PEBS): %d\n", has_baseline);
 
+	apic_write(APIC_LVTPC, PMI_VECTOR);
 	handle_irq(PMI_VECTOR, cnt_overflow);
 	alloc_buffers();
 
+	sti();
 	for (i = 0; i < ARRAY_SIZE(counter_start_values); i++) {
 		ctr_start_val = counter_start_values[i];
 		check_pebs_counters(0, false);
@@ -441,6 +443,7 @@ int main(int ac, char **av)
 			report_prefix_pop();
 		}
 	}
+	cli();
 
 	free_buffers();
 

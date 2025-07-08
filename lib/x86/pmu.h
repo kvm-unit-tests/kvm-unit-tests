@@ -63,8 +63,8 @@ struct pmu_caps {
 	u8 fixed_counter_width;
 	u8 nr_gp_counters;
 	u8 gp_counter_width;
-	u8 gp_counter_mask_length;
-	u32 gp_counter_available;
+	u8 arch_event_mask_length;
+	u32 arch_event_available;
 	u32 msr_gp_counter_base;
 	u32 msr_gp_event_select_base;
 
@@ -110,9 +110,9 @@ static inline bool this_cpu_has_perf_global_status(void)
 	return pmu.version > 1;
 }
 
-static inline bool pmu_gp_counter_is_available(int i)
+static inline bool pmu_arch_event_is_available(int i)
 {
-	return pmu.gp_counter_available & BIT(i);
+	return pmu.arch_event_available & BIT(i);
 }
 
 static inline u64 pmu_lbr_version(void)

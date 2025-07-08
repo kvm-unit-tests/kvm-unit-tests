@@ -8,6 +8,8 @@
 #ifndef _ASMS390X_ARCH_DEF_H_
 #define _ASMS390X_ARCH_DEF_H_
 
+#include <util.h>
+
 struct stack_frame {
 	struct stack_frame *back_chain;
 	uint64_t reserved;
@@ -62,7 +64,7 @@ struct psw {
 	};
 	uint64_t	addr;
 };
-_Static_assert(sizeof(struct psw) == 16, "PSW size");
+static_assert(sizeof(struct psw) == 16);
 
 #define PSW(m, a) ((struct psw){ .mask = (m), .addr = (uint64_t)(a) })
 
@@ -194,7 +196,7 @@ struct lowcore {
 	uint8_t		pad_0x1400[0x1800 - 0x1400];	/* 0x1400 */
 	uint8_t		pgm_int_tdb[0x1900 - 0x1800];	/* 0x1800 */
 } __attribute__ ((__packed__));
-_Static_assert(sizeof(struct lowcore) == 0x1900, "Lowcore size");
+static_assert(sizeof(struct lowcore) == 0x1900);
 
 extern struct lowcore lowcore;
 

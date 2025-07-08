@@ -146,7 +146,6 @@ void smp_init(void)
 	int i;
 	void ipi_entry(void);
 
-	setup_idt();
 	init_apic_map();
 	set_idt_entry(IPI_VECTOR, ipi_entry, 0);
 

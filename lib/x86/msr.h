@@ -32,8 +32,12 @@
 #define EFER_FFXSR		(1<<_EFER_FFXSR)
 
 /* Intel MSRs. Some also available on other CPUs */
-#define MSR_IA32_SPEC_CTRL              0x00000048
-#define MSR_IA32_PRED_CMD               0x00000049
+#define MSR_IA32_SPEC_CTRL		0x00000048
+#define SPEC_CTRL_IBRS			BIT(0)
+#define SPEC_CTRL_STIBP			BIT(1)
+#define SPEC_CTRL_SSBD			BIT(2)
+
+#define MSR_IA32_PRED_CMD		0x00000049
 #define PRED_CMD_IBPB			BIT(0)
 
 #define MSR_IA32_FLUSH_CMD		0x0000010b
@@ -522,5 +526,11 @@
 #define MSR_VM_CR                       0xc0010114
 #define MSR_VM_IGNNE                    0xc0010115
 #define MSR_VM_HSAVE_PA                 0xc0010117
+
+#define MSR_SEV_STATUS			0xc0010131
+#define SEV_STATUS_SEV_ENABLED		BIT(0)
+#define SEV_STATUS_SEV_ES_ENABLED	BIT(1)
+
+#define MSR_SEV_ES_GHCB			0xc0010130
 
 #endif /* _X86_MSR_H_ */

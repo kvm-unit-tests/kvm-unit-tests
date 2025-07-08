@@ -1,3 +1,4 @@
+#include "apic.h"
 #include "svm.h"
 #include "vm.h"
 #include "alloc_page.h"
@@ -134,8 +135,27 @@ static bool npt_rw_pfwalk_check(struct svm_test *test)
 	    && (vmcb->control.exit_info_2 == read_cr3());
 }
 
+static bool was_x2apic;
+
+static void npt_apic_prepare(void)
+{
+	was_x2apic = is_x2apic_enabled();
+
+	if (was_x2apic)
+		reset_apic();
+}
+
+static void npt_apic_restore(void)
+{
+	if (was_x2apic)
+		enable_x2apic();
+
+	was_x2apic = false;
+}
+
 static void npt_l1mmio_prepare(struct svm_test *test)
 {
+	npt_apic_prepare();
 }
 
 u32 nested_apic_version1;
@@ -154,6 +174,9 @@ static bool npt_l1mmio_check(struct svm_test *test)
 	volatile u32 *data = (volatile void *)(0xfee00030);
 	u32 lvr = *data;
 
+	/* Restore APIC state *after* reading LVR. */
+	npt_apic_restore();
+
 	return nested_apic_version1 == lvr && nested_apic_version2 == lvr;
 }
 
@@ -161,6 +184,8 @@ static void npt_rw_l1mmio_prepare(struct svm_test *test)
 {
 
 	u64 *pte;
+
+	npt_apic_prepare();
 
 	pte = npt_get_pte(0xfee00080);
 
@@ -179,6 +204,8 @@ static bool npt_rw_l1mmio_check(struct svm_test *test)
 	u64 *pte = npt_get_pte(0xfee00080);
 
 	*pte |= (1ULL << 1);
+
+	npt_apic_restore();
 
 	return (vmcb->control.exit_code == SVM_EXIT_NPF)
 	    && (vmcb->control.exit_info_1 == 0x100000007ULL);
