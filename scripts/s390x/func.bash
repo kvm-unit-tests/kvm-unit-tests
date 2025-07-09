@@ -11,15 +11,16 @@ function arch_cmd_s390x()
 	local groups=$3
 	local smp=$4
 	local kernel=$5
-	local opts=$6
-	local arch=$7
-	local machine=$8
-	local check=$9
-	local accel=${10}
-	local timeout=${11}
+	local test_args=$6
+	local opts=$7
+	local arch=$8
+	local machine=$9
+	local check=${10}
+	local accel=${11}
+	local timeout=${12}
 
 	# run the normal test case
-	"$cmd" "$testname" "$groups" "$smp" "$kernel" "$opts" "$arch" "$machine" "$check" "$accel" "$timeout"
+	"$cmd" "$testname" "$groups" "$smp" "$kernel" "$test_args" "$opts" "$arch" "$machine" "$check" "$accel" "$timeout"
 
 	# run PV test case
 	if [ "$accel" = 'tcg' ] || grep -q "migration" <<< "$groups"; then
@@ -35,5 +36,5 @@ function arch_cmd_s390x()
 		print_result 'SKIP' $testname '' 'PVM image was not created'
 		return 2
 	fi
-	"$cmd" "$testname" "$groups pv" "$smp" "$kernel" "$opts" "$arch" "$machine" "$check" "$accel" "$timeout"
+	"$cmd" "$testname" "$groups pv" "$smp" "$kernel" "$test_args" "$opts" "$arch" "$machine" "$check" "$accel" "$timeout"
 }
