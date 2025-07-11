@@ -52,8 +52,8 @@ function for_each_unittest()
 			smp="$(vmm_optname_nr_cpus) ${BASH_REMATCH[1]}"
 		elif [[ $line =~ ^test_args\ *=\ *(.*)$ ]]; then
 			test_args="$(vmm_optname_args) ${BASH_REMATCH[1]}"
-		elif [[ $line =~ ^$params_name\ *=\ *'"""'(.*)$ ]]; then
-			opts="$(vmm_default_opts) ${BASH_REMATCH[1]}$'\n'"
+		elif [[ $line =~ ^($params_name)\ *=\ *'"""'(.*)$ ]]; then
+			opts="$(vmm_default_opts) ${BASH_REMATCH[2]}$'\n'"
 			while read -r -u $fd; do
 				#escape backslash newline, but not double backslash
 				if [[ $opts =~ [^\\]*(\\*)$'\n'$ ]]; then
@@ -68,8 +68,8 @@ function for_each_unittest()
 					opts+=$REPLY$'\n'
 				fi
 			done
-		elif [[ $line =~ ^$params_name\ *=\ *(.*)$ ]]; then
-			opts="$(vmm_default_opts) ${BASH_REMATCH[1]}"
+		elif [[ $line =~ ^($params_name)\ *=\ *(.*)$ ]]; then
+			opts="$(vmm_default_opts) ${BASH_REMATCH[2]}"
 		elif [[ $line =~ ^groups\ *=\ *(.*)$ ]]; then
 			groups=${BASH_REMATCH[1]}
 		elif [[ $line =~ ^arch\ *=\ *(.*)$ ]]; then
