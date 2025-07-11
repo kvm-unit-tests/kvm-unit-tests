@@ -53,7 +53,7 @@ function for_each_unittest()
 		elif [[ $line =~ ^test_args\ *=\ *(.*)$ ]]; then
 			test_args="$(vmm_optname_args) ${BASH_REMATCH[1]}"
 		elif [[ $line =~ ^$params_name\ *=\ *'"""'(.*)$ ]]; then
-			opts="$(vmm_defaults_opts) ${BASH_REMATCH[1]}$'\n'"
+			opts="$(vmm_default_opts) ${BASH_REMATCH[1]}$'\n'"
 			while read -r -u $fd; do
 				#escape backslash newline, but not double backslash
 				if [[ $opts =~ [^\\]*(\\*)$'\n'$ ]]; then
