@@ -517,6 +517,8 @@ s390x-kvm:
       migration-sck
       migration-skey-parallel
       migration-skey-sequential
+      panic-loop-extint
+      panic-loop-pgm
       pfmf
       sclp-1g
       sclp-3g
