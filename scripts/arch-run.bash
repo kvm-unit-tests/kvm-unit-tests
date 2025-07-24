@@ -63,14 +63,6 @@ qmp ()
 	echo '{ "execute": "qmp_capabilities" }{ "execute":' "$2" '}' | ncat -U $1
 }
 
-qmp_events ()
-{
-	while ! test -S "$1"; do sleep 0.1; done
-	echo '{ "execute": "qmp_capabilities" }{ "execute": "cont" }' |
-		ncat --no-shutdown -U $1 |
-		jq -c 'select(has("event"))'
-}
-
 filter_quiet_msgs ()
 {
 	grep -v "Now migrate the VM (quiet)" |
@@ -295,26 +287,23 @@ do_migration ()
 
 run_panic ()
 {
-	if ! command -v ncat >/dev/null 2>&1; then
-		echo "${FUNCNAME[0]} needs ncat (netcat)" >&2
-		return 77
-	fi
-
 	if ! command -v jq >/dev/null 2>&1; then
 		echo "${FUNCNAME[0]} needs jq" >&2
 		return 77
 	fi
 
 	trap 'trap - TERM ; kill 0 ; exit 2' INT TERM
-	trap 'rm -f ${qmp}' RETURN EXIT
+	trap 'rm -f ${qmp}.in ${qmp}.out' RETURN EXIT
 
 	qmp=$(mktemp -u -t panic-qmp.XXXXXXXXXX)
+	mkfifo ${qmp}.in ${qmp}.out
 
 	# start VM stopped so we don't miss any events
-	"$@" -chardev socket,id=mon,path=${qmp},server=on,wait=off \
+	"$@" -chardev pipe,id=mon,path=${qmp} \
 		-mon chardev=mon,mode=control -S &
+	echo '{ "execute": "qmp_capabilities" }{ "execute": "cont" }' > ${qmp}.in
 
-	panic_event_count=$(qmp_events ${qmp} | jq -c 'select(.event == "GUEST_PANICKED")' | wc -l)
+	panic_event_count=$(jq -c 'select(.event == "GUEST_PANICKED")' < ${qmp}.out | wc -l)
 	if [ "$panic_event_count" -lt 1 ]; then
 		echo "FAIL: guest did not panic"
 		ret=3
