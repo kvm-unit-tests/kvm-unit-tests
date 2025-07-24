@@ -141,10 +141,10 @@ const char* exception_mnemonic(int vector)
 
 void unhandled_exception(struct ex_regs *regs, bool cpu)
 {
-	printf("Unhandled %sexception %ld %s at ip %016lx\n",
+	printf("Unhandled %sexception %ld %s(%lx) at ip %016lx\n",
 	       cpu ? "cpu " : "", regs->vector,
-	       exception_mnemonic(regs->vector), regs->rip);
-	if (regs->vector == 14)
+	       exception_mnemonic(regs->vector), regs->error_code, regs->rip);
+	if (regs->vector == PF_VECTOR)
 		printf("PF at %#lx addr %#lx\n", regs->rip, read_cr2());
 
 	printf("error_code=%04lx      rflags=%08lx      cs=%08lx\n"
