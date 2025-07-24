@@ -4,93 +4,88 @@
 #include "alloc_page.h"
 #include "fwcfg.h"
 
-#define KVM_HYPERCALL_INTEL ".byte 0x0f,0x01,0xc1"
-#define KVM_HYPERCALL_AMD ".byte 0x0f,0x01,0xd9"
+#define KVM_HYPERCALL_VMCALL	0x0f,0x01,0xc1	/* Intel */
+#define KVM_HYPERCALL_VMMCALL	0x0f,0x01,0xd9	/* AMD */
 
-static inline long kvm_hypercall0_intel(unsigned int nr)
-{
-	long ret;
-	asm volatile(KVM_HYPERCALL_INTEL
-		     : "=a"(ret)
-		     : "a"(nr));
-	return ret;
-}
+#define test_hypercall(type, may_fail) \
+	do {								\
+		const char ref_insn[] = { KVM_HYPERCALL_##type };	\
+		bool extra;						\
+		extern const char hc_##type[];				\
+									\
+		asm volatile goto(ASM_TRY("%l["xstr(fault_##type)"]")	\
+				  xstr(hc_##type) ":\n\t"		\
+				  ".byte " xstr(KVM_HYPERCALL_##type)	\
+				  : /* no outputs allowed */		\
+				  : "a"(-1)				\
+				  : "memory"				\
+				  : fault_##type);			\
+		extra = memcmp(hc_##type, ref_insn, sizeof(ref_insn));	\
+		report(true, "Hypercall via " #type ": OK%s",		\
+		       extra ? " (patched)" : "");			\
+		break;							\
+									\
+	fault_##type:							\
+		extra = exception_vector() != PF_VECTOR &&		\
+			exception_vector() != UD_VECTOR;		\
+		report((may_fail) && !extra,				\
+			"Hypercall via " #type ": %s%s(%u)",		\
+			extra ? "unexpected " : "",			\
+			exception_mnemonic(exception_vector()),		\
+			exception_error_code());			\
+	} while (0)
 
-static inline long kvm_hypercall0_amd(unsigned int nr)
-{
-	long ret;
-	asm volatile(KVM_HYPERCALL_AMD
-		     : "=a"(ret)
-		     : "a"(nr));
-	return ret;
-}
-
-
-volatile unsigned long test_rip;
 #ifdef __x86_64__
-extern void gp_tss(void);
-asm ("gp_tss: \n\t"
-	"add $8, %rsp\n\t"            // discard error code
-	"popq test_rip(%rip)\n\t"     // pop return address
-	"pushq %rsi\n\t"              // new return address
-	"iretq\n\t"
-	"jmp gp_tss\n\t"
-    );
+#define NON_CANON_START	(1UL << 47)
 
-static inline int
-test_edge(void)
+static bool test_edge(bool may_fail)
 {
-	test_rip = 0;
-	asm volatile ("movq $-1, %%rax\n\t"			// prepare for vmcall
-		      "leaq 1f(%%rip), %%rsi\n\t"		// save return address for gp_tss
-		      "movabsq $0x7ffffffffffd, %%rbx\n\t"
-		      "jmp *%%rbx; 1:" : : : "rax", "rbx", "rsi");
-	printf("Return from int 13, test_rip = %lx\n", test_rip);
-	return test_rip == (1ul << 47);
+	const char *addr = (void *)(NON_CANON_START - 3);
+	char insn[3] = { addr[0], addr[1], addr[2] };
+
+	static_assert(NON_CANON_START == 0x800000000000UL);
+	asm volatile goto("jmpq *%[addr]; 1:"
+			  ASM_EX_ENTRY("0x7ffffffffffd", "%l[insn_failed]")
+			  ASM_EX_ENTRY("0x800000000000", "1b")
+			  : /* no outputs allowed */
+			  : "a"(-1), [addr]"r"(addr)
+			  : "memory"
+			  : insn_failed);
+	printf("Return from %s(%u) with RIP = %lx%s\n",
+	       exception_mnemonic(exception_vector()), exception_error_code(),
+	       NON_CANON_START, memcmp(addr, insn, 3) ? ", patched" : "");
+	return true;
+
+insn_failed:
+	printf("KVM hypercall failed%s\n",
+	       may_fail ? ", as expected" : " unexpectedly!");
+	return may_fail;
 }
 #endif
 
 int main(int ac, char **av)
 {
-	bool test_vmcall = !no_test_device || is_intel();
-	bool test_vmmcall = !no_test_device || !is_intel();
+	/* VMCALL may be patched by KVM on AMD or fail with #UD on bare metal */
+	test_hypercall(VMCALL, !is_intel());
 
-	if (test_vmcall) {
-		kvm_hypercall0_intel(-1u);
-		printf("Hypercall via VMCALL: OK\n");
-	}
-
-	if (test_vmmcall) {
-		kvm_hypercall0_amd(-1u);
-		printf("Hypercall via VMMCALL: OK\n");
-	}
+	/* VMMCALL may be patched on Intel or fail with #UD in bare metal */
+	test_hypercall(VMMCALL, is_intel());
 
 #ifdef __x86_64__
 	setup_vm();
-	setup_alt_stack();
-	set_intr_alt_stack(13, gp_tss);
 
-	u8 *data1 = alloc_page();
-	u8 *topmost = (void *) ((1ul << 47) - PAGE_SIZE);
+	u8 *topmost = (void *) (NON_CANON_START - PAGE_SIZE);
 
-	install_pte(phys_to_virt(read_cr3()), 1, topmost,
-		    virt_to_phys(data1) | PT_PRESENT_MASK | PT_WRITABLE_MASK, 0);
+	install_page(current_page_table(), virt_to_phys(alloc_page()), topmost);
 	memset(topmost, 0xcc, PAGE_SIZE);
-	topmost[4093] = 0x0f;
-	topmost[4094] = 0x01;
-	topmost[4095] = 0xc1;
 
-	if (test_vmcall) {
-		report(test_edge(),
-		       "VMCALL on edge of canonical address space (intel)");
-	}
+	memcpy(topmost + PAGE_SIZE - 3, (char []){ KVM_HYPERCALL_VMCALL }, 3);
+	report(test_edge(!is_intel()),
+	       "VMCALL on edge of canonical address space (Intel)");
 
-	topmost[4095] = 0xd9;
-
-	if (test_vmmcall) {
-		report(test_edge(),
-		       "VMMCALL on edge of canonical address space (AMD)");
-	}
+	memcpy(topmost + PAGE_SIZE - 3, (char []){ KVM_HYPERCALL_VMMCALL }, 3);
+	report(test_edge(is_intel()),
+	       "VMMCALL on edge of canonical address space (AMD)");
 #endif
 
 	return report_summary();
