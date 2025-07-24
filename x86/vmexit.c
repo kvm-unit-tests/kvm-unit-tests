@@ -33,7 +33,10 @@ static void vmcall(void)
 {
 	unsigned long a = 0, b, c, d;
 
-	asm volatile ("vmcall" : "+a"(a), "=b"(b), "=c"(c), "=d"(d));
+	if (is_intel())
+		asm volatile ("vmcall"  : "+a"(a), "=b"(b), "=c"(c), "=d"(d));
+	else
+		asm volatile ("vmmcall" : "+a"(a), "=b"(b), "=c"(c), "=d"(d));
 }
 
 #define MSR_EFER 0xc0000080
