@@ -45,7 +45,7 @@ asm ("pf_tss:\n"
         "jmp pf_tss\n\t");
 
 
-#define USER_BASE	(1 << 23)
+#define USER_BASE	(2 << 24)
 #define USER_VAR(v)	(*((__typeof__(&(v))) (((unsigned long)&v) + USER_BASE)))
 #define USER_ADDR(v)   ((void *)((unsigned long)(&v) + USER_BASE))
 
