@@ -101,6 +101,8 @@ tests-common += $(TEST_DIR)/realmode.$(exe) \
 realmode_bits := $(if $(call cc-option,-m16,""),16,32)
 endif
 
+tests-common += $(TEST_DIR)/hpet_read_test.$(exe)
+
 test_cases: $(tests-common) $(tests)
 
 $(TEST_DIR)/%.o: CFLAGS += -std=gnu99 -ffreestanding -I $(SRCDIR)/lib -I $(SRCDIR)/lib/x86 -I lib
