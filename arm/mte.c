@@ -26,7 +26,7 @@
 #define MTE_TCF_ASYMM	0b11
 
 #define MTE_GRANULE_SIZE        UL(16)
-#define MTE_GRANULE_MASK        (~(MTE_GRANULE_SIZE - 1))
+#define MTE_GRANULE_MASK        (MTE_GRANULE_SIZE - 1)
 #define MTE_TAG_SHIFT           56
 
 #define untagged(p)									\
