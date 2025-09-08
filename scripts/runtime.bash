@@ -190,6 +190,12 @@ function run()
     # qemu_params/extra_params in the config file may contain backticks that
     # need to be expanded, so use eval to start qemu.  Use "> >(foo)" instead of
     # a pipe to preserve the exit status.
+    #
+    # SC complains that redirection without tee takes output away from command
+    # substitution, but that is what we want here (tee is used inside the
+    # parenthesis and output piped to extract_summary which is captured by
+    # command substitution).
+    # shellcheck disable=SC2327,SC2328
     summary=$(eval "$cmdline" 2> >(RUNTIME_log_stderr $testname) \
                              > >(tee >(RUNTIME_log_stdout $testname $kernel) | extract_summary))
     ret=$?

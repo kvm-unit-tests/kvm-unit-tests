@@ -9,6 +9,11 @@ run_test ()
 
 	# stdout to {stdout}, stderr to $errors and stderr
 	exec {stdout}>&1
+	# SC complains that redirection without tee takes output away from
+	# command substitution, but that is what we want here (stderr output
+	# does go to command substitution because tee is used, but stdout does
+	# not).
+	# shellcheck disable=SC2327,SC2328
 	errors=$("${@}" $INITRD </dev/null 2> >(tee /dev/stderr) > /dev/fd/$stdout)
 	ret=$?
 	exec {stdout}>&-
@@ -23,6 +28,10 @@ run_test_status ()
 	local stdout ret
 
 	exec {stdout}>&1
+	# SC complains that redirection without tee takes output away from
+	# command substitution, but that is what we want here (tee is used
+	# inside the parenthesis).
+	# shellcheck disable=SC2327,SC2328
 	lines=$(run_test "$@" > >(tee /dev/fd/$stdout))
 	ret=$?
 	exec {stdout}>&-
