@@ -296,11 +296,6 @@ do_migration ()
 
 run_panic ()
 {
-	if ! command -v jq >/dev/null 2>&1; then
-		echo "${FUNCNAME[0]} needs jq" >&2
-		return 77
-	fi
-
 	trap 'trap - TERM ; kill 0 ; exit 2' INT TERM
 	trap 'rm -f ${qmp}.in ${qmp}.out' RETURN EXIT
 
@@ -312,8 +307,7 @@ run_panic ()
 		-mon chardev=mon,mode=control -S &
 	echo '{ "execute": "qmp_capabilities" }{ "execute": "cont" }' > ${qmp}.in
 
-	panic_event_count=$(jq -c 'select(.event == "GUEST_PANICKED")' < ${qmp}.out | wc -l)
-	if [ "$panic_event_count" -lt 1 ]; then
+	if ! grep -E -q '"event"[[:blank:]]*:[[:blank:]]*"GUEST_PANICKED"' ${qmp}.out ; then
 		echo "FAIL: guest did not panic"
 		ret=3
 	else
