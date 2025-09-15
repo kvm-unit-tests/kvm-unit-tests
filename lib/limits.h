@@ -12,29 +12,29 @@
 # endif
 #endif
 
-#if __SHRT_WIDTH__ == 16
+#if __SIZEOF_SHORT__ == 2
 # define SHRT_MAX	__INT16_MAX__
 # define SHRT_MIN	(-SHRT_MAX - 1)
 # define USHRT_MAX	__UINT16_MAX__
 #endif
 
-#if __INT_WIDTH__ == 32
+#if __SIZEOF_INT__ == 4
 # define INT_MAX	__INT32_MAX__
 # define INT_MIN	(-INT_MAX - 1)
 # define UINT_MAX	__UINT32_MAX__
 #endif
 
-#if __LONG_WIDTH__ == 64
+#if __SIZEOF_LONG__ == 8
 # define LONG_MAX	__INT64_MAX__
 # define LONG_MIN	(-LONG_MAX - 1)
 # define ULONG_MAX	__UINT64_MAX__
-#elif __LONG_WIDTH__ == 32
+#elif __SIZEOF_LONG__ == 4
 # define LONG_MAX	__INT32_MAX__
 # define LONG_MIN	(-LONG_MAX - 1)
 # define ULONG_MAX	__UINT32_MAX__
 #endif
 
-#if __LONG_LONG_WIDTH__ == 64
+#if __SIZEOF_LONG_LONG__ == 8
 # define LLONG_MAX	__INT64_MAX__
 # define LLONG_MIN	(-LLONG_MAX - 1)
 # define ULLONG_MAX	__UINT64_MAX__
