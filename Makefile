@@ -95,6 +95,10 @@ CFLAGS += $(wmissing_parameter_type)
 CFLAGS += $(wold_style_declaration)
 CFLAGS += -Woverride-init -Wmissing-prototypes -Wstrict-prototypes
 
+# Evaluate and add late cflags last -- they may depend on previous flags
+LATE_CFLAGS := $(LATE_CFLAGS)
+CFLAGS += $(LATE_CFLAGS)
+
 autodepend-flags = -MMD -MP -MF $(dir $*).$(notdir $*).d
 
 LDFLAGS += -nostdlib $(no_pie) -z noexecstack
