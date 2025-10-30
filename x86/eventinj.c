@@ -138,10 +138,8 @@ static void nested_nmi_iret_isr(struct ex_regs *r)
 
 extern void do_iret(ulong phys_stack, void *virt_stack);
 
-// Return to same privilege level won't pop SS or SP, so
+// Return to same privilege level won't pop SS or SP for i386 but x86-64, so
 // save it in RDX while we run on the nested stack
-
-extern bool no_test_device;
 
 asm("do_iret:"
 #ifdef __x86_64__
@@ -152,6 +150,12 @@ asm("do_iret:"
 	"mov 8(%esp), %edx \n\t"	// virt_stack
 #endif
 	"xchg %"R "dx, %"R "sp \n\t"	// point to new stack
+#ifdef __x86_64__
+	// IRET in 64 bit mode unconditionally pops SS:xSP
+	"mov %ss, %ecx \n\t"
+	"push"W" %"R "cx \n\t"
+	"push"W" %"R "sp \n\t"
+#endif
 	"pushf"W" \n\t"
 	"mov %cs, %ecx \n\t"
 	"push"W" %"R "cx \n\t"
