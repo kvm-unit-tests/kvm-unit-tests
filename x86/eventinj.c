@@ -126,13 +126,13 @@ static void nmi_isr(struct ex_regs *r)
 	printf("After nested NMI to self\n");
 }
 
-unsigned long *iret_stack;
+extern char ip_after_iret[];
 
 static void nested_nmi_iret_isr(struct ex_regs *r)
 {
 	printf("Nested NMI isr running rip=%lx\n", r->rip);
 
-	if (r->rip == iret_stack[-3])
+	if (r->rip == (unsigned long)ip_after_iret)
 		test_count++;
 }
 
@@ -156,11 +156,11 @@ asm("do_iret:"
 	"mov %cs, %ecx \n\t"
 	"push"W" %"R "cx \n\t"
 #ifndef __x86_64__
-	"push"W" $2f \n\t"
+	"push"W" $ip_after_iret \n\t"
 
 	"cmpb $0, no_test_device\n\t"	// see if need to flush
 #else
-	"leaq 2f(%rip), %rbx \n\t"
+	"leaq ip_after_iret(%rip), %rbx \n\t"
 	"pushq %rbx \n\t"
 
 	"mov no_test_device(%rip), %bl \n\t"
@@ -170,13 +170,17 @@ asm("do_iret:"
 	"outl %eax, $0xe4 \n\t"		// flush page
 	"1: \n\t"
 	"iret"W" \n\t"
-	"2: xchg %"R "dx, %"R "sp \n\t"	// point to old stack
+	".global ip_after_iret \n\t"
+	"ip_after_iret: \n\t"
+	"xchg %"R "dx, %"R "sp \n\t"	// point to old stack
 	"ret\n\t"
    );
 
 static void nmi_iret_isr(struct ex_regs *r)
 {
 	unsigned long *s = alloc_page();
+	unsigned long *iret_stack;
+
 	test_count++;
 	printf("NMI isr running stack %p\n", s);
 	handle_exception(2, nested_nmi_iret_isr);
