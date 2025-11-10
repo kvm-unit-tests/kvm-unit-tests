@@ -407,6 +407,7 @@ int run_svm_tests(int ac, char **av, struct svm_test *svm_tests)
 			report_skip("%s (not supported)", svm_tests[i].name);
 			continue;
 		}
+		printf("SVM test: %s\n", svm_tests[i].name);
 		if (svm_tests[i].v2 == NULL) {
 			if (svm_tests[i].on_vcpu) {
 				if (cpu_count() <= svm_tests[i].on_vcpu)
