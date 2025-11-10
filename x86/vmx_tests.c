@@ -10644,6 +10644,11 @@ static void vmx_pf_exception_test(void)
 
 static void vmx_pf_exception_forced_emulation_test(void)
 {
+	if (!is_fep_available) {
+		report_skip("Forced emulation prefix (FEP) not available\n");
+		return;
+	}
+
 	__vmx_pf_exception_test(NULL, NULL, vmx_pf_exception_forced_emulation_test_guest);
 }
 
