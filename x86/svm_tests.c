@@ -3031,11 +3031,14 @@ static __always_inline void get_lbr_ips(u64 *from, u64 *to)
 
 extern u64 guest_branch0_from, guest_branch0_to;
 extern u64 guest_branch2_from, guest_branch2_to;
+extern u64 guest_branch3_from, guest_branch3_to;
 
 extern u64 host_branch0_from, host_branch0_to;
 extern u64 host_branch2_from, host_branch2_to;
 extern u64 host_branch3_from, host_branch3_to;
 extern u64 host_branch4_from, host_branch4_to;
+extern u64 host_branch5_from, host_branch5_to;
+extern u64 host_branch6_from, host_branch6_to;
 
 u64 dbgctl;
 
@@ -3093,6 +3096,23 @@ static void svm_lbrv_test_guest2(void)
 	TEST_EXPECT_EQ((u64)&guest_branch2_to, to_ip);
 
 	asm volatile ("vmmcall\n");
+}
+
+static void svm_lbrv_test_guest3(void)
+{
+	/*
+	 * This guest expects LBR to be disabled, it enables LBR and does a
+	 * branch, then exits to L1 without disabling LBR or doing more
+	 * branches.
+	 */
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	TEST_EXPECT_EQ(dbgctl, 0);
+
+	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
+	DO_BRANCH(guest_branch3);
+
+	/* Do not call the vmmcall() fn to avoid overriding the last branch */
+	asm volatile ("vmmcall\n\t");
 }
 
 static void svm_lbrv_test0(void)
@@ -3156,6 +3176,33 @@ static void svm_lbrv_test2(void)
 	TEST_EXPECT_EQ((u64)&guest_branch2_to, to_ip);
 }
 
+/*
+ * Test that without LBRV enabled, enabling LBR in the guest then exiting will
+ * keep LBR enabled and 'leak' state to the host correctly.
+ */
+static void svm_lbrv_test3(void)
+{
+	u64 from_ip, to_ip;
+
+	svm_setup_vmrun((u64)svm_lbrv_test_guest3);
+	vmcb->control.virt_ext = 0;
+
+	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
+	DO_BRANCH(host_branch5);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+
+	SVM_BARE_VMRUN;
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
+
+	TEST_EXPECT_EQ(vmcb->control.exit_code, SVM_EXIT_VMMCALL);
+
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch3_from, from_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch3_to, to_ip);
+}
+
 /* Test that with LBRV enabled, guest LBR state doesn't leak (1) */
 static void svm_lbrv_nested_test1(void)
 {
@@ -3217,6 +3264,37 @@ static void svm_lbrv_nested_test2(void)
 	TEST_EXPECT_EQ((u64)&host_branch4_to, to_ip);
 }
 
+/*
+ * Test that with LBRV enabled, enabling LBR in the guest then exiting does not
+ * 'leak' state to the host.
+ */
+static void svm_lbrv_nested_test3(void)
+{
+	u64 from_ip, to_ip;
+
+	if (!lbrv_supported()) {
+		report_skip("LBRV not supported in the guest");
+		return;
+	}
+
+	svm_setup_vmrun((u64)svm_lbrv_test_guest3);
+	vmcb->control.virt_ext = LBR_CTL_ENABLE_MASK;
+	vmcb->save.dbgctl = 0;
+
+	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
+	DO_BRANCH(host_branch6);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+
+	SVM_BARE_VMRUN;
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	TEST_EXPECT_EQ(dbgctl, 0);
+
+	TEST_EXPECT_EQ(vmcb->control.exit_code, SVM_EXIT_VMMCALL);
+
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&host_branch6_from, from_ip);
+	TEST_EXPECT_EQ((u64)&host_branch6_to, to_ip);
+}
 
 // test that a nested guest which does enable INTR interception
 // but doesn't enable virtual interrupt masking works
@@ -3622,8 +3700,10 @@ struct svm_test svm_tests[] = {
 	TEST(svm_lbrv_test0),
 	TEST(svm_lbrv_test1),
 	TEST(svm_lbrv_test2),
+	TEST(svm_lbrv_test3),
 	TEST(svm_lbrv_nested_test1),
 	TEST(svm_lbrv_nested_test2),
+	TEST(svm_lbrv_nested_test3),
 	TEST(svm_intr_intercept_mix_if),
 	TEST(svm_intr_intercept_mix_gif),
 	TEST(svm_intr_intercept_mix_gif2),
