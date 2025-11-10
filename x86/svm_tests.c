@@ -37,6 +37,21 @@ u64 latclgi_max;
 u64 latclgi_min;
 u64 runs;
 
+/*
+ * Report failures from SVM guest code, and on failure, set the stage to -1 and
+ * do VMMCALL to terminate the test (host side must treat -1 as "finished").
+ * TODO: fix the tests that don't play nice with a straight report, e.g. the
+ * V_TPR test fails if report() is invoked.
+ */
+#define report_svm_guest(cond, test, fmt, args...)	\
+do {							\
+	if (!(cond)) {					\
+		report_fail(fmt, ##args);		\
+		set_test_stage(test, -1);		\
+		vmmcall();				\
+	}						\
+} while (0)
+
 static void null_test(struct svm_test *test)
 {
 }
@@ -1073,21 +1088,6 @@ static bool lat_svm_insn_check(struct svm_test *test)
 	       latclgi_min, clgi_sum / LATENCY_RUNS);
 	return true;
 }
-
-/*
- * Report failures from SVM guest code, and on failure, set the stage to -1 and
- * do VMMCALL to terminate the test (host side must treat -1 as "finished").
- * TODO: fix the tests that don't play nice with a straight report, e.g. the
- * V_TPR test fails if report() is invoked.
- */
-#define report_svm_guest(cond, test, fmt, args...)	\
-do {							\
-	if (!(cond)) {					\
-		report_fail(fmt, ##args);		\
-		set_test_stage(test, -1);		\
-		vmmcall();				\
-	}						\
-} while (0)
 
 bool pending_event_ipi_fired;
 bool pending_event_guest_run;
