@@ -112,6 +112,35 @@ static bool finished_rsm_intercept(struct svm_test *test)
 	return get_test_stage(test) == 2;
 }
 
+static void prepare_sel_cr0_intercept(struct svm_test *test)
+{
+	vmcb->save.cr0 &= ~X86_CR0_CD;
+	vmcb->control.intercept |= (1ULL << INTERCEPT_SELECTIVE_CR0);
+}
+
+static void test_sel_cr0_write_intercept(struct svm_test *test)
+{
+	unsigned long cr0;
+
+	/* read cr0, set CD, and write back */
+	cr0  = read_cr0();
+	cr0 |= X86_CR0_CD;
+	write_cr0(cr0);
+
+	/*
+	 * If we are here the test failed, not sure what to do now because we
+	 * are not in guest-mode anymore so we can't trigger an intercept.
+	 * Trigger a tripple-fault for now.
+	 */
+	report_fail("sel_cr0 test. Can not recover from this - exiting");
+	exit(report_summary());
+}
+
+static bool check_sel_cr0_intercept(struct svm_test *test)
+{
+	return vmcb->control.exit_code == SVM_EXIT_CR0_SEL_WRITE;
+}
+
 static void prepare_cr3_intercept(struct svm_test *test)
 {
 	default_prepare(test);
@@ -791,35 +820,6 @@ static void test_asid_zero(struct svm_test *test)
 static bool check_asid_zero(struct svm_test *test)
 {
 	return vmcb->control.exit_code == SVM_EXIT_ERR;
-}
-
-static void prepare_sel_cr0_intercept(struct svm_test *test)
-{
-	vmcb->save.cr0 &= ~X86_CR0_CD;
-	vmcb->control.intercept |= (1ULL << INTERCEPT_SELECTIVE_CR0);
-}
-
-static void test_sel_cr0_write_intercept(struct svm_test *test)
-{
-	unsigned long cr0;
-
-	/* read cr0, set CD, and write back */
-	cr0  = read_cr0();
-	cr0 |= X86_CR0_CD;
-	write_cr0(cr0);
-
-	/*
-	 * If we are here the test failed, not sure what to do now because we
-	 * are not in guest-mode anymore so we can't trigger an intercept.
-	 * Trigger a tripple-fault for now.
-	 */
-	report_fail("sel_cr0 test. Can not recover from this - exiting");
-	exit(report_summary());
-}
-
-static bool check_sel_cr0_intercept(struct svm_test *test)
-{
-	return vmcb->control.exit_code == SVM_EXIT_CR0_SEL_WRITE;
 }
 
 #define TSC_ADJUST_VALUE    (1ll << 32)
@@ -3458,6 +3458,9 @@ struct svm_test svm_tests[] = {
 	{ "rsm", default_supported,
 	  prepare_rsm_intercept, default_prepare_gif_clear,
 	  test_rsm_intercept, finished_rsm_intercept, check_rsm_intercept },
+	{ "sel cr0 write intercept", default_supported,
+	  prepare_sel_cr0_intercept, default_prepare_gif_clear,
+	  test_sel_cr0_write_intercept, default_finished, check_sel_cr0_intercept},
 	{ "cr3 read intercept", default_supported,
 	  prepare_cr3_intercept, default_prepare_gif_clear,
 	  test_cr3_intercept, default_finished, check_cr3_intercept },
@@ -3482,9 +3485,6 @@ struct svm_test svm_tests[] = {
 	{ "asid_zero", default_supported, prepare_asid_zero,
 	  default_prepare_gif_clear, test_asid_zero,
 	  default_finished, check_asid_zero },
-	{ "sel cr0 write intercept", default_supported,
-	  prepare_sel_cr0_intercept, default_prepare_gif_clear,
-	  test_sel_cr0_write_intercept, default_finished, check_sel_cr0_intercept},
 	{ "tsc_adjust", tsc_adjust_supported, tsc_adjust_prepare,
 	  default_prepare_gif_clear, tsc_adjust_test,
 	  default_finished, tsc_adjust_check },
