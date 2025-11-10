@@ -3006,34 +3006,17 @@ static void svm_no_nm_test(void)
 	       "fnop with CR0.TS and CR0.EM unset no #NM exception");
 }
 
-static u64 amd_get_lbr_rip(u32 msr)
+/* These functions have to be inlined to avoid affecting LBR registers */
+static __always_inline u64 amd_get_lbr_rip(u32 msr)
 {
 	return rdmsr(msr) & AMD_LBR_RECORD_IP_MASK;
 }
 
-#define HOST_CHECK_LBR(from_expected, to_expected)					\
-do {											\
-	TEST_EXPECT_EQ((u64)from_expected, amd_get_lbr_rip(MSR_IA32_LASTBRANCHFROMIP));	\
-	TEST_EXPECT_EQ((u64)to_expected, amd_get_lbr_rip(MSR_IA32_LASTBRANCHTOIP));	\
-} while (0)
-
-/*
- * FIXME: Do something other than generate an exception to communicate failure.
- * Debugging without expected vs. actual is an absolute nightmare.
- */
-#define GUEST_CHECK_LBR(from_expected, to_expected)				\
-do {										\
-	if ((u64)(from_expected) != amd_get_lbr_rip(MSR_IA32_LASTBRANCHFROMIP))	\
-		asm volatile("ud2");						\
-	if ((u64)(to_expected) != amd_get_lbr_rip(MSR_IA32_LASTBRANCHTOIP))	\
-		asm volatile("ud2");						\
-} while (0)
-
-#define REPORT_GUEST_LBR_ERROR(vmcb)						\
-	report(false, "LBR guest test failed.  Exit reason 0x%x, RIP = %lx, from = %lx, to = %lx, ex from = %lx, ex to = %lx", \
-		       vmcb->control.exit_code, vmcb->save.rip,			\
-		       vmcb->save.br_from, vmcb->save.br_to,			\
-		       vmcb->save.last_excp_from, vmcb->save.last_excp_to)
+static __always_inline void get_lbr_ips(u64 *from, u64 *to)
+{
+	*from = amd_get_lbr_rip(MSR_IA32_LASTBRANCHFROMIP);
+	*to = amd_get_lbr_rip(MSR_IA32_LASTBRANCHTOIP);
+}
 
 #define DO_BRANCH(branch_name)				\
 	asm volatile (					\
@@ -3058,55 +3041,64 @@ u64 dbgctl;
 
 static void svm_lbrv_test_guest1(void)
 {
+	u64 from_ip, to_ip;
+
 	/*
 	 * This guest expects the LBR to be already enabled when it starts,
 	 * it does a branch, and then disables the LBR and then checks.
 	 */
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
 
 	DO_BRANCH(guest_branch0);
 
-	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	/* Disable LBR before the checks to avoid changing the last branch */
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	TEST_EXPECT_EQ(dbgctl, 0);
 
-	if (dbgctl != DEBUGCTLMSR_LBR)
-		asm volatile("ud2\n");
-	if (rdmsr(MSR_IA32_DEBUGCTLMSR) != 0)
-		asm volatile("ud2\n");
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch0_from, from_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch0_to, to_ip);
 
-	GUEST_CHECK_LBR(&guest_branch0_from, &guest_branch0_to);
 	asm volatile ("vmmcall\n");
 }
 
 static void svm_lbrv_test_guest2(void)
 {
+	u64 from_ip, to_ip;
+
 	/*
 	 * This guest expects the LBR to be disabled when it starts,
 	 * enables it, does a branch, disables it and then checks.
 	 */
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	TEST_EXPECT_EQ(dbgctl, 0);
 
 	DO_BRANCH(guest_branch1);
-	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 
-	if (dbgctl != 0)
-		asm volatile("ud2\n");
-
-	GUEST_CHECK_LBR(&host_branch2_from, &host_branch2_to);
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&host_branch2_from, from_ip);
+	TEST_EXPECT_EQ((u64)&host_branch2_to, to_ip);
 
 	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
+
 	DO_BRANCH(guest_branch2);
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
 
-	if (dbgctl != DEBUGCTLMSR_LBR)
-		asm volatile("ud2\n");
-	GUEST_CHECK_LBR(&guest_branch2_from, &guest_branch2_to);
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch2_from, from_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch2_to, to_ip);
 
 	asm volatile ("vmmcall\n");
 }
 
 static void svm_lbrv_test0(void)
 {
-	report(true, "Basic LBR test");
+	u64 from_ip, to_ip;
+
 	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
 	DO_BRANCH(host_branch0);
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
@@ -3116,12 +3108,15 @@ static void svm_lbrv_test0(void)
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	TEST_EXPECT_EQ(dbgctl, 0);
 
-	HOST_CHECK_LBR(&host_branch0_from, &host_branch0_to);
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&host_branch0_from, from_ip);
+	TEST_EXPECT_EQ((u64)&host_branch0_to, to_ip);
 }
 
+/* Test that without LBRV enabled, guest LBR state does 'leak' to the host(1) */
 static void svm_lbrv_test1(void)
 {
-	report(true, "Test that without LBRV enabled, guest LBR state does 'leak' to the host(1)");
+	u64 from_ip, to_ip;
 
 	svm_setup_vmrun((u64)svm_lbrv_test_guest1);
 	vmcb->control.virt_ext = 0;
@@ -3130,19 +3125,19 @@ static void svm_lbrv_test1(void)
 	DO_BRANCH(host_branch1);
 	SVM_BARE_VMRUN;
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
-
-	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		REPORT_GUEST_LBR_ERROR(vmcb);
-		return;
-	}
-
 	TEST_EXPECT_EQ(dbgctl, 0);
-	HOST_CHECK_LBR(&guest_branch0_from, &guest_branch0_to);
+
+	TEST_EXPECT_EQ(vmcb->control.exit_code, SVM_EXIT_VMMCALL);
+
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch0_from, from_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch0_to, to_ip);
 }
 
+/* Test that without LBRV enabled, guest LBR state does 'leak' to the host(2) */
 static void svm_lbrv_test2(void)
 {
-	report(true, "Test that without LBRV enabled, guest LBR state does 'leak' to the host(2)");
+	u64 from_ip, to_ip;
 
 	svm_setup_vmrun((u64)svm_lbrv_test_guest2);
 	vmcb->control.virt_ext = 0;
@@ -3152,25 +3147,25 @@ static void svm_lbrv_test2(void)
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
 	SVM_BARE_VMRUN;
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
-	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
-
-	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		REPORT_GUEST_LBR_ERROR(vmcb);
-		return;
-	}
-
 	TEST_EXPECT_EQ(dbgctl, 0);
-	HOST_CHECK_LBR(&guest_branch2_from, &guest_branch2_to);
+
+	TEST_EXPECT_EQ(vmcb->control.exit_code, SVM_EXIT_VMMCALL);
+
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch2_from, from_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch2_to, to_ip);
 }
 
+/* Test that with LBRV enabled, guest LBR state doesn't leak (1) */
 static void svm_lbrv_nested_test1(void)
 {
+	u64 from_ip, to_ip;
+
 	if (!lbrv_supported()) {
 		report_skip("LBRV not supported in the guest");
 		return;
 	}
 
-	report(true, "Test that with LBRV enabled, guest LBR state doesn't leak (1)");
 	svm_setup_vmrun((u64)svm_lbrv_test_guest1);
 	vmcb->control.virt_ext = LBR_CTL_ENABLE_MASK;
 	vmcb->save.dbgctl = DEBUGCTLMSR_LBR;
@@ -3181,28 +3176,26 @@ static void svm_lbrv_nested_test1(void)
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
 
-	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		REPORT_GUEST_LBR_ERROR(vmcb);
-		return;
-	}
-
-	if (vmcb->save.dbgctl != 0) {
-		report(false, "unexpected virtual guest MSR_IA32_DEBUGCTLMSR value 0x%lx", vmcb->save.dbgctl);
-		return;
-	}
+	TEST_EXPECT_EQ(vmcb->control.exit_code, SVM_EXIT_VMMCALL);
 
 	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
-	HOST_CHECK_LBR(&host_branch3_from, &host_branch3_to);
+	TEST_EXPECT_EQ(vmcb->save.dbgctl, 0);
+
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&host_branch3_from, from_ip);
+	TEST_EXPECT_EQ((u64)&host_branch3_to, to_ip);
 }
 
+/* Test that with LBRV enabled, guest LBR state doesn't leak (2) */
 static void svm_lbrv_nested_test2(void)
 {
+	u64 from_ip, to_ip;
+
 	if (!lbrv_supported()) {
 		report_skip("LBRV not supported in the guest");
 		return;
 	}
 
-	report(true, "Test that with LBRV enabled, guest LBR state doesn't leak (2)");
 	svm_setup_vmrun((u64)svm_lbrv_test_guest2);
 	vmcb->control.virt_ext = LBR_CTL_ENABLE_MASK;
 
@@ -3215,14 +3208,13 @@ static void svm_lbrv_nested_test2(void)
 	SVM_BARE_VMRUN;
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
-
-	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		REPORT_GUEST_LBR_ERROR(vmcb);
-		return;
-	}
-
 	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
-	HOST_CHECK_LBR(&host_branch4_from, &host_branch4_to);
+
+	TEST_EXPECT_EQ(vmcb->control.exit_code, SVM_EXIT_VMMCALL);
+
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&host_branch4_from, from_ip);
+	TEST_EXPECT_EQ((u64)&host_branch4_to, to_ip);
 }
 
 
