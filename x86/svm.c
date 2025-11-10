@@ -53,6 +53,11 @@ bool default_supported(void)
 	return true;
 }
 
+bool fep_supported(void)
+{
+	return is_fep_available;
+}
+
 bool vgif_supported(void)
 {
 	return this_cpu_has(X86_FEATURE_VGIF);

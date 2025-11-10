@@ -284,6 +284,14 @@ extern unsigned long get_gdt_entry_limit(gdt_entry_t *entry);
 #define asm_fep_safe(insn, inputs...)				\
 	__asm_safe_out1(KVM_FEP, insn,, inputs)
 
+#define asm_conditional_fep_safe(fep, insn, inputs...)			\
+({									\
+	if (fep)							\
+		asm_fep_safe(insn, inputs);				\
+	else								\
+		asm_safe(insn, inputs);					\
+})
+
 #define __asm_safe_out1(fep, insn, output, inputs...)			\
 ({									\
 	asm volatile(__ASM_TRY(fep, "1f")				\
