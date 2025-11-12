@@ -961,6 +961,8 @@ static void svm_tsc_scale_run_testcase(u64 duration,
 	u64 start_tsc, actual_duration;
 
 	guest_tsc_delay_value = (duration << TSC_SHIFT) * tsc_scale;
+	if (guest_tsc_delay_value < (duration << TSC_SHIFT) * tsc_scale)
+		guest_tsc_delay_value++;
 
 	test_set_guest(svm_tsc_scale_guest);
 	vmcb->control.tsc_offset = tsc_offset;
