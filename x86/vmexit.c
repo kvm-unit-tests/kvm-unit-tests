@@ -39,6 +39,16 @@ static void vmcall(void)
 		asm volatile ("vmmcall" : "+a"(a), "=b"(b), "=c"(c), "=d"(d));
 }
 
+static void wbinvd(void)
+{
+	asm volatile ("wbinvd");
+}
+
+static void invd(void)
+{
+	asm volatile ("invd");
+}
+
 #define MSR_EFER 0xc0000080
 #define EFER_NX_MASK            (1ull << 11)
 
@@ -485,6 +495,8 @@ static void toggle_cr4_pge(void)
 static struct test tests[] = {
 	{ cpuid_test, "cpuid", .parallel = 1,  },
 	{ vmcall, "vmcall", .parallel = 1, },
+	{ wbinvd, "wbinvd", .parallel = 1, },
+	{ invd, "invd", .parallel = 1, },
 #ifdef __x86_64__
 	{ mov_from_cr8, "mov_from_cr8", .parallel = 1, },
 	{ mov_to_cr8, "mov_to_cr8" , .parallel = 1, },
