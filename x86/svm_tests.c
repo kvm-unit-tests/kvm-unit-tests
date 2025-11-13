@@ -3008,7 +3008,7 @@ static void svm_no_nm_test(void)
 
 static u64 amd_get_lbr_rip(u32 msr)
 {
-	return rdmsr(msr) & ~AMD_LBR_RECORD_MISPREDICT;
+	return rdmsr(msr) & AMD_LBR_RECORD_IP_MASK;
 }
 
 #define HOST_CHECK_LBR(from_expected, to_expected)					\
