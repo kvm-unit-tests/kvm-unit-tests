@@ -532,15 +532,18 @@ static void test_nop(uint64_t *mem)
 
 static void test_mov_dr(uint64_t *mem)
 {
+	unsigned long active_low = DR6_ACTIVE_LOW;
 	unsigned long rax;
 
 	asm(KVM_FEP "mov %0, %%dr6\n\t"
 	    KVM_FEP "mov %%dr6, %0\n\t" : "=a" (rax) : "a" (0));
 
 	if (this_cpu_has(X86_FEATURE_RTM))
-		report(rax == (DR6_ACTIVE_LOW & ~DR6_RTM), "mov_dr6");
-	else
-		report(rax == DR6_ACTIVE_LOW, "mov_dr6");
+		active_low &= ~DR6_RTM;
+	if (this_cpu_has(X86_FEATURE_BUS_LOCK_DETECT))
+		active_low &= ~DR6_BUS_LOCK;
+
+	report(rax == active_low, "mov_dr6");
 }
 
 static void test_illegal_lea(void)
