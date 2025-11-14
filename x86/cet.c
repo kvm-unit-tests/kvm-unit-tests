@@ -31,6 +31,34 @@ static uint64_t cet_shstk_func(void)
 	return 0;
 }
 
+static uint64_t cet_shstk_far_ret(void)
+{
+	struct far_pointer32 fp = {
+		.offset = (uintptr_t)&&far_func,
+		.selector = USER_CS,
+	};
+
+	if (fp.offset != (uintptr_t)&&far_func) {
+		printf("Code address too high.\n");
+		return -1;
+	}
+
+	printf("Try to temper the return-address of far-called function...\n");
+
+	/* The NOP isn't superfluous, the called function tries to skip it. */
+	asm goto ("lcall *%0; nop" : : "m" (fp) : : far_func);
+
+	printf("Uhm... how did we get here?! This should have #CP'ed!\n");
+
+	return 0;
+far_func:
+	asm volatile (/* mess with the ret addr, make it point past the NOP */
+		      "incq (%rsp)\n\t"
+		      /* 32-bit return, just as we have been called */
+		      "lretl");
+	__builtin_unreachable();
+}
+
 static uint64_t cet_ibt_func(void)
 {
 	unsigned long tmp;
@@ -103,6 +131,10 @@ int main(int ac, char **av)
 	run_in_user(cet_shstk_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
 	report(rvc && exception_error_code() == CP_ERR_NEAR_RET,
 	       "NEAR RET shadow-stack protection test");
+
+	run_in_user(cet_shstk_far_ret, CP_VECTOR, 0, 0, 0, 0, &rvc);
+	report(rvc && exception_error_code() == CP_ERR_FAR_RET,
+	       "FAR RET shadow-stack protection test");
 
 	/* Enable indirect-branch tracking */
 	wrmsr(MSR_IA32_U_CET, ENABLE_IBT_BIT);
