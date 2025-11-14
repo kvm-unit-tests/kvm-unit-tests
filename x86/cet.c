@@ -56,6 +56,7 @@ int main(int ac, char **av)
 	char *shstk_virt;
 	unsigned long shstk_phys;
 	pteval_t pte = 0;
+	u8 vector;
 	bool rvc;
 
 	if (!this_cpu_has(X86_FEATURE_SHSTK)) {
@@ -104,6 +105,10 @@ int main(int ac, char **av)
 
 	write_cr4(read_cr4() & ~X86_CR4_CET);
 	wrmsr(MSR_IA32_U_CET, 0);
+
+	/* SSP should be 4-Byte aligned */
+	vector = wrmsr_safe(MSR_IA32_PL3_SSP, 0x1);
+	report(vector == GP_VECTOR, "MSR_IA32_PL3_SSP alignment test.");
 
 	return report_summary();
 }
