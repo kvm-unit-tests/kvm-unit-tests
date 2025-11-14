@@ -59,12 +59,12 @@ int main(int ac, char **av)
 	bool rvc;
 
 	if (!this_cpu_has(X86_FEATURE_SHSTK)) {
-		printf("SHSTK not enabled\n");
+		report_skip("SHSTK not enabled");
 		return report_summary();
 	}
 
 	if (!this_cpu_has(X86_FEATURE_IBT)) {
-		printf("IBT not enabled\n");
+		report_skip("IBT not enabled");
 		return report_summary();
 	}
 
