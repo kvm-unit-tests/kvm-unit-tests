@@ -8,7 +8,7 @@
 #include "alloc_page.h"
 #include "fault_test.h"
 
-static u64 cet_shstk_func(void)
+static uint64_t cet_shstk_func(void)
 {
 	unsigned long *ret_addr, *ssp;
 
@@ -31,7 +31,7 @@ static u64 cet_shstk_func(void)
 	return 0;
 }
 
-static u64 cet_ibt_func(void)
+static uint64_t cet_ibt_func(void)
 {
 	/*
 	 * In below assembly code, the first instruction at label 2 is not
@@ -93,13 +93,13 @@ int main(int ac, char **av)
 	write_cr4(read_cr4() | X86_CR4_CET);
 
 	printf("Unit test for CET user mode...\n");
-	run_in_user((usermode_func)cet_shstk_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
+	run_in_user(cet_shstk_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
 	report(rvc && exception_error_code() == 1, "Shadow-stack protection test.");
 
 	/* Enable indirect-branch tracking */
 	wrmsr(MSR_IA32_U_CET, ENABLE_IBT_BIT);
 
-	run_in_user((usermode_func)cet_ibt_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
+	run_in_user(cet_ibt_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
 	report(rvc && exception_error_code() == 3, "Indirect-branch tracking test.");
 
 	write_cr4(read_cr4() & ~X86_CR4_CET);
