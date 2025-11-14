@@ -1,4 +1,3 @@
-
 #include "libcflat.h"
 #include "x86/desc.h"
 #include "x86/processor.h"
@@ -85,6 +84,8 @@ static uint64_t cet_ibt_func(void)
 #define CET_ENABLE_SHSTK			BIT(0)
 #define CET_ENABLE_IBT				BIT(2)
 #define CET_ENABLE_NOTRACK			BIT(4)
+#define CET_IBT_SUPPRESS			BIT(10)
+#define CET_IBT_TRACKER_WAIT_FOR_ENDBRANCH	BIT(11)
 
 static void test_shstk(void)
 {
@@ -132,9 +133,31 @@ static void test_shstk(void)
 	report(vector == GP_VECTOR, "MSR_IA32_PL3_SSP alignment test.");
 }
 
+static void ibt_tracker_cp_fixup(struct ex_regs *regs)
+{
+	u64 cet_u = rdmsr(MSR_IA32_U_CET);
+
+	/*
+	 * Switch the IBT tracker state to IDLE to have a clean state for
+	 * following tests.
+	 */
+	if (cet_u & CET_IBT_TRACKER_WAIT_FOR_ENDBRANCH) {
+		cet_u &= ~CET_IBT_TRACKER_WAIT_FOR_ENDBRANCH;
+		printf("CET: suppressing IBT WAIT_FOR_ENDBRANCH state at RIP: %lx\n",
+		       regs->rip);
+		wrmsr(MSR_IA32_U_CET, cet_u);
+	}
+}
+
+static uint64_t ibt_run_in_user(usermode_func func, bool *got_cp)
+{
+	return run_in_user_ex(func, CP_VECTOR, 0, 0, 0, 0, got_cp,
+			      ibt_tracker_cp_fixup);
+}
+
 static void test_ibt(void)
 {
-	bool rvc;
+	bool got_cp;
 
 	if (!this_cpu_has(X86_FEATURE_IBT)) {
 		report_skip("IBT not supported");
@@ -144,8 +167,8 @@ static void test_ibt(void)
 	/* Enable indirect-branch tracking (notrack handling for jump tables) */
 	wrmsr(MSR_IA32_U_CET, CET_ENABLE_IBT | CET_ENABLE_NOTRACK);
 
-	run_in_user(cet_ibt_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
-	report(rvc && exception_error_code() == CP_ERR_ENDBR,
+	ibt_run_in_user(cet_ibt_func, &got_cp);
+	report(got_cp && exception_error_code() == CP_ERR_ENDBR,
 	       "Indirect-branch tracking test");
 }
 
