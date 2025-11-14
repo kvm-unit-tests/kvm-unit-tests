@@ -33,18 +33,17 @@ static uint64_t cet_shstk_func(void)
 
 static uint64_t cet_ibt_func(void)
 {
+	unsigned long tmp;
 	/*
 	 * In below assembly code, the first instruction at label 2 is not
 	 * endbr64, it'll trigger #CP with error code 0x3, and the execution
 	 * is terminated when HW detects the violation.
 	 */
 	printf("No endbr64 instruction at jmp target, this triggers #CP...\n");
-	asm volatile ("movq $2, %rcx\n"
-		      "dec %rcx\n"
-		      "leaq 2f(%rip), %rax\n"
-		      "jmp *%rax \n"
-		      "2:\n"
-		      "dec %rcx\n");
+	asm volatile ("leaq 2f(%%rip), %0\n\t"
+		      "jmpq *%0\n\t"
+		      "2:"
+		      : "=r"(tmp));
 	return 0;
 }
 
