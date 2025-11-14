@@ -85,7 +85,7 @@ static uint64_t cet_ibt_func(void)
 #define ENABLE_SHSTK_BIT 0x1
 #define ENABLE_IBT_BIT   0x4
 
-int main(int ac, char **av)
+static void test_shstk(void)
 {
 	char *shstk_virt;
 	unsigned long shstk_phys;
@@ -94,16 +94,9 @@ int main(int ac, char **av)
 	bool rvc;
 
 	if (!this_cpu_has(X86_FEATURE_SHSTK)) {
-		report_skip("SHSTK not enabled");
-		return report_summary();
+		report_skip("SHSTK not supported");
+		return;
 	}
-
-	if (!this_cpu_has(X86_FEATURE_IBT)) {
-		report_skip("IBT not enabled");
-		return report_summary();
-	}
-
-	setup_vm();
 
 	/* Allocate one page for shadow-stack. */
 	shstk_virt = alloc_vpage();
@@ -124,9 +117,6 @@ int main(int ac, char **av)
 	/* Store shadow-stack pointer. */
 	wrmsr(MSR_IA32_PL3_SSP, (u64)(shstk_virt + 0x1000));
 
-	/* Enable CET master control bit in CR4. */
-	write_cr4(read_cr4() | X86_CR4_CET);
-
 	printf("Unit tests for CET user mode...\n");
 	run_in_user(cet_shstk_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
 	report(rvc && exception_error_code() == CP_ERR_NEAR_RET,
@@ -136,19 +126,45 @@ int main(int ac, char **av)
 	report(rvc && exception_error_code() == CP_ERR_FAR_RET,
 	       "FAR RET shadow-stack protection test");
 
+	/* SSP should be 4-Byte aligned */
+	vector = wrmsr_safe(MSR_IA32_PL3_SSP, 0x1);
+	report(vector == GP_VECTOR, "MSR_IA32_PL3_SSP alignment test.");
+}
+
+static void test_ibt(void)
+{
+	bool rvc;
+
+	if (!this_cpu_has(X86_FEATURE_IBT)) {
+		report_skip("IBT not supported");
+		return;
+	}
+
 	/* Enable indirect-branch tracking */
 	wrmsr(MSR_IA32_U_CET, ENABLE_IBT_BIT);
 
 	run_in_user(cet_ibt_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
 	report(rvc && exception_error_code() == CP_ERR_ENDBR,
 	       "Indirect-branch tracking test");
+}
+
+int main(int ac, char **av)
+{
+	if (!this_cpu_has(X86_FEATURE_SHSTK) && !this_cpu_has(X86_FEATURE_IBT)) {
+		report_skip("No CET features supported");
+		return report_summary();
+	}
+
+	setup_vm();
+
+	/* Enable CET global control bit in CR4. */
+	write_cr4(read_cr4() | X86_CR4_CET);
+
+	test_shstk();
+	test_ibt();
 
 	write_cr4(read_cr4() & ~X86_CR4_CET);
 	wrmsr(MSR_IA32_U_CET, 0);
-
-	/* SSP should be 4-Byte aligned */
-	vector = wrmsr_safe(MSR_IA32_PL3_SSP, 0x1);
-	report(vector == GP_VECTOR, "MSR_IA32_PL3_SSP alignment test.");
 
 	return report_summary();
 }
