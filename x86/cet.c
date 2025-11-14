@@ -47,6 +47,13 @@ static uint64_t cet_ibt_func(void)
 	return 0;
 }
 
+#define CP_ERR_NEAR_RET	0x0001
+#define CP_ERR_FAR_RET	0x0002
+#define CP_ERR_ENDBR	0x0003
+#define CP_ERR_RSTORSSP	0x0004
+#define CP_ERR_SETSSBSY	0x0005
+#define CP_ERR_ENCL		BIT(15)
+
 #define ENABLE_SHSTK_BIT 0x1
 #define ENABLE_IBT_BIT   0x4
 
@@ -92,15 +99,17 @@ int main(int ac, char **av)
 	/* Enable CET master control bit in CR4. */
 	write_cr4(read_cr4() | X86_CR4_CET);
 
-	printf("Unit test for CET user mode...\n");
+	printf("Unit tests for CET user mode...\n");
 	run_in_user(cet_shstk_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
-	report(rvc && exception_error_code() == 1, "Shadow-stack protection test.");
+	report(rvc && exception_error_code() == CP_ERR_NEAR_RET,
+	       "NEAR RET shadow-stack protection test");
 
 	/* Enable indirect-branch tracking */
 	wrmsr(MSR_IA32_U_CET, ENABLE_IBT_BIT);
 
 	run_in_user(cet_ibt_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
-	report(rvc && exception_error_code() == 3, "Indirect-branch tracking test.");
+	report(rvc && exception_error_code() == CP_ERR_ENDBR,
+	       "Indirect-branch tracking test");
 
 	write_cr4(read_cr4() & ~X86_CR4_CET);
 	wrmsr(MSR_IA32_U_CET, 0);
