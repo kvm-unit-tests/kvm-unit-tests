@@ -10,14 +10,14 @@
 
 static uint64_t cet_shstk_func(void)
 {
-	unsigned long *ret_addr, *ssp;
+	unsigned long *ret_addr = __builtin_frame_address(0) + sizeof(void *);
+	unsigned long *ssp;
 
 	/* rdsspq %rax */
 	asm volatile (".byte 0xf3, 0x48, 0x0f, 0x1e, 0xc8" : "=a"(ssp));
 
-	asm("movq %%rbp,%0" : "=r"(ret_addr));
 	printf("The return-address in shadow-stack = 0x%lx, in normal stack = 0x%lx\n",
-	       *ssp, *(ret_addr + 1));
+	       *ssp, *ret_addr);
 
 	/*
 	 * In below line, it modifies the return address, it'll trigger #CP
@@ -26,7 +26,7 @@ static uint64_t cet_shstk_func(void)
 	 * when HW detects the violation.
 	 */
 	printf("Try to temper the return-address, this causes #CP on returning...\n");
-	*(ret_addr + 1) = 0xdeaddead;
+	*(volatile unsigned long *)ret_addr ^= 0xdeaddead;
 
 	return 0;
 }
