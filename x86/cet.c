@@ -82,8 +82,9 @@ static uint64_t cet_ibt_func(void)
 #define CP_ERR_SETSSBSY	0x0005
 #define CP_ERR_ENCL		BIT(15)
 
-#define ENABLE_SHSTK_BIT 0x1
-#define ENABLE_IBT_BIT   0x4
+#define CET_ENABLE_SHSTK			BIT(0)
+#define CET_ENABLE_IBT				BIT(2)
+#define CET_ENABLE_NOTRACK			BIT(4)
 
 static void test_shstk(void)
 {
@@ -112,7 +113,7 @@ static void test_shstk(void)
 	install_pte(current_page_table(), 1, shstk_virt, pte, 0);
 
 	/* Enable shadow-stack protection */
-	wrmsr(MSR_IA32_U_CET, ENABLE_SHSTK_BIT);
+	wrmsr(MSR_IA32_U_CET, CET_ENABLE_SHSTK);
 
 	/* Store shadow-stack pointer. */
 	wrmsr(MSR_IA32_PL3_SSP, (u64)(shstk_virt + 0x1000));
@@ -140,8 +141,8 @@ static void test_ibt(void)
 		return;
 	}
 
-	/* Enable indirect-branch tracking */
-	wrmsr(MSR_IA32_U_CET, ENABLE_IBT_BIT);
+	/* Enable indirect-branch tracking (notrack handling for jump tables) */
+	wrmsr(MSR_IA32_U_CET, CET_ENABLE_IBT | CET_ENABLE_NOTRACK);
 
 	run_in_user(cet_ibt_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
 	report(rvc && exception_error_code() == CP_ERR_ENDBR,
