@@ -8,9 +8,6 @@
 #include "alloc_page.h"
 #include "fault_test.h"
 
-static int cp_count;
-static unsigned long invalid_offset = 0xffffffffffffff;
-
 static u64 cet_shstk_func(void)
 {
 	unsigned long *ret_addr, *ssp;
@@ -54,15 +51,6 @@ static u64 cet_ibt_func(void)
 #define ENABLE_SHSTK_BIT 0x1
 #define ENABLE_IBT_BIT   0x4
 
-static void handle_cp(struct ex_regs *regs)
-{
-	cp_count++;
-	printf("In #CP exception handler, error_code = 0x%lx\n",
-		regs->error_code);
-	/* Below jmp is expected to trigger #GP */
-	asm("jmpq *%0": :"m"(invalid_offset));
-}
-
 int main(int ac, char **av)
 {
 	char *shstk_virt;
@@ -70,7 +58,6 @@ int main(int ac, char **av)
 	pteval_t pte = 0;
 	bool rvc;
 
-	cp_count = 0;
 	if (!this_cpu_has(X86_FEATURE_SHSTK)) {
 		printf("SHSTK not enabled\n");
 		return report_summary();
@@ -82,7 +69,6 @@ int main(int ac, char **av)
 	}
 
 	setup_vm();
-	handle_exception(CP_VECTOR, handle_cp);
 
 	/* Allocate one page for shadow-stack. */
 	shstk_virt = alloc_vpage();
@@ -107,15 +93,14 @@ int main(int ac, char **av)
 	write_cr4(read_cr4() | X86_CR4_CET);
 
 	printf("Unit test for CET user mode...\n");
-	run_in_user((usermode_func)cet_shstk_func, GP_VECTOR, 0, 0, 0, 0, &rvc);
-	report(cp_count == 1, "Completed shadow-stack protection test successfully.");
-	cp_count = 0;
+	run_in_user((usermode_func)cet_shstk_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
+	report(rvc, "Shadow-stack protection test.");
 
 	/* Enable indirect-branch tracking */
 	wrmsr(MSR_IA32_U_CET, ENABLE_IBT_BIT);
 
-	run_in_user((usermode_func)cet_ibt_func, GP_VECTOR, 0, 0, 0, 0, &rvc);
-	report(cp_count == 1, "Completed Indirect-branch tracking test successfully.");
+	run_in_user((usermode_func)cet_ibt_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
+	report(rvc, "Indirect-branch tracking test.");
 
 	write_cr4(read_cr4() & ~X86_CR4_CET);
 	wrmsr(MSR_IA32_U_CET, 0);
