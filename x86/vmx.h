@@ -356,6 +356,7 @@ enum Encoding {
 	GUEST_PENDING_DEBUG	= 0x6822ul,
 	GUEST_SYSENTER_ESP	= 0x6824ul,
 	GUEST_SYSENTER_EIP	= 0x6826ul,
+	GUEST_S_CET		= 0x6828ul,
 
 	/* Natural-Width Host State Fields */
 	HOST_CR0		= 0x6c00ul,
@@ -369,7 +370,8 @@ enum Encoding {
 	HOST_SYSENTER_ESP	= 0x6c10ul,
 	HOST_SYSENTER_EIP	= 0x6c12ul,
 	HOST_RSP		= 0x6c14ul,
-	HOST_RIP		= 0x6c16ul
+	HOST_RIP		= 0x6c16ul,
+	HOST_S_CET		= 0x6c18ul,
 };
 
 #define VMX_ENTRY_FAILURE	(1ul << 31)
@@ -449,6 +451,7 @@ enum Ctrl_exi {
 	EXI_SAVE_EFER		= 1UL << 20,
 	EXI_LOAD_EFER		= 1UL << 21,
 	EXI_SAVE_PREEMPT	= 1UL << 22,
+	EXI_LOAD_CET		= 1UL << 28,
 };
 
 enum Ctrl_ent {
@@ -457,7 +460,8 @@ enum Ctrl_ent {
 	ENT_LOAD_PERF		= 1UL << 13,
 	ENT_LOAD_PAT		= 1UL << 14,
 	ENT_LOAD_EFER		= 1UL << 15,
-	ENT_LOAD_BNDCFGS	= 1UL << 16
+	ENT_LOAD_BNDCFGS	= 1UL << 16,
+	ENT_LOAD_CET		= 1UL << 20,
 };
 
 enum Ctrl_pin {
