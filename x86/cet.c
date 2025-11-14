@@ -74,6 +74,111 @@ static uint64_t cet_ibt_func(void)
 	return 0;
 }
 
+#define __CET_TEST_UNSUPPORTED_INSTRUCTION(insn)			\
+({									\
+	struct far_pointer32 fp = {					\
+		.offset = 0,						\
+		.selector = USER_CS,					\
+	};								\
+									\
+	asm volatile ("push %%rax\n"					\
+		      ASM_TRY_FEP("1f") insn "\n\t"			\
+		      "1:"						\
+		      "pop %%rax\n"					\
+		      : : "m" (fp), "a" (NONCANONICAL) : "memory");	\
+									\
+	exception_vector();					\
+})
+
+#define SHSTK_TEST_UNSUPPORTED_INSTRUCTION(insn)			\
+do {									\
+	uint8_t vector = __CET_TEST_UNSUPPORTED_INSTRUCTION(insn);	\
+									\
+	report(vector == UD_VECTOR, "SHSTK: Wanted #UD on %s, got %s",	\
+	       insn, exception_mnemonic(vector));			\
+} while (0)
+
+/*
+ * Treat IRET as unsupported with IBT even though the minimal interactions with
+ * IBT _could_ be easily emulated by KVM, as KVM doesn't support emulating IRET
+ * outside of Real Mode.
+ */
+#define CET_TEST_UNSUPPORTED_INSTRUCTIONS(CET)				\
+do {									\
+	CET##_TEST_UNSUPPORTED_INSTRUCTION("callq *%%rax");		\
+	CET##_TEST_UNSUPPORTED_INSTRUCTION("lcall *%0");		\
+	CET##_TEST_UNSUPPORTED_INSTRUCTION("syscall");			\
+	CET##_TEST_UNSUPPORTED_INSTRUCTION("sysenter");			\
+	CET##_TEST_UNSUPPORTED_INSTRUCTION("iretq");			\
+} while (0)
+
+static uint64_t cet_shstk_emulation(void)
+{
+	CET_TEST_UNSUPPORTED_INSTRUCTIONS(SHSTK);
+
+	SHSTK_TEST_UNSUPPORTED_INSTRUCTION("call 1f");
+	SHSTK_TEST_UNSUPPORTED_INSTRUCTION("retq");
+	SHSTK_TEST_UNSUPPORTED_INSTRUCTION("retq $10");
+	SHSTK_TEST_UNSUPPORTED_INSTRUCTION("lretq");
+	SHSTK_TEST_UNSUPPORTED_INSTRUCTION("lretq $10");
+
+	/* Do a handful of JMPs to verify they aren't impacted by SHSTK. */
+	asm volatile(KVM_FEP "jmp 1f\n\t"
+		     "1:\n\t"
+		     KVM_FEP "lea 2f(%%rip), %%rax\n\t"
+		     KVM_FEP "jmp *%%rax\n\t"
+		     "2:\n\t"
+		     KVM_FEP "push $" xstr(USER_CS) "\n\t"
+		     KVM_FEP "lea 3f(%%rip), %%rax\n\t"
+		     KVM_FEP "push %%rax\n\t"
+		     /*
+		      * Manually encode ljmpq, which gas doesn't recognize due
+		      * to AMD not supporting the instruction (64-bit JMP FAR).
+		      */
+		     KVM_FEP ".byte 0x48\n\t"
+		     "ljmpl *(%%rsp)\n\t"
+		     "3:\n\t"
+		     KVM_FEP "pop %%rax\n\t"
+		     KVM_FEP "pop %%rax\n\t"
+		     ::: "eax");
+
+	return 0;
+}
+
+#define IBT_TEST_UNSUPPORTED_INSTRUCTION(insn)				\
+do {									\
+	uint8_t vector = __CET_TEST_UNSUPPORTED_INSTRUCTION(insn);	\
+									\
+	report(vector == UD_VECTOR, "IBT: Wanted #UD on %s, got %s",	\
+	       insn, exception_mnemonic(vector));			\
+} while (0)
+
+static uint64_t cet_ibt_emulation(void)
+{
+	CET_TEST_UNSUPPORTED_INSTRUCTIONS(IBT);
+
+	IBT_TEST_UNSUPPORTED_INSTRUCTION("jmp *%%rax");
+	IBT_TEST_UNSUPPORTED_INSTRUCTION("ljmpl *%0");
+
+	/* Verify direct CALLs and JMPs, and all RETs aren't impacted by IBT. */
+	asm volatile(KVM_FEP "jmp 2f\n\t"
+		     "1: " KVM_FEP " ret\n\t"
+		     "2: " KVM_FEP " call 1b\n\t"
+		     KVM_FEP "push $" xstr(USER_CS) "\n\t"
+		     KVM_FEP "lea 3f(%%rip), %%rax\n\t"
+		     KVM_FEP "push %%rax\n\t"
+		     KVM_FEP "lretq\n\t"
+		     "3:\n\t"
+		     KVM_FEP "push $0x55555555\n\t"
+		     KVM_FEP "push $" xstr(USER_CS) "\n\t"
+		     KVM_FEP "lea 4f(%%rip), %%rax\n\t"
+		     KVM_FEP "push %%rax\n\t"
+		     KVM_FEP "lretq $8\n\t"
+		     "4:\n\t"
+		     ::: "eax");
+	return 0;
+}
+
 #define CP_ERR_NEAR_RET	0x0001
 #define CP_ERR_FAR_RET	0x0002
 #define CP_ERR_ENDBR	0x0003
@@ -119,7 +224,7 @@ static void test_shstk(void)
 	/* Store shadow-stack pointer. */
 	wrmsr(MSR_IA32_PL3_SSP, (u64)(shstk_virt + 0x1000));
 
-	printf("Unit tests for CET user mode...\n");
+	printf("Running user mode Shadow Stack tests\n");
 	run_in_user(cet_shstk_func, CP_VECTOR, 0, 0, 0, 0, &rvc);
 	report(rvc && exception_error_code() == CP_ERR_NEAR_RET,
 	       "NEAR RET shadow-stack protection test");
@@ -127,6 +232,12 @@ static void test_shstk(void)
 	run_in_user(cet_shstk_far_ret, CP_VECTOR, 0, 0, 0, 0, &rvc);
 	report(rvc && exception_error_code() == CP_ERR_FAR_RET,
 	       "FAR RET shadow-stack protection test");
+
+	if (is_fep_available &&
+	    (run_in_user(cet_shstk_emulation, CP_VECTOR, 0, 0, 0, 0, &rvc) || rvc))
+		report_fail("Forced emulation with SHSTK generated %s(%u)",
+			    exception_mnemonic(exception_vector()),
+			    exception_error_code());
 
 	/* SSP should be 4-Byte aligned */
 	vector = wrmsr_safe(MSR_IA32_PL3_SSP, 0x1);
@@ -170,6 +281,12 @@ static void test_ibt(void)
 	ibt_run_in_user(cet_ibt_func, &got_cp);
 	report(got_cp && exception_error_code() == CP_ERR_ENDBR,
 	       "Indirect-branch tracking test");
+
+	if (is_fep_available &&
+	    (ibt_run_in_user(cet_ibt_emulation, &got_cp) || got_cp))
+		report_fail("Forced emulation with IBT generated %s(%u)",
+			    exception_mnemonic(exception_vector()),
+			    exception_error_code());
 }
 
 int main(int ac, char **av)
