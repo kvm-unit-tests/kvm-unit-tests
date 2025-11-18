@@ -1,6 +1,5 @@
 : "${RUNTIME_arch_run?}"
 : "${MAX_SMP:=$(getconf _NPROCESSORS_ONLN)}"
-: "${TIMEOUT:=90s}"
 
 PASS() { echo -ne "\e[32mPASS\e[0m"; }
 SKIP() { echo -ne "\e[33mSKIP\e[0m"; }
@@ -82,7 +81,7 @@ function run()
     local machine="$8"
     local check="${CHECK:-$9}"
     local accel="${10}"
-    local timeout="${11:-$TIMEOUT}" # unittests.cfg overrides the default
+    local timeout="${TIMEOUT:-${11:-90s}}" # TIMEOUT env var overrides unittests.cfg
     local disabled_if="${12}"
 
     if [ "${CONFIG_EFI}" == "y" ]; then
