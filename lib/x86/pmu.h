@@ -20,6 +20,7 @@
 #define PMU_CAP_LBR_FMT	  0x3f
 #define PMU_CAP_FW_WRITES	(1ULL << 13)
 #define PMU_CAP_PEBS_BASELINE	(1ULL << 14)
+#define PMU_CAP_PEBS_TIMING_INFO	(1ULL << 17)
 #define PERF_CAP_PEBS_FORMAT           0xf00
 
 #define EVNSEL_EVENT_SHIFT	0
@@ -191,6 +192,11 @@ static inline u8 pmu_pebs_format(void)
 static inline bool pmu_has_pebs_baseline(void)
 {
 	return pmu.perf_cap & PMU_CAP_PEBS_BASELINE;
+}
+
+static inline bool pmu_has_pebs_timing_info(void)
+{
+	return pmu.perf_cap & PMU_CAP_PEBS_TIMING_INFO;
 }
 
 #endif /* _X86_PMU_H_ */
