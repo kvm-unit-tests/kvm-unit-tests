@@ -547,19 +547,19 @@ static void check_counter_overflow(void)
 		uint64_t status;
 		int idx;
 
-		cnt.count = overflow_preset;
-		if (pmu_use_full_writes())
-			cnt.count &= (1ull << pmu.gp_counter_width) - 1;
-
 		if (i == pmu.nr_gp_counters) {
 			if (!pmu.is_intel)
 				break;
 
 			cnt.ctr = fixed_events[0].unit_sel;
 			cnt.count = measure_for_overflow(&cnt);
-			cnt.count &= (1ull << pmu.gp_counter_width) - 1;
+			cnt.count &= (1ull << pmu.fixed_counter_width) - 1;
 		} else {
 			cnt.ctr = MSR_GP_COUNTERx(i);
+
+			cnt.count = overflow_preset;
+			if (pmu_use_full_writes())
+				cnt.count &= (1ull << pmu.gp_counter_width) - 1;
 		}
 
 		if (i % 2)
