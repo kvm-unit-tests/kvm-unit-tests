@@ -756,6 +756,8 @@ static void check_emulated_instr(void)
 		/* instructions */
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[instruction_idx].unit_sel,
 	};
+	const bool has_perf_global_ctrl = this_cpu_has_perf_global_ctrl();
+
 	report_prefix_push("emulated instruction");
 
 	if (this_cpu_has_perf_global_status())
@@ -769,7 +771,7 @@ static void check_emulated_instr(void)
 	wrmsr(MSR_GP_COUNTERx(0), brnch_start & gp_counter_width);
 	wrmsr(MSR_GP_COUNTERx(1), instr_start & gp_counter_width);
 
-	if (this_cpu_has_perf_global_ctrl()) {
+	if (has_perf_global_ctrl) {
 		eax = BIT(0) | BIT(1);
 		ecx = pmu.msr_global_ctl;
 		edx = 0;
@@ -784,17 +786,15 @@ static void check_emulated_instr(void)
 
 	// Check that the end count - start count is at least the expected
 	// number of instructions and branches.
-	if (this_cpu_has_perf_global_ctrl()) {
-		report(instr_cnt.count - instr_start == KVM_FEP_INSNS,
-		       "instruction count");
-		report(brnch_cnt.count - brnch_start == KVM_FEP_BRANCHES,
-		       "branch count");
-	} else {
-		report(instr_cnt.count - instr_start >= KVM_FEP_INSNS,
-		       "instruction count");
-		report(brnch_cnt.count - brnch_start >= KVM_FEP_BRANCHES,
-		       "branch count");
-	}
+	if (has_perf_global_ctrl && !pmu.errata.instructions_retired_overcount)
+		report(instr_cnt.count - instr_start == KVM_FEP_INSNS, "instruction count");
+	else
+		report(instr_cnt.count - instr_start >= KVM_FEP_INSNS, "instruction count");
+
+	if (has_perf_global_ctrl && !pmu.errata.branches_retired_overcount)
+		report(brnch_cnt.count - brnch_start == KVM_FEP_BRANCHES, "branch count");
+	else
+		report(brnch_cnt.count - brnch_start >= KVM_FEP_BRANCHES, "branch count");
 
 	if (this_cpu_has_perf_global_status()) {
 		// Additionally check that those counters overflowed properly.
