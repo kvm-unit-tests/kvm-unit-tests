@@ -226,6 +226,32 @@ static inline bool is_intel(void)
 	return strcmp((char *)name, "GenuineIntel") == 0;
 }
 
+static inline u32 x86_family(u32 sig)
+{
+	u32 x86;
+
+	x86 = (sig >> 8) & 0xf;
+
+	if (x86 == 0xf)
+		x86 += (sig >> 20) & 0xff;
+
+	return x86;
+}
+
+static inline u32 x86_model(u32 sig)
+{
+	u32 fam, model;
+
+	fam = x86_family(sig);
+
+	model = (sig >> 4) & 0xf;
+
+	if (fam >= 0x6)
+		model += ((sig >> 16) & 0xf) << 4;
+
+	return model;
+}
+
 /*
  * Pack the information into a 64-bit value so that each X86_FEATURE_XXX can be
  * passed by value with no overhead.

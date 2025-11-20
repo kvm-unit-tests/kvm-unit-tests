@@ -73,6 +73,11 @@ struct pmu_caps {
 	u32 msr_global_status_clr;
 
 	u64 perf_cap;
+
+	struct {
+		bool instructions_retired_overcount;
+		bool branches_retired_overcount;
+	} errata;
 };
 
 extern struct pmu_caps pmu;
