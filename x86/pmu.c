@@ -229,10 +229,15 @@ static void adjust_events_range(struct pmu_event *gp_events,
 	 * occur while running the measured code, e.g. if the host takes IRQs.
 	 */
 	if (pmu.is_intel && this_cpu_has_perf_global_ctrl()) {
-		gp_events[instruction_idx].min = LOOP_INSNS;
-		gp_events[instruction_idx].max = LOOP_INSNS;
-		gp_events[branch_idx].min = LOOP_BRANCHES;
-		gp_events[branch_idx].max = LOOP_BRANCHES;
+		if (!pmu.errata.instructions_retired_overcount) {
+			gp_events[instruction_idx].min = LOOP_INSNS;
+			gp_events[instruction_idx].max = LOOP_INSNS;
+		}
+
+		if (!pmu.errata.branches_retired_overcount) {
+			gp_events[branch_idx].min = LOOP_BRANCHES;
+			gp_events[branch_idx].max = LOOP_BRANCHES;
+		}
 	}
 
 	/*
