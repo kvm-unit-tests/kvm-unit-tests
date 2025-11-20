@@ -510,6 +510,21 @@ static void check_counters_many(void)
 
 static uint64_t measure_for_overflow(pmu_counter_t *cnt)
 {
+	/*
+	 * During the execution of __measure(), VM exits (e.g., due to
+	 * WRMSR/EXTERNAL_INTERRUPT) may occur. On systems affected by the
+	 * instruction overcount issue, each VM-Exit/VM-Entry can erroneously
+	 * increment the instruction count by one, leading to false failures
+	 * in overflow tests.
+	 *
+	 * To mitigate this, if the overcount issue is detected, hardcode the
+	 * overflow preset to (1 - LOOP_INSNS) instead of calculating it
+	 * dynamically. This ensures that an overflow will reliably occur,
+	 * regardless of any overcounting caused by VM exits.
+	 */
+	if (pmu.errata.instructions_retired_overcount)
+		return 1 - LOOP_INSNS;
+
 	__measure(cnt, 0);
 	/*
 	 * To generate overflow, i.e. roll over to '0', the initial count just
@@ -568,8 +583,12 @@ static void check_counter_overflow(void)
 			cnt.config &= ~EVNTSEL_INT;
 		idx = event_to_global_idx(&cnt);
 		__measure(&cnt, cnt.count);
-		if (pmu.is_intel)
-			report(cnt.count == 1, "cntr-%d", i);
+		if (pmu.is_intel) {
+			if (pmu.errata.instructions_retired_overcount)
+				report(cnt.count < 14, "cntr-%d", i);
+			else
+				report(cnt.count == 1, "cntr-%d", i);
+		}
 		else
 			report(cnt.count == 0xffffffffffff || cnt.count < 7, "cntr-%d", i);
 
