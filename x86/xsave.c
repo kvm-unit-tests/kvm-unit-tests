@@ -10,7 +10,7 @@
 
 static void test_xsave(void)
 {
-	u64 supported_xcr0, xcr0, test_bits;
+	u64 supported_xcr0, test_bits;
 	unsigned long cr4;
 
 	printf("Legal instruction testing:\n");
@@ -56,51 +56,45 @@ static void test_xsave(void)
 	report(xsetbv_safe(XCR_XFEATURE_ILLEGAL_MASK, test_bits) == GP_VECTOR,
 	       "\t\txgetbv(XCR_XFEATURE_ILLEGAL_MASK, XSTATE_FP) - expect #GP");
 
-	write_cr4(cr4 & ~X86_CR4_OSXSAVE);
-	report(this_cpu_has(X86_FEATURE_OSXSAVE) == 0,
-	       "Check CPUID.1.ECX.OSXSAVE - expect 0");
+	write_cr4(cr4);
 
-	printf("\tIllegal tests:\n");
-	report(write_xcr0_safe(XSTATE_FP) == UD_VECTOR,
-	       "\t\tWrite XCR0=FP with CR4.OSXSAVE=0 - expect #UD");
-
-	report(write_xcr0_safe(XSTATE_FP | XSTATE_SSE) == UD_VECTOR,
-	       "\t\tWrite XCR0=(FP|SSE) with CR4.OSXSAVE=0 - expect #UD");
-
-	printf("\tIllegal tests:\n");
-	report(read_xcr0_safe(&xcr0) == UD_VECTOR,
-	       "\tRead XCR0 with CR4.OSXSAVE=0 - expect #UD");
+	report(this_cpu_has(X86_FEATURE_OSXSAVE) == !!(cr4 & X86_CR4_OSXSAVE),
+	       "CPUID.1.ECX.OSXSAVE == CR4.OSXSAVE");
 }
 
 static void test_no_xsave(void)
 {
-	unsigned long cr4;
+	unsigned long cr4 = read_cr4();
 	u64 xcr0;
+
+	if (cr4 & X86_CR4_OSXSAVE)
+		write_cr4(cr4 & ~X86_CR4_OSXSAVE);
 
 	report(this_cpu_has(X86_FEATURE_OSXSAVE) == 0,
 	       "Check CPUID.1.ECX.OSXSAVE - expect 0");
 
-	printf("Illegal instruction testing:\n");
-
-	cr4 = read_cr4();
-	report(write_cr4_safe(cr4 | X86_CR4_OSXSAVE) == GP_VECTOR,
-	       "Set OSXSAVE in CR4 - expect #GP");
-
 	report(read_xcr0_safe(&xcr0) == UD_VECTOR,
-	       "Read XCR0 without XSAVE support - expect #UD");
+	       "Read XCR0 without OSXSAVE enabled - expect #UD");
 
 	report(write_xcr0_safe(XSTATE_FP | XSTATE_SSE) == UD_VECTOR,
 	       "Write XCR0=(FP|SSE) without XSAVE support - expect #UD");
+
+	if (cr4 & X86_CR4_OSXSAVE)
+		write_cr4(cr4);
 }
 
 int main(void)
 {
+	test_no_xsave();
+
 	if (this_cpu_has(X86_FEATURE_XSAVE)) {
-		printf("CPU has XSAVE feature\n");
 		test_xsave();
 	} else {
-		printf("CPU don't has XSAVE feature\n");
-		test_no_xsave();
+		report_skip("XSAVE unsupported, skipping positive tests");
+
+		report(write_cr4_safe(read_cr4() | X86_CR4_OSXSAVE) == GP_VECTOR,
+		       "Set CR4.OSXSAVE without XSAVE- expect #GP");
 	}
+
 	return report_summary();
 }
