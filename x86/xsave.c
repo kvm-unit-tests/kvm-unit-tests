@@ -43,9 +43,17 @@ do {									\
 		__TEST_VMOVDQA(ymm##r1, ymm##r2, KVM_FEP);		\
 } while (0)
 
+static void test_write_xcr0(u64 val)
+{
+	write_xcr0(val);
+
+	report(read_xcr0() == val,
+	       "Wanted XCR0 == 0x%lx, got XCR0 == 0x%lx", val, read_xcr0());
+}
+
 static __attribute__((target("avx"))) void test_avx_vmovdqa(void)
 {
-	write_xcr0(XFEATURE_MASK_FP_SSE | XFEATURE_MASK_YMM);
+	test_write_xcr0(XFEATURE_MASK_FP_SSE | XFEATURE_MASK_YMM);
 
 	TEST_VMOVDQA(0, 15);
 	TEST_VMOVDQA(1, 14);
@@ -120,9 +128,8 @@ static void test_xsave(void)
 	       "Check CPUID.1.ECX.OSXSAVE - expect 1");
 
 	printf("\tLegal tests\n");
-	write_xcr0(XFEATURE_MASK_FP);
-	write_xcr0(XFEATURE_MASK_FP_SSE);
-	(void)read_xcr0();
+	test_write_xcr0(XFEATURE_MASK_FP);
+	test_write_xcr0(XFEATURE_MASK_FP_SSE);
 
 	if (supported_xcr0 & XFEATURE_MASK_YMM)
 		test_avx_vmovdqa();
