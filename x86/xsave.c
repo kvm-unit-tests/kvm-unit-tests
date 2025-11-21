@@ -24,7 +24,8 @@ static void test_xsave(void)
 	       "Check minimal XSAVE required bits");
 
 	cr4 = read_cr4();
-	report(write_cr4_safe(cr4 | X86_CR4_OSXSAVE) == 0, "Set CR4 OSXSAVE");
+	write_cr4(cr4 | X86_CR4_OSXSAVE);
+
 	report(this_cpu_has(X86_FEATURE_OSXSAVE),
 	       "Check CPUID.1.ECX.OSXSAVE - expect 1");
 
@@ -66,8 +67,7 @@ static void test_xsave(void)
 	report(xsetbv_safe(XCR_XFEATURE_ILLEGAL_MASK, test_bits) == GP_VECTOR,
 	       "\t\txgetbv(XCR_XFEATURE_ILLEGAL_MASK, XSTATE_FP) - expect #GP");
 
-	cr4 &= ~X86_CR4_OSXSAVE;
-	report(write_cr4_safe(cr4) == 0, "Unset CR4 OSXSAVE");
+	write_cr4(cr4 & ~X86_CR4_OSXSAVE);
 	report(this_cpu_has(X86_FEATURE_OSXSAVE) == 0,
 	       "Check CPUID.1.ECX.OSXSAVE - expect 0");
 
