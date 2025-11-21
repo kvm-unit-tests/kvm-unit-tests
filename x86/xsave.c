@@ -45,10 +45,30 @@ do {									\
 
 static void test_write_xcr0(u64 val)
 {
+	u64 xcr0_alias = rdtsc() << 32, cur;
+	int vector;
+
+	/*
+	 * Verify that RCX[63:32] are ignored by XSETBV and XGETBV.  Use the
+	 * safe variants as XCR0 will be written "normally" below.
+	 */
+	vector = xsetbv_safe(xcr0_alias, val);
+	report(!vector, "XGETBV(0x%lx) (i.e. XCR0) should succeed (exception = %s)",
+	       xcr0_alias, vector ? exception_mnemonic(vector) : "none");
+
+	vector = xgetbv_safe(xcr0_alias, &cur);
+	report(!vector, "XGETBV(0x%lx) (i.e. XCR0) should succeed (exception = %s)",
+	       xcr0_alias, vector ? exception_mnemonic(vector) : "none");
+	report(cur == val,
+	       "Wanted aliased XCR0 == 0x%lx, got XCR0 == 0x%lx", val, cur);
+
+	cur = read_xcr0();
+	report(cur == val, "Wanted XCR0 == 0x%lx, got XCR0 == 0x%lx", val, cur);
+
 	write_xcr0(val);
 
-	report(read_xcr0() == val,
-	       "Wanted XCR0 == 0x%lx, got XCR0 == 0x%lx", val, read_xcr0());
+	cur = read_xcr0();
+	report(cur == val, "Wanted XCR0 == 0x%lx, got XCR0 == 0x%lx", val, cur);
 }
 
 static __attribute__((target("avx"))) void test_avx_vmovdqa(void)
