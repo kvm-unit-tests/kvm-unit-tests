@@ -2,11 +2,44 @@
 #include "desc.h"
 #include "processor.h"
 
-#define XCR_XFEATURE_ILLEGAL_MASK	0x00000010
-
 #define XSTATE_FP	0x1
 #define XSTATE_SSE	0x2
 #define XSTATE_YMM	0x4
+
+static void test_unsupported_xcrs(void)
+{
+	u64 ign;
+	int i;
+
+	for (i = 1; i < 64; i++) {
+		/* XGETBV(1) returns "XCR0 & XINUSE" on some CPUs. */
+		if (i != 1)
+			report(xgetbv_safe(i, &ign) == GP_VECTOR,
+			       "XGETBV(%u) - expect #GP", i);
+
+		report(xsetbv_safe(i, XSTATE_FP) == GP_VECTOR,
+		      "XSETBV(%u, FP) - expect #GP", i);
+
+		report(xsetbv_safe(i, XSTATE_FP | XSTATE_SSE) == GP_VECTOR,
+		      "XSETBV(%u, FP|SSE) - expect #GP", i);
+
+		/*
+		 * RCX[63:32] are ignored by XGETBV and XSETBV, i.e. testing
+		 * bits set above 31 will access XCR0.
+		 */
+		if (i > 31)
+			continue;
+
+		report(xgetbv_safe(BIT(i), &ign) == GP_VECTOR,
+		       "XGETBV(0x%lx) - expect #GP", BIT(i));
+
+		report(xsetbv_safe(BIT(i), XSTATE_FP) == GP_VECTOR,
+		      "XSETBV(0x%lx, FP) - expect #GP", BIT(i));
+
+		report(xsetbv_safe(BIT(i), XSTATE_FP | XSTATE_SSE) == GP_VECTOR,
+		      "XSETBV(0x%lx, FP|SSE) - expect #GP", BIT(i));
+	}
+}
 
 static void test_xsave(void)
 {
@@ -48,13 +81,7 @@ static void test_xsave(void)
 		       "\t\tWrite XCR0 = (FP | YMM) - expect #GP");
 	}
 
-	test_bits = XSTATE_SSE;
-	report(xsetbv_safe(XCR_XFEATURE_ILLEGAL_MASK, test_bits) == GP_VECTOR,
-	       "\t\txsetbv(XCR_XFEATURE_ILLEGAL_MASK, XSTATE_FP) - expect #GP");
-
-	test_bits = XSTATE_SSE;
-	report(xsetbv_safe(XCR_XFEATURE_ILLEGAL_MASK, test_bits) == GP_VECTOR,
-	       "\t\txgetbv(XCR_XFEATURE_ILLEGAL_MASK, XSTATE_FP) - expect #GP");
+	test_unsupported_xcrs();
 
 	write_cr4(cr4);
 
