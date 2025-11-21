@@ -2,10 +2,6 @@
 #include "desc.h"
 #include "processor.h"
 
-#define XSTATE_FP	0x1
-#define XSTATE_SSE	0x2
-#define XSTATE_YMM	0x4
-
 static void test_unsupported_xcrs(void)
 {
 	u64 ign;
@@ -17,10 +13,10 @@ static void test_unsupported_xcrs(void)
 			report(xgetbv_safe(i, &ign) == GP_VECTOR,
 			       "XGETBV(%u) - expect #GP", i);
 
-		report(xsetbv_safe(i, XSTATE_FP) == GP_VECTOR,
+		report(xsetbv_safe(i, XFEATURE_MASK_FP) == GP_VECTOR,
 		      "XSETBV(%u, FP) - expect #GP", i);
 
-		report(xsetbv_safe(i, XSTATE_FP | XSTATE_SSE) == GP_VECTOR,
+		report(xsetbv_safe(i, XFEATURE_MASK_FP_SSE) == GP_VECTOR,
 		      "XSETBV(%u, FP|SSE) - expect #GP", i);
 
 		/*
@@ -33,17 +29,17 @@ static void test_unsupported_xcrs(void)
 		report(xgetbv_safe(BIT(i), &ign) == GP_VECTOR,
 		       "XGETBV(0x%lx) - expect #GP", BIT(i));
 
-		report(xsetbv_safe(BIT(i), XSTATE_FP) == GP_VECTOR,
+		report(xsetbv_safe(BIT(i), XFEATURE_MASK_FP) == GP_VECTOR,
 		      "XSETBV(0x%lx, FP) - expect #GP", BIT(i));
 
-		report(xsetbv_safe(BIT(i), XSTATE_FP | XSTATE_SSE) == GP_VECTOR,
+		report(xsetbv_safe(BIT(i), XFEATURE_MASK_FP_SSE) == GP_VECTOR,
 		      "XSETBV(0x%lx, FP|SSE) - expect #GP", BIT(i));
 	}
 }
 
 static void test_xsave(void)
 {
-	u64 supported_xcr0, test_bits;
+	u64 supported_xcr0;
 	unsigned long cr4;
 
 	printf("Legal instruction testing:\n");
@@ -51,9 +47,8 @@ static void test_xsave(void)
 	supported_xcr0 = this_cpu_supported_xcr0();
 	printf("Supported XCR0 bits: %#lx\n", supported_xcr0);
 
-	test_bits = XSTATE_FP | XSTATE_SSE;
-	report((supported_xcr0 & test_bits) == test_bits,
-	       "Check minimal XSAVE required bits");
+	report((supported_xcr0 & XFEATURE_MASK_FP_SSE) == XFEATURE_MASK_FP_SSE,
+	       "FP and SSE should always be supported in XCR0");
 
 	cr4 = read_cr4();
 	write_cr4(cr4 | X86_CR4_OSXSAVE);
@@ -62,22 +57,22 @@ static void test_xsave(void)
 	       "Check CPUID.1.ECX.OSXSAVE - expect 1");
 
 	printf("\tLegal tests\n");
-	write_xcr0(XSTATE_FP);
-	write_xcr0(XSTATE_FP | XSTATE_SSE);
+	write_xcr0(XFEATURE_MASK_FP);
+	write_xcr0(XFEATURE_MASK_FP_SSE);
 	(void)read_xcr0();
 
 	printf("\tIllegal tests\n");
 	report(write_xcr0_safe(0) == GP_VECTOR,
 	       "\t\tWrite XCR0 = 0 - expect #GP");
 
-	report(write_xcr0_safe(XSTATE_SSE) == GP_VECTOR,
+	report(write_xcr0_safe(XFEATURE_MASK_SSE) == GP_VECTOR,
 	       "\t\tWrite XCR0 = SSE - expect #GP");
 
-	if (supported_xcr0 & XSTATE_YMM) {
-		report(write_xcr0_safe(XSTATE_YMM) == GP_VECTOR,
+	if (supported_xcr0 & XFEATURE_MASK_YMM) {
+		report(write_xcr0_safe(XFEATURE_MASK_YMM) == GP_VECTOR,
 		       "\t\tWrite XCR0 = YMM - expect #GP");
 
-		report(write_xcr0_safe(XSTATE_FP | XSTATE_YMM) == GP_VECTOR,
+		report(write_xcr0_safe(XFEATURE_MASK_FP | XFEATURE_MASK_YMM) == GP_VECTOR,
 		       "\t\tWrite XCR0 = (FP | YMM) - expect #GP");
 	}
 
@@ -103,7 +98,7 @@ static void test_no_xsave(void)
 	report(read_xcr0_safe(&xcr0) == UD_VECTOR,
 	       "Read XCR0 without OSXSAVE enabled - expect #UD");
 
-	report(write_xcr0_safe(XSTATE_FP | XSTATE_SSE) == UD_VECTOR,
+	report(write_xcr0_safe(XFEATURE_MASK_FP_SSE) == UD_VECTOR,
 	       "Write XCR0=(FP|SSE) without XSAVE support - expect #UD");
 
 	if (cr4 & X86_CR4_OSXSAVE)
