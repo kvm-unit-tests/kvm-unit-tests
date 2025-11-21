@@ -113,8 +113,6 @@ static void test_xsave(void)
 	u64 supported_xcr0;
 	unsigned long cr4;
 
-	printf("Legal instruction testing:\n");
-
 	supported_xcr0 = this_cpu_supported_xcr0();
 	printf("Supported XCR0 bits: %#lx\n", supported_xcr0);
 
@@ -127,26 +125,24 @@ static void test_xsave(void)
 	report(this_cpu_has(X86_FEATURE_OSXSAVE),
 	       "Check CPUID.1.ECX.OSXSAVE - expect 1");
 
-	printf("\tLegal tests\n");
 	test_write_xcr0(XFEATURE_MASK_FP);
 	test_write_xcr0(XFEATURE_MASK_FP_SSE);
 
 	if (supported_xcr0 & XFEATURE_MASK_YMM)
 		test_avx_vmovdqa();
 
-	printf("\tIllegal tests\n");
 	report(write_xcr0_safe(0) == GP_VECTOR,
-	       "\t\tWrite XCR0 = 0 - expect #GP");
+	       "Write XCR0 = 0 - expect #GP");
 
 	report(write_xcr0_safe(XFEATURE_MASK_SSE) == GP_VECTOR,
-	       "\t\tWrite XCR0 = SSE - expect #GP");
+	       "Write XCR0 = SSE - expect #GP");
 
 	if (supported_xcr0 & XFEATURE_MASK_YMM) {
 		report(write_xcr0_safe(XFEATURE_MASK_YMM) == GP_VECTOR,
-		       "\t\tWrite XCR0 = YMM - expect #GP");
+		       "Write XCR0 = YMM - expect #GP");
 
 		report(write_xcr0_safe(XFEATURE_MASK_FP | XFEATURE_MASK_YMM) == GP_VECTOR,
-		       "\t\tWrite XCR0 = (FP | YMM) - expect #GP");
+		       "Write XCR0 = (FP | YMM) - expect #GP");
 	}
 
 	test_unsupported_xcrs();
