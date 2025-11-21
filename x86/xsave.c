@@ -2,6 +2,69 @@
 #include "desc.h"
 #include "processor.h"
 
+char __attribute__((aligned(32))) v32_1[32];
+char __attribute__((aligned(32))) v32_2[32];
+char __attribute__((aligned(32))) v32_3[32];
+
+static void initialize_avx_buffers(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(v32_1); i++)
+		v32_1[i] = (char)rdtsc();
+
+	memset(v32_2, 0, sizeof(v32_2));
+	memset(v32_3, 0, sizeof(v32_3));
+}
+
+#define __TEST_VMOVDQA(reg1, reg2, FEP)					\
+do {									\
+	asm volatile(FEP "vmovdqa v32_1(%%rip), %%" #reg1 "\n"		\
+		     FEP "vmovdqa %%" #reg1 ", %%" #reg2 "\n"		\
+		     FEP "vmovdqa %%" #reg2 ", v32_2(%%rip)\n"		\
+		     "vmovdqa %%" #reg2 ", v32_3(%%rip)\n"		\
+		     ::: "memory", #reg1, #reg2);			\
+									\
+	report(!memcmp(v32_1, v32_2, sizeof(v32_1)),			\
+	       "%s VMOVDQA using " #reg1 " and " #reg2,			\
+	       strlen(FEP) ? "Emulated" : "Native");			\
+	report(!memcmp(v32_1, v32_3, sizeof(v32_1)),			\
+	       "%s VMOVDQA using " #reg1 " and " #reg2,			\
+	       strlen(FEP) ? "Emulated+Native" : "Native");		\
+} while (0)
+
+#define TEST_VMOVDQA(r1, r2)						\
+do {									\
+	initialize_avx_buffers();					\
+									\
+	__TEST_VMOVDQA(ymm##r1, ymm##r2, "");				\
+									\
+	if (is_fep_available)						\
+		__TEST_VMOVDQA(ymm##r1, ymm##r2, KVM_FEP);		\
+} while (0)
+
+static __attribute__((target("avx"))) void test_avx_vmovdqa(void)
+{
+	write_xcr0(XFEATURE_MASK_FP_SSE | XFEATURE_MASK_YMM);
+
+	TEST_VMOVDQA(0, 15);
+	TEST_VMOVDQA(1, 14);
+	TEST_VMOVDQA(2, 13);
+	TEST_VMOVDQA(3, 12);
+	TEST_VMOVDQA(4, 11);
+	TEST_VMOVDQA(5, 10);
+	TEST_VMOVDQA(6, 9);
+	TEST_VMOVDQA(7, 8);
+	TEST_VMOVDQA(8, 7);
+	TEST_VMOVDQA(9, 6);
+	TEST_VMOVDQA(10, 5);
+	TEST_VMOVDQA(11, 4);
+	TEST_VMOVDQA(12, 3);
+	TEST_VMOVDQA(13, 2);
+	TEST_VMOVDQA(14, 2);
+	TEST_VMOVDQA(15, 1);
+}
+
 static void test_unsupported_xcrs(void)
 {
 	u64 ign;
@@ -60,6 +123,9 @@ static void test_xsave(void)
 	write_xcr0(XFEATURE_MASK_FP);
 	write_xcr0(XFEATURE_MASK_FP_SSE);
 	(void)read_xcr0();
+
+	if (supported_xcr0 & XFEATURE_MASK_YMM)
+		test_avx_vmovdqa();
 
 	printf("\tIllegal tests\n");
 	report(write_xcr0_safe(0) == GP_VECTOR,
