@@ -701,6 +701,44 @@ static inline int xsetbv_safe(u32 index, u64 value)
 	return wrreg64_safe(".byte 0x0f,0x01,0xd1", index, value);
 }
 
+static inline u64 xgetbv(u32 index)
+{
+	u64 value;
+	int vector = xgetbv_safe(index, &value);
+
+	assert_msg(!vector, "Unexpected exception '%s' reading XCR%" PRIu32,
+		   exception_mnemonic(vector), index);
+	return value;
+}
+
+static inline void xsetbv(u32 index, u64 value)
+{
+	int vector = xsetbv_safe(index, value);
+
+	assert_msg(!vector, "Unexpected exception '%s' writing XCR%" PRIu32 " = 0x%" PRIx64,
+		   exception_mnemonic(vector), index, value);
+}
+
+static inline int read_xcr0_safe(u64 *value)
+{
+	return xgetbv_safe(0, value);
+}
+
+static inline int write_xcr0_safe(u64 value)
+{
+	return xsetbv_safe(0, value);
+}
+
+static inline u64 read_xcr0(void)
+{
+	return xgetbv(0);
+}
+
+static inline void write_xcr0(u64 value)
+{
+	xsetbv(0, value);
+}
+
 static inline int write_cr0_safe(ulong val)
 {
 	return asm_safe("mov %0,%%cr0", "r" (val));
