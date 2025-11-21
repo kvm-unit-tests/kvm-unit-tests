@@ -2,12 +2,6 @@
 #include "desc.h"
 #include "processor.h"
 
-#ifdef __x86_64__
-#define uint64_t unsigned long
-#else
-#define uint64_t unsigned long long
-#endif
-
 #define XCR_XFEATURE_ENABLED_MASK	0x00000000
 #define XCR_XFEATURE_ILLEGAL_MASK	0x00000010
 
@@ -17,10 +11,8 @@
 
 static void test_xsave(void)
 {
+	u64 supported_xcr0, xcr0, test_bits;
 	unsigned long cr4;
-	uint64_t supported_xcr0;
-	uint64_t test_bits;
-	u64 xcr0;
 
 	printf("Legal instruction testing:\n");
 
