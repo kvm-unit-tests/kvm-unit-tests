@@ -126,22 +126,20 @@ static void nmi_isr(struct ex_regs *r)
 	printf("After nested NMI to self\n");
 }
 
-unsigned long *iret_stack;
+extern char ip_after_iret[];
 
 static void nested_nmi_iret_isr(struct ex_regs *r)
 {
 	printf("Nested NMI isr running rip=%lx\n", r->rip);
 
-	if (r->rip == iret_stack[-3])
+	if (r->rip == (unsigned long)ip_after_iret)
 		test_count++;
 }
 
 extern void do_iret(ulong phys_stack, void *virt_stack);
 
-// Return to same privilege level won't pop SS or SP, so
+// Return to same privilege level won't pop SS or SP for i386 but x86-64, so
 // save it in RDX while we run on the nested stack
-
-extern bool no_test_device;
 
 asm("do_iret:"
 #ifdef __x86_64__
@@ -152,15 +150,21 @@ asm("do_iret:"
 	"mov 8(%esp), %edx \n\t"	// virt_stack
 #endif
 	"xchg %"R "dx, %"R "sp \n\t"	// point to new stack
+#ifdef __x86_64__
+	// IRET in 64 bit mode unconditionally pops SS:xSP
+	"mov %ss, %ecx \n\t"
+	"push"W" %"R "cx \n\t"
+	"push"W" %"R "sp \n\t"
+#endif
 	"pushf"W" \n\t"
 	"mov %cs, %ecx \n\t"
 	"push"W" %"R "cx \n\t"
 #ifndef __x86_64__
-	"push"W" $2f \n\t"
+	"push"W" $ip_after_iret \n\t"
 
 	"cmpb $0, no_test_device\n\t"	// see if need to flush
 #else
-	"leaq 2f(%rip), %rbx \n\t"
+	"leaq ip_after_iret(%rip), %rbx \n\t"
 	"pushq %rbx \n\t"
 
 	"mov no_test_device(%rip), %bl \n\t"
@@ -170,13 +174,17 @@ asm("do_iret:"
 	"outl %eax, $0xe4 \n\t"		// flush page
 	"1: \n\t"
 	"iret"W" \n\t"
-	"2: xchg %"R "dx, %"R "sp \n\t"	// point to old stack
+	".global ip_after_iret \n\t"
+	"ip_after_iret: \n\t"
+	"xchg %"R "dx, %"R "sp \n\t"	// point to old stack
 	"ret\n\t"
    );
 
 static void nmi_iret_isr(struct ex_regs *r)
 {
 	unsigned long *s = alloc_page();
+	unsigned long *iret_stack;
+
 	test_count++;
 	printf("NMI isr running stack %p\n", s);
 	handle_exception(2, nested_nmi_iret_isr);

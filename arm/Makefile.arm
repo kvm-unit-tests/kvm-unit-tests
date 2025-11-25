@@ -39,4 +39,12 @@ tests =
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 
+ifneq ($(KEEP_FRAME_POINTER),)
+# Force the generation of an APCS stack frame layout to be able to reliably
+# walk the stack. Otherwise the compiler may omit saving LR on the stack for
+# leaf functions and, unfortunately, -mno-omit-leaf-frame-pointer isn't
+# supported on ARM :(
+LATE_CFLAGS += $(call cc-option, -mapcs-frame -DAPCS_FRAMES, "")
+endif
+
 arch_clean: arm_clean

@@ -197,11 +197,11 @@ static void test_lam_sup(void)
 	int vector;
 
 	/*
-	 * KUT initializes vfree_top to 0 for X86_64, and each virtual address
-	 * allocation decreases the size from vfree_top. It's guaranteed that
-	 * the return value of alloc_vpage() is considered as kernel mode
-	 * address and canonical since only a small amount of virtual address
-	 * range is allocated in this test.
+	 * KUT initializes vfree_top to -PAGE_SIZE for X86_64, and each virtual
+	 * address allocation decreases the size from vfree_top. It's
+	 * guaranteed that the return value of alloc_vpage() is considered as
+	 * kernel mode address and canonical since only a small amount of
+	 * virtual address range is allocated in this test.
 	 */
 	vaddr = alloc_vpage();
 	vaddr_mmio = alloc_vpage();

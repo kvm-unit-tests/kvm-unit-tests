@@ -21,8 +21,17 @@ static void restore_exec_to_jmpbuf(void)
 	longjmp(jmpbuf, 1);
 }
 
+static handler ex_callback;
+
 static void restore_exec_to_jmpbuf_exception_handler(struct ex_regs *regs)
 {
+	this_cpu_write_exception_vector(regs->vector);
+	this_cpu_write_exception_rflags_rf((regs->rflags >> 16) & 1);
+	this_cpu_write_exception_error_code(regs->error_code);
+
+	if (ex_callback)
+		ex_callback(regs);
+
 	/* longjmp must happen after iret, so do not do it now.  */
 	regs->rip = (unsigned long)&restore_exec_to_jmpbuf;
 	regs->cs = KERNEL_CS;
@@ -31,9 +40,9 @@ static void restore_exec_to_jmpbuf_exception_handler(struct ex_regs *regs)
 #endif
 }
 
-uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
-		uint64_t arg1, uint64_t arg2, uint64_t arg3,
-		uint64_t arg4, bool *raised_vector)
+uint64_t run_in_user_ex(usermode_func func, unsigned int fault_vector,
+			uint64_t arg1, uint64_t arg2, uint64_t arg3,
+			uint64_t arg4, bool *raised_vector, handler ex_handler)
 {
 	extern char ret_to_kernel;
 	volatile uint64_t rax = 0;
@@ -41,6 +50,7 @@ uint64_t run_in_user(usermode_func func, unsigned int fault_vector,
 	handler old_ex;
 
 	*raised_vector = 0;
+	ex_callback = ex_handler;
 	set_idt_entry(RET_TO_KERNEL_IRQ, &ret_to_kernel, 3);
 	old_ex = handle_exception(fault_vector,
 				  restore_exec_to_jmpbuf_exception_handler);

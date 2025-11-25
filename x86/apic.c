@@ -641,7 +641,10 @@ static void test_pv_ipi(void)
 	if (!test_device_enabled())
 		return;
 
-	asm volatile("vmcall" : "=a"(ret) :"a"(KVM_HC_SEND_IPI), "b"(a0), "c"(a1), "d"(a2), "S"(a3));
+	if (is_intel())
+		asm volatile("vmcall"  : "=a"(ret) :"a"(KVM_HC_SEND_IPI), "b"(a0), "c"(a1), "d"(a2), "S"(a3));
+	else
+		asm volatile("vmmcall" : "=a"(ret) :"a"(KVM_HC_SEND_IPI), "b"(a0), "c"(a1), "d"(a2), "S"(a3));
 	report(!ret, "PV IPIs testing");
 }
 

@@ -150,11 +150,14 @@ typedef struct  __attribute__((packed)) {
 	u16 iomap_base;
 } tss64_t;
 
+#define ASM_EX_ENTRY(src, dst) \
+	".pushsection .data.ex\n\t"			\
+	__ASM_SEL(.long, .quad) src ", " dst "\n\t"	\
+	".popsection \n\t"
+
 #define __ASM_TRY(prefix, catch)				\
 	"movl $0, %%gs:4\n\t"					\
-	".pushsection .data.ex\n\t"				\
-	__ASM_SEL(.long, .quad) " 1111f,  " catch "\n\t"	\
-	".popsection \n\t"					\
+	ASM_EX_ENTRY("1111f", catch)				\
 	prefix "\n\t"						\
 	"1111:"
 
@@ -283,6 +286,14 @@ extern unsigned long get_gdt_entry_limit(gdt_entry_t *entry);
 
 #define asm_fep_safe(insn, inputs...)				\
 	__asm_safe_out1(KVM_FEP, insn,, inputs)
+
+#define asm_conditional_fep_safe(fep, insn, inputs...)			\
+({									\
+	if (fep)							\
+		asm_fep_safe(insn, inputs);				\
+	else								\
+		asm_safe(insn, inputs);					\
+})
 
 #define __asm_safe_out1(fep, insn, output, inputs...)			\
 ({									\

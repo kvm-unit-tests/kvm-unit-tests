@@ -85,8 +85,12 @@
 #define MSR_IA32_LASTINTFROMIP		0x000001dd
 #define MSR_IA32_LASTINTTOIP		0x000001de
 
-/* Yes, AMD does indeed record mispredict info in the LBR records themselves. */
-#define AMD_LBR_RECORD_MISPREDICT	BIT_ULL(63)
+/*
+ * Different AMD CPUs use the upper bits of the IP LBRs differently. For the
+ * purposes of tests, use the common denominator of the IP bits.
+ */
+#define AMD_LBR_RECORD_IP_BITS		57
+#define AMD_LBR_RECORD_IP_MASK		((1UL << AMD_LBR_RECORD_IP_BITS)-1)
 
 #define LBR_INFO_MISPRED		BIT_ULL(63)
 #define LBR_INFO_IN_TX			BIT_ULL(62)
@@ -296,6 +300,7 @@
 #define MSR_IA32_FEATURE_CONTROL        0x0000003a
 #define MSR_IA32_TSC_ADJUST		0x0000003b
 #define MSR_IA32_U_CET                  0x000006a0
+#define MSR_IA32_S_CET                  0x000006a2
 #define MSR_IA32_PL3_SSP                0x000006a7
 #define MSR_IA32_PKRS			0x000006e1
 

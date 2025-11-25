@@ -67,5 +67,11 @@ tests += $(TEST_DIR)/mte.$(exe)
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common
 
+ifneq ($(KEEP_FRAME_POINTER),)
+# Force the generation of a regular stack frame even for leaf functions to make
+# stack walking reliable.
+LATE_CFLAGS += $(call cc-option, -mno-omit-leaf-frame-pointer, "")
+endif
+
 arch_clean: arm_clean
 	$(RM) lib/arm64/.*.d

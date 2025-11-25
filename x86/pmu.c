@@ -116,7 +116,7 @@ struct pmu_event {
 	{"core cycles", 0x003c, 1*N, 50*N},
 	{"instructions", 0x00c0, 10*N, 10.2*N},
 	{"ref cycles", 0x013c, 1*N, 30*N},
-	{"llc references", 0x4f2e, 1, 2*N},
+	{"llc references", 0x4f2e, 1, 2.5*N},
 	{"llc misses", 0x412e, 1, 1*N},
 	{"branches", 0x00c4, 1*N, 1.1*N},
 	{"branch misses", 0x00c5, 1, 0.1*N},
@@ -229,10 +229,15 @@ static void adjust_events_range(struct pmu_event *gp_events,
 	 * occur while running the measured code, e.g. if the host takes IRQs.
 	 */
 	if (pmu.is_intel && this_cpu_has_perf_global_ctrl()) {
-		gp_events[instruction_idx].min = LOOP_INSNS;
-		gp_events[instruction_idx].max = LOOP_INSNS;
-		gp_events[branch_idx].min = LOOP_BRANCHES;
-		gp_events[branch_idx].max = LOOP_BRANCHES;
+		if (!pmu.errata.instructions_retired_overcount) {
+			gp_events[instruction_idx].min = LOOP_INSNS;
+			gp_events[instruction_idx].max = LOOP_INSNS;
+		}
+
+		if (!pmu.errata.branches_retired_overcount) {
+			gp_events[branch_idx].min = LOOP_BRANCHES;
+			gp_events[branch_idx].max = LOOP_BRANCHES;
+		}
 	}
 
 	/*
@@ -505,6 +510,21 @@ static void check_counters_many(void)
 
 static uint64_t measure_for_overflow(pmu_counter_t *cnt)
 {
+	/*
+	 * During the execution of __measure(), VM exits (e.g., due to
+	 * WRMSR/EXTERNAL_INTERRUPT) may occur. On systems affected by the
+	 * instruction overcount issue, each VM-Exit/VM-Entry can erroneously
+	 * increment the instruction count by one, leading to false failures
+	 * in overflow tests.
+	 *
+	 * To mitigate this, if the overcount issue is detected, hardcode the
+	 * overflow preset to (1 - LOOP_INSNS) instead of calculating it
+	 * dynamically. This ensures that an overflow will reliably occur,
+	 * regardless of any overcounting caused by VM exits.
+	 */
+	if (pmu.errata.instructions_retired_overcount)
+		return 1 - LOOP_INSNS;
+
 	__measure(cnt, 0);
 	/*
 	 * To generate overflow, i.e. roll over to '0', the initial count just
@@ -542,19 +562,19 @@ static void check_counter_overflow(void)
 		uint64_t status;
 		int idx;
 
-		cnt.count = overflow_preset;
-		if (pmu_use_full_writes())
-			cnt.count &= (1ull << pmu.gp_counter_width) - 1;
-
 		if (i == pmu.nr_gp_counters) {
 			if (!pmu.is_intel)
 				break;
 
 			cnt.ctr = fixed_events[0].unit_sel;
 			cnt.count = measure_for_overflow(&cnt);
-			cnt.count &= (1ull << pmu.gp_counter_width) - 1;
+			cnt.count &= (1ull << pmu.fixed_counter_width) - 1;
 		} else {
 			cnt.ctr = MSR_GP_COUNTERx(i);
+
+			cnt.count = overflow_preset;
+			if (pmu_use_full_writes())
+				cnt.count &= (1ull << pmu.gp_counter_width) - 1;
 		}
 
 		if (i % 2)
@@ -563,8 +583,12 @@ static void check_counter_overflow(void)
 			cnt.config &= ~EVNTSEL_INT;
 		idx = event_to_global_idx(&cnt);
 		__measure(&cnt, cnt.count);
-		if (pmu.is_intel)
-			report(cnt.count == 1, "cntr-%d", i);
+		if (pmu.is_intel) {
+			if (pmu.errata.instructions_retired_overcount)
+				report(cnt.count < 14, "cntr-%d", i);
+			else
+				report(cnt.count == 1, "cntr-%d", i);
+		}
 		else
 			report(cnt.count == 0xffffffffffff || cnt.count < 7, "cntr-%d", i);
 
@@ -732,6 +756,8 @@ static void check_emulated_instr(void)
 		/* instructions */
 		.config = EVNTSEL_OS | EVNTSEL_USR | gp_events[instruction_idx].unit_sel,
 	};
+	const bool has_perf_global_ctrl = this_cpu_has_perf_global_ctrl();
+
 	report_prefix_push("emulated instruction");
 
 	if (this_cpu_has_perf_global_status())
@@ -745,7 +771,7 @@ static void check_emulated_instr(void)
 	wrmsr(MSR_GP_COUNTERx(0), brnch_start & gp_counter_width);
 	wrmsr(MSR_GP_COUNTERx(1), instr_start & gp_counter_width);
 
-	if (this_cpu_has_perf_global_ctrl()) {
+	if (has_perf_global_ctrl) {
 		eax = BIT(0) | BIT(1);
 		ecx = pmu.msr_global_ctl;
 		edx = 0;
@@ -760,17 +786,15 @@ static void check_emulated_instr(void)
 
 	// Check that the end count - start count is at least the expected
 	// number of instructions and branches.
-	if (this_cpu_has_perf_global_ctrl()) {
-		report(instr_cnt.count - instr_start == KVM_FEP_INSNS,
-		       "instruction count");
-		report(brnch_cnt.count - brnch_start == KVM_FEP_BRANCHES,
-		       "branch count");
-	} else {
-		report(instr_cnt.count - instr_start >= KVM_FEP_INSNS,
-		       "instruction count");
-		report(brnch_cnt.count - brnch_start >= KVM_FEP_BRANCHES,
-		       "branch count");
-	}
+	if (has_perf_global_ctrl && !pmu.errata.instructions_retired_overcount)
+		report(instr_cnt.count - instr_start == KVM_FEP_INSNS, "instruction count");
+	else
+		report(instr_cnt.count - instr_start >= KVM_FEP_INSNS, "instruction count");
+
+	if (has_perf_global_ctrl && !pmu.errata.branches_retired_overcount)
+		report(brnch_cnt.count - brnch_start == KVM_FEP_BRANCHES, "branch count");
+	else
+		report(brnch_cnt.count - brnch_start >= KVM_FEP_BRANCHES, "branch count");
 
 	if (this_cpu_has_perf_global_status()) {
 		// Additionally check that those counters overflowed properly.

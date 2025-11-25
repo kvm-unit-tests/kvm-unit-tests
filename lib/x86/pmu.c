@@ -2,11 +2,50 @@
 
 struct pmu_caps pmu;
 
+/*
+ * For Intel Atom CPUs, the PMU events "Instruction Retired" or
+ * "Branch Instruction Retired" may be overcounted for some certain
+ * instructions, like FAR CALL/JMP, RETF, IRET, VMENTRY/VMEXIT/VMPTRLD
+ * and complex SGX/SMX/CSTATE instructions/flows.
+ *
+ * The detailed information can be found in the errata (section SRF7):
+ * https://edc.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/sierra-forest/xeon-6700-series-processor-with-e-cores-specification-update/errata-details/
+ *
+ * For the Atom platforms before Sierra Forest (including Sierra Forest),
+ * Both 2 events "Instruction Retired" and "Branch Instruction Retired" would
+ * be overcounted on these certain instructions, but for Clearwater Forest
+ * only "Instruction Retired" event is overcounted on these instructions.
+ */
+static void pmu_detect_intel_overcount_errata(void)
+{
+	struct cpuid c = cpuid(1);
+
+	if (x86_family(c.a) == 0x6) {
+		switch (x86_model(c.a)) {
+		case 0xDD: /* Clearwater Forest */
+			pmu.errata.instructions_retired_overcount = true;
+			break;
+
+		case 0xAF: /* Sierra Forest */
+		case 0x4D: /* Avaton, Rangely */
+		case 0x5F: /* Denverton */
+		case 0x86: /* Jacobsville */
+			pmu.errata.instructions_retired_overcount = true;
+			pmu.errata.branches_retired_overcount = true;
+			break;
+		default:
+			break;
+		}
+	}
+}
+
 void pmu_init(void)
 {
 	pmu.is_intel = is_intel();
 
 	if (pmu.is_intel) {
+		pmu_detect_intel_overcount_errata();
+
 		pmu.version = this_cpu_property(X86_PROPERTY_PMU_VERSION);
 
 		if (pmu.version > 1) {

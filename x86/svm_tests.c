@@ -37,6 +37,21 @@ u64 latclgi_max;
 u64 latclgi_min;
 u64 runs;
 
+/*
+ * Report failures from SVM guest code, and on failure, set the stage to -1 and
+ * do VMMCALL to terminate the test (host side must treat -1 as "finished").
+ * TODO: fix the tests that don't play nice with a straight report, e.g. the
+ * V_TPR test fails if report() is invoked.
+ */
+#define report_svm_guest(cond, test, fmt, args...)	\
+do {							\
+	if (!(cond)) {					\
+		report_fail(fmt, ##args);		\
+		set_test_stage(test, -1);		\
+		vmmcall();				\
+	}						\
+} while (0)
+
 static void null_test(struct svm_test *test)
 {
 }
@@ -110,6 +125,94 @@ static bool finished_rsm_intercept(struct svm_test *test)
 		return true;
 	}
 	return get_test_stage(test) == 2;
+}
+
+static void prepare_sel_cr0_intercept(struct svm_test *test)
+{
+	/* Clear CR0.MP and CR0.CD as the tests will set either of them */
+	vmcb->save.cr0 &= ~X86_CR0_MP;
+	vmcb->save.cr0 &= ~X86_CR0_CD;
+	vmcb->control.intercept |= (1ULL << INTERCEPT_SELECTIVE_CR0);
+}
+
+static void prepare_sel_nonsel_cr0_intercepts(struct svm_test *test)
+{
+	/* Clear CR0.MP and CR0.CD as the tests will set either of them */
+	vmcb->save.cr0 &= ~X86_CR0_MP;
+	vmcb->save.cr0 &= ~X86_CR0_CD;
+	vmcb->control.intercept_cr_write |= (1ULL << 0);
+	vmcb->control.intercept |= (1ULL << INTERCEPT_SELECTIVE_CR0);
+}
+
+static void __test_cr0_write_bit(struct svm_test *test, unsigned long bit,
+				 bool is_lmsw, bool intercept, bool fep)
+{
+	unsigned short msw;
+	unsigned long cr0;
+
+	cr0 = read_cr0();
+	cr0 |= bit;
+	msw = cr0 & 0xfUL;
+	test->scratch = cr0;
+
+	if (is_lmsw)
+		asm_conditional_fep_safe(fep, "lmsw %0", "r"(msw));
+	else
+		asm_conditional_fep_safe(fep, "mov %0,%%cr0", "r"(cr0));
+
+	/* This code should be unreachable when an intercept is expected */
+	report_svm_guest(!intercept, test, "Expected intercept on CR0 write");
+}
+
+/* MOV-to-CR0 updating CR0.CD is intercepted by the selective intercept */
+static void test_sel_cr0_write_intercept(struct svm_test *test)
+{
+	__test_cr0_write_bit(test, X86_CR0_CD, false, true, false);
+}
+
+static void test_sel_cr0_write_intercept_emul(struct svm_test *test)
+{
+	__test_cr0_write_bit(test, X86_CR0_CD, false, true, true);
+}
+
+/* MOV-to-CR0 updating CR0.MP is NOT intercepted by the selective intercept */
+static void test_sel_cr0_write_nointercept(struct svm_test *test)
+{
+	__test_cr0_write_bit(test, X86_CR0_MP, false, false, false);
+}
+
+static void test_sel_cr0_write_nointercept_emul(struct svm_test *test)
+{
+	__test_cr0_write_bit(test, X86_CR0_MP, false, false, true);
+}
+
+/* LMSW updating CR0.MP is intercepted by the selective intercept */
+static void test_sel_cr0_lmsw_intercept(struct svm_test *test)
+{
+	__test_cr0_write_bit(test, X86_CR0_MP, true, false, false);
+}
+
+static void test_sel_cr0_lmsw_intercept_emul(struct svm_test *test)
+{
+	__test_cr0_write_bit(test, X86_CR0_MP, true, false, true);
+}
+
+static bool check_sel_cr0_intercept(struct svm_test *test)
+{
+	return vmcb->control.exit_code == SVM_EXIT_CR0_SEL_WRITE &&
+		vmcb->save.cr0 != test->scratch;
+}
+
+static bool check_nonsel_cr0_intercept(struct svm_test *test)
+{
+	return vmcb->control.exit_code == SVM_EXIT_WRITE_CR0 &&
+		vmcb->save.cr0 != test->scratch;
+}
+
+static bool check_cr0_nointercept(struct svm_test *test)
+{
+	return vmcb->control.exit_code == SVM_EXIT_VMMCALL &&
+		vmcb->save.cr0 == test->scratch;
 }
 
 static void prepare_cr3_intercept(struct svm_test *test)
@@ -793,39 +896,6 @@ static bool check_asid_zero(struct svm_test *test)
 	return vmcb->control.exit_code == SVM_EXIT_ERR;
 }
 
-static void sel_cr0_bug_prepare(struct svm_test *test)
-{
-	vmcb->control.intercept |= (1ULL << INTERCEPT_SELECTIVE_CR0);
-}
-
-static bool sel_cr0_bug_finished(struct svm_test *test)
-{
-	return true;
-}
-
-static void sel_cr0_bug_test(struct svm_test *test)
-{
-	unsigned long cr0;
-
-	/* read cr0, clear CD, and write back */
-	cr0  = read_cr0();
-	cr0 |= (1UL << 30);
-	write_cr0(cr0);
-
-	/*
-	 * If we are here the test failed, not sure what to do now because we
-	 * are not in guest-mode anymore so we can't trigger an intercept.
-	 * Trigger a tripple-fault for now.
-	 */
-	report_fail("sel_cr0 test. Can not recover from this - exiting");
-	exit(report_summary());
-}
-
-static bool sel_cr0_bug_check(struct svm_test *test)
-{
-	return vmcb->control.exit_code == SVM_EXIT_CR0_SEL_WRITE;
-}
-
 #define TSC_ADJUST_VALUE    (1ll << 32)
 #define TSC_OFFSET_VALUE    (~0ull << 48)
 static bool ok;
@@ -891,6 +961,8 @@ static void svm_tsc_scale_run_testcase(u64 duration,
 	u64 start_tsc, actual_duration;
 
 	guest_tsc_delay_value = (duration << TSC_SHIFT) * tsc_scale;
+	if (guest_tsc_delay_value < (duration << TSC_SHIFT) * tsc_scale)
+		guest_tsc_delay_value++;
 
 	test_set_guest(svm_tsc_scale_guest);
 	vmcb->control.tsc_offset = tsc_offset;
@@ -1077,21 +1149,6 @@ static bool lat_svm_insn_check(struct svm_test *test)
 	       latclgi_min, clgi_sum / LATENCY_RUNS);
 	return true;
 }
-
-/*
- * Report failures from SVM guest code, and on failure, set the stage to -1 and
- * do VMMCALL to terminate the test (host side must treat -1 as "finished").
- * TODO: fix the tests that don't play nice with a straight report, e.g. the
- * V_TPR test fails if report() is invoked.
- */
-#define report_svm_guest(cond, test, fmt, args...)	\
-do {							\
-	if (!(cond)) {					\
-		report_fail(fmt, ##args);		\
-		set_test_stage(test, -1);		\
-		vmmcall();				\
-	}						\
-} while (0)
 
 bool pending_event_ipi_fired;
 bool pending_event_guest_run;
@@ -2951,34 +3008,17 @@ static void svm_no_nm_test(void)
 	       "fnop with CR0.TS and CR0.EM unset no #NM exception");
 }
 
-static u64 amd_get_lbr_rip(u32 msr)
+/* These functions have to be inlined to avoid affecting LBR registers */
+static __always_inline u64 amd_get_lbr_rip(u32 msr)
 {
-	return rdmsr(msr) & ~AMD_LBR_RECORD_MISPREDICT;
+	return rdmsr(msr) & AMD_LBR_RECORD_IP_MASK;
 }
 
-#define HOST_CHECK_LBR(from_expected, to_expected)					\
-do {											\
-	TEST_EXPECT_EQ((u64)from_expected, amd_get_lbr_rip(MSR_IA32_LASTBRANCHFROMIP));	\
-	TEST_EXPECT_EQ((u64)to_expected, amd_get_lbr_rip(MSR_IA32_LASTBRANCHTOIP));	\
-} while (0)
-
-/*
- * FIXME: Do something other than generate an exception to communicate failure.
- * Debugging without expected vs. actual is an absolute nightmare.
- */
-#define GUEST_CHECK_LBR(from_expected, to_expected)				\
-do {										\
-	if ((u64)(from_expected) != amd_get_lbr_rip(MSR_IA32_LASTBRANCHFROMIP))	\
-		asm volatile("ud2");						\
-	if ((u64)(to_expected) != amd_get_lbr_rip(MSR_IA32_LASTBRANCHTOIP))	\
-		asm volatile("ud2");						\
-} while (0)
-
-#define REPORT_GUEST_LBR_ERROR(vmcb)						\
-	report(false, "LBR guest test failed.  Exit reason 0x%x, RIP = %lx, from = %lx, to = %lx, ex from = %lx, ex to = %lx", \
-		       vmcb->control.exit_code, vmcb->save.rip,			\
-		       vmcb->save.br_from, vmcb->save.br_to,			\
-		       vmcb->save.last_excp_from, vmcb->save.last_excp_to)
+static __always_inline void get_lbr_ips(u64 *from, u64 *to)
+{
+	*from = amd_get_lbr_rip(MSR_IA32_LASTBRANCHFROMIP);
+	*to = amd_get_lbr_rip(MSR_IA32_LASTBRANCHTOIP);
+}
 
 #define DO_BRANCH(branch_name)				\
 	asm volatile (					\
@@ -2993,65 +3033,94 @@ do {										\
 
 extern u64 guest_branch0_from, guest_branch0_to;
 extern u64 guest_branch2_from, guest_branch2_to;
+extern u64 guest_branch3_from, guest_branch3_to;
 
 extern u64 host_branch0_from, host_branch0_to;
 extern u64 host_branch2_from, host_branch2_to;
 extern u64 host_branch3_from, host_branch3_to;
 extern u64 host_branch4_from, host_branch4_to;
+extern u64 host_branch5_from, host_branch5_to;
+extern u64 host_branch6_from, host_branch6_to;
 
 u64 dbgctl;
 
 static void svm_lbrv_test_guest1(void)
 {
+	u64 from_ip, to_ip;
+
 	/*
 	 * This guest expects the LBR to be already enabled when it starts,
 	 * it does a branch, and then disables the LBR and then checks.
 	 */
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
 
 	DO_BRANCH(guest_branch0);
 
-	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	/* Disable LBR before the checks to avoid changing the last branch */
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	TEST_EXPECT_EQ(dbgctl, 0);
 
-	if (dbgctl != DEBUGCTLMSR_LBR)
-		asm volatile("ud2\n");
-	if (rdmsr(MSR_IA32_DEBUGCTLMSR) != 0)
-		asm volatile("ud2\n");
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch0_from, from_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch0_to, to_ip);
 
-	GUEST_CHECK_LBR(&guest_branch0_from, &guest_branch0_to);
 	asm volatile ("vmmcall\n");
 }
 
 static void svm_lbrv_test_guest2(void)
 {
+	u64 from_ip, to_ip;
+
 	/*
 	 * This guest expects the LBR to be disabled when it starts,
 	 * enables it, does a branch, disables it and then checks.
 	 */
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	TEST_EXPECT_EQ(dbgctl, 0);
 
 	DO_BRANCH(guest_branch1);
-	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 
-	if (dbgctl != 0)
-		asm volatile("ud2\n");
-
-	GUEST_CHECK_LBR(&host_branch2_from, &host_branch2_to);
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&host_branch2_from, from_ip);
+	TEST_EXPECT_EQ((u64)&host_branch2_to, to_ip);
 
 	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
+
 	DO_BRANCH(guest_branch2);
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
 
-	if (dbgctl != DEBUGCTLMSR_LBR)
-		asm volatile("ud2\n");
-	GUEST_CHECK_LBR(&guest_branch2_from, &guest_branch2_to);
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch2_from, from_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch2_to, to_ip);
 
 	asm volatile ("vmmcall\n");
 }
 
+static void svm_lbrv_test_guest3(void)
+{
+	/*
+	 * This guest expects LBR to be disabled, it enables LBR and does a
+	 * branch, then exits to L1 without disabling LBR or doing more
+	 * branches.
+	 */
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	TEST_EXPECT_EQ(dbgctl, 0);
+
+	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
+	DO_BRANCH(guest_branch3);
+
+	/* Do not call the vmmcall() fn to avoid overriding the last branch */
+	asm volatile ("vmmcall\n\t");
+}
+
 static void svm_lbrv_test0(void)
 {
-	report(true, "Basic LBR test");
+	u64 from_ip, to_ip;
+
 	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
 	DO_BRANCH(host_branch0);
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
@@ -3061,12 +3130,15 @@ static void svm_lbrv_test0(void)
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	TEST_EXPECT_EQ(dbgctl, 0);
 
-	HOST_CHECK_LBR(&host_branch0_from, &host_branch0_to);
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&host_branch0_from, from_ip);
+	TEST_EXPECT_EQ((u64)&host_branch0_to, to_ip);
 }
 
+/* Test that without LBRV enabled, guest LBR state does 'leak' to the host(1) */
 static void svm_lbrv_test1(void)
 {
-	report(true, "Test that without LBRV enabled, guest LBR state does 'leak' to the host(1)");
+	u64 from_ip, to_ip;
 
 	svm_setup_vmrun((u64)svm_lbrv_test_guest1);
 	vmcb->control.virt_ext = 0;
@@ -3075,19 +3147,19 @@ static void svm_lbrv_test1(void)
 	DO_BRANCH(host_branch1);
 	SVM_BARE_VMRUN;
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
-
-	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		REPORT_GUEST_LBR_ERROR(vmcb);
-		return;
-	}
-
 	TEST_EXPECT_EQ(dbgctl, 0);
-	HOST_CHECK_LBR(&guest_branch0_from, &guest_branch0_to);
+
+	TEST_EXPECT_EQ(vmcb->control.exit_code, SVM_EXIT_VMMCALL);
+
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch0_from, from_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch0_to, to_ip);
 }
 
+/* Test that without LBRV enabled, guest LBR state does 'leak' to the host(2) */
 static void svm_lbrv_test2(void)
 {
-	report(true, "Test that without LBRV enabled, guest LBR state does 'leak' to the host(2)");
+	u64 from_ip, to_ip;
 
 	svm_setup_vmrun((u64)svm_lbrv_test_guest2);
 	vmcb->control.virt_ext = 0;
@@ -3097,25 +3169,52 @@ static void svm_lbrv_test2(void)
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
 	SVM_BARE_VMRUN;
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
-	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
-
-	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		REPORT_GUEST_LBR_ERROR(vmcb);
-		return;
-	}
-
 	TEST_EXPECT_EQ(dbgctl, 0);
-	HOST_CHECK_LBR(&guest_branch2_from, &guest_branch2_to);
+
+	TEST_EXPECT_EQ(vmcb->control.exit_code, SVM_EXIT_VMMCALL);
+
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch2_from, from_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch2_to, to_ip);
 }
 
+/*
+ * Test that without LBRV enabled, enabling LBR in the guest then exiting will
+ * keep LBR enabled and 'leak' state to the host correctly.
+ */
+static void svm_lbrv_test3(void)
+{
+	u64 from_ip, to_ip;
+
+	svm_setup_vmrun((u64)svm_lbrv_test_guest3);
+	vmcb->control.virt_ext = 0;
+
+	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
+	DO_BRANCH(host_branch5);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+
+	SVM_BARE_VMRUN;
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
+
+	TEST_EXPECT_EQ(vmcb->control.exit_code, SVM_EXIT_VMMCALL);
+
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch3_from, from_ip);
+	TEST_EXPECT_EQ((u64)&guest_branch3_to, to_ip);
+}
+
+/* Test that with LBRV enabled, guest LBR state doesn't leak (1) */
 static void svm_lbrv_nested_test1(void)
 {
+	u64 from_ip, to_ip;
+
 	if (!lbrv_supported()) {
 		report_skip("LBRV not supported in the guest");
 		return;
 	}
 
-	report(true, "Test that with LBRV enabled, guest LBR state doesn't leak (1)");
 	svm_setup_vmrun((u64)svm_lbrv_test_guest1);
 	vmcb->control.virt_ext = LBR_CTL_ENABLE_MASK;
 	vmcb->save.dbgctl = DEBUGCTLMSR_LBR;
@@ -3126,28 +3225,26 @@ static void svm_lbrv_nested_test1(void)
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
 
-	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		REPORT_GUEST_LBR_ERROR(vmcb);
-		return;
-	}
-
-	if (vmcb->save.dbgctl != 0) {
-		report(false, "unexpected virtual guest MSR_IA32_DEBUGCTLMSR value 0x%lx", vmcb->save.dbgctl);
-		return;
-	}
+	TEST_EXPECT_EQ(vmcb->control.exit_code, SVM_EXIT_VMMCALL);
 
 	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
-	HOST_CHECK_LBR(&host_branch3_from, &host_branch3_to);
+	TEST_EXPECT_EQ(vmcb->save.dbgctl, 0);
+
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&host_branch3_from, from_ip);
+	TEST_EXPECT_EQ((u64)&host_branch3_to, to_ip);
 }
 
+/* Test that with LBRV enabled, guest LBR state doesn't leak (2) */
 static void svm_lbrv_nested_test2(void)
 {
+	u64 from_ip, to_ip;
+
 	if (!lbrv_supported()) {
 		report_skip("LBRV not supported in the guest");
 		return;
 	}
 
-	report(true, "Test that with LBRV enabled, guest LBR state doesn't leak (2)");
 	svm_setup_vmrun((u64)svm_lbrv_test_guest2);
 	vmcb->control.virt_ext = LBR_CTL_ENABLE_MASK;
 
@@ -3160,16 +3257,46 @@ static void svm_lbrv_nested_test2(void)
 	SVM_BARE_VMRUN;
 	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
 
-	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-		REPORT_GUEST_LBR_ERROR(vmcb);
+	TEST_EXPECT_EQ(vmcb->control.exit_code, SVM_EXIT_VMMCALL);
+
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&host_branch4_from, from_ip);
+	TEST_EXPECT_EQ((u64)&host_branch4_to, to_ip);
+}
+
+/*
+ * Test that with LBRV enabled, enabling LBR in the guest then exiting does not
+ * 'leak' state to the host.
+ */
+static void svm_lbrv_nested_test3(void)
+{
+	u64 from_ip, to_ip;
+
+	if (!lbrv_supported()) {
+		report_skip("LBRV not supported in the guest");
 		return;
 	}
 
-	TEST_EXPECT_EQ(dbgctl, DEBUGCTLMSR_LBR);
-	HOST_CHECK_LBR(&host_branch4_from, &host_branch4_to);
-}
+	svm_setup_vmrun((u64)svm_lbrv_test_guest3);
+	vmcb->control.virt_ext = LBR_CTL_ENABLE_MASK;
+	vmcb->save.dbgctl = 0;
 
+	wrmsr(MSR_IA32_DEBUGCTLMSR, DEBUGCTLMSR_LBR);
+	DO_BRANCH(host_branch6);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, 0);
+
+	SVM_BARE_VMRUN;
+	dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	TEST_EXPECT_EQ(dbgctl, 0);
+
+	TEST_EXPECT_EQ(vmcb->control.exit_code, SVM_EXIT_VMMCALL);
+
+	get_lbr_ips(&from_ip, &to_ip);
+	TEST_EXPECT_EQ((u64)&host_branch6_from, from_ip);
+	TEST_EXPECT_EQ((u64)&host_branch6_to, to_ip);
+}
 
 // test that a nested guest which does enable INTR interception
 // but doesn't enable virtual interrupt masking works
@@ -3462,6 +3589,30 @@ struct svm_test svm_tests[] = {
 	{ "rsm", default_supported,
 	  prepare_rsm_intercept, default_prepare_gif_clear,
 	  test_rsm_intercept, finished_rsm_intercept, check_rsm_intercept },
+	{ "sel cr0 write intercept", default_supported,
+	  prepare_sel_cr0_intercept, default_prepare_gif_clear,
+	  test_sel_cr0_write_intercept, default_finished, check_sel_cr0_intercept},
+	{ "sel cr0 write intercept emulate", fep_supported,
+	  prepare_sel_cr0_intercept, default_prepare_gif_clear,
+	  test_sel_cr0_write_intercept_emul, default_finished, check_sel_cr0_intercept},
+	{ "sel cr0 write intercept priority", default_supported,
+	  prepare_sel_nonsel_cr0_intercepts, default_prepare_gif_clear,
+	  test_sel_cr0_write_intercept, default_finished, check_nonsel_cr0_intercept},
+	{ "sel cr0 write intercept priority emulate", fep_supported,
+	  prepare_sel_nonsel_cr0_intercepts, default_prepare_gif_clear,
+	  test_sel_cr0_write_intercept_emul, default_finished, check_nonsel_cr0_intercept},
+	{ "sel cr0 write nointercept", default_supported,
+	  prepare_sel_cr0_intercept, default_prepare_gif_clear,
+	  test_sel_cr0_write_nointercept, default_finished, check_cr0_nointercept},
+	{ "sel cr0 write nointercept emulate", fep_supported,
+	  prepare_sel_cr0_intercept, default_prepare_gif_clear,
+	  test_sel_cr0_write_nointercept_emul, default_finished, check_cr0_nointercept},
+	{ "sel cr0 lmsw intercept", default_supported,
+	  prepare_sel_cr0_intercept, default_prepare_gif_clear,
+	  test_sel_cr0_lmsw_intercept, default_finished, check_sel_cr0_intercept},
+	{ "sel cr0 lmsw intercept emulate", fep_supported,
+	  prepare_sel_cr0_intercept, default_prepare_gif_clear,
+	  test_sel_cr0_lmsw_intercept_emul, default_finished, check_sel_cr0_intercept},
 	{ "cr3 read intercept", default_supported,
 	  prepare_cr3_intercept, default_prepare_gif_clear,
 	  test_cr3_intercept, default_finished, check_cr3_intercept },
@@ -3486,9 +3637,6 @@ struct svm_test svm_tests[] = {
 	{ "asid_zero", default_supported, prepare_asid_zero,
 	  default_prepare_gif_clear, test_asid_zero,
 	  default_finished, check_asid_zero },
-	{ "sel_cr0_bug", default_supported, sel_cr0_bug_prepare,
-	  default_prepare_gif_clear, sel_cr0_bug_test,
-	  sel_cr0_bug_finished, sel_cr0_bug_check },
 	{ "tsc_adjust", tsc_adjust_supported, tsc_adjust_prepare,
 	  default_prepare_gif_clear, tsc_adjust_test,
 	  default_finished, tsc_adjust_check },
@@ -3554,8 +3702,10 @@ struct svm_test svm_tests[] = {
 	TEST(svm_lbrv_test0),
 	TEST(svm_lbrv_test1),
 	TEST(svm_lbrv_test2),
+	TEST(svm_lbrv_test3),
 	TEST(svm_lbrv_nested_test1),
 	TEST(svm_lbrv_nested_test2),
+	TEST(svm_lbrv_nested_test3),
 	TEST(svm_intr_intercept_mix_if),
 	TEST(svm_intr_intercept_mix_gif),
 	TEST(svm_intr_intercept_mix_gif2),

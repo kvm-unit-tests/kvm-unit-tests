@@ -10644,6 +10644,11 @@ static void vmx_pf_exception_test(void)
 
 static void vmx_pf_exception_forced_emulation_test(void)
 {
+	if (!is_fep_available) {
+		report_skip("Forced emulation prefix (FEP) not available\n");
+		return;
+	}
+
 	__vmx_pf_exception_test(NULL, NULL, vmx_pf_exception_forced_emulation_test_guest);
 }
 
@@ -11377,6 +11382,85 @@ static void vmx_posted_interrupts_test(void)
 	enter_guest();
 }
 
+static u64 guest_s_cet = -1;
+
+static void vmx_cet_test_guest(void)
+{
+	guest_s_cet = rdmsr(MSR_IA32_S_CET);
+	vmcall();
+}
+
+static void vmx_cet_test(void)
+{
+	struct vmcs *curr;
+	u64 val;
+
+	if (!(ctrl_exit_rev.clr & EXI_LOAD_CET)) {
+		report_skip("Load CET state exit control is not available");
+		return;
+	}
+
+	if (!(ctrl_enter_rev.clr & ENT_LOAD_CET)) {
+		report_skip("Load CET state entry control is not available");
+		return;
+	}
+
+	/* Allow the guest to read GUEST_S_CET directly */
+	msr_bmp_init();
+
+	/*
+	 * Check whether VMCS transitions load host and guest values
+	 * according to the settings of the relevant VM-entry and exit
+	 * controls.
+	 */
+	vmcs_write(HOST_S_CET, 2);
+	vmcs_write(GUEST_S_CET, 2);
+	test_set_guest(vmx_cet_test_guest);
+
+	enter_guest();
+	val = rdmsr(MSR_IA32_S_CET);
+
+	/* Validate both guest/host S_CET MSR have the default values */
+	report(val == 0 && guest_s_cet == 0, "Load CET state disabled");
+
+	/*
+	 * CPU supports the 1-setting of the 'load CET' VM-entry control,
+	 * the contents of the IA32_S_CET and IA32_INTERRUPT_SSP_TABLE_ADDR
+	 * MSRs are saved into the corresponding fields
+	 */
+	report(vmcs_read(GUEST_S_CET) == 0, "S_CET is unconditionally saved");
+
+	/* Enable load CET state entry/exit controls and retest */
+	vmcs_set_bits(EXI_CONTROLS, EXI_LOAD_CET);
+	vmcs_set_bits(ENT_CONTROLS, ENT_LOAD_CET);
+	vmcs_write(GUEST_S_CET, 2);
+	test_override_guest(vmx_cet_test_guest);
+
+	enter_guest();
+	val = rdmsr(MSR_IA32_S_CET);
+
+	/* Validate both guest/host S_CET MSR are loaded from VMCS */
+	report(val == 2 && guest_s_cet == 2, "Load CET state enabled");
+
+	/*
+	 * Validate that bit 10 (SUPPRESS) and Bit 11 (TRACKER) cannot be
+	 * both set
+	 */
+	val = BIT(10) | BIT(11);
+	vmcs_write(GUEST_S_CET, val);
+	test_guest_state("Load invalid guest CET state", true, val, "GUEST_S_CET");
+
+	/* Following test_vmx_vmlaunch() needs a "not launched" VMCS */
+	vmcs_save(&curr);
+	vmcs_clear(curr);
+	make_vmcs_current(curr);
+
+	vmcs_write(HOST_S_CET, val);
+	test_vmx_vmlaunch(VMXERR_ENTRY_INVALID_HOST_STATE_FIELD);
+
+	test_set_guest_finished();
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
@@ -11490,5 +11574,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_pf_vpid_test),
 	TEST(vmx_exception_test),
 	TEST(vmx_canonical_test),
+	/* "Load CET" VM-entry/exit controls tests. */
+	TEST(vmx_cet_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };

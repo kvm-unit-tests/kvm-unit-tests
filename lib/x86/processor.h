@@ -182,6 +182,30 @@ static inline u64 get_non_canonical(u64 addr, u64 mask)
 #define X86_EFLAGS_ALU (X86_EFLAGS_CF | X86_EFLAGS_PF | X86_EFLAGS_AF | \
 			X86_EFLAGS_ZF | X86_EFLAGS_SF | X86_EFLAGS_OF)
 
+#define XFEATURE_MASK_FP		BIT_ULL(0)
+#define XFEATURE_MASK_SSE		BIT_ULL(1)
+#define XFEATURE_MASK_YMM		BIT_ULL(2)
+#define XFEATURE_MASK_BNDREGS		BIT_ULL(3)
+#define XFEATURE_MASK_BNDCSR		BIT_ULL(4)
+#define XFEATURE_MASK_OPMASK		BIT_ULL(5)
+#define XFEATURE_MASK_ZMM_Hi256		BIT_ULL(6)
+#define XFEATURE_MASK_Hi16_ZMM		BIT_ULL(7)
+#define XFEATURE_MASK_PT		BIT_ULL(8)
+#define XFEATURE_MASK_PKRU		BIT_ULL(9)
+#define XFEATURE_MASK_PASID		BIT_ULL(10)
+#define XFEATURE_MASK_CET_USER		BIT_ULL(11)
+#define XFEATURE_MASK_CET_KERNEL	BIT_ULL(12)
+#define XFEATURE_MASK_LBR		BIT_ULL(15)
+#define XFEATURE_MASK_XTILE_CFG		BIT_ULL(17)
+#define XFEATURE_MASK_XTILE_DATA	BIT_ULL(18)
+
+#define XFEATURE_MASK_FP_SSE		(XFEATURE_MASK_FP | XFEATURE_MASK_SSE)
+
+#define XFEATURE_MASK_AVX512		(XFEATURE_MASK_OPMASK | \
+					 XFEATURE_MASK_ZMM_Hi256 | \
+					 XFEATURE_MASK_Hi16_ZMM)
+#define XFEATURE_MASK_XTILE		(XFEATURE_MASK_XTILE_DATA | \
+					 XFEATURE_MASK_XTILE_CFG)
 
 /*
  * CPU features
@@ -224,6 +248,32 @@ static inline bool is_intel(void)
 	u32 name[4] = {c.b, c.d, c.c };
 
 	return strcmp((char *)name, "GenuineIntel") == 0;
+}
+
+static inline u32 x86_family(u32 sig)
+{
+	u32 x86;
+
+	x86 = (sig >> 8) & 0xf;
+
+	if (x86 == 0xf)
+		x86 += (sig >> 20) & 0xff;
+
+	return x86;
+}
+
+static inline u32 x86_model(u32 sig)
+{
+	u32 fam, model;
+
+	fam = x86_family(sig);
+
+	model = (sig >> 4) & 0xf;
+
+	if (fam >= 0x6)
+		model += ((sig >> 16) & 0xf) << 4;
+
+	return model;
 }
 
 /*
@@ -288,6 +338,7 @@ struct x86_cpu_feature {
 #define X86_FEATURE_LA57		X86_CPU_FEATURE(0x7, 0, ECX, 16)
 #define X86_FEATURE_RDPID		X86_CPU_FEATURE(0x7, 0, ECX, 22)
 #define X86_FEATURE_SHSTK		X86_CPU_FEATURE(0x7, 0, ECX, 7)
+#define X86_FEATURE_BUS_LOCK_DETECT	X86_CPU_FEATURE(0x7, 0, ECX, 24)
 #define X86_FEATURE_PKS			X86_CPU_FEATURE(0x7, 0, ECX, 31)
 #define X86_FEATURE_IBT			X86_CPU_FEATURE(0x7, 0, EDX, 20)
 #define X86_FEATURE_SPEC_CTRL		X86_CPU_FEATURE(0x7, 0, EDX, 26)
@@ -672,6 +723,44 @@ static inline int xgetbv_safe(u32 index, u64 *result)
 static inline int xsetbv_safe(u32 index, u64 value)
 {
 	return wrreg64_safe(".byte 0x0f,0x01,0xd1", index, value);
+}
+
+static inline u64 xgetbv(u32 index)
+{
+	u64 value;
+	int vector = xgetbv_safe(index, &value);
+
+	assert_msg(!vector, "Unexpected exception '%s' reading XCR%" PRIu32,
+		   exception_mnemonic(vector), index);
+	return value;
+}
+
+static inline void xsetbv(u32 index, u64 value)
+{
+	int vector = xsetbv_safe(index, value);
+
+	assert_msg(!vector, "Unexpected exception '%s' writing XCR%" PRIu32 " = 0x%" PRIx64,
+		   exception_mnemonic(vector), index, value);
+}
+
+static inline int read_xcr0_safe(u64 *value)
+{
+	return xgetbv_safe(0, value);
+}
+
+static inline int write_xcr0_safe(u64 value)
+{
+	return xsetbv_safe(0, value);
+}
+
+static inline u64 read_xcr0(void)
+{
+	return xgetbv(0);
+}
+
+static inline void write_xcr0(u64 value)
+{
+	xsetbv(0, value);
 }
 
 static inline int write_cr0_safe(ulong val)
