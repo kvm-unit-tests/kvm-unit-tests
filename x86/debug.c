@@ -38,7 +38,7 @@ static void handle_db(struct ex_regs *regs)
 	db_addr[n] = regs->rip;
 	dr6[n] = read_dr6();
 
-	if (dr6[n] & 0x1)
+	if (dr6[n] & DR6_TRAP2)
 		regs->rflags |= X86_EFLAGS_RF;
 
 	if (++n >= 10) {
@@ -488,29 +488,33 @@ int main(int ac, char **av)
 	 * The CPU sets/clears bits 0-3 (trap bits for DR0-3) on #DB based on
 	 * whether or not the corresponding DR0-3 got a match.  All other bits
 	 * in DR6 are set if and only if their associated breakpoint condition
-	 * is active, and are never cleared by the CPU.  Verify a match on DR0
+	 * is active, and are never cleared by the CPU.  Verify a match on DR2
 	 * is reported correctly, and that DR6.BS is not set when single-step
 	 * breakpoints are disabled, but is left set (if set by software).
 	 */
 	n = 0;
 	extern unsigned char hw_bp1;
-	write_dr0(&hw_bp1);
-	write_dr7(DR7_FIXED_1 | DR7_GLOBAL_ENABLE_DR0);
+	write_dr2(&hw_bp1);
+	write_dr7(DR7_FIXED_1 | DR7_GLOBAL_ENABLE_DR2);
 	asm volatile("hw_bp1: nop");
 	report(n == 1 &&
 	       db_addr[0] == ((unsigned long)&hw_bp1) &&
-	       dr6[0] == (DR6_ACTIVE_LOW | DR6_TRAP0),
-	       "hw breakpoint (test that dr6.BS is not set)");
+	       dr6[0] == (DR6_ACTIVE_LOW | DR6_TRAP2),
+	       "Wanted #DB on 0x%lx w/ DR6 = 0x%lx, got %u #DBs, addr[0] = 0x%lx, DR6 = 0x%lx",
+	       ((unsigned long)&hw_bp1), DR6_ACTIVE_LOW | DR6_TRAP2,
+	       n, db_addr[0], dr6[0]);
 
 	n = 0;
 	extern unsigned char hw_bp2;
-	write_dr0(&hw_bp2);
+	write_dr2(&hw_bp2);
 	write_dr6(DR6_BS | DR6_TRAP1);
 	asm volatile("hw_bp2: nop");
 	report(n == 1 &&
 	       db_addr[0] == ((unsigned long)&hw_bp2) &&
-	       dr6[0] == (DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP0),
-	       "hw breakpoint (test that dr6.BS is not cleared)");
+	       dr6[0] == (DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP2),
+	       "Wanted #DB on 0x%lx w/ DR6 = 0x%lx, got %u #DBs, addr[0] = 0x%lx, DR6 = 0x%lx",
+	       ((unsigned long)&hw_bp2), DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP2,
+	       n, db_addr[0], dr6[0]);
 
 	run_ss_db_test(singlestep_basic);
 	run_ss_db_test(singlestep_emulated_instructions);

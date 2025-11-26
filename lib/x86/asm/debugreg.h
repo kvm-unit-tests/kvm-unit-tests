@@ -37,8 +37,9 @@
  * by the CPU on task switch), bits 1, 3, 5, and 7 are global enable bits
  * (never cleared by the CPU).
  */
-#define DR7_LOCAL_ENABLE_DRx(x)		(BIT(0) << (x))
-#define DR7_GLOBAL_ENABLE_DRx(x)	(BIT(1) << (x))
+#define DR7_LOCAL_ENABLE_DRx(x)		(BIT(0) << ((x) * 2))
+#define DR7_GLOBAL_ENABLE_DRx(x)	(BIT(1) << ((x) * 2))
+
 #define DR7_ENABLE_DRx(x) \
 	(DR7_LOCAL_ENABLE_DRx(x) | DR7_GLOBAL_ENABLE_DRx(x))
 
