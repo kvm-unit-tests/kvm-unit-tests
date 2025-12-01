@@ -88,7 +88,7 @@ static void setup_guest(void)
 	pgd_t *root;
 
 	setup_vm();
-	root = (pgd_t *)(stctg(1) & PAGE_MASK);
+	root = get_primary_page_root();
 
 	snippet_setup_guest(&vm, false);
 	snippet_init(&vm, SNIPPET_NAME_START(c, mvpg_snippet),

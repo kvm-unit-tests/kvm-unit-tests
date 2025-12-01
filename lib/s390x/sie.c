@@ -17,6 +17,7 @@
 #include <alloc_page.h>
 #include <vmalloc.h>
 #include <sclp.h>
+#include <mmu.h>
 
 void sie_expect_validity(struct vm *vm)
 {
@@ -156,7 +157,7 @@ uint8_t *sie_guest_alloc(uint64_t guest_size)
 	pgd_t *root;
 
 	setup_vm();
-	root = (pgd_t *)(stctg(1) & PAGE_MASK);
+	root = get_primary_page_root();
 
 	/*
 	 * Start of guest memory in host virtual space needs to be aligned to

@@ -13,6 +13,7 @@
 #include <asm/interrupt.h>
 #include <vmalloc.h>
 #include <css.h>
+#include <mmu.h>
 #include <asm/page.h>
 #include <asm/facility.h>
 #include <asm/mem.h>
@@ -465,10 +466,9 @@ static void test_set_prefix(void)
 	uint32_t *prefix_ptr = (uint32_t *)pagebuf;
 	uint32_t *no_override_prefix_ptr;
 	uint32_t old_prefix;
-	pgd_t *root;
+	pgd_t *root = get_primary_page_root();
 
 	report_prefix_push("SET PREFIX");
-	root = (pgd_t *)(stctg(1) & PAGE_MASK);
 	old_prefix = get_prefix();
 	memcpy(lowcore_tmp, 0, sizeof(lowcore_tmp));
 	assert(((uint64_t)&lowcore_tmp >> 31) == 0);
@@ -583,11 +583,10 @@ static void test_msch(void)
 	struct schib *schib = (struct schib *)pagebuf;
 	struct schib *no_override_schib;
 	int test_device_sid;
-	pgd_t *root;
+	pgd_t *root = get_primary_page_root();
 	int cc;
 
 	report_prefix_push("MSCH");
-	root = (pgd_t *)(stctg(1) & PAGE_MASK);
 	test_device_sid = css_enumerate();
 
 	if (!(test_device_sid & SCHID_ONE)) {

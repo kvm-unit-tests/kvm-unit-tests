@@ -82,7 +82,7 @@ static void test_priv(void)
 
 static void *page_map_outside_real_space(phys_addr_t page_real)
 {
-	pgd_t *root = (pgd_t *)(stctg(1) & PAGE_MASK);
+	pgd_t *root = get_primary_page_root();
 	void *vaddr = alloc_vpage();
 
 	install_page(root, page_real, vaddr);
@@ -109,7 +109,7 @@ static void test_refbk_real(void)
 	refbk_page = alloc_page();
 
 	/* Map refblk page outside of physical memory identity mapping */
-	root = (pgd_t *)(stctg(1) & PAGE_MASK);
+	root = get_primary_page_root();
 	refbk = page_map_outside_real_space(virt_to_pte_phys(root, refbk_page));
 
 	/* Assert the mapping really is outside identity mapping */
