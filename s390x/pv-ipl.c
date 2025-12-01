@@ -135,7 +135,7 @@ int main(void)
 	snippet_setup_guest(&vm, true);
 	test_diag_308(0);
 	test_diag_308(1);
-	sie_guest_destroy(&vm);
+	snippet_destroy_guest(&vm);
 
 done:
 	report_prefix_pop();

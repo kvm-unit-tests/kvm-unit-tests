@@ -133,6 +133,8 @@ int main(int argc, char **argv)
 	setup_guest();
 	if (run_format_0)
 		test_stfle_format_0();
+
+	snippet_destroy_guest(&vm);
 out:
 	return report_summary();
 }

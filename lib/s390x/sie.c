@@ -122,8 +122,10 @@ void sie_guest_sca_create(struct vm *vm)
 }
 
 /* Initializes the struct vm members like the SIE control block. */
-void sie_guest_create(struct vm *vm, uint64_t guest_mem, uint64_t guest_mem_len)
+void sie_guest_create(struct vm *vm, uint64_t guest_mem_len)
 {
+	void *guest_mem = sie_guest_alloc(guest_mem_len);
+
 	vm->sblk = alloc_page();
 	memset(vm->sblk, 0, PAGE_SIZE);
 	vm->sblk->cpuflags = CPUSTAT_ZARCH | CPUSTAT_RUNNING;
@@ -192,4 +194,5 @@ void sie_guest_destroy(struct vm *vm)
 	free_page(vm->sblk);
 	if (vm->sblk->ecb2 & ECB2_ESCA)
 		free_page(vm->sca);
+	free_pages((void *)virt_to_pte_phys(get_primary_page_root(), vm->guest_mem));
 }

@@ -117,7 +117,7 @@ int main(void)
 	setup_guest();
 	test_mvpg();
 	test_mvpg_pei();
-	sie_guest_destroy(&vm);
+	snippet_destroy_guest(&vm);
 
 done:
 	report_prefix_pop();

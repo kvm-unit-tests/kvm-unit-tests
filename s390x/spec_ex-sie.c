@@ -71,6 +71,8 @@ static void test_spec_ex_sie(void)
 		report_info("%s", msg);
 	else
 		report_info("Did not interpret initial exception");
+
+	snippet_destroy_guest(&vm);
 	report_prefix_pop();
 	report_prefix_pop();
 }
