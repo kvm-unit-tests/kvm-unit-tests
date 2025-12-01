@@ -171,7 +171,8 @@ uint8_t *sie_guest_alloc(uint64_t guest_size)
 	guest_virt = (uint8_t *)ALIGN(get_ram_size() + guest_counter * 4UL * SZ_1G, SZ_2G);
 	guest_counter++;
 
-	guest_phys = alloc_pages(get_order(guest_size) - 12);
+	guest_phys = memalign_pages(SZ_1M, guest_size);
+	assert(guest_phys);
 	/*
 	 * Establish a new mapping of the guest memory so it can be 2GB aligned
 	 * without actually requiring 2GB physical memory.
