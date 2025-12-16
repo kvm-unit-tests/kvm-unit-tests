@@ -8,7 +8,7 @@
 #include "processor.h"
 #include "smp.h"
 
-extern u8 id_map[MAX_TEST_CPUS];
+extern u32 id_map[MAX_TEST_CPUS];
 
 typedef struct {
     uint8_t vector;

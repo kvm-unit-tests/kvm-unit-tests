@@ -6,7 +6,7 @@
 #include "x86/msr.h"
 
 #define PTE_PKEY_BIT     59
-#define USER_BASE        (1 << 23)
+#define USER_BASE        (2 << 24)
 #define USER_VAR(v)      (*((__typeof__(&(v))) (((unsigned long)&v) + USER_BASE)))
 
 volatile int pf_count = 0;

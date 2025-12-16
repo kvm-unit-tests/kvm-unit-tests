@@ -1,7 +1,7 @@
 #ifndef _X86_SMP_H_
 #define _X86_SMP_H_
 
-#define MAX_TEST_CPUS (255)
+#define MAX_TEST_CPUS (1024)
 
 /*
  * Allocate 12KiB of data for per-CPU usage.  One page for per-CPU data, and

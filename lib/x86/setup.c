@@ -391,9 +391,9 @@ void ap_start64(void)
 	setup_gdt_tss();
 	reset_apic();
 	load_idt();
-	save_id();
 	enable_apic();
 	enable_x2apic();
+	save_id();
 	ap_online();
 }
 

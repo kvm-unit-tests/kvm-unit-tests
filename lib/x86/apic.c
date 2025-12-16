@@ -9,7 +9,7 @@
 static void *g_apic = (void *)APIC_DEFAULT_PHYS_BASE;
 static void *g_ioapic = (void *)IO_APIC_DEFAULT_PHYS_BASE;
 
-u8 id_map[MAX_TEST_CPUS];
+u32 id_map[MAX_TEST_CPUS];
 
 struct apic_ops {
 	u32 (*reg_read)(unsigned reg);

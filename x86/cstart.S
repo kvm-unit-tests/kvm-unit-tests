@@ -99,9 +99,9 @@ ap_start32:
 	call load_idt
 	call prepare_32
 	call reset_apic
-	call save_id
 	call enable_apic
 	call enable_x2apic
+	call save_id
 	call ap_online
 
 	/* ap_online() should never return */
