@@ -84,13 +84,6 @@ prepare_32:
 
 smp_stacktop:	.long stacktop - per_cpu_size
 
-save_id:
-	movl $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
-	movl (%eax), %eax
-	shrl $24, %eax
-	lock btsl %eax, online_cpus
-	retl
-
 ap_start32:
 	setup_segments
 	mov $-per_cpu_size, %esp
