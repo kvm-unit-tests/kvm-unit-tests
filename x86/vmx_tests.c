@@ -1100,7 +1100,7 @@ static int setup_ept(bool enable_ad)
 	 */
 	setup_ept_range(pml4, 0, end_of_memory, 0,
 			!enable_ad && ept_2m_supported(),
-			EPT_WA | EPT_RA | EPT_EA);
+			EPT_PRESENT);
 	return 0;
 }
 
@@ -1179,7 +1179,7 @@ static int ept_init_common(bool have_ad)
 	*((u32 *)data_page1) = MAGIC_VAL_1;
 	*((u32 *)data_page2) = MAGIC_VAL_2;
 	install_ept(pml4, (unsigned long)data_page1, (unsigned long)data_page2,
-			EPT_RA | EPT_WA | EPT_EA);
+		    EPT_PRESENT);
 
 	apic_version = apic_read(APIC_LVR);
 
@@ -1359,8 +1359,8 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 					*((u32 *)data_page2) == MAGIC_VAL_2) {
 				vmx_inc_test_stage();
 				install_ept(pml4, (unsigned long)data_page2,
-						(unsigned long)data_page2,
-						EPT_RA | EPT_WA | EPT_EA);
+					    (unsigned long)data_page2,
+					    EPT_PRESENT);
 			} else
 				report_fail("EPT basic framework - write");
 			break;
@@ -1371,9 +1371,9 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 			break;
 		case 2:
 			install_ept(pml4, (unsigned long)data_page1,
- 				(unsigned long)data_page1,
- 				EPT_RA | EPT_WA | EPT_EA |
- 				(2 << EPT_MEM_TYPE_SHIFT));
+				    (unsigned long)data_page1,
+				    EPT_PRESENT |
+				    (2 << EPT_MEM_TYPE_SHIFT));
 			invept(INVEPT_SINGLE, eptp);
 			break;
 		case 3:
@@ -1417,8 +1417,8 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 		case 2:
 			vmx_inc_test_stage();
 			install_ept(pml4, (unsigned long)data_page1,
- 				(unsigned long)data_page1,
- 				EPT_RA | EPT_WA | EPT_EA);
+				    (unsigned long)data_page1,
+				    EPT_PRESENT);
 			invept(INVEPT_SINGLE, eptp);
 			break;
 		// Should not reach here
@@ -3020,9 +3020,9 @@ static void ept_access_test_paddr_read_write_execute(void)
 {
 	ept_access_test_setup();
 	/* RWX access to paging structure. */
-	ept_access_allowed_paddr(EPT_PRESENT, 0, OP_READ);
-	ept_access_allowed_paddr(EPT_PRESENT, 0, OP_WRITE);
-	ept_access_allowed_paddr(EPT_PRESENT, 0, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_READ);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_WRITE);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_EXEC);
 }
 
 static void ept_access_test_paddr_read_execute_ad_disabled(void)

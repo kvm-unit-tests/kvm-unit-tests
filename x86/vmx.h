@@ -664,17 +664,18 @@ enum vm_entry_failure_code {
 #define EPT_MEM_TYPE_WP		5ul
 #define EPT_MEM_TYPE_WB		6ul
 
-#define EPT_RA			1ul
-#define EPT_WA			2ul
-#define EPT_EA			4ul
-#define EPT_PRESENT		(EPT_RA | EPT_WA | EPT_EA)
+#define EPT_RA			(1ul << 0)
+#define EPT_WA			(1ul << 1)
+#define EPT_EA			(1ul << 2)
+#define EPT_IGNORE_PAT		(1ul << 6)
+#define EPT_LARGE_PAGE		(1ul << 7)
 #define EPT_ACCESS_FLAG		(1ul << 8)
 #define EPT_DIRTY_FLAG		(1ul << 9)
-#define EPT_LARGE_PAGE		(1ul << 7)
 #define EPT_MEM_TYPE_SHIFT	3ul
 #define EPT_MEM_TYPE_MASK	0x7ul
-#define EPT_IGNORE_PAT		(1ul << 6)
 #define EPT_SUPPRESS_VE		(1ull << 63)
+
+#define EPT_PRESENT		(EPT_RA | EPT_WA | EPT_EA)
 
 #define EPT_CAP_EXEC_ONLY	(1ull << 0)
 #define EPT_CAP_PWL4		(1ull << 6)
