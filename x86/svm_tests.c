@@ -3575,6 +3575,93 @@ static void svm_shutdown_intercept_test(void)
 	report(vmcb->control.exit_code == SVM_EXIT_SHUTDOWN, "shutdown test passed");
 }
 
+struct invpcid_desc desc;
+
+asm(
+	"insn_rdtscp: rdtscp;ret\n\t"
+	"insn_skinit: skinit;ret\n\t"
+	"insn_xsetbv: xor %eax, %eax; xor %edx, %edx; xor %ecx, %ecx; xsetbv;ret\n\t"
+	"insn_rdpru: xor %ecx, %ecx; rdpru;ret\n\t"
+	"insn_invpcid: xor %eax, %eax; invpcid desc, %rax;ret\n\t"
+);
+
+extern void insn_rdtscp(struct svm_test *test);
+extern void insn_skinit(struct svm_test *test);
+extern void insn_xsetbv(struct svm_test *test);
+extern void insn_rdpru(struct svm_test *test);
+extern void insn_invpcid(struct svm_test *test);
+
+struct insn_table {
+	const char *name;
+	u64 intercept;
+	void (*insn_func)(struct svm_test *test);
+	u32 reason;
+};
+
+static struct insn_table insn_table[] = {
+	{ "RDTSCP", INTERCEPT_RDTSCP, insn_rdtscp, SVM_EXIT_RDTSCP},
+	{ "SKINIT", INTERCEPT_SKINIT, insn_skinit, SVM_EXIT_SKINIT},
+	{ "XSETBV", INTERCEPT_XSETBV, insn_xsetbv, SVM_EXIT_XSETBV},
+	{ "RDPRU", INTERCEPT_RDPRU, insn_rdpru, SVM_EXIT_RDPRU},
+	{ "INVPCID", INTERCEPT_INVPCID, insn_invpcid, SVM_EXIT_INVPCID},
+	{ NULL },
+};
+
+static void assert_unsupported_instructions(void)
+{
+	assert(!this_cpu_has(X86_FEATURE_RDTSCP));
+	assert(!this_cpu_has(X86_FEATURE_SKINIT));
+	assert(!this_cpu_has(X86_FEATURE_XSAVE));
+	assert(!this_cpu_has(X86_FEATURE_RDPRU));
+	assert(!this_cpu_has(X86_FEATURE_INVPCID));
+}
+
+/*
+ * Test that L1 does not intercept instructions that are not advertised in
+ * guest CPUID.
+ */
+static void svm_unsupported_instruction_intercept_test(void)
+{
+	u32 cur_insn;
+	u32 exit_code;
+
+	assert_unsupported_instructions();
+
+	vmcb_set_intercept(INTERCEPT_EXCEPTION_OFFSET + UD_VECTOR);
+
+	for (cur_insn = 0; insn_table[cur_insn].name != NULL; ++cur_insn) {
+		struct insn_table insn = insn_table[cur_insn];
+
+		test_set_guest(insn.insn_func);
+		vmcb_set_intercept(insn.intercept);
+		svm_vmrun();
+		exit_code = vmcb->control.exit_code;
+
+		if (exit_code == SVM_EXIT_EXCP_BASE + UD_VECTOR)
+			report_pass("UD Exception injected");
+		else if (exit_code == insn.reason)
+			report_fail("L1 should not intercept %s when instruction is not advertised in guest CPUID",
+				    insn.name);
+		else
+			report_fail("Unknown exit reason, 0x%x", exit_code);
+
+		/*
+		 * Verify that the intercept bits are not cleared in the vmcb.
+		 * This is mainly to catch any potential bugs in the future
+		 * if we ever directly copy from the cached vmcb12 to L1's
+		 * vmcb12. KVM currently ignores the L1 intercept by
+		 * conditionally clearing intercept bits from KVM's cached
+		 * vmcb12 based on guest's CPUID table. This is only allowed as
+		 * long as the assumption that the cached vmcb12 doesn't affect
+		 * L1's vmcb12 holds true.
+		 */
+		report(test_and_clear_bit(insn.intercept,
+					  vmcb->control.intercept),
+					  "%s intercept bit not cleared by KVM",
+					  insn.name);
+	}
+}
+
 struct svm_test svm_tests[] = {
 	{ "null", default_supported, default_prepare,
 	  default_prepare_gif_clear, null_test,
@@ -3716,6 +3803,7 @@ struct svm_test svm_tests[] = {
 	TEST(svm_tsc_scale_test),
 	TEST(pause_filter_test),
 	TEST(svm_shutdown_intercept_test),
+	TEST(svm_unsupported_instruction_intercept_test),
 	{ NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
