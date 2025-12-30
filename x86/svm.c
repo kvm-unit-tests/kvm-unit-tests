@@ -244,7 +244,7 @@ void svm_setup_vmrun(u64 rip)
 	vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
 }
 
-int __svm_vmrun(u64 rip)
+u64 __svm_vmrun(u64 rip)
 {
 	svm_setup_vmrun(rip);
 	regs.rdi = (ulong)v2_test;
@@ -260,7 +260,7 @@ int __svm_vmrun(u64 rip)
 	return (vmcb->control.exit_code);
 }
 
-int svm_vmrun(void)
+u64 svm_vmrun(void)
 {
 	return __svm_vmrun((u64)test_thunk);
 }

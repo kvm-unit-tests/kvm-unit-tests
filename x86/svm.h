@@ -88,8 +88,7 @@ struct __attribute__ ((__packed__)) vmcb_control_area {
 	u32 int_vector;
 	u32 int_state;
 	u8 reserved_3[4];
-	u32 exit_code;
-	u32 exit_code_hi;
+	u64 exit_code;
 	u64 exit_info_1;
 	u64 exit_info_2;
 	u32 exit_int_info;
@@ -357,7 +356,7 @@ struct __attribute__ ((__packed__)) vmcb {
 #define SVM_EXIT_MWAIT_COND	0x08c
 #define SVM_EXIT_NPF  		0x400
 
-#define SVM_EXIT_ERR		-1
+#define SVM_EXIT_ERR		-1ull
 
 #define SVM_CR0_SELECTIVE_MASK (X86_CR0_TS | X86_CR0_MP)
 
@@ -439,8 +438,8 @@ void vmcb_ident(struct vmcb *vmcb);
 struct regs get_regs(void);
 void vmmcall(void);
 void svm_setup_vmrun(u64 rip);
-int __svm_vmrun(u64 rip);
-int svm_vmrun(void);
+u64 __svm_vmrun(u64 rip);
+u64 svm_vmrun(void);
 void test_set_guest(test_guest_func func);
 
 extern struct vmcb *vmcb;
