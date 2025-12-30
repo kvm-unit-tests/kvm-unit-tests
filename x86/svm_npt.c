@@ -292,7 +292,7 @@ static void __svm_npt_rsvd_bits_test(u64 * pxe, u64 rsvd_bits, u64 efer,
 				     ulong cr4, u64 guest_efer, ulong guest_cr4)
 {
 	u64 pxe_orig = *pxe;
-	int exit_reason;
+	u64 exit_reason;
 	u64 pfec;
 
 	wrmsr(MSR_EFER, efer);
@@ -306,7 +306,7 @@ static void __svm_npt_rsvd_bits_test(u64 * pxe, u64 rsvd_bits, u64 efer,
 	exit_reason = svm_vmrun();
 
 	report(exit_reason == SVM_EXIT_NPF,
-	       "Wanted #NPF on rsvd bits = 0x%lx, got exit = 0x%x", rsvd_bits,
+	       "Wanted #NPF on rsvd bits = 0x%lx, got exit = 0x%lx", rsvd_bits,
 	       exit_reason);
 
 	if (pxe == npt_get_pdpe((u64) basic_guest_main) || pxe == npt_get_pml4e()) {
