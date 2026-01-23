@@ -267,6 +267,11 @@ static noinline void test_hw_bp(bool migrate)
 	int num_bp = get_num_hw_bp();
 	int i;
 
+	if (current_level() == CurrentEL_EL2) {
+		report_skip("test broken for EL2");
+		return;
+	}
+
 	install_exception_handler(EL1H_SYNC, ESR_EC_HW_BP_CURRENT, hw_bp_handler);
 
 	reset_debug_state();
@@ -313,6 +318,11 @@ static noinline void test_wp(bool migrate)
 	uint32_t mdscr;
 	int num_wp = get_num_wp();
 	int i;
+
+	if (current_level() == CurrentEL_EL2) {
+		report_skip("test broken for EL2");
+		return;
+	}
 
 	install_exception_handler(EL1H_SYNC, ESR_EC_WP_CURRENT, wp_handler);
 

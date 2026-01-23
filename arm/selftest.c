@@ -106,6 +106,8 @@ static bool und_works;
 static bool svc_works;
 static bool pabt_works;
 #if defined(__arm__)
+static void test_exception_prep(void) { }
+
 /*
  * Capture the current register state and execute an instruction
  * that causes an exception. The test handler will check that its
@@ -232,6 +234,12 @@ static void user_psci_system_off(struct pt_regs *regs)
 	__user_psci_system_off();
 }
 #elif defined(__aarch64__)
+static unsigned long expected_level;
+
+static void test_exception_prep(void)
+{
+	expected_level = current_level();
+}
 
 /*
  * Capture the current register state and execute an instruction
@@ -276,8 +284,7 @@ static bool check_regs(struct pt_regs *regs)
 {
 	unsigned i;
 
-	/* exception handlers should always run in EL1 */
-	if (current_level() != CurrentEL_EL1)
+	if (current_level() != expected_level)
 		return false;
 
 	for (i = 0; i < ARRAY_SIZE(regs->regs); ++i) {
@@ -301,7 +308,11 @@ static enum vector check_vector_prep(void)
 		return EL0_SYNC_64;
 
 	asm volatile("mrs %0, daif" : "=r" (daif) ::);
-	expected_regs.pstate = daif | PSR_MODE_EL1h;
+	expected_regs.pstate = daif;
+	if (current_level() == CurrentEL_EL1)
+		expected_regs.pstate |= PSR_MODE_EL1h;
+	else
+		expected_regs.pstate |= PSR_MODE_EL2h;
 	return EL1H_SYNC;
 }
 
@@ -317,8 +328,8 @@ static bool check_und(void)
 
 	install_exception_handler(v, ESR_EL1_EC_UNKNOWN, unknown_handler);
 
-	/* try to read an el2 sysreg from el0/1 */
-	test_exception("", "mrs x0, sctlr_el2", "", "x0");
+	/* try to read an el3 sysreg from el0/1/2 */
+	test_exception("", "mrs x0, sctlr_el3", "", "x0");
 
 	install_exception_handler(v, ESR_EL1_EC_UNKNOWN, NULL);
 
@@ -425,6 +436,8 @@ static void cpu_report(void *data __unused)
 int main(int argc, char **argv)
 {
 	report_prefix_push("selftest");
+
+	test_exception_prep();
 
 	if (argc < 2)
 		report_abort("no test specified");

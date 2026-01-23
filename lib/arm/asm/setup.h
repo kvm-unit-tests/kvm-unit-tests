@@ -28,6 +28,14 @@ void setup(const void *fdt, phys_addr_t freemem_start);
 
 #include <efi.h>
 
+#ifdef __aarch64__
+void do_init_el(void);
+void setup_efi_sctlr(void);
+#else
+static inline void do_init_el(void) {}
+static inline void setup_efi_sctlr(void) {}
+#endif
+
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo);
 
 #endif

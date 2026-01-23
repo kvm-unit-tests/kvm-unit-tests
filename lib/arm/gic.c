@@ -69,6 +69,16 @@ gic_get_dt_bases(const char *compatible, void **base1, void **base2, void **base
 	assert(ret == 0);
 	*base1 = ioremap(reg.addr, reg.size);
 
+	if (!base3) {
+		assert(!strcmp(compatible, "arm,cortex-a15-gic"));
+		ret = dt_pbus_translate(&gic, 1, &reg);
+		assert(ret == 0);
+		*base2 = ioremap(reg.addr, reg.size);
+		return true;
+	}
+
+	assert(!strcmp(compatible, "arm,gic-v3"));
+
 	for (i = 0; i < GICV3_NR_REDISTS; ++i) {
 		ret = dt_pbus_translate(&gic, i + 1, &reg);
 		if (ret == -FDT_ERR_NOTFOUND)
@@ -76,13 +86,6 @@ gic_get_dt_bases(const char *compatible, void **base1, void **base2, void **base
 		assert(ret == 0);
 		base2[i] = ioremap(reg.addr, reg.size);
 	}
-
-	if (!base3) {
-		assert(!strcmp(compatible, "arm,cortex-a15-gic"));
-		return true;
-	}
-
-	assert(!strcmp(compatible, "arm,gic-v3"));
 
 	dt_for_each_subnode(node, subnode) {
 		const struct fdt_property *prop;
