@@ -596,3 +596,8 @@ set_qemu_accelerator ()
 
 	return 0
 }
+
+is_enabled ()
+{
+	[[ "$1" == 1 ]] || [[ "$1" == Y ]] || [[ "$1" == y ]]
+}
