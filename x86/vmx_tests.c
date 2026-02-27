@@ -9511,9 +9511,10 @@ static void vmx_db_test_guest(void)
 	 * For a hardware generated single-step #DB in a transactional region.
 	 */
 	asm volatile("vmcall;"
-		     ".Lxbegin: xbegin .Lskip_rtm;"
+		     ".Lrtm_begin: xbegin .Lrtm_fallback;"
 		     "xend;"
-		     ".Lskip_rtm:");
+		     ".Lrtm_fallback: nop;"
+		     ".Lpost_rtm:");
 }
 
 /*
@@ -9589,6 +9590,7 @@ static void single_step_guest(const char *test_name, u64 starting_dr6,
  * exception bits are properly accumulated into the exit qualification
  * field.
  */
+
 static void vmx_db_test(void)
 {
 	/*
@@ -9602,8 +9604,8 @@ static void vmx_db_test(void)
 	extern char post_movss_nop asm(".Lpost_movss_nop");
 	extern char post_wbinvd asm(".Lpost_wbinvd");
 	extern char post_movss_wbinvd asm(".Lpost_movss_wbinvd");
-	extern char xbegin asm(".Lxbegin");
-	extern char skip_rtm asm(".Lskip_rtm");
+	extern char rtm_begin asm(".Lrtm_begin");
+	extern char post_rtm asm(".Lpost_rtm");
 
 	/*
 	 * L1 wants to intercept #DB exceptions encountered in L2.
@@ -9656,30 +9658,66 @@ static void vmx_db_test(void)
 		      starting_dr6);
 
 	/*
-	 * Optional RTM test for hardware that supports RTM, to
-	 * demonstrate that the current volume 3 of the SDM
-	 * (325384-067US), table 27-1 is incorrect. Bit 16 of the exit
-	 * qualification for debug exceptions is not reserved. It is
-	 * set to 1 if a debug exception (#DB) or a breakpoint
-	 * exception (#BP) occurs inside an RTM region while advanced
-	 * debugging of RTM transactional regions is enabled.
+	 * Optional RTM test for hardware that supports RTM, to verify that
+	 * bit 16 of the exit qualification for debug exceptions is set to
+	 * 1 if a #DB occurs inside an RTM region while advanced debugging
+	 * of RTM transactional regions is enabled.
 	 */
 	if (this_cpu_has(X86_FEATURE_RTM)) {
+		/*
+		 * RTM may be temporarily disabled by the host on some Skylake
+		 * CPUs via the TSX_FORCE_ABORT MSR (so that all four general
+		 * purpose PMCs can be used by perf; Linux commit 400816f60c54
+		 * ("perf/x86/intel: Implement support for TSX Force Abort")).
+		 *
+		 * When TSX_FORCE_ABORT.RTM_FORCE_ABORT[bit 0] is set, all RTM
+		 * transactions will immediately abort, before XBEGIN retires.
+		 * Aborting the transaction will cause the test to fail as the
+		 * guest won't reach the expected #DB.
+		 *
+		 * Because the condition is temporary, don't immediately skip
+		 * the testcase, and instead retry a total of 30 times, with a
+		 * delay of one billion cycles between attempts.  With a 2Ghz
+		 * TSC, this gets the skip rate into single digit percentages,
+		 * with a worst case runtime of ~10 seconds before the test
+		 * gives up.
+		 *
+		 * Note, the perf feature is on by default, but can be disabled
+		 * by writing 0 to /sys/devices/cpu/allow_tsx_force_abort.
+		 */
+		const uint64_t RTM_DELAY_CYCLES = 1000000000ul;
+		const int RTM_RETRIES = 30;
+		int i = RTM_RETRIES;
+
 		vmcs_write(ENT_CONTROLS,
 			   vmcs_read(ENT_CONTROLS) | ENT_LOAD_DBGCTLS);
 		/*
-		 * Set DR7.RTM[bit 11] and IA32_DEBUGCTL.RTM[bit 15]
-		 * in the guest to enable advanced debugging of RTM
-		 * transactional regions.
+		 * Set DR7.RTM and IA32_DEBUGCTL.RTM to enable advanced
+		 * debugging of RTM transactional regions. See "RTM-Enabled
+		 * Debugger Support" in the SDM, volume 1.
 		 */
-		vmcs_write(GUEST_DR7, BIT(11));
-		vmcs_write(GUEST_DEBUGCTL, BIT(15));
+		vmcs_write(GUEST_DR7, DR7_RTM);
+		vmcs_write(GUEST_DEBUGCTL, DEBUGCTLMSR_RTM_DEBUG);
+
 		single_step_guest("Hardware delivered single-step in "
 				  "transactional region", starting_dr6, 0);
-		check_db_exit(false, false, false, &xbegin, BIT(16),
-			      starting_dr6);
+
+		while (--i && vmcs_read(GUEST_RIP) == (u64)&post_rtm) {
+			delay(RTM_DELAY_CYCLES);
+			vmcs_write(GUEST_RIP, (u64)&rtm_begin);
+			enter_guest();
+		}
+
+		if (vmcs_read(GUEST_RIP) == (u64)&post_rtm) {
+			report_skip("Transaction always aborted before xbegin "
+				    "retired (%d attempts)", RTM_RETRIES);
+			dismiss_db();
+		} else {
+			check_db_exit(false, false, false, &rtm_begin, DR6_RTM,
+				      starting_dr6);
+		}
 	} else {
-		vmcs_write(GUEST_RIP, (u64)&skip_rtm);
+		vmcs_write(GUEST_RIP, (u64)&post_rtm);
 		enter_guest();
 	}
 }
