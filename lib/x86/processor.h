@@ -1087,6 +1087,16 @@ static inline void wrtsc(u64 tsc)
 	wrmsr(MSR_IA32_TSC, tsc);
 }
 
+static inline void wrmsr_tscdeadline_serialize(u64 deadline)
+{
+	wrmsr(MSR_IA32_TSCDEADLINE, deadline);
+
+	/*
+	 * Use the CPUID instruction to serialize because the SERIALZE
+	 * instruction is not universally available.
+	 */
+	raw_cpuid(0, 0);
+}
 
 static inline void invlpg(volatile void *va)
 {

@@ -436,8 +436,7 @@ static int has_tscdeadline(void)
 
 static void tscdeadline_immed(void)
 {
-	wrmsr(MSR_IA32_TSCDEADLINE, rdtsc());
-	asm volatile("nop");
+	wrmsr_tscdeadline_serialize(rdtsc());
 }
 
 static void tscdeadline(void)
