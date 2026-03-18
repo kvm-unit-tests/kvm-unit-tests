@@ -17,13 +17,6 @@ static int invalid_mask;
 #define PT_BASE_ADDR_MASK ((pt_element_t)((((pt_element_t)1 << 36) - 1) & PAGE_MASK))
 #define PT_PSE_BASE_ADDR_MASK (PT_BASE_ADDR_MASK & ~(1ull << 21))
 
-#define PFERR_PRESENT_MASK (1U << 0)
-#define PFERR_WRITE_MASK (1U << 1)
-#define PFERR_USER_MASK (1U << 2)
-#define PFERR_RESERVED_MASK (1U << 3)
-#define PFERR_FETCH_MASK (1U << 4)
-#define PFERR_PK_MASK (1U << 5)
-
 #define MSR_EFER 0xc0000080
 #define EFER_NX_MASK            (1ull << 11)
 

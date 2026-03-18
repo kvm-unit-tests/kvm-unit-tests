@@ -19,6 +19,13 @@ typedef unsigned long pgd_t;
 
 #define PAGE_ALIGN(addr)        ALIGN(addr, PAGE_SIZE)
 
+#define PFERR_PRESENT_MASK (1ull << 0)
+#define PFERR_WRITE_MASK (1ull << 1)
+#define PFERR_USER_MASK (1ull << 2)
+#define PFERR_RESERVED_MASK (1ull << 3)
+#define PFERR_FETCH_MASK (1ull << 4)
+#define PFERR_PK_MASK (1ull << 5)
+
 #ifdef __x86_64__
 #define LARGE_PAGE_SIZE	(512 * PAGE_SIZE)
 #else
