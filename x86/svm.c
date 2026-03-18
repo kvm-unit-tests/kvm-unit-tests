@@ -200,7 +200,7 @@ void vmcb_ident(struct vmcb *vmcb)
 	ctrl->msrpm_base_pa = virt_to_phys(msr_bitmap);
 
 	if (npt_supported()) {
-		ctrl->nested_ctl = 1;
+		ctrl->nested_ctl = SVM_NESTED_ENABLE;
 		ctrl->nested_cr3 = (u64)pml4e;
 		ctrl->tlb_ctl = TLB_CONTROL_FLUSH_ALL_ASID;
 	}
