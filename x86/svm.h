@@ -418,6 +418,7 @@ u64 *npt_get_pte(u64 address);
 u64 *npt_get_pde(u64 address);
 u64 *npt_get_pdpe(u64 address);
 u64 *npt_get_pml4e(void);
+void npt_prepare_gmet_pte(bool user);
 bool smp_supported(void);
 bool default_supported(void);
 bool fep_supported(void);

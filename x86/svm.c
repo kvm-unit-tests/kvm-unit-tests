@@ -43,6 +43,23 @@ u64 *npt_get_pml4e(void)
 	return pml4e;
 }
 
+void npt_prepare_gmet_pte(bool user)
+{
+	extern u8 start;
+	u64 address = (u64)&start & ~(1 << 21);
+	u64 mask = user ? PT_USER_MASK : 0;
+	u64 *pte;
+	int i;
+
+
+	/* flip the U bit on the 2 MiB region where the code is loaded.
+	 * the U bit is only used for execution, therefore page table accesses ignore it
+	 */
+	pte = npt_get_pte(address);
+	for (i = 0; i < 512; i++)
+		pte[i] = (pte[i] & ~PT_USER_MASK) | mask;
+}
+
 bool smp_supported(void)
 {
 	return cpu_count() > 1;
