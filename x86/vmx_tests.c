@@ -1044,6 +1044,8 @@ static int insn_intercept_exit_handler(union exit_reason exit_reason)
  */
 static int __setup_ept(u64 hpa, bool enable_ad)
 {
+	u64 secondary;
+
 	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
 	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
 		printf("\tEPT is not supported\n");
@@ -1067,9 +1069,13 @@ static int __setup_ept(u64 hpa, bool enable_ad)
 	if (enable_ad)
 		eptp |= EPTP_AD_FLAG;
 
+	secondary = vmcs_read(CPU_EXEC_CTRL1) | CPU_EPT;
+	if (is_mbec_supported())
+		secondary |= CPU_MODE_BASED_EPT_EXEC;
+
 	vmcs_write(EPTP, eptp);
 	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0)| CPU_SECONDARY);
-	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1)| CPU_EPT);
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
 
 	return 0;
 }
@@ -2174,6 +2180,7 @@ do {									\
 	DIAGNOSE(EPT_VLT_PERM_RD);
 	DIAGNOSE(EPT_VLT_PERM_WR);
 	DIAGNOSE(EPT_VLT_PERM_EX);
+	DIAGNOSE(EPT_VLT_PERM_USER_EX);
 	DIAGNOSE(EPT_VLT_LADDR_VLD);
 	DIAGNOSE(EPT_VLT_PADDR);
 	DIAGNOSE(EPT_VLT_GUEST_USER);
@@ -2327,12 +2334,35 @@ static void ept_access_test_guest_flush_tlb(void)
 }
 
 /*
+ * Modifies the leaf guest page table entry that maps @gva, clearing the bits
+ * in @clear then setting the bits in @set.  This is needed when testing
+ * MBEC so that the processor knows whether to observe XS or XU.
+ */
+static void guest_page_table_twiddle(unsigned long *gva, unsigned long clear, unsigned long set)
+{
+	pgd_t *cr3 = current_page_table();
+	int i;
+
+	for (i = 1; i <= PAGE_LEVEL; i++) {
+		u64 *pte = get_pte_level(cr3, gva, i);
+		if (!pte)
+			continue;
+
+		TEST_ASSERT(*pte & PT_PRESENT_MASK);
+		*pte = (*pte & ~clear) | set;
+		break;
+	}
+	invlpg((void *)gva);
+}
+
+/*
  * Modifies the EPT entry at @level in the mapping of @gpa. First clears the
  * bits in @clear then sets the bits in @set. @mkhuge transforms the entry into
  * a huge page.
  */
 static unsigned long ept_twiddle(unsigned long gpa, bool mkhuge, int level,
-				 unsigned long clear, unsigned long set)
+				 unsigned long clear, unsigned long set,
+				 enum ept_access_op op)
 {
 	struct ept_access_test_data *data = &ept_access_test_data;
 	unsigned long orig_pte;
@@ -2347,15 +2377,27 @@ static unsigned long ept_twiddle(unsigned long gpa, bool mkhuge, int level,
 		pte = orig_pte;
 	pte = (pte & ~clear) | set;
 	set_ept_pte(pml4, gpa, level, pte);
-	invept(INVEPT_SINGLE, eptp);
 
+	if (is_mbec_supported() && op == OP_EXEC)
+		guest_page_table_twiddle(data->gva, PT_USER_MASK, 0);
+
+	invept(INVEPT_SINGLE, eptp);
 	return orig_pte;
 }
 
-static void ept_untwiddle(unsigned long gpa, int level, unsigned long orig_pte)
+static void ept_untwiddle(unsigned long gpa, int level, unsigned long orig_pte,
+			  enum ept_access_op op)
 {
+	unsigned long pte;
+
+	pte = get_ept_pte(pml4, gpa, level, &pte);
 	set_ept_pte(pml4, gpa, level, orig_pte);
 	invept(INVEPT_SINGLE, eptp);
+
+	if (is_mbec_supported() && op == OP_EXEC) {
+		struct ept_access_test_data *data = &ept_access_test_data;
+		guest_page_table_twiddle(data->gva, 0, PT_USER_MASK);
+	}
 }
 
 static void do_ept_violation(bool leaf, enum ept_access_op op,
@@ -2370,8 +2412,12 @@ static void do_ept_violation(bool leaf, enum ept_access_op op,
 
 	qual = vmcs_read(EXI_QUALIFICATION);
 
-	/* Mask undefined bits (which may later be defined in certain cases). */
-	qual &= ~(EPT_VLT_GUEST_MASK | EPT_VLT_PERM_USER_EX);
+	/*
+	 * Exit-qualifications are masked not to account for advanced
+	 * VM-exit information. KVM supports this feature, so the tests
+	 * could be enhanced to cover it.
+	 */
+	qual &= ~EPT_VLT_GUEST_MASK;
 
 	diagnose_ept_violation_qual(expected_qual, qual);
 	TEST_EXPECT_EQ(expected_qual, qual);
@@ -2397,14 +2443,14 @@ ept_violation_at_level_mkhuge(bool mkhuge, int level, unsigned long clear,
 	struct ept_access_test_data *data = &ept_access_test_data;
 	unsigned long orig_pte;
 
-	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
+	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set, op);
 
 	do_ept_violation(level == 1 || mkhuge, op, expected_qual,
 			 (op == OP_EXEC || op == OP_EXEC_USER
 			  ? data->gpa + sizeof(unsigned long) : data->gpa));
 
 	/* Fix the violation and resume the op loop. */
-	ept_untwiddle(data->gpa, level, orig_pte);
+	ept_untwiddle(data->gpa, level, orig_pte, op);
 	enter_guest();
 	skip_exit_vmcall();
 }
@@ -2502,12 +2548,12 @@ static void ept_access_paddr(unsigned long ept_access, unsigned long pte_ad,
 	 */
 	install_ept(pml4, gpa, gpa, EPT_PRESENT);
 	orig_epte = ept_twiddle(gpa, /*mkhuge=*/0, /*level=*/1,
-				/*clear=*/EPT_PRESENT, /*set=*/ept_access);
+				/*clear=*/EPT_PRESENT, /*set=*/ept_access, op);
 
 	if (expect_violation) {
 		do_ept_violation(/*leaf=*/true, op,
 				 expected_qual | EPT_VLT_LADDR_VLD, gpa);
-		ept_untwiddle(gpa, /*level=*/1, orig_epte);
+		ept_untwiddle(gpa, /*level=*/1, orig_epte, op);
 		do_ept_access_op(op);
 	} else {
 		do_ept_access_op(op);
@@ -2522,7 +2568,7 @@ static void ept_access_paddr(unsigned long ept_access, unsigned long pte_ad,
 			}
 		}
 
-		ept_untwiddle(gpa, /*level=*/1, orig_epte);
+		ept_untwiddle(gpa, /*level=*/1, orig_epte, op);
 	}
 
 	TEST_ASSERT(*ptep & PT_ACCESSED_MASK);
@@ -2558,13 +2604,13 @@ static void ept_allowed_at_level_mkhuge(bool mkhuge, int level,
 	struct ept_access_test_data *data = &ept_access_test_data;
 	unsigned long orig_pte;
 
-	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
+	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set, op);
 
 	/* No violation. Should proceed to vmcall. */
 	do_ept_access_op(op);
 	skip_exit_vmcall();
 
-	ept_untwiddle(data->gpa, level, orig_pte);
+	ept_untwiddle(data->gpa, level, orig_pte, op);
 }
 
 static void ept_allowed_at_level(int level, unsigned long clear,
@@ -2613,7 +2659,7 @@ static void ept_misconfig_at_level_mkhuge_op(bool mkhuge, int level,
 	struct ept_access_test_data *data = &ept_access_test_data;
 	unsigned long orig_pte;
 
-	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
+	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set, op);
 
 	do_ept_access_op(op);
 	assert_exit_reason(VMX_EPT_MISCONFIG);
@@ -2637,7 +2683,7 @@ static void ept_misconfig_at_level_mkhuge_op(bool mkhuge, int level,
 	#endif
 
 	/* Fix the violation and resume the op loop. */
-	ept_untwiddle(data->gpa, level, orig_pte);
+	ept_untwiddle(data->gpa, level, orig_pte, op);
 	enter_guest();
 	skip_exit_vmcall();
 }
@@ -2867,7 +2913,12 @@ static void ept_access_test_execute_only(void)
 		ept_access_violation(EPT_EA, OP_WRITE,
 				     EPT_VLT_WR | EPT_VLT_PERM_EX);
 		ept_access_allowed(EPT_EA, OP_EXEC);
-		ept_access_allowed(EPT_EA, OP_EXEC_USER);
+		if (is_mbec_supported())
+			ept_access_violation(EPT_EA, OP_EXEC_USER,
+					     EPT_VLT_FETCH |
+					     EPT_VLT_PERM_EX);
+		else
+			ept_access_allowed(EPT_EA, OP_EXEC_USER);
 	} else {
 		ept_access_misconfig(EPT_EA);
 	}
@@ -2881,7 +2932,11 @@ static void ept_access_test_read_execute(void)
 	ept_access_violation(EPT_RA | EPT_EA, OP_WRITE,
 			     EPT_VLT_WR | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX);
 	ept_access_allowed(EPT_RA | EPT_EA, OP_EXEC);
-	ept_access_allowed(EPT_RA | EPT_EA, OP_EXEC_USER);
+	if (is_mbec_supported())
+		ept_access_violation(EPT_RA | EPT_EA, OP_EXEC_USER,
+				     EPT_VLT_FETCH | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX);
+	else
+		ept_access_allowed(EPT_RA | EPT_EA, OP_EXEC_USER);
 }
 
 static void ept_access_test_write_execute(void)
@@ -2898,7 +2953,12 @@ static void ept_access_test_read_write_execute(void)
 	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_READ);
 	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_WRITE);
 	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_EXEC);
-	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_EXEC_USER);
+	if (is_mbec_supported())
+		ept_access_violation(EPT_RA | EPT_WA | EPT_EA, OP_EXEC_USER,
+				     EPT_VLT_FETCH | EPT_VLT_PERM_RD |
+				     EPT_VLT_PERM_WR | EPT_VLT_PERM_EX);
+	else
+		ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_EXEC_USER);
 }
 
 static void ept_access_test_reserved_bits(void)
@@ -2955,7 +3015,8 @@ static void ept_access_test_ignored_bits(void)
 	 */
 	ept_ignored_bit(8);
 	ept_ignored_bit(9);
-	ept_ignored_bit(10);
+	if (!is_mbec_supported())
+		ept_ignored_bit(10);
 	ept_ignored_bit(11);
 	ept_ignored_bit(52);
 	ept_ignored_bit(53);
@@ -4886,7 +4947,7 @@ static void test_ept_eptp(void)
 		report_prefix_pop();
 	}
 
-	secondary &= ~(CPU_EPT | CPU_URG);
+	secondary &= ~(CPU_URG | CPU_EPT | CPU_MODE_BASED_EPT_EXEC);
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("Enable-EPT disabled, unrestricted-guest disabled");
 	test_vmx_valid_controls();
@@ -5008,7 +5069,7 @@ static void test_pml(void)
 
 	primary |= CPU_SECONDARY;
 	vmcs_write(CPU_EXEC_CTRL0, primary);
-	secondary &= ~(CPU_PML | CPU_EPT);
+	secondary &= ~(CPU_PML | CPU_EPT | CPU_MODE_BASED_EPT_EXEC);
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("enable-PML disabled, enable-EPT disabled");
 	test_vmx_valid_controls();

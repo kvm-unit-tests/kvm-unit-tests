@@ -672,11 +672,14 @@ enum vm_entry_failure_code {
 #define EPT_LARGE_PAGE		(1ul << 7)
 #define EPT_ACCESS_FLAG		(1ul << 8)
 #define EPT_DIRTY_FLAG		(1ul << 9)
+#define EPT_EA_USER		(1ul << 10)
 #define EPT_MEM_TYPE_SHIFT	3ul
 #define EPT_MEM_TYPE_MASK	0x7ul
 #define EPT_SUPPRESS_VE		(1ull << 63)
 
-#define EPT_PRESENT		(EPT_RA | EPT_WA | EPT_EA)
+#define EPT_PRESENT		(is_mbec_supported() ? \
+				 (EPT_RA | EPT_WA | EPT_EA | EPT_EA_USER) : \
+				 (EPT_RA | EPT_WA | EPT_EA))
 
 #define EPT_CAP_EXEC_ONLY	(1ull << 0)
 #define EPT_CAP_PWL4		(1ull << 6)
