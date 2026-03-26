@@ -2285,6 +2285,7 @@ enum ept_access_op {
 	OP_READ,
 	OP_WRITE,
 	OP_EXEC,
+	OP_EXEC_USER,
 	OP_FLUSH_TLB,
 	OP_EXIT,
 };
@@ -2399,8 +2400,8 @@ ept_violation_at_level_mkhuge(bool mkhuge, int level, unsigned long clear,
 	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
 
 	do_ept_violation(level == 1 || mkhuge, op, expected_qual,
-			 op == OP_EXEC ? data->gpa + sizeof(unsigned long) :
-					 data->gpa);
+			 (op == OP_EXEC || op == OP_EXEC_USER
+			  ? data->gpa + sizeof(unsigned long) : data->gpa));
 
 	/* Fix the violation and resume the op loop. */
 	ept_untwiddle(data->gpa, level, orig_pte);
@@ -2589,11 +2590,13 @@ static void ept_ignored_bit(int bit)
 	ept_allowed(0, 1ul << bit, OP_READ);
 	ept_allowed(0, 1ul << bit, OP_WRITE);
 	ept_allowed(0, 1ul << bit, OP_EXEC);
+	ept_allowed(0, 1ul << bit, OP_EXEC_USER);
 
 	/* Clear the bit. */
 	ept_allowed(1ul << bit, 0, OP_READ);
 	ept_allowed(1ul << bit, 0, OP_WRITE);
 	ept_allowed(1ul << bit, 0, OP_EXEC);
+	ept_allowed(1ul << bit, 0, OP_EXEC_USER);
 }
 
 static void ept_access_allowed(unsigned long access, enum ept_access_op op)
@@ -2726,10 +2729,20 @@ static void ept_access_test_teardown(void *unused)
 	do_ept_access_op(OP_EXIT);
 }
 
+static u64 exec_user_on_gva(void)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	int (*code)(void) = (int (*)(void)) &data->gva[1];
+
+	return code();
+}
+
 static void ept_access_test_guest(void)
 {
 	struct ept_access_test_data *data = &ept_access_test_data;
 	int (*code)(void) = (int (*)(void)) &data->gva[1];
+	bool unused;
+	u64 ret_val;
 
 	while (true) {
 		switch (data->op) {
@@ -2743,6 +2756,11 @@ static void ept_access_test_guest(void)
 			break;
 		case OP_EXEC:
 			TEST_ASSERT_EQ(42, code());
+			break;
+		case OP_EXEC_USER:
+			ret_val = run_in_user(exec_user_on_gva, DE_VECTOR, // no exceptions
+					      0, 0, 0, 0, &unused);
+			TEST_ASSERT_EQ(42, ret_val);
 			break;
 		case OP_FLUSH_TLB:
 			write_cr3(read_cr3());
@@ -2803,6 +2821,7 @@ static void ept_access_test_not_present(void)
 	ept_access_violation(0, OP_READ, EPT_VLT_RD);
 	ept_access_violation(0, OP_WRITE, EPT_VLT_WR);
 	ept_access_violation(0, OP_EXEC, EPT_VLT_FETCH);
+	ept_access_violation(0, OP_EXEC_USER, EPT_VLT_FETCH);
 }
 
 static void ept_access_test_read_only(void)
@@ -2813,6 +2832,7 @@ static void ept_access_test_read_only(void)
 	ept_access_allowed(EPT_RA, OP_READ);
 	ept_access_violation(EPT_RA, OP_WRITE, EPT_VLT_WR | EPT_VLT_PERM_RD);
 	ept_access_violation(EPT_RA, OP_EXEC, EPT_VLT_FETCH | EPT_VLT_PERM_RD);
+	ept_access_violation(EPT_RA, OP_EXEC_USER, EPT_VLT_FETCH | EPT_VLT_PERM_RD);
 }
 
 static void ept_access_test_write_only(void)
@@ -2829,7 +2849,11 @@ static void ept_access_test_read_write(void)
 	ept_access_allowed(EPT_RA | EPT_WA, OP_READ);
 	ept_access_allowed(EPT_RA | EPT_WA, OP_WRITE);
 	ept_access_violation(EPT_RA | EPT_WA, OP_EXEC,
-			   EPT_VLT_FETCH | EPT_VLT_PERM_RD | EPT_VLT_PERM_WR);
+			     EPT_VLT_FETCH | EPT_VLT_PERM_RD |
+			     EPT_VLT_PERM_WR);
+	ept_access_violation(EPT_RA | EPT_WA, OP_EXEC_USER,
+			     EPT_VLT_FETCH | EPT_VLT_PERM_RD |
+			     EPT_VLT_PERM_WR);
 }
 
 
@@ -2843,6 +2867,7 @@ static void ept_access_test_execute_only(void)
 		ept_access_violation(EPT_EA, OP_WRITE,
 				     EPT_VLT_WR | EPT_VLT_PERM_EX);
 		ept_access_allowed(EPT_EA, OP_EXEC);
+		ept_access_allowed(EPT_EA, OP_EXEC_USER);
 	} else {
 		ept_access_misconfig(EPT_EA);
 	}
@@ -2854,8 +2879,9 @@ static void ept_access_test_read_execute(void)
 	/* r-x */
 	ept_access_allowed(EPT_RA | EPT_EA, OP_READ);
 	ept_access_violation(EPT_RA | EPT_EA, OP_WRITE,
-			   EPT_VLT_WR | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX);
+			     EPT_VLT_WR | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX);
 	ept_access_allowed(EPT_RA | EPT_EA, OP_EXEC);
+	ept_access_allowed(EPT_RA | EPT_EA, OP_EXEC_USER);
 }
 
 static void ept_access_test_write_execute(void)
@@ -2872,6 +2898,7 @@ static void ept_access_test_read_write_execute(void)
 	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_READ);
 	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_WRITE);
 	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_EXEC);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_EXEC_USER);
 }
 
 static void ept_access_test_reserved_bits(void)
@@ -2952,6 +2979,7 @@ static void ept_access_test_paddr_not_present_ad_disabled(void)
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_READ, EPT_VLT_RD);
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_WRITE, EPT_VLT_RD);
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC, EPT_VLT_RD);
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC_USER, EPT_VLT_RD);
 }
 
 static void ept_access_test_paddr_not_present_ad_enabled(void)
@@ -2964,6 +2992,7 @@ static void ept_access_test_paddr_not_present_ad_enabled(void)
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_READ, qual);
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC_USER, qual);
 }
 
 static void ept_access_test_paddr_read_only_ad_disabled(void)
@@ -2983,14 +3012,17 @@ static void ept_access_test_paddr_read_only_ad_disabled(void)
 	ept_access_violation_paddr(EPT_RA, 0, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA, 0, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA, 0, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA, 0, OP_EXEC_USER, qual);
 	/* AD bits disabled, so only writes try to update the D bit. */
 	ept_access_allowed_paddr(EPT_RA, PT_ACCESSED_MASK, OP_READ);
 	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_WRITE, qual);
 	ept_access_allowed_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC_USER);
 	/* Both A and D already set, so read-only is OK. */
 	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_READ);
 	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_WRITE);
 	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_EXEC_USER);
 }
 
 static void ept_access_test_paddr_read_only_ad_enabled(void)
@@ -3008,12 +3040,15 @@ static void ept_access_test_paddr_read_only_ad_enabled(void)
 	ept_access_violation_paddr(EPT_RA, 0, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA, 0, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA, 0, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA, 0, OP_EXEC_USER, qual);
 	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC_USER, qual);
 	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_EXEC_USER, qual);
 }
 
 static void ept_access_test_paddr_read_write(void)
@@ -3023,6 +3058,7 @@ static void ept_access_test_paddr_read_write(void)
 	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_READ);
 	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_WRITE);
 	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_EXEC_USER);
 }
 
 static void ept_access_test_paddr_read_write_execute(void)
@@ -3032,6 +3068,7 @@ static void ept_access_test_paddr_read_write_execute(void)
 	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_READ);
 	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_WRITE);
 	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_EXEC_USER);
 }
 
 static void ept_access_test_paddr_read_execute_ad_disabled(void)
@@ -3051,14 +3088,17 @@ static void ept_access_test_paddr_read_execute_ad_disabled(void)
 	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC_USER, qual);
 	/* AD bits disabled, so only writes try to update the D bit. */
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_READ);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_WRITE, qual);
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_EXEC_USER);
 	/* Both A and D already set, so read-only is OK. */
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_READ);
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_WRITE);
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC_USER);
 }
 
 static void ept_access_test_paddr_read_execute_ad_enabled(void)
@@ -3076,12 +3116,15 @@ static void ept_access_test_paddr_read_execute_ad_enabled(void)
 	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC_USER, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_EXEC_USER, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC_USER, qual);
 }
 
 static void ept_access_test_paddr_not_present_page_fault(void)
