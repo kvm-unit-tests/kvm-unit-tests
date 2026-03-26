@@ -510,6 +510,7 @@ enum Ctrl1 {
 	CPU_SHADOW_VMCS		= 1ul << 14,
 	CPU_RDSEED		= 1ul << 16,
 	CPU_PML                 = 1ul << 17,
+	CPU_MODE_BASED_EPT_EXEC = 1ul << 22,
 	CPU_USE_TSC_SCALING	= 1ul << 25,
 };
 
@@ -841,6 +842,13 @@ static inline bool is_invvpid_type_supported(unsigned long type)
 		return false;
 
 	return ept_vpid.val & (VPID_CAP_INVVPID_ADDR << (type - INVVPID_ADDR));
+}
+
+static inline bool is_mbec_supported(void)
+{
+	return (ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
+	       (ctrl_cpu_rev[1].clr & CPU_EPT) &&
+	       (ctrl_cpu_rev[1].clr & CPU_MODE_BASED_EPT_EXEC);
 }
 
 extern u64 *bsp_vmxon_region;
