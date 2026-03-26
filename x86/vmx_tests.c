@@ -2924,6 +2924,54 @@ static void ept_access_test_execute_only(void)
 	}
 }
 
+static void ept_access_test_execute_user_only(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* --x (exec user only) */
+	if (ept_execute_only_supported()) {
+		ept_access_violation(EPT_EA_USER, OP_READ,
+				     EPT_VLT_RD |
+				     EPT_VLT_PERM_USER_EX);
+		ept_access_violation(EPT_EA_USER, OP_WRITE,
+				     EPT_VLT_WR |
+				     EPT_VLT_PERM_USER_EX);
+		ept_access_violation(EPT_EA_USER, OP_EXEC,
+				     EPT_VLT_FETCH |
+				     EPT_VLT_PERM_USER_EX);
+		ept_access_allowed(EPT_EA_USER, OP_EXEC_USER);
+	} else {
+		ept_access_misconfig(EPT_EA_USER);
+	}
+}
+
+static void ept_access_test_execute_both(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* --x (both XS and XU) */
+	if (ept_execute_only_supported()) {
+		ept_access_violation(EPT_EA | EPT_EA_USER, OP_READ,
+				     EPT_VLT_RD | EPT_VLT_PERM_EX |
+				     EPT_VLT_PERM_USER_EX);
+		ept_access_violation(EPT_EA | EPT_EA_USER, OP_WRITE,
+				     EPT_VLT_WR | EPT_VLT_PERM_EX |
+				     EPT_VLT_PERM_USER_EX);
+		ept_access_allowed(EPT_EA | EPT_EA_USER, OP_EXEC);
+		ept_access_allowed(EPT_EA | EPT_EA_USER, OP_EXEC_USER);
+	} else {
+		ept_access_misconfig(EPT_EA | EPT_EA_USER);
+	}
+}
+
 static void ept_access_test_read_execute(void)
 {
 	ept_access_test_setup();
@@ -2934,10 +2982,48 @@ static void ept_access_test_read_execute(void)
 	ept_access_allowed(EPT_RA | EPT_EA, OP_EXEC);
 	if (is_mbec_supported())
 		ept_access_violation(EPT_RA | EPT_EA, OP_EXEC_USER,
-				     EPT_VLT_FETCH | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX);
+				     EPT_VLT_FETCH | EPT_VLT_PERM_RD |
+				     EPT_VLT_PERM_EX);
 	else
 		ept_access_allowed(EPT_RA | EPT_EA, OP_EXEC_USER);
 }
+
+static void ept_access_test_read_execute_user_only(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* r-x (exec user only) */
+	ept_access_allowed(EPT_RA | EPT_EA_USER, OP_READ);
+	ept_access_violation(EPT_RA | EPT_EA_USER, OP_WRITE,
+			     EPT_VLT_WR | EPT_VLT_PERM_RD |
+			     EPT_VLT_PERM_USER_EX);
+	ept_access_violation(EPT_RA | EPT_EA_USER, OP_EXEC,
+			     EPT_VLT_FETCH | EPT_VLT_PERM_RD |
+			     EPT_VLT_PERM_USER_EX);
+	ept_access_allowed(EPT_RA | EPT_EA_USER, OP_EXEC_USER);
+}
+
+static void ept_access_test_read_execute_both(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* r-x (both XS and XU) */
+	ept_access_allowed(EPT_RA | EPT_EA | EPT_EA_USER, OP_READ);
+	ept_access_violation(EPT_RA | EPT_EA | EPT_EA_USER, OP_WRITE,
+			     EPT_VLT_WR | EPT_VLT_PERM_RD |
+			     EPT_VLT_PERM_EX | EPT_VLT_PERM_USER_EX);
+	ept_access_allowed(EPT_RA | EPT_EA | EPT_EA_USER, OP_EXEC);
+	ept_access_allowed(EPT_RA | EPT_EA | EPT_EA_USER, OP_EXEC_USER);
+}
+
 
 static void ept_access_test_write_execute(void)
 {
@@ -2959,6 +3045,37 @@ static void ept_access_test_read_write_execute(void)
 				     EPT_VLT_PERM_WR | EPT_VLT_PERM_EX);
 	else
 		ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_EXEC_USER);
+}
+
+static void ept_access_test_read_write_execute_user_only(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* rwx (exec user only) */
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA_USER, OP_READ);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA_USER, OP_WRITE);
+	ept_access_violation(EPT_RA | EPT_WA | EPT_EA_USER, OP_EXEC,
+			     EPT_VLT_FETCH | EPT_VLT_PERM_RD | EPT_VLT_PERM_WR | EPT_VLT_PERM_USER_EX);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA_USER, OP_EXEC_USER);
+}
+
+static void ept_access_test_read_write_execute_both(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* rwx (both XS and XU) */
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA | EPT_EA_USER, OP_READ);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA | EPT_EA_USER, OP_WRITE);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA | EPT_EA_USER, OP_EXEC);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA | EPT_EA_USER, OP_EXEC_USER);
 }
 
 static void ept_access_test_reserved_bits(void)
@@ -11723,9 +11840,15 @@ struct vmx_test vmx_tests[] = {
 	TEST(ept_access_test_write_only),
 	TEST(ept_access_test_read_write),
 	TEST(ept_access_test_execute_only),
+	TEST(ept_access_test_execute_user_only),
+	TEST(ept_access_test_execute_both),
 	TEST(ept_access_test_read_execute),
+	TEST(ept_access_test_read_execute_user_only),
+	TEST(ept_access_test_read_execute_both),
 	TEST(ept_access_test_write_execute),
 	TEST(ept_access_test_read_write_execute),
+	TEST(ept_access_test_read_write_execute_user_only),
+	TEST(ept_access_test_read_write_execute_both),
 	TEST(ept_access_test_reserved_bits),
 	TEST(ept_access_test_ignored_bits),
 	TEST(ept_access_test_paddr_not_present_ad_disabled),
