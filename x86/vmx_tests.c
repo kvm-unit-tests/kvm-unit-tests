@@ -2157,13 +2157,46 @@ static int exit_monitor_from_l2_handler(union exit_reason exit_reason)
 	return VMX_TEST_EXIT;
 }
 
+static void
+diagnose_ept_violation_qual(u64 expected, u64 actual)
+{
+
+#define DIAGNOSE(flag)							\
+do {									\
+	if ((expected & flag) != (actual & flag))			\
+		printf(#flag " %sexpected\n",				\
+		       (expected & flag) ? "" : "un");			\
+} while (0)
+
+	DIAGNOSE(EPT_VLT_RD);
+	DIAGNOSE(EPT_VLT_WR);
+	DIAGNOSE(EPT_VLT_FETCH);
+	DIAGNOSE(EPT_VLT_PERM_RD);
+	DIAGNOSE(EPT_VLT_PERM_WR);
+	DIAGNOSE(EPT_VLT_PERM_EX);
+	DIAGNOSE(EPT_VLT_LADDR_VLD);
+	DIAGNOSE(EPT_VLT_PADDR);
+	DIAGNOSE(EPT_VLT_GUEST_USER);
+	DIAGNOSE(EPT_VLT_GUEST_RW);
+	DIAGNOSE(EPT_VLT_GUEST_NX);
+
+#undef DIAGNOSE
+}
+
 static void assert_exit_reason(u64 expected)
 {
 	u64 actual = vmcs_read(EXI_REASON);
 
-	TEST_ASSERT_EQ_MSG(expected, actual, "Expected %s, got %s.",
-			   exit_reason_description(expected),
-			   exit_reason_description(actual));
+        __TEST_EQ(expected, actual, "expected", "actual", 1, {
+		printf("guest linear address %lx\n", vmcs_read(GUEST_LINEAR_ADDRESS));
+		if (actual == VMX_EPT_VIOLATION) {
+			u64 qual = vmcs_read(EXI_QUALIFICATION);
+			diagnose_ept_violation_qual(0, qual);
+		}
+		__abort_test();
+	}, "Expected %s, got %s.",
+		   exit_reason_description(expected),
+		   exit_reason_description(actual));
 }
 
 static void skip_exit_insn(void)
@@ -2276,29 +2309,6 @@ asm(
 	"ret42_end:\n"
 );
 
-static void
-diagnose_ept_violation_qual(u64 expected, u64 actual)
-{
-
-#define DIAGNOSE(flag)							\
-do {									\
-	if ((expected & flag) != (actual & flag))			\
-		printf(#flag " %sexpected\n",				\
-		       (expected & flag) ? "" : "un");			\
-} while (0)
-
-	DIAGNOSE(EPT_VLT_RD);
-	DIAGNOSE(EPT_VLT_WR);
-	DIAGNOSE(EPT_VLT_FETCH);
-	DIAGNOSE(EPT_VLT_PERM_RD);
-	DIAGNOSE(EPT_VLT_PERM_WR);
-	DIAGNOSE(EPT_VLT_PERM_EX);
-	DIAGNOSE(EPT_VLT_LADDR_VLD);
-	DIAGNOSE(EPT_VLT_PADDR);
-
-#undef DIAGNOSE
-}
-
 static void do_ept_access_op(enum ept_access_op op)
 {
 	ept_access_test_data.op = op;
@@ -2360,8 +2370,7 @@ static void do_ept_violation(bool leaf, enum ept_access_op op,
 	qual = vmcs_read(EXI_QUALIFICATION);
 
 	/* Mask undefined bits (which may later be defined in certain cases). */
-	qual &= ~(EPT_VLT_GUEST_USER | EPT_VLT_GUEST_RW | EPT_VLT_GUEST_EX |
-		 EPT_VLT_PERM_USER_EX);
+	qual &= ~(EPT_VLT_GUEST_MASK | EPT_VLT_PERM_USER_EX);
 
 	diagnose_ept_violation_qual(expected_qual, qual);
 	TEST_EXPECT_EQ(expected_qual, qual);

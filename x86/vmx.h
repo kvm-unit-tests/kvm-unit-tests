@@ -37,9 +37,9 @@ do {								\
 	report_passed();					\
 } while (0)
 
-#define TEST_ASSERT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 1, __abort_test, "")
+#define TEST_ASSERT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 1, __abort_test(), "")
 #define TEST_ASSERT_EQ_MSG(a, b, fmt, args...) \
-	__TEST_EQ(a, b, #a, #b, 1, __abort_test, fmt, ## args)
+	__TEST_EQ(a, b, #a, #b, 1, __abort_test(), fmt, ## args)
 
 struct vmcs_hdr {
 	u32 revision_id:31;
@@ -718,9 +718,9 @@ enum vm_entry_failure_code {
 #define EPT_VLT_PADDR		(1ull << 8)
 #define EPT_VLT_GUEST_USER	(1ull << 9)
 #define EPT_VLT_GUEST_RW	(1ull << 10)
-#define EPT_VLT_GUEST_EX	(1ull << 11)
+#define EPT_VLT_GUEST_NX	(1ull << 11)
 #define EPT_VLT_GUEST_MASK	(EPT_VLT_GUEST_USER | EPT_VLT_GUEST_RW | \
-				 EPT_VLT_GUEST_EX)
+				 EPT_VLT_GUEST_NX)
 
 #define MAGIC_VAL_1		0x12345678ul
 #define MAGIC_VAL_2		0x87654321ul

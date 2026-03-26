@@ -41,17 +41,13 @@ do {											\
 			    (unsigned long) _b, _bin_b, (unsigned long) _b,		\
 			    fmt[0] == '\0' ? "" : "\n", ## args);			\
 		dump_stack();								\
-		if (assertion)								\
-			do_abort();							\
+		if (assertion) { do_abort; }						\
 	}										\
 	report_passed();								\
 } while (0)
 
-/* FIXME: Extend VMX's assert/abort framework to SVM and other environs. */
-static inline void dummy_abort(void) {}
-
-#define TEST_EXPECT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 0, dummy_abort, "")
+#define TEST_EXPECT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 0, , "")
 #define TEST_EXPECT_EQ_MSG(a, b, fmt, args...) \
-	__TEST_EQ(a, b, #a, #b, 0, dummy_abort fmt, ## args)
+	__TEST_EQ(a, b, #a, #b, 0, fmt, ## args)
 
 #endif
