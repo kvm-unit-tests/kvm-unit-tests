@@ -1,8 +1,8 @@
-image: fedora:40
+image: fedora:43
 
 before_script:
  - dnf update -y
- - dnf install -y make python
+ - dnf install -y make python procps-ng
 
 # By default artifacts are only saved on success. This uses when:always
 # because the test logs are important to help diagnose failures.
@@ -40,6 +40,9 @@ build-aarch64:
       gicv3-ipi
       its-introspection
       its-trigger
+      mte-asymm
+      mte-async
+      mte-sync
       pci-test
       pmu-cycle-counter
       pmu-event-counter-config
@@ -54,6 +57,7 @@ build-aarch64:
 
 build-aarch64-efi:
  extends: .intree_template
+ image: fedora:41
  script:
  - dnf install -y qemu-system-aarch64 gcc-aarch64-linux-gnu edk2-aarch64
  - ./configure --arch=aarch64 --cross-prefix=aarch64-linux-gnu- --enable-efi --enable-efi-direct
@@ -68,6 +72,7 @@ build-aarch64-efi:
 
 build-aarch64-efi-acpi:
  extends: .intree_template
+ image: fedora:41
  script:
  - dnf install -y qemu-system-aarch64 gcc-aarch64-linux-gnu edk2-aarch64
  - ./configure --arch=aarch64 --cross-prefix=aarch64-linux-gnu- --enable-efi --enable-efi-direct
@@ -100,6 +105,9 @@ build-aarch64-clang:
       gicv3-ipi
       its-introspection
       its-trigger
+      mte-asymm
+      mte-async
+      mte-sync
       pci-test
       pmu-cycle-counter
       pmu-event-counter-config
@@ -114,6 +122,7 @@ build-aarch64-clang:
 
 build-aarch64-clang-efi:
  extends: .intree_template
+ image: fedora:41
  script:
  - dnf install -y edk2-aarch64 qemu-system-aarch64 gcc-aarch64-linux-gnu clang
  - ./configure --arch=arm64 --cc=clang --cflags='--target=aarch64' --cross-prefix=aarch64-linux-gnu- --enable-efi --enable-efi-direct
@@ -128,6 +137,7 @@ build-aarch64-clang-efi:
 
 build-aarch64-el2:
  extends: .intree_template
+ image: fedora:41
  script:
  - dnf install -y qemu-system-aarch64 gcc-aarch64-linux-gnu
  - ./configure --arch=aarch64 --cross-prefix=aarch64-linux-gnu-
@@ -144,6 +154,9 @@ build-aarch64-el2:
       gicv3-ipi
       its-introspection
       its-trigger
+      mte-asymm
+      mte-async
+      mte-sync
       pci-test
       pmu-cycle-counter
       pmu-event-counter-config
@@ -152,6 +165,7 @@ build-aarch64-el2:
       selftest-smp
       selftest-vectors-kernel
       selftest-vectors-user
+      timer
       | tee results.txt
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
 
@@ -179,14 +193,24 @@ build-ppc64be:
  - ../configure --arch=ppc64 --endian=big --cross-prefix=powerpc64-linux-gnu-
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-      selftest-setup
-      selftest-migration
-      selftest-migration-skip
-      spapr_hcall
+      atomics
+      emulator
+      interrupts
+      mmu
       rtas-get-time-of-day
       rtas-get-time-of-day-base
       rtas-set-time-of-day
-      emulator
+      selftest-migration
+      selftest-migration-skip
+      selftest-setup
+      sieve
+      smp
+      smp-smt
+      spapr_hcall
+      spapr_vpa
+      sprs
+      timebase
+      timebase-icount
       | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
@@ -197,14 +221,24 @@ build-ppc64le:
  - ./configure --arch=ppc64 --endian=little --cross-prefix=powerpc64-linux-gnu-
  - make -j2
  - ACCEL=tcg ./run_tests.sh
-      selftest-setup
-      selftest-migration
-      selftest-migration-skip
-      spapr_hcall
+      atomics
+      emulator
+      interrupts
+      mmu
       rtas-get-time-of-day
       rtas-get-time-of-day-base
       rtas-set-time-of-day
-      emulator
+      selftest-migration
+      selftest-migration-skip
+      selftest-setup
+      sieve
+      smp
+      smp-smt
+      spapr_hcall
+      spapr_vpa
+      sprs
+      timebase
+      timebase-icount
       | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
@@ -238,6 +272,7 @@ build-riscv64:
 
 build-riscv64-efi:
  extends: .intree_template
+ image: fedora:41
  script:
  - dnf install -y edk2-riscv64 qemu-system-riscv gcc-riscv64-linux-gnu
  - cp /usr/share/edk2/riscv/RISCV_VIRT_CODE.fd .
@@ -281,6 +316,7 @@ build-riscv64-clang:
 
 build-riscv64-clang-efi:
  extends: .intree_template
+ image: fedora:41
  script:
  - dnf install -y edk2-riscv64 qemu-system-riscv gcc-riscv64-linux-gnu clang
  - cp /usr/share/edk2/riscv/RISCV_VIRT_CODE.fd .
@@ -313,6 +349,7 @@ build-s390x:
       edat
       emulator
       epsw
+      execute
       exittime
       firq-linear-cpu-ids-tcg
       firq-nonlinear-cpu-ids-tcg
@@ -325,6 +362,7 @@ build-s390x:
       selftest-setup
       sieve
       smp
+      spec_ex
       stsi
       tprot
       vector
@@ -340,13 +378,14 @@ build-x86_64:
  - ACCEL=tcg ./run_tests.sh
       eventinj
       intel_iommu
-      ioapic-split
+      ioapic
       memory
       pks
       pku
       rdpru
       realmode
       rmap_chain
+      s3
       setjmp
       sieve
       smap
@@ -366,6 +405,7 @@ build-x86_64:
       vmexit_ple_round_robin
       vmexit_tscdeadline
       vmexit_tscdeadline_immed
+      xsave
       | tee results.txt
  - if grep -q FAIL results.txt ; then exit 1 ; fi
 
@@ -380,7 +420,9 @@ build-i386:
  - ACCEL=tcg ./run_tests.sh
       cmpxchg8b
       eventinj
+      la57
       realmode
+      s3
       setjmp
       sieve
       smap
@@ -412,7 +454,7 @@ build-clang:
  - ACCEL=tcg ./run_tests.sh
       eventinj
       intel_iommu
-      ioapic-split
+      ioapic
       memory
       pks
       pku
