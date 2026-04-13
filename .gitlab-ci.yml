@@ -488,7 +488,101 @@ build-centos8:
  - if grep -q FAIL results.txt ; then exit 1 ; fi
  - grep -q PASS results.txt && ! grep -q FAIL results.txt
 
-# Cirrus-CI provides containers with macOS and Linux with KVM enabled,
+build-macos-i386:
+ extends: .outoftree_template
+ tags:
+ - saas-macos-medium-m1
+ image: macos-26-xcode-26
+ rules:
+ - if: $CI_PROJECT_NAMESPACE == "kvm-unit-tests"
+ before_script:
+ - brew update
+ - brew install coreutils bash git gnu-getopt make qemu i686-elf-gcc
+ script:
+ - export PATH="/opt/homebrew/opt/gnu-getopt/bin:$PATH"
+ - mkdir build
+ - cd build
+ - ../configure --arch=i386 --cross-prefix=i686-elf-
+ - gmake -j$(sysctl -n hw.ncpu)
+ - ACCEL=tcg ./run_tests.sh
+      cmpxchg8b
+      eventinj
+      la57
+      realmode
+      s3
+      setjmp
+      sieve
+      smap
+      smptest
+      smptest3
+      taskswitch
+      tsc
+      umip
+      vmexit_cpuid
+      vmexit_cr0_wp
+      vmexit_cr4_pge
+      vmexit_inl_pmtimer
+      vmexit_ipi
+      vmexit_ipi_halt
+      vmexit_mov_from_cr8
+      vmexit_mov_to_cr8
+      vmexit_ple_round_robin
+      vmexit_tscdeadline
+      vmexit_tscdeadline_immed
+      | tee results.txt
+ - grep -q PASS results.txt && ! grep -q FAIL results.txt
+
+build-macos-x86-64:
+ extends: .outoftree_template
+ tags:
+ - saas-macos-medium-m1
+ image: macos-26-xcode-26
+ rules:
+ - if: $CI_PROJECT_NAMESPACE == "kvm-unit-tests"
+ before_script:
+ - brew update
+ - brew install coreutils bash git gnu-getopt make qemu x86_64-elf-gcc
+ script:
+ - export PATH="/opt/homebrew/opt/gnu-getopt/bin:$PATH"
+ - mkdir build
+ - cd build
+ - ../configure --arch=x86_64 --cross-prefix=x86_64-elf-
+ - gmake -j$(sysctl -n hw.ncpu)
+ - ACCEL=tcg ./run_tests.sh
+      eventinj
+      intel_iommu
+      ioapic
+      memory
+      pks
+      pku
+      rdpru
+      realmode
+      rmap_chain
+      s3
+      setjmp
+      sieve
+      smap
+      smptest
+      smptest3
+      syscall
+      tsc
+      umip
+      vmexit_cpuid
+      vmexit_cr0_wp
+      vmexit_cr4_pge
+      vmexit_inl_pmtimer
+      vmexit_ipi
+      vmexit_ipi_halt
+      vmexit_mov_from_cr8
+      vmexit_mov_to_cr8
+      vmexit_ple_round_robin
+      vmexit_tscdeadline
+      vmexit_tscdeadline_immed
+      xsave
+      | tee results.txt
+ - grep -q PASS results.txt && ! grep -q FAIL results.txt
+
+# Cirrus-CI provides Linux containers with KVM enabled,
 # so we can test some scenarios there that are not possible with the
 # gitlab-CI shared runners. We use the "cirrus-run" container from the
 # libvirt project to start the jobs. See the following URL for more
@@ -513,11 +607,6 @@ build-centos8:
 cirrus-ci-fedora:
  <<: *cirrus_build_job_definition
 
-cirrus-ci-macos-i386:
- <<: *cirrus_build_job_definition
-
-cirrus-ci-macos-x86-64:
- <<: *cirrus_build_job_definition
 
 s390x-kvm:
  extends: .intree_template
