@@ -35,7 +35,7 @@ static void apic_self_nmi(void)
 	} while (0)
 
 #define flush_stack() do {						\
-		int __l;						\
+		int __l = 0;						\
 		flush_phys_addr(virt_to_phys(&__l));			\
 	} while (0)
 
