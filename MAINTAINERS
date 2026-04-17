@@ -107,8 +107,6 @@ M: Janosch Frank <frankja@linux.ibm.com>
 M: Claudio Imbrenda <imbrenda@linux.ibm.com>
 M: Nico Böhr <nrb@linux.ibm.com>
 S: Supported
-R: David Hildenbrand <david@redhat.com>
-R: Thomas Huth <thuth@redhat.com>
 L: linux-s390@vger.kernel.org
 F: s390x/
 F: lib/s390x/
