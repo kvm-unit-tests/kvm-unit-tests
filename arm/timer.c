@@ -356,9 +356,9 @@ static void test_init(void)
 		vtimer_info.irq = TIMER_HVTIMER_IRQ;
 	}
 
-	install_exception_handler(EL1H_SYNC, ESR_EL1_EC_UNKNOWN, ptimer_unsupported_handler);
+	install_exception_handler(EL1H_SYNC, ESR_ELx_EC_UNKNOWN, ptimer_unsupported_handler);
 	ptimer_info.read_ctl();
-	install_exception_handler(EL1H_SYNC, ESR_EL1_EC_UNKNOWN, NULL);
+	install_exception_handler(EL1H_SYNC, ESR_ELx_EC_UNKNOWN, NULL);
 
 	if (ptimer_unsupported && !ERRATA(7b6b46311a85)) {
 		report_skip("Skipping ptimer tests. Set ERRATA_7b6b46311a85=y to enable.");

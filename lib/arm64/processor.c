@@ -31,37 +31,37 @@ static const char *vector_names[] = {
 };
 
 static const char *ec_names[EC_MAX] = {
-	[ESR_EL1_EC_UNKNOWN]		= "UNKNOWN",
-	[ESR_EL1_EC_WFI]		= "WFI",
-	[ESR_EL1_EC_CP15_32]		= "CP15_32",
-	[ESR_EL1_EC_CP15_64]		= "CP15_64",
-	[ESR_EL1_EC_CP14_MR]		= "CP14_MR",
-	[ESR_EL1_EC_CP14_LS]		= "CP14_LS",
-	[ESR_EL1_EC_FP_ASIMD]		= "FP_ASMID",
-	[ESR_EL1_EC_CP10_ID]		= "CP10_ID",
-	[ESR_EL1_EC_CP14_64]		= "CP14_64",
-	[ESR_EL1_EC_ILL_ISS]		= "ILL_ISS",
-	[ESR_EL1_EC_SVC32]		= "SVC32",
-	[ESR_EL1_EC_SVC64]		= "SVC64",
-	[ESR_EL1_EC_SYS64]		= "SYS64",
-	[ESR_EL1_EC_SVE]		= "SVE",
-	[ESR_EL1_EC_IABT_EL0]		= "IABT_EL0",
-	[ESR_EL1_EC_IABT_EL1]		= "IABT_EL1",
-	[ESR_EL1_EC_PC_ALIGN]		= "PC_ALIGN",
-	[ESR_EL1_EC_DABT_EL0]		= "DABT_EL0",
-	[ESR_EL1_EC_DABT_EL1]		= "DABT_EL1",
-	[ESR_EL1_EC_SP_ALIGN]		= "SP_ALIGN",
-	[ESR_EL1_EC_FP_EXC32]		= "FP_EXC32",
-	[ESR_EL1_EC_FP_EXC64]		= "FP_EXC64",
-	[ESR_EL1_EC_SERROR]		= "SERROR",
-	[ESR_EL1_EC_BREAKPT_EL0]	= "BREAKPT_EL0",
-	[ESR_EL1_EC_BREAKPT_EL1]	= "BREAKPT_EL1",
-	[ESR_EL1_EC_SOFTSTP_EL0]	= "SOFTSTP_EL0",
-	[ESR_EL1_EC_SOFTSTP_EL1]	= "SOFTSTP_EL1",
-	[ESR_EL1_EC_WATCHPT_EL0]	= "WATCHPT_EL0",
-	[ESR_EL1_EC_WATCHPT_EL1]	= "WATCHPT_EL1",
-	[ESR_EL1_EC_BKPT32]		= "BKPT32",
-	[ESR_EL1_EC_BRK64]		= "BRK64",
+	[ESR_ELx_EC_UNKNOWN]		= "UNKNOWN",
+	[ESR_ELx_EC_WFx]		= "WFx",
+	[ESR_ELx_EC_CP15_32]		= "CP15_32",
+	[ESR_ELx_EC_CP15_64]		= "CP15_64",
+	[ESR_ELx_EC_CP14_MR]		= "CP14_MR",
+	[ESR_ELx_EC_CP14_LS]		= "CP14_LS",
+	[ESR_ELx_EC_FP_ASIMD]		= "FP_ASMID",
+	[ESR_ELx_EC_CP10_ID]		= "CP10_ID",
+	[ESR_ELx_EC_CP14_64]		= "CP14_64",
+	[ESR_ELx_EC_ILL]		= "ILL",
+	[ESR_ELx_EC_SVC32]		= "SVC32",
+	[ESR_ELx_EC_SVC64]		= "SVC64",
+	[ESR_ELx_EC_SYS64]		= "SYS64",
+	[ESR_ELx_EC_SVE]		= "SVE",
+	[ESR_ELx_EC_IABT_LOW]		= "IABT_LOW",
+	[ESR_ELx_EC_IABT_CUR]		= "IABT_CUR",
+	[ESR_ELx_EC_PC_ALIGN]		= "PC_ALIGN",
+	[ESR_ELx_EC_DABT_LOW]		= "DABT_LOW",
+	[ESR_ELx_EC_DABT_CUR]		= "DABT_CUR",
+	[ESR_ELx_EC_SP_ALIGN]		= "SP_ALIGN",
+	[ESR_ELx_EC_FP_EXC32]		= "FP_EXC32",
+	[ESR_ELx_EC_FP_EXC64]		= "FP_EXC64",
+	[ESR_ELx_EC_SERROR]		= "SERROR",
+	[ESR_ELx_EC_BREAKPT_LOW]	= "BREAKPT_LOW",
+	[ESR_ELx_EC_BREAKPT_CUR]	= "BREAKPT_CUR",
+	[ESR_ELx_EC_SOFTSTP_LOW]	= "SOFTSTP_LOW",
+	[ESR_ELx_EC_SOFTSTP_CUR]	= "SOFTSTP_CUR",
+	[ESR_ELx_EC_WATCHPT_LOW]	= "WATCHPT_LOW",
+	[ESR_ELx_EC_WATCHPT_CUR]	= "WATCHPT_CUR",
+	[ESR_ELx_EC_BKPT32]		= "BKPT32",
+	[ESR_ELx_EC_BRK64]		= "BRK64",
 };
 
 void show_regs(struct pt_regs *regs)
@@ -82,18 +82,18 @@ void show_regs(struct pt_regs *regs)
 
 bool get_far(unsigned int esr, unsigned long *far)
 {
-	unsigned int ec = esr >> ESR_EL1_EC_SHIFT;
+	unsigned int ec = esr >> ESR_ELx_EC_SHIFT;
 
 	asm volatile("mrs %0, far_el1": "=r" (*far));
 
 	switch (ec) {
-	case ESR_EL1_EC_IABT_EL0:
-	case ESR_EL1_EC_IABT_EL1:
-	case ESR_EL1_EC_PC_ALIGN:
-	case ESR_EL1_EC_DABT_EL0:
-	case ESR_EL1_EC_DABT_EL1:
-	case ESR_EL1_EC_WATCHPT_EL0:
-	case ESR_EL1_EC_WATCHPT_EL1:
+	case ESR_ELx_EC_IABT_LOW:
+	case ESR_ELx_EC_IABT_CUR:
+	case ESR_ELx_EC_PC_ALIGN:
+	case ESR_ELx_EC_DABT_LOW:
+	case ESR_ELx_EC_DABT_CUR:
+	case ESR_ELx_EC_WATCHPT_LOW:
+	case ESR_ELx_EC_WATCHPT_CUR:
 		if ((esr & 0x3f /* DFSC */) != 0x10
 				|| !(esr & 0x400 /* FnV */))
 			return true;
@@ -108,7 +108,7 @@ static void bad_exception(enum vector v, struct pt_regs *regs,
 {
 	unsigned long far;
 	bool far_valid = get_far(esr, &far);
-	unsigned int ec = esr >> ESR_EL1_EC_SHIFT;
+	unsigned int ec = esr >> ESR_ELx_EC_SHIFT;
 	uintptr_t text = (uintptr_t)&_text;
 
 	printf("Load address: %" PRIxPTR "\n", text);
@@ -158,7 +158,7 @@ void default_vector_sync_handler(enum vector v, struct pt_regs *regs,
 				 unsigned int esr)
 {
 	struct thread_info *ti = thread_info_sp(regs->sp);
-	unsigned int ec = esr >> ESR_EL1_EC_SHIFT;
+	unsigned int ec = esr >> ESR_ELx_EC_SHIFT;
 
 	if (ti->flags & TIF_USER_MODE) {
 		if (ec < EC_MAX && ti->exception_handlers[v][ec]) {
