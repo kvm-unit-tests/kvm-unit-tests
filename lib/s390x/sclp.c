@@ -142,6 +142,9 @@ static bool sclp_feat_check(int byte, int bit)
 {
 	uint8_t *rib = (uint8_t *)read_info;
 
+	if (read_info->offset_cpu <= byte)
+		return false;
+
 	return !!(rib[byte] & (0x80 >> bit));
 }
 
