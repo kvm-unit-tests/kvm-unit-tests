@@ -1,0 +1,34 @@
+# The format of each line is:
+# mistake||correction
+cpuuid||cpuid
+daig||diag
+epws||epsw
+hcal||hcall
+hypercal||hypercall
+kmv||kvm
+locore||lowcore
+lowcor||lowcore
+mmmu||mmu
+pagetabl||pagetable
+pgtabl||pgtable
+pmcww||pmcw
+qemsystem||qemusystem
+quemu||qemu
+rdsmr||rdmsr
+sapr||spapr
+schipp||schib
+scsww||scsw
+sipg||sigp
+slcp||sclp
+sppar||spapr
+stiss||stsi
+subchanell||subchannel
+subchanel||subchannel
+syscal||syscall
+timbase||timebase
+timeabse||timebase
+tlbb||tlb
+virito||virtio
+vmbc||vmcb
+vmsc||vmcs
+wrsmr||wrmsr
