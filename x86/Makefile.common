@@ -112,6 +112,7 @@ $(TEST_DIR)/realmode.elf: $(TEST_DIR)/realmode.o $(SRCDIR)/$(TEST_DIR)/realmode.
 	      -T $(SRCDIR)/$(TEST_DIR)/realmode.lds $(filter %.o, $^)
 
 $(TEST_DIR)/realmode.o: bits = $(realmode_bits)
+$(TEST_DIR)/realmode.o: CFLAGS += -Os -Wno-array-bounds
 
 $(TEST_DIR)/access_test.$(bin): $(TEST_DIR)/access.o
 

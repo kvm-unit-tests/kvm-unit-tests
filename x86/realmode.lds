@@ -1,6 +1,6 @@
 SECTIONS
 {
-    . = 16K;
+    . = 32K;
     stext = .;
     .text : { *(.init) *(.text) }
     . = ALIGN(4K);
