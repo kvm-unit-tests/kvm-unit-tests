@@ -87,6 +87,79 @@ static bool npt_us_check(struct svm_test *test)
 	    && (vmcb->control.exit_info_1 == 0x100000005ULL);
 }
 
+static bool npt_gmet_supported(void)
+{
+	return npt_supported() && this_cpu_has(X86_FEATURE_GMET);
+}
+
+static void npt_gmet_null_prepare(struct svm_test *test)
+{
+	/* set U=0 - no failure */
+	npt_prepare_gmet_pte(false);
+	vmcb->control.nested_ctl |= SVM_NESTED_GMET;
+}
+
+static bool npt_gmet_null_check(struct svm_test *test)
+{
+	/* reset U=1 */
+	npt_prepare_gmet_pte(true);
+	vmcb->control.nested_ctl &= ~SVM_NESTED_GMET;
+	return vmcb->control.exit_code == SVM_EXIT_VMMCALL;
+}
+
+static void npt_gmet_nx_prepare(struct svm_test *test)
+{
+	u64 *pte = npt_get_pte((u64) null_test);
+
+	/* set U=0 - failure will be from NX */
+	npt_prepare_gmet_pte(false);
+	*pte |= PT64_NX_MASK;
+	vmcb->control.nested_ctl |= SVM_NESTED_GMET;
+
+	test->scratch = rdmsr(MSR_EFER);
+	wrmsr(MSR_EFER, test->scratch | EFER_NX);
+}
+
+static bool npt_gmet_nx_check(struct svm_test *test)
+{
+	u64 *pte = npt_get_pte((u64) null_test);
+
+	/* reset U=1, NX=0 */
+	npt_prepare_gmet_pte(true);
+	*pte &= ~PT64_NX_MASK;
+	vmcb->control.nested_ctl &= ~SVM_NESTED_GMET;
+
+	wrmsr(MSR_EFER, test->scratch);
+
+	/* errata 1218 - the U bit in the page fault error code may be incorrect */
+	return (vmcb->control.exit_code == SVM_EXIT_NPF)
+	    && ((vmcb->control.exit_info_1 & ~PFERR_USER_MASK) == 0x100000011ULL);
+}
+
+static void npt_gmet_us_prepare(struct svm_test *test)
+{
+	u64 *pte = npt_get_pte((u64) null_test);
+
+	npt_prepare_gmet_pte(false);
+	*pte |= PT_USER_MASK;
+	vmcb->control.nested_ctl |= SVM_NESTED_GMET;
+
+	test->scratch = rdmsr(MSR_EFER);
+	wrmsr(MSR_EFER, test->scratch | EFER_NX);
+}
+
+static bool npt_gmet_us_check(struct svm_test *test)
+{
+	npt_prepare_gmet_pte(true);
+	vmcb->control.nested_ctl &= ~SVM_NESTED_GMET;
+
+	wrmsr(MSR_EFER, test->scratch);
+
+	/* errata 1218 - the U bit in the page fault error code may be incorrect */
+	return (vmcb->control.exit_code == SVM_EXIT_NPF)
+	    && ((vmcb->control.exit_info_1 & ~PFERR_USER_MASK) == 0x100000011ULL);
+}
+
 static void npt_rw_prepare(struct svm_test *test)
 {
 
@@ -380,9 +453,9 @@ skip_pte_test:
 	vmcb->save.cr4 = sg_cr4;
 }
 
-#define NPT_V1_TEST(name, prepare, guest_code, check)				\
+#define NPT_V1_TEST(name, prepare, guest_code, check, more...)				\
 	{ #name, npt_supported, prepare, default_prepare_gif_clear, guest_code,	\
-	  default_finished, check }
+	  default_finished, check, more }
 
 #define NPT_V2_TEST(name) { #name, .v2 = name }
 
@@ -390,6 +463,12 @@ static struct svm_test npt_tests[] = {
 	NPT_V1_TEST(npt_nx, npt_nx_prepare, null_test, npt_nx_check),
 	NPT_V1_TEST(npt_np, npt_np_prepare, npt_np_test, npt_np_check),
 	NPT_V1_TEST(npt_us, npt_us_prepare, npt_us_test, npt_us_check),
+	NPT_V1_TEST(npt_gmet_null, npt_gmet_null_prepare, null_test, npt_gmet_null_check,
+		.supported = npt_gmet_supported),
+	NPT_V1_TEST(npt_gmet_nx, npt_gmet_nx_prepare, null_test, npt_gmet_nx_check,
+		.supported = npt_gmet_supported),
+	NPT_V1_TEST(npt_gmet_us, npt_gmet_us_prepare, null_test, npt_gmet_us_check,
+		.supported = npt_gmet_supported),
 	NPT_V1_TEST(npt_rw, npt_rw_prepare, npt_rw_test, npt_rw_check),
 	NPT_V1_TEST(npt_rw_pfwalk, npt_rw_pfwalk_prepare, null_test, npt_rw_pfwalk_check),
 	NPT_V1_TEST(npt_l1mmio, npt_l1mmio_prepare, npt_l1mmio_test, npt_l1mmio_check),

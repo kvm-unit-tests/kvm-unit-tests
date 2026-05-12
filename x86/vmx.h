@@ -37,9 +37,9 @@ do {								\
 	report_passed();					\
 } while (0)
 
-#define TEST_ASSERT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 1, __abort_test, "")
+#define TEST_ASSERT_EQ(a, b) __TEST_EQ(a, b, #a, #b, 1, __abort_test(), "")
 #define TEST_ASSERT_EQ_MSG(a, b, fmt, args...) \
-	__TEST_EQ(a, b, #a, #b, 1, __abort_test, fmt, ## args)
+	__TEST_EQ(a, b, #a, #b, 1, __abort_test(), fmt, ## args)
 
 struct vmcs_hdr {
 	u32 revision_id:31;
@@ -510,6 +510,7 @@ enum Ctrl1 {
 	CPU_SHADOW_VMCS		= 1ul << 14,
 	CPU_RDSEED		= 1ul << 16,
 	CPU_PML                 = 1ul << 17,
+	CPU_MODE_BASED_EPT_EXEC = 1ul << 22,
 	CPU_USE_TSC_SCALING	= 1ul << 25,
 };
 
@@ -664,17 +665,21 @@ enum vm_entry_failure_code {
 #define EPT_MEM_TYPE_WP		5ul
 #define EPT_MEM_TYPE_WB		6ul
 
-#define EPT_RA			1ul
-#define EPT_WA			2ul
-#define EPT_EA			4ul
-#define EPT_PRESENT		(EPT_RA | EPT_WA | EPT_EA)
+#define EPT_RA			(1ul << 0)
+#define EPT_WA			(1ul << 1)
+#define EPT_EA			(1ul << 2)
+#define EPT_IGNORE_PAT		(1ul << 6)
+#define EPT_LARGE_PAGE		(1ul << 7)
 #define EPT_ACCESS_FLAG		(1ul << 8)
 #define EPT_DIRTY_FLAG		(1ul << 9)
-#define EPT_LARGE_PAGE		(1ul << 7)
+#define EPT_EA_USER		(1ul << 10)
 #define EPT_MEM_TYPE_SHIFT	3ul
 #define EPT_MEM_TYPE_MASK	0x7ul
-#define EPT_IGNORE_PAT		(1ul << 6)
 #define EPT_SUPPRESS_VE		(1ull << 63)
+
+#define EPT_PRESENT		(is_mbec_supported() ? \
+				 (EPT_RA | EPT_WA | EPT_EA | EPT_EA_USER) : \
+				 (EPT_RA | EPT_WA | EPT_EA))
 
 #define EPT_CAP_EXEC_ONLY	(1ull << 0)
 #define EPT_CAP_PWL4		(1ull << 6)
@@ -717,9 +722,9 @@ enum vm_entry_failure_code {
 #define EPT_VLT_PADDR		(1ull << 8)
 #define EPT_VLT_GUEST_USER	(1ull << 9)
 #define EPT_VLT_GUEST_RW	(1ull << 10)
-#define EPT_VLT_GUEST_EX	(1ull << 11)
+#define EPT_VLT_GUEST_NX	(1ull << 11)
 #define EPT_VLT_GUEST_MASK	(EPT_VLT_GUEST_USER | EPT_VLT_GUEST_RW | \
-				 EPT_VLT_GUEST_EX)
+				 EPT_VLT_GUEST_NX)
 
 #define MAGIC_VAL_1		0x12345678ul
 #define MAGIC_VAL_2		0x87654321ul
@@ -840,6 +845,13 @@ static inline bool is_invvpid_type_supported(unsigned long type)
 		return false;
 
 	return ept_vpid.val & (VPID_CAP_INVVPID_ADDR << (type - INVVPID_ADDR));
+}
+
+static inline bool is_mbec_supported(void)
+{
+	return (ctrl_cpu_rev[0].clr & CPU_SECONDARY) &&
+	       (ctrl_cpu_rev[1].clr & CPU_EPT) &&
+	       (ctrl_cpu_rev[1].clr & CPU_MODE_BASED_EPT_EXEC);
 }
 
 extern u64 *bsp_vmxon_region;

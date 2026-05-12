@@ -875,8 +875,7 @@ void install_ept_entry(unsigned long *pml4,
 			else
 				pt_page = 0;
 			memset(new_pt, 0, PAGE_SIZE);
-			pt[offset] = virt_to_phys(new_pt)
-					| EPT_RA | EPT_WA | EPT_EA;
+			pt[offset] = virt_to_phys(new_pt) | EPT_PRESENT;
 		} else if (pt[offset] & EPT_LARGE_PAGE)
 			split_large_ept_entry(&pt[offset], level);
 		pt = phys_to_virt(pt[offset] & EPT_ADDR_MASK);

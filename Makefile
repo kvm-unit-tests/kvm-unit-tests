@@ -93,7 +93,7 @@ COMMON_CFLAGS += $(wunused_but_set_parameter)
 CFLAGS += $(COMMON_CFLAGS)
 CFLAGS += $(wmissing_parameter_type)
 CFLAGS += $(wold_style_declaration)
-CFLAGS += -Woverride-init -Wmissing-prototypes -Wstrict-prototypes
+CFLAGS += -Wmissing-prototypes -Wstrict-prototypes
 
 # Evaluate and add late cflags last -- they may depend on previous flags
 LATE_CFLAGS := $(LATE_CFLAGS)

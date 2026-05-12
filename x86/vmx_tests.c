@@ -1044,6 +1044,8 @@ static int insn_intercept_exit_handler(union exit_reason exit_reason)
  */
 static int __setup_ept(u64 hpa, bool enable_ad)
 {
+	u64 secondary;
+
 	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
 	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
 		printf("\tEPT is not supported\n");
@@ -1067,9 +1069,13 @@ static int __setup_ept(u64 hpa, bool enable_ad)
 	if (enable_ad)
 		eptp |= EPTP_AD_FLAG;
 
+	secondary = vmcs_read(CPU_EXEC_CTRL1) | CPU_EPT;
+	if (is_mbec_supported())
+		secondary |= CPU_MODE_BASED_EPT_EXEC;
+
 	vmcs_write(EPTP, eptp);
 	vmcs_write(CPU_EXEC_CTRL0, vmcs_read(CPU_EXEC_CTRL0)| CPU_SECONDARY);
-	vmcs_write(CPU_EXEC_CTRL1, vmcs_read(CPU_EXEC_CTRL1)| CPU_EPT);
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
 
 	return 0;
 }
@@ -1100,7 +1106,7 @@ static int setup_ept(bool enable_ad)
 	 */
 	setup_ept_range(pml4, 0, end_of_memory, 0,
 			!enable_ad && ept_2m_supported(),
-			EPT_WA | EPT_RA | EPT_EA);
+			EPT_PRESENT);
 	return 0;
 }
 
@@ -1179,7 +1185,7 @@ static int ept_init_common(bool have_ad)
 	*((u32 *)data_page1) = MAGIC_VAL_1;
 	*((u32 *)data_page2) = MAGIC_VAL_2;
 	install_ept(pml4, (unsigned long)data_page1, (unsigned long)data_page2,
-			EPT_RA | EPT_WA | EPT_EA);
+		    EPT_PRESENT);
 
 	apic_version = apic_read(APIC_LVR);
 
@@ -1359,8 +1365,8 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 					*((u32 *)data_page2) == MAGIC_VAL_2) {
 				vmx_inc_test_stage();
 				install_ept(pml4, (unsigned long)data_page2,
-						(unsigned long)data_page2,
-						EPT_RA | EPT_WA | EPT_EA);
+					    (unsigned long)data_page2,
+					    EPT_PRESENT);
 			} else
 				report_fail("EPT basic framework - write");
 			break;
@@ -1371,9 +1377,9 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 			break;
 		case 2:
 			install_ept(pml4, (unsigned long)data_page1,
- 				(unsigned long)data_page1,
- 				EPT_RA | EPT_WA | EPT_EA |
- 				(2 << EPT_MEM_TYPE_SHIFT));
+				    (unsigned long)data_page1,
+				    EPT_PRESENT |
+				    (2 << EPT_MEM_TYPE_SHIFT));
 			invept(INVEPT_SINGLE, eptp);
 			break;
 		case 3:
@@ -1417,8 +1423,8 @@ static int ept_exit_handler_common(union exit_reason exit_reason, bool have_ad)
 		case 2:
 			vmx_inc_test_stage();
 			install_ept(pml4, (unsigned long)data_page1,
- 				(unsigned long)data_page1,
- 				EPT_RA | EPT_WA | EPT_EA);
+				    (unsigned long)data_page1,
+				    EPT_PRESENT);
 			invept(INVEPT_SINGLE, eptp);
 			break;
 		// Should not reach here
@@ -2157,13 +2163,47 @@ static int exit_monitor_from_l2_handler(union exit_reason exit_reason)
 	return VMX_TEST_EXIT;
 }
 
+static void
+diagnose_ept_violation_qual(u64 expected, u64 actual)
+{
+
+#define DIAGNOSE(flag)							\
+do {									\
+	if ((expected & flag) != (actual & flag))			\
+		printf(#flag " %sexpected\n",				\
+		       (expected & flag) ? "" : "un");			\
+} while (0)
+
+	DIAGNOSE(EPT_VLT_RD);
+	DIAGNOSE(EPT_VLT_WR);
+	DIAGNOSE(EPT_VLT_FETCH);
+	DIAGNOSE(EPT_VLT_PERM_RD);
+	DIAGNOSE(EPT_VLT_PERM_WR);
+	DIAGNOSE(EPT_VLT_PERM_EX);
+	DIAGNOSE(EPT_VLT_PERM_USER_EX);
+	DIAGNOSE(EPT_VLT_LADDR_VLD);
+	DIAGNOSE(EPT_VLT_PADDR);
+	DIAGNOSE(EPT_VLT_GUEST_USER);
+	DIAGNOSE(EPT_VLT_GUEST_RW);
+	DIAGNOSE(EPT_VLT_GUEST_NX);
+
+#undef DIAGNOSE
+}
+
 static void assert_exit_reason(u64 expected)
 {
 	u64 actual = vmcs_read(EXI_REASON);
 
-	TEST_ASSERT_EQ_MSG(expected, actual, "Expected %s, got %s.",
-			   exit_reason_description(expected),
-			   exit_reason_description(actual));
+        __TEST_EQ(expected, actual, "expected", "actual", 1, {
+		printf("guest linear address %lx\n", vmcs_read(GUEST_LINEAR_ADDRESS));
+		if (actual == VMX_EPT_VIOLATION) {
+			u64 qual = vmcs_read(EXI_QUALIFICATION);
+			diagnose_ept_violation_qual(0, qual);
+		}
+		__abort_test();
+	}, "Expected %s, got %s.",
+		   exit_reason_description(expected),
+		   exit_reason_description(actual));
 }
 
 static void skip_exit_insn(void)
@@ -2252,6 +2292,7 @@ enum ept_access_op {
 	OP_READ,
 	OP_WRITE,
 	OP_EXEC,
+	OP_EXEC_USER,
 	OP_FLUSH_TLB,
 	OP_EXIT,
 };
@@ -2276,29 +2317,6 @@ asm(
 	"ret42_end:\n"
 );
 
-static void
-diagnose_ept_violation_qual(u64 expected, u64 actual)
-{
-
-#define DIAGNOSE(flag)							\
-do {									\
-	if ((expected & flag) != (actual & flag))			\
-		printf(#flag " %sexpected\n",				\
-		       (expected & flag) ? "" : "un");			\
-} while (0)
-
-	DIAGNOSE(EPT_VLT_RD);
-	DIAGNOSE(EPT_VLT_WR);
-	DIAGNOSE(EPT_VLT_FETCH);
-	DIAGNOSE(EPT_VLT_PERM_RD);
-	DIAGNOSE(EPT_VLT_PERM_WR);
-	DIAGNOSE(EPT_VLT_PERM_EX);
-	DIAGNOSE(EPT_VLT_LADDR_VLD);
-	DIAGNOSE(EPT_VLT_PADDR);
-
-#undef DIAGNOSE
-}
-
 static void do_ept_access_op(enum ept_access_op op)
 {
 	ept_access_test_data.op = op;
@@ -2316,12 +2334,35 @@ static void ept_access_test_guest_flush_tlb(void)
 }
 
 /*
+ * Modifies the leaf guest page table entry that maps @gva, clearing the bits
+ * in @clear then setting the bits in @set.  This is needed when testing
+ * MBEC so that the processor knows whether to observe XS or XU.
+ */
+static void guest_page_table_twiddle(unsigned long *gva, unsigned long clear, unsigned long set)
+{
+	pgd_t *cr3 = current_page_table();
+	int i;
+
+	for (i = 1; i <= PAGE_LEVEL; i++) {
+		u64 *pte = get_pte_level(cr3, gva, i);
+		if (!pte)
+			continue;
+
+		TEST_ASSERT(*pte & PT_PRESENT_MASK);
+		*pte = (*pte & ~clear) | set;
+		break;
+	}
+	invlpg((void *)gva);
+}
+
+/*
  * Modifies the EPT entry at @level in the mapping of @gpa. First clears the
  * bits in @clear then sets the bits in @set. @mkhuge transforms the entry into
  * a huge page.
  */
 static unsigned long ept_twiddle(unsigned long gpa, bool mkhuge, int level,
-				 unsigned long clear, unsigned long set)
+				 unsigned long clear, unsigned long set,
+				 enum ept_access_op op)
 {
 	struct ept_access_test_data *data = &ept_access_test_data;
 	unsigned long orig_pte;
@@ -2336,15 +2377,27 @@ static unsigned long ept_twiddle(unsigned long gpa, bool mkhuge, int level,
 		pte = orig_pte;
 	pte = (pte & ~clear) | set;
 	set_ept_pte(pml4, gpa, level, pte);
-	invept(INVEPT_SINGLE, eptp);
 
+	if (is_mbec_supported() && op == OP_EXEC)
+		guest_page_table_twiddle(data->gva, PT_USER_MASK, 0);
+
+	invept(INVEPT_SINGLE, eptp);
 	return orig_pte;
 }
 
-static void ept_untwiddle(unsigned long gpa, int level, unsigned long orig_pte)
+static void ept_untwiddle(unsigned long gpa, int level, unsigned long orig_pte,
+			  enum ept_access_op op)
 {
+	unsigned long pte;
+
+	pte = get_ept_pte(pml4, gpa, level, &pte);
 	set_ept_pte(pml4, gpa, level, orig_pte);
 	invept(INVEPT_SINGLE, eptp);
+
+	if (is_mbec_supported() && op == OP_EXEC) {
+		struct ept_access_test_data *data = &ept_access_test_data;
+		guest_page_table_twiddle(data->gva, 0, PT_USER_MASK);
+	}
 }
 
 static void do_ept_violation(bool leaf, enum ept_access_op op,
@@ -2359,9 +2412,12 @@ static void do_ept_violation(bool leaf, enum ept_access_op op,
 
 	qual = vmcs_read(EXI_QUALIFICATION);
 
-	/* Mask undefined bits (which may later be defined in certain cases). */
-	qual &= ~(EPT_VLT_GUEST_USER | EPT_VLT_GUEST_RW | EPT_VLT_GUEST_EX |
-		 EPT_VLT_PERM_USER_EX);
+	/*
+	 * Exit-qualifications are masked not to account for advanced
+	 * VM-exit information. KVM supports this feature, so the tests
+	 * could be enhanced to cover it.
+	 */
+	qual &= ~EPT_VLT_GUEST_MASK;
 
 	diagnose_ept_violation_qual(expected_qual, qual);
 	TEST_EXPECT_EQ(expected_qual, qual);
@@ -2387,14 +2443,14 @@ ept_violation_at_level_mkhuge(bool mkhuge, int level, unsigned long clear,
 	struct ept_access_test_data *data = &ept_access_test_data;
 	unsigned long orig_pte;
 
-	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
+	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set, op);
 
 	do_ept_violation(level == 1 || mkhuge, op, expected_qual,
-			 op == OP_EXEC ? data->gpa + sizeof(unsigned long) :
-					 data->gpa);
+			 (op == OP_EXEC || op == OP_EXEC_USER
+			  ? data->gpa + sizeof(unsigned long) : data->gpa));
 
 	/* Fix the violation and resume the op loop. */
-	ept_untwiddle(data->gpa, level, orig_pte);
+	ept_untwiddle(data->gpa, level, orig_pte, op);
 	enter_guest();
 	skip_exit_vmcall();
 }
@@ -2492,12 +2548,12 @@ static void ept_access_paddr(unsigned long ept_access, unsigned long pte_ad,
 	 */
 	install_ept(pml4, gpa, gpa, EPT_PRESENT);
 	orig_epte = ept_twiddle(gpa, /*mkhuge=*/0, /*level=*/1,
-				/*clear=*/EPT_PRESENT, /*set=*/ept_access);
+				/*clear=*/EPT_PRESENT, /*set=*/ept_access, op);
 
 	if (expect_violation) {
 		do_ept_violation(/*leaf=*/true, op,
 				 expected_qual | EPT_VLT_LADDR_VLD, gpa);
-		ept_untwiddle(gpa, /*level=*/1, orig_epte);
+		ept_untwiddle(gpa, /*level=*/1, orig_epte, op);
 		do_ept_access_op(op);
 	} else {
 		do_ept_access_op(op);
@@ -2512,7 +2568,7 @@ static void ept_access_paddr(unsigned long ept_access, unsigned long pte_ad,
 			}
 		}
 
-		ept_untwiddle(gpa, /*level=*/1, orig_epte);
+		ept_untwiddle(gpa, /*level=*/1, orig_epte, op);
 	}
 
 	TEST_ASSERT(*ptep & PT_ACCESSED_MASK);
@@ -2548,13 +2604,13 @@ static void ept_allowed_at_level_mkhuge(bool mkhuge, int level,
 	struct ept_access_test_data *data = &ept_access_test_data;
 	unsigned long orig_pte;
 
-	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
+	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set, op);
 
 	/* No violation. Should proceed to vmcall. */
 	do_ept_access_op(op);
 	skip_exit_vmcall();
 
-	ept_untwiddle(data->gpa, level, orig_pte);
+	ept_untwiddle(data->gpa, level, orig_pte, op);
 }
 
 static void ept_allowed_at_level(int level, unsigned long clear,
@@ -2580,11 +2636,13 @@ static void ept_ignored_bit(int bit)
 	ept_allowed(0, 1ul << bit, OP_READ);
 	ept_allowed(0, 1ul << bit, OP_WRITE);
 	ept_allowed(0, 1ul << bit, OP_EXEC);
+	ept_allowed(0, 1ul << bit, OP_EXEC_USER);
 
 	/* Clear the bit. */
 	ept_allowed(1ul << bit, 0, OP_READ);
 	ept_allowed(1ul << bit, 0, OP_WRITE);
 	ept_allowed(1ul << bit, 0, OP_EXEC);
+	ept_allowed(1ul << bit, 0, OP_EXEC_USER);
 }
 
 static void ept_access_allowed(unsigned long access, enum ept_access_op op)
@@ -2601,7 +2659,7 @@ static void ept_misconfig_at_level_mkhuge_op(bool mkhuge, int level,
 	struct ept_access_test_data *data = &ept_access_test_data;
 	unsigned long orig_pte;
 
-	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
+	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set, op);
 
 	do_ept_access_op(op);
 	assert_exit_reason(VMX_EPT_MISCONFIG);
@@ -2625,7 +2683,7 @@ static void ept_misconfig_at_level_mkhuge_op(bool mkhuge, int level,
 	#endif
 
 	/* Fix the violation and resume the op loop. */
-	ept_untwiddle(data->gpa, level, orig_pte);
+	ept_untwiddle(data->gpa, level, orig_pte, op);
 	enter_guest();
 	skip_exit_vmcall();
 }
@@ -2717,10 +2775,20 @@ static void ept_access_test_teardown(void *unused)
 	do_ept_access_op(OP_EXIT);
 }
 
+static u64 exec_user_on_gva(void)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	int (*code)(void) = (int (*)(void)) &data->gva[1];
+
+	return code();
+}
+
 static void ept_access_test_guest(void)
 {
 	struct ept_access_test_data *data = &ept_access_test_data;
 	int (*code)(void) = (int (*)(void)) &data->gva[1];
+	bool unused;
+	u64 ret_val;
 
 	while (true) {
 		switch (data->op) {
@@ -2734,6 +2802,11 @@ static void ept_access_test_guest(void)
 			break;
 		case OP_EXEC:
 			TEST_ASSERT_EQ(42, code());
+			break;
+		case OP_EXEC_USER:
+			ret_val = run_in_user(exec_user_on_gva, DE_VECTOR, // no exceptions
+					      0, 0, 0, 0, &unused);
+			TEST_ASSERT_EQ(42, ret_val);
 			break;
 		case OP_FLUSH_TLB:
 			write_cr3(read_cr3());
@@ -2794,6 +2867,7 @@ static void ept_access_test_not_present(void)
 	ept_access_violation(0, OP_READ, EPT_VLT_RD);
 	ept_access_violation(0, OP_WRITE, EPT_VLT_WR);
 	ept_access_violation(0, OP_EXEC, EPT_VLT_FETCH);
+	ept_access_violation(0, OP_EXEC_USER, EPT_VLT_FETCH);
 }
 
 static void ept_access_test_read_only(void)
@@ -2804,6 +2878,7 @@ static void ept_access_test_read_only(void)
 	ept_access_allowed(EPT_RA, OP_READ);
 	ept_access_violation(EPT_RA, OP_WRITE, EPT_VLT_WR | EPT_VLT_PERM_RD);
 	ept_access_violation(EPT_RA, OP_EXEC, EPT_VLT_FETCH | EPT_VLT_PERM_RD);
+	ept_access_violation(EPT_RA, OP_EXEC_USER, EPT_VLT_FETCH | EPT_VLT_PERM_RD);
 }
 
 static void ept_access_test_write_only(void)
@@ -2820,7 +2895,11 @@ static void ept_access_test_read_write(void)
 	ept_access_allowed(EPT_RA | EPT_WA, OP_READ);
 	ept_access_allowed(EPT_RA | EPT_WA, OP_WRITE);
 	ept_access_violation(EPT_RA | EPT_WA, OP_EXEC,
-			   EPT_VLT_FETCH | EPT_VLT_PERM_RD | EPT_VLT_PERM_WR);
+			     EPT_VLT_FETCH | EPT_VLT_PERM_RD |
+			     EPT_VLT_PERM_WR);
+	ept_access_violation(EPT_RA | EPT_WA, OP_EXEC_USER,
+			     EPT_VLT_FETCH | EPT_VLT_PERM_RD |
+			     EPT_VLT_PERM_WR);
 }
 
 
@@ -2834,8 +2913,62 @@ static void ept_access_test_execute_only(void)
 		ept_access_violation(EPT_EA, OP_WRITE,
 				     EPT_VLT_WR | EPT_VLT_PERM_EX);
 		ept_access_allowed(EPT_EA, OP_EXEC);
+		if (is_mbec_supported())
+			ept_access_violation(EPT_EA, OP_EXEC_USER,
+					     EPT_VLT_FETCH |
+					     EPT_VLT_PERM_EX);
+		else
+			ept_access_allowed(EPT_EA, OP_EXEC_USER);
 	} else {
 		ept_access_misconfig(EPT_EA);
+	}
+}
+
+static void ept_access_test_execute_user_only(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* --x (exec user only) */
+	if (ept_execute_only_supported()) {
+		ept_access_violation(EPT_EA_USER, OP_READ,
+				     EPT_VLT_RD |
+				     EPT_VLT_PERM_USER_EX);
+		ept_access_violation(EPT_EA_USER, OP_WRITE,
+				     EPT_VLT_WR |
+				     EPT_VLT_PERM_USER_EX);
+		ept_access_violation(EPT_EA_USER, OP_EXEC,
+				     EPT_VLT_FETCH |
+				     EPT_VLT_PERM_USER_EX);
+		ept_access_allowed(EPT_EA_USER, OP_EXEC_USER);
+	} else {
+		ept_access_misconfig(EPT_EA_USER);
+	}
+}
+
+static void ept_access_test_execute_both(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* --x (both XS and XU) */
+	if (ept_execute_only_supported()) {
+		ept_access_violation(EPT_EA | EPT_EA_USER, OP_READ,
+				     EPT_VLT_RD | EPT_VLT_PERM_EX |
+				     EPT_VLT_PERM_USER_EX);
+		ept_access_violation(EPT_EA | EPT_EA_USER, OP_WRITE,
+				     EPT_VLT_WR | EPT_VLT_PERM_EX |
+				     EPT_VLT_PERM_USER_EX);
+		ept_access_allowed(EPT_EA | EPT_EA_USER, OP_EXEC);
+		ept_access_allowed(EPT_EA | EPT_EA_USER, OP_EXEC_USER);
+	} else {
+		ept_access_misconfig(EPT_EA | EPT_EA_USER);
 	}
 }
 
@@ -2845,9 +2978,52 @@ static void ept_access_test_read_execute(void)
 	/* r-x */
 	ept_access_allowed(EPT_RA | EPT_EA, OP_READ);
 	ept_access_violation(EPT_RA | EPT_EA, OP_WRITE,
-			   EPT_VLT_WR | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX);
+			     EPT_VLT_WR | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX);
 	ept_access_allowed(EPT_RA | EPT_EA, OP_EXEC);
+	if (is_mbec_supported())
+		ept_access_violation(EPT_RA | EPT_EA, OP_EXEC_USER,
+				     EPT_VLT_FETCH | EPT_VLT_PERM_RD |
+				     EPT_VLT_PERM_EX);
+	else
+		ept_access_allowed(EPT_RA | EPT_EA, OP_EXEC_USER);
 }
+
+static void ept_access_test_read_execute_user_only(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* r-x (exec user only) */
+	ept_access_allowed(EPT_RA | EPT_EA_USER, OP_READ);
+	ept_access_violation(EPT_RA | EPT_EA_USER, OP_WRITE,
+			     EPT_VLT_WR | EPT_VLT_PERM_RD |
+			     EPT_VLT_PERM_USER_EX);
+	ept_access_violation(EPT_RA | EPT_EA_USER, OP_EXEC,
+			     EPT_VLT_FETCH | EPT_VLT_PERM_RD |
+			     EPT_VLT_PERM_USER_EX);
+	ept_access_allowed(EPT_RA | EPT_EA_USER, OP_EXEC_USER);
+}
+
+static void ept_access_test_read_execute_both(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* r-x (both XS and XU) */
+	ept_access_allowed(EPT_RA | EPT_EA | EPT_EA_USER, OP_READ);
+	ept_access_violation(EPT_RA | EPT_EA | EPT_EA_USER, OP_WRITE,
+			     EPT_VLT_WR | EPT_VLT_PERM_RD |
+			     EPT_VLT_PERM_EX | EPT_VLT_PERM_USER_EX);
+	ept_access_allowed(EPT_RA | EPT_EA | EPT_EA_USER, OP_EXEC);
+	ept_access_allowed(EPT_RA | EPT_EA | EPT_EA_USER, OP_EXEC_USER);
+}
+
 
 static void ept_access_test_write_execute(void)
 {
@@ -2863,6 +3039,43 @@ static void ept_access_test_read_write_execute(void)
 	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_READ);
 	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_WRITE);
 	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_EXEC);
+	if (is_mbec_supported())
+		ept_access_violation(EPT_RA | EPT_WA | EPT_EA, OP_EXEC_USER,
+				     EPT_VLT_FETCH | EPT_VLT_PERM_RD |
+				     EPT_VLT_PERM_WR | EPT_VLT_PERM_EX);
+	else
+		ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_EXEC_USER);
+}
+
+static void ept_access_test_read_write_execute_user_only(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* rwx (exec user only) */
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA_USER, OP_READ);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA_USER, OP_WRITE);
+	ept_access_violation(EPT_RA | EPT_WA | EPT_EA_USER, OP_EXEC,
+			     EPT_VLT_FETCH | EPT_VLT_PERM_RD | EPT_VLT_PERM_WR | EPT_VLT_PERM_USER_EX);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA_USER, OP_EXEC_USER);
+}
+
+static void ept_access_test_read_write_execute_both(void)
+{
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	ept_access_test_setup();
+	/* rwx (both XS and XU) */
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA | EPT_EA_USER, OP_READ);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA | EPT_EA_USER, OP_WRITE);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA | EPT_EA_USER, OP_EXEC);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA | EPT_EA_USER, OP_EXEC_USER);
 }
 
 static void ept_access_test_reserved_bits(void)
@@ -2919,7 +3132,8 @@ static void ept_access_test_ignored_bits(void)
 	 */
 	ept_ignored_bit(8);
 	ept_ignored_bit(9);
-	ept_ignored_bit(10);
+	if (!is_mbec_supported())
+		ept_ignored_bit(10);
 	ept_ignored_bit(11);
 	ept_ignored_bit(52);
 	ept_ignored_bit(53);
@@ -2943,6 +3157,7 @@ static void ept_access_test_paddr_not_present_ad_disabled(void)
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_READ, EPT_VLT_RD);
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_WRITE, EPT_VLT_RD);
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC, EPT_VLT_RD);
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC_USER, EPT_VLT_RD);
 }
 
 static void ept_access_test_paddr_not_present_ad_enabled(void)
@@ -2955,6 +3170,7 @@ static void ept_access_test_paddr_not_present_ad_enabled(void)
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_READ, qual);
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC_USER, qual);
 }
 
 static void ept_access_test_paddr_read_only_ad_disabled(void)
@@ -2974,14 +3190,17 @@ static void ept_access_test_paddr_read_only_ad_disabled(void)
 	ept_access_violation_paddr(EPT_RA, 0, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA, 0, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA, 0, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA, 0, OP_EXEC_USER, qual);
 	/* AD bits disabled, so only writes try to update the D bit. */
 	ept_access_allowed_paddr(EPT_RA, PT_ACCESSED_MASK, OP_READ);
 	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_WRITE, qual);
 	ept_access_allowed_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC_USER);
 	/* Both A and D already set, so read-only is OK. */
 	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_READ);
 	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_WRITE);
 	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_EXEC_USER);
 }
 
 static void ept_access_test_paddr_read_only_ad_enabled(void)
@@ -2999,12 +3218,15 @@ static void ept_access_test_paddr_read_only_ad_enabled(void)
 	ept_access_violation_paddr(EPT_RA, 0, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA, 0, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA, 0, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA, 0, OP_EXEC_USER, qual);
 	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC_USER, qual);
 	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_EXEC_USER, qual);
 }
 
 static void ept_access_test_paddr_read_write(void)
@@ -3014,15 +3236,17 @@ static void ept_access_test_paddr_read_write(void)
 	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_READ);
 	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_WRITE);
 	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_EXEC_USER);
 }
 
 static void ept_access_test_paddr_read_write_execute(void)
 {
 	ept_access_test_setup();
 	/* RWX access to paging structure. */
-	ept_access_allowed_paddr(EPT_PRESENT, 0, OP_READ);
-	ept_access_allowed_paddr(EPT_PRESENT, 0, OP_WRITE);
-	ept_access_allowed_paddr(EPT_PRESENT, 0, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_READ);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_WRITE);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA | EPT_EA, 0, OP_EXEC_USER);
 }
 
 static void ept_access_test_paddr_read_execute_ad_disabled(void)
@@ -3042,14 +3266,17 @@ static void ept_access_test_paddr_read_execute_ad_disabled(void)
 	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC_USER, qual);
 	/* AD bits disabled, so only writes try to update the D bit. */
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_READ);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_WRITE, qual);
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_EXEC_USER);
 	/* Both A and D already set, so read-only is OK. */
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_READ);
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_WRITE);
 	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC);
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC_USER);
 }
 
 static void ept_access_test_paddr_read_execute_ad_enabled(void)
@@ -3067,12 +3294,15 @@ static void ept_access_test_paddr_read_execute_ad_enabled(void)
 	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC_USER, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_EXEC_USER, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_READ, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_WRITE, qual);
 	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC_USER, qual);
 }
 
 static void ept_access_test_paddr_not_present_page_fault(void)
@@ -4834,7 +5064,7 @@ static void test_ept_eptp(void)
 		report_prefix_pop();
 	}
 
-	secondary &= ~(CPU_EPT | CPU_URG);
+	secondary &= ~(CPU_URG | CPU_EPT | CPU_MODE_BASED_EPT_EXEC);
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("Enable-EPT disabled, unrestricted-guest disabled");
 	test_vmx_valid_controls();
@@ -4868,6 +5098,69 @@ skip_unrestricted_guest:
 }
 
 /*
+ * Test the dependency between mode-based execute control for EPT (MBEC) and
+ * enable EPT VM-execution controls.
+ *
+ * When MBEC (bit 22 of secondary processor-based VM-execution controls) is enabled,
+ * it allows separate execute permissions for supervisor-mode and user-mode linear
+ * addresses in EPT paging structures. However, per Intel SDM requirement:
+ *
+ * "If the 'mode-based execute control for EPT' VM-execution control is 1,
+ * the 'enable EPT' VM-execution control must also be 1."
+ *
+ * This test validates that VM entry fails when MBEC is enabled without EPT,
+ * and succeeds in all other valid combinations.
+ *
+ * [Intel SDM Vol. 3C, Section 26.6.2, Table 26-7]
+ */
+static void test_mode_based_execute_control(void)
+{
+	u32 primary_saved = vmcs_read(CPU_EXEC_CTRL0);
+	u32 secondary_saved = vmcs_read(CPU_EXEC_CTRL1);
+	u32 primary = primary_saved;
+	u32 secondary = secondary_saved;
+
+	/* Skip test if required VM-execution controls are not supported */
+	if (!is_mbec_supported()) {
+		report_skip("MBEC not supported");
+		return;
+	}
+
+	/* Test case 1: MBEC disabled, EPT disabled - should be valid */
+	primary |= CPU_SECONDARY;
+	vmcs_write(CPU_EXEC_CTRL0, primary);
+	secondary &= ~(CPU_MODE_BASED_EPT_EXEC | CPU_EPT);
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("MBEC disabled, EPT disabled (valid combination)");
+	test_vmx_valid_controls();
+	report_prefix_pop();
+
+	/* Test case 2: MBEC enabled, EPT disabled - should be invalid per SDM */
+	secondary |= CPU_MODE_BASED_EPT_EXEC;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("MBEC enabled, EPT disabled (invalid combination)");
+	test_vmx_invalid_controls();
+	report_prefix_pop();
+
+	/* Test case 3: MBEC enabled, EPT enabled - should be valid */
+	secondary |= CPU_EPT;
+	setup_dummy_ept();
+	report_prefix_pushf("MBEC enabled, EPT enabled (valid combination)");
+	test_vmx_valid_controls();
+	report_prefix_pop();
+
+	/* Test case 4: MBEC disabled, EPT enabled - should be valid */
+	secondary &= ~CPU_MODE_BASED_EPT_EXEC;
+	vmcs_write(CPU_EXEC_CTRL1, secondary);
+	report_prefix_pushf("MBEC disabled, EPT enabled (valid combination)");
+	test_vmx_valid_controls();
+	report_prefix_pop();
+
+	vmcs_write(CPU_EXEC_CTRL0, primary_saved);
+	vmcs_write(CPU_EXEC_CTRL1, secondary_saved);
+}
+
+/*
  * If the 'enable PML' VM-execution control is 1, the 'enable EPT'
  * VM-execution control must also be 1. In addition, the PML address
  * must satisfy the following checks:
@@ -4893,7 +5186,7 @@ static void test_pml(void)
 
 	primary |= CPU_SECONDARY;
 	vmcs_write(CPU_EXEC_CTRL0, primary);
-	secondary &= ~(CPU_PML | CPU_EPT);
+	secondary &= ~(CPU_PML | CPU_EPT | CPU_MODE_BASED_EPT_EXEC);
 	vmcs_write(CPU_EXEC_CTRL1, secondary);
 	report_prefix_pushf("enable-PML disabled, enable-EPT disabled");
 	test_vmx_valid_controls();
@@ -5327,6 +5620,7 @@ static void test_vm_execution_ctls(void)
 	test_pml();
 	test_vpid();
 	test_ept_eptp();
+	test_mode_based_execute_control();
 	test_vmx_preemption_timer();
 }
 
@@ -11546,9 +11840,15 @@ struct vmx_test vmx_tests[] = {
 	TEST(ept_access_test_write_only),
 	TEST(ept_access_test_read_write),
 	TEST(ept_access_test_execute_only),
+	TEST(ept_access_test_execute_user_only),
+	TEST(ept_access_test_execute_both),
 	TEST(ept_access_test_read_execute),
+	TEST(ept_access_test_read_execute_user_only),
+	TEST(ept_access_test_read_execute_both),
 	TEST(ept_access_test_write_execute),
 	TEST(ept_access_test_read_write_execute),
+	TEST(ept_access_test_read_write_execute_user_only),
+	TEST(ept_access_test_read_write_execute_both),
 	TEST(ept_access_test_reserved_bits),
 	TEST(ept_access_test_ignored_bits),
 	TEST(ept_access_test_paddr_not_present_ad_disabled),
