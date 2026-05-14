@@ -6,6 +6,7 @@
 
 #include <asm/debugreg.h>
 
+#include "kvmclock.h"
 #include "vmx.h"
 #include "msr.h"
 #include "processor.h"
@@ -10155,6 +10156,8 @@ static void vmx_init_signal_test(void)
 	 */
 }
 
+static bool use_kvm_wall_clock;
+
 #define SIPI_SIGNAL_TEST_DELAY	100000000ULL
 
 static void vmx_sipi_test_guest(void)
@@ -10199,6 +10202,11 @@ static void vmx_sipi_test_guest(void)
 
 static void sipi_test_ap_thread(void *data)
 {
+	const struct vmx_msr_entry msr_load_wall_clock = {
+		.index = MSR_KVM_WALL_CLOCK_NEW,
+		.reserved = 0,
+		.value = 1,
+	};
 	struct guest_regs *regs = this_cpu_guest_regs();
 	struct vmcs *ap_vmcs;
 	u64 *ap_vmxon_region;
@@ -10231,7 +10239,13 @@ static void sipi_test_ap_thread(void *data)
 	/* Set guest activity state to wait-for-SIPI state */
 	vmcs_write(GUEST_ACTV_STATE, ACTV_WAIT_SIPI);
 
-	vmx_set_test_stage(1);
+	if (use_kvm_wall_clock) {
+		wrmsr(MSR_KVM_WALL_CLOCK_NEW, 0);
+		vmcs_write(ENT_MSR_LD_CNT, 1);
+		vmcs_write(ENTER_MSR_LD_ADDR, virt_to_phys(&msr_load_wall_clock));
+	} else {
+		vmx_set_test_stage(1);
+	}
 
 	/* AP enter guest */
 	enter_guest();
@@ -10274,6 +10288,9 @@ static void vmx_sipi_signal_test(void)
 	u64 cpu_ctrl_0 = CPU_SECONDARY;
 	u64 cpu_ctrl_1 = 0;
 
+	use_kvm_wall_clock = this_cpu_has_kvm() &&
+			     this_cpu_has(KVM_FEATURE_CLOCKSOURCE2);
+
 	/* passthrough lapic to L2 */
 	disable_intercept_for_x2apic_msrs();
 	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_EXTINT);
@@ -10289,6 +10306,13 @@ static void vmx_sipi_signal_test(void)
 
 	/* start AP */
 	on_cpu_async(1, sipi_test_ap_thread, NULL);
+
+	if (use_kvm_wall_clock) {
+		while (rdmsr(MSR_KVM_WALL_CLOCK_NEW) != 1)
+			cpu_relax();
+
+		vmx_set_test_stage(1);
+	}
 
 	/* BSP enter guest */
 	enter_guest();
