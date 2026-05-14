@@ -5,6 +5,7 @@
 #include "processor.h"
 #include "bitops.h"
 #include "util.h"
+#include "virt.h"
 #include "asm/page.h"
 #include "asm/io.h"
 
@@ -56,26 +57,6 @@ struct vmcs {
 struct invvpid_operand {
 	u64 vpid;
 	u64 gla;
-};
-
-struct regs {
-	u64 rax;
-	u64 rcx;
-	u64 rdx;
-	u64 rbx;
-	u64 cr2;
-	u64 rbp;
-	u64 rsi;
-	u64 rdi;
-	u64 r8;
-	u64 r9;
-	u64 r10;
-	u64 r11;
-	u64 r12;
-	u64 r13;
-	u64 r14;
-	u64 r15;
-	u64 rflags;
 };
 
 union exit_reason {
@@ -587,25 +568,6 @@ enum vm_entry_failure_code {
 	ENTRY_FAIL_VMCS_LINK_PTR	= 4,
 };
 
-#define SAVE_GPR_C				\
-	"xchg %%rax, regs\n\t"			\
-	"xchg %%rcx, regs+0x8\n\t"		\
-	"xchg %%rdx, regs+0x10\n\t"		\
-	"xchg %%rbx, regs+0x18\n\t"		\
-	"xchg %%rbp, regs+0x28\n\t"		\
-	"xchg %%rsi, regs+0x30\n\t"		\
-	"xchg %%rdi, regs+0x38\n\t"		\
-	"xchg %%r8, regs+0x40\n\t"		\
-	"xchg %%r9, regs+0x48\n\t"		\
-	"xchg %%r10, regs+0x50\n\t"		\
-	"xchg %%r11, regs+0x58\n\t"		\
-	"xchg %%r12, regs+0x60\n\t"		\
-	"xchg %%r13, regs+0x68\n\t"		\
-	"xchg %%r14, regs+0x70\n\t"		\
-	"xchg %%r15, regs+0x78\n\t"
-
-#define LOAD_GPR_C	SAVE_GPR_C
-
 #define VMX_IO_SIZE_MASK	0x7
 #define _VMX_IO_BYTE		0
 #define _VMX_IO_WORD		1
@@ -738,8 +700,6 @@ enum vm_entry_failure_code {
 #define VMCS_FIELD_WIDTH_SHIFT		(13)
 #define VMCS_FIELD_RESERVED_SHIFT	(15)
 #define VMCS_FIELD_BIT_SIZE		(BITS_PER_LONG)
-
-extern struct regs regs;
 
 extern union vmx_basic_msr basic_msr;
 extern union vmx_ctrl_msr ctrl_pin_rev;

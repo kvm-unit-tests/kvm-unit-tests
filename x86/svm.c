@@ -223,9 +223,9 @@ void vmcb_ident(struct vmcb *vmcb)
 	}
 }
 
-struct regs regs;
+struct guest_regs regs;
 
-struct regs get_regs(void)
+struct guest_regs get_regs(void)
 {
 	return regs;
 }

@@ -44,7 +44,7 @@ struct vmcs *vmcs_root;
 u32 vpid_cnt;
 u64 guest_stack_top;
 u32 ctrl_pin, ctrl_enter, ctrl_exit, ctrl_cpu[2];
-struct regs regs;
+struct guest_regs regs;
 
 struct vmx_test *current;
 
@@ -1732,7 +1732,7 @@ static noinline void vmx_enter_guest(struct vmentry_result *result)
 	asm volatile (
 		"mov %[HOST_RSP], %%rdi\n\t"
 		"vmwrite %%rsp, %%rdi\n\t"
-		LOAD_GPR_C
+		SWAP_GPRS
 		"cmpb $0, %[launched]\n\t"
 		"jne 1f\n\t"
 		"vmlaunch\n\t"
@@ -1740,14 +1740,14 @@ static noinline void vmx_enter_guest(struct vmentry_result *result)
 		"1: "
 		"vmresume\n\t"
 		"2: "
-		SAVE_GPR_C
+		SWAP_GPRS
 		"pushf\n\t"
 		"pop %%rdi\n\t"
 		"mov %%rdi, %[vm_fail_flags]\n\t"
 		"movl $1, %[vm_fail]\n\t"
 		"jmp 3f\n\t"
 		"vmx_return:\n\t"
-		SAVE_GPR_C
+		SWAP_GPRS
 		"3: \n\t"
 		: [vm_fail]"+m"(result->vm_fail),
 		  [vm_fail_flags]"=m"(result->flags)
