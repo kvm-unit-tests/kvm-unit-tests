@@ -2,6 +2,7 @@
 #include "desc.h"
 #include "processor.h"
 
+char __attribute__((aligned(32))) v32_0[32];
 char __attribute__((aligned(32))) v32_1[32];
 char __attribute__((aligned(32))) v32_2[32];
 char __attribute__((aligned(32))) v32_3[32];
@@ -11,14 +12,40 @@ static void initialize_avx_buffers(void)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(v32_1); i++)
-		v32_1[i] = (char)rdtsc();
+		v32_0[i] = (char)rdtsc();
 
+	memcpy(v32_1, v32_0, sizeof(v32_2));
 	memset(v32_2, 0, sizeof(v32_2));
 	memset(v32_3, 0, sizeof(v32_3));
+
+	asm volatile("vzeroall" ::: "memory");
 }
+
+#define __TEST_VMOVNTDQA(reg1, reg2, FEP)				\
+do {									\
+	initialize_avx_buffers();					\
+									\
+	asm volatile(FEP "vmovntdqa v32_1(%%rip), %%" #reg1 "\n"	\
+		     FEP "vmovdqa %%" #reg1 ", %%" #reg2 "\n"		\
+		     FEP "vmovntdq %%" #reg2 ", v32_2(%%rip)\n"		\
+		     "vmovdqa %%" #reg2 ", v32_3(%%rip)\n"		\
+		     ::: "memory", #reg1, #reg2);			\
+									\
+	report(!memcmp(v32_0, v32_1, sizeof(v32_0)),			\
+	       "%s VMOVNTDQ{A} original memory, " #reg1 " and " #reg2,	\
+	       strlen(FEP) ? "Emulated" : "Native");			\
+	report(!memcmp(v32_0, v32_2, sizeof(v32_0)),			\
+	       "%s VMOVNTDQ{A} using " #reg1 " and " #reg2,		\
+	       strlen(FEP) ? "Emulated" : "Native");			\
+	report(!memcmp(v32_0, v32_3, sizeof(v32_0)),			\
+	       "%s VMOVNTDQ{A} using " #reg1 " and " #reg2,		\
+	       strlen(FEP) ? "Emulated+Native" : "Native");		\
+} while (0)
 
 #define __TEST_VMOVDQA(reg1, reg2, FEP)					\
 do {									\
+	initialize_avx_buffers();					\
+									\
 	asm volatile(FEP "vmovdqa v32_1(%%rip), %%" #reg1 "\n"		\
 		     FEP "vmovdqa %%" #reg1 ", %%" #reg2 "\n"		\
 		     FEP "vmovdqa %%" #reg2 ", v32_2(%%rip)\n"		\
@@ -35,12 +62,15 @@ do {									\
 
 #define TEST_VMOVDQA(r1, r2)						\
 do {									\
-	initialize_avx_buffers();					\
-									\
 	__TEST_VMOVDQA(ymm##r1, ymm##r2, "");				\
 									\
 	if (is_fep_available)						\
 		__TEST_VMOVDQA(ymm##r1, ymm##r2, KVM_FEP);		\
+									\
+	__TEST_VMOVNTDQA(ymm##r1, ymm##r2, "");				\
+									\
+	if (is_fep_available)						\
+		__TEST_VMOVNTDQA(ymm##r1, ymm##r2, KVM_FEP);		\
 } while (0)
 
 static void test_write_xcr0(u64 val)
