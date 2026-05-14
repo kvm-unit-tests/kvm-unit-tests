@@ -58,12 +58,23 @@ static __attribute__((used)) void ipi(void)
 }
 
 asm (
-	 "ipi_entry: \n"
-	 "   call ipi \n"
-#ifndef __x86_64__
-	 "   iret"
+	"ipi_entry: \n"
+#ifdef __x86_64__
+	/*
+	 * Align the stack on a 16-byte boundary (as per x86_64 ABI) before
+	 * calling into C code.  Make sure not to clobber any regs!
+	 */
+	"	push %rbp\n"
+	"	mov %rsp, %rbp\n"
+	"	and $-0x10, %rsp\n"
+#endif
+	"	call ipi\n"
+#ifdef __x86_64__
+	"	mov %rbp, %rsp\n"
+	"	pop %rbp\n"
+	"	iretq"
 #else
-	 "   iretq"
+	"	iret"
 #endif
 	 );
 
