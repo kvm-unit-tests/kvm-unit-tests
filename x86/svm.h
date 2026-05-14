@@ -436,7 +436,6 @@ static inline void clgi(void)
 }
 
 #define ASM_PRE_VMRUN_CMD                       \
-                "vmload %%rax\n\t"              \
                 "mov " GUEST_REG(rflags) ", %%r15\n\t" \
                 "mov %%r15, 0x170(%%rax)\n\t"   \
                 "mov " GUEST_REG(rax) ", %%r15\n\t" \
@@ -449,9 +448,6 @@ static inline void clgi(void)
                 "mov %%r15, " GUEST_REG(rflags) "\n\t" \
                 "mov 0x1f8(%%rax), %%r15\n\t"   \
                 "mov %%r15, " GUEST_REG(rax)"\n\t" \
-                "vmsave %%rax\n\t"              \
-
-
 
 #define SVM_BARE_VMRUN \
 	asm volatile ( \
