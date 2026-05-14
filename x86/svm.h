@@ -393,9 +393,9 @@ struct svm_test {
 
 struct regs {
 	u64 rax;
-	u64 rbx;
 	u64 rcx;
 	u64 rdx;
+	u64 rbx;
 	u64 cr2;
 	u64 rbp;
 	u64 rsi;
@@ -458,9 +458,9 @@ static inline void clgi(void)
 
 
 #define SAVE_GPR_C                              \
-        "xchg %%rbx, regs+0x8\n\t"              \
-        "xchg %%rcx, regs+0x10\n\t"             \
-        "xchg %%rdx, regs+0x18\n\t"             \
+        "xchg %%rcx, regs+0x8\n\t"              \
+        "xchg %%rdx, regs+0x10\n\t"             \
+        "xchg %%rbx, regs+0x18\n\t"             \
         "xchg %%rbp, regs+0x28\n\t"             \
         "xchg %%rsi, regs+0x30\n\t"             \
         "xchg %%rdi, regs+0x38\n\t"             \
