@@ -62,7 +62,6 @@ static test_guest_func v2_guest_main;
 u64 hypercall_field;
 static int matched;
 static int guest_finished;
-static int in_guest;
 
 union vmx_basic_msr basic_msr;
 union vmx_ctrl_msr ctrl_pin_rev;
@@ -1672,7 +1671,7 @@ static int handle_hypercall(void)
 
 static void continue_abort(void)
 {
-	assert(!in_guest);
+	assert(!this_cpu_read_in_guest());
 	printf("Host was here when guest aborted:\n");
 	dump_stack();
 	longjmp(abort_target, 1);
@@ -1681,7 +1680,7 @@ static void continue_abort(void)
 
 void __abort_test(void)
 {
-	if (in_guest)
+	if (this_cpu_read_in_guest())
 		hypercall(HYPERCALL_VMABORT);
 	else
 		longjmp(abort_target, 1);
@@ -1690,14 +1689,17 @@ void __abort_test(void)
 
 static void continue_skip(void)
 {
-	assert(!in_guest);
+	assert(!this_cpu_read_in_guest());
 	longjmp(abort_target, 1);
 	abort();
 }
 
 void test_skip(const char *msg)
 {
+	bool in_guest = this_cpu_read_in_guest();
+
 	printf("%s skipping test: %s\n", in_guest ? "Guest" : "Host", msg);
+
 	if (in_guest)
 		hypercall(HYPERCALL_VMABORT);
 	else
@@ -1731,7 +1733,8 @@ static noinline void vmx_enter_guest(struct vmentry_result *result)
 
 	memset(result, 0, sizeof(*result));
 
-	in_guest = 1;
+	this_cpu_write_in_guest(true);
+
 	asm volatile (
 		"mov %[HOST_RSP], %%rdi\n\t"
 		"vmwrite %%rsp, %%rdi\n\t"
@@ -1758,7 +1761,8 @@ static noinline void vmx_enter_guest(struct vmentry_result *result)
 		  GUEST_REGS_OFFSETS
 		: "rdi", "memory", "cc"
 	);
-	in_guest = 0;
+
+	this_cpu_write_in_guest(false);
 
 	result->vmlaunch = !launched;
 	result->instr = launched ? "vmresume" : "vmlaunch";
@@ -1854,7 +1858,7 @@ static int test_run(struct vmx_test *test)
 
 	r = setjmp(abort_target);
 	if (r) {
-		assert(!in_guest);
+		assert(!this_cpu_read_in_guest());
 		goto out;
 	}
 

@@ -60,6 +60,8 @@ struct percpu_data {
 	struct guest_regs guest_regs;
 	/* Track whether or not the current CPU's VMCS has been "launched". */
 	bool launched;
+	/* Track if this CPU is running in an SVM or VMX guest. */
+	bool in_guest;
 };
 
 #define typeof_percpu(name) typeof(((struct percpu_data *)0)->name)
@@ -113,6 +115,7 @@ BUILD_PERCPU_OP(exception_rflags_rf);
 BUILD_PERCPU_OP(exception_error_code);
 BUILD_PERCPU_OP(apic_ops);
 BUILD_PERCPU_OP(launched);
+BUILD_PERCPU_OP(in_guest);
 
 void smp_init(void);
 
