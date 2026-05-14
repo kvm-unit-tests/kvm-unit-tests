@@ -116,6 +116,70 @@ static void test_pop(void *mem)
 	       && rbp == (unsigned long)stack_top - 8
 	       && stack_top[-1] == 0xaa55aa55bb66bb66ULL,
 	       "enter");
+
+	stack_top = mem + 8192 + 4;
+	stack_top[-1] = -1ull;
+	rbp = 0x1122334455667788ULL;
+	rsp = (unsigned long)stack_top;
+	asm volatile("mov %[rsp], %%r8 \n\t"
+		     "mov %[rbp], %%r9 \n\t"
+		     "xchg %%rsp, %%r8 \n\t"
+		     "xchg %%rbp, %%r9 \n\t"
+		     "enter $0x1234, $0 \n\t"
+		     "xchg %%rsp, %%r8 \n\t"
+		     "xchg %%rbp, %%r9 \n\t"
+		     "xchg %%r8, %[rsp] \n\t"
+		     "xchg %%r9, %[rbp]"
+		     : [rsp]"+a"(rsp), [rbp]"+b"(rbp) : : "memory", "r8", "r9");
+
+	report(rsp == (unsigned long)stack_top - 8 - 0x1234 &&
+	       rbp == (unsigned long)stack_top - 8 &&
+	       stack_top[-1] == 0x1122334455667788ULL,
+	       "enter");
+
+	stack_top = mem + 4096 + 4;
+	stack_top[-1] = -1ull;
+	rbp = 0x1122334455667788ULL;
+	rsp = (unsigned long)stack_top;
+	asm volatile("mov %[rsp], %%r8 \n\t"
+		     "mov %[rbp], %%r9 \n\t"
+		     "xchg %%rsp, %%r8 \n\t"
+		     "xchg %%rbp, %%r9 \n\t"
+		     "enter $0x1234, $0 \n\t"
+		     "xchg %%rsp, %%r8 \n\t"
+		     "xchg %%rbp, %%r9 \n\t"
+		     "xchg %%r8, %[rsp] \n\t"
+		     "xchg %%r9, %[rbp]"
+		     : [rsp]"+a"(rsp), [rbp]"+b"(rbp) : : "memory", "r8", "r9");
+
+	report(rsp == (unsigned long)stack_top - 8 - 0x1234,
+	       "ENTER RSP = %lx, wanted %lx", rsp, (unsigned long)stack_top - 8 - 0x1234);
+	report(rbp == (unsigned long)stack_top - 8,
+	       "ENTER RSP = %lx, wanted %lx", rbp, (unsigned long)stack_top - 8);
+	report(stack_top[-1] == 0x1122334455667788ULL,
+	       "ENTER val = %lx, wanted 0x1122334455667788", stack_top[-1]);
+
+	stack_top = mem + 4;
+	stack_top[-1] = -1ull;
+	rbp = 0x8877665544332211ULL;
+	rsp = (unsigned long)stack_top;
+	asm volatile("mov %[rsp], %%r8 \n\t"
+		     "mov %[rbp], %%r9 \n\t"
+		     "xchg %%rsp, %%r8 \n\t"
+		     "xchg %%rbp, %%r9 \n\t"
+		     "enter $0x1234, $0 \n\t"
+		     "xchg %%rsp, %%r8 \n\t"
+		     "xchg %%rbp, %%r9 \n\t"
+		     "xchg %%r8, %[rsp] \n\t"
+		     "xchg %%r9, %[rbp]"
+		     : [rsp]"+a"(rsp), [rbp]"+b"(rbp) : : "memory", "r8", "r9");
+
+	report(rsp == (unsigned long)stack_top - 8 - 0x1234,
+	       "ENTER RSP = %lx, wanted %lx", rsp, (unsigned long)stack_top - 8 - 0x1234);
+	report(rbp == (unsigned long)stack_top - 8,
+	       "ENTER RSP = %lx, wanted %lx", rbp, (unsigned long)stack_top - 8);
+	report(stack_top[-1] == 0x8877665544332211ULL,
+	       "ENTER val = %lx, wanted 0x8877665544332211", stack_top[-1]);
 }
 
 static void test_ljmp(void *mem)

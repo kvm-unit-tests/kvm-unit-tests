@@ -790,8 +790,7 @@ static void test_mov_pop_ss_code_db(void)
 
 int main(void)
 {
-	void *mem;
-	void *cross_mem;
+	void *base, *mmio, *split;
 
 	if (!is_fep_available)
 		report_skip("Skipping tests that require forced emulation, "
@@ -799,45 +798,56 @@ int main(void)
 
 	setup_vm();
 
-	mem = alloc_vpages(2);
-	install_page((void *)read_cr3(), IORAM_BASE_PHYS, mem);
-	// install the page twice to test cross-page mmio
-	install_page((void *)read_cr3(), IORAM_BASE_PHYS, mem + 4096);
-	cross_mem = vmap(virt_to_phys(alloc_pages(2)), 2 * PAGE_SIZE);
+	/*
+	 * Allocate five pages in the virtual address space, with pages, 0, 3,
+	 * and 4 pointing at normal memory, and pages 1 and 2 pointing at an
+	 * emulated MMIO range.  This combination of pages allows testing basic
+	 * emulated MMIO handling, as well as a variety of multi-page and page-
+	 * split scenarios.
+	 */
+	base = alloc_vpages(5);
+	install_page((void *)read_cr3(), virt_to_phys(alloc_pages(1)), base);
+	install_page((void *)read_cr3(), IORAM_BASE_PHYS, base + PAGE_SIZE);
+	install_page((void *)read_cr3(), IORAM_BASE_PHYS, base + 2 * PAGE_SIZE);
+	install_page((void *)read_cr3(), virt_to_phys(alloc_pages(1)), base + 3 * PAGE_SIZE);
+	install_page((void *)read_cr3(), virt_to_phys(alloc_pages(1)), base + 4 * PAGE_SIZE);
 
-	test_mov(mem);
-	test_simplealu(mem);
-	test_cmps(mem);
-	test_scas(mem);
-	test_smsw(mem);
+	mmio = base + PAGE_SIZE;
+	split = base + 3 * PAGE_SIZE;
+
+	test_mov(mmio);
+	test_simplealu(mmio);
+	test_cmps(mmio);
+	test_scas(mmio);
+	test_smsw(mmio);
 	test_lmsw();
 	test_stringio();
-	test_incdecnotneg(mem);
-	test_btc(mem);
-	test_bsfbsr(mem);
-	test_imul(mem);
-	test_sse(mem);
-	test_sse_exceptions(cross_mem);
-	test_shld_shrd(mem);
-	//test_lgdt_lidt(mem);
-	//test_lldt(mem);
-	test_ltr(mem);
+	test_incdecnotneg(mmio);
+	test_btc(mmio);
+	test_bsfbsr(mmio);
+	test_imul(mmio);
+	test_sse(mmio);
+	test_sse_exceptions(split);
+	test_shld_shrd(mmio);
+	//test_lgdt_lidt(mmio);
+	//test_lldt(mmio);
+	test_ltr(mmio);
 
 	if (is_fep_available) {
-		test_smsw_reg(mem);
-		test_nop(mem);
-		test_mov_dr(mem);
+		test_smsw_reg(mmio);
+		test_nop(mmio);
+		test_mov_dr(mmio);
 		test_illegal_lea();
 	}
 
-	test_crosspage_mmio(mem);
+	test_crosspage_mmio(mmio);
 
-	test_string_io_mmio(mem);
+	test_string_io_mmio(mmio);
 	test_illegal_movbe();
 	test_mov_pop_ss_code_db();
 
 #ifdef __x86_64__
-	test_emulator_64(mem);
+	test_emulator_64(mmio);
 #endif
 	return report_summary();
 }
