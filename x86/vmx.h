@@ -794,7 +794,6 @@ static inline bool is_mbec_supported(void)
 }
 
 extern u64 *bsp_vmxon_region;
-extern bool launched;
 
 void vmx_set_test_stage(u32 s);
 u32 vmx_get_test_stage(void);
@@ -855,6 +854,8 @@ static inline int vmcs_clear(struct vmcs *vmcs)
 {
 	bool ret;
 	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+
+	this_cpu_write_launched(false);
 
 	asm volatile ("push %1; popf; vmclear %2; setbe %0"
 		      : "=q" (ret) : "q" (rflags), "m" (vmcs) : "cc");

@@ -60,7 +60,6 @@ static struct test_teardown_step teardown_steps[MAX_TEST_TEARDOWN_STEPS];
 static test_guest_func v2_guest_main;
 
 u64 hypercall_field;
-bool launched;
 static int matched;
 static int guest_finished;
 static int in_guest;
@@ -1728,6 +1727,8 @@ static int exit_handler(union exit_reason exit_reason)
  */
 static noinline void vmx_enter_guest(struct vmentry_result *result)
 {
+	bool launched = this_cpu_read_launched();
+
 	memset(result, 0, sizeof(*result));
 
 	in_guest = 1;
@@ -1779,7 +1780,7 @@ static int vmx_run(void)
 			 * VMCS isn't in "launched" state if there's been any
 			 * entry failure (early or otherwise).
 			 */
-			launched = 1;
+			this_cpu_write_launched(true);
 			ret = exit_handler(result.exit_reason);
 		} else if (current->entry_failure_handler) {
 			ret = current->entry_failure_handler(&result);
@@ -1848,7 +1849,6 @@ static int test_run(struct vmx_test *test)
 	v2_guest_main = NULL;
 	test->exits = 0;
 	current = test;
-	launched = 0;
 	guest_finished = 0;
 	printf("\nTest suite: %s\n", test->name);
 
@@ -1867,7 +1867,7 @@ static int test_run(struct vmx_test *test)
 	while (teardown_count > 0)
 		run_teardown_step(&teardown_steps[--teardown_count]);
 
-	if (launched && !guest_finished)
+	if (this_cpu_read_launched() && !guest_finished)
 		report_fail("Guest didn't run to completion.");
 
 out:
@@ -1975,7 +1975,7 @@ void __enter_guest(u8 abort_flag, struct vmentry_result *result)
 		return;
 	}
 
-	launched = 1;
+	this_cpu_write_launched(true);
 	check_for_guest_termination(result->exit_reason);
 	return;
 
