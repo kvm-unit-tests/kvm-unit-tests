@@ -10285,10 +10285,10 @@ static void vmx_sipi_signal_test(void)
 	/* update CR3 on AP */
 	on_cpu(1, update_cr3, (void *)read_cr3());
 
+	vmx_set_test_stage(0);
+
 	/* start AP */
 	on_cpu_async(1, sipi_test_ap_thread, NULL);
-
-	vmx_set_test_stage(0);
 
 	/* BSP enter guest */
 	enter_guest();
