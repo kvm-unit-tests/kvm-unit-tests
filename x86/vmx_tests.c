@@ -1973,7 +1973,7 @@ struct vmx_msr_entry {
 	u32 index;
 	u32 reserved;
 	u64 value;
-} __attribute__((packed));
+} __attribute__((packed)) __attribute__((aligned(16)));
 
 #define MSR_MAGIC 0x31415926
 struct vmx_msr_entry *exit_msr_store, *entry_msr_load, *exit_msr_load;
