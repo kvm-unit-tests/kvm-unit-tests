@@ -281,11 +281,12 @@ static noinline unsigned long singlestep_with_movss_blocking(void)
 static void report_singlestep_with_movss_blocking_and_icebp(unsigned long start,
 							    const char *usermode)
 {
-	report(n == 4 &&
+	report(n == 5 &&
 	       is_icebp_db(dr6[0]) && db_addr[0] == start &&
-	       is_single_step_db(dr6[1]) && db_addr[1] == start + 6 &&
-	       is_single_step_db(dr6[2]) && db_addr[2] == start + 6 + 1 &&
-	       is_single_step_db(dr6[3]) && db_addr[3] == start + 6 + 1 + 1,
+	       is_icebp_db(dr6[1]) && db_addr[1] == start + 1 &&
+	       is_single_step_db(dr6[2]) && db_addr[2] == start + 1 + 6 &&
+	       is_single_step_db(dr6[3]) && db_addr[3] == start + 1 + 6 + 1 &&
+	       is_single_step_db(dr6[4]) && db_addr[4] == start + 1 + 6 + 1 + 1,
 	       "%sSingle-Step + ICEBP #DB w/ MOVSS blocking", usermode);
 }
 
@@ -311,7 +312,8 @@ static noinline unsigned long singlestep_with_movss_blocking_and_icebp(void)
 		"popf\n\t"
 		"mov %%ax, %%ss\n\t"
 		".byte 0xf1;"
-		"1:and $~(1<<8),%%rax\n\t"
+		"1:.byte 0xf1;"
+		"and $~(1<<8),%%rax\n\t"
 		"push %%rax\n\t"
 		"popf\n\t"
 		"lea 1b(%%rip),%0\n\t"
