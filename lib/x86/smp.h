@@ -20,6 +20,30 @@
 #include "atomic.h"
 #include "apic-defs.h"
 
+struct guest_regs {
+	u64 rax;
+	u64 rcx;
+	u64 rdx;
+	u64 rbx;
+	/*
+	 * Use RSP's index to hold CR2, as RSP isn't manually context switched
+	 * by software in any relevant flows.
+	 */
+	u64 cr2;
+	u64 rbp;
+	u64 rsi;
+	u64 rdi;
+	u64 r8;
+	u64 r9;
+	u64 r10;
+	u64 r11;
+	u64 r12;
+	u64 r13;
+	u64 r14;
+	u64 r15;
+	u64 rflags;
+};
+
 /* Offsets into the per-cpu page. */
 struct percpu_data {
 	uint32_t  smp_id;
@@ -32,6 +56,7 @@ struct percpu_data {
 		uint32_t exception_data;
 	};
 	void *apic_ops;
+	struct guest_regs guest_regs;
 };
 
 #define typeof_percpu(name) typeof(((struct percpu_data *)0)->name)

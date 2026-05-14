@@ -417,7 +417,6 @@ int get_test_stage(struct svm_test *test);
 void set_test_stage(struct svm_test *test, int s);
 void inc_test_stage(struct svm_test *test);
 void vmcb_ident(struct vmcb *vmcb);
-struct guest_regs get_regs(void);
 void vmmcall(void);
 void svm_setup_vmrun(u64 rip);
 int __svm_vmrun(u64 rip);

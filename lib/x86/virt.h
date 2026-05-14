@@ -2,35 +2,16 @@
 #define _x86_VIRT_H_
 
 #include "libcflat.h"
+#include "processor.h"
+#include "smp.h"
 
-struct guest_regs {
-	u64 rax;
-	u64 rcx;
-	u64 rdx;
-	u64 rbx;
-	/*
-	 * Use RSP's index to hold CR2, as RSP isn't manually context switched
-	 * by software in any relevant flows.
-	 */
-	u64 cr2;
-	u64 rbp;
-	u64 rsi;
-	u64 rdi;
-	u64 r8;
-	u64 r9;
-	u64 r10;
-	u64 r11;
-	u64 r12;
-	u64 r13;
-	u64 r14;
-	u64 r15;
-	u64 rflags;
-};
-
-extern struct guest_regs regs;
+static inline struct guest_regs *this_cpu_guest_regs(void)
+{
+	return (void *)rdmsr(MSR_GS_BASE) + offsetof_percpu(guest_regs);
+}
 
 #define GUEST_REG_OFFSET(name) \
-	[off_##name] "i" (offsetof(struct guest_regs, name))
+	[off_##name] "i" (offsetof_percpu(guest_regs) + offsetof(struct guest_regs, name))
 
 #define GUEST_REGS_OFFSETS	\
 	GUEST_REG_OFFSET(rax),	\
@@ -52,7 +33,7 @@ extern struct guest_regs regs;
 	GUEST_REG_OFFSET(rflags)
 
 #define GUEST_REG(name) \
-	xxstr(regs+%c[off_##name])
+	xxstr(%%gs:%c[off_##name])
 
 #define SWAP_REG(name) \
 	"xchg %%" xxstr(name) "," GUEST_REG(name) "\n\t"

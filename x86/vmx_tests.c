@@ -102,15 +102,16 @@ static void vmenter_main(void)
 
 static int vmenter_exit_handler(union exit_reason exit_reason)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
 	u64 guest_rip = vmcs_read(GUEST_RIP);
 
 	switch (exit_reason.basic) {
 	case VMX_VMCALL:
-		if (regs.rax != 0xABCD) {
+		if (regs->rax != 0xABCD) {
 			report_fail("test vmresume");
 			return VMX_TEST_VMEXIT;
 		}
-		regs.rax = 0xFFFF;
+		regs->rax = 0xFFFF;
 		vmcs_write(GUEST_RIP, guest_rip + 3);
 		return VMX_TEST_RESUME;
 	default:
@@ -10196,6 +10197,7 @@ static void vmx_sipi_test_guest(void)
 
 static void sipi_test_ap_thread(void *data)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
 	struct vmcs *ap_vmcs;
 	u64 *ap_vmxon_region;
 	void *ap_stack, *ap_syscall_stack;
@@ -10209,6 +10211,8 @@ static void sipi_test_ap_thread(void *data)
 	TEST_ASSERT(!__vmxon_safe(ap_vmxon_region));
 	init_vmcs(&ap_vmcs);
 	make_vmcs_current(ap_vmcs);
+
+	memset(regs, 0, sizeof(*regs));
 
 	/* Set stack for AP */
 	ap_stack = alloc_page();
@@ -10652,10 +10656,11 @@ static unsigned long long host_time_to_guest_time(unsigned long long t)
 static unsigned long long rdtsc_vmexit_diff_test_iteration(void)
 {
 	unsigned long long guest_tsc, host_to_guest_tsc;
+	struct guest_regs *regs = this_cpu_guest_regs();
 
 	enter_guest();
 	skip_exit_vmcall();
-	guest_tsc = (u32) regs.rax + (regs.rdx << 32);
+	guest_tsc = (u32) regs->rax + (regs->rdx << 32);
 	host_to_guest_tsc = host_time_to_guest_time(exit_msr_store[0].value);
 
 	return host_to_guest_tsc - guest_tsc;
@@ -10881,6 +10886,7 @@ typedef void (*pf_exception_test_guest_t)(void);
 static void __vmx_pf_exception_test(invalidate_tlb_t inv_fn, void *data,
 				    pf_exception_test_guest_t guest_fn)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
 	u64 efer;
 	struct cpuid cpuid;
 
@@ -10897,23 +10903,23 @@ static void __vmx_pf_exception_test(invalidate_tlb_t inv_fn, void *data,
 	while (vmcs_read(EXI_REASON) != VMX_VMCALL) {
 		switch (vmcs_read(EXI_REASON)) {
 		case VMX_RDMSR:
-			assert(regs.rcx == MSR_EFER);
+			assert(regs->rcx == MSR_EFER);
 			efer = vmcs_read(GUEST_EFER);
-			regs.rdx = efer >> 32;
-			regs.rax = efer & 0xffffffff;
+			regs->rdx = efer >> 32;
+			regs->rax = efer & 0xffffffff;
 			break;
 		case VMX_WRMSR:
-			assert(regs.rcx == MSR_EFER);
-			efer = regs.rdx << 32 | (regs.rax & 0xffffffff);
+			assert(regs->rcx == MSR_EFER);
+			efer = regs->rdx << 32 | (regs->rax & 0xffffffff);
 			vmcs_write(GUEST_EFER, efer);
 			break;
 		case VMX_CPUID:
 			cpuid = (struct cpuid) {0, 0, 0, 0};
-			cpuid = raw_cpuid(regs.rax, regs.rcx);
-			regs.rax = cpuid.a;
-			regs.rbx = cpuid.b;
-			regs.rcx = cpuid.c;
-			regs.rdx = cpuid.d;
+			cpuid = raw_cpuid(regs->rax, regs->rcx);
+			regs->rax = cpuid.a;
+			regs->rbx = cpuid.b;
+			regs->rcx = cpuid.c;
+			regs->rdx = cpuid.d;
 			break;
 		case VMX_INVLPG:
 			inv_fn(data);
@@ -11250,7 +11256,12 @@ static void do_vmx_canonical_test_one_field(const char *field_name, u64 field)
 	field_org_value = vmcs_read(field);
 
 	test_host_value_direct(field_name, field);
-	test_host_value_vmcs(field_name, field);
+	/*
+	 * Skip the GS.base VMCS test, the VMX infrastructure accesses per-CPU
+	 * variables (referenced via GS) immediatedly after VM-Exit.
+	 */
+	if (field != HOST_BASE_GS)
+		test_host_value_vmcs(field_name, field);
 
 	/* Restore original values */
 	vmcs_write(field, field_org_value);

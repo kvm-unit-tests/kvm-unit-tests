@@ -44,7 +44,6 @@ struct vmcs *vmcs_root;
 u32 vpid_cnt;
 u64 guest_stack_top;
 u32 ctrl_pin, ctrl_enter, ctrl_exit, ctrl_cpu[2];
-struct guest_regs regs;
 
 struct vmx_test *current;
 
@@ -632,6 +631,8 @@ const char *exit_reason_description(u64 reason)
 
 void print_vmexit_info(union exit_reason exit_reason)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
+
 	u64 guest_rip, guest_rsp;
 	ulong exit_qual = vmcs_read(EXI_QUALIFICATION);
 	guest_rip = vmcs_read(GUEST_RIP);
@@ -642,13 +643,13 @@ void print_vmexit_info(union exit_reason exit_reason)
 	printf("\texit qualification = %#lx\n", exit_qual);
 	printf("\tguest_rip = %#lx\n", guest_rip);
 	printf("\tRAX=%#lx    RBX=%#lx    RCX=%#lx    RDX=%#lx\n",
-		regs.rax, regs.rbx, regs.rcx, regs.rdx);
+		regs->rax, regs->rbx, regs->rcx, regs->rdx);
 	printf("\tRSP=%#lx    RBP=%#lx    RSI=%#lx    RDI=%#lx\n",
-		guest_rsp, regs.rbp, regs.rsi, regs.rdi);
+		guest_rsp, regs->rbp, regs->rsi, regs->rdi);
 	printf("\tR8 =%#lx    R9 =%#lx    R10=%#lx    R11=%#lx\n",
-		regs.r8, regs.r9, regs.r10, regs.r11);
+		regs->r8, regs->r9, regs->r10, regs->r11);
 	printf("\tR12=%#lx    R13=%#lx    R14=%#lx    R15=%#lx\n",
-		regs.r12, regs.r13, regs.r14, regs.r15);
+		regs->r12, regs->r13, regs->r14, regs->r15);
 }
 
 void print_vmentry_failure_info(struct vmentry_result *result)
@@ -1707,15 +1708,16 @@ void test_skip(const char *msg)
 
 static int exit_handler(union exit_reason exit_reason)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
 	int ret;
 
 	current->exits++;
-	regs.rflags = vmcs_read(GUEST_RFLAGS);
+	regs->rflags = vmcs_read(GUEST_RFLAGS);
 	if (is_hypercall(exit_reason))
 		ret = handle_hypercall();
 	else
 		ret = current->exit_handler(exit_reason);
-	vmcs_write(GUEST_RFLAGS, regs.rflags);
+	vmcs_write(GUEST_RFLAGS, regs->rflags);
 
 	return ret;
 }
@@ -1815,6 +1817,7 @@ static void run_teardown_step(struct test_teardown_step *step)
 
 static int test_run(struct vmx_test *test)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
 	int r;
 
 	/* Validate V2 interface. */
@@ -1835,7 +1838,7 @@ static int test_run(struct vmx_test *test)
 		return 1;
 	}
 
-	memset(&regs, 0, sizeof(regs));
+	memset(regs, 0, sizeof(*regs));
 	init_vmcs(&(test->vmcs));
 	/* Directly call test->init is ok here, init_vmcs has done
 	   vmcs init, vmclear and vmptrld*/
