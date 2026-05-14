@@ -1734,8 +1734,8 @@ static noinline void vmx_enter_guest(struct vmentry_result *result)
 	asm volatile (
 		"mov %[HOST_RSP], %%rdi\n\t"
 		"vmwrite %%rsp, %%rdi\n\t"
-		SWAP_GPRS
 		"cmpb $0, %[launched]\n\t"
+		SWAP_GPRS
 		"jne 1f\n\t"
 		"vmlaunch\n\t"
 		"jmp 2f\n\t"
