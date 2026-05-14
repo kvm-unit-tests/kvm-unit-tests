@@ -1834,6 +1834,7 @@ static int test_run(struct vmx_test *test)
 		return 1;
 	}
 
+	memset(&regs, 0, sizeof(regs));
 	init_vmcs(&(test->vmcs));
 	/* Directly call test->init is ok here, init_vmcs has done
 	   vmcs init, vmclear and vmptrld*/
@@ -1843,8 +1844,6 @@ static int test_run(struct vmx_test *test)
 	v2_guest_main = NULL;
 	test->exits = 0;
 	current = test;
-	regs = test->guest_regs;
-	vmcs_write(GUEST_RFLAGS, regs.rflags | X86_EFLAGS_FIXED);
 	launched = 0;
 	guest_finished = 0;
 	printf("\nTest suite: %s\n", test->name);

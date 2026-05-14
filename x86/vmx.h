@@ -121,7 +121,6 @@ struct vmx_test {
 	int (*init)(struct vmcs *vmcs);
 	void (*guest_main)(void);
 	int (*exit_handler)(union exit_reason exit_reason);
-	struct regs guest_regs;
 	int (*entry_failure_handler)(struct vmentry_result *result);
 	struct vmcs *vmcs;
 	int exits;
