@@ -56,7 +56,7 @@ static inline u64 scale_delta(u64 delta, u32 mul_frac, int shift)
 # define do_div(n,base) ({					\
 	u32 __base = (base);    				\
 	u32 __rem;						\
-	__rem = ((u64)(n)) % __base;                            \
+	__rem = ((u64)(n)) % __base;			    \
 	(n) = ((u64)(n)) / __base;				\
 	__rem;							\
  })
@@ -194,9 +194,9 @@ static cycle_t pvclock_clocksource_read(struct pvclock_vcpu_time_info *src)
 	} while (pvclock_read_retry(src, version));
 
 	if ((valid_flags & PVCLOCK_RAW_CYCLE_BIT) ||
-            ((valid_flags & PVCLOCK_TSC_STABLE_BIT) &&
-             (flags & PVCLOCK_TSC_STABLE_BIT)))
-                return ret;
+	    ((valid_flags & PVCLOCK_TSC_STABLE_BIT) &&
+	     (flags & PVCLOCK_TSC_STABLE_BIT)))
+		return ret;
 
 	/*
 	 * Assumption here is that last_value, a global accumulator, always goes
@@ -224,27 +224,27 @@ static cycle_t pvclock_clocksource_read(struct pvclock_vcpu_time_info *src)
 
 cycle_t kvm_clock_read(void)
 {
-        struct pvclock_vcpu_time_info *src;
-        cycle_t ret;
-        int index = smp_id();
+	struct pvclock_vcpu_time_info *src;
+	cycle_t ret;
+	int index = smp_id();
 
-        src = &hv_clock[index];
-        ret = pvclock_clocksource_read(src);
-        return ret;
+	src = &hv_clock[index];
+	ret = pvclock_clocksource_read(src);
+	return ret;
 }
 
 void kvm_clock_init(void *data)
 {
-        int index = smp_id();
-        struct pvclock_vcpu_time_info *hvc = &hv_clock[index];
+	int index = smp_id();
+	struct pvclock_vcpu_time_info *hvc = &hv_clock[index];
 
-        printf("kvm-clock: cpu %d, msr %p\n", index, hvc);
-        wrmsr(MSR_KVM_SYSTEM_TIME_NEW, (unsigned long)hvc | 1);
+	printf("kvm-clock: cpu %d, msr %p\n", index, hvc);
+	wrmsr(MSR_KVM_SYSTEM_TIME_NEW, (unsigned long)hvc | 1);
 }
 
 void kvm_clock_clear(void *data)
 {
-        wrmsr(MSR_KVM_SYSTEM_TIME_NEW, 0LL);
+	wrmsr(MSR_KVM_SYSTEM_TIME_NEW, 0LL);
 }
 
 static void pvclock_read_wallclock(struct pvclock_wall_clock *wall_clock,
@@ -275,15 +275,15 @@ static void pvclock_read_wallclock(struct pvclock_wall_clock *wall_clock,
 
 void kvm_get_wallclock(struct timespec *ts)
 {
-        struct pvclock_vcpu_time_info *vcpu_time;
-        int index = smp_id();
+	struct pvclock_vcpu_time_info *vcpu_time;
+	int index = smp_id();
 
-        wrmsr(MSR_KVM_WALL_CLOCK_NEW, (unsigned long)&wall_clock);
-        vcpu_time = &hv_clock[index];
-        pvclock_read_wallclock(&wall_clock, vcpu_time, ts);
+	wrmsr(MSR_KVM_WALL_CLOCK_NEW, (unsigned long)&wall_clock);
+	vcpu_time = &hv_clock[index];
+	pvclock_read_wallclock(&wall_clock, vcpu_time, ts);
 }
 
 void pvclock_set_flags(unsigned char flags)
 {
-        valid_flags = flags;
+	valid_flags = flags;
 }
