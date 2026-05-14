@@ -29,24 +29,52 @@ struct guest_regs {
 
 extern struct guest_regs regs;
 
-#define __SWAP_GPRS			\
-	"xchg %%rcx, regs+0x8\n\t"	\
-	"xchg %%rdx, regs+0x10\n\t"	\
-	"xchg %%rbx, regs+0x18\n\t"	\
-	"xchg %%rbp, regs+0x28\n\t"	\
-	"xchg %%rsi, regs+0x30\n\t"	\
-	"xchg %%rdi, regs+0x38\n\t"	\
-	"xchg %%r8, regs+0x40\n\t"	\
-	"xchg %%r9, regs+0x48\n\t"	\
-	"xchg %%r10, regs+0x50\n\t"	\
-	"xchg %%r11, regs+0x58\n\t"	\
-	"xchg %%r12, regs+0x60\n\t"	\
-	"xchg %%r13, regs+0x68\n\t"	\
-	"xchg %%r14, regs+0x70\n\t"	\
-	"xchg %%r15, regs+0x78\n\t"
+#define GUEST_REG_OFFSET(name) \
+	[off_##name] "i" (offsetof(struct guest_regs, name))
 
-#define SWAP_GPRS			\
-	"xchg %%rax, regs+0x0\n\t"	\
+#define GUEST_REGS_OFFSETS	\
+	GUEST_REG_OFFSET(rax),	\
+	GUEST_REG_OFFSET(rcx),	\
+	GUEST_REG_OFFSET(rdx),	\
+	GUEST_REG_OFFSET(rbx),	\
+	GUEST_REG_OFFSET(cr2),	\
+	GUEST_REG_OFFSET(rbp),	\
+	GUEST_REG_OFFSET(rsi),	\
+	GUEST_REG_OFFSET(rdi),	\
+	GUEST_REG_OFFSET(r8),	\
+	GUEST_REG_OFFSET(r9),	\
+	GUEST_REG_OFFSET(r10),	\
+	GUEST_REG_OFFSET(r11),	\
+	GUEST_REG_OFFSET(r12),	\
+	GUEST_REG_OFFSET(r13),	\
+	GUEST_REG_OFFSET(r14),	\
+	GUEST_REG_OFFSET(r15),	\
+	GUEST_REG_OFFSET(rflags)
+
+#define GUEST_REG(name) \
+	xxstr(regs+%c[off_##name])
+
+#define SWAP_REG(name) \
+	"xchg %%" xxstr(name) "," GUEST_REG(name) "\n\t"
+
+#define __SWAP_GPRS		\
+	SWAP_REG(rcx)		\
+	SWAP_REG(rdx)		\
+	SWAP_REG(rbx)		\
+	SWAP_REG(rbp)		\
+	SWAP_REG(rsi)		\
+	SWAP_REG(rdi)		\
+	SWAP_REG(r8)		\
+	SWAP_REG(r9)		\
+	SWAP_REG(r10)		\
+	SWAP_REG(r11)		\
+	SWAP_REG(r12)		\
+	SWAP_REG(r13)		\
+	SWAP_REG(r14)		\
+	SWAP_REG(r15)
+
+#define SWAP_GPRS		\
+	SWAP_REG(rax)		\
 	__SWAP_GPRS
 
 #endif /* _x86_VIRT_H_ */

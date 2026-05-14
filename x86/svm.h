@@ -438,18 +438,18 @@ static inline void clgi(void)
 
 #define ASM_PRE_VMRUN_CMD                       \
                 "vmload %%rax\n\t"              \
-                "mov regs+0x80, %%r15\n\t"      \
+                "mov " GUEST_REG(rflags) ", %%r15\n\t" \
                 "mov %%r15, 0x170(%%rax)\n\t"   \
-                "mov regs, %%r15\n\t"           \
+                "mov " GUEST_REG(rax) ", %%r15\n\t" \
                 "mov %%r15, 0x1f8(%%rax)\n\t"   \
                 __SWAP_GPRS                     \
 
 #define ASM_POST_VMRUN_CMD                      \
                 __SWAP_GPRS                     \
                 "mov 0x170(%%rax), %%r15\n\t"   \
-                "mov %%r15, regs+0x80\n\t"      \
+                "mov %%r15, " GUEST_REG(rflags) "\n\t" \
                 "mov 0x1f8(%%rax), %%r15\n\t"   \
-                "mov %%r15, regs\n\t"           \
+                "mov %%r15, " GUEST_REG(rax)"\n\t" \
                 "vmsave %%rax\n\t"              \
 
 
@@ -460,7 +460,8 @@ static inline void clgi(void)
                 "vmrun %%rax\n\t"               \
 		ASM_POST_VMRUN_CMD \
 		: \
-		: "a" (virt_to_phys(vmcb)) \
+		: GUEST_REGS_OFFSETS, \
+		  "a" (virt_to_phys(vmcb)) \
 		: "memory", "r15") \
 
 #endif

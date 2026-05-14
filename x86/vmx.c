@@ -1751,7 +1751,8 @@ static noinline void vmx_enter_guest(struct vmentry_result *result)
 		"3: \n\t"
 		: [vm_fail]"+m"(result->vm_fail),
 		  [vm_fail_flags]"=m"(result->flags)
-		: [launched]"m"(launched), [HOST_RSP]"i"(HOST_RSP)
+		: [launched]"m"(launched), [HOST_RSP]"i"(HOST_RSP),
+		  GUEST_REGS_OFFSETS
 		: "rdi", "memory", "cc"
 	);
 	in_guest = 0;
