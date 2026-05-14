@@ -108,6 +108,11 @@ int main(int ac, char **av)
 	int ncpus;
 	int i;
 
+	if (!this_cpu_has_kvm() || !this_cpu_has(KVM_FEATURE_CLOCKSOURCE2)) {
+		report_skip("CPU not running on KVM with CLOCKSOURCE2");
+		goto out;
+	}
+
 	if (ac > 1)
 		loops = atol(av[1]);
 	if (ac > 2)
@@ -151,5 +156,7 @@ int main(int ac, char **av)
 
 	on_cpus(kvm_clock_clear, NULL);
 
-	return nerr > 0 ? 1 : 0;
+	report(!nerr, "%u time warps detected", nerr);
+out:
+	return report_summary();
 }
