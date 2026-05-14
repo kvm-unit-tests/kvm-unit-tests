@@ -121,7 +121,6 @@ struct vmx_test {
 	int (*init)(struct vmcs *vmcs);
 	void (*guest_main)(void);
 	int (*exit_handler)(union exit_reason exit_reason);
-	void (*syscall_handler)(u64 syscall_no);
 	struct regs guest_regs;
 	int (*entry_failure_handler)(struct vmentry_result *result);
 	struct vmcs *vmcs;
@@ -588,25 +587,6 @@ enum vm_entry_failure_code {
 	ENTRY_FAIL_NMI			= 3,
 	ENTRY_FAIL_VMCS_LINK_PTR	= 4,
 };
-
-#define SAVE_GPR				\
-	"xchg %rax, regs\n\t"			\
-	"xchg %rcx, regs+0x8\n\t"		\
-	"xchg %rdx, regs+0x10\n\t"		\
-	"xchg %rbx, regs+0x18\n\t"		\
-	"xchg %rbp, regs+0x28\n\t"		\
-	"xchg %rsi, regs+0x30\n\t"		\
-	"xchg %rdi, regs+0x38\n\t"		\
-	"xchg %r8, regs+0x40\n\t"		\
-	"xchg %r9, regs+0x48\n\t"		\
-	"xchg %r10, regs+0x50\n\t"		\
-	"xchg %r11, regs+0x58\n\t"		\
-	"xchg %r12, regs+0x60\n\t"		\
-	"xchg %r13, regs+0x68\n\t"		\
-	"xchg %r14, regs+0x70\n\t"		\
-	"xchg %r15, regs+0x78\n\t"
-
-#define LOAD_GPR	SAVE_GPR
 
 #define SAVE_GPR_C				\
 	"xchg %%rax, regs\n\t"			\

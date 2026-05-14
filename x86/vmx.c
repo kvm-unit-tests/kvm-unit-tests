@@ -42,7 +42,7 @@
 u64 *bsp_vmxon_region;
 struct vmcs *vmcs_root;
 u32 vpid_cnt;
-u64 guest_stack_top, guest_syscall_stack_top;
+u64 guest_stack_top;
 u32 ctrl_pin, ctrl_enter, ctrl_exit, ctrl_cpu[2];
 struct regs regs;
 
@@ -76,7 +76,6 @@ union vmx_ept_vpid  ept_vpid;
 extern struct descriptor_table_ptr gdt_descr;
 extern struct descriptor_table_ptr idt_descr;
 extern void *vmx_return;
-extern void *entry_sysenter;
 extern void *guest_entry;
 
 static volatile u32 stage;
@@ -559,25 +558,6 @@ void vmx_inc_test_stage(void)
 	barrier();
 	stage++;
 	barrier();
-}
-
-/* entry_sysenter */
-asm(
-	".align	4, 0x90\n\t"
-	".globl	entry_sysenter\n\t"
-	"entry_sysenter:\n\t"
-	SAVE_GPR
-	"	and	$0xf, %rax\n\t"
-	"	mov	%rax, %rdi\n\t"
-	"	call	syscall_handler\n\t"
-	LOAD_GPR
-	"	vmresume\n\t"
-);
-
-static void __attribute__((__used__)) syscall_handler(u64 syscall_no)
-{
-	if (current->syscall_handler)
-		current->syscall_handler(syscall_no);
 }
 
 static const char * const exit_reason_descriptions[] = {
@@ -1123,7 +1103,7 @@ static void init_vmcs_host(void)
 	vmcs_write(HOST_CR0, read_cr0());
 	vmcs_write(HOST_CR3, read_cr3());
 	vmcs_write(HOST_CR4, read_cr4());
-	vmcs_write(HOST_SYSENTER_EIP, (u64)(&entry_sysenter));
+	vmcs_write(HOST_SYSENTER_EIP, rdmsr(MSR_IA32_SYSENTER_EIP));
 	vmcs_write(HOST_SYSENTER_CS,  KERNEL_CS);
 	if (ctrl_exit_rev.clr & EXI_LOAD_PAT)
 		vmcs_write(HOST_PAT, rdmsr(MSR_IA32_CR_PAT));
@@ -1172,8 +1152,8 @@ static void init_vmcs_guest(void)
 	vmcs_write(GUEST_CR3, guest_cr3);
 	vmcs_write(GUEST_CR4, guest_cr4);
 	vmcs_write(GUEST_SYSENTER_CS,  KERNEL_CS);
-	vmcs_write(GUEST_SYSENTER_ESP, guest_syscall_stack_top);
-	vmcs_write(GUEST_SYSENTER_EIP, (u64)(&entry_sysenter));
+	vmcs_write(GUEST_SYSENTER_ESP, rdmsr(MSR_IA32_SYSENTER_ESP));
+	vmcs_write(GUEST_SYSENTER_EIP, rdmsr(MSR_IA32_SYSENTER_EIP));
 	vmcs_write(GUEST_DR7, 0);
 	vmcs_write(GUEST_EFER, rdmsr(MSR_EFER));
 
@@ -1319,7 +1299,6 @@ static void alloc_bsp_vmx_pages(void)
 {
 	bsp_vmxon_region = alloc_page();
 	guest_stack_top = (uintptr_t)alloc_page() + PAGE_SIZE;
-	guest_syscall_stack_top = (uintptr_t)alloc_page() + PAGE_SIZE;
 	vmcs_root = alloc_page();
 }
 
@@ -1840,8 +1819,7 @@ static int test_run(struct vmx_test *test)
 	/* Validate V2 interface. */
 	if (test->v2) {
 		int ret = 0;
-		if (test->init || test->guest_main || test->exit_handler ||
-		    test->syscall_handler) {
+		if (test->init || test->guest_main || test->exit_handler) {
 			report_fail("V2 test cannot specify V1 callbacks.");
 			ret = 1;
 		}
