@@ -9976,13 +9976,19 @@ static bool init_signal_test_thread_continued;
 
 static void init_signal_test_thread(void *data)
 {
-	struct vmcs *test_vmcs = data;
+	struct guest_regs *regs = this_cpu_guest_regs();
+	struct vmcs *ap_vmcs;
 
 	/* Enter VMX operation (i.e. exec VMXON) */
 	u64 *ap_vmxon_region = alloc_page();
 	enable_vmx();
 	init_vmx(ap_vmxon_region);
 	TEST_ASSERT(!__vmxon_safe(ap_vmxon_region));
+
+	init_vmcs(&ap_vmcs);
+	make_vmcs_current(ap_vmcs);
+
+	memset(regs, 0, sizeof(*regs));
 
 	/* Signal CPU have entered VMX operation */
 	vmx_set_test_stage(1);
@@ -10003,13 +10009,10 @@ static void init_signal_test_thread(void *data)
 
 	/* Enter VMX non-root mode */
 	test_set_guest(v2_null_test_guest);
-	make_vmcs_current(test_vmcs);
 	enter_guest();
 	/* Save exit reason for BSP CPU to compare to expected result */
 	init_signal_test_exit_reason = vmcs_read(EXI_REASON);
-	/* VMCLEAR test-vmcs so it could be loaded by BSP CPU */
-	vmcs_clear(test_vmcs);
-	launched = false;
+
 	/* Signal that CPU exited to VMX root mode */
 	vmx_set_test_stage(5);
 
@@ -10110,9 +10113,8 @@ static void vmx_init_signal_test(void)
 			exit_reason_description(init_signal_test_exit_reason),
 			init_signal_test_exit_reason);
 
-	/* Run guest to completion */
-	make_vmcs_current(test_vmcs);
-	enter_guest();
+	/* Mark the guest as being done. */
+	test_set_guest_finished();
 
 	/* Signal other CPU to exit VMX operation */
 	init_signal_test_thread_continued = false;
