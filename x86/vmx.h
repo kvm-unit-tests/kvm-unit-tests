@@ -588,12 +588,6 @@ enum vm_entry_failure_code {
 #define VMX_TEST_VMABORT	4
 #define VMX_TEST_VMSKIP		5
 
-#define HYPERCALL_BIT		(1ul << 12)
-#define HYPERCALL_MASK		0xFFF
-#define HYPERCALL_VMEXIT	0x1
-#define HYPERCALL_VMABORT	0x2
-#define HYPERCALL_VMSKIP	0x3
-
 #define EPTP_PG_WALK_LEN_SHIFT	3ul
 #define EPTP_PG_WALK_LEN_MASK	0x38ul
 #define EPTP_RESERV_BITS_MASK	0x1ful

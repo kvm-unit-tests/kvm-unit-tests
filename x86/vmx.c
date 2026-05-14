@@ -59,7 +59,6 @@ static struct test_teardown_step teardown_steps[MAX_TEST_TEARDOWN_STEPS];
 
 static test_guest_func v2_guest_main;
 
-u64 hypercall_field;
 static int matched;
 static int guest_finished;
 
@@ -1635,28 +1634,37 @@ static void test_vmx_caps(void)
 	       "MSR_IA32_VMX_EPT_VPID_CAP");
 }
 
+#define VMX_HYPERCALL_MAGIC 0xabacadabaULL
+
+#define HYPERCALL_MASK		0xFFF
+#define HYPERCALL_VMEXIT	0x1
+#define HYPERCALL_VMABORT	0x2
+#define HYPERCALL_VMSKIP	0x3
+
 /* This function can only be called in guest */
 void __attribute__((__used__)) hypercall(u32 hypercall_no)
 {
-	u64 val = 0;
-	val = (hypercall_no & HYPERCALL_MASK) | HYPERCALL_BIT;
-	hypercall_field = val;
-	asm volatile("vmcall\n\t");
+	u64 val = (VMX_HYPERCALL_MAGIC << 12) | hypercall_no;
+
+	asm volatile("vmcall\n\t" : "+a"(val));
 }
 
 static bool is_hypercall(union exit_reason exit_reason)
 {
+	u64 hypercall_field = this_cpu_guest_regs()->rax;
+
 	return exit_reason.basic == VMX_VMCALL &&
-	       (hypercall_field & HYPERCALL_BIT);
+	       (hypercall_field >> 12) == VMX_HYPERCALL_MAGIC;
 }
 
 static int handle_hypercall(void)
 {
-	ulong hypercall_no;
+	struct guest_regs *regs = this_cpu_guest_regs();
+	u64 hypercall_field = regs->rax;
 
-	hypercall_no = hypercall_field & HYPERCALL_MASK;
-	hypercall_field = 0;
-	switch (hypercall_no) {
+	regs->rax = 0;
+
+	switch (hypercall_field & HYPERCALL_MASK) {
 	case HYPERCALL_VMEXIT:
 		return VMX_TEST_VMEXIT;
 	case HYPERCALL_VMABORT:
@@ -1664,7 +1672,8 @@ static int handle_hypercall(void)
 	case HYPERCALL_VMSKIP:
 		return VMX_TEST_VMSKIP;
 	default:
-		printf("ERROR : Invalid hypercall number : %ld\n", hypercall_no);
+		printf("ERROR : Invalid hypercall number : %ld\n",
+		       hypercall_field & HYPERCALL_MASK);
 	}
 	return VMX_TEST_EXIT;
 }
@@ -2060,7 +2069,6 @@ int main(int argc, const char *argv[])
 	int i = 0;
 
 	setup_vm();
-	hypercall_field = 0;
 
 	/* We want xAPIC mode to test MMIO passthrough from L1 (us) to L2.  */
 	smp_reset_apic();
