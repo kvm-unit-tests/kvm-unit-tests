@@ -52,6 +52,17 @@ do {							\
 	}						\
 } while (0)
 
+static u64 svm_32bit_build_page_tables(void)
+{
+	const u64 leaf_flags = PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_PAGE_SIZE_MASK;
+	u32 *pd = memalign_pages_flags(PAGE_SIZE, PAGE_SIZE, AREA_DMA32);
+	int i;
+
+	for (i = 0; i < 1024; i++)
+		pd[i] = ((u32)i << 22) | leaf_flags;
+	return virt_to_phys(pd);
+}
+
 static void svm_32bit_build_pae_page_tables(u64 *pdpt)
 {
 	const u64 leaf_flags = PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_PAGE_SIZE_MASK;
@@ -3860,6 +3871,35 @@ static void svm_pae_test(void)
 	svm_pae_free_page_tables(pdpt);
 }
 
+/*
+ * Verify that VMRUN with 32-bit (non-PAE) paging succeeds and that bits
+ * 2:0 and 11:5 of CR3 are ignored.
+ */
+static void svm_pse_test(void)
+{
+	u64 cr3;
+	int b;
+
+	vmcb_ident(vmcb);
+	cr3 = svm_32bit_build_page_tables();
+
+	svm_32bit_guest_init_common(cr3, false);
+	test_svm_report_pass();
+
+	for (b = 0; b <= 11; b++) {
+		if (b == 3 || b == 4)
+			continue;
+		svm_32bit_guest_init_common(cr3 | (1ull << b), false);
+		test_svm_guest_state("CR3 ignored bit", false, (1ull << b), "bit");
+	}
+	for (b = cpuid_maxphyaddr(); b <= 63; b++) {
+		svm_32bit_guest_init_common(cr3 | (1ull << b), false);
+		test_svm_guest_state("CR3 reserved bit", true, (1ull << b), "bit");
+	}
+
+	free_page(phys_to_virt(cr3));
+}
+
 struct svm_test svm_tests[] = {
 	{ "null", default_supported, default_prepare,
 	  default_prepare_gif_clear, null_test,
@@ -3980,6 +4020,7 @@ struct svm_test svm_tests[] = {
 	  default_prepare_gif_clear, test_vgif, vgif_finished,
 	  vgif_check },
 	TEST(svm_pae_test),
+	TEST(svm_pse_test),
 	TEST(svm_cr4_osxsave_test),
 	TEST(svm_guest_state_test),
 	TEST(svm_vmrun_errata_test),
