@@ -76,6 +76,7 @@ wclobbered := $(call cc-option, -Wclobbered, "")
 wunused_but_set_parameter := $(call cc-option, -Wunused-but-set-parameter, "")
 wmissing_parameter_type := $(call cc-option, -Wmissing-parameter-type, "")
 wold_style_declaration := $(call cc-option, -Wold-style-declaration, "")
+wno_override_init := $(call cc-option, -Wno-override-init, "")
 
 COMMON_CFLAGS += $(fomit_frame_pointer)
 COMMON_CFLAGS += $(fno_stack_protector)
@@ -89,6 +90,7 @@ COMMON_CFLAGS += $(fno_pic)
 endif
 COMMON_CFLAGS += $(wclobbered)
 COMMON_CFLAGS += $(wunused_but_set_parameter)
+COMMON_CFLAGS += $(wno_override_init)
 
 CFLAGS += $(COMMON_CFLAGS)
 CFLAGS += $(wmissing_parameter_type)
