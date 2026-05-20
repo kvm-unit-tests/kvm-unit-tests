@@ -65,3 +65,8 @@ $(TEST_DIR)/hyperv_clock.$(bin): $(TEST_DIR)/hyperv_clock.o
 $(TEST_DIR)/vmx.$(bin): $(TEST_DIR)/vmx_tests.o
 $(TEST_DIR)/svm.$(bin): $(TEST_DIR)/svm_tests.o
 $(TEST_DIR)/svm_npt.$(bin): $(TEST_DIR)/svm_npt.o
+
+# Workaround for https://gcc.gnu.org/bugzilla/show_bug.cgi?id=125180
+fno_fuse_ops_with_volatile := $(call cc-option, -fno-fuse-ops-with-volatile-access,)
+$(TEST_DIR)/intel-iommu.o: CFLAGS += $(fno_fuse_ops_with_volatile)
+lib/pci-edu.o: CFLAGS += $(fno_fuse_ops_with_volatile)
