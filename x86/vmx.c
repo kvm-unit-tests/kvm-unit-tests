@@ -42,9 +42,8 @@
 u64 *bsp_vmxon_region;
 struct vmcs *vmcs_root;
 u32 vpid_cnt;
-u64 guest_stack_top, guest_syscall_stack_top;
+u64 guest_stack_top;
 u32 ctrl_pin, ctrl_enter, ctrl_exit, ctrl_cpu[2];
-struct regs regs;
 
 struct vmx_test *current;
 
@@ -60,11 +59,8 @@ static struct test_teardown_step teardown_steps[MAX_TEST_TEARDOWN_STEPS];
 
 static test_guest_func v2_guest_main;
 
-u64 hypercall_field;
-bool launched;
 static int matched;
 static int guest_finished;
-static int in_guest;
 
 union vmx_basic_msr basic_msr;
 union vmx_ctrl_msr ctrl_pin_rev;
@@ -76,7 +72,6 @@ union vmx_ept_vpid  ept_vpid;
 extern struct descriptor_table_ptr gdt_descr;
 extern struct descriptor_table_ptr idt_descr;
 extern void *vmx_return;
-extern void *entry_sysenter;
 extern void *guest_entry;
 
 static volatile u32 stage;
@@ -561,25 +556,6 @@ void vmx_inc_test_stage(void)
 	barrier();
 }
 
-/* entry_sysenter */
-asm(
-	".align	4, 0x90\n\t"
-	".globl	entry_sysenter\n\t"
-	"entry_sysenter:\n\t"
-	SAVE_GPR
-	"	and	$0xf, %rax\n\t"
-	"	mov	%rax, %rdi\n\t"
-	"	call	syscall_handler\n\t"
-	LOAD_GPR
-	"	vmresume\n\t"
-);
-
-static void __attribute__((__used__)) syscall_handler(u64 syscall_no)
-{
-	if (current->syscall_handler)
-		current->syscall_handler(syscall_no);
-}
-
 static const char * const exit_reason_descriptions[] = {
 	[VMX_EXC_NMI]		= "VMX_EXC_NMI",
 	[VMX_EXTINT]		= "VMX_EXTINT",
@@ -652,6 +628,8 @@ const char *exit_reason_description(u64 reason)
 
 void print_vmexit_info(union exit_reason exit_reason)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
+
 	u64 guest_rip, guest_rsp;
 	ulong exit_qual = vmcs_read(EXI_QUALIFICATION);
 	guest_rip = vmcs_read(GUEST_RIP);
@@ -662,13 +640,13 @@ void print_vmexit_info(union exit_reason exit_reason)
 	printf("\texit qualification = %#lx\n", exit_qual);
 	printf("\tguest_rip = %#lx\n", guest_rip);
 	printf("\tRAX=%#lx    RBX=%#lx    RCX=%#lx    RDX=%#lx\n",
-		regs.rax, regs.rbx, regs.rcx, regs.rdx);
+		regs->rax, regs->rbx, regs->rcx, regs->rdx);
 	printf("\tRSP=%#lx    RBP=%#lx    RSI=%#lx    RDI=%#lx\n",
-		guest_rsp, regs.rbp, regs.rsi, regs.rdi);
+		guest_rsp, regs->rbp, regs->rsi, regs->rdi);
 	printf("\tR8 =%#lx    R9 =%#lx    R10=%#lx    R11=%#lx\n",
-		regs.r8, regs.r9, regs.r10, regs.r11);
+		regs->r8, regs->r9, regs->r10, regs->r11);
 	printf("\tR12=%#lx    R13=%#lx    R14=%#lx    R15=%#lx\n",
-		regs.r12, regs.r13, regs.r14, regs.r15);
+		regs->r12, regs->r13, regs->r14, regs->r15);
 }
 
 void print_vmentry_failure_info(struct vmentry_result *result)
@@ -1123,7 +1101,7 @@ static void init_vmcs_host(void)
 	vmcs_write(HOST_CR0, read_cr0());
 	vmcs_write(HOST_CR3, read_cr3());
 	vmcs_write(HOST_CR4, read_cr4());
-	vmcs_write(HOST_SYSENTER_EIP, (u64)(&entry_sysenter));
+	vmcs_write(HOST_SYSENTER_EIP, rdmsr(MSR_IA32_SYSENTER_EIP));
 	vmcs_write(HOST_SYSENTER_CS,  KERNEL_CS);
 	if (ctrl_exit_rev.clr & EXI_LOAD_PAT)
 		vmcs_write(HOST_PAT, rdmsr(MSR_IA32_CR_PAT));
@@ -1172,8 +1150,8 @@ static void init_vmcs_guest(void)
 	vmcs_write(GUEST_CR3, guest_cr3);
 	vmcs_write(GUEST_CR4, guest_cr4);
 	vmcs_write(GUEST_SYSENTER_CS,  KERNEL_CS);
-	vmcs_write(GUEST_SYSENTER_ESP, guest_syscall_stack_top);
-	vmcs_write(GUEST_SYSENTER_EIP, (u64)(&entry_sysenter));
+	vmcs_write(GUEST_SYSENTER_ESP, rdmsr(MSR_IA32_SYSENTER_ESP));
+	vmcs_write(GUEST_SYSENTER_EIP, rdmsr(MSR_IA32_SYSENTER_EIP));
 	vmcs_write(GUEST_DR7, 0);
 	vmcs_write(GUEST_EFER, rdmsr(MSR_EFER));
 
@@ -1319,7 +1297,6 @@ static void alloc_bsp_vmx_pages(void)
 {
 	bsp_vmxon_region = alloc_page();
 	guest_stack_top = (uintptr_t)alloc_page() + PAGE_SIZE;
-	guest_syscall_stack_top = (uintptr_t)alloc_page() + PAGE_SIZE;
 	vmcs_root = alloc_page();
 }
 
@@ -1657,28 +1634,37 @@ static void test_vmx_caps(void)
 	       "MSR_IA32_VMX_EPT_VPID_CAP");
 }
 
+#define VMX_HYPERCALL_MAGIC 0xabacadabaULL
+
+#define HYPERCALL_MASK		0xFFF
+#define HYPERCALL_VMEXIT	0x1
+#define HYPERCALL_VMABORT	0x2
+#define HYPERCALL_VMSKIP	0x3
+
 /* This function can only be called in guest */
 void __attribute__((__used__)) hypercall(u32 hypercall_no)
 {
-	u64 val = 0;
-	val = (hypercall_no & HYPERCALL_MASK) | HYPERCALL_BIT;
-	hypercall_field = val;
-	asm volatile("vmcall\n\t");
+	u64 val = (VMX_HYPERCALL_MAGIC << 12) | hypercall_no;
+
+	asm volatile("vmcall\n\t" : "+a"(val));
 }
 
 static bool is_hypercall(union exit_reason exit_reason)
 {
+	u64 hypercall_field = this_cpu_guest_regs()->rax;
+
 	return exit_reason.basic == VMX_VMCALL &&
-	       (hypercall_field & HYPERCALL_BIT);
+	       (hypercall_field >> 12) == VMX_HYPERCALL_MAGIC;
 }
 
 static int handle_hypercall(void)
 {
-	ulong hypercall_no;
+	struct guest_regs *regs = this_cpu_guest_regs();
+	u64 hypercall_field = regs->rax;
 
-	hypercall_no = hypercall_field & HYPERCALL_MASK;
-	hypercall_field = 0;
-	switch (hypercall_no) {
+	regs->rax = 0;
+
+	switch (hypercall_field & HYPERCALL_MASK) {
 	case HYPERCALL_VMEXIT:
 		return VMX_TEST_VMEXIT;
 	case HYPERCALL_VMABORT:
@@ -1686,14 +1672,15 @@ static int handle_hypercall(void)
 	case HYPERCALL_VMSKIP:
 		return VMX_TEST_VMSKIP;
 	default:
-		printf("ERROR : Invalid hypercall number : %ld\n", hypercall_no);
+		printf("ERROR : Invalid hypercall number : %ld\n",
+		       hypercall_field & HYPERCALL_MASK);
 	}
 	return VMX_TEST_EXIT;
 }
 
 static void continue_abort(void)
 {
-	assert(!in_guest);
+	assert(!this_cpu_read_in_guest());
 	printf("Host was here when guest aborted:\n");
 	dump_stack();
 	longjmp(abort_target, 1);
@@ -1702,7 +1689,7 @@ static void continue_abort(void)
 
 void __abort_test(void)
 {
-	if (in_guest)
+	if (this_cpu_read_in_guest())
 		hypercall(HYPERCALL_VMABORT);
 	else
 		longjmp(abort_target, 1);
@@ -1711,14 +1698,17 @@ void __abort_test(void)
 
 static void continue_skip(void)
 {
-	assert(!in_guest);
+	assert(!this_cpu_read_in_guest());
 	longjmp(abort_target, 1);
 	abort();
 }
 
 void test_skip(const char *msg)
 {
+	bool in_guest = this_cpu_read_in_guest();
+
 	printf("%s skipping test: %s\n", in_guest ? "Guest" : "Host", msg);
+
 	if (in_guest)
 		hypercall(HYPERCALL_VMABORT);
 	else
@@ -1728,15 +1718,16 @@ void test_skip(const char *msg)
 
 static int exit_handler(union exit_reason exit_reason)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
 	int ret;
 
 	current->exits++;
-	regs.rflags = vmcs_read(GUEST_RFLAGS);
+	regs->rflags = vmcs_read(GUEST_RFLAGS);
 	if (is_hypercall(exit_reason))
 		ret = handle_hypercall();
 	else
 		ret = current->exit_handler(exit_reason);
-	vmcs_write(GUEST_RFLAGS, regs.rflags);
+	vmcs_write(GUEST_RFLAGS, regs->rflags);
 
 	return ret;
 }
@@ -1747,35 +1738,40 @@ static int exit_handler(union exit_reason exit_reason)
  */
 static noinline void vmx_enter_guest(struct vmentry_result *result)
 {
+	bool launched = this_cpu_read_launched();
+
 	memset(result, 0, sizeof(*result));
 
-	in_guest = 1;
+	this_cpu_write_in_guest(true);
+
 	asm volatile (
 		"mov %[HOST_RSP], %%rdi\n\t"
 		"vmwrite %%rsp, %%rdi\n\t"
-		LOAD_GPR_C
 		"cmpb $0, %[launched]\n\t"
+		SWAP_GPRS
 		"jne 1f\n\t"
 		"vmlaunch\n\t"
 		"jmp 2f\n\t"
 		"1: "
 		"vmresume\n\t"
 		"2: "
-		SAVE_GPR_C
+		SWAP_GPRS
 		"pushf\n\t"
 		"pop %%rdi\n\t"
 		"mov %%rdi, %[vm_fail_flags]\n\t"
 		"movl $1, %[vm_fail]\n\t"
 		"jmp 3f\n\t"
 		"vmx_return:\n\t"
-		SAVE_GPR_C
+		SWAP_GPRS
 		"3: \n\t"
 		: [vm_fail]"+m"(result->vm_fail),
 		  [vm_fail_flags]"=m"(result->flags)
-		: [launched]"m"(launched), [HOST_RSP]"i"(HOST_RSP)
+		: [launched]"m"(launched), [HOST_RSP]"i"(HOST_RSP),
+		  GUEST_REGS_OFFSETS
 		: "rdi", "memory", "cc"
 	);
-	in_guest = 0;
+
+	this_cpu_write_in_guest(false);
 
 	result->vmlaunch = !launched;
 	result->instr = launched ? "vmresume" : "vmlaunch";
@@ -1797,7 +1793,7 @@ static int vmx_run(void)
 			 * VMCS isn't in "launched" state if there's been any
 			 * entry failure (early or otherwise).
 			 */
-			launched = 1;
+			this_cpu_write_launched(true);
 			ret = exit_handler(result.exit_reason);
 		} else if (current->entry_failure_handler) {
 			ret = current->entry_failure_handler(&result);
@@ -1835,13 +1831,13 @@ static void run_teardown_step(struct test_teardown_step *step)
 
 static int test_run(struct vmx_test *test)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
 	int r;
 
 	/* Validate V2 interface. */
 	if (test->v2) {
 		int ret = 0;
-		if (test->init || test->guest_main || test->exit_handler ||
-		    test->syscall_handler) {
+		if (test->init || test->guest_main || test->exit_handler) {
 			report_fail("V2 test cannot specify V1 callbacks.");
 			ret = 1;
 		}
@@ -1856,6 +1852,7 @@ static int test_run(struct vmx_test *test)
 		return 1;
 	}
 
+	memset(regs, 0, sizeof(*regs));
 	init_vmcs(&(test->vmcs));
 	/* Directly call test->init is ok here, init_vmcs has done
 	   vmcs init, vmclear and vmptrld*/
@@ -1865,15 +1862,12 @@ static int test_run(struct vmx_test *test)
 	v2_guest_main = NULL;
 	test->exits = 0;
 	current = test;
-	regs = test->guest_regs;
-	vmcs_write(GUEST_RFLAGS, regs.rflags | X86_EFLAGS_FIXED);
-	launched = 0;
 	guest_finished = 0;
 	printf("\nTest suite: %s\n", test->name);
 
 	r = setjmp(abort_target);
 	if (r) {
-		assert(!in_guest);
+		assert(!this_cpu_read_in_guest());
 		goto out;
 	}
 
@@ -1886,7 +1880,7 @@ static int test_run(struct vmx_test *test)
 	while (teardown_count > 0)
 		run_teardown_step(&teardown_steps[--teardown_count]);
 
-	if (launched && !guest_finished)
+	if (this_cpu_read_launched() && !guest_finished)
 		report_fail("Guest didn't run to completion.");
 
 out:
@@ -1994,7 +1988,7 @@ void __enter_guest(u8 abort_flag, struct vmentry_result *result)
 		return;
 	}
 
-	launched = 1;
+	this_cpu_write_launched(true);
 	check_for_guest_termination(result->exit_reason);
 	return;
 
@@ -2075,7 +2069,6 @@ int main(int argc, const char *argv[])
 	int i = 0;
 
 	setup_vm();
-	hypercall_field = 0;
 
 	/* We want xAPIC mode to test MMIO passthrough from L1 (us) to L2.  */
 	smp_reset_apic();

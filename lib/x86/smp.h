@@ -20,6 +20,30 @@
 #include "atomic.h"
 #include "apic-defs.h"
 
+struct guest_regs {
+	u64 rax;
+	u64 rcx;
+	u64 rdx;
+	u64 rbx;
+	/*
+	 * Use RSP's index to hold CR2, as RSP isn't manually context switched
+	 * by software in any relevant flows.
+	 */
+	u64 cr2;
+	u64 rbp;
+	u64 rsi;
+	u64 rdi;
+	u64 r8;
+	u64 r9;
+	u64 r10;
+	u64 r11;
+	u64 r12;
+	u64 r13;
+	u64 r14;
+	u64 r15;
+	u64 rflags;
+};
+
 /* Offsets into the per-cpu page. */
 struct percpu_data {
 	uint32_t  smp_id;
@@ -32,6 +56,12 @@ struct percpu_data {
 		uint32_t exception_data;
 	};
 	void *apic_ops;
+
+	struct guest_regs guest_regs;
+	/* Track whether or not the current CPU's VMCS has been "launched". */
+	bool launched;
+	/* Track if this CPU is running in an SVM or VMX guest. */
+	bool in_guest;
 };
 
 #define typeof_percpu(name) typeof(((struct percpu_data *)0)->name)
@@ -84,6 +114,8 @@ BUILD_PERCPU_OP(exception_vector);
 BUILD_PERCPU_OP(exception_rflags_rf);
 BUILD_PERCPU_OP(exception_error_code);
 BUILD_PERCPU_OP(apic_ops);
+BUILD_PERCPU_OP(launched);
+BUILD_PERCPU_OP(in_guest);
 
 void smp_init(void);
 

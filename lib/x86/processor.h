@@ -317,6 +317,7 @@ struct x86_cpu_feature {
 #define X86_FEATURE_XSAVE		X86_CPU_FEATURE(0x1, 0, ECX, 26)
 #define X86_FEATURE_OSXSAVE		X86_CPU_FEATURE(0x1, 0, ECX, 27)
 #define X86_FEATURE_RDRAND		X86_CPU_FEATURE(0x1, 0, ECX, 30)
+#define X86_FEATURE_HYPERVISOR		X86_CPU_FEATURE(0x1, 0, ECX, 31)
 #define X86_FEATURE_MCE			X86_CPU_FEATURE(0x1, 0, EDX, 7)
 #define X86_FEATURE_APIC		X86_CPU_FEATURE(0x1, 0, EDX, 9)
 #define X86_FEATURE_CLFLUSH		X86_CPU_FEATURE(0x1, 0, EDX, 19)
@@ -351,6 +352,7 @@ struct x86_cpu_feature {
 /*
  * KVM defined leafs
  */
+#define KVM_FEATURE_CLOCKSOURCE2	X86_CPU_FEATURE(0x40000001, 0, EAX, 3)
 #define KVM_FEATURE_ASYNC_PF		X86_CPU_FEATURE(0x40000001, 0, EAX, 4)
 #define KVM_FEATURE_ASYNC_PF_INT	X86_CPU_FEATURE(0x40000001, 0, EAX, 14)
 
@@ -449,6 +451,7 @@ struct x86_cpu_property {
 #define X86_PROPERTY_AMX_NR_TILE_REGS		X86_CPU_PROPERTY(0x1d, 1, EBX, 16, 31)
 #define X86_PROPERTY_AMX_MAX_ROWS		X86_CPU_PROPERTY(0x1d, 1, ECX, 0,  15)
 
+#define KVM_SIGNATURE "KVMKVMKVM\0\0\0"
 #define X86_PROPERTY_MAX_KVM_LEAF		X86_CPU_PROPERTY(0x40000000, 0, EAX, 0, 31)
 
 #define X86_PROPERTY_MAX_EXT_LEAF		X86_CPU_PROPERTY(0x80000000, 0, EAX, 0, 31)
@@ -504,6 +507,18 @@ static __always_inline bool this_cpu_has_p(struct x86_cpu_property property)
 		max_leaf = this_cpu_property(X86_PROPERTY_MAX_CENTAUR_LEAF);
 	}
 	return max_leaf >= property.function;
+}
+
+static inline bool this_cpu_has_kvm(void)
+{
+	struct cpuid signature;
+
+	if (!this_cpu_has(X86_FEATURE_HYPERVISOR) ||
+	    !this_cpu_has_p(X86_PROPERTY_MAX_KVM_LEAF))
+		return false;
+
+	signature = cpuid(X86_PROPERTY_MAX_KVM_LEAF.function);
+	return !memcmp(KVM_SIGNATURE, &signature.b, 12);
 }
 
 static inline u8 cpuid_maxphyaddr(void)

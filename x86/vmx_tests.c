@@ -6,6 +6,7 @@
 
 #include <asm/debugreg.h>
 
+#include "kvmclock.h"
 #include "vmx.h"
 #include "msr.h"
 #include "processor.h"
@@ -102,15 +103,16 @@ static void vmenter_main(void)
 
 static int vmenter_exit_handler(union exit_reason exit_reason)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
 	u64 guest_rip = vmcs_read(GUEST_RIP);
 
 	switch (exit_reason.basic) {
 	case VMX_VMCALL:
-		if (regs.rax != 0xABCD) {
+		if (regs->rax != 0xABCD) {
 			report_fail("test vmresume");
 			return VMX_TEST_VMEXIT;
 		}
-		regs.rax = 0xFFFF;
+		regs->rax = 0xFFFF;
 		vmcs_write(GUEST_RIP, guest_rip + 3);
 		return VMX_TEST_RESUME;
 	default:
@@ -1972,7 +1974,7 @@ struct vmx_msr_entry {
 	u32 index;
 	u32 reserved;
 	u64 value;
-} __attribute__((packed));
+} __attribute__((packed)) __attribute__((aligned(16)));
 
 #define MSR_MAGIC 0x31415926
 struct vmx_msr_entry *exit_msr_store, *entry_msr_load, *exit_msr_load;
@@ -9975,13 +9977,19 @@ static bool init_signal_test_thread_continued;
 
 static void init_signal_test_thread(void *data)
 {
-	struct vmcs *test_vmcs = data;
+	struct guest_regs *regs = this_cpu_guest_regs();
+	struct vmcs *ap_vmcs;
 
 	/* Enter VMX operation (i.e. exec VMXON) */
 	u64 *ap_vmxon_region = alloc_page();
 	enable_vmx();
 	init_vmx(ap_vmxon_region);
 	TEST_ASSERT(!__vmxon_safe(ap_vmxon_region));
+
+	init_vmcs(&ap_vmcs);
+	make_vmcs_current(ap_vmcs);
+
+	memset(regs, 0, sizeof(*regs));
 
 	/* Signal CPU have entered VMX operation */
 	vmx_set_test_stage(1);
@@ -10002,13 +10010,10 @@ static void init_signal_test_thread(void *data)
 
 	/* Enter VMX non-root mode */
 	test_set_guest(v2_null_test_guest);
-	make_vmcs_current(test_vmcs);
 	enter_guest();
 	/* Save exit reason for BSP CPU to compare to expected result */
 	init_signal_test_exit_reason = vmcs_read(EXI_REASON);
-	/* VMCLEAR test-vmcs so it could be loaded by BSP CPU */
-	vmcs_clear(test_vmcs);
-	launched = false;
+
 	/* Signal that CPU exited to VMX root mode */
 	vmx_set_test_stage(5);
 
@@ -10109,9 +10114,8 @@ static void vmx_init_signal_test(void)
 			exit_reason_description(init_signal_test_exit_reason),
 			init_signal_test_exit_reason);
 
-	/* Run guest to completion */
-	make_vmcs_current(test_vmcs);
-	enter_guest();
+	/* Mark the guest as being done. */
+	test_set_guest_finished();
 
 	/* Signal other CPU to exit VMX operation */
 	init_signal_test_thread_continued = false;
@@ -10151,6 +10155,8 @@ static void vmx_init_signal_test(void)
 	 * Somehow (?) verify that SIPI was indeed received.
 	 */
 }
+
+static bool use_kvm_wall_clock;
 
 #define SIPI_SIGNAL_TEST_DELAY	100000000ULL
 
@@ -10196,6 +10202,12 @@ static void vmx_sipi_test_guest(void)
 
 static void sipi_test_ap_thread(void *data)
 {
+	const struct vmx_msr_entry msr_load_wall_clock = {
+		.index = MSR_KVM_WALL_CLOCK_NEW,
+		.reserved = 0,
+		.value = 1,
+	};
+	struct guest_regs *regs = this_cpu_guest_regs();
 	struct vmcs *ap_vmcs;
 	u64 *ap_vmxon_region;
 	void *ap_stack, *ap_syscall_stack;
@@ -10209,6 +10221,8 @@ static void sipi_test_ap_thread(void *data)
 	TEST_ASSERT(!__vmxon_safe(ap_vmxon_region));
 	init_vmcs(&ap_vmcs);
 	make_vmcs_current(ap_vmcs);
+
+	memset(regs, 0, sizeof(*regs));
 
 	/* Set stack for AP */
 	ap_stack = alloc_page();
@@ -10225,7 +10239,13 @@ static void sipi_test_ap_thread(void *data)
 	/* Set guest activity state to wait-for-SIPI state */
 	vmcs_write(GUEST_ACTV_STATE, ACTV_WAIT_SIPI);
 
-	vmx_set_test_stage(1);
+	if (use_kvm_wall_clock) {
+		wrmsr(MSR_KVM_WALL_CLOCK_NEW, 0);
+		vmcs_write(ENT_MSR_LD_CNT, 1);
+		vmcs_write(ENTER_MSR_LD_ADDR, virt_to_phys(&msr_load_wall_clock));
+	} else {
+		vmx_set_test_stage(1);
+	}
 
 	/* AP enter guest */
 	enter_guest();
@@ -10268,6 +10288,9 @@ static void vmx_sipi_signal_test(void)
 	u64 cpu_ctrl_0 = CPU_SECONDARY;
 	u64 cpu_ctrl_1 = 0;
 
+	use_kvm_wall_clock = this_cpu_has_kvm() &&
+			     this_cpu_has(KVM_FEATURE_CLOCKSOURCE2);
+
 	/* passthrough lapic to L2 */
 	disable_intercept_for_x2apic_msrs();
 	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_EXTINT);
@@ -10279,10 +10302,17 @@ static void vmx_sipi_signal_test(void)
 	/* update CR3 on AP */
 	on_cpu(1, update_cr3, (void *)read_cr3());
 
+	vmx_set_test_stage(0);
+
 	/* start AP */
 	on_cpu_async(1, sipi_test_ap_thread, NULL);
 
-	vmx_set_test_stage(0);
+	if (use_kvm_wall_clock) {
+		while (rdmsr(MSR_KVM_WALL_CLOCK_NEW) != 1)
+			cpu_relax();
+
+		vmx_set_test_stage(1);
+	}
 
 	/* BSP enter guest */
 	enter_guest();
@@ -10652,10 +10682,11 @@ static unsigned long long host_time_to_guest_time(unsigned long long t)
 static unsigned long long rdtsc_vmexit_diff_test_iteration(void)
 {
 	unsigned long long guest_tsc, host_to_guest_tsc;
+	struct guest_regs *regs = this_cpu_guest_regs();
 
 	enter_guest();
 	skip_exit_vmcall();
-	guest_tsc = (u32) regs.rax + (regs.rdx << 32);
+	guest_tsc = (u32) regs->rax + (regs->rdx << 32);
 	host_to_guest_tsc = host_time_to_guest_time(exit_msr_store[0].value);
 
 	return host_to_guest_tsc - guest_tsc;
@@ -10881,6 +10912,7 @@ typedef void (*pf_exception_test_guest_t)(void);
 static void __vmx_pf_exception_test(invalidate_tlb_t inv_fn, void *data,
 				    pf_exception_test_guest_t guest_fn)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
 	u64 efer;
 	struct cpuid cpuid;
 
@@ -10897,23 +10929,23 @@ static void __vmx_pf_exception_test(invalidate_tlb_t inv_fn, void *data,
 	while (vmcs_read(EXI_REASON) != VMX_VMCALL) {
 		switch (vmcs_read(EXI_REASON)) {
 		case VMX_RDMSR:
-			assert(regs.rcx == MSR_EFER);
+			assert(regs->rcx == MSR_EFER);
 			efer = vmcs_read(GUEST_EFER);
-			regs.rdx = efer >> 32;
-			regs.rax = efer & 0xffffffff;
+			regs->rdx = efer >> 32;
+			regs->rax = efer & 0xffffffff;
 			break;
 		case VMX_WRMSR:
-			assert(regs.rcx == MSR_EFER);
-			efer = regs.rdx << 32 | (regs.rax & 0xffffffff);
+			assert(regs->rcx == MSR_EFER);
+			efer = regs->rdx << 32 | (regs->rax & 0xffffffff);
 			vmcs_write(GUEST_EFER, efer);
 			break;
 		case VMX_CPUID:
 			cpuid = (struct cpuid) {0, 0, 0, 0};
-			cpuid = raw_cpuid(regs.rax, regs.rcx);
-			regs.rax = cpuid.a;
-			regs.rbx = cpuid.b;
-			regs.rcx = cpuid.c;
-			regs.rdx = cpuid.d;
+			cpuid = raw_cpuid(regs->rax, regs->rcx);
+			regs->rax = cpuid.a;
+			regs->rbx = cpuid.b;
+			regs->rcx = cpuid.c;
+			regs->rdx = cpuid.d;
 			break;
 		case VMX_INVLPG:
 			inv_fn(data);
@@ -11250,7 +11282,12 @@ static void do_vmx_canonical_test_one_field(const char *field_name, u64 field)
 	field_org_value = vmcs_read(field);
 
 	test_host_value_direct(field_name, field);
-	test_host_value_vmcs(field_name, field);
+	/*
+	 * Skip the GS.base VMCS test, the VMX infrastructure accesses per-CPU
+	 * variables (referenced via GS) immediatedly after VM-Exit.
+	 */
+	if (field != HOST_BASE_GS)
+		test_host_value_vmcs(field_name, field);
 
 	/* Restore original values */
 	vmcs_write(field, field_org_value);
@@ -11757,40 +11794,35 @@ static void vmx_cet_test(void)
 
 #define TEST(name) { #name, .v2 = name }
 
-/* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
+/* name/init/guest_main/exit_handler/vmfail_handler */
 struct vmx_test vmx_tests[] = {
-	{ "null", NULL, basic_guest_main, basic_exit_handler, NULL, {0} },
-	{ "vmenter", NULL, vmenter_main, vmenter_exit_handler, NULL, {0} },
+	{ "null", NULL, basic_guest_main, basic_exit_handler, },
+	{ "vmenter", NULL, vmenter_main, vmenter_exit_handler, },
 	{ "preemption timer", preemption_timer_init, preemption_timer_main,
-		preemption_timer_exit_handler, NULL, {0} },
+		preemption_timer_exit_handler },
 	{ "control field PAT", test_ctrl_pat_init, test_ctrl_pat_main,
-		test_ctrl_pat_exit_handler, NULL, {0} },
+		test_ctrl_pat_exit_handler },
 	{ "control field EFER", test_ctrl_efer_init, test_ctrl_efer_main,
-		test_ctrl_efer_exit_handler, NULL, {0} },
-	{ "CR shadowing", NULL, cr_shadowing_main,
-		cr_shadowing_exit_handler, NULL, {0} },
-	{ "I/O bitmap", iobmp_init, iobmp_main, iobmp_exit_handler,
-		NULL, {0} },
+		test_ctrl_efer_exit_handler },
+	{ "CR shadowing", NULL, cr_shadowing_main, cr_shadowing_exit_handler },
+	{ "I/O bitmap", iobmp_init, iobmp_main, iobmp_exit_handler },
 	{ "instruction intercept", insn_intercept_init, insn_intercept_main,
-		insn_intercept_exit_handler, NULL, {0} },
-	{ "EPT A/D disabled", ept_init, ept_main, ept_exit_handler, NULL, {0} },
-	{ "EPT A/D enabled", eptad_init, eptad_main, eptad_exit_handler, NULL, {0} },
-	{ "PML", pml_init, pml_main, pml_exit_handler, NULL, {0} },
-	{ "interrupt", interrupt_init, interrupt_main,
-		interrupt_exit_handler, NULL, {0} },
-	{ "nmi_hlt", nmi_hlt_init, nmi_hlt_main,
-		nmi_hlt_exit_handler, NULL, {0} },
-	{ "debug controls", dbgctls_init, dbgctls_main, dbgctls_exit_handler,
-		NULL, {0} },
+		insn_intercept_exit_handler },
+	{ "EPT A/D disabled", ept_init, ept_main, ept_exit_handler },
+	{ "EPT A/D enabled", eptad_init, eptad_main, eptad_exit_handler },
+	{ "PML", pml_init, pml_main, pml_exit_handler },
+	{ "interrupt", interrupt_init, interrupt_main, interrupt_exit_handler },
+	{ "nmi_hlt", nmi_hlt_init, nmi_hlt_main, nmi_hlt_exit_handler },
+	{ "debug controls", dbgctls_init, dbgctls_main, dbgctls_exit_handler },
 	{ "MSR switch", msr_switch_init, msr_switch_main,
-		msr_switch_exit_handler, NULL, {0}, msr_switch_entry_failure },
-	{ "vmmcall", vmmcall_init, vmmcall_main, vmmcall_exit_handler, NULL, {0} },
+		msr_switch_exit_handler, msr_switch_entry_failure },
+	{ "vmmcall", vmmcall_init, vmmcall_main, vmmcall_exit_handler },
 	{ "disable RDTSCP", disable_rdtscp_init, disable_rdtscp_main,
-		disable_rdtscp_exit_handler, NULL, {0} },
+		disable_rdtscp_exit_handler },
 	{ "exit_monitor_from_l2_test", NULL, exit_monitor_from_l2_main,
-		exit_monitor_from_l2_handler, NULL, {0} },
+		exit_monitor_from_l2_handler },
 	{ "invalid_msr", invalid_msr_init, invalid_msr_main,
-		invalid_msr_exit_handler, NULL, {0}, invalid_msr_entry_failure},
+		invalid_msr_exit_handler, invalid_msr_entry_failure},
 	/* Basic V2 tests. */
 	TEST(v2_null_test),
 	TEST(v2_multiple_entries_test),
@@ -11876,5 +11908,5 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_canonical_test),
 	/* "Load CET" VM-entry/exit controls tests. */
 	TEST(vmx_cet_test),
-	{ NULL, NULL, NULL, NULL, NULL, {0} },
+	{ NULL, NULL, NULL, NULL },
 };

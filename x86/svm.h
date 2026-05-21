@@ -2,6 +2,7 @@
 #define X86_SVM_H
 
 #include "libcflat.h"
+#include "virt.h"
 
 enum {
 	INTERCEPT_INTR,
@@ -391,26 +392,6 @@ struct svm_test {
 	bool on_vcpu_done;
 };
 
-struct regs {
-	u64 rax;
-	u64 rbx;
-	u64 rcx;
-	u64 rdx;
-	u64 cr2;
-	u64 rbp;
-	u64 rsi;
-	u64 rdi;
-	u64 r8;
-	u64 r9;
-	u64 r10;
-	u64 r11;
-	u64 r12;
-	u64 r13;
-	u64 r14;
-	u64 r15;
-	u64 rflags;
-};
-
 typedef void (*test_guest_func)(struct svm_test *);
 
 int run_svm_tests(int ac, char **av, struct svm_test *svm_tests);
@@ -436,7 +417,6 @@ int get_test_stage(struct svm_test *test);
 void set_test_stage(struct svm_test *test, int s);
 void inc_test_stage(struct svm_test *test);
 void vmcb_ident(struct vmcb *vmcb);
-struct regs get_regs(void);
 void vmmcall(void);
 void svm_setup_vmrun(u64 rip);
 int __svm_vmrun(u64 rip);
@@ -455,43 +435,19 @@ static inline void clgi(void)
     asm volatile ("clgi");
 }
 
-
-
-#define SAVE_GPR_C                              \
-        "xchg %%rbx, regs+0x8\n\t"              \
-        "xchg %%rcx, regs+0x10\n\t"             \
-        "xchg %%rdx, regs+0x18\n\t"             \
-        "xchg %%rbp, regs+0x28\n\t"             \
-        "xchg %%rsi, regs+0x30\n\t"             \
-        "xchg %%rdi, regs+0x38\n\t"             \
-        "xchg %%r8, regs+0x40\n\t"              \
-        "xchg %%r9, regs+0x48\n\t"              \
-        "xchg %%r10, regs+0x50\n\t"             \
-        "xchg %%r11, regs+0x58\n\t"             \
-        "xchg %%r12, regs+0x60\n\t"             \
-        "xchg %%r13, regs+0x68\n\t"             \
-        "xchg %%r14, regs+0x70\n\t"             \
-        "xchg %%r15, regs+0x78\n\t"
-
-#define LOAD_GPR_C      SAVE_GPR_C
-
 #define ASM_PRE_VMRUN_CMD                       \
-                "vmload %%rax\n\t"              \
-                "mov regs+0x80, %%r15\n\t"      \
-                "mov %%r15, 0x170(%%rax)\n\t"   \
-                "mov regs, %%r15\n\t"           \
-                "mov %%r15, 0x1f8(%%rax)\n\t"   \
-                LOAD_GPR_C                      \
+                "mov " GUEST_REG(rflags) ", %%r15\n\t" \
+                "mov %%r15, 0x570(%%rax)\n\t"   \
+                "mov " GUEST_REG(rax) ", %%r15\n\t" \
+                "mov %%r15, 0x5f8(%%rax)\n\t"   \
+                __SWAP_GPRS                     \
 
 #define ASM_POST_VMRUN_CMD                      \
-                SAVE_GPR_C                      \
-                "mov 0x170(%%rax), %%r15\n\t"   \
-                "mov %%r15, regs+0x80\n\t"      \
-                "mov 0x1f8(%%rax), %%r15\n\t"   \
-                "mov %%r15, regs\n\t"           \
-                "vmsave %%rax\n\t"              \
-
-
+                __SWAP_GPRS                     \
+                "mov 0x570(%%rax), %%r15\n\t"   \
+                "mov %%r15, " GUEST_REG(rflags) "\n\t" \
+                "mov 0x5f8(%%rax), %%r15\n\t"   \
+                "mov %%r15, " GUEST_REG(rax)"\n\t" \
 
 #define SVM_BARE_VMRUN \
 	asm volatile ( \
@@ -499,7 +455,8 @@ static inline void clgi(void)
                 "vmrun %%rax\n\t"               \
 		ASM_POST_VMRUN_CMD \
 		: \
-		: "a" (virt_to_phys(vmcb)) \
+		: GUEST_REGS_OFFSETS, \
+		  "a" (virt_to_phys(vmcb)) \
 		: "memory", "r15") \
 
 #endif

@@ -577,6 +577,7 @@ static void restore_msrpm_bit(int bit_nr, bool set)
 
 static bool msr_intercept_finished(struct svm_test *test)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
 	u32 exit_code = vmcb->control.exit_code;
 	bool all_set = false;
 	int bit_nr;
@@ -649,9 +650,9 @@ static bool msr_intercept_finished(struct svm_test *test)
 	 *      while RAX hold its lower 32 bits.
 	 */
 	if (vmcb->control.exit_info_1)
-		test->scratch = ((get_regs().rdx << 32) | (vmcb->save.rax & 0xffffffff));
+		test->scratch = ((regs->rdx << 32) | (vmcb->save.rax & 0xffffffff));
 	else
-		test->scratch = get_regs().rcx;
+		test->scratch = regs->rcx;
 
 	return false;
 }

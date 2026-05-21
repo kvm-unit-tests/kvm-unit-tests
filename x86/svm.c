@@ -223,13 +223,6 @@ void vmcb_ident(struct vmcb *vmcb)
 	}
 }
 
-struct regs regs;
-
-struct regs get_regs(void)
-{
-	return regs;
-}
-
 // rax handled specially below
 
 
@@ -246,15 +239,17 @@ void svm_setup_vmrun(u64 rip)
 
 int __svm_vmrun(u64 rip)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
+
 	svm_setup_vmrun(rip);
-	regs.rdi = (ulong)v2_test;
+	regs->rdi = (ulong)v2_test;
 
 	asm volatile (
 		      ASM_PRE_VMRUN_CMD
 		      "vmrun %%rax\n\t"               \
 		      ASM_POST_VMRUN_CMD
 		      :
-		      : "a" (virt_to_phys(vmcb))
+		      : GUEST_REGS_OFFSETS, "a" (virt_to_phys(vmcb))
 		      : "memory", "r15");
 
 	return (vmcb->control.exit_code);
@@ -269,6 +264,7 @@ extern u8 vmrun_rip;
 
 static noinline void test_run(struct svm_test *test)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
 	u64 vmcb_phys = virt_to_phys(vmcb);
 
 	cli();
@@ -278,7 +274,7 @@ static noinline void test_run(struct svm_test *test)
 	guest_main = test->guest_func;
 	vmcb->save.rip = (ulong)test_thunk;
 	vmcb->save.rsp = (ulong)(guest_stack + ARRAY_SIZE(guest_stack));
-	regs.rdi = (ulong)test;
+	regs->rdi = (ulong)test;
 	do {
 		struct svm_test *the_test = test;
 		u64 the_vmcb = vmcb_phys;
@@ -296,7 +292,8 @@ static noinline void test_run(struct svm_test *test)
 			      : // inputs clobbered by the guest:
 				"=D" (the_test),            // first argument register
 				"=b" (the_vmcb)             // callee save register!
-			      : [test] "0" (the_test),
+			      : GUEST_REGS_OFFSETS,
+			        [test] "0" (the_test),
 				[vmcb_phys] "1"(the_vmcb),
 				[PREPARE_GIF_CLEAR] "i" (offsetof(struct svm_test, prepare_gif_clear))
 			      : "rax", "rcx", "rdx", "rsi",

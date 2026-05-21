@@ -5,6 +5,7 @@
 #include "processor.h"
 #include "bitops.h"
 #include "util.h"
+#include "virt.h"
 #include "asm/page.h"
 #include "asm/io.h"
 
@@ -58,26 +59,6 @@ struct invvpid_operand {
 	u64 gla;
 };
 
-struct regs {
-	u64 rax;
-	u64 rcx;
-	u64 rdx;
-	u64 rbx;
-	u64 cr2;
-	u64 rbp;
-	u64 rsi;
-	u64 rdi;
-	u64 r8;
-	u64 r9;
-	u64 r10;
-	u64 r11;
-	u64 r12;
-	u64 r13;
-	u64 r14;
-	u64 r15;
-	u64 rflags;
-};
-
 union exit_reason {
 	struct {
 		u32	basic			: 16;
@@ -121,8 +102,6 @@ struct vmx_test {
 	int (*init)(struct vmcs *vmcs);
 	void (*guest_main)(void);
 	int (*exit_handler)(union exit_reason exit_reason);
-	void (*syscall_handler)(u64 syscall_no);
-	struct regs guest_regs;
 	int (*entry_failure_handler)(struct vmentry_result *result);
 	struct vmcs *vmcs;
 	int exits;
@@ -589,44 +568,6 @@ enum vm_entry_failure_code {
 	ENTRY_FAIL_VMCS_LINK_PTR	= 4,
 };
 
-#define SAVE_GPR				\
-	"xchg %rax, regs\n\t"			\
-	"xchg %rcx, regs+0x8\n\t"		\
-	"xchg %rdx, regs+0x10\n\t"		\
-	"xchg %rbx, regs+0x18\n\t"		\
-	"xchg %rbp, regs+0x28\n\t"		\
-	"xchg %rsi, regs+0x30\n\t"		\
-	"xchg %rdi, regs+0x38\n\t"		\
-	"xchg %r8, regs+0x40\n\t"		\
-	"xchg %r9, regs+0x48\n\t"		\
-	"xchg %r10, regs+0x50\n\t"		\
-	"xchg %r11, regs+0x58\n\t"		\
-	"xchg %r12, regs+0x60\n\t"		\
-	"xchg %r13, regs+0x68\n\t"		\
-	"xchg %r14, regs+0x70\n\t"		\
-	"xchg %r15, regs+0x78\n\t"
-
-#define LOAD_GPR	SAVE_GPR
-
-#define SAVE_GPR_C				\
-	"xchg %%rax, regs\n\t"			\
-	"xchg %%rcx, regs+0x8\n\t"		\
-	"xchg %%rdx, regs+0x10\n\t"		\
-	"xchg %%rbx, regs+0x18\n\t"		\
-	"xchg %%rbp, regs+0x28\n\t"		\
-	"xchg %%rsi, regs+0x30\n\t"		\
-	"xchg %%rdi, regs+0x38\n\t"		\
-	"xchg %%r8, regs+0x40\n\t"		\
-	"xchg %%r9, regs+0x48\n\t"		\
-	"xchg %%r10, regs+0x50\n\t"		\
-	"xchg %%r11, regs+0x58\n\t"		\
-	"xchg %%r12, regs+0x60\n\t"		\
-	"xchg %%r13, regs+0x68\n\t"		\
-	"xchg %%r14, regs+0x70\n\t"		\
-	"xchg %%r15, regs+0x78\n\t"
-
-#define LOAD_GPR_C	SAVE_GPR_C
-
 #define VMX_IO_SIZE_MASK	0x7
 #define _VMX_IO_BYTE		0
 #define _VMX_IO_WORD		1
@@ -646,12 +587,6 @@ enum vm_entry_failure_code {
 #define VMX_TEST_RESUME		3
 #define VMX_TEST_VMABORT	4
 #define VMX_TEST_VMSKIP		5
-
-#define HYPERCALL_BIT		(1ul << 12)
-#define HYPERCALL_MASK		0xFFF
-#define HYPERCALL_VMEXIT	0x1
-#define HYPERCALL_VMABORT	0x2
-#define HYPERCALL_VMSKIP	0x3
 
 #define EPTP_PG_WALK_LEN_SHIFT	3ul
 #define EPTP_PG_WALK_LEN_MASK	0x38ul
@@ -760,8 +695,6 @@ enum vm_entry_failure_code {
 #define VMCS_FIELD_RESERVED_SHIFT	(15)
 #define VMCS_FIELD_BIT_SIZE		(BITS_PER_LONG)
 
-extern struct regs regs;
-
 extern union vmx_basic_msr basic_msr;
 extern union vmx_ctrl_msr ctrl_pin_rev;
 extern union vmx_ctrl_msr ctrl_cpu_rev[2];
@@ -855,7 +788,6 @@ static inline bool is_mbec_supported(void)
 }
 
 extern u64 *bsp_vmxon_region;
-extern bool launched;
 
 void vmx_set_test_stage(u32 s);
 u32 vmx_get_test_stage(void);
@@ -916,6 +848,8 @@ static inline int vmcs_clear(struct vmcs *vmcs)
 {
 	bool ret;
 	u64 rflags = read_rflags() | X86_EFLAGS_CF | X86_EFLAGS_ZF;
+
+	this_cpu_write_launched(false);
 
 	asm volatile ("push %1; popf; vmclear %2; setbe %0"
 		      : "=q" (ret) : "q" (rflags), "m" (vmcs) : "cc");
