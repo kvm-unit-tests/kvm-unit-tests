@@ -103,7 +103,7 @@ static bool finished_rsm_intercept(struct svm_test *test)
 	switch (get_test_stage(test)) {
 	case 0:
 		if (vmcb->control.exit_code != SVM_EXIT_RSM) {
-			report_fail("VMEXIT not due to rsm. Exit reason 0x%x",
+			report_fail("VMEXIT not due to rsm. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -113,7 +113,7 @@ static bool finished_rsm_intercept(struct svm_test *test)
 
 	case 1:
 		if (vmcb->control.exit_code != SVM_EXIT_EXCP_BASE + UD_VECTOR) {
-			report_fail("VMEXIT not due to #UD. Exit reason 0x%x",
+			report_fail("VMEXIT not due to #UD. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -972,7 +972,7 @@ static void svm_tsc_scale_run_testcase(u64 duration,
 	start_tsc = rdtsc();
 
 	if (svm_vmrun() != SVM_EXIT_VMMCALL)
-		report_fail("unexpected vm exit code 0x%x", vmcb->control.exit_code);
+		report_fail("unexpected vm exit code 0x%lx", vmcb->control.exit_code);
 
 	actual_duration = (rdtsc() - start_tsc) >> TSC_SHIFT;
 
@@ -1191,7 +1191,7 @@ static bool pending_event_finished(struct svm_test *test)
 	switch (get_test_stage(test)) {
 	case 0:
 		if (vmcb->control.exit_code != SVM_EXIT_INTR) {
-			report_fail("VMEXIT not due to pending interrupt. Exit reason 0x%x",
+			report_fail("VMEXIT not due to pending interrupt. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1272,7 +1272,7 @@ static void pending_event_cli_test(struct svm_test *test)
 static bool pending_event_cli_finished(struct svm_test *test)
 {
 	report_svm_guest(vmcb->control.exit_code == SVM_EXIT_VMMCALL, test,
-			 "Wanted VMMCALL VM-Exit, got exit reason 0x%x",
+			 "Wanted VMMCALL VM-Exit, got exit reason 0x%lx",
 			 vmcb->control.exit_code);
 
 	switch (get_test_stage(test)) {
@@ -1395,7 +1395,7 @@ static bool interrupt_finished(struct svm_test *test)
 	case 0:
 	case 2:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%x",
+			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1408,7 +1408,7 @@ static bool interrupt_finished(struct svm_test *test)
 	case 1:
 	case 3:
 		if (vmcb->control.exit_code != SVM_EXIT_INTR) {
-			report_fail("VMEXIT not due to intr intercept. Exit reason 0x%x",
+			report_fail("VMEXIT not due to intr intercept. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1471,7 +1471,7 @@ static bool nmi_finished(struct svm_test *test)
 	switch (get_test_stage(test)) {
 	case 0:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%x",
+			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1482,7 +1482,7 @@ static bool nmi_finished(struct svm_test *test)
 
 	case 1:
 		if (vmcb->control.exit_code != SVM_EXIT_NMI) {
-			report_fail("VMEXIT not due to NMI intercept. Exit reason 0x%x",
+			report_fail("VMEXIT not due to NMI intercept. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1564,7 +1564,7 @@ static bool nmi_hlt_finished(struct svm_test *test)
 	switch (get_test_stage(test)) {
 	case 1:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%x",
+			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1575,7 +1575,7 @@ static bool nmi_hlt_finished(struct svm_test *test)
 
 	case 2:
 		if (vmcb->control.exit_code != SVM_EXIT_NMI) {
-			report_fail("VMEXIT not due to NMI intercept. Exit reason 0x%x",
+			report_fail("VMEXIT not due to NMI intercept. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1625,7 +1625,7 @@ static bool vnmi_finished(struct svm_test *test)
 	switch (get_test_stage(test)) {
 	case 0:
 		if (vmcb->control.exit_code != SVM_EXIT_ERR) {
-			report_fail("Wanted ERR VM-Exit, got 0x%x",
+			report_fail("Wanted ERR VM-Exit, got 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1636,7 +1636,7 @@ static bool vnmi_finished(struct svm_test *test)
 
 	case 1:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-			report_fail("Wanted VMMCALL VM-Exit, got 0x%x",
+			report_fail("Wanted VMMCALL VM-Exit, got 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1647,7 +1647,7 @@ static bool vnmi_finished(struct svm_test *test)
 
 	case 2:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-			report_fail("Wanted VMMCALL VM-Exit, got 0x%x",
+			report_fail("Wanted VMMCALL VM-Exit, got 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1698,7 +1698,7 @@ static bool exc_inject_finished(struct svm_test *test)
 	switch (get_test_stage(test)) {
 	case 0:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%x",
+			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1708,7 +1708,7 @@ static bool exc_inject_finished(struct svm_test *test)
 
 	case 1:
 		if (vmcb->control.exit_code != SVM_EXIT_ERR) {
-			report_fail("VMEXIT not due to error. Exit reason 0x%x",
+			report_fail("VMEXIT not due to error. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1718,7 +1718,7 @@ static bool exc_inject_finished(struct svm_test *test)
 
 	case 2:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%x",
+			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1796,7 +1796,7 @@ static bool virq_inject_finished(struct svm_test *test)
 	switch (get_test_stage(test)) {
 	case 0:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%x",
+			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1812,7 +1812,7 @@ static bool virq_inject_finished(struct svm_test *test)
 
 	case 1:
 		if (vmcb->control.exit_code != SVM_EXIT_VINTR) {
-			report_fail("VMEXIT not due to vintr. Exit reason 0x%x",
+			report_fail("VMEXIT not due to vintr. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1825,7 +1825,7 @@ static bool virq_inject_finished(struct svm_test *test)
 
 	case 2:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%x",
+			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1839,7 +1839,7 @@ static bool virq_inject_finished(struct svm_test *test)
 
 	case 3:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%x",
+			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1849,7 +1849,7 @@ static bool virq_inject_finished(struct svm_test *test)
 	case 4:
 		// INTERCEPT_VINTR should be ignored because V_INTR_PRIO < V_TPR
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%x",
+			report_fail("VMEXIT not due to vmmcall. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -1887,7 +1887,7 @@ static void virq_inject_within_shadow_prepare_gif_clear(struct svm_test *test)
 static bool virq_inject_within_shadow_finished(struct svm_test *test)
 {
 	if (vmcb->control.exit_code != SVM_EXIT_VMMCALL)
-		report_fail("VMEXIT not due to vmmcall. Exit reason 0x%x",
+		report_fail("VMEXIT not due to vmmcall. Exit reason 0x%lx",
 			    vmcb->control.exit_code);
 	if (!virq_fired)
 		report_fail("V_IRQ did not fire");
@@ -2064,7 +2064,7 @@ static bool init_intercept_finished(struct svm_test *test)
 	vmcb->save.rip += 3;
 
 	if (vmcb->control.exit_code != SVM_EXIT_INIT) {
-		report_fail("VMEXIT not due to init intercept. Exit reason 0x%x",
+		report_fail("VMEXIT not due to init intercept. Exit reason 0x%lx",
 			    vmcb->control.exit_code);
 
 		return true;
@@ -2166,7 +2166,7 @@ static bool host_rflags_finished(struct svm_test *test)
 	switch (get_test_stage(test)) {
 	case 0:
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL) {
-			report_fail("Unexpected VMEXIT. Exit reason 0x%x",
+			report_fail("Unexpected VMEXIT. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -2181,7 +2181,7 @@ static bool host_rflags_finished(struct svm_test *test)
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL ||
 		    host_rflags_guest_main_flag != 1) {
 			report_fail("Unexpected VMEXIT or #DB handler"
-				    " invoked before guest main. Exit reason 0x%x",
+				    " invoked before guest main. Exit reason 0x%lx",
 				    vmcb->control.exit_code);
 			return true;
 		}
@@ -2197,7 +2197,7 @@ static bool host_rflags_finished(struct svm_test *test)
 		if (vmcb->control.exit_code != SVM_EXIT_VMMCALL ||
 		    rip_detected != (u64)&vmrun_rip + 3) {
 			report_fail("Unexpected VMEXIT or RIP mismatch."
-				    " Exit reason 0x%x, RIP actual: %lx, RIP expected: "
+				    " Exit reason 0x%lx, RIP actual: %lx, RIP expected: "
 				    "%lx", vmcb->control.exit_code,
 				    (u64)&vmrun_rip + 3, rip_detected);
 			return true;
@@ -2215,7 +2215,7 @@ static bool host_rflags_finished(struct svm_test *test)
 		    read_rflags() & X86_EFLAGS_RF) {
 			report_fail("Unexpected VMEXIT or RIP mismatch or "
 				    "EFLAGS.RF not cleared."
-				    " Exit reason 0x%x, RIP actual: %lx, RIP expected: "
+				    " Exit reason 0x%lx, RIP actual: %lx, RIP expected: "
 				    "%lx", vmcb->control.exit_code,
 				    (u64)&vmrun_rip, rip_detected);
 			return true;
@@ -2302,7 +2302,7 @@ static void basic_guest_main(struct svm_test *test)
 				  exit_code, test_name)			\
 {									\
 	u64 tmp, mask;							\
-	u32 r;								\
+	u64 r;								\
 	int i;								\
 									\
 	for (i = start; i <= end; i = i + inc) {			\
@@ -2321,8 +2321,8 @@ static void basic_guest_main(struct svm_test *test)
 			vmcb->save.cr4 = tmp;				\
 		}							\
 		r = svm_vmrun();					\
-		report(r == exit_code, "Test CR%d %s%d:%d: %lx, wanted exit 0x%x, got 0x%x", \
-		       cr, test_name, end, start, tmp, exit_code, r);	\
+		report(r == exit_code, "Test CR%d %s%d:%d: %lx, wanted exit 0x%lx, got 0x%lx", \
+		       cr, test_name, end, start, tmp, (u64)exit_code, r);	\
 	}								\
 }
 
@@ -3317,7 +3317,7 @@ static void dummy_nmi_handler(struct ex_regs *regs)
 }
 
 
-static void svm_intr_intercept_mix_run_guest(volatile int *counter, int expected_vmexit)
+static void svm_intr_intercept_mix_run_guest(volatile int *counter, u64 expected_vmexit)
 {
 	if (counter)
 		*counter = 0;
@@ -3336,7 +3336,7 @@ static void svm_intr_intercept_mix_run_guest(volatile int *counter, int expected
 		report(*counter == 1, "Interrupt is expected");
 
 	report(vmcb->control.exit_code == expected_vmexit,
-	       "Wanted VM-Exit reason 0x%x, got 0x%x",
+	       "Wanted VM-Exit reason 0x%lx, got 0x%lx",
 	       expected_vmexit, vmcb->control.exit_code);
 	report(vmcb->save.rflags & X86_EFLAGS_IF, "Guest should have EFLAGS.IF set now");
 	cli();

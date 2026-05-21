@@ -1,5 +1,6 @@
 
 #include "x86/msr.h"
+#include "x86/pmu.h"
 #include "x86/processor.h"
 #include "x86/apic-defs.h"
 #include "x86/apic.h"
@@ -101,7 +102,7 @@ static uint64_t vmware_backdoor_port(uint64_t vmport, uint64_t vmport_magic,
 		PORT_ARG(a, b, c, m, sf))
 
 
-struct fault_test vmware_backdoor_tests[] = {
+struct fault_test vmware_backdoor_tests_rdpcm[] = {
 	RDPMC_TEST("HOST_TSC kernel", VMWARE_BACKDOOR_PMC_HOST_TSC,
 			KERNEL_MODE, NO_FAULT),
 	RDPMC_TEST("REAL_TIME kernel", VMWARE_BACKDOOR_PMC_REAL_TIME,
@@ -116,6 +117,10 @@ struct fault_test vmware_backdoor_tests[] = {
 			USER_MODE, NO_FAULT),
 	RDPMC_TEST("RANDOM PMC user", 0xfff, USER_MODE, FAULT),
 
+	{ NULL },
+};
+
+struct fault_test vmware_backdoor_tests_ioport[] = {
 	PORT_TEST("CMD_GETVERSION user", VMWARE_BACKDOOR_PORT, VMWARE_MAGIC,
 			VMPORT_CMD_GETVERSION, USER_MODE, NO_FAULT),
 	PORT_TEST("CMD_GETVERSION kernel", VMWARE_BACKDOOR_PORT, VMWARE_MAGIC,
@@ -165,8 +170,15 @@ static void check_vmware_backdoors(void)
 
 	report_prefix_push("vmware_backdoors");
 
-	for (i = 0; vmware_backdoor_tests[i].name != NULL; i++)
-		test_run(&vmware_backdoor_tests[i]);
+	if (this_cpu_has_pmu()) {
+		for (i = 0; vmware_backdoor_tests_rdpcm[i].name != NULL; i++)
+			test_run(&vmware_backdoor_tests_rdpcm[i]);
+	} else {
+		report_skip("Skipping VMWARE pseudo RDPCM tests, PMU not enabled");
+	}
+
+	for (i = 0; vmware_backdoor_tests_ioport[i].name != NULL; i++)
+		test_run(&vmware_backdoor_tests_ioport[i]);
 
 	report_prefix_pop();
 }

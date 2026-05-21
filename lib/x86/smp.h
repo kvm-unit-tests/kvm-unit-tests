@@ -28,6 +28,8 @@ struct guest_regs {
 	/*
 	 * Use RSP's index to hold CR2, as RSP isn't manually context switched
 	 * by software in any relevant flows.
+	 *
+	 * FIXME: Actually context switch CR2 on Intel.
 	 */
 	u64 cr2;
 	u64 rbp;
