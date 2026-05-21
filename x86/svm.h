@@ -437,16 +437,16 @@ static inline void clgi(void)
 
 #define ASM_PRE_VMRUN_CMD                       \
                 "mov " GUEST_REG(rflags) ", %%r15\n\t" \
-                "mov %%r15, 0x170(%%rax)\n\t"   \
+                "mov %%r15, 0x570(%%rax)\n\t"   \
                 "mov " GUEST_REG(rax) ", %%r15\n\t" \
-                "mov %%r15, 0x1f8(%%rax)\n\t"   \
+                "mov %%r15, 0x5f8(%%rax)\n\t"   \
                 __SWAP_GPRS                     \
 
 #define ASM_POST_VMRUN_CMD                      \
                 __SWAP_GPRS                     \
-                "mov 0x170(%%rax), %%r15\n\t"   \
+                "mov 0x570(%%rax), %%r15\n\t"   \
                 "mov %%r15, " GUEST_REG(rflags) "\n\t" \
-                "mov 0x1f8(%%rax), %%r15\n\t"   \
+                "mov 0x5f8(%%rax), %%r15\n\t"   \
                 "mov %%r15, " GUEST_REG(rax)"\n\t" \
 
 #define SVM_BARE_VMRUN \
