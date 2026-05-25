@@ -650,7 +650,7 @@ static bool msr_intercept_finished(struct svm_test *test)
 	 *      while RAX hold its lower 32 bits.
 	 */
 	if (vmcb->control.exit_info_1)
-		test->scratch = ((regs->rdx << 32) | (vmcb->save.rax & 0xffffffff));
+		test->scratch = ((regs->rdx << 32) | (regs->rax & 0xffffffff));
 	else
 		test->scratch = regs->rcx;
 
@@ -1871,9 +1871,11 @@ static bool virq_inject_check(struct svm_test *test)
 
 static void virq_inject_within_shadow_prepare(struct svm_test *test)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
+
 	virq_inject_prepare(test);
 	vmcb->control.int_state = SVM_INTERRUPT_SHADOW_MASK;
-	vmcb->save.rflags |= X86_EFLAGS_IF;
+	regs->rflags |= X86_EFLAGS_IF;
 }
 
 extern void virq_inject_within_shadow_test(struct svm_test *test);
@@ -2710,12 +2712,14 @@ asm("guest_rflags_test_guest:\n\t"
 
 static void svm_test_singlestep(void)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
+
 	handle_exception(DB_VECTOR, guest_rflags_test_db_handler);
 
 	/*
 	 * Trap expected after completion of first guest instruction
 	 */
-	vmcb->save.rflags |= X86_EFLAGS_TF;
+	regs->rflags |= X86_EFLAGS_TF;
 	report (__svm_vmrun((u64)guest_rflags_test_guest) == SVM_EXIT_VMMCALL &&
 		guest_rflags_test_trap_rip == (u64)&insn2,
 		"Test EFLAGS.TF on VMRUN: trap expected  after completion of first guest instruction");
@@ -2724,7 +2728,7 @@ static void svm_test_singlestep(void)
 	 */
 	guest_rflags_test_trap_rip = 0;
 	vmcb->save.rip += 3;
-	vmcb->save.rflags |= X86_EFLAGS_TF;
+	regs->rflags |= X86_EFLAGS_TF;
 	report (__svm_vmrun(vmcb->save.rip) == SVM_EXIT_VMMCALL &&
 		guest_rflags_test_trap_rip == 0, "Test EFLAGS.TF on VMRUN: trap not expected");
 
@@ -3319,6 +3323,7 @@ static void dummy_nmi_handler(struct ex_regs *regs)
 
 static void svm_intr_intercept_mix_run_guest(volatile int *counter, u64 expected_vmexit)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
 	if (counter)
 		*counter = 0;
 
@@ -3338,7 +3343,7 @@ static void svm_intr_intercept_mix_run_guest(volatile int *counter, u64 expected
 	report(vmcb->control.exit_code == expected_vmexit,
 	       "Wanted VM-Exit reason 0x%lx, got 0x%lx",
 	       expected_vmexit, vmcb->control.exit_code);
-	report(vmcb->save.rflags & X86_EFLAGS_IF, "Guest should have EFLAGS.IF set now");
+	report(regs->rflags & X86_EFLAGS_IF, "Guest should have EFLAGS.IF set now");
 	cli();
 }
 
@@ -3354,12 +3359,14 @@ static void svm_intr_intercept_mix_if_guest(struct svm_test *test)
 
 static void svm_intr_intercept_mix_if(void)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
+
 	// make a physical interrupt to be pending
 	handle_irq(0x55, dummy_isr);
 
 	vmcb->control.intercept |= (1 << INTERCEPT_INTR);
 	vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
-	vmcb->save.rflags &= ~X86_EFLAGS_IF;
+	regs->rflags &= ~X86_EFLAGS_IF;
 
 	test_set_guest(svm_intr_intercept_mix_if_guest);
 	cli();
@@ -3388,11 +3395,13 @@ static void svm_intr_intercept_mix_gif_guest(struct svm_test *test)
 
 static void svm_intr_intercept_mix_gif(void)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
+
 	handle_irq(0x55, dummy_isr);
 
 	vmcb->control.intercept |= (1 << INTERCEPT_INTR);
 	vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
-	vmcb->save.rflags &= ~X86_EFLAGS_IF;
+	regs->rflags &= ~X86_EFLAGS_IF;
 
 	test_set_guest(svm_intr_intercept_mix_gif_guest);
 	cli();
@@ -3418,11 +3427,13 @@ static void svm_intr_intercept_mix_gif_guest2(struct svm_test *test)
 
 static void svm_intr_intercept_mix_gif2(void)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
+
 	handle_irq(0x55, dummy_isr);
 
 	vmcb->control.intercept |= (1 << INTERCEPT_INTR);
 	vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
-	vmcb->save.rflags |= X86_EFLAGS_IF;
+	regs->rflags |= X86_EFLAGS_IF;
 
 	test_set_guest(svm_intr_intercept_mix_gif_guest2);
 	svm_intr_intercept_mix_run_guest(&dummy_isr_recevied, SVM_EXIT_INTR);
@@ -3447,11 +3458,13 @@ static void svm_intr_intercept_mix_nmi_guest(struct svm_test *test)
 
 static void svm_intr_intercept_mix_nmi(void)
 {
+	struct guest_regs *regs = this_cpu_guest_regs();
+
 	handle_exception(2, dummy_nmi_handler);
 
 	vmcb->control.intercept |= (1 << INTERCEPT_NMI);
 	vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
-	vmcb->save.rflags |= X86_EFLAGS_IF;
+	regs->rflags |= X86_EFLAGS_IF;
 
 	test_set_guest(svm_intr_intercept_mix_nmi_guest);
 	svm_intr_intercept_mix_run_guest(&nmi_recevied, SVM_EXIT_NMI);
