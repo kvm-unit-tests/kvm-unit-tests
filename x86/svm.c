@@ -154,6 +154,18 @@ static void vmcb_set_seg(struct vmcb_seg *seg, u16 selector,
 	seg->base = base;
 }
 
+void vmcb_save_intercepts(struct vmcb *vmcb, u32 *saved_intercepts)
+{
+	for (int i = 0; i < MAX_INTERCEPT; i++)
+		saved_intercepts[i] = vmcb->control.intercept[i];
+}
+
+void vmcb_restore_intercepts(struct vmcb *vmcb, u32 *saved_intercepts)
+{
+	for (int i = 0; i < MAX_INTERCEPT; i++)
+		vmcb->control.intercept[i] = saved_intercepts[i];
+}
+
 inline void vmmcall(void)
 {
 	asm volatile ("vmmcall" : : : "memory");
@@ -210,9 +222,9 @@ void vmcb_ident(struct vmcb *vmcb)
 	save->cr2 = read_cr2();
 	save->g_pat = rdmsr(MSR_IA32_CR_PAT);
 	save->dbgctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
-	ctrl->intercept = (1ULL << INTERCEPT_VMRUN) |
-		(1ULL << INTERCEPT_VMMCALL) |
-		(1ULL << INTERCEPT_SHUTDOWN);
+	vmcb_set_intercept(INTERCEPT_VMRUN);
+	vmcb_set_intercept(INTERCEPT_VMMCALL);
+	vmcb_set_intercept(INTERCEPT_SHUTDOWN);
 	ctrl->iopm_base_pa = virt_to_phys(io_bitmap);
 	ctrl->msrpm_base_pa = virt_to_phys(msr_bitmap);
 

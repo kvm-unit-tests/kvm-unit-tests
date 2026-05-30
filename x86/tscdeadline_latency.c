@@ -73,7 +73,6 @@ static void start_tsc_deadline_timer(void)
     sti();
 
     wrmsr(MSR_IA32_TSCDEADLINE, rdmsr(MSR_IA32_TSC)+delta);
-    asm volatile ("nop");
 }
 
 static int enable_tsc_deadline_timer(void)

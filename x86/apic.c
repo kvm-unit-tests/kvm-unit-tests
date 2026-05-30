@@ -34,8 +34,7 @@ static void __test_tsc_deadline_timer(void)
 {
 	handle_irq(TSC_DEADLINE_TIMER_VECTOR, tsc_deadline_timer_isr);
 
-	wrmsr(MSR_IA32_TSCDEADLINE, rdmsr(MSR_IA32_TSC));
-	asm volatile ("nop");
+	wrmsr_tscdeadline_serialize(rdmsr(MSR_IA32_TSC));
 	report(tdt_count == 1, "tsc deadline timer");
 	report(rdmsr(MSR_IA32_TSCDEADLINE) == 0, "tsc deadline timer clearing");
 }
@@ -569,6 +568,11 @@ static inline void apic_change_mode(unsigned long new_mode)
 
 	lvtt = apic_read(APIC_LVTT);
 	apic_write(APIC_LVTT, (lvtt & ~APIC_LVT_TIMER_MASK) | new_mode);
+
+	lvtt = apic_read(APIC_LVTT);
+	if ((lvtt & APIC_LVT_TIMER_MASK) != new_mode)
+		report_fail("LVTT mode '0x%x' doesn't match written mode '0x%lx'",
+			    lvtt & APIC_LVT_TIMER_MASK, new_mode);
 }
 
 static void test_apic_change_mode(void)

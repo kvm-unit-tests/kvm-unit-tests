@@ -360,6 +360,7 @@ struct x86_cpu_feature {
  * Extended Leafs, a.k.a. AMD defined
  */
 #define X86_FEATURE_SVM			X86_CPU_FEATURE(0x80000001, 0, ECX, 2)
+#define X86_FEATURE_SKINIT		X86_CPU_FEATURE(0x80000001, 0, ECX, 12)
 #define X86_FEATURE_PERFCTR_CORE	X86_CPU_FEATURE(0x80000001, 0, ECX, 23)
 #define X86_FEATURE_NX			X86_CPU_FEATURE(0x80000001, 0, EDX, 20)
 #define X86_FEATURE_GBPAGES		X86_CPU_FEATURE(0x80000001, 0, EDX, 26)
@@ -1101,6 +1102,16 @@ static inline void wrtsc(u64 tsc)
 	wrmsr(MSR_IA32_TSC, tsc);
 }
 
+static inline void wrmsr_tscdeadline_serialize(u64 deadline)
+{
+	wrmsr(MSR_IA32_TSCDEADLINE, deadline);
+
+	/*
+	 * Use the CPUID instruction to serialize because the SERIALZE
+	 * instruction is not universally available.
+	 */
+	raw_cpuid(0, 0);
+}
 
 static inline void invlpg(volatile void *va)
 {

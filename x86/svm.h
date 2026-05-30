@@ -1,11 +1,51 @@
 #ifndef X86_SVM_H
 #define X86_SVM_H
 
+#include "bitops.h"
 #include "libcflat.h"
 #include "virt.h"
 
+enum intercept_words {
+	INTERCEPT_CR = 0,
+	INTERCEPT_DR,
+	INTERCEPT_EXCEPTION,
+	INTERCEPT_WORD3,
+	INTERCEPT_WORD4,
+	INTERCEPT_WORD5,
+	MAX_INTERCEPT,
+};
+
 enum {
-	INTERCEPT_INTR,
+	/* Byte offset 000h (word 0) */
+	INTERCEPT_CR0_READ = 0,
+	INTERCEPT_CR3_READ = 3,
+	INTERCEPT_CR4_READ = 4,
+	INTERCEPT_CR8_READ = 8,
+	INTERCEPT_CR0_WRITE = 16,
+	INTERCEPT_CR3_WRITE = 16 + 3,
+	INTERCEPT_CR4_WRITE = 16 + 4,
+	INTERCEPT_CR8_WRITE = 16 + 8,
+	/* Byte offset 004h (word 1) */
+	INTERCEPT_DR0_READ = 32,
+	INTERCEPT_DR1_READ,
+	INTERCEPT_DR2_READ,
+	INTERCEPT_DR3_READ,
+	INTERCEPT_DR4_READ,
+	INTERCEPT_DR5_READ,
+	INTERCEPT_DR6_READ,
+	INTERCEPT_DR7_READ,
+	INTERCEPT_DR0_WRITE = 48,
+	INTERCEPT_DR1_WRITE,
+	INTERCEPT_DR2_WRITE,
+	INTERCEPT_DR3_WRITE,
+	INTERCEPT_DR4_WRITE,
+	INTERCEPT_DR5_WRITE,
+	INTERCEPT_DR6_WRITE,
+	INTERCEPT_DR7_WRITE,
+	/* Byte offset 008h (word 2) */
+	INTERCEPT_EXCEPTION_OFFSET = 64,
+	/* Byte offset 00Ch (word 3) */
+	INTERCEPT_INTR = 96,
 	INTERCEPT_NMI,
 	INTERCEPT_SMI,
 	INTERCEPT_INIT,
@@ -37,7 +77,8 @@ enum {
 	INTERCEPT_TASK_SWITCH,
 	INTERCEPT_FERR_FREEZE,
 	INTERCEPT_SHUTDOWN,
-	INTERCEPT_VMRUN,
+	/* Byte offset 010h (word 4) */
+	INTERCEPT_VMRUN = 128,
 	INTERCEPT_VMMCALL,
 	INTERCEPT_VMLOAD,
 	INTERCEPT_VMSAVE,
@@ -50,6 +91,24 @@ enum {
 	INTERCEPT_MONITOR,
 	INTERCEPT_MWAIT,
 	INTERCEPT_MWAIT_COND,
+	INTERCEPT_XSETBV,
+	INTERCEPT_RDPRU,
+	TRAP_EFER_WRITE,
+	TRAP_CR0_WRITE,
+	TRAP_CR1_WRITE,
+	TRAP_CR2_WRITE,
+	TRAP_CR3_WRITE,
+	TRAP_CR4_WRITE,
+	TRAP_CR5_WRITE,
+	TRAP_CR6_WRITE,
+	TRAP_CR7_WRITE,
+	TRAP_CR8_WRITE,
+	/* Byte offset 014h (word 5) */
+	INTERCEPT_INVLPGB = 160,
+	INTERCEPT_INVLPGB_ILLEGAL,
+	INTERCEPT_INVPCID,
+	INTERCEPT_MCOMMIT,
+	INTERCEPT_TLBSYNC,
 };
 
 enum {
@@ -70,13 +129,8 @@ enum {
 };
 
 struct __attribute__ ((__packed__)) vmcb_control_area {
-	u16 intercept_cr_read;
-	u16 intercept_cr_write;
-	u16 intercept_dr_read;
-	u16 intercept_dr_write;
-	u32 intercept_exceptions;
-	u64 intercept;
-	u8 reserved_1[40];
+	u32 intercept[MAX_INTERCEPT];
+	u32 reserved_1[15 - MAX_INTERCEPT];
 	u16 pause_filter_thresh;
 	u16 pause_filter_count;
 	u64 iopm_base_pa;
@@ -355,7 +409,10 @@ struct __attribute__ ((__packed__)) vmcb {
 #define SVM_EXIT_MONITOR	0x08a
 #define SVM_EXIT_MWAIT		0x08b
 #define SVM_EXIT_MWAIT_COND	0x08c
-#define SVM_EXIT_NPF  		0x400
+#define SVM_EXIT_XSETBV		0x08d
+#define SVM_EXIT_RDPRU		0x08e
+#define SVM_EXIT_INVPCID	0x0a2
+#define SVM_EXIT_NPF		0x400
 
 #define SVM_EXIT_ERR		-1ull
 
@@ -415,6 +472,8 @@ bool vnmi_supported(void);
 int get_test_stage(struct svm_test *test);
 void set_test_stage(struct svm_test *test, int s);
 void inc_test_stage(struct svm_test *test);
+void vmcb_save_intercepts(struct vmcb *vmcb, u32 *saved_intercepts);
+void vmcb_restore_intercepts(struct vmcb *vmcb, u32 *saved_intercepts);
 void vmcb_ident(struct vmcb *vmcb);
 void vmmcall(void);
 void svm_setup_vmrun(u64 rip);
@@ -423,6 +482,16 @@ u64 svm_vmrun(void);
 void test_set_guest(test_guest_func func);
 
 extern struct vmcb *vmcb;
+
+static inline void vmcb_set_intercept(u64 val)
+{
+	__set_bit(val, vmcb->control.intercept);
+}
+
+static inline void vmcb_clear_intercept(u64 val)
+{
+	__clear_bit(val, vmcb->control.intercept);
+}
 
 static inline void stgi(void)
 {
