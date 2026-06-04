@@ -263,6 +263,38 @@ static int preemption_timer_exit_handler(union exit_reason exit_reason)
 }
 
 /*
+ * 32-bit guest tests running a tiny guest in 32-bit protected mode with
+ * paging enabled.
+ */
+extern char vmx_32bit_guest_begin[];
+
+asm(".code32\n\t"
+    "vmx_32bit_guest_begin:\n\t"
+    "	mov $1, %eax\n\t"
+    "	vmcall\n\t"
+    "	mov $2, %eax\n\t"
+    "	vmcall\n\t"
+    "1:	jmp 1b\n\t"
+    ".code64\n\t");
+
+/*
+ * Build identity-mapped page tables for a 32-bit guest covering the
+ * low 4 GB using 4GB pages, returns the value to load into GUEST_CR3.
+ */
+static u64 vmx_32bit_build_page_tables(void)
+{
+	const u64 leaf_flags = PT_PRESENT_MASK | PT_WRITABLE_MASK |
+			       PT_PAGE_SIZE_MASK;
+	int i;
+
+	u32 *pd = memalign_pages_flags(PAGE_SIZE, PAGE_SIZE,
+				       AREA_DMA32);
+	for (i = 0; i < 1024; i++)
+		pd[i] = ((u32)i << 22) | leaf_flags;
+	return virt_to_phys(pd);
+}
+
+/*
  * Build identity-mapped page tables for a 32-bit guest covering the
  * low 4 GB using PAE pages.  Fill the four PDPTRs into the pdpt[]
  * array.
@@ -5919,6 +5951,39 @@ static void vmx_pae_test(void)
 		report_prefix_pop();
 	}
 
+	test_set_guest_finished();
+}
+
+/*
+ * Verify that VM entry with 32-bit (non-PAE) paging succeeds and that bits
+ * 2:0 and 11:5 of CR3 are ignored.
+ */
+static void vmx_pse_test(void)
+{
+	u64 cr3;
+	int b;
+
+	test_setup_32bit();
+
+	cr3 = vmx_32bit_build_page_tables();
+
+	vmx_32bit_guest_init_common(cr3, NULL);
+	if (enter_guest_report_pass())
+		skip_exit_vmcall();
+
+	for (b = 0; b <= 11; b++) {
+		if (b == 3 || b == 4)
+			continue;
+		vmx_32bit_guest_init_common(cr3 | (1ull << b), NULL);
+		test_guest_state("CR3 ignored bit", false, (1ull << b), "bit");
+	}
+
+	for (b = cpuid_maxphyaddr(); b < 64; b++) {
+		vmx_32bit_guest_init_common(cr3 | (1ull << b), NULL);
+		test_guest_state("CR3 reserved bit", true, (1ull << b), "bit");
+	}
+
+	free_page(phys_to_virt(cr3));
 	test_set_guest_finished();
 }
 
@@ -12117,6 +12182,7 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_mtf_test),
 	TEST(vmx_mtf_pdpte_test),
 	TEST(vmx_pae_test),
+	TEST(vmx_pse_test),
 	TEST(vmx_pf_exception_test),
 	TEST(vmx_pf_exception_forced_emulation_test),
 	TEST(vmx_pf_no_vpid_test),
