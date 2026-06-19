@@ -251,6 +251,12 @@ enum acpi_madt_type {
 /* MADT Local APIC flags */
 #define ACPI_MADT_ENABLED		(1)	/* 00: Processor is usable if set */
 
+/* Values for interface_type field in struct spcr_descriptor */
+#define ACPI_DBG2_16550_COMPATIBLE	0x0000
+#define ACPI_DBG2_16550_SUBSET		0x0001
+#define ACPI_DBG2_MAX311XE_SPI		0x0002
+#define ACPI_DBG2_ARM_PL011		0x0003
+
 struct spcr_descriptor {
 	ACPI_TABLE_HEADER_DEF	/* ACPI common table header */
 	u8 interface_type;	/* 0=full 16550, 1=subset of 16550 */

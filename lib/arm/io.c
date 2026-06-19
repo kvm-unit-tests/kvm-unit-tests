@@ -81,6 +81,9 @@ static void uart0_init_acpi(void)
 
 	assert_msg(spcr, "Unable to find ACPI SPCR");
 	uart0_base = ioremap(spcr->serial_port.address, spcr->serial_port.bit_width);
+
+	if (spcr->interface_type == ACPI_DBG2_ARM_PL011)
+		is_pl011_uart = true;
 }
 #else
 
