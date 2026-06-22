@@ -52,6 +52,63 @@ do {							\
 	}						\
 } while (0)
 
+static u64 svm_32bit_build_page_tables(void)
+{
+	const u64 leaf_flags = PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_PAGE_SIZE_MASK;
+	u32 *pd = memalign_pages_flags(PAGE_SIZE, PAGE_SIZE, AREA_DMA32);
+	int i;
+
+	for (i = 0; i < 1024; i++)
+		pd[i] = ((u32)i << 22) | leaf_flags;
+	return virt_to_phys(pd);
+}
+
+static void svm_32bit_build_pae_page_tables(u64 *pdpt)
+{
+	const u64 leaf_flags = PT_PRESENT_MASK | PT_WRITABLE_MASK | PT_PAGE_SIZE_MASK;
+	int i, j;
+
+	for (i = 0; i < 4; i++) {
+		u64 *pd = memalign_pages_flags(PAGE_SIZE, PAGE_SIZE,
+					       AREA_DMA32);
+		for (j = 0; j < 512; j++)
+			pd[j] = (((u64)i << 30) | ((u64)j << 21)) |
+				leaf_flags;
+		pdpt[i] = virt_to_phys(pd) | PT_PRESENT_MASK;
+	}
+}
+
+static void svm_pae_free_page_tables(u64 *pdpt)
+{
+	int i;
+
+	for (i = 0; i < 4; i++) {
+		if (pdpt[i] & PT_PRESENT_MASK)
+			free_page(phys_to_virt(pdpt[i] & PT_ADDR_MASK));
+	}
+	free_page(pdpt);
+}
+
+static void svm_32bit_guest_init_common(u64 cr3, bool pae)
+{
+	struct guest_regs *regs = this_cpu_guest_regs();
+	struct vmcb_save_area *save = &vmcb->save;
+
+	/*
+	 * 32-bit code segment attribute:
+	 *   type=B (execute/read/accessed), S=1, DPL=0, P=1,
+	 *   L=0 (32-bit), D/B=1 (32-bit operand), G=1 (4K granularity).
+	 */
+	save->cs.attrib = 0xc9b;
+
+	save->efer &= ~(EFER_LMA | EFER_LME);
+	save->cr0 |= X86_CR0_PG | X86_CR0_PE;
+	save->cr4 &= ~(X86_CR4_PAE | X86_CR4_PSE);
+	save->cr4 |= pae ? X86_CR4_PAE : X86_CR4_PSE;
+	save->cr3 = cr3;
+	regs->rax = 0x123457678;
+}
+
 static void null_test(struct svm_test *test)
 {
 }
@@ -3595,7 +3652,7 @@ asm(
 	"insn_rdtscp: rdtscp;ret\n\t"
 	"insn_skinit: skinit;ret\n\t"
 	"insn_xsetbv: xor %eax, %eax; xor %edx, %edx; xor %ecx, %ecx; xsetbv;ret\n\t"
-	"insn_rdpru: xor %ecx, %ecx; rdpru;ret\n\t"
+	"insn_rdpru: xor %ecx, %ecx; .byte 0x0f,0x01,0xfd;ret\n\t"
 	"insn_invpcid: xor %eax, %eax; invpcid desc, %rax;ret\n\t"
 );
 
@@ -3674,6 +3731,173 @@ static void svm_unsupported_instruction_intercept_test(void)
 					  "%s intercept bit not cleared by KVM",
 					  insn.name);
 	}
+}
+
+/*
+ * 32-bit guest tests running a tiny guest in legacy 32-bit protected mode,
+ * with either 2-level (non-PAE) or 3-level (PAE) paging.  The guest code is
+ * in the low 4 GB and is identity-mapped using large pages.
+ */
+extern void hypercall_32bit_main(void);
+asm (".code32\n"
+     "hypercall_32bit_main:\n"
+     "vmmcall\n"
+     "jmp hypercall_32bit_main\n"
+     ".code64\n");
+
+static void __test_svm_guest_state(const char *test, u64 expected_exit,
+				   u64 field, const char *field_name)
+{
+	u64 got = __svm_vmrun((u64)hypercall_32bit_main);
+
+	report(got == expected_exit,
+	       "%s, %s = %lx (exit 0x%lx, wanted 0x%lx)",
+	       test, field_name, field, got, expected_exit);
+}
+
+/*
+ * xfail = false: VMRUN is expected to succeed and the guest to exit at
+ *                VMMCALL (exit code SVM_EXIT_VMMCALL).
+ * xfail = true:  VMRUN itself is expected to abort with SVM_EXIT_ERR.
+ */
+static void test_svm_guest_state(const char *test, bool xfail, u64 field,
+				 const char *field_name)
+{
+	__test_svm_guest_state(test, xfail ? SVM_EXIT_ERR : SVM_EXIT_VMMCALL,
+			       field, field_name);
+}
+
+static void test_svm_report_pass(void)
+{
+	u64 got = __svm_vmrun((u64)hypercall_32bit_main);
+
+	report(got == SVM_EXIT_VMMCALL,
+	       "VM-entry succeeded (exit 0x%lx, wanted 0x%x)",
+	       got, SVM_EXIT_VMMCALL);
+}
+/*
+ * Verify SVM's checks on guest PAE CR3 and PDPTEs.  PDPTEs are always
+ * loaded from memory at CR3, but when NPT is enabled SVM does not
+ * check PDPTE reserved bits at VMRUN and VMRUN is expected to succeed.
+ */
+static void test_svm_guest_pdptes(u64 cr3, u64 *pdpt)
+{
+	u64 orig;
+	int i, b;
+	bool npt = vmcb->control.nested_ctl & SVM_NESTED_ENABLE;
+
+	vmcb_set_intercept(INTERCEPT_EXCEPTION_OFFSET + PF_VECTOR);
+
+	/* Basic sanity: a clean PAE setup runs to VMMCALL. */
+	svm_32bit_guest_init_common(cr3, true);
+	test_svm_report_pass();
+
+	/* CR3 bits 4:0 are ignored in PAE mode. */
+	for (b = 0; b <= 4; b++) {
+		svm_32bit_guest_init_common(cr3 | (1ull << b), true);
+		test_svm_guest_state("CR3 ignored bit", false, (1ull << b), "bit");
+	}
+	for (b = cpuid_maxphyaddr(); b <= 63; b++) {
+		svm_32bit_guest_init_common(cr3 | (1ull << b), true);
+		test_svm_guest_state("CR3 reserved bit", true, (1ull << b), "bit");
+	}
+
+	for (i = 0; i < 4; i++) {
+		u64 reserved_exit;
+
+		/*
+		 * When a reserved bit is set in PDPTE0, the processor notices
+		 * but only when the guest walks through it to fetch its first
+		 * instruction.
+		 */
+		if (!npt)
+			reserved_exit = SVM_EXIT_ERR;
+		else if (i == 0)
+			reserved_exit = SVM_EXIT_EXCP_BASE + PF_VECTOR;
+		else
+			reserved_exit = SVM_EXIT_VMMCALL;
+
+		report_prefix_pushf("PDPTE%d", i);
+		orig = pdpt[i];
+
+		/*
+		 * Bits 62:52 of a PDPTE are reserved on VMX but are not
+		 * checked by SVM at VMRUN.  For PDPTE1..3 the guest does
+		 * not walk through the entry, so VMRUN succeeds and the
+		 * guest hits VMMCALL.  For PDPTE0 the guest faults at
+		 * instruction fetch and exits with #PF.
+		 */
+		for (b = 52; b <= 62; b++) {
+			pdpt[i] = orig | (1ull << b);
+			svm_32bit_guest_init_common(cr3, true);
+			__test_svm_guest_state("reserved bit", reserved_exit,
+					       (1ull << b), "bit");
+		}
+
+		/* Bits 11:9 of a PDPTE are ignored. */
+		for (b = 9; b <= 11; b++) {
+			pdpt[i] = orig | (1ull << b);
+			svm_32bit_guest_init_common(cr3, true);
+			test_svm_guest_state("ignored bit", false,
+					     (1ull << b), "bit");
+		}
+
+		pdpt[i] = orig;
+		report_prefix_pop();
+	}
+
+	vmcb_clear_intercept(INTERCEPT_EXCEPTION_OFFSET + PF_VECTOR);
+}
+
+/*
+ * Verify that VMRUN with PAE paging loads PDPTEs from memory at CR3, and
+ * that SVM does not check PDPTE reserved bits.
+ */
+static void svm_pae_test(void)
+{
+	u64 *pdpt;
+
+	vmcb_ident(vmcb);
+	pdpt = memalign_pages_flags(PAGE_SIZE, PAGE_SIZE, AREA_DMA32);
+	svm_32bit_build_pae_page_tables(pdpt);
+
+	/*
+	 * Unlike VMX (where the four PDPTEs are loaded from the VMCS when EPT is
+	 * enabled), SVM always loads the PAE PDPTEs from memory at guest CR3, so a
+	 * real PDPT is required even when NPT is enabled.
+	 */
+	test_svm_guest_pdptes(virt_to_phys(pdpt), pdpt);
+
+	svm_pae_free_page_tables(pdpt);
+}
+
+/*
+ * Verify that VMRUN with 32-bit (non-PAE) paging succeeds and that bits
+ * 2:0 and 11:5 of CR3 are ignored.
+ */
+static void svm_pse_test(void)
+{
+	u64 cr3;
+	int b;
+
+	vmcb_ident(vmcb);
+	cr3 = svm_32bit_build_page_tables();
+
+	svm_32bit_guest_init_common(cr3, false);
+	test_svm_report_pass();
+
+	for (b = 0; b <= 11; b++) {
+		if (b == 3 || b == 4)
+			continue;
+		svm_32bit_guest_init_common(cr3 | (1ull << b), false);
+		test_svm_guest_state("CR3 ignored bit", false, (1ull << b), "bit");
+	}
+	for (b = cpuid_maxphyaddr(); b <= 63; b++) {
+		svm_32bit_guest_init_common(cr3 | (1ull << b), false);
+		test_svm_guest_state("CR3 reserved bit", true, (1ull << b), "bit");
+	}
+
+	free_page(phys_to_virt(cr3));
 }
 
 struct svm_test svm_tests[] = {
@@ -3795,6 +4019,8 @@ struct svm_test svm_tests[] = {
 	{ "vgif", vgif_supported, prepare_vgif_enabled,
 	  default_prepare_gif_clear, test_vgif, vgif_finished,
 	  vgif_check },
+	TEST(svm_pae_test),
+	TEST(svm_pse_test),
 	TEST(svm_cr4_osxsave_test),
 	TEST(svm_guest_state_test),
 	TEST(svm_vmrun_errata_test),

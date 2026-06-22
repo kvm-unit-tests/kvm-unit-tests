@@ -2016,6 +2016,16 @@ void enter_guest_with_bad_controls(void)
 	       VMXERR_ENTRY_INVALID_CONTROL_FIELD);
 }
 
+bool enter_guest_report_pass(void)
+{
+	struct vmentry_result result;
+
+	__enter_guest(ABORT_ON_EARLY_VMENTRY_FAIL |
+		      ABORT_ON_INVALID_GUEST_STATE, &result);
+	report(!result.vm_fail, "VM-entry succeeded");
+	return !result.vm_fail;
+}
+
 void enter_guest(void)
 {
 	struct vmentry_result result;

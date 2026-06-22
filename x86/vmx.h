@@ -991,6 +991,7 @@ void clear_ept_ad(unsigned long *pml4, u64 guest_cr3,
 
 void __enter_guest(u8 abort_flag, struct vmentry_result *result);
 void enter_guest(void);
+bool enter_guest_report_pass(void);
 void enter_guest_with_bad_controls(void);
 void hypercall(u32 hypercall_no);
 
