@@ -3652,7 +3652,7 @@ asm(
 	"insn_rdtscp: rdtscp;ret\n\t"
 	"insn_skinit: skinit;ret\n\t"
 	"insn_xsetbv: xor %eax, %eax; xor %edx, %edx; xor %ecx, %ecx; xsetbv;ret\n\t"
-	"insn_rdpru: xor %ecx, %ecx; rdpru;ret\n\t"
+	"insn_rdpru: xor %ecx, %ecx; .byte 0x0f,0x01,0xfd;ret\n\t"
 	"insn_invpcid: xor %eax, %eax; invpcid desc, %rax;ret\n\t"
 );
 
