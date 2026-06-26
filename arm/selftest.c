@@ -326,12 +326,12 @@ static bool check_und(void)
 {
 	enum vector v = check_vector_prep();
 
-	install_exception_handler(v, ESR_EL1_EC_UNKNOWN, unknown_handler);
+	install_exception_handler(v, ESR_ELx_EC_UNKNOWN, unknown_handler);
 
 	/* try to read an el3 sysreg from el0/1/2 */
 	test_exception("", "mrs x0, sctlr_el3", "", "x0");
 
-	install_exception_handler(v, ESR_EL1_EC_UNKNOWN, NULL);
+	install_exception_handler(v, ESR_ELx_EC_UNKNOWN, NULL);
 
 	return und_works;
 }
@@ -348,18 +348,18 @@ static bool check_svc(void)
 {
 	enum vector v = check_vector_prep();
 
-	install_exception_handler(v, ESR_EL1_EC_SVC64, svc_handler);
+	install_exception_handler(v, ESR_ELx_EC_SVC64, svc_handler);
 
 	test_exception("", "svc #123", "");
 
-	install_exception_handler(v, ESR_EL1_EC_SVC64, NULL);
+	install_exception_handler(v, ESR_ELx_EC_SVC64, NULL);
 
 	return svc_works;
 }
 
 static void pabt_handler(struct pt_regs *regs, unsigned int esr)
 {
-	bool is_extabt = (esr & ESR_EL1_FSC_MASK) == ESR_EL1_FSC_EXTABT;
+	bool is_extabt = (esr & ESR_ELx_FSC) == ESR_ELx_FSC_EXTABT;
 
 	expected_regs.regs[30] = expected_regs.pc + 4;
 	expected_regs.pc = expected_regs.regs[9];
@@ -373,7 +373,7 @@ static bool check_pabt(void)
 {
 	enum vector v = check_vector_prep();
 
-	install_exception_handler(v, ESR_EL1_EC_IABT_EL1, pabt_handler);
+	install_exception_handler(v, ESR_ELx_EC_IABT_CUR, pabt_handler);
 
 	test_exception("adrp	x9, check_pabt_invalid_paddr\n"
 		       "add	x9, x9, :lo12:check_pabt_invalid_paddr\n"
@@ -381,7 +381,7 @@ static bool check_pabt(void)
 		       "blr	x9\n",
 		       "", "x9", "x30");
 
-	install_exception_handler(v, ESR_EL1_EC_IABT_EL1, NULL);
+	install_exception_handler(v, ESR_ELx_EC_IABT_CUR, NULL);
 
 	return pabt_works;
 }
@@ -400,7 +400,7 @@ static void check_vectors(void *arg __unused)
 #ifdef __arm__
 		install_exception_handler(EXCPTN_UND, user_psci_system_off);
 #else
-		install_exception_handler(EL0_SYNC_64, ESR_EL1_EC_UNKNOWN,
+		install_exception_handler(EL0_SYNC_64, ESR_ELx_EC_UNKNOWN,
 					  user_psci_system_off);
 #endif
 	} else {

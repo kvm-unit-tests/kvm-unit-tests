@@ -192,7 +192,7 @@ static void mte_sync_test(void)
 
 	mte_exception = false;
 
-	install_exception_handler(EL1H_SYNC, ESR_EL1_EC_DABT_EL1, mte_fault_handler);
+	install_exception_handler(EL1H_SYNC, ESR_ELx_EC_DABT_CUR, mte_fault_handler);
 
 	mem_read(tagged(mem, 2), &val);
 
@@ -218,12 +218,12 @@ static void mte_asymm_test(void)
 	mte_set_tcf(MTE_TCF_ASYMM);
 	mte_exception = false;
 
-	install_exception_handler(EL1H_SYNC, ESR_EL1_EC_DABT_EL1, mte_fault_handler);
+	install_exception_handler(EL1H_SYNC, ESR_ELx_EC_DABT_CUR, mte_fault_handler);
 
 	mem_read(tagged(mem, 3), &val);
 	report((val == 0) && mte_exception && (get_clear_tfsr() == 0), "read");
 
-	install_exception_handler(EL1H_SYNC, ESR_EL1_EC_DABT_EL1, NULL);
+	install_exception_handler(EL1H_SYNC, ESR_ELx_EC_DABT_CUR, NULL);
 
 	mem_write(tagged(mem, 4), 0xaaaaaaaa);
 	report((*mem == 0xaaaaaaaa) && (get_clear_tfsr() == TFSR_EL1_TF0), "write");
