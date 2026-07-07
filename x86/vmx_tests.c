@@ -5896,6 +5896,11 @@ static void test_vmx_guest_pdptes(u64 cr3, u64 *pdpt)
 	}
 
 	for (b = cpuid_maxphyaddr(); b < 64; b++) {
+		/* CR3 bits 61 and 62 are LAM control bits, not reserved. */
+		if (this_cpu_has(X86_FEATURE_LAM) &&
+		    (b == X86_CR3_LAM_U57_BIT || b == X86_CR3_LAM_U48_BIT))
+			continue;
+
 		vmx_32bit_guest_init_common(cr3 | (1ull << b), pdpt);
 		test_guest_state("CR3 reserved bit", true, (1ull << b), "bit");
 	}
@@ -5979,6 +5984,11 @@ static void vmx_pse_test(void)
 	}
 
 	for (b = cpuid_maxphyaddr(); b < 64; b++) {
+		/* CR3 bits 61 and 62 are LAM control bits, not reserved. */
+		if (this_cpu_has(X86_FEATURE_LAM) &&
+		    (b == X86_CR3_LAM_U57_BIT || b == X86_CR3_LAM_U48_BIT))
+			continue;
+
 		vmx_32bit_guest_init_common(cr3 | (1ull << b), NULL);
 		test_guest_state("CR3 reserved bit", true, (1ull << b), "bit");
 	}
