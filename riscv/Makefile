@@ -123,7 +123,7 @@ cflatobjs += lib/efi.o
 	$(OBJCOPY) --strip-debug $^
 	$(OBJCOPY) --add-gnu-debuglink=$@.debug $^
 	$(OBJCOPY) \
-		-j .text -j .sdata -j .data -j .rodata -j .dynamic -j .dynsym \
+		-j .text -j .sdata -j .data -j .rodata -j .dynamic -j .dynsym -j .dynstr \
 		-j .rel -j .rela -j .rel.* -j .rela.* -j .rel* -j .rela* \
 		-j .reloc \
 		-O binary $^ $@

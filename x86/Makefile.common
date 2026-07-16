@@ -58,7 +58,7 @@ ifeq ($(CONFIG_EFI),y)
 	$(OBJCOPY) --strip-debug $^
 	$(OBJCOPY) --add-gnu-debuglink=$@.debug $^
 	$(OBJCOPY) \
-		-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel \
+		-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .dynstr -j .rel \
 		-j .rela -j .reloc -S --target=$(FORMAT) $< $@
 	@chmod a-x $@
 else
