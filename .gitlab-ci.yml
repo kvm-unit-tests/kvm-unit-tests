@@ -190,13 +190,15 @@ build-ppc64be:
  - dnf install -y qemu-system-ppc gcc-powerpc64-linux-gnu nmap-ncat
  - mkdir build
  - cd build
- - ../configure --arch=ppc64 --endian=big --cross-prefix=powerpc64-linux-gnu-
+ - ../configure --arch=ppc64 --endian=big --page-size=64k --cross-prefix=powerpc64-linux-gnu-
  - make -j2
- - ACCEL=tcg ./run_tests.sh
+ - ACCEL=tcg MAX_SMP=8 ./run_tests.sh
       atomics
+      atomics-migration
       emulator
       interrupts
       mmu
+      pmu
       rtas-get-time-of-day
       rtas-get-time-of-day-base
       rtas-set-time-of-day
@@ -209,10 +211,11 @@ build-ppc64be:
       spapr_hcall
       spapr_vpa
       sprs
+      sprs-migration
       timebase
       timebase-icount
       | tee results.txt
- - if grep -q FAIL results.txt ; then exit 1 ; fi
+ - grep -q PASS results.txt && ! grep -q FAIL results.txt
 
 build-ppc64le:
  extends: .intree_template
@@ -220,11 +223,13 @@ build-ppc64le:
  - dnf install -y qemu-system-ppc gcc-powerpc64-linux-gnu nmap-ncat
  - ./configure --arch=ppc64 --endian=little --cross-prefix=powerpc64-linux-gnu-
  - make -j2
- - ACCEL=tcg ./run_tests.sh
+ - ACCEL=tcg MAX_SMP=8 ./run_tests.sh
       atomics
+      atomics-migration
       emulator
       interrupts
       mmu
+      pmu
       rtas-get-time-of-day
       rtas-get-time-of-day-base
       rtas-set-time-of-day
@@ -237,10 +242,11 @@ build-ppc64le:
       spapr_hcall
       spapr_vpa
       sprs
+      sprs-migration
       timebase
       timebase-icount
       | tee results.txt
- - if grep -q FAIL results.txt ; then exit 1 ; fi
+ - grep -q PASS results.txt && ! grep -q FAIL results.txt
 
 build-riscv32:
  extends: .outoftree_template
