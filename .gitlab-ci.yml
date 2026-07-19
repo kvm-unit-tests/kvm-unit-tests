@@ -204,6 +204,7 @@ build-ppc64be:
       rtas-set-time-of-day
       selftest-migration
       selftest-migration-skip
+      selftest-panic
       selftest-setup
       sieve
       smp
@@ -235,6 +236,7 @@ build-ppc64le:
       rtas-set-time-of-day
       selftest-migration
       selftest-migration-skip
+      selftest-panic
       selftest-setup
       sieve
       smp
