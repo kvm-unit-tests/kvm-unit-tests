@@ -14,6 +14,7 @@
 #include <vmalloc.h>
 #include <css.h>
 #include <mmu.h>
+#include <hardware.h>
 #include <asm/page.h>
 #include <asm/facility.h>
 #include <asm/mem.h>
@@ -736,6 +737,13 @@ int main(void)
 	test_set();
 	test_set_mb();
 	test_chg();
+
+	if  (detect_host() == HOST_IS_TCG) {
+		report_skip("No actual access protection in TCG for skeys.");
+		report_prefix_pop();
+		return report_summary();
+	}
+
 	test_test_protection();
 	test_store_cpu_address();
 	test_diag_308();
