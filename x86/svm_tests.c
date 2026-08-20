@@ -3543,8 +3543,37 @@ static void svm_intr_intercept_mix_smi_guest(struct svm_test *test)
 	report(0, "must not reach here");
 }
 
+#define SMBASE	0x30000
+#define SMBASE_ENTRY	(SMBASE + 0x8000)
+#define RSM_OPCODE	0xaa0f
+
+/*
+ * Install a trivial SMI handler at the default SMBASE entry point as a
+ * fallback for when SMBASE has not been relocated and no SMI handler has
+ * been installed. Without this, entering SMM executes garbage at the
+ * default entry point and aborts.
+ *
+ * If running with a firmware that supports SMM, it will relocate SMBASE
+ * and install its own handler, so the handler installed here will be
+ * safely ignored.
+ *
+ * The default SMBASE (0x30000) region is safe to write to as long as
+ * only one processor uses it at a given time; flat.lds places all
+ * sections starting at 4MB, and the page allocator starts after edata.
+ */
+static void install_smi_handler(void)
+{
+	WRITE_ONCE(*(u16 *)SMBASE_ENTRY, RSM_OPCODE);
+}
+
 static void svm_intr_intercept_mix_smi(void)
 {
+	/*
+	 * L1 intercepts L2's SMI and the SMI is still pending at L0.
+	 * When L1 re-enables GIF via stgi(), L0 delivers the SMI to L1.
+	 */
+	install_smi_handler();
+
 	vmcb_set_intercept(INTERCEPT_SMI);
 	vmcb->control.int_ctl &= ~V_INTR_MASKING_MASK;
 	test_set_guest(svm_intr_intercept_mix_smi_guest);
