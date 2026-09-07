@@ -21,7 +21,8 @@
 
 static uint8_t prefix_buf[LC_SIZE] __attribute__((aligned(LC_SIZE)));
 static unsigned int tmp[1024] __attribute__((aligned(PAGE_SIZE)));
-static void *root, *mem, *m;
+static void *mem, *m;
+static pgd_t *root;
 volatile unsigned int *p;
 
 /*
@@ -237,7 +238,7 @@ static unsigned int setup(void)
 
 	/* Setup DAT 1:1 mapping and memory management */
 	setup_vm();
-	root = (void *)(stctg(1) & PAGE_MASK);
+	root = get_primary_page_root();
 
 	/*
 	 * Get a pgd worth of virtual memory, so we can test things later

@@ -20,7 +20,6 @@
 #include <sclp.h>
 #include <sie.h>
 
-static u8 *guest;
 static u8 *guest_instr;
 static struct vm vm;
 
@@ -70,7 +69,7 @@ static void test_epoch_ext(void)
 		return;
 	}
 
-	guest[0] = 0x00;
+	vm.guest_mem[0] = 0x00;
 	memcpy(guest_instr, instr, sizeof(instr));
 
 	vm.sblk->gpsw.addr = PAGE_SIZE * 2;
@@ -82,19 +81,15 @@ static void test_epoch_ext(void)
 	sie(&vm);
 
 	/* ... should result in the same epoch extension here: */
-	report(guest[0] == 0x47, "epdx: different epoch is visible in the guest");
+	report(vm.guest_mem[0] == 0x47, "epdx: different epoch is visible in the guest");
 }
 
 static void setup_guest(void)
 {
-	setup_vm();
-
-	guest = sie_guest_alloc(SZ_1M);
+	sie_guest_create(&vm, HPAGE_SIZE);
 
 	/* The first two pages are the lowcore */
-	guest_instr = guest + PAGE_SIZE * 2;
-
-	sie_guest_create(&vm, (uint64_t)guest, HPAGE_SIZE);
+	guest_instr = vm.guest_mem + PAGE_SIZE * 2;
 }
 
 int main(void)

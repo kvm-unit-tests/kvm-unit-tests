@@ -17,6 +17,7 @@
 #include <alloc_page.h>
 #include <vmalloc.h>
 #include <sclp.h>
+#include <mmu.h>
 
 void sie_expect_validity(struct vm *vm)
 {
@@ -40,6 +41,17 @@ void sie_check_validity(struct vm *vm, uint16_t vir_exp)
 	uint16_t vir = sie_get_validity(vm);
 
 	report(vir_exp == vir, "VALIDITY: %x", vir);
+}
+
+void sie_check_optional_validity(struct vm *vm, uint16_t vir_exp)
+{
+	uint16_t vir = sie_get_validity(vm);
+
+	if (vir == 0xffff)
+		report_pass("optional VALIDITY: no");
+	else
+		report(vir_exp == vir, "optional VALIDITY: %x", vir);
+	vm->validity_expected = false;
 }
 
 void sie_handle_validity(struct vm *vm)
@@ -121,8 +133,10 @@ void sie_guest_sca_create(struct vm *vm)
 }
 
 /* Initializes the struct vm members like the SIE control block. */
-void sie_guest_create(struct vm *vm, uint64_t guest_mem, uint64_t guest_mem_len)
+void sie_guest_create(struct vm *vm, uint64_t guest_mem_len)
 {
+	void *guest_mem = sie_guest_alloc(guest_mem_len);
+
 	vm->sblk = alloc_page();
 	memset(vm->sblk, 0, PAGE_SIZE);
 	vm->sblk->cpuflags = CPUSTAT_ZARCH | CPUSTAT_RUNNING;
@@ -156,7 +170,7 @@ uint8_t *sie_guest_alloc(uint64_t guest_size)
 	pgd_t *root;
 
 	setup_vm();
-	root = (pgd_t *)(stctg(1) & PAGE_MASK);
+	root = get_primary_page_root();
 
 	/*
 	 * Start of guest memory in host virtual space needs to be aligned to
@@ -170,7 +184,8 @@ uint8_t *sie_guest_alloc(uint64_t guest_size)
 	guest_virt = (uint8_t *)ALIGN(get_ram_size() + guest_counter * 4UL * SZ_1G, SZ_2G);
 	guest_counter++;
 
-	guest_phys = alloc_pages(get_order(guest_size) - 12);
+	guest_phys = memalign_pages(SZ_1M, guest_size);
+	assert(guest_phys);
 	/*
 	 * Establish a new mapping of the guest memory so it can be 2GB aligned
 	 * without actually requiring 2GB physical memory.
@@ -190,4 +205,5 @@ void sie_guest_destroy(struct vm *vm)
 	free_page(vm->sblk);
 	if (vm->sblk->ecb2 & ECB2_ESCA)
 		free_page(vm->sca);
+	free_pages((void *)virt_to_pte_phys(get_primary_page_root(), vm->guest_mem));
 }

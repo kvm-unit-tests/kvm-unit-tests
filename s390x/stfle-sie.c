@@ -42,6 +42,7 @@ static struct guest_stfle_res run_guest(void)
 	uint64_t guest_stfle_addr;
 	uint64_t reg;
 
+	reset_guest(&vm);
 	sie(&vm);
 	assert(snippet_is_force_exit_value(&vm));
 	guest_stfle_addr = snippet_get_force_exit_value(&vm);
@@ -56,7 +57,6 @@ static void test_stfle_format_0(void)
 {
 	struct guest_stfle_res res;
 
-	report_prefix_push("format-0");
 	for (int j = 0; j < stfle_size(); j++)
 		WRITE_ONCE((*fac)[j], prng64(&prng_s));
 	vm.sblk->fac = (uint32_t)(uint64_t)fac;
@@ -64,6 +64,47 @@ static void test_stfle_format_0(void)
 	report(res.len == stfle_size(), "stfle len correct");
 	report(!memcmp(*fac, res.mem, res.len * sizeof(uint64_t)),
 	       "Guest facility list as specified");
+}
+
+static void test_stfle_format_2(void)
+{
+	const int max_stfle_len = 8;
+	int guest_max_stfle_len = 0;
+	struct guest_stfle_res res;
+	bool saturated = false;
+
+	for (int i = 1; i <= max_stfle_len; i++) {
+		report_prefix_pushf("max STFLE len %d", i);
+
+		WRITE_ONCE((*fac)[0], i - 1);
+		for (int j = 0; j < i; j++)
+			WRITE_ONCE((*fac)[j + 1], prng64(&prng_s));
+		vm.sblk->fac = (uint32_t)(uint64_t)fac | 2;
+		res = run_guest();
+		/* len increases up to maximum (machine specific) */
+		if (res.len < i)
+			saturated = true;
+		if (saturated) {
+			report(res.len == guest_max_stfle_len, "stfle len correct");
+		} else {
+			report(res.len == i, "stfle len correct");
+			guest_max_stfle_len = i;
+		}
+		report(!memcmp(&(*fac)[1], res.mem, guest_max_stfle_len * sizeof(uint64_t)),
+		       "Guest facility list as specified");
+
+		report_prefix_pop();
+	}
+}
+
+static void test_no_stfle_format(int format)
+{
+	report_prefix_pushf("no-stfle");
+	reset_guest(&vm);
+	vm.sblk->fac = (uint32_t)(uint64_t)fac | format;
+	sie_expect_validity(&vm);
+	sie(&vm);
+	sie_check_optional_validity(&vm, 0x1330);
 	report_prefix_pop();
 }
 
@@ -119,20 +160,43 @@ static struct args parse_args(int argc, char **argv)
 int main(int argc, char **argv)
 {
 	struct args args = parse_args(argc, argv);
-	bool run_format_0 = test_facility(7);
 
 	if (!sclp_facilities.has_sief2) {
 		report_skip("SIEF2 facility unavailable");
 		goto out;
 	}
-	if (!run_format_0)
+	if (!test_facility(7)) {
 		report_skip("STFLE facility not available");
+		goto out;
+	}
 
 	report_info("PRNG seed: 0x%lx", args.seed);
 	prng_s = prng_init(args.seed);
 	setup_guest();
-	if (run_format_0)
-		test_stfle_format_0();
+
+	report_prefix_pushf("format-0");
+	test_stfle_format_0();
+	report_prefix_pop();
+
+	report_prefix_pushf("format-1");
+	if (!sclp_facilities.has_astfleie1)
+		test_no_stfle_format(1);
+	report_prefix_pop();
+
+	report_prefix_pushf("format-2");
+	if (!sclp_facilities.has_astfleie2) {
+		test_no_stfle_format(2);
+		report_skip("alternate STFLE interpretive-execution facility 2 not available");
+	} else {
+		test_stfle_format_2();
+	}
+	report_prefix_pop();
+
+	report_prefix_pushf("format-3");
+	test_no_stfle_format(3);
+	report_prefix_pop();
+
+	snippet_destroy_guest(&vm);
 out:
 	return report_summary();
 }

@@ -164,7 +164,7 @@ static void test_validity_handle_not_in_config(void)
 
 	/* Destroy the second vm, since we don't need it for further tests */
 	uv_destroy_guest(&vm2);
-	sie_guest_destroy(&vm2);
+	snippet_destroy_guest(&vm2);
 
 	uv_destroy_guest(&vm);
 	report_prefix_pop();
@@ -368,7 +368,7 @@ int main(void)
 	test_validity_handle_not_in_config();
 	test_validity_already_running();
 	test_validity_timing();
-	sie_guest_destroy(&vm);
+	snippet_destroy_guest(&vm);
 
 done:
 	report_prefix_pop();

@@ -156,7 +156,7 @@ int main(void)
 	test_diag_yield();
 	test_diag_288();
 	test_diag_500();
-	sie_guest_destroy(&vm);
+	snippet_destroy_guest(&vm);
 
 done:
 	report_prefix_pop();

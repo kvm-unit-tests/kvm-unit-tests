@@ -10,6 +10,8 @@
 #ifndef _S390X_MMU_H_
 #define _S390X_MMU_H_
 
+#include <asm/arch_def.h>
+
 enum pgt_level {
 	pgtable_level_pgd = 1,
 	pgtable_level_p4d,
@@ -94,5 +96,10 @@ static inline void unprotect_page(void *vaddr, unsigned long prot)
 }
 
 void *get_dat_entry(pgd_t *pgtable, void *vaddr, enum pgt_level level);
+
+static inline pgd_t *get_primary_page_root(void)
+{
+	return (pgd_t *)(stctg(1) & PAGE_MASK);
+}
 
 #endif /* _ASMS390X_MMU_H_ */

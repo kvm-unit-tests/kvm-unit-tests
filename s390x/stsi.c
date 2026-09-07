@@ -2,7 +2,7 @@
 /*
  * Store System Information tests
  *
- * Copyright (c) 2019 IBM Corp
+ * Copyright IBM Corp. 2019,2026
  *
  * Authors:
  *  Janosch Frank <frankja@linux.ibm.com>
@@ -133,6 +133,79 @@ out:
 	report_prefix_pop();
 }
 
+/*
+ * Number of STSI 3.2.2 calls raced against the count corruptor below.
+ * A memory write should be faster than an kvm->qemu exit, so 100 is
+ * good enough.
+ */
+#define RACE_ITERATIONS 100
+static u8 corrupt_count_value;
+
+static void count_corruptor(void)
+{
+	struct sysinfo_3_2_2 *data = (void *)pagebuf;
+
+	for (;;)
+		*(volatile u8 *)&data->count = corrupt_count_value;
+}
+
+/*
+ * Race STSI 3.2.2 on the boot CPU against a secondary CPU that continuously
+ * forces the given out-of-range value into the "count" field. Returns true
+ * if every STSI returned cc == 0, false on an unexpected condition code.
+ */
+static bool race_count_value(uint8_t value)
+{
+	int i, cc;
+
+	corrupt_count_value = value;
+	smp_cpu_setup(1, PSW_WITH_CUR_MASK(count_corruptor));
+
+	for (i = 0; i < RACE_ITERATIONS; i++) {
+		cc = stsi(pagebuf, 3, 2, 2);
+		if (cc) {
+			report_fail("count 0x%02x: unexpected cc %d on iteration %d",
+				    value, cc, i);
+			break;
+		}
+	}
+
+	smp_cpu_stop(1);
+	smp_cpu_destroy(1);
+
+	return i == RACE_ITERATIONS;
+}
+
+/*
+ * The count value is 8 bit and valid values are 1-8 if stsi 3.2.2 is present.
+ * We test 0,9 as off-by-one, and 0xff as maximum value.
+ */
+static void test_3_2_2_race(void)
+{
+	report_prefix_push("3.2.2 count race");
+
+	if (stsi_get_fc() < 3) {
+		report_skip("Running under lpar, no level 3 to test.");
+		goto out;
+	}
+
+	if (smp_query_num_cpus() < 2) {
+		report_skip("Need at least 2 CPUs to race the count field.");
+		goto out;
+	}
+
+	if (race_count_value(0x0))
+		report_pass("host survived racing STSI 3.2.2 count 0x00");
+
+	if (race_count_value(0x9))
+		report_pass("host survived racing STSI 3.2.2 count 0x09");
+
+	if (race_count_value(0xff))
+		report_pass("host survived racing STSI 3.2.2 count 0xff");
+out:
+	report_prefix_pop();
+}
+
 int main(void)
 {
 	report_prefix_push("stsi");
@@ -140,5 +213,6 @@ int main(void)
 	test_specs();
 	test_fc();
 	test_3_2_2();
+	test_3_2_2_race();
 	return report_summary();
 }

@@ -83,6 +83,12 @@ static inline void snippet_init(struct vm *vm, const char *gbin,
 	vm->sblk->ictl = ICTL_OPEREXC | ICTL_PINT;
 }
 
+static inline void reset_guest(struct vm *vm)
+{
+	vm->sblk->gpsw = snippet_psw;
+	vm->sblk->icptcode = 0;
+}
+
 /*
  * Sets up a snippet UV/PV guest on top of an existing and initialized
  * SIE vm struct.
@@ -123,13 +129,14 @@ static inline void snippet_pv_init(struct vm *vm, const char *gbin,
 }
 
 /* Allocates and sets up a snippet based guest */
-static inline void snippet_setup_guest(struct vm *vm, bool is_pv)
+static inline void snippet_setup_guest_len(struct vm *vm, bool is_pv,
+					   unsigned long len)
 {
-	const unsigned long guest_size = SZ_1M;
-	uint8_t *guest_start = sie_guest_alloc(guest_size);
+	/* Guest sizes are specified in megabyte chunks */
+	assert(!(len & ~HPAGE_MASK));
 
 	/* Initialize the vm struct and allocate control blocks */
-	sie_guest_create(vm, (uint64_t)guest_start, guest_size);
+	sie_guest_create(vm, len);
 
 	if (is_pv) {
 		/* FMT4 needs a ESCA */
@@ -144,4 +151,14 @@ static inline void snippet_setup_guest(struct vm *vm, bool is_pv)
 	}
 }
 
+/* Allocates and sets up a snippet based guest */
+static inline void snippet_setup_guest(struct vm *vm, bool is_pv)
+{
+	snippet_setup_guest_len(vm, is_pv, SZ_1M);
+}
+
+static inline void snippet_destroy_guest(struct vm *vm)
+{
+	sie_guest_destroy(vm);
+}
 #endif

@@ -129,10 +129,11 @@ struct sclp_facilities {
 	uint64_t has_cmma : 1;
 	uint64_t has_64bscao : 1;
 	uint64_t has_esca : 1;
+	uint64_t has_astfleie1 : 1;
 	uint64_t has_kss : 1;
 	uint64_t has_pfmfi : 1;
 	uint64_t has_ibs : 1;
-	uint64_t : 64 - 15;
+	uint64_t has_astfleie2 : 1;
 };
 
 /* bit number within a certain byte */
@@ -143,8 +144,11 @@ struct sclp_facilities {
 #define SCLP_FEAT_116_BIT_64BSCAO	0
 #define SCLP_FEAT_116_BIT_CMMA		1
 #define SCLP_FEAT_116_BIT_ESCA		4
+#define SCLP_FEAT_116_BIT_ASTFLEIE1	7
 #define SCLP_FEAT_117_BIT_PFMFI		1
 #define SCLP_FEAT_117_BIT_IBS		2
+#define SCLP_FEAT_134_BIT_DIAG318	0
+#define SCLP_FEAT_139_BIT_ASTFLEIE2	1
 
 typedef struct ReadInfo {
 	SCCBHeader h;
@@ -170,8 +174,6 @@ typedef struct ReadInfo {
 	uint8_t  _reserved5[124 - 122];     /* 122-123 */
 	uint32_t hmfai;
 	uint8_t reserved7[134 - 128];       /* 128-133 */
-	uint8_t byte_134_diag318 : 1;
-	uint8_t : 7;
 	/*
 	 * At the end of the ReadInfo, there are also the CPU entries (see
 	 * struct CPUEntry). When the Extended-Length SCCB (ELS) feature is
