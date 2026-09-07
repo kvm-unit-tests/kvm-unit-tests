@@ -27,7 +27,10 @@ temp_file ()
 
 config_export ()
 {
-	echo "export $(grep ^${1}= config.mak)"
+	local line
+
+	line="$(grep ^${1}= config.mak)" || return 0
+	echo "export $line"
 }
 
 generate_test ()
