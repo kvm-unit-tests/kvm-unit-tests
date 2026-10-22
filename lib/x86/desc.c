@@ -480,7 +480,6 @@ void setup_alt_stack(void)
 }
 #endif
 
-static bool exception;
 static jmp_buf *exception_jmpbuf;
 
 static void exception_handler_longjmp(void)
@@ -491,7 +490,6 @@ static void exception_handler_longjmp(void)
 static void exception_handler(struct ex_regs *regs)
 {
 	/* longjmp must happen after iret, so do not do it now.  */
-	exception = true;
 	regs->rip = (unsigned long)&exception_handler_longjmp;
 	regs->cs = read_cs();
 }
