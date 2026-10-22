@@ -12,7 +12,7 @@
 #define TESTDEV_NAME "chr-testdev"
 
 static struct virtio_device *vcon;
-static struct virtqueue *in_vq, *out_vq;
+static struct virtqueue *out_vq;
 static struct spinlock lock;
 
 static void __testdev_send(char *buf, unsigned int len)
@@ -65,6 +65,5 @@ void chr_testdev_init(void)
 		return;
 	}
 
-	in_vq = vqs[0];
 	out_vq = vqs[1];
 }
