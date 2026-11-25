@@ -43,7 +43,7 @@ fi
 pit="-global kvm-pit.lost_tick_policy=discard"
 
 command="${qemu} --no-reboot -nodefaults $pit $pc_testdev -display none -serial stdio $pci_testdev"
-command+=" -machine accel=$ACCEL$ACCEL_PROPS"
+command+=" -accel $ACCEL$ACCEL_PROPS"
 if [ "${CONFIG_EFI}" != y ]; then
 	command+=" -kernel"
 fi

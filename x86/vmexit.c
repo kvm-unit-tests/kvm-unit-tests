@@ -1,4 +1,5 @@
 #include "libcflat.h"
+#include "argv.h"
 #include "acpi.h"
 #include "smp.h"
 #include "vmalloc.h"
@@ -594,19 +595,7 @@ static void enable_nx(void *junk)
 		wrmsr(MSR_EFER, rdmsr(MSR_EFER) | EFER_NX_MASK);
 }
 
-static bool test_wanted(struct test *test, char *wanted[], int nwanted)
-{
-	int i;
 
-	if (!nwanted)
-		return true;
-
-	for (i = 0; i < nwanted; ++i)
-		if (strcmp(wanted[i], test->name) == 0)
-			return true;
-
-	return false;
-}
 
 int main(int ac, char **av)
 {
@@ -636,7 +625,7 @@ int main(int ac, char **av)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(tests); ++i)
-		if (test_wanted(&tests[i], av + 1, ac - 1))
+		if (argv_test_wanted(tests[i].name, av + 1, ac - 1))
 			while (do_test(&tests[i])) {}
 
 	return 0;

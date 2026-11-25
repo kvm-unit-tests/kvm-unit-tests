@@ -16,6 +16,9 @@
 #include "desc.h"
 #include "usermode.h"
 
+static unsigned long dr6_control_value;
+static unsigned long dr6_base_value;
+
 static volatile unsigned long bp_addr;
 static volatile unsigned long db_addr[10], dr6[10];
 static volatile unsigned int n;
@@ -49,17 +52,17 @@ static void handle_db(struct ex_regs *regs)
 
 static inline bool is_single_step_db(unsigned long dr6_val)
 {
-	return dr6_val == (DR6_ACTIVE_LOW | DR6_BS);
+	return dr6_val == (dr6_base_value | DR6_BS);
 }
 
 static inline bool is_general_detect_db(unsigned long dr6_val)
 {
-	return dr6_val == (DR6_ACTIVE_LOW | DR6_BD);
+	return dr6_val == (dr6_base_value | DR6_BD);
 }
 
 static inline bool is_icebp_db(unsigned long dr6_val)
 {
-	return dr6_val == DR6_ACTIVE_LOW;
+	return dr6_val == dr6_base_value;
 }
 
 extern unsigned char handle_db_save_rip;
@@ -100,7 +103,7 @@ static void __run_single_step_db_test(db_test_fn test, db_report_fn report_fn)
 	bool ign;
 
 	n = 0;
-	write_dr6(0);
+	write_dr6(dr6_control_value);
 
 	start = test();
 	report_fn(start, "");
@@ -114,7 +117,7 @@ static void __run_single_step_db_test(db_test_fn test, db_report_fn report_fn)
 		return;
 
 	n = 0;
-	write_dr6(0);
+	write_dr6(dr6_control_value);
 
 	/*
 	 * Run the test in usermode.  Use the expected start RIP from the first
@@ -336,7 +339,7 @@ static void report_singlestep_with_movss_blocking_and_dr7_gd(unsigned long start
 
 static noinline unsigned long singlestep_with_movss_blocking_and_dr7_gd(void)
 {
-	unsigned long start_rip;
+	unsigned long scratch = dr6_control_value;
 
 	write_dr7(DR7_GD);
 
@@ -348,7 +351,6 @@ static noinline unsigned long singlestep_with_movss_blocking_and_dr7_gd(void)
 	 * General Detect #DB.
 	 */
 	asm volatile(
-		"xor %0, %0\n\t"
 		"pushf\n\t"
 		"pop %%rax\n\t"
 		"or $(1<<8),%%rax\n\t"
@@ -361,9 +363,9 @@ static noinline unsigned long singlestep_with_movss_blocking_and_dr7_gd(void)
 		"push %%rax\n\t"
 		"popf\n\t"
 		"lea 1b(%%rip),%0\n\t"
-		: "=r" (start_rip) : : "rax"
+		: "+r" (scratch) :: "rax"
 	);
-	return start_rip;
+	return scratch;
 }
 
 static void report_singlestep_with_sti_hlt(unsigned long start,
@@ -427,42 +429,89 @@ static noinline uint64_t bus_lock(uint64_t magic)
 	return READ_ONCE(*(uint64_t *)val);
 }
 
-static void bus_lock_test(void)
+static void bus_lock_test(u64 debugctl)
 {
 	const uint64_t magic = 0xdeadbeefdeadbeefull;
-	bool bus_lock_db = false;
 	uint64_t val;
+	bool ign;
+
+	if (debugctl & DEBUGCTLMSR_BUS_LOCK_DETECT)
+		report_fail("DEBUGCTL.BUS_LOCK_DETECT should be '0' at RESET");
 
 	/*
 	 * Generate a bus lock (via a locked access that splits cache lines)
 	 * in CPL0 and again in CPL3 (Bus Lock Detect only affects CPL3), and
 	 * verify that no #AC or #DB is generated (the relevant features are
-	 * not enabled).
+	 * not yet enabled).
 	 */
 	val = bus_lock(magic);
 	report(!got_ac && !n && val == magic,
 	       "CPL0 Split Lock #AC = %u (#DB = %u), val = %lx (wanted %lx)",
 	       got_ac, n, val, magic);
 
-	val = run_in_user((usermode_func)bus_lock, DB_VECTOR, magic, 0, 0, 0, &bus_lock_db);
-	report(!bus_lock_db && val == magic,
-	       "CPL3 Bus Lock #DB = %u, val = %lx (wanted %lx)",
-	       bus_lock_db, val, magic);
+	val = run_in_user((usermode_func)bus_lock, GP_VECTOR, magic, 0, 0, 0, &ign);
+	report(!got_ac && !n && val == magic,
+	       "CPL3 Bus Lock #AC = %u, #DB = %u, val = %lx (wanted %lx)",
+	       got_ac, n, val, magic);
+
+	got_ac = false;
+
+	if (!this_cpu_has(X86_FEATURE_BUS_LOCK_DETECT))
+		return;
+
+	wrmsr(MSR_IA32_DEBUGCTLMSR, debugctl | DEBUGCTLMSR_BUS_LOCK_DETECT);
+
+	val = bus_lock(magic);
+	report(!got_ac && !n && val == magic,
+		"CPL0 Split Lock shouldn't trigger Bus Lock Detect: #DB = %u, #AC = %u, val = %lx (wanted %lx)",
+		n, got_ac, val, magic);
+
+	val = run_in_user((usermode_func)bus_lock, GP_VECTOR, magic, 0, 0, 0, &ign);
+	report(n == 1 && !(dr6[0] & DR6_BUS_LOCK) && val == magic && !got_ac,
+		"CPL3 Bus Lock Detect #DB (nr #DBs = %u, DR6 = %lx, #AC = %u, val = %lx (wanted %lx))",
+		n, dr6[0], got_ac, val, magic);
 
 	n = 0;
-	got_ac = false;
+	write_dr7(DR7_FIXED_1 | DR7_GD);
+	write_dr7(DR7_FIXED_1);
+
+	/* Verify DR6.BLD is preserved on an unrelated #DB. */
+	report(n == 1 && !(dr6[0] & DR6_BUS_LOCK) && (dr6[0] & DR6_BD),
+		"DR6.BLD preserved on General Detect #DB (nr #DBs = %u, DR6 = %lx)",
+		n, dr6[0]);
+
+	n = 0;
+	write_dr6(dr6_control_value);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, debugctl);
 }
 
-int main(int ac, char **av)
+static void run_tests(unsigned long __dr6_control_value)
 {
+	u64 debugctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 	unsigned long cr4;
 
-	handle_exception(DB_VECTOR, handle_db);
-	handle_exception(BP_VECTOR, handle_bp);
-	handle_exception(UD_VECTOR, handle_ud);
-	handle_exception(AC_VECTOR, handle_ac);
+	dr6_control_value = __dr6_control_value;
 
-	bus_lock_test();
+	/*
+	 * DR6.RTM is modified on all #DBs, and is '0' if and only if the #DB
+	 * occurred in an RTM region.  This test doesn't do RTM, and so DR6.RTM
+	 * should always be set, even if it's '0' in the control value.
+	 */
+	dr6_base_value = dr6_control_value | DR6_FIXED_1 | DR6_RTM;
+
+	/* DR6.BLD is fixed-1 if Bus Lock Detect is supported. */
+	if (!this_cpu_has(X86_FEATURE_BUS_LOCK_DETECT))
+		dr6_base_value |= DR6_BUS_LOCK;
+
+	bus_lock_test(debugctl);
+
+	/*
+	 * Enable Bus Lock Detect to workaround an AMD ucode bug where DR6.BLD
+	 * is clobbered to '1', i.e. is "reset" (it's an active-low bit), on
+	 * *any* DR6 load, including asynchronous loads via #VMEXIT => VMRUN.
+	 */
+	if (this_cpu_has(X86_FEATURE_BUS_LOCK_DETECT))
+		wrmsr(MSR_IA32_DEBUGCTLMSR, debugctl | DEBUGCTLMSR_BUS_LOCK_DETECT);
 
 	/*
 	 * DR4 is an alias for DR6 (and DR5 aliases DR7) if CR4.DE is NOT set,
@@ -472,15 +521,16 @@ int main(int ac, char **av)
 	cr4 = read_cr4();
 	write_cr4(cr4 & ~X86_CR4_DE);
 	write_dr4(0);
-	write_dr6(DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP1);
-	report(read_dr4() == (DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP1) && !got_ud,
-	       "DR4==DR6 with CR4.DE == 0");
+	write_dr6(dr6_control_value | DR6_BS | DR6_TRAP1);
+	report(read_dr4() == read_dr6() && !got_ud,
+	       "DR4 (0x%lx) == DR6 (0x%lx) with CR4.DE == 0",
+	       read_dr4(), read_dr6());
 
 	cr4 = read_cr4();
 	write_cr4(cr4 | X86_CR4_DE);
 	read_dr4();
 	report(got_ud, "DR4 read got #UD with CR4.DE == 1");
-	write_dr6(0);
+	write_dr6(dr6_control_value);
 
 	extern unsigned char sw_bp;
 	asm volatile("int3; sw_bp:");
@@ -501,21 +551,21 @@ int main(int ac, char **av)
 	asm volatile("hw_bp1: nop");
 	report(n == 1 &&
 	       db_addr[0] == ((unsigned long)&hw_bp1) &&
-	       dr6[0] == (DR6_ACTIVE_LOW | DR6_TRAP2),
+	       dr6[0] == (dr6_base_value | DR6_TRAP2),
 	       "Wanted #DB on 0x%lx w/ DR6 = 0x%lx, got %u #DBs, addr[0] = 0x%lx, DR6 = 0x%lx",
-	       ((unsigned long)&hw_bp1), DR6_ACTIVE_LOW | DR6_TRAP2,
+	       ((unsigned long)&hw_bp1), dr6_base_value | DR6_TRAP2,
 	       n, db_addr[0], dr6[0]);
 
 	n = 0;
 	extern unsigned char hw_bp2;
 	write_dr2(&hw_bp2);
-	write_dr6(DR6_BS | DR6_TRAP1);
+	write_dr6(dr6_control_value | DR6_BS | DR6_TRAP1);
 	asm volatile("hw_bp2: nop");
 	report(n == 1 &&
 	       db_addr[0] == ((unsigned long)&hw_bp2) &&
-	       dr6[0] == (DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP2),
+	       dr6[0] == (dr6_base_value | DR6_BS | DR6_TRAP2),
 	       "Wanted #DB on 0x%lx w/ DR6 = 0x%lx, got %u #DBs, addr[0] = 0x%lx, DR6 = 0x%lx",
-	       ((unsigned long)&hw_bp2), DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP2,
+	       ((unsigned long)&hw_bp2), dr6_base_value | DR6_BS | DR6_TRAP2,
 	       n, db_addr[0], dr6[0]);
 
 	run_ss_db_test(singlestep_basic);
@@ -528,7 +578,7 @@ int main(int ac, char **av)
 
 	n = 0;
 	write_dr1((void *)&value);
-	write_dr6(DR6_BS);
+	write_dr6(dr6_control_value | DR6_BS);
 	write_dr7(0x00d0040a); // 4-byte write
 
 	extern unsigned char hw_wp1;
@@ -538,11 +588,11 @@ int main(int ac, char **av)
 		: "=m" (value) : : "rax");
 	report(n == 1 &&
 	       db_addr[0] == ((unsigned long)&hw_wp1) &&
-	       dr6[0] == (DR6_ACTIVE_LOW | DR6_BS | DR6_TRAP1),
+	       dr6[0] == (dr6_base_value | DR6_BS | DR6_TRAP1),
 	       "hw watchpoint (test that dr6.BS is not cleared)");
 
 	n = 0;
-	write_dr6(0);
+	write_dr6(dr6_control_value);
 
 	extern unsigned char hw_wp2;
 	asm volatile(
@@ -551,18 +601,36 @@ int main(int ac, char **av)
 		: "=m" (value) : : "rax");
 	report(n == 1 &&
 	       db_addr[0] == ((unsigned long)&hw_wp2) &&
-	       dr6[0] == (DR6_ACTIVE_LOW | DR6_TRAP1),
+	       dr6[0] == (dr6_base_value | DR6_TRAP1),
 	       "hw watchpoint (test that dr6.BS is not set)");
 
 	n = 0;
-	write_dr6(0);
+	write_dr6(dr6_control_value);
 	extern unsigned char sw_icebp;
 	asm volatile(".byte 0xf1; sw_icebp:");
 	report(n == 1 &&
-	       db_addr[0] == (unsigned long)&sw_icebp && dr6[0] == DR6_ACTIVE_LOW,
+	       db_addr[0] == (unsigned long)&sw_icebp && dr6[0] == dr6_base_value,
 	       "icebp");
 
+	write_dr7(DR7_FIXED_1);
+	write_dr0(0);
+	write_dr1(0);
+	write_dr2(0);
+	write_dr3(0);
+	write_dr6(DR6_ACTIVE_LOW);
+	write_cr4(cr4);
+	wrmsr(MSR_IA32_DEBUGCTLMSR, debugctl);
+
+	n = 0;
+	value = 0;
+	got_ud = false;
+	got_ac = false;
+}
+
+static void test_watchpoints_precise(void)
+{
 	write_dr7(0x400);
+	write_dr1((void *)&value);
 	value = KERNEL_DS;
 	write_dr7(0x00f0040a); // 4-byte read or write
 
@@ -607,5 +675,23 @@ int main(int ac, char **av)
 	extern unsigned char sw_bp2;
 	report(n == 3 && bp_addr == (unsigned long)&sw_bp2,
 	       "MOV SS + watchpoint + INT3");
+}
+
+int main(int ac, char **av)
+{
+	handle_exception(DB_VECTOR, handle_db);
+	handle_exception(BP_VECTOR, handle_bp);
+	handle_exception(UD_VECTOR, handle_ud);
+	handle_exception(AC_VECTOR, handle_ac);
+
+	run_tests(DR6_ACTIVE_LOW);
+	run_tests(0);
+
+	/*
+	 * Run the "precise" test only once as it is destructive (clobbers the
+	 * #DB IDT entry).
+	 */
+	test_watchpoints_precise();
+
 	return report_summary();
 }

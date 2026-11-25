@@ -72,6 +72,13 @@ void pmu_init(void)
 			pmu.msr_global_status_clr = MSR_CORE_PERF_GLOBAL_OVF_CTRL;
 		}
 	} else {
+		/*
+		 * All AMD CPUs overcount instructions and branches retired, as
+		 * they count VMRUN as a branch instruction in guest context.
+		 */
+		pmu.errata.instructions_retired_overcount = true;
+		pmu.errata.branches_retired_overcount = true;
+
 		if (this_cpu_has(X86_FEATURE_PERFCTR_CORE)) {
 			/* Performance Monitoring Version 2 Supported */
 			if (this_cpu_has(X86_FEATURE_AMD_PMU_V2)) {

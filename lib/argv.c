@@ -146,3 +146,17 @@ void setup_env(char *env, int size)
 		*env++ = '\0';
 	}
 }
+
+bool argv_test_wanted(const char *name, char *wanted[], int nwanted)
+{
+	int i;
+
+	if (!nwanted)
+		return true;
+
+	for (i = 0; i < nwanted; ++i)
+		if (strcmp(wanted[i], name) == 0)
+			return true;
+
+	return false;
+}

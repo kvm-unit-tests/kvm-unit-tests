@@ -8,10 +8,13 @@
 #ifndef _ARGV_H_
 #define _ARGV_H_
 
+#include <stdbool.h>
+
 extern void __setup_args(void);
 extern void setup_args(const char *args);
 extern void setup_args_progname(const char *args);
 extern void setup_env(char *env, int size);
 extern void add_setup_arg(const char *arg);
+extern bool argv_test_wanted(const char *name, char *wanted[], int nwanted);
 
 #endif

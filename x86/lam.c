@@ -231,13 +231,13 @@ static void test_lam_user(void)
 	bool has_lam = this_cpu_has(X86_FEATURE_LAM);
 
 	/*
-	 * The physical address of AREA_NORMAL is within 36 bits, so that using
+	 * The physical address of AREA_LOW is within 36 bits, so that using
 	 * identical mapping, the linear address will be considered as user mode
 	 * address from the view of LAM, and the metadata bits are not used as
 	 * address for both LAM48 and LAM57.
 	 */
-	vaddr = alloc_pages_flags(0, AREA_NORMAL);
-	static_assert((AREA_NORMAL_PFN & GENMASK(63, 47)) == 0UL);
+	vaddr = alloc_pages_flags(0, AREA_LOW);
+	assert(((u64)vaddr & GENMASK(63, 47)) == 0UL);
 
 	/*
 	 * Note, LAM doesn't have a global control bit to turn on/off LAM

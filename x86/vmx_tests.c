@@ -1965,21 +1965,18 @@ static int nmi_hlt_exit_handler(union exit_reason exit_reason)
 }
 
 
-static int dbgctls_init(struct vmcs *vmcs)
+static int dbgctls_dr7_init(struct vmcs *vmcs)
 {
 	u64 dr7 = 0x402;
 	u64 zero = 0;
 
-	msr_bmp_init();
 	asm volatile(
 		"mov %0,%%dr0\n\t"
 		"mov %0,%%dr1\n\t"
 		"mov %0,%%dr2\n\t"
 		"mov %1,%%dr7\n\t"
 		: : "r" (zero), "r" (dr7));
-	wrmsr(MSR_IA32_DEBUGCTLMSR, 0x1);
 	vmcs_write(GUEST_DR7, 0x404);
-	vmcs_write(GUEST_DEBUGCTL, 0x2);
 
 	vmcs_write(ENT_CONTROLS, vmcs_read(ENT_CONTROLS) | ENT_LOAD_DBGCTLS);
 	vmcs_write(EXI_CONTROLS, vmcs_read(EXI_CONTROLS) | EXI_SAVE_DBGCTLS);
@@ -1987,23 +1984,19 @@ static int dbgctls_init(struct vmcs *vmcs)
 	return VMX_TEST_START;
 }
 
-static void dbgctls_main(void)
+static void dbgctls_dr7_main(void)
 {
-	u64 dr7, debugctl;
+	u64 dr7;
 
 	asm volatile("mov %%dr7,%0" : "=r" (dr7));
-	debugctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
-	/* Commented out: KVM does not support DEBUGCTL so far */
-	(void)debugctl;
-	report(dr7 == 0x404, "Load debug controls" /* && debugctl == 0x2 */);
+	report(dr7 == 0x404, "DR7: Load debug controls");
 
 	dr7 = 0x408;
 	asm volatile("mov %0,%%dr7" : : "r" (dr7));
-	wrmsr(MSR_IA32_DEBUGCTLMSR, 0x3);
 
 	vmx_set_test_stage(0);
 	vmcall();
-	report(vmx_get_test_stage() == 1, "Save debug controls");
+	report(vmx_get_test_stage() == 1, "DR7: Save debug controls");
 
 	if (ctrl_enter_rev.set & ENT_LOAD_DBGCTLS ||
 	    ctrl_exit_rev.set & EXI_SAVE_DBGCTLS) {
@@ -2014,46 +2007,37 @@ static void dbgctls_main(void)
 	vmcall();
 
 	asm volatile("mov %%dr7,%0" : "=r" (dr7));
-	debugctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
-	/* Commented out: KVM does not support DEBUGCTL so far */
-	(void)debugctl;
 	report(dr7 == 0x402,
-	       "Guest=host debug controls" /* && debugctl == 0x1 */);
+	       "DR7: Guest=host debug controls");
 
 	dr7 = 0x408;
 	asm volatile("mov %0,%%dr7" : : "r" (dr7));
-	wrmsr(MSR_IA32_DEBUGCTLMSR, 0x3);
 
 	vmx_set_test_stage(3);
 	vmcall();
-	report(vmx_get_test_stage() == 4, "Don't save debug controls");
+	report(vmx_get_test_stage() == 4, "DR7: Don't save debug controls");
 }
 
-static int dbgctls_exit_handler(union exit_reason exit_reason)
+static int dbgctls_dr7_exit_handler(union exit_reason exit_reason)
 {
 	u32 insn_len = vmcs_read(EXI_INST_LEN);
 	u64 guest_rip = vmcs_read(GUEST_RIP);
-	u64 dr7, debugctl;
+	u64 dr7;
 
 	asm volatile("mov %%dr7,%0" : "=r" (dr7));
-	debugctl = rdmsr(MSR_IA32_DEBUGCTLMSR);
 
 	switch (exit_reason.basic) {
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
-			if (dr7 == 0x400 && debugctl == 0 &&
-			    vmcs_read(GUEST_DR7) == 0x408 /* &&
-			    Commented out: KVM does not support DEBUGCTL so far
-			    vmcs_read(GUEST_DEBUGCTL) == 0x3 */)
+			if (dr7 == 0x400 &&
+			    vmcs_read(GUEST_DR7) == 0x408)
 				vmx_inc_test_stage();
 			break;
 		case 2:
 			dr7 = 0x402;
 			asm volatile("mov %0,%%dr7" : : "r" (dr7));
-			wrmsr(MSR_IA32_DEBUGCTLMSR, 0x1);
 			vmcs_write(GUEST_DR7, 0x404);
-			vmcs_write(GUEST_DEBUGCTL, 0x2);
 
 			vmcs_write(ENT_CONTROLS,
 				vmcs_read(ENT_CONTROLS) & ~ENT_LOAD_DBGCTLS);
@@ -2061,10 +2045,8 @@ static int dbgctls_exit_handler(union exit_reason exit_reason)
 				vmcs_read(EXI_CONTROLS) & ~EXI_SAVE_DBGCTLS);
 			break;
 		case 3:
-			if (dr7 == 0x400 && debugctl == 0 &&
-			    vmcs_read(GUEST_DR7) == 0x404 /* &&
-			    Commented out: KVM does not support DEBUGCTL so far
-			    vmcs_read(GUEST_DEBUGCTL) == 0x2 */)
+			if (dr7 == 0x400 &&
+			    vmcs_read(GUEST_DR7) == 0x404)
 				vmx_inc_test_stage();
 			break;
 		}
@@ -12084,6 +12066,158 @@ static void vmx_cet_test(void)
 	test_set_guest_finished();
 }
 
+static u64 vmx_debugctl_test_val;
+
+static void vmx_debugctl_test_guest(void)
+{
+	for (;;) {
+		vmx_debugctl_test_val = rdmsr(MSR_IA32_DEBUGCTLMSR);
+		vmcall();
+
+		wrmsr(MSR_IA32_DEBUGCTLMSR, vmx_debugctl_test_val);
+		vmcall();
+	}
+}
+
+static void __run_vmx_debugctl_guest(void)
+{
+	u64 val;
+
+	enter_guest();
+	skip_exit_vmcall();
+
+	/* Verify DEBUGCTL is unconditionally zeroed on VM-Exit. */
+	val = rdmsr(MSR_IA32_DEBUGCTLMSR);
+	if (val)
+		report_fail("DEBUGCTL = 0x%lx (not zeroed on VM-Exit)", val);
+}
+
+static u64 run_vmx_debugctl_guest(u64 msr_val, u64 vmcs_val, u64 write_val)
+{
+	u64 read_val;
+
+	wrmsr(MSR_IA32_DEBUGCTLMSR, msr_val);
+	vmcs_write(GUEST_DEBUGCTL, vmcs_val);
+
+	__run_vmx_debugctl_guest();
+	read_val = vmx_debugctl_test_val;
+
+	vmx_debugctl_test_val = write_val;
+	__run_vmx_debugctl_guest();
+
+	return read_val;
+}
+
+static void __vmx_debugctl_test(u64 host_val, u64 guest_val)
+{
+	u64 val, rand;
+
+	vmcs_set_bits(ENT_CONTROLS, ENT_LOAD_DBGCTLS);
+	vmcs_set_bits(EXI_CONTROLS, EXI_SAVE_DBGCTLS);
+
+	/* Verify guest DEBUGCTL is loaded/saved when the controls are set. */
+	val = run_vmx_debugctl_guest(host_val, guest_val, 0);
+	report(val == guest_val, "Load DEBUGCTL = 0x%lx, guest RDMSR = 0x%lx", guest_val, val);
+	val = vmcs_read(GUEST_DEBUGCTL);
+	report(!val, "Save DEBUGCTL = 0x0, guest WRMSR = 0x%lx", val);
+
+	/* Rerun the test with the guest values flipped. */
+	val = run_vmx_debugctl_guest(host_val, 0, guest_val);
+	report(!val, "Load DEBUGCTL = 0x0, guest RDMSR = 0x%lx", val);
+	val = vmcs_read(GUEST_DEBUGCTL);
+	report(val == guest_val, "Save DEBUGCTL = 0x%lx, guest WRMSR = 0x%lx", val, guest_val);
+
+	/*
+	 * If running without the LOAD control set is supported, validate that
+	 * the guest sees the host's value.  Scribble vmcs.GUEST_DEBUGCTL with
+	 * a random value to verify it's ignored.
+	 */
+	if (!(ctrl_enter_rev.set & ENT_LOAD_DBGCTLS)) {
+		vmcs_clear_bits(ENT_CONTROLS, ENT_LOAD_DBGCTLS);
+
+		val = run_vmx_debugctl_guest(host_val, rdtsc(), guest_val);
+		report(val == host_val, "Host DEBUGCTL = 0x%lx, guest RDMSR = 0x%lx", host_val, val);
+
+		/* The guest value should still be saved on exit! */
+		val = vmcs_read(GUEST_DEBUGCTL);
+		report(val == guest_val, "Save DEBUGCTL = 0x%lx, guest WRMSR = 0x%lx", val, guest_val);
+
+		vmcs_set_bits(ENT_CONTROLS, ENT_LOAD_DBGCTLS);
+	}
+
+	if (!(ctrl_exit_rev.set & EXI_SAVE_DBGCTLS)) {
+		vmcs_clear_bits(EXI_CONTROLS, EXI_SAVE_DBGCTLS);
+
+		/* Verify the guest's value is NOT saved on exit.*/
+		val = run_vmx_debugctl_guest(host_val, guest_val, 0);
+		report(val == guest_val, "Load DEBUGCTL = 0x%lx, guest RDMSR = 0x%lx", guest_val, val);
+		val = vmcs_read(GUEST_DEBUGCTL);
+		report(val == guest_val, "VMREAD DEBUGCTL = 0x%lx, VMWRITE = 0x%lx", val, guest_val);
+
+		/* And again with the values flipped. */
+		val = run_vmx_debugctl_guest(host_val, 0, guest_val);
+		report(!val, "Load DEBUGCTL = 0x0, guest RDMSR = 0x%lx", val);
+		val = vmcs_read(GUEST_DEBUGCTL);
+		report(!val, "VMREAD DEBUGCTL = 0x%lx, VMWRITE = 0x0", val);
+
+		vmcs_set_bits(EXI_CONTROLS, EXI_SAVE_DBGCTLS);
+	}
+
+	if ((ctrl_enter_rev.set & ENT_LOAD_DBGCTLS) ||
+	    (ctrl_exit_rev.set & EXI_SAVE_DBGCTLS))
+		return;
+
+	vmcs_clear_bits(ENT_CONTROLS, ENT_LOAD_DBGCTLS);
+	vmcs_clear_bits(EXI_CONTROLS, EXI_SAVE_DBGCTLS);
+
+	rand = rdtsc();
+	val = run_vmx_debugctl_guest(host_val, rand, guest_val);
+	report(val == host_val, "Host DEBUGCTL = 0x%lx, guest RDMSR = 0x%lx", host_val, val);
+
+	val = vmcs_read(GUEST_DEBUGCTL);
+	report(val == rand, "VMWRITE DEBUGCTL = 0x%lx, VMREAD = 0x%lx", rand, val);
+}
+
+static void vmx_debugctl_test(void)
+{
+	u64 supported_bits = 0;
+	u64 i, j;
+
+	if (this_cpu_has(X86_FEATURE_BUS_LOCK_DETECT))
+		supported_bits |= DEBUGCTLMSR_BUS_LOCK_DETECT;
+
+	if (this_cpu_has(X86_FEATURE_RTM))
+		supported_bits |= DEBUGCTLMSR_RTM_DEBUG;
+
+	if (this_cpu_has(X86_FEATURE_PDCM) && pmu_lbr_version())
+		supported_bits |= DEBUGCTLMSR_LBR;
+
+	if (!supported_bits) {
+		report_skip("%s : No DEBUGCTL features supported", __func__);
+		return;
+	}
+
+	test_set_guest(vmx_debugctl_test_guest);
+	msr_bmp_init();
+
+	/*
+	 * Test only non-zero values, i.e. start from '1', as '0' is used as a
+	 * base/control value to detect changes.
+	 */
+	for (i = 1; i <= supported_bits; i++) {
+		if ((i & supported_bits) != i)
+			continue;
+
+		for (j = 1; j <= supported_bits; j++) {
+			if ((j & supported_bits) != j)
+				continue;
+
+			__vmx_debugctl_test(i, j);
+		}
+	}
+	test_set_guest_finished();
+}
+
 #define TEST(name) { #name, .v2 = name }
 
 /* name/init/guest_main/exit_handler/vmfail_handler */
@@ -12105,7 +12239,7 @@ struct vmx_test vmx_tests[] = {
 	{ "PML", pml_init, pml_main, pml_exit_handler },
 	{ "interrupt", interrupt_init, interrupt_main, interrupt_exit_handler },
 	{ "nmi_hlt", nmi_hlt_init, nmi_hlt_main, nmi_hlt_exit_handler },
-	{ "debug controls", dbgctls_init, dbgctls_main, dbgctls_exit_handler },
+	{ "dbgctls_dr7", dbgctls_dr7_init, dbgctls_dr7_main, dbgctls_dr7_exit_handler },
 	{ "MSR switch", msr_switch_init, msr_switch_main,
 		msr_switch_exit_handler, msr_switch_entry_failure },
 	{ "vmmcall", vmmcall_init, vmmcall_main, vmmcall_exit_handler },
@@ -12202,5 +12336,6 @@ struct vmx_test vmx_tests[] = {
 	TEST(vmx_canonical_test),
 	/* "Load CET" VM-entry/exit controls tests. */
 	TEST(vmx_cet_test),
+	TEST(vmx_debugctl_test),
 	{ NULL, NULL, NULL, NULL },
 };

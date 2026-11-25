@@ -43,6 +43,27 @@ COMMON_CFLAGS += -O1
 # stack.o relies on frame pointers.
 KEEP_FRAME_POINTER := y
 
+ifneq ($(KEEP_FRAME_POINTER),)
+# Fake profiling to force the compiler to emit a frame pointer setup also in
+# leaf function (-mno-omit-leaf-frame-pointer doesn't work, unfortunately).
+#
+# Note:
+# We need to defer the cc-option test until -fno-pic or -no-pie have been
+# added to CFLAGS as -mnop-mcount needs it. The lazy evaluation of CFLAGS
+# during compilation makes this do "The Right Thing."
+#
+# -mfentry is only needed because recent versions of gcc otherwise warn about
+# the lack of it, that it may cause placing the profiling call not directly
+# after the prologue but somewhere later -- not that we care but be nice and
+# avoid that warning.
+#
+# NO_NOP_MCOUNT is needed for the 16-bit realmode.o which causes gcc before
+# gcc-16 to generate broken code (5-byte NOP instead of 3-byte one).
+NOP_PGFLAGS := -pg -mfentry -mnop-mcount
+LATE_CFLAGS += $(call cc-option, $(NOP_PGFLAGS), "")
+NO_NOP_MCOUNT = $(if $(filter $(NOP_PGFLAGS),$(LATE_CFLAGS)),-mno-nop-mcount)
+endif
+
 FLATLIBS = lib/libcflat.a
 
 ifeq ($(CONFIG_EFI),y)
@@ -113,6 +134,7 @@ $(TEST_DIR)/realmode.elf: $(TEST_DIR)/realmode.o $(SRCDIR)/$(TEST_DIR)/realmode.
 
 $(TEST_DIR)/realmode.o: bits = $(realmode_bits)
 $(TEST_DIR)/realmode.o: CFLAGS += -Os -Wno-array-bounds
+$(TEST_DIR)/realmode.o: CFLAGS += $(NO_NOP_MCOUNT)
 
 $(TEST_DIR)/access_test.$(bin): $(TEST_DIR)/access.o
 

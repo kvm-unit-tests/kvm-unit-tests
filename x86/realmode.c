@@ -23,6 +23,10 @@ void test_function(void);
 asm(
 	"test_function: \n\t"
 	"mov $0x1234, %eax \n\t"
+	"ret\n\t"
+	/* profiling stubs */
+	"__fentry__:\n\t"
+	"mcount:\n\t"
 	"ret"
    );
 

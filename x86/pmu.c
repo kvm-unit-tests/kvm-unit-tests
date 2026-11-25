@@ -222,13 +222,8 @@ static void adjust_events_range(struct pmu_event *gp_events,
 	 * If HW supports GLOBAL_CTRL MSR, enabling and disabling PMCs are
 	 * moved in __precise_loop(). Thus, instructions and branches events
 	 * can be verified against a precise count instead of a rough range.
-	 *
-	 * Skip the precise checks on AMD, as AMD CPUs count VMRUN as a branch
-	 * instruction in guest context, which* leads to intermittent failures
-	 * as the counts will vary depending on how many asynchronous VM-Exits
-	 * occur while running the measured code, e.g. if the host takes IRQs.
 	 */
-	if (pmu.is_intel && this_cpu_has_perf_global_ctrl()) {
+	if (this_cpu_has_perf_global_ctrl()) {
 		if (!pmu.errata.instructions_retired_overcount) {
 			gp_events[instruction_idx].min = LOOP_INSNS;
 			gp_events[instruction_idx].max = LOOP_INSNS;
@@ -583,14 +578,18 @@ static void check_counter_overflow(void)
 			cnt.config &= ~EVNTSEL_INT;
 		idx = event_to_global_idx(&cnt);
 		__measure(&cnt, cnt.count);
-		if (pmu.is_intel) {
-			if (pmu.errata.instructions_retired_overcount)
-				report(cnt.count < 14, "cntr-%d", i);
-			else
-				report(cnt.count == 1, "cntr-%d", i);
-		}
+
+		/*
+		 * If the CPU overcounts instructions retired on asynchronous
+		 * VM-Exits, arbitrarily allow for one VM-Exit per 5000 nops in
+		 * the measurement loop.
+		 */
+		if (pmu.errata.instructions_retired_overcount)
+			report(cnt.count < N / 5000, "cntr-%d", i);
 		else
-			report(cnt.count == 0xffffffffffff || cnt.count < 7, "cntr-%d", i);
+			report(cnt.count == 1, "cntr-%d", i);
+
+		report(check_irq() == (i % 2), "irq-%d", i);
 
 		if (!this_cpu_has_perf_global_status())
 			continue;
@@ -600,7 +599,6 @@ static void check_counter_overflow(void)
 		wrmsr(pmu.msr_global_status_clr, status);
 		status = rdmsr(pmu.msr_global_status);
 		report(!(status & (1ull << idx)), "status clear-%d", i);
-		report(check_irq() == (i % 2), "irq-%d", i);
 	}
 
 	report_prefix_pop();

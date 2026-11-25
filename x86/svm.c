@@ -343,6 +343,25 @@ static void setup_npt(void)
 	__setup_mmu_range(pml4e, 0, size, X86_MMU_MAP_USER);
 }
 
+#define VLS_SPURIOUS_VMEXIT_START	0x78000000ULL
+#define VLS_SPURIOUS_VMEXIT_END	0x80000000ULL
+
+/*
+ * Naples (Fam17h/00-0f) and Rome (Fam17h/30-3f) cause spurious VMEXITs
+ * on VMLOAD/VMSAVE when the VMCB address falls in [0x78000000, 0x80000000).
+ */
+static bool has_vls_spurious_vmexit_bug(void)
+{
+	u32 sig = cpuid(1).a;
+	u32 fam = x86_family(sig);
+	u32 model = x86_model(sig);
+
+	if (fam != 0x17)
+		return false;
+
+	return model <= 0x0f || (model >= 0x30 && model <= 0x3f);
+}
+
 static void setup_svm(void)
 {
 	void *hsave = alloc_page();
@@ -420,6 +439,13 @@ int run_svm_tests(int ac, char **av, struct svm_test *svm_tests)
 	if (!this_cpu_has(X86_FEATURE_SVM)) {
 		printf("SVM not available\n");
 		return report_summary();
+	}
+
+	if (has_vls_spurious_vmexit_bug()) {
+		phys_addr_t addr;
+
+		for (addr = VLS_SPURIOUS_VMEXIT_START; addr < VLS_SPURIOUS_VMEXIT_END; addr += PAGE_SIZE)
+			reserve_pages(addr, 1);
 	}
 
 	setup_svm();

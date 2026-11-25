@@ -1,4 +1,5 @@
 #include "libcflat.h"
+#include "argv.h"
 #include "apic.h"
 #include "vm.h"
 #include "smp.h"
@@ -637,18 +638,37 @@ static void test_apic_change_mode(void)
 
 #define KVM_HC_SEND_IPI 10
 
+static int send_pv_ipi(unsigned long a0, unsigned long a1, unsigned long a2,
+		       unsigned long a3)
+{
+	int ret;
+
+	if (is_intel())
+		asm volatile("vmcall"
+			     : "=a"(ret)
+			     : "a"(KVM_HC_SEND_IPI), "b"(a0), "c"(a1), "d"(a2), "S"(a3));
+	else
+		asm volatile("vmmcall"
+			     : "=a"(ret)
+			     : "a"(KVM_HC_SEND_IPI), "b"(a0), "c"(a1), "d"(a2), "S"(a3));
+
+	return ret;
+}
+
 static void test_pv_ipi(void)
 {
 	int ret;
 	unsigned long a0 = 0xFFFFFFFF, a1 = 0, a2 = 0xFFFFFFFF, a3 = 0x0;
 
+	if (!this_cpu_has_kvm() || !this_cpu_has(KVM_FEATURE_PV_SEND_IPI)) {
+		report_skip("PV IPIs are not supported");
+		return;
+	}
+
 	if (!test_device_enabled())
 		return;
 
-	if (is_intel())
-		asm volatile("vmcall"  : "=a"(ret) :"a"(KVM_HC_SEND_IPI), "b"(a0), "c"(a1), "d"(a2), "S"(a3));
-	else
-		asm volatile("vmmcall" : "=a"(ret) :"a"(KVM_HC_SEND_IPI), "b"(a0), "c"(a1), "d"(a2), "S"(a3));
+	ret = send_pv_ipi(a0, a1, a2, a3);
 	report(!ret, "PV IPIs testing");
 }
 
@@ -900,43 +920,102 @@ static void test_aliased_xapic_physical_ipi(void)
 	report(!f, "IPI to aliased xAPIC physical IDs");
 }
 
-typedef void (*apic_test_fn)(void);
+static atomic_t pv_ipi_received[256];
 
-int main(void)
+static void handle_pv_ipi(isr_regs_t *regs)
+{
+	atomic_inc(&pv_ipi_received[smp_id()]);
+	apic_write(APIC_EOI, 0);
+}
+
+/*
+ * Verify that PV IPIs are correctly delivered to a vCPU with APIC ID 255.
+ */
+static void test_pv_ipi_sparse(void)
+{
+	const u8 vector = 0xf2;
+	int ret;
+
+	if (!this_cpu_has_kvm() || !this_cpu_has(KVM_FEATURE_PV_SEND_IPI)) {
+		report_skip("PV IPIs are not supported");
+		return;
+	}
+
+	if (!test_device_enabled()) {
+		report_skip("Test device not enabled");
+		return;
+	}
+
+	if (cpu_count() != 2) {
+		report_skip("Requires 2 CPUs");
+		return;
+	}
+
+	/* 255 is a broadcast ID in xAPIC, so we must use x2APIC */
+	if (!is_x2apic_enabled()) {
+		report_skip("x2APIC is not enabled");
+		return;
+	}
+
+	if (id_map[1] != 255) {
+		report_skip("vCPU 1 does not have APIC ID 255");
+		return;
+	}
+
+	handle_irq(vector, handle_pv_ipi);
+
+	/* Send PV IPI to 255 (vCPU 1) */
+	ret = send_pv_ipi(1, 0, 255, APIC_DM_FIXED | vector);
+
+	/* Wait for IPI to be received on vCPU 1 */
+	u64 start = rdtsc();
+	while (rdtsc() - start < 1000000000 &&
+	       !atomic_read(&pv_ipi_received[255])) {
+		pause();
+	}
+
+	report(ret == 1 && atomic_read(&pv_ipi_received[255]) == 1 &&
+	       atomic_read(&pv_ipi_received[0]) == 0,
+	       "PV IPI to sparse APIC ID 255");
+}
+
+struct apic_test {
+	const char *name;
+	void (*fn)(void);
+};
+
+
+
+int main(int argc, char **argv)
 {
 	bool is_x2apic = is_x2apic_enabled();
 	u32 spiv = apic_read(APIC_SPIV);
 	int i;
 
-	const apic_test_fn tests[] = {
-		test_lapic_existence,
-
-		test_apic_disable,
-		test_enable_x2apic,
-
-		test_self_ipi_xapic,
-		test_self_ipi_x2apic,
-		test_physical_broadcast,
-		test_logical_ipi_xapic,
-
-		test_pv_ipi,
-
-		test_sti_nmi,
-		test_multiple_nmi,
-		test_pending_nmi,
-
-		test_apic_timer_one_shot,
-		test_apic_change_mode,
-		test_tsc_deadline_timer,
-
+	const struct apic_test tests[] = {
+		{ "lapic_existence", test_lapic_existence },
+		{ "apic_disable", test_apic_disable },
+		{ "enable_x2apic", test_enable_x2apic },
+		{ "self_ipi_xapic", test_self_ipi_xapic },
+		{ "self_ipi_x2apic", test_self_ipi_x2apic },
+		{ "physical_broadcast", test_physical_broadcast },
+		{ "logical_ipi_xapic", test_logical_ipi_xapic },
+		{ "pv_ipi", test_pv_ipi },
+		{ "pv_ipi_sparse", test_pv_ipi_sparse },
+		{ "sti_nmi", test_sti_nmi },
+		{ "multiple_nmi", test_multiple_nmi },
+		{ "pending_nmi", test_pending_nmi },
+		{ "apic_timer_one_shot", test_apic_timer_one_shot },
+		{ "apic_change_mode", test_apic_change_mode },
+		{ "tsc_deadline_timer", test_tsc_deadline_timer },
 		/*
 		 * KVM may disable APICv if the APIC ID and/or APIC_BASE is
 		 * modified, keep these tests at the end so that the test as a
 		 * whole provides coverage for APICv (when it's enabled).
 		 */
-		test_apic_id,
-		test_apicbase,
-		test_aliased_xapic_physical_ipi,
+		{ "apic_id", test_apic_id },
+		{ "apicbase", test_apicbase },
+		{ "aliased_xapic_physical_ipi", test_aliased_xapic_physical_ipi },
 	};
 
 	assert_msg(is_apic_hw_enabled() && is_apic_sw_enabled(),
@@ -948,7 +1027,10 @@ int main(void)
 	sti();
 
 	for (i = 0; i < ARRAY_SIZE(tests); i++) {
-		tests[i]();
+		if (!argv_test_wanted(tests[i].name, argv + 1, argc - 1))
+			continue;
+
+		tests[i].fn();
 
 		if (is_x2apic)
 			enable_x2apic();
